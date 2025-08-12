@@ -9,18 +9,18 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <div class="version-badge" @click="showChangelog = true">
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.49">
         <span class="version-text">v21.49</span>
         <span class="version-date">July 8th</span>
-      </div>
+      </button>
     </div>
 
     <!-- Changelog Modal -->
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
-      <div class="modal changelog-modal" @click.stop>
+      <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2>What's New in 21.49</h2>
-          <button class="modal-close" @click="showChangelog = false">×</button>
+          <h2 id="changelog-title">What's New in 21.49</h2>
+          <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
@@ -45,30 +45,32 @@
     </div>
 
     <!-- Messages -->
-    <div v-if="errorMessage" class="message error-message" role="alert">
-      <div class="message-icon">⚠️</div>
+    <div v-if="errorMessage" class="message error-message" role="alert" aria-live="polite">
+      <div class="message-icon" aria-hidden="true">⚠️</div>
       <div class="message-content">{{ errorMessage }}</div>
     </div>
 
-    <div v-if="successMessage" class="message success-message" role="alert">
-      <div class="message-icon">✅</div>
+    <div v-if="successMessage" class="message success-message" role="alert" aria-live="polite">
+      <div class="message-icon" aria-hidden="true">✅</div>
       <div class="message-content">{{ successMessage }}</div>
     </div>
 
     <!-- Login Form -->
     <form @submit.prevent="handleSubmit" class="login-form">
       <div class="form-group">
-        <label for="email" class="form-label">Email</label>
+        <label for="email" class="form-label">Email Address</label>
         <div class="input-wrapper">
-          <div class="input-icon">📧</div>
+          <div class="input-icon" aria-hidden="true">📧</div>
           <input
             id="email"
             v-model="email"
             type="email"
-            placeholder="Enter email"
+            placeholder="Enter your email address"
             required
             class="form-input"
             :class="{ 'input-error': errorMessage }"
+            aria-describedby="email-error"
+            autocomplete="email"
           />
         </div>
       </div>
@@ -76,30 +78,33 @@
       <div class="form-group">
         <label for="password" class="form-label">Password</label>
         <div class="input-wrapper">
-          <div class="input-icon">🔒</div>
+          <div class="input-icon" aria-hidden="true">🔒</div>
           <input
             id="password"
             v-model="password"
             :type="showPassword ? 'text' : 'password'"
-            placeholder="Enter password"
+            placeholder="Enter your password"
             required
             class="form-input"
             :class="{ 'input-error': errorMessage }"
+            aria-describedby="password-error"
+            autocomplete="current-password"
           />
           <button 
             type="button" 
             @click="togglePasswordVisibility" 
             class="toggle-password-btn"
             :aria-label="showPassword ? 'Hide password' : 'Show password'"
+            :aria-pressed="showPassword"
           >
-            <span class="toggle-icon">{{ showPassword ? '👁️' : '👁️‍🗨️' }}</span>
+            <span class="toggle-icon" aria-hidden="true">{{ showPassword ? '👁️' : '👁️‍🗨️' }}</span>
           </button>
         </div>
       </div>
 
       <button type="submit" :disabled="loading" class="btn-primary login-btn">
-        <span v-if="loading" class="loading-spinner"></span>
-        <span v-else>Sign In</span>
+        <span v-if="loading" class="loading-spinner" aria-hidden="true"></span>
+        <span v-else>Sign In to Spatial Notes</span>
       </button>
     </form>
 
@@ -109,7 +114,7 @@
     </div>
 
     <router-link to="/magic-link" class="btn-secondary magic-link-btn">
-      <span class="btn-icon">🔗</span>
+      <span class="btn-icon" aria-hidden="true">🔗</span>
       <span>Magic Link Login</span>
     </router-link>
 
@@ -207,15 +212,20 @@ setup() {
 </script>
 
 <style scoped>
-/* Container and Layout */
+/* Container and Layout - Mobile First */
 .login-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 16px; /* 4-point spacing system */
   background: linear-gradient(180deg, #fbfbfd 0%, #f5f5f7 100%);
   position: relative;
+  /* Safe area support */
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
 }
 
 .login-container::before {
@@ -232,17 +242,17 @@ setup() {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px;
+  border-radius: 16px; /* 8-point spacing */
   box-shadow: 
     0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 8px 16px rgba(0, 0, 0, 0.04);
-  padding: 24px 20px;
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 16px 32px rgba(0, 0, 0, 0.06);
+  padding: 24px 20px; /* 8-point spacing system */
   width: 100%;
-  max-width: 360px;
+  max-width: 400px; /* Mobile content width limit */
   position: relative;
   z-index: 1;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -251,19 +261,19 @@ setup() {
 /* Header Section */
 .login-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px; /* 8-point spacing */
 }
 
 .logo-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 16px; /* 4-point spacing */
+  margin-bottom: 16px; /* 4-point spacing */
 }
 
 .logo-icon {
-  font-size: 1.75rem;
+  font-size: 2rem; /* 32px - appropriate for mobile */
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));
   background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   -webkit-background-clip: text;
@@ -272,37 +282,41 @@ setup() {
 }
 
 .login-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 24px; /* H1: 24px (600 weight) - mobile first */
+  font-weight: 600;
   background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
   letter-spacing: -0.01em;
-  line-height: 1.1;
+  line-height: 1.4; /* 1.4 for readability */
 }
 
 .login-subtitle {
   color: #86868b;
-  font-size: 0.9rem;
-  margin: 0 0 16px 0;
+  font-size: 16px; /* Body: 16px (400 weight) */
+  margin: 0 0 24px 0; /* 8-point spacing */
   font-weight: 400;
+  line-height: 1.5;
 }
 
 .version-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px; /* 4-point spacing */
   background: rgba(245, 245, 247, 0.8);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 10px;
-  padding: 6px 12px;
+  border-radius: 8px; /* 4-point spacing */
+  padding: 12px 16px; /* 4-point spacing */
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.75rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  font-size: 14px; /* Caption: 14px */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  /* Minimum touch size: 44×44px */
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .version-badge:hover {
@@ -324,10 +338,10 @@ setup() {
 .message {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  margin-bottom: 20px;
+  gap: 12px; /* 4-point spacing */
+  padding: 16px; /* 4-point spacing */
+  border-radius: 8px; /* 4-point spacing */
+  margin-bottom: 24px; /* 8-point spacing */
   border: 1px solid;
   backdrop-filter: blur(16px);
 }
@@ -345,31 +359,32 @@ setup() {
 }
 
 .message-icon {
-  font-size: 1rem;
+  font-size: 1.25rem; /* 20px */
   flex-shrink: 0;
 }
 
 .message-content {
   font-weight: 500;
-  line-height: 1.4;
-  font-size: 0.85rem;
+  line-height: 1.5;
+  font-size: 14px; /* Caption: 14px */
 }
 
 /* Form */
 .login-form {
-  margin-bottom: 24px;
+  margin-bottom: 32px; /* 8-point spacing */
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 24px; /* 8-point spacing */
 }
 
 .form-label {
   display: block;
   font-weight: 600;
   color: #1d1d1f;
-  margin-bottom: 6px;
-  font-size: 0.85rem;
+  margin-bottom: 8px; /* 4-point spacing */
+  font-size: 16px; /* Body: 16px */
+  line-height: 1.4;
 }
 
 .input-wrapper {
@@ -380,8 +395,8 @@ setup() {
 
 .input-icon {
   position: absolute;
-  left: 14px;
-  font-size: 0.9rem;
+  left: 16px; /* 4-point spacing */
+  font-size: 1.1rem;
   color: #86868b;
   z-index: 2;
   opacity: 0.8;
@@ -389,16 +404,19 @@ setup() {
 
 .form-input {
   width: 100%;
-  padding: 12px 12px 12px 38px;
+  padding: 16px 16px 16px 48px; /* 4-point spacing, 48px min height */
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  font-size: 0.9rem;
+  border-radius: 8px; /* 4-point spacing */
+  font-size: 16px; /* Body: 16px */
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(16px);
   color: #1d1d1f;
   transition: all 0.2s ease;
   box-sizing: border-box;
   font-weight: 400;
+  line-height: 1.4;
+  /* Minimum touch size: 44×48px */
+  min-height: 48px;
 }
 
 .form-input:focus {
@@ -424,14 +442,20 @@ setup() {
 
 .toggle-password-btn {
   position: absolute;
-  right: 14px;
+  right: 16px; /* 4-point spacing */
   background: none;
   border: none;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 12px; /* 4-point spacing */
+  border-radius: 6px; /* 4-point spacing */
   transition: all 0.2s ease;
   color: #86868b;
+  /* Minimum touch size: 44×44px */
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .toggle-password-btn:hover {
@@ -440,29 +464,32 @@ setup() {
 }
 
 .toggle-icon {
-  font-size: 0.9rem;
+  font-size: 1.1rem;
 }
 
 /* Buttons */
 .btn-primary {
   width: 100%;
-  padding: 12px;
+  padding: 16px; /* 4-point spacing */
   background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 0.95rem;
+  border-radius: 8px; /* 4-point spacing */
+  font-size: 16px; /* Body: 16px */
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+  /* Minimum touch size: 44×52px */
+  min-height: 52px;
+  line-height: 1.4;
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 122, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
 }
 
 .btn-primary:active {
@@ -473,16 +500,17 @@ setup() {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .login-btn {
-  margin-top: 6px;
+  margin-top: 8px; /* 4-point spacing */
 }
 
 .loading-spinner {
   display: inline-block;
-  width: 16px;
-  height: 16px;
+  width: 20px; /* 4-point spacing */
+  height: 20px; /* 4-point spacing */
   border: 2px solid rgba(255,255,255,0.3);
   border-radius: 50%;
   border-top-color: #fff;
@@ -496,7 +524,7 @@ setup() {
 /* Divider */
 .login-divider {
   text-align: center;
-  margin: 20px 0;
+  margin: 32px 0; /* 8-point spacing */
   position: relative;
 }
 
@@ -511,11 +539,11 @@ setup() {
 }
 
 .divider-text {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px);
-  padding: 0 12px;
+  padding: 0 16px; /* 4-point spacing */
   color: #86868b;
-  font-size: 0.75rem;
+  font-size: 14px; /* Caption: 14px */
   font-weight: 500;
   position: relative;
   z-index: 1;
@@ -526,45 +554,49 @@ setup() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 12px; /* 4-point spacing */
   width: 100%;
-  padding: 12px;
+  padding: 16px; /* 4-point spacing */
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(16px);
   color: #1d1d1f;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  font-size: 0.85rem;
+  border-radius: 8px; /* 4-point spacing */
+  font-size: 16px; /* Body: 16px */
   font-weight: 600;
   text-decoration: none;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  /* Minimum touch size: 44×52px */
+  min-height: 52px;
+  line-height: 1.4;
 }
 
 .btn-secondary:hover {
   background: rgba(245, 245, 247, 0.9);
   border-color: rgba(0, 0, 0, 0.12);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-icon {
-  font-size: 0.9rem;
+  font-size: 1.1rem;
 }
 
 /* Footer */
 .login-footer {
   text-align: center;
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: 32px; /* 8-point spacing */
+  padding-top: 24px; /* 8-point spacing */
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .footer-text {
   color: #86868b;
-  font-size: 0.75rem;
+  font-size: 14px; /* Caption: 14px */
   margin: 0;
   font-weight: 400;
+  line-height: 1.4;
 }
 
 /* Modal */
@@ -580,18 +612,21 @@ setup() {
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  padding: 12px;
+  padding: 16px; /* 4-point spacing */
+  /* Safe area support */
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 .changelog-modal {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
-  max-width: 420px;
+  border-radius: 16px; /* 8-point spacing */
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  max-width: 400px; /* Mobile content width limit */
   width: 100%;
-  max-height: 65vh;
+  max-height: 70vh;
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -600,28 +635,30 @@ setup() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 20px 12px 20px;
+  padding: 24px 24px 16px 24px; /* 8-point spacing */
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .modal-header h2 {
   margin: 0;
   color: #1d1d1f;
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 20px; /* H2: 20px (600 weight) */
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   color: #86868b;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 12px; /* 4-point spacing */
+  border-radius: 8px; /* 4-point spacing */
   transition: all 0.2s ease;
-  width: 32px;
-  height: 32px;
+  /* Minimum touch size: 44×44px */
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -633,15 +670,15 @@ setup() {
 }
 
 .changelog-content {
-  padding: 16px 20px;
+  padding: 20px 24px; /* 8-point spacing */
 }
 
 .changelog-section {
-  margin-bottom: 16px;
-  padding: 12px;
+  margin-bottom: 20px; /* 8-point spacing */
+  padding: 16px; /* 4-point spacing */
   background: rgba(245, 245, 247, 0.5);
   backdrop-filter: blur(16px);
-  border-radius: 10px;
+  border-radius: 8px; /* 4-point spacing */
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
@@ -650,57 +687,67 @@ setup() {
 }
 
 .changelog-section h3 {
-  margin: 0 0 6px 0;
+  margin: 0 0 8px 0; /* 4-point spacing */
   color: #1d1d1f;
-  font-size: 0.9rem;
+  font-size: 16px; /* Body: 16px */
   font-weight: 600;
+  line-height: 1.4;
 }
 
 .changelog-section p {
   margin: 0;
   color: #424245;
-  line-height: 1.4;
-  font-size: 0.8rem;
+  line-height: 1.5;
+  font-size: 14px; /* Caption: 14px */
   font-weight: 400;
 }
 
 .changelog-modal .btn-primary {
-  margin: 0 20px 20px 20px;
+  margin: 0 24px 24px 24px; /* 8-point spacing */
 }
 
 /* Mobile-First Responsive Design */
-@media (min-width: 480px) {
+/* Mobile: 0–600px (default) */
+/* Tablet: 601–1024px */
+@media (min-width: 601px) {
+  .login-container {
+    padding: 24px; /* 8-point spacing */
+  }
+  
   .login-card {
-    padding: 32px 28px;
-    max-width: 400px;
+    padding: 32px 28px; /* 8-point spacing */
+    max-width: 480px;
   }
   
   .login-title {
-    font-size: 1.75rem;
+    font-size: 28px; /* H1: 28px for tablet */
   }
   
   .form-input {
-    padding: 14px 14px 14px 42px;
+    padding: 18px 18px 18px 52px; /* 4-point spacing */
+    min-height: 52px;
   }
   
   .btn-primary,
   .btn-secondary {
-    padding: 14px;
+    padding: 18px; /* 4-point spacing */
+    min-height: 56px;
   }
 }
 
-@media (min-width: 640px) {
+/* Desktop: 1025px+ */
+@media (min-width: 1025px) {
   .login-container {
-    padding: 20px;
+    padding: 32px; /* 8-point spacing */
   }
   
   .login-card {
-    padding: 40px 36px;
-    max-width: 440px;
+    padding: 40px 36px; /* 8-point spacing */
+    max-width: 520px;
   }
   
   .login-title {
-    font-size: 2rem;
+    font-size: 32px; /* H1: 32px for desktop */
   }
   
   .changelog-modal {
@@ -721,6 +768,22 @@ setup() {
   .btn-primary,
   .btn-secondary {
     border-width: 0.5px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .btn-secondary,
+  .version-badge,
+  .toggle-password-btn {
+    transition: none;
+  }
+  
+  .btn-primary:hover:not(:disabled),
+  .btn-secondary:hover,
+  .version-badge:hover {
+    transform: none;
   }
 }
 </style>
