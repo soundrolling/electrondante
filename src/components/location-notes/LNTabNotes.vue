@@ -1,0 +1,1344 @@
+<template>
+<div class="notes-pane">
+  <div class="header-bar">
+    <div class="header-left">
+      <h3>Notes</h3>
+      <div class="status-indicators">
+        <span 
+          class="status-dot" 
+          :class="isOnline ? 'online' : 'offline'"
+          :title="isOnline ? 'Online' : 'Offline'"
+        >●</span>
+        <span 
+          v-if="hasPendingSync" 
+          class="pending-sync"
+          title="Pending sync"
+        >⏳</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button
+        class="action-btn add-btn"
+        @click="startEdit({ timestamp: nowTime(), recording_date: todayISO(), note: '' })"
+      >
+        New Note
+      </button>
+      <button class="action-btn export-btn" @click="openExportModal">Export</button>
+    </div>
+  </div>
+
+  <div v-if="pills.length" class="quickfire-section">
+    <span class="label">Quick Notes:</span>
+    <div class="pills-container">
+      <button
+        v-for="b in pills"
+        :key="b.id || b._queuedKey"
+        class="pill"
+        :style="{ background: b.color, color: contrast(b.color) }"
+        @click="onPillClick(b)"
+      >
+        {{ b.name }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Bar: Compact, Responsive Layout -->
+  <div class="filter-bar-compact">
+    <div class="filter-col sort-col">
+      <label for="sortKey" class="label">Sort:</label>
+      <select id="sortKey" v-model="sortKey" class="sort-select">
+        <option value="desc">Latest first</option>
+        <option value="asc">Earliest first</option>
+      </select>
+    </div>
+    <div class="filter-col date-col">
+      <div class="date-row">
+        <label class="label">From:</label>
+        <input type="datetime-local" v-model="rangeStart" class="date-range-input" />
+        <button class="reset-btn" @click="rangeStart = ''" title="Clear from date">✕</button>
+      </div>
+      <div class="date-row">
+        <label class="label">To:</label>
+        <input type="datetime-local" v-model="rangeEnd" class="date-range-input" />
+        <button class="reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
+      </div>
+      <div class="quick-range-btns">
+        <button class="today-btn" @click="setTodayRange" title="Set range to today">Today</button>
+        <button class="prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spreadsheet-like table view -->
+  <div v-if="filteredAndSortedNotes.length" class="notes-table-wrapper">
+    <table class="notes-table">
+      <thead>
+        <tr>
+          <th style="width: 110px;">Time / Date</th>
+          <th>Note</th>
+          <th style="width: 90px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="n in filteredAndSortedNotes" :key="n.id || n._queuedKey">
+          <td class="note-datetime">
+            <div class="note-time">{{ n.timestamp }}</div>
+            <div class="note-date">{{ fmtDate(n.recording_date) }}</div>
+          </td>
+          <td class="note-text">{{ n.note }}</td>
+          <td class="note-actions">
+            <button
+              class="icon-btn info"
+              @click="showInfoModal(n)"
+              title="More info"
+            >ℹ️</button>
+            <button
+              class="icon-btn edit"
+              @click="startEdit(n)"
+              title="Edit"
+            >✎</button>
+            <button
+              class="icon-btn del"
+              @click="deleteNote(n.id)"
+              title="Delete"
+            >🗑</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p v-else class="empty-state">No notes yet.</p>
+
+  <div
+    v-if="showForm"
+    class="modal-overlay"
+    @click.self="cancelEdit"
+  >
+    <div class="modal-content">
+      <h4>{{ editingId ? 'Edit' : 'New' }} Note</h4>
+      <div class="modal-grid">
+        <div class="timestamp-row">
+          <input
+            v-model="draft.timestamp"
+            type="text"
+            placeholder="HH:MM:SS"
+            class="time-input"
+          />
+          <button class="refresh-btn" @click="refreshTimestamp" title="Set to current time">🔄</button>
+        </div>
+        <input
+          v-model="draft.recording_date"
+          type="date"
+          class="date-input"
+        />
+      </div>
+      <textarea
+        v-model="draft.note"
+        rows="4"
+        class="note-input"
+        placeholder="Your note..."
+      ></textarea>
+      <div class="modal-actions">
+        <button class="cancel-btn" @click="cancelEdit">Cancel</button>
+        <button
+          class="save-btn"
+          @click="saveEdit"
+          :disabled="!draft.note.trim()"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Modal -->
+  <div v-if="showInfo" class="modal-overlay" @click.self="closeInfoModal">
+    <div class="modal-content">
+      <h4>Note Details</h4>
+      <div class="modal-grid">
+        <div><strong>Time:</strong> {{ infoNote?.timestamp }}</div>
+        <div><strong>Date:</strong> {{ fmtDate(infoNote?.recording_date) }}</div>
+        <div><strong>Status:</strong> <span :class="infoNote?._isTemp ? 'status-red' : 'status-green'">●</span> {{ infoNote?._isTemp ? 'Pending Sync' : 'Synced' }}</div>
+        <div><strong>Author:</strong> {{ infoNote?.creator_email || 'unknown' }}</div>
+      </div>
+      <div style="margin-top: 12px;"><strong>Note:</strong><br>{{ infoNote?.note }}</div>
+      <div class="modal-actions">
+        <button class="cancel-btn" @click="closeInfoModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
+    <div class="modal-content">
+      <h4>Export Notes & Schedule</h4>
+      <div class="modal-grid">
+        <label>From:
+          <input type="datetime-local" v-model="exportRangeStart" class="date-range-input" />
+        </label>
+        <label>To:
+          <input type="datetime-local" v-model="exportRangeEnd" class="date-range-input" />
+        </label>
+        <label>Filename:
+          <input type="text" v-model="exportFilename" class="export-filename-input" placeholder="location-notes.pdf" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="cancel-btn" @click="closeExportModal">Cancel</button>
+        <button class="save-btn" @click="doExportPdf">Export PDF</button>
+        <button class="save-btn" @click="doExportCsv">Export CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+</template>
+
+<script setup>
+/**
+ * Location Notes Component with Offline-First Functionality
+ * 
+ * This component implements a robust offline-first approach:
+ * - Always saves to local storage first for immediate UI updates
+ * - Queues changes for Supabase sync when offline
+ * - Provides visual indicators for online/offline status
+ * - Automatically syncs when coming back online
+ * - Shows pending sync status to users
+ */
+import { ref, computed, onMounted, watch } from 'vue';
+import Swal from 'sweetalert2';
+import { useToast } from 'vue-toastification';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { useUserStore } from '@/stores/userStore';
+import {
+fetchTableData,
+mutateTableData,
+syncOfflineChanges,
+hasPendingChanges
+} from '@/services/dataService';
+import { getSetting, getData } from '@/utils/indexedDB';
+
+const props = defineProps({ locationId: { type: String, required: true } });
+
+// Watch for location changes to reload data
+watch(() => props.locationId, async (newLocationId, oldLocationId) => {
+  if (newLocationId && newLocationId !== oldLocationId) {
+    console.log(`[LNTabNotes] Location changed from ${oldLocationId} to ${newLocationId}`);
+    hasLoaded.value = false;
+    await ensureDataPersistence();
+    await loadPills();
+    await checkPendingChanges();
+    hasLoaded.value = true;
+  }
+});
+const toast = useToast();
+const userStore = useUserStore();
+
+const notes = ref([]);
+const pills = ref([]);
+const sortKey = ref('desc');
+const editingId = ref(null);
+const draft = ref({ timestamp: '', recording_date: '', note: '' });
+const showForm = ref(false);
+const hasLoaded = ref(false);
+const isOnline = ref(navigator.onLine);
+const hasPendingSync = ref(false);
+const isSyncing = ref(false);
+const showInfo = ref(false);
+const infoNote = ref(null);
+
+const showExportModal = ref(false);
+const exportRangeStart = ref('');
+const exportRangeEnd = ref('');
+const exportFilename = ref('location-notes.pdf');
+let exportCsvMode = false;
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const nowTime = () => new Date().toTimeString().slice(0, 8);
+const fmtDate = d =>
+new Date(d).toLocaleDateString([], {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric'
+});
+const contrast = hex => {
+const [r, g, b] = hex
+  .replace('#', '')
+  .match(/.{2}/g)
+  .map(h => parseInt(h, 16));
+return (r * 299 + g * 587 + b * 114) / 1000 < 140 ? '#fff' : '#000';
+};
+
+// Update: sort filtered notes, not all notes
+const sortedNotes = computed(() => {
+  const arr = [...notes.value];
+  // Always sort by full datetime (date + time)
+  return arr.sort((a, b) => {
+    const aDate = new Date(`${a.recording_date}T${a.timestamp}`);
+    const bDate = new Date(`${b.recording_date}T${b.timestamp}`);
+    return sortKey.value === 'asc' ? aDate - bDate : bDate - aDate;
+  });
+});
+
+// Watch for online/offline status changes
+watch(isOnline, (newStatus) => {
+  if (newStatus && hasPendingSync.value) {
+    // Add a small delay to prevent multiple rapid syncs
+    setTimeout(() => {
+      if (isOnline.value && hasPendingSync.value) {
+        manualSync();
+      }
+    }, 1000);
+  }
+});
+
+// Listen for online/offline events
+onMounted(() => {
+  const handleOnline = () => {
+    isOnline.value = true;
+    if (hasPendingSync.value) {
+      // Add a small delay to prevent multiple rapid syncs
+      setTimeout(() => {
+        if (isOnline.value && hasPendingSync.value) {
+          manualSync();
+        }
+      }, 1000);
+    }
+    // Refresh data when coming back online
+    loadNotes();
+  };
+  
+  const handleOffline = () => {
+    isOnline.value = false;
+  };
+  
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+  
+  // Cleanup function (though in Vue 3 this is less critical)
+  return () => {
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+  };
+});
+
+async function loadNotes() {
+  try {
+    // Always try to fetch from Supabase first when online
+    if (isOnline.value) {
+      notes.value = await fetchTableData('notes', {
+        eq: { location_id: props.locationId },
+        order: { column: 'created_at', ascending: false }
+      });
+      console.log(`[loadNotes] Loaded ${notes.value.length} notes (online)`);
+    } else {
+      // Use cached data when offline
+      notes.value = await fetchTableData('notes', {
+        eq: { location_id: props.locationId },
+        order: { column: 'created_at', ascending: false }
+      });
+      console.log(`[loadNotes] Loaded ${notes.value.length} notes (offline)`);
+      toast.info('Offline mode: using cached notes');
+    }
+  } catch (error) {
+    console.error('Error loading notes:', error);
+    // Fallback to local data on error
+    notes.value = await fetchTableData('notes', {
+      eq: { location_id: props.locationId },
+      order: { column: 'created_at', ascending: false }
+    });
+  }
+}
+
+async function loadPills() {
+  try {
+    if (isOnline.value) {
+      pills.value = await fetchTableData('quickfire_buttons', {
+        eq: { location_id: props.locationId }
+      });
+    } else {
+      pills.value = await fetchTableData('quickfire_buttons', {
+        eq: { location_id: props.locationId }
+      });
+      toast.info('Offline mode: using cached quick notes');
+    }
+  } catch (error) {
+    console.error('Error loading pills:', error);
+    pills.value = await fetchTableData('quickfire_buttons', {
+      eq: { location_id: props.locationId }
+    });
+  }
+}
+
+function startEdit(n) {
+editingId.value = n.id || null;
+draft.value = {
+  timestamp: n.timestamp || nowTime(),
+  recording_date: n.recording_date || todayISO(),
+  note: n.note || ''
+};
+showForm.value = true;
+}
+
+function cancelEdit() {
+showForm.value = false;
+}
+
+async function saveEdit() {
+if (!draft.value.note.trim()) return;
+
+const payload = {
+  ...draft.value,
+  location_id: props.locationId,
+  creator_email: userStore.getUserEmail,
+  project_id: await getSetting('current-project-id')
+};
+
+try {
+  if (editingId.value) {
+    // Update existing note
+    await mutateTableData('notes', 'update', {
+      id: editingId.value,
+      ...payload
+    });
+    toast.success(isOnline.value ? 'Note updated' : 'Note updated offline');
+  } else {
+    // Create new note
+    await mutateTableData('notes', 'insert', payload);
+    toast.success(
+      isOnline.value ? 'Note added' : 'Note saved offline - will sync when online'
+    );
+  }
+
+  // Always save to local storage and update UI immediately
+  await loadNotes();
+  await checkPendingChanges();
+  
+  showForm.value = false;
+} catch (error) {
+  console.error('Error saving note:', error);
+  toast.error('Failed to save note');
+}
+}
+
+async function deleteNote(id) {
+const { isConfirmed } = await Swal.fire({
+  title: 'Delete this note?',
+  text: 'Cannot undo.',
+  icon: 'warning',
+  showCancelButton: true,
+  confirmButtonColor: '#ef4444'
+});
+if (!isConfirmed) return;
+
+try {
+  await mutateTableData('notes', 'delete', { id });
+  toast.success(isOnline.value ? 'Note deleted' : 'Note deleted offline');
+  await loadNotes();
+  await checkPendingChanges();
+} catch (error) {
+  console.error('Error deleting note:', error);
+  toast.error('Failed to delete note');
+}
+}
+
+function onPillClick(b) {
+startEdit({
+  timestamp: nowTime(),
+  recording_date: todayISO(),
+  note: b.note
+});
+}
+
+const rangeStart = ref('');
+const rangeEnd = ref('');
+function clearRange() {
+  rangeStart.value = '';
+  rangeEnd.value = '';
+}
+
+function toDateTime(date, time) {
+  return new Date(`${date}T${time}`);
+}
+
+const filteredAndSortedNotes = computed(() => {
+  let arr = [...notes.value];
+  // Filter by date-time range if set
+  if (rangeStart.value) {
+    const start = new Date(rangeStart.value);
+    arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) >= start);
+  }
+  if (rangeEnd.value) {
+    const end = new Date(rangeEnd.value);
+    arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
+  }
+  // Sort
+  return arr.sort((a, b) => {
+    const aDate = new Date(`${a.recording_date}T${a.timestamp}`);
+    const bDate = new Date(`${b.recording_date}T${b.timestamp}`);
+    return sortKey.value === 'asc' ? aDate - bDate : bDate - aDate;
+  });
+});
+
+function openExportModal() {
+  showExportModal.value = true;
+  // If a date range is set in the notes filter, pre-fill the export modal's date range
+  exportRangeStart.value = rangeStart.value || '';
+  exportRangeEnd.value = rangeEnd.value || '';
+  exportFilename.value = `location-notes-${props.locationId}.pdf`;
+}
+function closeExportModal() {
+  showExportModal.value = false;
+}
+
+// Only use date range for export, not for table filtering
+function getExportedNotes() {
+  let arr = [...notes.value];
+  if (exportRangeStart.value) {
+    const start = new Date(exportRangeStart.value);
+    arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) >= start);
+  }
+  if (exportRangeEnd.value) {
+    const end = new Date(exportRangeEnd.value);
+    arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
+  }
+  // Sort
+  return arr.sort((a, b) => {
+    const aDate = new Date(`${a.recording_date}T${a.timestamp}`);
+    const bDate = new Date(`${b.recording_date}T${b.timestamp}`);
+    return sortKey.value === 'asc' ? aDate - bDate : bDate - aDate;
+  });
+}
+
+async function doExportPdf() {
+  try {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    // Get project, venue, stage/location name, author, and timestamp
+    let projectName = '';
+    let stageName = '';
+    let venueName = '';
+    let author = '';
+    let exportedAt = new Date().toLocaleString();
+    try {
+      const store = useUserStore();
+      projectName = store.getCurrentProject?.name || store.getCurrentProject?.project_name || '';
+      author = store.getUserEmail || '';
+    } catch {}
+    if (typeof location !== 'undefined' && location.value) {
+      venueName = location.value.venue_name || '';
+      stageName = location.value.stage_name || '';
+    }
+    // Date range
+    let dateRange = '';
+    if (exportRangeStart.value || exportRangeEnd.value) {
+      dateRange = `${exportRangeStart.value || '...'} to ${exportRangeEnd.value || '...'}`;
+    }
+    let y = 40;
+    doc.setFontSize(14);
+    if (projectName) { doc.text(`Project: ${projectName}`, 40, y); y += 20; }
+    if (venueName) { doc.text(`Venue: ${venueName}`, 40, y); y += 20; }
+    if (stageName) { doc.text(`Stage: ${stageName}`, 40, y); y += 20; }
+    if (author) { doc.text(`Author: ${author}`, 40, y); y += 20; }
+    doc.text(`Exported at: ${exportedAt}`, 40, y); y += 20;
+    if (dateRange) { doc.text(`Date Range: ${dateRange}`, 40, y); y += 20; }
+    y += 10;
+    // Notes table
+    doc.setFontSize(16);
+    doc.text('Location Notes', 40, y); y += 20;
+    const exportedNotes = getExportedNotes();
+    if (exportedNotes.length > 0) {
+      autoTable(doc, {
+        head: [['Time', 'Date', 'Note']],
+        body: exportedNotes.map(n => [
+          n.timestamp,
+          fmtDate(n.recording_date),
+          n.note
+        ]),
+        startY: y,
+        styles: { fontSize: 9, cellPadding: 4 }
+      });
+    } else {
+      doc.setFontSize(12);
+      doc.text('No notes available', 40, y + 20);
+    }
+    // Get schedule data for the same location
+    let schedules = await fetchTableData('schedules', {
+      eq: { location_id: props.locationId },
+      order: [
+        { column: 'recording_date', ascending: true },
+        { column: 'start_time', ascending: true }
+      ]
+    });
+    // Filter schedules by range
+    if (exportRangeStart.value) {
+      const start = new Date(exportRangeStart.value);
+      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
+    }
+    if (exportRangeEnd.value) {
+      const end = new Date(exportRangeEnd.value);
+      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
+    }
+    // Add schedule table on new page if schedules exist
+    if (schedules.length > 0) {
+      doc.addPage();
+      let y2 = 40;
+      doc.setFontSize(14);
+      if (projectName) { doc.text(`Project: ${projectName}`, 40, y2); y2 += 20; }
+      if (venueName) { doc.text(`Venue: ${venueName}`, 40, y2); y2 += 20; }
+      if (stageName) { doc.text(`Stage: ${stageName}`, 40, y2); y2 += 20; }
+      if (author) { doc.text(`Author: ${author}`, 40, y2); y2 += 20; }
+      doc.text(`Exported at: ${exportedAt}`, 40, y2); y2 += 20;
+      if (dateRange) { doc.text(`Date Range: ${dateRange}`, 40, y2); y2 += 20; }
+      y2 += 10;
+      doc.setFontSize(16);
+      doc.text('Stage Schedule', 40, y2); y2 += 20;
+      autoTable(doc, {
+        head: [['Artist', 'Start Time', 'End Time', 'Date']],
+        body: schedules.map(s => [
+          s.artist_name,
+          s.start_time?.slice(0, 5) || '',
+          s.end_time?.slice(0, 5) || '',
+          s.recording_date
+        ]),
+        startY: y2,
+        styles: { fontSize: 9, cellPadding: 4 }
+      });
+    }
+    doc.save(exportFilename.value || `location-notes-${props.locationId}.pdf`);
+    toast.success('PDF exported successfully');
+    closeExportModal();
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export PDF');
+  }
+}
+
+// CSV Export with header section
+async function doExportCsv() {
+  try {
+    // Get project, venue, stage/location name, author, and timestamp
+    let projectName = '';
+    let stageName = '';
+    let venueName = '';
+    let author = '';
+    let exportedAt = new Date().toLocaleString();
+    try {
+      const store = useUserStore();
+      projectName = store.getCurrentProject?.name || store.getCurrentProject?.project_name || '';
+      author = store.getUserEmail || '';
+    } catch {}
+    if (typeof location !== 'undefined' && location.value) {
+      venueName = location.value.venue_name || '';
+      stageName = location.value.stage_name || '';
+    }
+    // Date range
+    let dateRange = '';
+    if (exportRangeStart.value || exportRangeEnd.value) {
+      dateRange = `${exportRangeStart.value || '...'} to ${exportRangeEnd.value || '...'}`;
+    }
+    // Notes table
+    const exportedNotes = getExportedNotes();
+    let csv = '';
+    // Header section
+    if (projectName) csv += `Project:,${projectName}\n`;
+    if (venueName) csv += `Venue:,${venueName}\n`;
+    if (stageName) csv += `Stage:,${stageName}\n`;
+    if (author) csv += `Author:,${author}\n`;
+    csv += `Exported at:,${exportedAt}\n`;
+    if (dateRange) csv += `Date Range:,${dateRange}\n`;
+    csv += '\n';
+    // Notes table
+    csv += 'Time,Date,Note\n';
+    exportedNotes.forEach(n => {
+      csv += `"${n.timestamp}","${fmtDate(n.recording_date)}","${(n.note || '').replace(/"/g, '""')}"\n`;
+    });
+    // Get schedule data for the same location
+    let schedules = await fetchTableData('schedules', {
+      eq: { location_id: props.locationId },
+      order: [
+        { column: 'recording_date', ascending: true },
+        { column: 'start_time', ascending: true }
+      ]
+    });
+    // Filter schedules by range
+    if (exportRangeStart.value) {
+      const start = new Date(exportRangeStart.value);
+      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
+    }
+    if (exportRangeEnd.value) {
+      const end = new Date(exportRangeEnd.value);
+      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
+    }
+    if (schedules.length > 0) {
+      csv += '\n';
+      // Schedule header section
+      if (projectName) csv += `Project:,${projectName}\n`;
+      if (venueName) csv += `Venue:,${venueName}\n`;
+      if (stageName) csv += `Stage:,${stageName}\n`;
+      if (author) csv += `Author:,${author}\n`;
+      csv += `Exported at:,${exportedAt}\n`;
+      if (dateRange) csv += `Date Range:,${dateRange}\n`;
+      csv += '\n';
+      csv += 'Artist,Start Time,End Time,Date\n';
+      schedules.forEach(s => {
+        csv += `"${s.artist_name}","${s.start_time?.slice(0, 5) || ''}","${s.end_time?.slice(0, 5) || ''}","${s.recording_date}"\n`;
+      });
+    }
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', (exportFilename.value || `location-notes-${props.locationId}.csv`).replace(/\.pdf$/, '.csv'));
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('CSV exported successfully');
+    closeExportModal();
+  } catch (error) {
+    console.error('Export error:', error);
+    toast.error('Failed to export CSV');
+  }
+}
+
+async function manualSync() {
+  if (!isOnline.value) {
+    toast.warning('Cannot sync while offline');
+    return;
+  }
+
+  if (isSyncing.value) {
+    toast.info('Sync already in progress');
+    return;
+  }
+
+  isSyncing.value = true;
+  try {
+    await syncOfflineChanges();
+    await loadNotes();
+    await checkPendingChanges();
+    toast.success('Sync complete');
+  } catch (error) {
+    console.error('Sync error:', error);
+    toast.error('Sync failed');
+  } finally {
+    isSyncing.value = false;
+  }
+}
+
+async function checkPendingChanges() {
+  hasPendingSync.value = await hasPendingChanges();
+}
+
+// Ensure data persistence across navigation and refreshes
+async function ensureDataPersistence() {
+  try {
+    // Always load from local storage first for immediate display
+    const localNotes = await getData('notes');
+    const filteredNotes = localNotes.filter(note => note.location_id === props.locationId);
+    
+    if (filteredNotes.length > 0) {
+      notes.value = filteredNotes;
+      console.log(`[ensureDataPersistence] Loaded ${filteredNotes.length} cached notes`);
+    }
+    
+    // Then try to fetch fresh data if online
+    if (isOnline.value) {
+      await loadNotes();
+    }
+  } catch (error) {
+    console.error('Error ensuring data persistence:', error);
+  }
+}
+
+onMounted(async () => {
+  if (!hasLoaded.value) {
+    await ensureDataPersistence();
+    await loadPills();
+    await checkPendingChanges();
+    hasLoaded.value = true;
+  }
+});
+
+// Expose refresh method for parent component
+defineExpose({
+  refresh: async () => {
+    await loadNotes();
+    await checkPendingChanges();
+  }
+});
+
+function showInfoModal(note) {
+  infoNote.value = note;
+  showInfo.value = true;
+}
+function closeInfoModal() {
+  showInfo.value = false;
+  infoNote.value = null;
+}
+
+function refreshTimestamp() {
+  draft.value.timestamp = nowTime();
+}
+
+function setTodayRange() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  rangeStart.value = `${yyyy}-${mm}-${dd}T00:00`;
+  rangeEnd.value = `${yyyy}-${mm}-${dd}T23:59`;
+}
+
+function setPrevDayRange() {
+  const today = new Date();
+  const prev = new Date(today);
+  prev.setDate(today.getDate() - 1);
+  const yyyy = prev.getFullYear();
+  const mm = String(prev.getMonth() + 1).padStart(2, '0');
+  const dd = String(prev.getDate()).padStart(2, '0');
+  rangeStart.value = `${yyyy}-${mm}-${dd}T00:00`;
+  rangeEnd.value = `${yyyy}-${mm}-${dd}T23:59`;
+}
+</script>
+
+<style scoped>
+.status-green { color: #10b981; }
+.status-red { color: #ef4444; }
+.note-status-dot {
+font-size: 16px;
+margin-left: 6px;
+}
+
+/* Status indicators */
+.header-left {
+display: flex;
+align-items: center;
+gap: 12px;
+}
+
+.status-indicators {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.status-dot {
+font-size: 12px;
+font-weight: bold;
+}
+
+.status-dot.online {
+color: #10b981;
+}
+
+.status-dot.offline {
+color: #f59e0b;
+}
+
+.pending-sync {
+color: #8b5cf6;
+font-size: 14px;
+animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.5; }
+}
+
+.notes-pane {
+  background: #f9fafd;
+  padding: 24px;
+  border-radius: 12px;
+  color: #1f2937;
+  font-family: system-ui, sans-serif;
+}
+
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-btn {
+  background: #4a6cf7;
+  color: #fff;
+}
+
+.add-btn:hover {
+  background: #3b5bd0;
+}
+
+.export-btn {
+  background: #fff;
+  color: #6c7a92;
+  border: 1px solid #dce0e8;
+}
+
+.export-btn:hover {
+  background: #f4f5f7;
+}
+
+.sync-btn {
+  background: #10b981;
+  color: #fff;
+}
+
+.sync-btn:hover {
+background: #059669;
+}
+
+.sync-btn:disabled {
+background: #9ca3af;
+cursor: not-allowed;
+}
+
+.sync-btn:disabled:hover {
+background: #9ca3af;
+}
+
+.sync-btn:disabled {
+opacity: 0.6;
+}
+
+.quickfire-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-weight: 600;
+  color: #6c7a92;
+}
+
+.pills-container {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-bar-compact {
+  display: flex;
+  max-width: 700px;
+  margin: 0 auto 12px auto;
+  gap: 24px;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+.filter-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+.sort-col {
+  min-width: 180px;
+  max-width: 260px;
+  flex: 1 1 180px;
+}
+.date-col {
+  min-width: 220px;
+  max-width: 340px;
+  flex: 1 1 220px;
+  gap: 0.4em;
+}
+.date-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.label {
+  min-width: 38px;
+  margin-right: 4px;
+}
+.sort-select, .date-range-input {
+  max-width: 220px;
+  min-width: 120px;
+  width: 100%;
+  margin-right: 0;
+}
+@media (max-width: 700px) {
+  .filter-bar-compact {
+    max-width: 100%;
+    gap: 10px;
+    padding: 0 4px;
+  }
+  .sort-col, .date-col {
+    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+  .sort-select, .date-range-input {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+@media (max-width: 600px) {
+  .filter-bar-compact {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .date-col {
+    gap: 0.2em;
+  }
+  .date-row {
+    margin-bottom: 0;
+  }
+}
+
+/* Spreadsheet-like table view */
+.notes-table-wrapper {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: auto;
+  margin-bottom: 24px;
+}
+.notes-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 0;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  font-size: 0.97rem;
+  table-layout: fixed;
+}
+.notes-table th, .notes-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+.notes-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #4a6cf7;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.notes-table tr:last-child td {
+  border-bottom: none;
+}
+.note-datetime {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.97rem;
+  min-width: 80px;
+}
+.note-time {
+  font-weight: 600;
+  color: #4a6cf7;
+  font-size: 0.97rem;
+}
+.note-date {
+  font-size: 0.92rem;
+  color: #6c7a92;
+}
+.note-text {
+  white-space: pre-line;
+  word-break: break-word;
+  max-width: 320px;
+  font-size: 0.97rem;
+}
+.note-actions {
+  display: flex;
+  gap: 4px;
+  min-width: 70px;
+  justify-content: flex-start;
+}
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 14px;
+}
+.date-range-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.date-range-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.date-range-input {
+  padding: 6px;
+  border: 1px solid #dce0e8;
+  border-radius: 6px;
+  font-size: 0.97rem;
+  flex: 1 1 auto;
+  min-width: 120px;
+}
+.reset-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 10px;
+}
+.reset-btn:hover {
+  background: #dc2626;
+}
+@media (max-width: 600px) {
+  .date-range-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin-bottom: 6px;
+  }
+  .date-range-input-row {
+    gap: 2px;
+  }
+  .date-range-input {
+    font-size: 0.95rem;
+    padding: 5px 6px;
+    min-width: 0;
+    width: 100%;
+  }
+  .reset-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 480px;
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.time-input,
+.date-input,
+.note-input {
+  width: 100%;
+  border: 1px solid #cad8f3;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 0.95rem;
+}
+
+.note-input {
+  resize: vertical;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cancel-btn {
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid #dce0e8;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.save-btn {
+  background: #4a6cf7;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.save-btn:hover {
+  background: #3b5bd0;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.empty-state {
+  text-align: center;
+  color: #6c7a92;
+  margin-top: 16px;
+  font-size: 0.95rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .notes-pane {
+    padding: 16px;
+  }
+  
+  .header-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .header-actions {
+    justify-content: center;
+  }
+  
+  .sort-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .sort-select {
+    min-width: auto;
+  }
+  
+  .note-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .modal-content {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.icon-btn.info {
+  background: #f3f4f6;
+  color: #4a6cf7;
+}
+.icon-btn.info:hover {
+  background: #e0e7ff;
+}
+
+.export-filename-input {
+  padding: 6px;
+  border: 1px solid #dce0e8;
+  border-radius: 6px;
+  min-width: 180px;
+  width: 100%;
+}
+
+.timestamp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.refresh-btn {
+  background: #f3f4f6;
+  color: #4a6cf7;
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.refresh-btn:hover {
+  background: #e0e7ff;
+}
+
+.today-btn, .prevday-btn {
+  background: #e0e7ff;
+  color: #4a6cf7;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.today-btn:hover, .prevday-btn:hover {
+  background: #c7d2fe;
+}
+
+.quick-range-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  align-self: flex-end;
+}
+</style> 
