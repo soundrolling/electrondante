@@ -1,27 +1,42 @@
 <template>
 <div class="trip-detail-container">
+  <!-- Back Navigation -->
   <router-link
     :to="{ name: 'TravelDashboard', params: { id: projectId } }"
     class="back-link"
+    aria-label="Back to trips dashboard"
   >
-    <span class="arrow">←</span> Back to Trips
+    <span class="arrow">←</span>
+    <span class="back-text">Back to Trips</span>
   </router-link>
+
+  <!-- Trip Header -->
   <div class="trip-header">
     <h1>{{ tripName || 'Trip Details' }}</h1>
-    <p>{{ tripDates }}</p>
-    <p v-if="tripDestination" class="trip-destination">Destination: {{ tripDestination }}</p>
+    <p class="trip-dates">{{ tripDates }}</p>
+    <p v-if="tripDestination" class="trip-destination">
+      <span class="destination-label">Destination:</span> {{ tripDestination }}
+    </p>
   </div>
-  <div class="tabs">
+
+  <!-- Tab Navigation -->
+  <div class="tabs" role="tablist">
     <button
       v-for="tab in tabs"
       :key="tab.key"
       :class="['tab-btn', { active: activeTab === tab.key }]"
       @click="activeTab = tab.key"
+      :aria-selected="activeTab === tab.key"
+      :aria-controls="`${tab.key}-panel`"
+      role="tab"
     >
-      {{ tab.label }}
+      <span class="tab-icon">{{ getTabIcon(tab.key) }}</span>
+      <span class="tab-label">{{ tab.label }}</span>
     </button>
   </div>
-  <div class="tab-content">
+
+  <!-- Tab Content -->
+  <div class="tab-content" role="tabpanel" :id="`${activeTab}-panel`">
     <component
       :is="activeTabComponent"
       :trip-id="tripId"
@@ -71,105 +86,308 @@ computed: {
     const tab = this.tabs.find(t => t.key === this.activeTab)
     return tab ? tab.component : 'Accommodations'
   }
+},
+methods: {
+  getTabIcon(key) {
+    const icons = {
+      accommodations: '🏨',
+      flights: '✈️',
+      documents: '📄',
+      expenses: '💰',
+      parking: '🅿️'
+    }
+    return icons[key] || '📋'
+  }
 }
 }
 </script>
 
 <style scoped>
+/* Mobile-first base styles */
 .trip-detail-container {
-max-width: 900px;
-margin: 32px auto;
-background: #f8f9fa;
-border-radius: 12px;
-box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-border: 1.5px solid #e5e7eb;
-padding: 32px 20px 24px 20px;
+  width: 100%;
+  padding: 16px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
+  line-height: 1.5;
+  background: #f8fafc;
+  min-height: 100vh;
 }
-.trip-header {
-text-align: center;
-margin-bottom: 24px;
+
+/* Safe area margins for mobile devices */
+@supports (padding: max(0px)) {
+  .trip-detail-container {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
 }
-.trip-header h1 {
-font-size: 2rem;
-color: #1f2937;
-font-weight: 700;
-margin-bottom: 0.25em;
-}
-.trip-header p {
-color: #64748b;
-margin: 0.2em 0;
-}
-.trip-destination {
-font-size: 1.1em;
-color: #2563eb;
-}
-.tabs {
-display: flex;
-justify-content: center;
-gap: 0.5rem;
-margin-bottom: 24px;
-flex-wrap: wrap;
-}
-.tab-btn {
-background: #f1f5f9;
-border: 1.5px solid #e5e7eb;
-border-radius: 8px 8px 0 0;
-padding: 10px 22px;
-font-size: 1rem;
-color: #222;
-font-weight: 500;
-cursor: pointer;
-transition: background 0.2s, color 0.2s, border 0.2s;
-outline: none;
-}
-.tab-btn.active {
-background: #fff;
-color: #2563eb;
-border-bottom: 2.5px solid #2563eb;
-font-weight: 700;
-z-index: 2;
-}
-.tab-btn:not(.active):hover {
-background: #e0e7ef;
-color: #2563eb;
-}
-.tab-content {
-background: #fff;
-border-radius: 0 0 12px 12px;
-box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-border: 1.5px solid #e5e7eb;
-border-top: none;
-padding: 24px 12px 12px 12px;
-min-height: 200px;
-}
-@media (max-width: 700px) {
-.trip-detail-container {
-  padding: 10px 2px 12px 2px;
-}
-.tab-content {
-  padding: 12px 2px 8px 2px;
-}
-}
+
+/* Back Link */
 .back-link {
-display: inline-flex;
-align-items: center;
-gap: 0.4em;
-font-size: 1rem;
-color: #2563eb;
-text-decoration: none;
-font-weight: 500;
-margin-bottom: 0.5em;
-background: none;
-border: none;
-cursor: pointer;
-transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+  margin-bottom: 20px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
 }
+
 .back-link:hover {
-color: #1d4ed8;
-text-decoration: underline;
+  color: #1d4ed8;
+  background: #dbeafe;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
+.back-link:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
 .arrow {
-font-size: 1.2em;
-margin-right: 0.2em;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.back-text {
+  display: none;
+}
+
+/* Trip Header */
+.trip-header {
+  text-align: center;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 24px 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.trip-header h1 {
+  font-size: 24px;
+  color: #111827;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.trip-dates {
+  color: #6b7280;
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.trip-destination {
+  font-size: 16px;
+  color: #3b82f6;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.destination-label {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+/* Tab Navigation */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.tab-btn {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: #3b82f6;
+  border-color: #3b82f6;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.tab-icon {
+  font-size: 20px;
+}
+
+.tab-label {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+/* Tab Content */
+.tab-content {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  padding: 20px 16px;
+  min-height: 200px;
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .trip-detail-container {
+    padding: 24px;
+  }
+  
+  .trip-header {
+    padding: 32px 24px;
+    margin-bottom: 32px;
+  }
+  
+  .trip-header h1 {
+    font-size: 28px;
+  }
+  
+  .tabs {
+    padding: 12px;
+    margin-bottom: 32px;
+  }
+  
+  .tab-btn {
+    flex-direction: row;
+    gap: 8px;
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+  
+  .tab-label {
+    font-size: 14px;
+  }
+  
+  .tab-content {
+    padding: 24px 20px;
+  }
+  
+  .back-text {
+    display: inline;
+  }
+}
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .trip-detail-container {
+    max-width: 1200px;
+    padding: 32px;
+  }
+  
+  .trip-header {
+    padding: 40px 32px;
+    margin-bottom: 40px;
+  }
+  
+  .trip-header h1 {
+    font-size: 32px;
+  }
+  
+  .tabs {
+    padding: 16px;
+    margin-bottom: 40px;
+  }
+  
+  .tab-btn {
+    padding: 16px 24px;
+    font-size: 16px;
+  }
+  
+  .tab-content {
+    padding: 32px 28px;
+  }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 600px) {
+  .trip-detail-container {
+    padding: 12px;
+  }
+  
+  .trip-header {
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  
+  .trip-header h1 {
+    font-size: 22px;
+  }
+  
+  .tabs {
+    gap: 4px;
+    padding: 6px;
+    margin-bottom: 20px;
+  }
+  
+  .tab-btn {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  
+  .tab-icon {
+    font-size: 18px;
+  }
+  
+  .tab-label {
+    font-size: 10px;
+  }
+  
+  .tab-content {
+    padding: 16px 12px;
+  }
+  
+  .back-link {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
 }
 </style> 

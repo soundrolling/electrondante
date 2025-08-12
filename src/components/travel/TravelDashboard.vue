@@ -1,32 +1,51 @@
 <template>
 <div class="travel-dashboard">
+  <!-- Header Section -->
   <div class="header-section">
     <h1>Travel Dashboard</h1>
     <p>Manage all your travel details in one place</p>
   </div>
 
+  <!-- Dashboard Grid -->
   <div class="dashboard-grid">
     <!-- Upcoming Trips Section -->
     <div class="dashboard-card upcoming-trips">
       <div class="card-header">
         <h2>Upcoming Trips</h2>
-        <button @click="createNewTrip" class="add-button">
-          <span class="icon">+</span> New Trip
+        <button @click="createNewTrip" class="add-button" aria-label="Create new trip">
+          <span class="icon">+</span>
+          <span class="button-text">New Trip</span>
         </button>
       </div>
-      <div v-if="isLoading" class="loading-spinner">
-        <div class="spinner"></div>
-        <p>Loading trips...</p>
+      
+      <!-- Loading State -->
+      <div v-if="isLoading" class="loading-state">
+        <div class="skeleton-loader">
+          <div class="skeleton-item"></div>
+          <div class="skeleton-item"></div>
+          <div class="skeleton-item"></div>
+        </div>
       </div>
+      
+      <!-- Empty State -->
       <div v-else-if="trips.length === 0" class="empty-state">
-        <p>No upcoming trips. Create your first trip to get started!</p>
+        <div class="empty-icon">✈️</div>
+        <h3>No upcoming trips</h3>
+        <p>Create your first trip to get started!</p>
+        <button @click="createNewTrip" class="primary-button">Create First Trip</button>
       </div>
+      
+      <!-- Trip List -->
       <div v-else class="trip-list">
         <div
           v-for="trip in trips"
           :key="trip.id"
           class="trip-card"
           @click="selectTrip(trip)"
+          role="button"
+          tabindex="0"
+          @keydown.enter="selectTrip(trip)"
+          @keydown.space="selectTrip(trip)"
         >
           <div class="trip-card-header">
             <h3>{{ trip.destination }}</h3>
@@ -34,15 +53,33 @@
               {{ formatDateRange(trip.start_date, trip.end_date) }}
             </span>
           </div>
-          <div class="trip-card-status-row">
-            <span class="trip-status" :class="getTripStatusClass(trip)">
-              Status: {{ getTripStatus(trip) }}
+          
+          <div class="trip-card-status">
+            <span class="status-badge" :class="getTripStatusClass(trip)">
+              {{ getTripStatus(trip) }}
             </span>
           </div>
+          
           <div class="trip-card-footer">
             <div class="trip-card-actions">
-              <button @click.stop="openEditTripModal(trip)" class="edit-button">Edit</button>
-              <button @click.stop="deleteTrip(trip)" class="delete-button">Delete</button>
+              <button 
+                @click.stop="openEditTripModal(trip)" 
+                class="action-button edit-button"
+                aria-label="Edit trip"
+              >
+                <span class="action-icon">✏️</span>
+                <span class="action-text">Edit</span>
+              </button>
+              
+              <button 
+                @click.stop="deleteTrip(trip)" 
+                class="action-button delete-button"
+                aria-label="Delete trip"
+              >
+                <span class="action-icon">🗑️</span>
+                <span class="action-text">Delete</span>
+              </button>
+              
               <router-link
                 :to="{
                   path: `/projects/${userStore.currentProject.id}/trips/${trip.id}/detail`,
@@ -52,10 +89,12 @@
                     tripDestination: trip.destination
                   }
                 }"
-                class="view-trip-btn"
+                class="action-button view-button"
                 @click.stop
+                aria-label="View trip details"
               >
-                View
+                <span class="action-icon">👁️</span>
+                <span class="action-text">View</span>
               </router-link>
             </div>
           </div>
@@ -68,13 +107,20 @@
   </div>
 
   <!-- New Trip Modal -->
-  <div v-if="showNewTripModal" class="modal">
+  <div v-if="showNewTripModal" class="modal" role="dialog" aria-labelledby="modal-title">
     <div class="modal-overlay" @click="showNewTripModal = false"></div>
     <div class="modal-container">
       <div class="modal-header">
-        <h2>Create New Trip</h2>
-        <button @click="showNewTripModal = false" class="close-button">×</button>
+        <h2 id="modal-title">Create New Trip</h2>
+        <button 
+          @click="showNewTripModal = false" 
+          class="close-button"
+          aria-label="Close modal"
+        >
+          ×
+        </button>
       </div>
+      
       <div class="modal-body">
         <form @submit.prevent="saveNewTrip">
           <div class="form-group">
@@ -85,8 +131,10 @@
               v-model="newTrip.name"
               required
               placeholder="e.g., Summer Vacation 2025"
+              class="form-input"
             />
           </div>
+          
           <div class="form-group">
             <label for="destination">Destination</label>
             <input
@@ -95,8 +143,10 @@
               v-model="newTrip.destination"
               required
               placeholder="e.g., Paris, France"
+              class="form-input"
             />
           </div>
+          
           <div class="form-row">
             <div class="form-group">
               <label for="startDate">Start Date</label>
@@ -105,6 +155,7 @@
                 id="startDate"
                 v-model="newTrip.start_date"
                 required
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -114,9 +165,11 @@
                 id="endDate"
                 v-model="newTrip.end_date"
                 required
+                class="form-input"
               />
             </div>
           </div>
+          
           <div class="form-group">
             <label for="description">Description (Optional)</label>
             <textarea
@@ -124,22 +177,25 @@
               v-model="newTrip.description"
               rows="3"
               placeholder="Brief description of your trip"
+              class="form-textarea"
             ></textarea>
           </div>
+          
           <div class="form-actions">
             <button
               type="button"
               @click="showNewTripModal = false"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              class="save-button"
+            <button 
+              type="submit" 
+              class="primary-button"
               :disabled="isSaving"
             >
-              {{ isSaving ? 'Saving...' : 'Create Trip' }}
+              <span v-if="isSaving" class="loading-spinner-small"></span>
+              {{ isSaving ? 'Creating...' : 'Create Trip' }}
             </button>
           </div>
         </form>
@@ -148,13 +204,20 @@
   </div>
 
   <!-- Edit Trip Modal -->
-  <div v-if="showEditTripModal" class="modal">
+  <div v-if="showEditTripModal" class="modal" role="dialog" aria-labelledby="edit-modal-title">
     <div class="modal-overlay" @click="showEditTripModal = false"></div>
     <div class="modal-container">
       <div class="modal-header">
-        <h2>Edit Trip</h2>
-        <button @click="showEditTripModal = false" class="close-button">×</button>
+        <h2 id="edit-modal-title">Edit Trip</h2>
+        <button 
+          @click="showEditTripModal = false" 
+          class="close-button"
+          aria-label="Close modal"
+        >
+          ×
+        </button>
       </div>
+      
       <div class="modal-body">
         <form @submit.prevent="updateTrip">
           <div class="form-group">
@@ -164,9 +227,10 @@
               id="editTripName"
               v-model="editTrip.name"
               required
-              placeholder="e.g., Summer Vacation 2025"
+              class="form-input"
             />
           </div>
+          
           <div class="form-group">
             <label for="editDestination">Destination</label>
             <input
@@ -174,9 +238,10 @@
               id="editDestination"
               v-model="editTrip.destination"
               required
-              placeholder="e.g., Paris, France"
+              class="form-input"
             />
           </div>
+          
           <div class="form-row">
             <div class="form-group">
               <label for="editStartDate">Start Date</label>
@@ -185,6 +250,7 @@
                 id="editStartDate"
                 v-model="editTrip.start_date"
                 required
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -194,9 +260,11 @@
                 id="editEndDate"
                 v-model="editTrip.end_date"
                 required
+                class="form-input"
               />
             </div>
           </div>
+          
           <div class="form-group">
             <label for="editDescription">Description (Optional)</label>
             <textarea
@@ -204,17 +272,19 @@
               v-model="editTrip.description"
               rows="3"
               placeholder="Brief description of your trip"
+              class="form-textarea"
             ></textarea>
           </div>
+          
           <div class="form-actions">
             <button
               type="button"
               @click="showEditTripModal = false"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
-            <button type="submit" class="save-button">
+            <button type="submit" class="primary-button">
               Update Trip
             </button>
           </div>
@@ -468,274 +538,396 @@ setup() {
 </script>
 
 <style scoped>
+/* Mobile-first base styles */
 .travel-dashboard {
   width: 100%;
-  padding: 32px;
+  padding: 16px;
   margin: 0 auto;
   box-sizing: border-box;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  color: #222;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
   line-height: 1.5;
-  background: #f8f9fa;
+  background: #f8fafc;
+  min-height: 100vh;
 }
-@media (min-width: 1024px) {
+
+/* Safe area margins for mobile devices */
+@supports (padding: max(0px)) {
   .travel-dashboard {
-    max-width: 1200px;
-    padding: 48px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
 
+/* Header Section */
 .header-section {
   text-align: center;
-  margin-bottom: 2rem;
-  background: #fff;
-  padding: 2rem 1rem 1.5rem 1rem;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 24px 16px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
-}
-.header-section h1 {
-  font-size: 2rem;
-  margin: 0 0 0.5rem;
-  color: #1f2937;
-  font-weight: 700;
-}
-.header-section p {
-  margin: 0;
-  color: #64748b;
-  font-size: 1.1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
 
+.header-section h1 {
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.header-section p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Dashboard Grid */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
-}
-@media (min-width: 768px) {
-  .dashboard-grid {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  }
+  gap: 16px;
 }
 
+/* Dashboard Cards */
 .dashboard-card {
-  background: #fff;
+  background: #ffffff;
   border-radius: 12px;
-  padding: 1.5rem 1.2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  border: 1.5px solid #e5e7eb;
-  transition: box-shadow 0.2s, transform 0.2s;
+  padding: 20px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
 }
+
 .dashboard-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.2rem;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
+
 .card-header h2 {
-  font-size: 1.3rem;
+  font-size: 20px;
   margin: 0;
-  color: #1f2937;
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Buttons */
+.add-button {
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.add-button:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.add-button:active {
+  transform: translateY(0);
+}
+
+.add-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.icon {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.button-text {
+  display: none;
+}
+
+/* Loading State */
+.loading-state {
+  padding: 24px 0;
+}
+
+.skeleton-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-item {
+  height: 80px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7280;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  font-size: 20px;
+  margin: 0 0 8px 0;
+  color: #374151;
   font-weight: 600;
 }
 
-button {
+.empty-state p {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.primary-button {
+  background: #10b981;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 10px 18px;
+  padding: 12px 24px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 500;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
-button:focus {
+
+.primary-button:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}
+
+.primary-button:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #dbeafe;
-}
-.add-button {
-  background: #3b82f6;
-  color: #fff;
-}
-.add-button:hover {
-  background: #2563eb;
-}
-.edit-button {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: 1.5px solid #cbd5e1;
-}
-.edit-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
-  border-color: #3b82f6;
-}
-.delete-button {
-  background: #ef4444;
-  color: #fff;
-}
-.delete-button:hover {
-  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 }
 
-.loading-spinner {
-  text-align: center;
-  padding: 1.5rem 0;
-}
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3b82f6;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 0.75rem;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.primary-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 1.2rem;
-  color: #64748b;
-  background-color: #fefefe;
-  border: 1.5px dashed #cbd5e1;
-  border-radius: 10px;
-  font-style: italic;
-}
-
+/* Trip List */
 .trip-list {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 16px;
 }
+
 .trip-card {
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 1.1rem 1rem 0.8rem 1rem;
-  border: 1.5px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px 16px;
+  border: 1px solid #e5e7eb;
   position: relative;
-  transition: background 0.2s, box-shadow 0.2s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .trip-card:hover {
-  background: #f1f5f9;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
+
+.trip-card:active {
+  transform: translateY(0);
+}
+
+.trip-card:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
 .trip-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
+
 .trip-card-header h3 {
   margin: 0;
-  font-size: 1.1rem;
-  color: #1f2937;
+  font-size: 18px;
+  color: #111827;
   font-weight: 600;
+  line-height: 1.4;
 }
+
 .trip-dates {
-  font-size: 0.95rem;
-  color: #64748b;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.4;
 }
-.trip-card-status-row {
+
+.trip-card-status {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  margin: 0.5em 0 0.5em 0;
-  min-height: 1.5em;
+  margin-bottom: 16px;
 }
-.trip-status {
+
+.status-badge {
   font-weight: 500;
-  font-size: 0.97rem;
-  display: inline-block;
-  margin-right: 0;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  line-height: 1.4;
 }
+
+.status-badge.status-upcoming {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge.status-in-progress {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.status-badge.status-completed {
+  background: #d1fae5;
+  color: #059669;
+}
+
 .trip-card-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
   border-top: 1px solid #e5e7eb;
-  padding-top: 0.7em;
-  margin-top: 0.7em;
+  padding-top: 16px;
 }
+
 .trip-card-actions {
   display: flex;
-  flex-direction: row;
-  gap: 0.5em;
-  width: 100%;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.edit-button,
-.delete-button,
-.view-trip-btn {
-  margin: 0;
-  flex: 1 1 0;
-  min-width: 0;
-}
-.delete-button {
-  order: 0;
-}
-.edit-button {
-  order: 1;
-}
-.view-trip-btn {
-  order: 2;
-}
-.view-trip-btn {
-  background: #2563eb;
-  color: #fff;
-  border-radius: 8px;
-  padding: 0.5rem 1.2rem;
-  font-size: 1rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: background 0.2s;
+
+.action-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 56px;
-}
-.view-trip-btn:hover {
-  background: #1d4ed8;
-}
-
-.quick-access h2 {
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-  color: #1f2937;
-  font-weight: 600;
-}
-.quick-access-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-}
-.quick-access-item {
-  background: #f1f5f9;
+  gap: 6px;
+  padding: 10px 12px;
   border-radius: 8px;
-  padding: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
   text-decoration: none;
-  color: #222;
-  transition: background 0.2s, box-shadow 0.2s;
-  border: 1.5px solid #e5e7eb;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.quick-access-item:hover {
-  background: #e0e7ef;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.icon-container {
-  font-size: 2rem;
-  margin-bottom: 0.25rem;
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  background: #f9fafb;
+  min-height: 44px;
+  min-width: 44px;
+  flex: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.action-button.edit-button {
+  background: #f0f9ff;
+  color: #1d4ed8;
+  border-color: #bae6fd;
+}
+
+.action-button.edit-button:hover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+
+.action-button.delete-button {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.action-button.delete-button:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.action-button.view-button {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.action-button.view-button:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.action-icon {
+  font-size: 16px;
+}
+
+.action-text {
+  display: none;
+}
+
+/* Modal Styles */
 .modal {
   position: fixed;
   top: 0;
@@ -745,129 +937,309 @@ button:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 1000;
+  padding: 16px;
+  box-sizing: border-box;
 }
+
 .modal-overlay {
   position: absolute;
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
 }
+
 .modal-container {
   position: relative;
-  background: #fff;
-  border-radius: 12px;
-  padding: 2rem 1.5rem 1.5rem 1.5rem;
-  width: 90%;
-  max-width: 500px;
-  z-index: 1000;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px 20px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: 1001;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
+
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 24px;
 }
+
 .modal-header h2 {
   margin: 0;
-  font-size: 1.3rem;
-  color: #1f2937;
+  font-size: 22px;
+  color: #111827;
   font-weight: 600;
+  line-height: 1.4;
 }
+
 .close-button {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 24px;
   cursor: pointer;
-  color: #64748b;
-  border-radius: 6px;
-  transition: background 0.2s;
-  padding: 2px 8px;
+  color: #6b7280;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  padding: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 .close-button:hover {
-  background: #f1f5f9;
-  color: #1d4ed8;
+  background: #f3f4f6;
+  color: #374151;
 }
+
+.close-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
 .modal-body {
-  max-height: 70vh;
+  max-height: calc(90vh - 120px);
   overflow-y: auto;
 }
+
+/* Form Styles */
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 20px;
 }
+
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 8px;
   font-weight: 500;
-  color: #222;
-  font-size: 0.97rem;
+  color: #374151;
+  font-size: 16px;
+  line-height: 1.4;
 }
-.form-group input,
-.form-group textarea {
+
+.form-input,
+.form-textarea {
   width: 100%;
-  padding: 0.6rem;
-  border: 1.5px solid #e5e7eb;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 16px;
+  line-height: 1.5;
   box-sizing: border-box;
-  background: #fff;
-  color: #222;
+  background: #ffffff;
+  color: #111827;
+  transition: all 0.2s ease;
+  min-height: 48px;
 }
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .form-row {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 16px;
 }
-@media (min-width: 480px) {
-  .form-row {
-    flex-direction: row;
-  }
-}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-.cancel-button {
-  background-color: #6c757d;
-  color: #fff;
-}
-.cancel-button:hover {
-  background-color: #5a6268;
-}
-.save-button {
-  background-color: #10b981;
-  color: #fff;
-}
-.save-button:hover {
-  background-color: #059669;
-}
-.save-button:disabled {
-  background-color: #a7f3d0;
-  cursor: not-allowed;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
 }
 
-@media (max-width: 700px) {
+.secondary-button {
+  background: #6b7280;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.secondary-button:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.secondary-button:active {
+  transform: translateY(0);
+}
+
+.secondary-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+}
+
+.loading-spinner-small {
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #10b981;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
   .travel-dashboard {
-    padding: 10px;
+    padding: 24px;
   }
+  
+  .header-section {
+    padding: 32px 24px;
+    margin-bottom: 32px;
+  }
+  
+  .header-section h1 {
+    font-size: 28px;
+  }
+  
+  .dashboard-grid {
+    gap: 24px;
+  }
+  
   .dashboard-card {
-    padding: 10px 4px;
+    padding: 24px 20px;
   }
+  
+  .trip-card {
+    padding: 24px 20px;
+  }
+  
+  .action-text {
+    display: inline;
+  }
+  
+  .button-text {
+    display: inline;
+  }
+  
+  .form-row {
+    flex-direction: row;
+  }
+  
+  .form-row .form-group {
+    flex: 1;
+  }
+}
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .travel-dashboard {
+    max-width: 1200px;
+    padding: 32px;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: 2fr 1fr;
+    gap: 32px;
+  }
+  
+  .header-section {
+    padding: 40px 32px;
+    margin-bottom: 40px;
+  }
+  
+  .header-section h1 {
+    font-size: 32px;
+  }
+  
+  .dashboard-card {
+    padding: 32px 28px;
+  }
+  
+  .trip-card {
+    padding: 28px 24px;
+  }
+  
   .modal-container {
-    padding: 1.2rem 0.5rem 1rem 0.5rem;
+    padding: 32px 28px;
+    max-width: 560px;
   }
-  .trip-card-footer {
-    flex-direction: row;
-    align-items: center;
-    gap: 0;
-    padding-top: 0.5em;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 600px) {
+  .travel-dashboard {
+    padding: 12px;
   }
+  
+  .header-section {
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  
+  .header-section h1 {
+    font-size: 22px;
+  }
+  
+  .dashboard-card {
+    padding: 16px 12px;
+  }
+  
+  .trip-card {
+    padding: 16px 12px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .add-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
   .trip-card-actions {
-    flex-direction: row;
-    gap: 0.5em;
+    flex-direction: column;
+  }
+  
+  .action-button {
+    width: 100%;
+  }
+  
+  .modal-container {
+    padding: 20px 16px;
+    margin: 16px;
+    max-height: calc(100vh - 32px);
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
     width: 100%;
   }
 }

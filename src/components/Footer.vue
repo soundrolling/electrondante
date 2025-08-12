@@ -6,26 +6,26 @@
       <div class="footer-card timecode-timesource-card">
         <div class="timecode-timesource-flex">
           <div class="timecode-section">
-            <h3>Timecode</h3>
+            <h3 class="card-title">Timecode</h3>
             <div class="timecode-display">
               <p class="timecode">{{ liveTimecode }}</p>
               <p class="time-source">{{ currentTimeSourceLabel }}</p>
             </div>
           </div>
           <div class="timesource-section">
-            <h3>Select Time Source:</h3>
+            <h3 class="card-title">Select Time Source:</h3>
             <TimeSourceSelector />
           </div>
         </div>
       </div>
       <!-- Bottom row: Session | Storage/App -->
       <div class="footer-card session-card">
-        <h3>Session</h3>
+        <h3 class="card-title">Session</h3>
         <div class="compact-user-info">
-          <span v-if="userEmail">
+          <span v-if="userEmail" class="user-email">
             {{ userEmail }} <span v-if="isAdmin" class="admin-badge">A</span>
           </span>
-          <span v-else>Guest</span>
+          <span v-else class="guest-text">Guest</span>
         </div>
         <button
           v-if="userEmail"
@@ -36,10 +36,10 @@
         </button>
       </div>
       <div class="footer-card storage-app-card">
-        <h3>Storage</h3>
+        <h3 class="card-title">Storage</h3>
         <div class="storage-display">
           <div class="usage-details">
-            <span>{{ localStorageUsage.used }} / {{ localStorageUsage.max }} KB</span>
+            <span class="usage-text">{{ localStorageUsage.used }} / {{ localStorageUsage.max }} KB</span>
             <span
               class="usage-indicator"
               :class="{ 'high-usage': usagePercentage > 80 }"
@@ -61,9 +61,9 @@
           </div>
         </div>
         <div class="section-divider"></div>
-        <h3>App</h3>
+        <h3 class="card-title">App</h3>
         <div v-if="isPWAInstalled" class="app-status">
-          <p>App is installed on your device.</p>
+          <p class="app-status-text">App is installed on your device.</p>
         </div>
         <div v-else class="app-install">
           <button
@@ -81,7 +81,7 @@
     </div>
   </div>
   <div class="footer-bottom">
-    <p>&copy; {{ currentYear }} Soundrolling Notes</p>
+    <p class="copyright-text">&copy; {{ currentYear }} Soundrolling Notes</p>
   </div>
 </footer>
 </template>
@@ -185,276 +185,356 @@ window.removeEventListener('appinstalled', () => {
 </script>
 
 <style scoped>
-/* Footer Container */
+/* Base Styles - Mobile First */
 .footer {
-background-color: #f8f9fa;
-color: #374151;
-border-top: 1px solid #e5e7eb;
-padding: 16px 0 0 0;
-font-size: 0.875rem;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border-top: 1px solid #e9ecef;
+  padding: 16px 0 0 0;
+  font-size: 16px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* Wrapper */
 .container {
-max-width: 1400px;
-margin: 0 auto;
-padding: 0 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
 }
 
 /* Grid for Cards */
 .footer-columns {
-display: grid;
-grid-template-columns: 1fr 1fr;
-grid-template-rows: auto 1fr;
-gap: 16px;
-margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 /* Card Layout - Shared */
 .footer-card {
-background-color: #ffffff;
-border: 1px solid #e5e7eb;
-border-radius: 8px;
-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-padding: 16px;
-transition: all 0.2s ease;
-display: flex;
-flex-direction: column;
-flex: 1;
-min-width: 200px;
-max-width: 100%;
-}
-
-.footer-card.user-storage-card {
-padding-bottom: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .footer-card:hover {
-background-color: #f9fafb;
+  background-color: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Card Heading */
-.footer-card h3 {
-margin: 0 0 12px;
-color: #1f2937;
-font-size: 0.875rem;
-font-weight: 600;
-border-bottom: 1px solid #e5e7eb;
-padding-bottom: 8px;
+.card-title {
+  margin: 0 0 16px;
+  color: #1a1a1a;
+  font-size: 18px;
+  font-weight: 600;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 12px;
 }
 
 /* Button Shared Styling */
 .btn {
-display: inline-flex;
-align-items: center;
-justify-content: center;
-padding: 6px 12px;
-margin-top: 8px;
-border: none;
-border-radius: 6px;
-font-size: 0.8rem;
-font-weight: 500;
-cursor: pointer;
-transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
 }
 
 .btn:hover {
-transform: translateY(-1px);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .secondary-btn {
-background-color: #6b7280;
-color: #ffffff;
+  background-color: #6c757d;
+  color: #ffffff;
 }
 
 .secondary-btn:hover {
-background-color: #4b5563;
+  background-color: #5a6268;
 }
 
 .warning-btn {
-background-color: #f59e0b;
-color: #ffffff;
+  background-color: #f59e0b;
+  color: #ffffff;
 }
 
 .warning-btn:hover {
-background-color: #d97706;
+  background-color: #d97706;
 }
 
 .install-btn {
-background-color: #10b981;
-color: #ffffff;
+  background-color: #10b981;
+  color: #ffffff;
 }
 
 .install-btn:hover {
-background-color: #059669;
+  background-color: #059669;
 }
 
 /* Timecode Card Specific */
-.timecode-card .timecode-display {
-background-color: #f3f4f6;
-padding: 12px;
-border-radius: 6px;
-margin-bottom: 12px;
-border: 1px solid #e5e7eb;
+.timecode-timesource-flex {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.timecode-section,
+.timesource-section {
+  flex: 1;
+}
+
+.timecode-display {
+  background-color: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e9ecef;
 }
 
 .timecode {
-font-family: 'Courier New', Courier, monospace;
-font-size: 1.25rem;
-font-weight: 600;
-margin: 0 0 4px 0;
-text-align: center;
-color: #1f2937;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  text-align: center;
+  color: #1a1a1a;
 }
 
 .time-source {
-font-size: 0.75rem;
-text-align: center;
-margin: 0;
-color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+  margin: 0;
+  color: #6c757d;
 }
 
 /* Session Card Specific */
 .compact-user-info {
-background-color: #f9fafb;
-padding: 8px 12px;
-border-radius: 6px;
-margin-bottom: 8px;
-font-size: 0.8rem;
-border: 1px solid #e5e7eb;
+  background-color: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  border: 1px solid #e9ecef;
+}
+
+.user-email {
+  color: #1a1a1a;
+}
+
+.guest-text {
+  color: #6c757d;
 }
 
 .admin-badge {
-background-color: #f59e0b;
-color: #ffffff;
-padding: 2px 6px;
-border-radius: 4px;
-font-size: 0.7rem;
-margin-left: 4px;
-font-weight: 600;
+  background-color: #f59e0b;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-left: 8px;
+  font-weight: 600;
 }
 
 /* Section Divider */
 .section-divider {
-height: 1px;
-background-color: #e5e7eb;
-margin: 12px 0;
-width: 100%;
+  height: 1px;
+  background-color: #e9ecef;
+  margin: 16px 0;
+  width: 100%;
 }
 
 /* Storage Section */
 .usage-details {
-display: flex;
-justify-content: space-between;
-font-size: 0.75rem;
-margin-bottom: 6px;
-color: #6b7280;
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #6c757d;
+}
+
+.usage-text {
+  color: #1a1a1a;
 }
 
 .storage-actions {
-display: flex;
-gap: 8px;
-margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .usage-indicator {
-background-color: #f3f4f6;
-padding: 2px 6px;
-border-radius: 4px;
-font-size: 0.7rem;
-color: #10b981;
-font-weight: 500;
+  background-color: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
 }
 
 .usage-indicator.high-usage {
-color: #f59e0b;
+  color: #f59e0b;
 }
 
 /* Usage Bar */
 .usage-bar {
-height: 6px;
-background-color: #e5e7eb;
-border-radius: 3px;
-overflow: hidden;
-margin-bottom: 8px;
+  height: 8px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
 }
 
 .usage-fill {
-height: 100%;
-background-color: #10b981;
-transition: width 0.3s ease;
+  height: 100%;
+  background-color: #10b981;
+  transition: width 0.3s ease;
 }
 
 .usage-fill.high-usage {
-background-color: #f59e0b;
+  background-color: #f59e0b;
 }
 
 /* App Section */
-.app-status p {
-font-size: 0.8rem;
-margin: 0;
-color: #10b981;
+.app-status-text {
+  font-size: 16px;
+  margin: 0;
+  color: #10b981;
 }
 
 .install-unavailable {
-font-size: 0.8rem;
-color: #6b7280;
+  font-size: 16px;
+  color: #6c757d;
 }
 
 /* Footer Bottom */
 .footer-bottom {
-background-color: #f1f5f9;
-padding: 12px 0;
-text-align: center;
-font-size: 0.75rem;
-margin-top: 8px;
-color: #6b7280;
-border-top: 1px solid #e5e7eb;
+  background-color: #f8f9fa;
+  padding: 16px 0;
+  text-align: center;
+  font-size: 14px;
+  margin-top: 8px;
+  color: #6c757d;
+  border-top: 1px solid #e9ecef;
 }
 
-/* Responsive design */
-@media (max-width: 900px) {
-.footer-columns {
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto 1fr;
-}
-.timecode-timesource-flex {
-  flex-direction: column;
-  gap: 16px;
-}
+.copyright-text {
+  margin: 0;
+  color: #6c757d;
 }
 
-@media (max-width: 768px) {
-.container {
-  padding: 0 16px;
+/* Focus States for Accessibility */
+.btn:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
 }
 
-.footer-columns {
-  gap: 12px;
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .container {
+    padding: 0 24px;
+  }
+
+  .footer-columns {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .footer-card {
+    padding: 24px;
+  }
+
+  .timecode-timesource-flex {
+    flex-direction: row;
+    gap: 24px;
+  }
+
+  .timecode {
+    font-size: 24px;
+  }
+
+  .card-title {
+    font-size: 20px;
+  }
 }
 
-.footer-card {
-  padding: 12px;
-  min-width: 150px;
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .container {
+    padding: 0 32px;
+  }
+
+  .footer-columns {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .footer-card {
+    padding: 28px;
+  }
+
+  .timecode {
+    font-size: 28px;
+  }
+
+  .card-title {
+    font-size: 22px;
+  }
+
+  .btn {
+    padding: 14px 24px;
+    font-size: 16px;
+  }
 }
 
-.timecode {
-  font-size: 1.1rem;
-}
-}
-
-@media (max-width: 480px) {
-.container {
-  padding: 0 12px;
-}
-
-.footer-card {
-  padding: 10px;
-  min-width: 120px;
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .footer {
+    border-top-width: 2px;
+  }
+  
+  .footer-card,
+  .btn {
+    border-width: 2px;
+  }
 }
 
-.timecode {
-  font-size: 1rem;
-}
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  
+  .btn:hover {
+    transform: none;
+  }
+  
+  .btn:active {
+    transform: none;
+  }
+  
+  .usage-fill {
+    transition: none;
+  }
 }
 </style>

@@ -275,7 +275,7 @@ setup() {
 .logo-icon {
   font-size: 2rem; /* 32px - appropriate for mobile */
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));
-  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+  background: linear-gradient(135deg, #0066cc 0%, #5856D6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -305,9 +305,9 @@ setup() {
   display: inline-flex;
   align-items: center;
   gap: 8px; /* 4-point spacing */
-  background: rgba(245, 245, 247, 0.8);
+  background: rgba(248, 249, 250, 0.8);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(233, 236, 239, 0.8);
   border-radius: 8px; /* 4-point spacing */
   padding: 12px 16px; /* 4-point spacing */
   cursor: pointer;
@@ -320,8 +320,8 @@ setup() {
 }
 
 .version-badge:hover {
-  background: rgba(235, 235, 237, 0.9);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(233, 236, 239, 0.9);
+  border-color: rgba(222, 226, 230, 0.9);
   transform: translateY(-1px);
 }
 
@@ -421,8 +421,8 @@ setup() {
 
 .form-input:focus {
   outline: none;
-  border-color: #007AFF;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
   background: rgba(255, 255, 255, 0.95);
 }
 
@@ -471,7 +471,7 @@ setup() {
 .btn-primary {
   width: 100%;
   padding: 16px; /* 4-point spacing */
-  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+  background: linear-gradient(135deg, #0066cc 0%, #5856D6 100%);
   color: white;
   border: none;
   border-radius: 8px; /* 4-point spacing */
@@ -481,7 +481,7 @@ setup() {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
   /* Minimum touch size: 44×52px */
   min-height: 52px;
   line-height: 1.4;
@@ -489,7 +489,7 @@ setup() {
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
 }
 
 .btn-primary:active {
@@ -784,6 +784,29 @@ setup() {
   .btn-secondary:hover,
   .version-badge:hover {
     transform: none;
+  }
+}
+
+/* Focus States for Accessibility */
+.btn-primary:focus,
+.btn-secondary:focus,
+.version-badge:focus,
+.toggle-password-btn:focus,
+.modal-close:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .login-card {
+    border-width: 2px;
+  }
+  
+  .form-input,
+  .btn-primary,
+  .btn-secondary {
+    border-width: 2px;
   }
 }
 </style>

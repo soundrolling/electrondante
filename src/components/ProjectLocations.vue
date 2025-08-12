@@ -1,79 +1,75 @@
 <template>
 <div class="project-locations">
   <!-- ────────── header ────────── -->
-  <div class="header-section tight-header">
-    <div class="header-title-row center-header-row">
-      <h1>Manage Stages</h1>
-      <button class="icon-action" @click="openLocationsModal" title="Manage Stages">
-        <span class="icon">⚙️</span>
+  <header class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">Manage Stages</h1>
+      <button class="header-action-btn" @click="openLocationsModal" title="Manage Stages">
+        <span class="btn-icon">⚙️</span>
+        <span class="btn-text">Manage</span>
       </button>
     </div>
-  </div>
+  </header>
 
   <!-- ────────── loading / error ────────── -->
-  <div v-if="loading" class="loading-indicator">
-    <svg
-      class="spinner"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <circle
-        class="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        stroke-width="4"
-      />
-      <path
-        class="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v8H4z"
-      />
-    </svg>
-    <span class="loading-text">Loading...</span>
+  <div v-if="loading" class="loading-skeleton">
+    <div class="skeleton-header"></div>
+    <div class="skeleton-quick-access"></div>
+    <div class="skeleton-stages">
+      <div class="skeleton-stage"></div>
+      <div class="skeleton-stage"></div>
+      <div class="skeleton-stage"></div>
+    </div>
   </div>
+  
   <div v-if="error" class="error-message" role="alert">
-    <strong>Error:</strong> <span>{{ error }}</span>
+    <div class="error-icon">⚠️</div>
+    <div class="error-content">
+      <strong>Error:</strong> <span>{{ error }}</span>
+    </div>
   </div>
 
   <!-- ────────── project-level quick-access ────────── -->
-  <div class="project-quick-access" v-if="!loading && !error">
-    <h2 class="quick-access-title">Quick Access</h2>
-    <div class="quick-access-row">
-      <div class="qa-tile" @click="goToProjectArtistSchedule">
-        <span class="emoji">📗</span>
-        <span class="label">Artist Schedule</span>
-      </div>
-      <div class="qa-tile" @click="goToProjectDocs">
-        <span class="emoji">📂</span>
-        <span class="label">All Documents</span>
-      </div>
-      <div class="qa-tile" @click="goToProjectGear">
-        <span class="emoji">🎸</span>
-        <span class="label">Project Gear</span>
-      </div>
-      <div class="qa-tile" @click="goToProjectCalendar">
-        <span class="emoji">📅</span>
-        <span class="label">Calendar</span>
-      </div>
+  <section v-if="!loading && !error" class="quick-access-section">
+    <h2 class="section-title">Quick Access</h2>
+    <div class="quick-access-grid">
+      <button class="qa-tile" @click="goToProjectArtistSchedule">
+        <span class="qa-icon">📗</span>
+        <span class="qa-label">Artist Schedule</span>
+      </button>
+      <button class="qa-tile" @click="goToProjectDocs">
+        <span class="qa-icon">📂</span>
+        <span class="qa-label">All Documents</span>
+      </button>
+      <button class="qa-tile" @click="goToProjectGear">
+        <span class="qa-icon">🎸</span>
+        <span class="qa-label">Project Gear</span>
+      </button>
+      <button class="qa-tile" @click="goToProjectCalendar">
+        <span class="qa-icon">📅</span>
+        <span class="qa-label">Calendar</span>
+      </button>
     </div>
-  </div>
+  </section>
 
   <!-- ────────── stage-level quick-access ────────── -->
-  <div
-    class="stages-quick-access"
+  <section
     v-if="!loading && !error && filteredStagesMain.length"
+    class="stages-section"
   >
-    <h2 class="quick-access-title">Your Recording Stages</h2>
-    <input
-      class="search-input mb-3"
-      v-model="mainSearch"
-      placeholder="Search by stage or venue…"
-    />
-    <div class="stage-cards-container">
+    <div class="stages-header">
+      <h2 class="section-title">Your Recording Stages</h2>
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          class="search-input"
+          v-model="mainSearch"
+          placeholder="Search by stage or venue…"
+        />
+      </div>
+    </div>
+    
+    <div class="stages-grid">
       <div
         v-for="stage in filteredStagesMain"
         :key="stage.id"
@@ -81,230 +77,319 @@
       >
         <div class="stage-header">
           <h3 class="stage-title">
-            Stage: {{ stage.stage_name }}
-            <button
-              class="icon-button"
-              @click="openStageModal(stage)"
-              :title="`Edit ${stage.stage_name}`"
-              aria-label="Edit Stage"
-            >
-              <span class="emoji">✍️</span>
-            </button>
+            {{ stage.stage_name }}
           </h3>
+          <button
+            class="stage-edit-btn"
+            @click="openStageModal(stage)"
+            :title="`Edit ${stage.stage_name}`"
+            aria-label="Edit Stage"
+          >
+            <span class="btn-icon">✍️</span>
+          </button>
         </div>
-        <p class="venue-label">Venue: {{ stage.venue_name }}</p>
+        
+        <div class="stage-meta">
+          <div class="venue-info">
+            <span class="meta-icon">🏢</span>
+            <span class="venue-name">{{ stage.venue_name }}</span>
+          </div>
+        </div>
         
         <!-- Per-day Stage Hours -->
         <div class="stage-availability">
           <div class="availability-info">
-            <span v-if="getTodaySlot(stage.id)">
-              <span v-if="isStageOpenNow(stage.id)">🟢 Open now</span>
-              Today: {{ formatSlot(getTodaySlot(stage.id)) }}
+            <span v-if="getTodaySlot(stage.id)" class="availability-status">
+              <span v-if="isStageOpenNow(stage.id)" class="status-open">🟢 Open now</span>
+              <span class="availability-time">Today: {{ formatSlot(getTodaySlot(stage.id)) }}</span>
             </span>
-            <span v-else class="no-availability">Closed</span>
+            <span v-else class="status-closed">🔴 Closed</span>
           </div>
-          <button class="availability-button" @click="openViewAllHoursModal(stage)">
-            <span class="icon">🕒</span> Manage Hours
+          <button class="availability-btn" @click="openViewAllHoursModal(stage)">
+            <span class="btn-icon">🕒</span>
+            <span class="btn-text">Manage Hours</span>
           </button>
         </div>
-        <div class="quick-access-grid">
-          <div class="qa-tile" @click="goToLocationNotes(stage)">
-            <span class="emoji">📝</span><span class="label">Notes</span>
-          </div>
-          <div class="qa-tile" @click="goToSignalMapper(stage)">
-            <span class="emoji">🗺️</span><span class="label">Signal Mapper</span>
-          </div>
-          <div class="qa-tile" @click="goToGear(stage)">
-            <span class="emoji">🎸</span><span class="label">Gear</span>
-          </div>
-          <div class="qa-tile" @click="goToStagePictures(stage)">
-            <span class="emoji">🖼️</span><span class="label">Photos</span>
-          </div>
-          <div class="qa-tile" @click="goToStageDocs(stage)">
-            <span class="emoji">📄</span><span class="label">Documents</span>
-          </div>
+        
+        <div class="stage-actions">
+          <button class="stage-action-btn" @click="goToLocationNotes(stage)">
+            <span class="btn-icon">📝</span>
+            <span class="btn-text">Notes</span>
+          </button>
+          <button class="stage-action-btn" @click="goToSignalMapper(stage)">
+            <span class="btn-icon">🗺️</span>
+            <span class="btn-text">Signal Mapper</span>
+          </button>
+          <button class="stage-action-btn" @click="goToGear(stage)">
+            <span class="btn-icon">🎸</span>
+            <span class="btn-text">Gear</span>
+          </button>
+          <button class="stage-action-btn" @click="goToStagePictures(stage)">
+            <span class="btn-icon">🖼️</span>
+            <span class="btn-text">Photos</span>
+          </button>
+          <button class="stage-action-btn" @click="goToStageDocs(stage)">
+            <span class="btn-icon">📄</span>
+            <span class="btn-text">Documents</span>
+          </button>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div v-else-if="!loading && !error && !stages.length">
-    <p>No stages found. Click <strong>Edit Venues</strong> to create one.</p>
+  <div v-else-if="!loading && !error && !stages.length" class="empty-state">
+    <div class="empty-icon">🏗️</div>
+    <h3 class="empty-title">No stages found</h3>
+    <p class="empty-message">Click <strong>Manage Stages</strong> to create your first stage.</p>
   </div>
 
   <!-- ────────── Venue Modal ────────── -->
-  <transition name="fade">
-    <div v-if="showLocationsModal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header modal-header-row">
-          <h2>Manage Stages</h2>
-          <button class="close-button" @click="closeLocationsModal">×</button>
-        </div>
-        <div class="modal-tabs">
-          <button :class="['modal-tab', {active: modalTab==='edit'}]" @click="modalTab='edit'">Edit Venues</button>
-          <button :class="['modal-tab', {active: modalTab==='add'}]" @click="modalTab='add'">Add Venue</button>
-        </div>
-        <div class="modal-body">
-          <template v-if="modalTab==='add'">
-            <form class="modal-form-grid" @submit.prevent="createVenueWithStage">
+  <div v-if="showLocationsModal" class="modal-overlay" @click="closeLocationsModal">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title">Manage Stages</h2>
+        <button class="modal-close" @click="closeLocationsModal">✕</button>
+      </div>
+      
+      <div class="modal-tabs">
+        <button 
+          :class="['modal-tab', {active: modalTab==='edit'}]" 
+          @click="modalTab='edit'"
+        >
+          Edit Venues
+        </button>
+        <button 
+          :class="['modal-tab', {active: modalTab==='add'}]" 
+          @click="modalTab='add'"
+        >
+          Add Venue
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <template v-if="modalTab==='add'">
+          <form class="modal-form" @submit.prevent="createVenueWithStage">
+            <div class="form-grid">
               <div class="form-group">
-                <label>Venue Name</label>
-                <input v-model="newVenueName" placeholder="Enter Venue Name" />
+                <label for="newVenueName" class="form-label">Venue Name</label>
+                <input 
+                  id="newVenueName"
+                  v-model="newVenueName" 
+                  placeholder="Enter Venue Name" 
+                  class="form-input"
+                  required
+                />
               </div>
               <div class="form-group">
-                <label>City</label>
-                <input v-model="newVenueCity" placeholder="Enter City" />
+                <label for="newVenueCity" class="form-label">City</label>
+                <input 
+                  id="newVenueCity"
+                  v-model="newVenueCity" 
+                  placeholder="Enter City" 
+                  class="form-input"
+                  required
+                />
               </div>
               <div class="form-group">
-                <label>Country</label>
-                <input v-model="newVenueCountry" placeholder="Enter Country" />
+                <label for="newVenueCountry" class="form-label">Country</label>
+                <input 
+                  id="newVenueCountry"
+                  v-model="newVenueCountry" 
+                  placeholder="Enter Country" 
+                  class="form-input"
+                  required
+                />
               </div>
               <div class="form-group">
-                <label>First Stage (optional)</label>
-                <input v-model="newStageName" placeholder="First Stage Name (optional)" />
+                <label for="newStageName" class="form-label">First Stage (optional)</label>
+                <input 
+                  id="newStageName"
+                  v-model="newStageName" 
+                  placeholder="First Stage Name (optional)" 
+                  class="form-input"
+                />
               </div>
-              <div class="form-actions">
-                <button class="primary-button" type="submit">Save Venue</button>
-              </div>
-            </form>
-          </template>
-          <template v-else>
-            <div class="section-block">
-              <label for="venueSelection">
-                Select venue to edit, or
-                <button class="link-button" type="button" @click="modalTab='add'">create a new one</button>
-              </label>
-              <select
-                id="venueSelection"
-                v-model="selectedVenue"
-                class="input-field"
-                @change="handleVenueChange"
-              >
-                <option value="">-- Choose a venue --</option>
-                <option
-                  v-for="v in filteredVenues"
-                  :key="v.id"
-                  :value="v.id"
-                >
-                  {{ v.venue_name }}
-                </option>
-              </select>
             </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" type="submit">Save Venue</button>
+            </div>
+          </form>
+        </template>
+        
+        <template v-else>
+          <div class="venue-selection">
+            <label for="venueSelection" class="form-label">
+              Select venue to edit, or
+              <button class="link-btn" type="button" @click="modalTab='add'">create a new one</button>
+            </label>
+            <select
+              id="venueSelection"
+              v-model="selectedVenue"
+              class="form-select"
+              @change="handleVenueChange"
+            >
+              <option value="">-- Choose a venue --</option>
+              <option
+                v-for="v in filteredVenues"
+                :key="v.id"
+                :value="v.id"
+              >
+                {{ v.venue_name }}
+              </option>
+            </select>
+          </div>
 
-            <div v-if="selectedVenue && selectedVenue !== 'create'">
-              <div class="section-block">
-                <h3>Stages in this Venue</h3>
+          <div v-if="selectedVenue && selectedVenue !== 'create'" class="venue-editor">
+            <div class="stages-section">
+              <h3 class="subsection-title">Stages in this Venue</h3>
 
-                <table
-                  class="stages-table"
-                  v-if="filteredStagesForSelectedVenue.length"
+              <div v-if="filteredStagesForSelectedVenue.length" class="stages-list">
+                <div
+                  v-for="(s, idx) in filteredStagesForSelectedVenue"
+                  :key="s.id"
+                  class="stage-item"
                 >
-                  <thead>
-                    <tr>
-                      <th>Order</th>
-                      <th>Stage Name</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(s, idx) in filteredStagesForSelectedVenue"
-                      :key="s.id"
+                  <div class="stage-order">
+                    <button 
+                      class="order-btn" 
+                      @click="moveStage(s.id, -1)" 
+                      :disabled="idx === 0" 
+                      :aria-disabled="idx === 0" 
+                      title="Move Up"
                     >
-                      <td>
-                        <button class="icon-action order-btn" @click="moveStage(s.id, -1)" :disabled="idx === 0" :aria-disabled="idx === 0" title="Move Up">
-                          <span class="icon">▲</span>
-                        </button>
-                        <button class="icon-action order-btn" @click="moveStage(s.id, 1)" :disabled="idx === filteredStagesForSelectedVenue.length - 1" :aria-disabled="idx === filteredStagesForSelectedVenue.length - 1" title="Move Down">
-                          <span class="icon">▼</span>
-                        </button>
-                      </td>
-                      <td>{{ s.stage_name }}</td>
-                      <td>
-                        <button class="icon-action" @click="openStageModal(s)" title="Edit"><span class="icon">✏️</span></button>
-                        <button class="icon-action delete" @click="promptDeleteStageFromVenue(s.id)" title="Delete"><span class="icon">🗑️</span></button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <p v-else>No stages match your filter.</p>
-                <h4 class="mt-2">Add a Stage to This Venue</h4>
-                <input v-model="newStageName" placeholder="New Stage Name" />
-                <button
-                  class="secondary-button"
-                  @click="createStage"
-                  :disabled="!newStageName"
-                >
-                  Add Stage
-                </button>
+                      <span class="btn-icon">▲</span>
+                    </button>
+                    <button 
+                      class="order-btn" 
+                      @click="moveStage(s.id, 1)" 
+                      :disabled="idx === filteredStagesForSelectedVenue.length - 1" 
+                      :aria-disabled="idx === filteredStagesForSelectedVenue.length - 1" 
+                      title="Move Down"
+                    >
+                      <span class="btn-icon">▼</span>
+                    </button>
+                  </div>
+                  <div class="stage-name">{{ s.stage_name }}</div>
+                  <div class="stage-actions">
+                    <button class="action-btn" @click="openStageModal(s)" title="Edit">
+                      <span class="btn-icon">✏️</span>
+                    </button>
+                    <button class="action-btn delete" @click="promptDeleteStageFromVenue(s.id)" title="Delete">
+                      <span class="btn-icon">🗑️</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <hr />
-
-              <div class="section-block form-container">
-                <h3>Edit Venue Details</h3>
-                <p>
-                  <label>Venue Name:</label>
-                  <input v-model="editVenueNameValue" placeholder="New Venue Name" />
-                </p>
-                <p>
-                  <label>City:</label>
-                  <input v-model="editVenueCityValue" placeholder="New City" />
-                </p>
-                <p>
-                  <label>Country:</label>
-                  <input v-model="editVenueCountryValue" placeholder="New Country" />
-                </p>
-                <button class="primary-button" @click="updateVenue">
-                  Update Venue
-                </button>
-                <hr />
-                <div class="danger-zone">
-                  <p class="danger-text">
-                    Deleting this venue will permanently remove
-                    <strong>all stages</strong> associated with it.<br />
-                    <em>This action cannot be undone.</em>
-                  </p>
-                  <button class="delete-button" @click="promptDeleteVenue">
-                    Delete Venue ⚠️
+              
+              <p v-else class="no-stages">No stages match your filter.</p>
+              
+              <div class="add-stage">
+                <h4 class="add-stage-title">Add a Stage to This Venue</h4>
+                <div class="add-stage-form">
+                  <input 
+                    v-model="newStageName" 
+                    placeholder="New Stage Name" 
+                    class="form-input"
+                  />
+                  <button
+                    class="btn btn-secondary"
+                    @click="createStage"
+                    :disabled="!newStageName"
+                  >
+                    Add Stage
                   </button>
                 </div>
               </div>
             </div>
-          </template>
-        </div>
+
+            <div class="venue-details">
+              <h3 class="subsection-title">Edit Venue Details</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="editVenueName" class="form-label">Venue Name</label>
+                  <input 
+                    id="editVenueName"
+                    v-model="editVenueNameValue" 
+                    placeholder="New Venue Name" 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editVenueCity" class="form-label">City</label>
+                  <input 
+                    id="editVenueCity"
+                    v-model="editVenueCityValue" 
+                    placeholder="New City" 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editVenueCountry" class="form-label">Country</label>
+                  <input 
+                    id="editVenueCountry"
+                    v-model="editVenueCountryValue" 
+                    placeholder="New Country" 
+                    class="form-input"
+                  />
+                </div>
+              </div>
+              <button class="btn btn-primary" @click="updateVenue">
+                Update Venue
+              </button>
+            </div>
+            
+            <div class="danger-zone">
+              <h4 class="danger-title">⚠️ Danger Zone</h4>
+              <p class="danger-text">
+                Deleting this venue will permanently remove
+                <strong>all stages</strong> associated with it.<br />
+                <em>This action cannot be undone.</em>
+              </p>
+              <button class="btn btn-danger" @click="promptDeleteVenue">
+                Delete Venue
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
-  </transition>
+  </div>
 
   <!-- ────────── Stage Modal ────────── -->
-  <transition name="fade">
-    <div v-if="showStageModal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header modal-header-row">
-          <h2>Edit Stage</h2>
-          <button class="close-button" @click="closeStageModal">×</button>
-        </div>
-        <div class="modal-body">
-          <form class="edit-stage-form" @submit.prevent="saveStageEdit">
-            <div class="form-group">
-              <label><strong>Venue:</strong></label>
-              <span>{{ activeStage.venue_name }}</span>
-            </div>
-            <div class="form-group">
-              <label>Stage Name</label>
-              <input v-model="editStageNameValue" placeholder="New Stage Name" />
-            </div>
-            <div class="form-actions">
-              <button class="delete-button" type="button" @click="promptDeleteStage"><span class="icon" style="margin-right:0.4em;">⚠️</span>Delete Stage</button>
-              <button class="secondary-button" type="button" @click="closeStageModal">Cancel</button>
-              <button class="primary-button" type="submit">Save</button>
-            </div>
-          </form>
-        </div>
+  <div v-if="showStageModal" class="modal-overlay" @click="closeStageModal">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h2 class="modal-title">Edit Stage</h2>
+        <button class="modal-close" @click="closeStageModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form class="edit-stage-form" @submit.prevent="saveStageEdit">
+          <div class="form-group">
+            <label class="form-label"><strong>Venue:</strong></label>
+            <span class="venue-display">{{ activeStage.venue_name }}</span>
+          </div>
+          <div class="form-group">
+            <label for="editStageName" class="form-label">Stage Name</label>
+            <input 
+              id="editStageName"
+              v-model="editStageNameValue" 
+              placeholder="New Stage Name" 
+              class="form-input"
+              required
+            />
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-danger" type="button" @click="promptDeleteStage">
+              <span class="btn-icon">⚠️</span>
+              Delete Stage
+            </button>
+            <button class="btn btn-secondary" type="button" @click="closeStageModal">Cancel</button>
+            <button class="btn btn-primary" type="submit">Save Changes</button>
+          </div>
+        </form>
       </div>
     </div>
-  </transition>
+  </div>
 
   <!-- View All Hours Modal -->
   <transition name="fade">
@@ -1047,789 +1132,978 @@ setup() {
 </script>
 
 <style scoped>
+/* Base Styles - Mobile First */
 .project-locations {
-  max-width: 900px;
-  margin: 16px auto 0 auto;
-  padding: 16px 24px 20px 24px;
-  background-color: #f8f9fa;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-  border: 1.5px solid #e5e7eb;
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: #1a1a1a;
 }
 
-.header-section {
-  margin-top: 0;
-  padding-top: 0;
-}
-.header-section h1 {
-  font-size: 2rem;
-  text-align: center;
-  margin-bottom: 8px;
-  color: #1f2937;
+/* Typography Scale */
+.page-title {
+  font-size: 24px;
   font-weight: 700;
-}
-.header-section p {
-  text-align: center;
-  color: #64748b;
-  margin-bottom: 18px;
+  line-height: 1.3;
+  margin: 0;
+  color: #1a1a1a;
 }
 
-.loading-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 150px;
-}
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #eee;
-  border-top: 4px solid #10b981;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-.loading-text {
-  font-size: 1.2rem;
-  color: #10b981;
-}
-
-.error-message {
-  color: #ef4444;
-  margin-bottom: 15px;
-  text-align: center;
-  padding: 10px;
-  background-color: #fef2f2;
-  border-radius: 6px;
-  border: 1px solid #fecaca;
-}
-.success-message {
-  color: #10b981;
-  margin-bottom: 15px;
-  text-align: center;
-  padding: 10px;
-  background-color: #ecfdf5;
-  border-radius: 6px;
-  border: 1px solid #bbf7d0;
-}
-
-.top-actions {
-  text-align: center;
-  margin: 1.5rem 0 1rem 0;
-}
-.primary-button, .secondary-button, .edit-button, .delete-button {
-  border: none;
-  border-radius: 8px;
-  padding: 12px 18px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-  margin-top: 0.5rem;
-  box-sizing: border-box;
-}
-.primary-button {
-  background: #10b981;
-  color: #fff;
-}
-.primary-button:hover {
-  background: #059669;
-}
-.secondary-button {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: 1.5px solid #cbd5e1;
-}
-.secondary-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
-  border-color: #3b82f6;
-}
-.edit-button {
-  background: #fbbf24;
-  color: #222;
-  margin-right: 0.5rem;
-}
-.edit-button:hover {
-  background: #f59e42;
-}
-.delete-button {
-  background: #ef4444;
-  color: #fff;
-}
-.delete-button:hover {
-  background: #dc2626;
-}
-
-.quick-access-title {
-  font-size: 1.3rem;
-  text-align: center;
-  margin-bottom: 1rem;
-  color: #1f2937;
+.section-title {
+  font-size: 20px;
   font-weight: 600;
-}
-.quick-access-row {
-  display: flex;
-  flex-direction: row;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: nowrap;
-}
-.quick-access-row .qa-tile {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: none;
-  padding: 0.7rem 0.3rem;
-  font-size: 0.97rem;
-  white-space: normal;
-  text-align: center;
-  overflow: hidden;
-  border: 2px solid #2563eb;
-  border-radius: 8px;
-  background: #f1f5f9;
-  box-shadow: 0 1px 4px rgba(37,99,235,0.04);
-  cursor: pointer;
-  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
-}
-.quick-access-row .qa-tile:hover {
-  border-color: #1d4ed8;
-  background: #e0e7ef;
-  box-shadow: 0 2px 8px rgba(37,99,235,0.10);
-}
-.quick-access-row .emoji {
-  font-size: 1.2rem;
-  margin-bottom: 0.1rem;
-  display: block;
-}
-.quick-access-row .label {
-  font-size: 0.97rem;
-  display: block;
-  overflow: visible;
-  white-space: normal;
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
 }
 
-.stage-cards-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.2rem;
+.subsection-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
 }
 
-.stage-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 1.2rem 1rem 1rem 1rem;
-  display: flex;
-  flex-direction: column;
-  border: 1.5px solid #e5e7eb;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+/* Page Header */
+.page-header {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
 }
-.stage-header {
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-.stage-title {
-  font-size: 1.1rem;
-  margin: 0;
-  color: #222;
-  font-weight: 600;
-}
-.icon-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  border-radius: 6px;
-  padding: 2px 6px;
-  transition: background 0.2s;
-}
-.icon-button .emoji {
-  font-size: 1.2rem;
-}
-.icon-button:hover {
-  background: #f1f5f9;
-}
-.venue-label {
-  margin-top: 0.5rem;
-  color: #64748b;
-  font-size: 0.97rem;
+  gap: 16px;
 }
 
-.stage-availability {
-  margin: 0.75rem 0;
-  padding: 0.75rem;
-  background: #f8f9fa;
+.header-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #0066cc;
+  color: #ffffff;
+  border: none;
   border-radius: 8px;
-  border: 1.5px solid #e5e7eb;
-}
-.availability-info {
-  margin-bottom: 0.5rem;
-}
-.availability-times {
-  color: #10b981;
+  font-size: 16px;
   font-weight: 500;
-  font-size: 0.97rem;
-}
-.no-availability {
-  color: #95a5a6;
-  font-style: italic;
-  font-size: 0.97rem;
-}
-.availability-button {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.95rem;
-  transition: background 0.2s;
-}
-.availability-button:hover {
-  background: #1d4ed8;
+  transition: all 0.2s ease;
+  min-height: 44px;
 }
 
-.form-field label {
-  font-weight: 600;
-  margin-bottom: 0.3rem;
-  display: block;
-  color: #222;
+.header-action-btn:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
 }
-.form-field input,
-.form-field select,
-.input-field,
-.select-field {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1.5px solid #e5e7eb;
+
+.header-action-btn:active {
+  transform: scale(0.98);
+}
+
+.btn-icon {
+  font-size: 18px;
+}
+
+.btn-text {
+  font-size: 16px;
+}
+
+/* Loading Skeleton */
+.loading-skeleton {
+  padding: 16px;
+}
+
+.skeleton-header,
+.skeleton-quick-access,
+.skeleton-stages {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
   border-radius: 8px;
-  font-size: 1rem;
-  background: #fff;
-  color: #222;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  box-sizing: border-box;
-  margin-bottom: 0.5rem;
-}
-.form-field input:focus,
-.form-field select:focus,
-.input-field:focus,
-.select-field:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px #dbeafe;
-  outline: none;
+  margin-bottom: 16px;
 }
 
-.days-checkboxes {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-}
-.day-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.9rem;
+.skeleton-header {
+  height: 80px;
 }
 
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1rem;
+.skeleton-quick-access {
+  height: 120px;
 }
 
-.search-input {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 1rem;
-  background: #fff;
-  color: #222;
-  margin-bottom: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px #dbeafe;
-  outline: none;
-}
-
-/* Modal styles */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-.modal-content {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-  padding: 32px 40px 24px 40px;
-  min-width: 320px;
-  max-width: 95vw;
-  width: 100%;
+.skeleton-stages {
+  height: 400px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  align-items: stretch;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-.modal-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 8px;
-  width: 100%;
-  gap: 0.5rem;
-}
-.modal-header h2 {
-  margin: 0;
-  font-size: 1.25rem;
-  color: #1f2937;
-  text-align: center;
-}
-.close-button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  line-height: 1;
-  color: #64748b;
-  border-radius: 6px;
-  transition: background 0.2s;
-  padding: 2px 8px;
-}
-.close-button:hover {
-  background: #f1f5f9;
-  color: #1d4ed8;
-}
-.modal-body {
-  padding: 0.75rem 0 0 0;
-  width: 100%;
 }
 
-/* Form sections */
-.section-block {
-  margin-bottom: 1.2rem;
-}
-.form-container input,
-.input-field,
-.select-field {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1.5px solid #e5e7eb;
+.skeleton-stage {
+  flex: 1;
+  background: inherit;
   border-radius: 8px;
-  font-size: 1rem;
-  background: #fff;
-  color: #222;
-  margin-bottom: 0.5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  box-sizing: border-box;
-}
-.form-container input:focus,
-.input-field:focus,
-.select-field:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px #dbeafe;
-  outline: none;
 }
 
-.danger-zone {
-  margin-top: 1rem;
-}
-.danger-text {
-  color: #ef4444;
-  font-size: 0.97rem;
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.stages-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 0.5rem;
-  font-size: 1rem;
-}
-.stages-table th,
-.stages-table td {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e5e7eb;
-  text-align: left;
-}
-.stages-table th {
-  background: #f1f5f9;
-  color: #222;
-  font-weight: 600;
-}
-.stages-table tr:nth-child(even) td {
-  background: #f8fafc;
-}
-.stages-table td {
-  vertical-align: middle;
-}
-.stages-table td .icon-action {
-  font-size: 1.1rem;
-  padding: 0.18em 0.38em;
-  margin: 0 0.15em 0 0;
-  background: none;
-  color: #374151;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.18s;
-}
-.stages-table td .icon-action.delete {
-  color: #ef4444;
-}
-.stages-table td .icon-action:hover {
-  background: #f1f5f9;
-}
-.stages-table td .icon-action.delete:hover {
-  background: #ffeaea;
-}
-.stages-table td .icon {
-  font-size: 1.1em;
-}
-.stages-table td {
-  white-space: nowrap;
-}
-
-.mt-2 {
-  margin-top: 0.5rem;
-}
-.mt-3 {
-  margin-top: 1rem;
-}
-
-/* Fade transition */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.fade-enter-to,
-.fade-leave-from {
-  opacity: 1;
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-  .project-locations {
-    padding: 12px 2px 18px 2px;
-    max-width: 100vw;
-  }
-  .modal-content {
-    min-width: 0;
-    padding: 18px 16px 12px 16px;
-  }
-  .stage-cards-container {
-    grid-template-columns: 1fr;
-  }
-}
-
-.hours-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-}
-.hours-table th, .hours-table td {
-  border: 1px solid #e5e7eb;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-}
-.hours-table th {
-  background: #f1f5f9;
-  color: #222;
-  font-weight: 600;
-}
-.hours-table tr:nth-child(even) td {
-  background: #f8fafc;
-}
-
-.actions-cell {
+/* Error Message */
+.error-message {
   display: flex;
-  gap: 0.5rem;
-}
-.icon-action {
-  background: none;
-  color: #2563eb;
-  border: none;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
   border-radius: 8px;
-  padding: 0.4em 0.7em;
-  font-size: 1.5rem;
-  cursor: pointer;
-  margin-left: 0.5rem;
-  transition: background 0.18s, color 0.18s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-action:hover {
-  background: #f1f5f9;
-  color: #1d4ed8;
-}
-.icon-action.delete:hover {
-  background: #ffeaea;
-}
-.icon {
-  font-size: 1.2em;
-  vertical-align: middle;
+  margin-bottom: 24px;
+  color: #dc2626;
 }
 
-@media (max-width: 500px) {
-  .quick-access-row {
-    gap: 0.2rem;
-  }
-  .quick-access-row .qa-tile {
-    padding: 0.4rem 0.1rem;
-    font-size: 0.9rem;
-  }
-  .quick-access-row .emoji {
-    font-size: 1rem;
-  }
-  .quick-access-row .label {
-    font-size: 0.9rem;
-  }
+.error-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.error-content {
+  flex: 1;
+}
+
+/* Quick Access Section */
+.quick-access-section {
+  margin-bottom: 24px;
 }
 
 .quick-access-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
+
 .qa-tile {
-  background: #f1f5f9;
-  border-radius: 8px;
-  padding: 1rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 20px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background 0.2s;
-  border: 1.5px solid #e5e7eb;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  transition: all 0.2s ease;
+  min-height: 88px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
 }
+
 .qa-tile:hover {
-  background: #e0e7ef;
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
-.qa-tile .emoji {
-  font-size: 1.8rem;
-  margin-bottom: 0.5rem;
+
+.qa-tile:active {
+  transform: scale(0.98);
 }
-.qa-tile .label {
-  font-size: 1rem;
+
+.qa-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.qa-label {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+/* Stages Section */
+.stages-section {
+  margin-bottom: 24px;
+}
+
+.stages-header {
+  margin-bottom: 20px;
+}
+
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  font-size: 18px;
+  color: #6c757d;
+  z-index: 2;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px 12px 48px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  min-height: 44px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.stages-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stage-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.stage-card:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.stage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.stage-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.stage-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.stage-edit-btn:hover {
+  background: #e9ecef;
+  border-color: #0066cc;
+}
+
+.stage-meta {
+  margin-bottom: 16px;
+}
+
+.venue-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta-icon {
+  font-size: 18px;
+  width: 24px;
   text-align: center;
 }
 
-.tight-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.2rem;
+.venue-name {
+  color: #495057;
+  font-size: 16px;
 }
-.tight-header h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
+
+/* Stage Availability */
+.stage-availability {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.icon-action {
-  background: none;
-  color: #2563eb;
-  border: none;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
   border-radius: 8px;
-  padding: 0.4em 0.7em;
-  font-size: 1.5rem;
+  border: 1px solid #e9ecef;
+}
+
+.availability-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.availability-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-open {
+  color: #059669;
+  font-weight: 500;
+}
+
+.status-closed {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.availability-time {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.availability-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  margin-left: 0.5rem;
-  transition: background 0.18s, color 0.18s;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  color: #1a1a1a;
+}
+
+.availability-btn:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.availability-btn:active {
+  transform: scale(0.98);
+}
+
+/* Stage Actions */
+.stage-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stage-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 72px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.stage-action-btn:hover {
+  border-color: #0066cc;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.stage-action-btn:active {
+  transform: scale(0.98);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.empty-message {
+  font-size: 16px;
+  color: #6c757d;
+  margin-bottom: 24px;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.icon-action:hover {
-  background: #f1f5f9;
-  color: #1d4ed8;
+
+.modal-close:hover {
+  background: #f8f9fa;
+  color: #1a1a1a;
 }
 
 .modal-tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.2rem;
+  gap: 0;
+  border-bottom: 1px solid #e9ecef;
 }
+
 .modal-tab {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: none;
-  border-radius: 8px 8px 0 0;
-  padding: 0.6em 1.2em;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.18s, color 0.18s;
-}
-.modal-tab.active {
-  background: #fff;
-  color: #1f2937;
-  border-bottom: 2px solid #10b981;
-  z-index: 1;
-}
-
-.center-header-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 1.2rem;
-  width: 100%;
-}
-.header-title-row h1 {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: 700;
-  text-align: center;
-  line-height: 1.1;
-}
-
-.modal-header-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 0.5rem;
-}
-.link-button {
+  flex: 1;
+  padding: 16px;
   background: none;
   border: none;
-  color: #2563eb;
-  text-decoration: underline;
-  font-size: 1em;
+  font-size: 16px;
+  font-weight: 500;
+  color: #6c757d;
   cursor: pointer;
-  padding: 0;
-  margin-left: 0.2em;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  border-bottom: 2px solid transparent;
 }
-.link-button:hover {
-  color: #1d4ed8;
+
+.modal-tab:hover {
+  color: #0066cc;
+  background: #f8f9fa;
 }
-.modal-form-grid {
+
+.modal-tab.active {
+  color: #0066cc;
+  border-bottom-color: #0066cc;
+  background: #f8f9fa;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+/* Form Elements */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem 1.5rem;
-  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  gap: 16px;
 }
+
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-}
-@media (max-width: 600px) {
-  .modal-form-grid {
-    grid-template-columns: 1fr;
-    gap: 0.7rem 0;
-    padding: 0.5rem 0.1rem 0.5rem 0.1rem;
-  }
-}
-.form-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
 }
 
-.order-btn {
-  font-size: 1.1rem;
-  padding: 0.15em 0.32em;
-  margin: 0 0.08em 0 0;
-  background: none;
-  color: #374151;
-  border-radius: 6px;
+.form-label {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  min-height: 44px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
   border: none;
-  transition: background 0.18s, color 0.18s;
-}
-.order-btn[disabled], .order-btn[aria-disabled="true"] {
-  color: #cbd5e1;
-  cursor: not-allowed;
-  background: none;
-  opacity: 0.7;
-}
-.order-btn:hover:not([disabled]):not([aria-disabled="true"]) {
-  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #0066cc;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Link Button */
+.link-btn {
+  background: none;
+  border: none;
+  color: #0066cc;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  margin: 0;
+}
+
+.link-btn:hover {
+  color: #0052a3;
+}
+
+/* Venue Selection */
+.venue-selection {
+  margin-bottom: 24px;
+}
+
+.venue-selection .form-label {
+  margin-bottom: 12px;
+}
+
+/* Venue Editor */
+.venue-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.stages-section {
+  margin-bottom: 24px;
+}
+
+.stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stage-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.stage-order {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 32px;
+  min-width: 32px;
+  font-size: 14px;
+}
+
+.order-btn:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #0066cc;
+}
+
+.order-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stage-name {
+  flex: 1;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.stage-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.action-btn:hover {
+  background: #e9ecef;
+  border-color: #0066cc;
+}
+
+.action-btn.delete:hover {
+  background: #fef2f2;
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.no-stages {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+}
+
+.add-stage {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.add-stage-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+.add-stage-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.add-stage-form .form-input {
+  flex: 1;
+}
+
+/* Venue Details */
+.venue-details {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.venue-details .form-grid {
+  margin-bottom: 20px;
+}
+
+/* Danger Zone */
+.danger-zone {
+  padding: 20px;
+  background: #fef2f2;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.danger-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #dc2626;
+}
+
+.danger-text {
+  margin: 0 0 16px 0;
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Edit Stage Form */
 .edit-stage-form {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
-  margin-bottom: 1.2rem;
+  gap: 20px;
 }
-.edit-stage-form .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+
+.venue-display {
+  color: #6c757d;
+  font-style: italic;
 }
-.edit-stage-form label {
-  font-weight: 500;
-  color: #222;
+
+/* Focus States for Accessibility */
+.header-action-btn:focus,
+.qa-tile:focus,
+.stage-edit-btn:focus,
+.availability-btn:focus,
+.stage-action-btn:focus,
+.modal-close:focus,
+.modal-tab:focus,
+.form-input:focus,
+.form-select:focus,
+.btn:focus,
+.order-btn:focus,
+.action-btn:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
 }
-.edit-stage-form input {
-  width: 100%;
-  padding: 0.7rem;
-  font-size: 1rem;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
-  color: #222;
-  margin-top: 0.1rem;
-  box-sizing: border-box;
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .project-locations {
+    padding: 24px;
+  }
+
+  .page-title {
+    font-size: 28px;
+  }
+
+  .quick-access-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stage-actions {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+
+  .modal {
+    max-width: 600px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .add-stage-form {
+    flex-direction: row;
+    align-items: flex-end;
+  }
 }
-.edit-stage-form input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px #dbeafe;
-  outline: none;
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .project-locations {
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .page-title {
+    font-size: 32px;
+  }
+
+  .stages-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .modal {
+    max-width: 700px;
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
-.edit-stage-form .form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.7rem;
-  margin-top: 0.5rem;
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .stage-card,
+  .qa-tile,
+  .btn,
+  .form-input,
+  .form-select {
+    border-width: 2px;
+  }
 }
-.delete-button {
-  background: #ef4444;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 18px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-}
-.delete-button:hover {
-  background: #dc2626;
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .header-action-btn,
+  .qa-tile,
+  .stage-edit-btn,
+  .availability-btn,
+  .stage-action-btn,
+  .btn,
+  .order-btn,
+  .action-btn {
+    transition: none;
+  }
+  
+  .header-action-btn:hover,
+  .qa-tile:hover,
+  .stage-edit-btn:hover,
+  .availability-btn:hover,
+  .stage-action-btn:hover,
+  .btn:hover,
+  .order-btn:hover,
+  .action-btn:hover {
+    transform: none;
+  }
+  
+  .header-action-btn:active,
+  .qa-tile:active,
+  .stage-edit-btn:active,
+  .availability-btn:active,
+  .stage-action-btn:active,
+  .btn:active,
+  .order-btn:active,
+  .action-btn:active {
+    transform: none;
+  }
 }
 </style>

@@ -1,105 +1,139 @@
 <template>
-<div class="project-detail modern-detail">
-  <div v-if="isLoading" class="loading-indicator">
-    <p>Loading project...</p>
+<div class="project-detail">
+  <!-- Loading State -->
+  <div v-if="isLoading" class="loading-skeleton">
+    <div class="skeleton-header"></div>
+    <div class="skeleton-meta"></div>
+    <div class="skeleton-stages">
+      <div class="skeleton-stage"></div>
+      <div class="skeleton-stage"></div>
+      <div class="skeleton-stage"></div>
+    </div>
+    <div class="skeleton-actions">
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+      <div class="skeleton-action"></div>
+    </div>
   </div>
 
-  <div v-else-if="currentProject">
-    <!-- Title -->
-    <h2 class="project-title modern-title">
-      Project: {{ currentProject.project_name }}
-    </h2>
-
-    <!-- Project Details (location, build/show days) -->
-    <div class="project-meta-section">
-      <div v-if="currentProject.location" class="project-location">
-        <strong>Location:</strong> {{ currentProject.location }}
-      </div>
-      <div v-if="currentProject.official_website" class="project-website">
-        <a :href="currentProject.official_website" target="_blank" rel="noopener" class="website-link">
-          <strong>Website</strong>
-        </a>
-      </div>
-      <table v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="date-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th>Start</th>
-            <th>End</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="currentProject.build_days && currentProject.build_days.length">
-            <td><strong>Build</strong></td>
-            <td>{{ formatSingleDate(currentProject.build_days[0]) }}</td>
-            <td>{{ formatSingleDate(currentProject.build_days[currentProject.build_days.length-1]) }}</td>
-          </tr>
-          <tr v-if="currentProject.main_show_days && currentProject.main_show_days.length">
-            <td><strong>Show</strong></td>
-            <td>{{ formatSingleDate(currentProject.main_show_days[0]) }}</td>
-            <td>{{ formatSingleDate(currentProject.main_show_days[currentProject.main_show_days.length-1]) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Stage Shortcuts -->
-    <div v-if="stages.length" class="mini-stage-cards-section">
-      <h3 class="stage-shortcuts-title">Quick Access Stages</h3>
-      <div class="mini-stage-cards-row">
-        <div
-          v-for="stage in stages"
-          :key="stage.id"
-          class="mini-stage-card"
-          @click="openStageModal(stage)"
-          :tabindex="0"
-          @keydown.enter="openStageModal(stage)"
-        >
-          <div class="mini-stage-name">{{ stage.stage_name }}</div>
-          <div class="mini-stage-venue">{{ stage.venue_name }}</div>
+  <!-- Project Content -->
+  <div v-else-if="currentProject" class="project-content">
+    <!-- Header Section -->
+    <header class="project-header">
+      <h1 class="project-title">{{ currentProject.project_name }}</h1>
+      <div class="project-meta">
+        <div v-if="currentProject.location" class="meta-item">
+          <span class="meta-icon">📍</span>
+          <span class="meta-text">{{ currentProject.location }}</span>
+        </div>
+        <div v-if="currentProject.official_website" class="meta-item">
+          <span class="meta-icon">🌐</span>
+          <a :href="currentProject.official_website" target="_blank" rel="noopener" class="meta-link">
+            Official Website
+          </a>
         </div>
       </div>
-      <StageQuickAccessMenu
-        v-if="showStageModal && selectedStage"
-        :stage="selectedStage"
-        :project-id="currentProject.id"
-        :visible="showStageModal"
-        @close="closeStageModal"
-      />
-    </div>
+    </header>
 
-    <!-- Quick‑Access Tiles -->
-    <div class="quick-access-container modern-qa-grid">
-      <div class="qa-tile modern-qa-tile" @click="goToLocations">
-        <span class="emoji">🏢</span>
-        <span class="label">All Stages</span>
+    <!-- Date Timeline -->
+    <section v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="date-timeline">
+      <h2 class="section-title">Timeline</h2>
+      <div class="timeline-container">
+        <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-item">
+          <div class="timeline-icon build">🔨</div>
+          <div class="timeline-content">
+            <div class="timeline-label">Build Period</div>
+            <div class="timeline-dates">
+              {{ formatSingleDate(currentProject.build_days[0]) }} - {{ formatSingleDate(currentProject.build_days[currentProject.build_days.length-1]) }}
+            </div>
+          </div>
+        </div>
+        <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-item">
+          <div class="timeline-icon show">🎭</div>
+          <div class="timeline-content">
+            <div class="timeline-label">Show Period</div>
+            <div class="timeline-dates">
+              {{ formatSingleDate(currentProject.main_show_days[0]) }} - {{ formatSingleDate(currentProject.main_show_days[currentProject.main_show_days.length-1]) }}
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="qa-tile modern-qa-tile" @click="goToCalendar">
-        <span class="emoji">📆</span>
-        <span class="label">Calendar</span>
+    </section>
+
+    <!-- Quick Access Stages -->
+    <section v-if="stages.length" class="stages-section">
+      <h2 class="section-title">Quick Access Stages</h2>
+      <div class="stages-grid">
+        <button
+          v-for="stage in stages"
+          :key="stage.id"
+          class="stage-card"
+          @click="openStageModal(stage)"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+        >
+          <div class="stage-icon">🎪</div>
+          <div class="stage-info">
+            <div class="stage-name">{{ stage.stage_name }}</div>
+            <div class="stage-venue">{{ stage.venue_name }}</div>
+          </div>
+          <div class="stage-arrow">→</div>
+        </button>
       </div>
-      <div class="qa-tile modern-qa-tile" @click="goToTravelHub">
-        <span class="emoji">✈️</span>
-        <span class="label">Travel&nbsp;Hub</span>
+    </section>
+
+    <!-- Primary Actions -->
+    <section class="actions-section">
+      <h2 class="section-title">Project Tools</h2>
+      <div class="actions-grid">
+        <button class="action-button primary" @click="goToLocations">
+          <span class="action-icon">🏢</span>
+          <span class="action-label">All Stages</span>
+        </button>
+        <button class="action-button" @click="goToCalendar">
+          <span class="action-icon">📅</span>
+          <span class="action-label">Calendar</span>
+        </button>
+        <button class="action-button" @click="goToTravelHub">
+          <span class="action-icon">✈️</span>
+          <span class="action-label">Travel Hub</span>
+        </button>
+        <button class="action-button" @click="goToContacts">
+          <span class="action-icon">👥</span>
+          <span class="action-label">Contacts</span>
+        </button>
+        <button class="action-button" @click="goToSettings">
+          <span class="action-icon">⚙️</span>
+          <span class="action-label">Settings</span>
+        </button>
+        <button class="action-button" @click="goToProfile">
+          <span class="action-icon">👤</span>
+          <span class="action-label">Profile</span>
+        </button>
       </div>
-      <div class="qa-tile modern-qa-tile" @click="goToContacts">
-        <span class="emoji">👥</span>
-        <span class="label">Contacts</span>
-      </div>
-      <div class="qa-tile modern-qa-tile" @click="goToSettings">
-        <span class="emoji">⚙️</span>
-        <span class="label">Settings</span>
-      </div>
-      <div class="qa-tile modern-qa-tile" @click="goToProfile">
-        <span class="emoji">🙋‍♂️</span>
-        <span class="label">My&nbsp;Profile</span>
-      </div>
-    </div>
+    </section>
   </div>
 
-  <div v-else>
-    <p>Error loading project details.</p>
+  <!-- Error State -->
+  <div v-else class="error-state">
+    <div class="error-icon">⚠️</div>
+    <h2 class="error-title">Unable to Load Project</h2>
+    <p class="error-message">Please check your connection and try again.</p>
+    <button class="retry-button" @click="loadProject">
+      <span class="retry-icon">🔄</span>
+      Retry
+    </button>
   </div>
+
+  <!-- Stage Modal -->
+  <StageQuickAccessMenu
+    v-if="showStageModal && selectedStage"
+    :stage="selectedStage"
+    :project-id="currentProject?.id"
+    :visible="showStageModal"
+    @close="closeStageModal"
+  />
 </div>
 </template>
 
@@ -175,7 +209,6 @@ export default {
     function goToLocations() {
       router.push({ name: 'ProjectLocations', params: { id: currentProject.value.id } });
     }
-    // goToCallSheet removed
     function goToCalendar() {
       router.push({ name: 'Calendar', params: { id: currentProject.value.id } });
     }
@@ -189,12 +222,22 @@ export default {
       router.push({ name: 'ProjectSettings', params: { id: currentProject.value.id } });
     }
 
+    /* ---------------- Touch feedback ---------------- */
+    function handleTouchStart(event) {
+      event.currentTarget.classList.add('touch-active');
+    }
+    function handleTouchEnd(event) {
+      event.currentTarget.classList.remove('touch-active');
+    }
+
     /* ---------------- Stage navigation helpers ---------------- */
-    function goToLocationNotes(stage) {
-      router.push({
-        name: 'LocationNotes',
-        params: { id: currentProject.value.id, locationId: stage.id },
-      });
+    function openStageModal(stage) {
+      selectedStage.value = stage;
+      showStageModal.value = true;
+    }
+    function closeStageModal() {
+      showStageModal.value = false;
+      selectedStage.value = null;
     }
 
     function ordinal(n) {
@@ -210,15 +253,6 @@ export default {
       return `${weekday} ${day} ${month}`;
     }
 
-    function openStageModal(stage) {
-      selectedStage.value = stage;
-      showStageModal.value = true;
-    }
-    function closeStageModal() {
-      showStageModal.value = false;
-      selectedStage.value = null;
-    }
-
     return {
       isLoading,
       currentProject,
@@ -231,183 +265,482 @@ export default {
       goToContacts,
       goToSettings,
       /* stage navigation */
-      goToLocationNotes,
+      openStageModal,
+      closeStageModal,
       formatSingleDate,
       showStageModal,
       selectedStage,
-      openStageModal,
-      closeStageModal,
+      /* touch feedback */
+      handleTouchStart,
+      handleTouchEnd,
+      loadProject,
     };
   },
 };
 </script>
 
 <style scoped>
-.project-detail.modern-detail {
-  max-width: 900px;
-  margin: 32px auto;
-  padding: 32px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1px solid #e5e7eb;
-  font-family: 'Segoe UI', Arial, sans-serif;
-}
-.project-title.modern-title {
-  text-align: center;
-  font-size: 2.1rem;
-  margin-bottom: 10px;
-  color: #1f2937;
-  font-weight: 700;
-}
-.loading-indicator {
-  text-align: center;
-  margin-top: 50px;
-}
-.project-meta-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 24px;
-  gap: 6px;
-}
-.project-location {
-  color: #374151;
-  font-size: 1.05rem;
-  margin-bottom: 2px;
-}
-.project-website {
-  color: #374151;
-  font-size: 1.05rem;
-  margin-bottom: 2px;
-}
-.website-link {
-  color: #3b82f6;
-  text-decoration: none;
-}
-.date-table {
-  border-collapse: collapse;
-  margin-top: 4px;
-  margin-bottom: 4px;
-  font-size: 0.97rem;
-}
-.date-table th, .date-table td {
-  border: 1px solid #e5e7eb;
-  padding: 4px 8px;
-  text-align: left;
-}
-.date-table th {
-  background: #f1f5f9;
-  color: #222;
-  font-weight: 600;
-}
-.date-table tr:nth-child(even) td {
-  background: #f8fafc;
+/* Base Styles - Mobile First */
+.project-detail {
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: #1a1a1a;
 }
 
-/* Mini Stage Cards Row */
-.mini-stage-cards-section {
-  margin-bottom: 24px;
+/* Typography Scale */
+.project-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
 }
-.mini-stage-cards-row {
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+/* Loading Skeleton */
+.loading-skeleton {
+  padding: 16px;
+}
+
+.skeleton-header, .skeleton-meta, .skeleton-stages, .skeleton-actions {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.skeleton-header {
+  height: 32px;
+}
+
+.skeleton-meta {
+  height: 48px;
+}
+
+.skeleton-stages {
+  height: 120px;
   display: flex;
   gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: thin;
-}
-.mini-stage-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 10px 16px;
-  min-width: 140px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
-  cursor: pointer;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  transition: box-shadow 0.18s, border-color 0.18s;
-}
-.mini-stage-card:focus {
-  outline: 2px solid #3b82f6;
-}
-.mini-stage-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  border-color: #3b82f6;
-}
-.mini-stage-name {
-  font-weight: 600;
-  font-size: 1rem;
-  color: #1f2937;
-  margin-bottom: 2px;
-}
-.mini-stage-venue {
-  font-size: 0.92rem;
-  color: #64748b;
 }
 
-.quick-access-container.modern-qa-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 20px;
-  justify-items: center;
-  margin-top: 18px;
-}
-.qa-tile.modern-qa-tile {
-  background: #f1f5f9;
+.skeleton-stage {
+  flex: 1;
+  height: 100%;
+  background: inherit;
   border-radius: 8px;
-  width: 100%;
-  padding: 30px 0;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.skeleton-actions {
+  height: 200px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.skeleton-action {
+  height: 100%;
+  background: inherit;
+  border-radius: 8px;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Project Header */
+.project-header {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.project-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.meta-icon {
+  font-size: 18px;
+  width: 24px;
   text-align: center;
+}
+
+.meta-text {
+  color: #495057;
+}
+
+.meta-link {
+  color: #0066cc;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.meta-link:hover {
+  text-decoration: underline;
+}
+
+/* Date Timeline */
+.date-timeline {
+  margin-bottom: 24px;
+}
+
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.timeline-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.timeline-icon.build {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.timeline-icon.show {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.timeline-content {
+  flex: 1;
+}
+
+.timeline-label {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 16px;
+  margin-bottom: 4px;
+  color: #1a1a1a;
+}
+
+.timeline-dates {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+/* Stages Section */
+.stages-section {
+  margin-bottom: 24px;
+}
+
+.stages-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stage-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-align: left;
+  width: 100%;
+}
+
+.stage-card:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.stage-card:active,
+.stage-card.touch-active {
+  transform: scale(0.98);
+  background: #f8f9fa;
+}
+
+.stage-icon {
+  font-size: 24px;
+  width: 48px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.stage-info {
+  flex: 1;
+}
+
+.stage-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1a1a1a;
+  margin-bottom: 2px;
+}
+
+.stage-venue {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.stage-arrow {
+  font-size: 18px;
+  color: #6c757d;
+  font-weight: 300;
+}
+
+/* Actions Section */
+.actions-section {
+  margin-bottom: 24px;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.action-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid #e5e7eb;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.qa-tile.modern-qa-tile:hover {
-  background: #e0e7ef;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.qa-tile .emoji {
-  font-size: 2rem;
-  margin-bottom: 10px;
+  padding: 20px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 88px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
 }
 
-@media (max-width: 700px) {
-  .project-detail.modern-detail {
-    padding: 14px;
+.action-button:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.action-button:active {
+  transform: scale(0.98);
+  background: #f8f9fa;
+}
+
+.action-button.primary {
+  background: #0066cc;
+  color: #ffffff;
+  border-color: #0066cc;
+}
+
+.action-button.primary:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.action-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.action-label {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+/* Error State */
+.error-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.error-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.error-message {
+  font-size: 16px;
+  color: #6c757d;
+  margin-bottom: 24px;
+}
+
+.retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #0066cc;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  min-height: 44px;
+}
+
+.retry-button:hover {
+  background: #0052a3;
+}
+
+.retry-icon {
+  font-size: 18px;
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .project-detail {
+    padding: 24px;
+    max-width: 768px;
+    margin: 0 auto;
   }
-  .project-title.modern-title {
-    font-size: 1.2rem;
+
+  .project-title {
+    font-size: 28px;
   }
-  .mini-stage-cards-row {
-    gap: 8px;
+
+  .actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
-  .mini-stage-card {
-    min-width: 110px;
-    padding: 8px 8px;
+
+  .stages-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
   }
-  .mini-stage-name {
-    font-size: 0.95rem;
+
+  .timeline-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
   }
-  .mini-stage-venue {
-    font-size: 0.85rem;
+}
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .project-detail {
+    padding: 32px;
+    max-width: 1024px;
   }
-  .quick-access-container.modern-qa-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+
+  .project-title {
+    font-size: 32px;
   }
-  .qa-tile.modern-qa-tile {
-    padding: 18px 0;
-    font-size: 0.97rem;
+
+  .actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .stages-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .timeline-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .project-header {
+    padding: 24px;
+  }
+
+  .timeline-item {
+    padding: 20px;
+  }
+
+  .stage-card {
+    padding: 20px;
+  }
+
+  .action-button {
+    padding: 24px 20px;
+    min-height: 96px;
+  }
+}
+
+/* Focus States for Accessibility */
+.stage-card:focus,
+.action-button:focus,
+.retry-button:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .project-detail {
+    border: 2px solid #000000;
+  }
+  
+  .stage-card,
+  .action-button,
+  .timeline-item {
+    border-width: 2px;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .stage-card,
+  .action-button {
+    transition: none;
+  }
+  
+  .stage-card:active,
+  .stage-card.touch-active {
+    transform: none;
   }
 }
 </style>

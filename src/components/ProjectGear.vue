@@ -1,23 +1,23 @@
 <template>
-<div class="project-gear modern-bg">
-  <div class="gear-card">
-    <!-- TOP BAR -->
-    <header class="gear-topbar">
-      <button class="back-button" @click="goBack">← Back</button>
-    </header>
+<div class="project-gear">
+  <!-- TOP BAR -->
+  <header class="page-header">
+    <div class="header-content">
+      <button class="back-btn" @click="goBack">
+        <span class="btn-icon">←</span>
+        <span class="btn-text">Back</span>
+      </button>
+      <h1 class="page-title">Project Gear</h1>
+    </div>
+    <p class="page-subtitle">Manage and organize your project's gear efficiently.</p>
+  </header>
 
-    <!-- HEADER -->
-    <section class="header-section">
-      <h1>Project Gear</h1>
-      <p>Manage and organize your project's gear efficiently.</p>
-      <div class="section-divider"></div>
-    </section>
-
-    <!-- FILTER -->
+  <!-- FILTER -->
+  <section class="filter-section">
     <div class="filter-container">
-      <label for="filterAssignment" class="filter-label">Filter:</label>
+      <label for="filterAssignment" class="filter-label">Filter Gear:</label>
       <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
-        <option value="all">All</option>
+        <option value="all">All Gear</option>
         <option value="unassigned">Unassigned</option>
         <option value="assigned">Assigned</option>
         <option
@@ -29,539 +29,368 @@
         </option>
       </select>
     </div>
+  </section>
 
-    <!-- LOADING -->
-    <div v-if="loading" class="loading-indicator">
-      <svg class="spinner" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="spinner-track"/>
-        <path d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" class="spinner-head"/>
-      </svg>
-      <p class="loading-text">Loading gear...</p>
+  <!-- LOADING -->
+  <div v-if="loading" class="loading-skeleton">
+    <div class="skeleton-header"></div>
+    <div class="skeleton-filter"></div>
+    <div class="skeleton-gear">
+      <div class="skeleton-gear-item"></div>
+      <div class="skeleton-gear-item"></div>
+      <div class="skeleton-gear-item"></div>
     </div>
+  </div>
 
-    <!-- ERROR -->
-    <div v-if="error" class="error-message" role="alert">
+  <!-- ERROR -->
+  <div v-if="error" class="error-message" role="alert">
+    <div class="error-icon">⚠️</div>
+    <div class="error-content">
       <strong>Error:</strong> {{ error }}
     </div>
+  </div>
 
-    <!-- GEAR MANAGEMENT -->
-    <section v-else class="gear-management">
-      <div class="actions-header">
-        <h2>Gear List</h2>
-        <div class="actions-group">
-          <button class="btn btn-accent" @click="toggleAddGear">
-            <span class="btn-icon">➕</span> {{ showAddGearForm ? 'Hide Add Gear' : 'Add New Gear' }}
+  <!-- GEAR MANAGEMENT -->
+  <section v-else class="gear-management">
+    <div class="actions-header">
+      <h2 class="section-title">Gear List</h2>
+      <div class="actions-group">
+        <button class="btn btn-secondary" @click="toggleAddGear">
+          <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
+          <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
+        </button>
+        <button class="btn btn-primary" @click="openUserGearSelector">
+          <span class="btn-icon">👤</span>
+          <span class="btn-text">Add User Gear</span>
+        </button>
+        <button class="btn btn-warning" @click="openReorderModal">
+          <span class="btn-icon">↕️</span>
+          <span class="btn-text">Reorder</span>
+        </button>
+      </div>
+    </div>
+
+    <p class="tip-text">
+      Filter your gear by "All," "Unassigned," "Assigned," or a specific stage.
+    </p>
+
+    <!-- Gear Cards (Mobile-First) -->
+    <div class="gear-cards">
+      <div v-if="!filteredGearList.length" class="empty-state">
+        <div class="empty-icon">🎸</div>
+        <h3 class="empty-title">No gear found</h3>
+        <p class="empty-message">Add some gear to get started!</p>
+      </div>
+      
+      <div 
+        v-for="(gear, idx) in filteredGearList" 
+        :key="gear.id"
+        class="gear-card"
+        :class="{ 'user-gear': gear.is_user_gear }"
+      >
+        <div class="gear-header">
+          <div class="gear-name-section">
+            <h3 class="gear-name">{{ gear.gear_name }}</h3>
+            <div v-if="gear.is_user_gear" class="user-gear-indicator">
+              <span class="user-gear-badge">Personal</span>
+              <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
+            </div>
+          </div>
+          <div class="gear-type-badge">
+            {{ gear.gear_type || 'No type' }}
+          </div>
+        </div>
+        
+        <div class="gear-details">
+          <div class="detail-row">
+            <span class="detail-label">Available:</span>
+            <span class="detail-value">{{ gear.unassigned_amount }}/{{ gear.gear_amount }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Assigned:</span>
+            <span class="detail-value">{{ gear.total_assigned }}</span>
+          </div>
+          <div v-if="gear.vendor" class="detail-row">
+            <span class="detail-label">Vendor:</span>
+            <span class="detail-value">{{ gear.vendor }}</span>
+          </div>
+        </div>
+
+        <div class="gear-actions">
+          <button class="btn btn-info" @click="openGearInfoModal(gear)" title="Info">
+            <span class="btn-icon">ℹ️</span>
+            <span class="btn-text">Info</span>
           </button>
-          <button class="btn btn-primary" @click="openUserGearSelector">
-            <span class="btn-icon">👤</span> Add User Gear
+          <button class="btn btn-primary" @click="openAssignmentModal(gear)" title="Assign">
+            <span class="btn-icon">📋</span>
+            <span class="btn-text">Assign</span>
           </button>
-          <button class="btn btn-warning" @click="openReorderModal">
-            <span class="btn-icon">↕️</span> Reorder Gear
+          <button class="btn btn-secondary" @click="openEditModal(gear)" title="Edit">
+            <span class="btn-icon">✏️</span>
+            <span class="btn-text">Edit</span>
+          </button>
+          <button class="btn btn-danger" @click="confirmDelete(gear.id)" title="Delete">
+            <span class="btn-icon">🗑️</span>
+            <span class="btn-text">Delete</span>
           </button>
         </div>
       </div>
+    </div>
 
-      <p class="tip-text">
-        Filter your gear by "All," "Unassigned," "Assigned," or a specific stage.
-      </p>
-
-      <!-- Desktop Table View -->
-      <div class="table-wrapper desktop-only">
-        <table class="table modern-table">
-          <thead>
-            <tr>
-              <th>Gear Name</th>
-              <th>Type</th>
-              <th>Info</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(gear, idx) in filteredGearList"
-              :key="gear.id"
-              :class="{ stripe: idx % 2 === 1 }"
-            >
-              <td class="gear-name-cell">
-                <div class="gear-name">{{ gear.gear_name }}</div>
-                <div v-if="gear.is_user_gear" class="user-gear-indicator">
-                  <span class="user-gear-badge">Personal</span>
-                  <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
-                </div>
-              </td>
-              <td>{{ gear.gear_type || 'No type' }}</td>
-              <td>
-                <button class="btn btn-info btn-sm" @click="openGearInfoModal(gear)">
-                  <span class="info-icon">ℹ️</span>
-                  <span class="info-text">{{ gear.total_assigned }}/{{ gear.gear_amount }}</span>
-                </button>
-              </td>
-                          <td class="action-buttons">
-              <button class="btn btn-primary btn-sm" @click="openAssignmentModal(gear)" title="Assign/Edit">
-                <span class="btn-icon">📋</span>
-                <span class="btn-text desktop-only">Assign</span>
-              </button>
-              <button class="btn btn-secondary btn-sm" @click="openEditModal(gear)" title="Edit">
-                <span class="btn-icon">✏️</span>
-                <span class="btn-text desktop-only">Edit</span>
-              </button>
-              <button class="btn btn-danger btn-sm" @click="confirmDelete(gear.id)" title="Delete">
-                <span class="btn-icon">🗑️</span>
-                <span class="btn-text desktop-only">Delete</span>
-              </button>
-            </td>
-            </tr>
-            <tr v-if="!filteredGearList.length">
-              <td colspan="4" class="no-data">No gear found.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Mobile Card View -->
-      <div class="mobile-gear-cards mobile-only">
-        <div v-if="!filteredGearList.length" class="no-data-card">
-          <p>No gear found.</p>
+    <!-- ADD GEAR MODAL -->
+    <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Add New Gear</h3>
+          <button class="modal-close" @click="toggleAddGear">✕</button>
         </div>
-        <div 
-          v-for="(gear, idx) in filteredGearList" 
-          :key="gear.id"
-          class="gear-card-item"
-          :class="{ 'user-gear': gear.is_user_gear }"
-        >
-          <div class="gear-card-header">
-            <div class="gear-name-section">
-              <h3 class="gear-name">{{ gear.gear_name }}</h3>
-              <div v-if="gear.is_user_gear" class="user-gear-indicator">
-                <span class="user-gear-badge">Personal</span>
-                <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
-              </div>
+        <form @submit.prevent="addGear" class="modal-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="gearName" class="form-label">Gear Name<span class="required">*</span></label>
+              <input 
+                id="gearName"
+                v-model="gearName" 
+                required 
+                placeholder="Enter Gear Name" 
+                class="form-input"
+              />
             </div>
-            <div class="gear-type-badge">
-              {{ gear.gear_type || 'No type' }}
+            <div class="form-group">
+              <label for="gearType" class="form-label">Type<span class="required">*</span></label>
+              <select id="gearType" v-model="gearType" required class="form-select">
+                <option disabled value="">Select type</option>
+                <option value="source">Source (Microphones)</option>
+                <option value="transformer">Transformer</option>
+                <option value="recorder">Recorder</option>
+              </select>
             </div>
-          </div>
-          
-          <div class="gear-card-details">
-            <div class="detail-row">
-              <span class="detail-label">Available:</span>
-              <span class="detail-value">{{ gear.unassigned_amount }}/{{ gear.gear_amount }}</span>
+            <div class="form-group">
+              <label for="gearAmount" class="form-label">Amount<span class="required">*</span></label>
+              <input 
+                id="gearAmount"
+                v-model="gearAmount" 
+                type="number" 
+                min="1" 
+                required 
+                placeholder="1" 
+                class="form-input"
+              />
             </div>
-            <div class="detail-row">
-              <span class="detail-label">Assigned:</span>
-              <span class="detail-value">{{ gear.total_assigned }}</span>
-            </div>
-            <div v-if="gear.vendor" class="detail-row">
-              <span class="detail-label">Vendor:</span>
-              <span class="detail-value">{{ gear.vendor }}</span>
-            </div>
-          </div>
-
-          <div class="gear-card-actions">
-            <button class="btn btn-info btn-sm" @click="openGearInfoModal(gear)" title="Info">
-              <span class="btn-icon">ℹ️</span>
-              <span class="btn-text">Info</span>
-            </button>
-            <button class="btn btn-primary btn-sm" @click="openAssignmentModal(gear)" title="Assign">
-              <span class="btn-icon">📋</span>
-              <span class="btn-text">Assign</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" @click="openEditModal(gear)" title="Edit">
-              <span class="btn-icon">✏️</span>
-              <span class="btn-text">Edit</span>
-            </button>
-            <button class="btn btn-danger btn-sm" @click="confirmDelete(gear.id)" title="Delete">
-              <span class="btn-icon">🗑️</span>
-              <span class="btn-text">Delete</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ADD GEAR MODAL -->
-      <transition name="fade">
-        <div v-if="showAddGearForm" class="modal-backdrop">
-          <div class="modal-content">
-            <h3>Add New Gear</h3>
-            <form @submit.prevent="addGear" class="form-stack">
-              <div class="form-group">
-                <label>Gear Name<span>*</span></label>
-                <input v-model="gearName" required placeholder="Enter Gear Name" />
-              </div>
-              <div class="form-group">
-                <label>Type<span>*</span></label>
-                <select v-model="gearType" required>
-                  <option disabled value="">Select type</option>
-                  <option value="source">Source (Microphones)</option>
-                  <option value="transformer">Transformer</option>
-                  <option value="recorder">Recorder</option>
-                </select>
-              </div>
-
-              <template v-if="gearType !== 'source'">
-                <div class="form-group">
-                  <label>Max Inputs<span>*</span></label>
-                  <input
-                    type="number"
-                    v-model.number="gearNumInputs"
-                    min="0"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label>Max Outputs<span>*</span></label>
-                  <input
-                    type="number"
-                    v-model.number="gearNumOutputs"
-                    :min="gearType==='recorder'?1:0"
-                    required
-                  />
-                </div>
-              </template>
-
-              <template v-if="gearType === 'recorder'">
-                <div class="form-group">
-                  <label>Number of Record Tracks<span>*</span></label>
-                  <input
-                    type="number"
-                    v-model.number="gearNumRecords"
-                    min="1"
-                    required
-                  />
-                </div>
-              </template>
-
-              <div class="form-group">
-                <label>Total Amount<span>*</span></label>
-                <input
-                  type="number"
-                  v-model.number="gearAmount"
-                  min="1"
-                  required
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" v-model="isRented" />
-                  <span>Is Rented?</span>
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label>Vendor / Owner</label>
-                <input v-model="vendor" placeholder="Enter Vendor or Owner" />
-              </div>
-
-              <div class="form-group">
-                <label>Assign to Stage (optional)</label>
-                <select v-model="selectedLocationId">
-                  <option value="">-- None --</option>
-                  <option
-                    v-for="loc in locationsList"
-                    :key="loc.id"
-                    :value="String(loc.id)"
-                  >
-                    {{ loc.stage_name }} ({{ loc.venue_name }})
-                  </option>
-                </select>
-              </div>
-
-              <div v-if="selectedLocationId" class="form-group">
-                <label>Assign Immediately</label>
-                <input
-                  type="number"
-                  v-model.number="immediateAssignedAmount"
-                  :max="gearAmount"
-                  min="0"
-                />
-              </div>
-
-              <div v-if="formError" class="form-error">{{ formError }}</div>
-
-              <div class="form-actions">
-                <button type="button" class="btn btn-secondary" @click="toggleAddGear">
-                  Cancel
-                </button>
-                <button type="submit" :disabled="loading" class="btn btn-success">
-                  Add Gear
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </transition>
-
-      <!-- ASSIGNMENT MODAL -->
-      <transition name="fade">
-        <div v-if="assignmentModalVisible" class="modal-backdrop">
-          <div class="modal-content">
-            <h3>Assign Gear: {{ currentAssignmentGear.gear_name }}</h3>
-            <p class="available-text">
-              Available: {{ currentAssignmentGear.unassigned_amount }}
-            </p>
-            <form @submit.prevent="saveGearAssignments" class="form-stack">
-              <div class="form-group" v-for="loc in locationsList" :key="loc.id">
-                <label :for="'assign-'+loc.id">
-                  {{ loc.stage_name }} ({{ loc.venue_name }})
-                </label>
-                <input
-                  :id="'assign-'+loc.id"
-                  type="number"
-                  v-model.number="gearAssignments[loc.id]"
-                  :max="calcMaxAssignment(loc.id)"
-                  min="0"
-                />
-              </div>
-              <div class="form-actions">
-                <button type="button" class="btn btn-secondary" @click="closeAssignmentModal">
-                  Cancel
-                </button>
-                <button type="submit" class="btn btn-success">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </transition>
-
-      <!-- EDIT GEAR MODAL -->
-      <transition name="fade">
-        <div v-if="editModalVisible" class="modal-backdrop">
-          <div class="modal-content">
-            <h3>Edit Gear: {{ currentEditGear.gear_name }}</h3>
-            <form @submit.prevent="saveEdit" class="form-stack">
-              <div class="form-group">
-                <label>Name<span>*</span></label>
-                <input v-model="editGearName" required />
-              </div>
-              <div class="form-group">
-                <label>Type<span>*</span></label>
-                <select v-model="editGearType" required>
-                  <option value="source">Source (Microphones)</option>
-                  <option value="transformer">Transformer</option>
-                  <option value="recorder">Recorder</option>
-                </select>
-              </div>
-
-              <template v-if="editGearType !== 'source'">
-                <div class="form-group">
-                  <label>Max Inputs<span>*</span></label>
-                  <input
-                    type="number"
-                    v-model.number="editNumInputs"
-                    min="0"
-                    required
-                  />
-                </div>
-                <div class="form-group">
-                  <label>Max Outputs<span>*</span></label>
-                  <input
-                    type="number"
-                    v-model.number="editNumOutputs"
-                    :min="editGearType==='recorder'?1:0"
-                    required
-                  />
-                </div>
-              </template>
-
-              <template v-if="editGearType === 'recorder'">
-                <div class="form-group">
-                  <label>Number of Record Tracks<span>*</span></label>
-                  <input
-                    type="number"
-                    v-model.number="editNumRecords"
-                    min="1"
-                    required
-                  />
-                </div>
-              </template>
-
-              <div class="form-group">
-                <label>Total Amount<span>*</span></label>
-                <input
-                  type="number"
-                  v-model.number="editGearAmount"
-                  min="1"
-                  required
-                />
-              </div>
-
-              <div class="form-group">
-                <label>Vendor / Owner</label>
-                <input v-model="editVendor" placeholder="Enter Vendor or Owner" />
-              </div>
-
-              <div class="form-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" v-model="editIsRented" />
-                  <span>Is Rented?</span>
-                </label>
-              </div>
-
-              <div class="form-actions">
-                <button class="btn btn-secondary" @click="closeEditModal">
-                  Cancel
-                </button>
-                <button type="submit" :disabled="loading" class="btn btn-success">
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </transition>
-
-      <!-- REORDER GEAR MODAL -->
-      <transition name="fade">
-        <div v-if="reorderModalVisible" class="modal-backdrop">
-          <div class="modal-content">
-            <h3>Reorder Gear</h3>
-            <ul class="reorder-list">
-              <li v-for="(g, idx) in reorderList" :key="g.id" class="reorder-item">
-                <span>{{ g.gear_name }}</span>
-                <div class="reorder-buttons">
-                  <button
-                    class="btn btn-light btn-sm"
-                    @click="moveInReorder(idx, -1)"
-                    :disabled="idx===0"
-                  >↑</button>
-                  <button
-                    class="btn btn-light btn-sm"
-                    @click="moveInReorder(idx, 1)"
-                    :disabled="idx===reorderList.length-1"
-                  >↓</button>
-                </div>
-              </li>
-            </ul>
-            <div class="form-actions">
-              <button class="btn btn-secondary" @click="closeReorderModal">
-                Cancel
-              </button>
-              <button class="btn btn-success" @click="saveReorder">
-                Save Order
-              </button>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- GEAR INFO MODAL -->
-      <transition name="fade">
-        <div v-if="gearInfoModalVisible" class="modal-backdrop">
-          <div class="modal-content gear-info-modal">
-            <div class="modal-header">
-              <h3>Gear Details: {{ currentGearInfo.gear_name }}</h3>
-              <button class="modal-close" @click="closeGearInfoModal">×</button>
-            </div>
-            <div class="modal-body">
-              <div class="gear-info-grid">
-                <div class="info-section">
-                  <h4>Basic Information</h4>
-                  <div class="info-row">
-                    <span class="info-label">Type:</span>
-                    <span class="info-value">{{ currentGearInfo.gear_type }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">Total Amount:</span>
-                    <span class="info-value">{{ currentGearInfo.gear_amount }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">Assigned:</span>
-                    <span class="info-value">{{ currentGearInfo.total_assigned }}</span>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">Unassigned:</span>
-                    <span class="info-value">{{ currentGearInfo.unassigned_amount }}</span>
-                  </div>
-                  <div v-if="currentGearInfo.num_inputs !== undefined" class="info-row">
-                    <span class="info-label">Max Inputs:</span>
-                    <span class="info-value">{{ currentGearInfo.num_inputs }}</span>
-                  </div>
-                  <div v-if="currentGearInfo.num_outputs !== undefined" class="info-row">
-                    <span class="info-label">Max Outputs:</span>
-                    <span class="info-value">{{ currentGearInfo.num_outputs }}</span>
-                  </div>
-                  <div v-if="currentGearInfo.num_records" class="info-row">
-                    <span class="info-label">Record Tracks:</span>
-                    <span class="info-value">{{ currentGearInfo.num_records }}</span>
-                  </div>
-                </div>
-
-                <div class="info-section">
-                  <h4>Ownership</h4>
-                  <div v-if="currentGearInfo.is_user_gear" class="info-row">
-                    <span class="info-label">Type:</span>
-                    <span class="info-value user-gear-type">Personal Gear</span>
-                  </div>
-                  <div v-if="currentGearInfo.is_user_gear" class="info-row">
-                    <span class="info-label">Owner:</span>
-                    <span class="info-value">{{ currentGearInfo.owner_name || 'Unknown' }}</span>
-                  </div>
-                  <div v-if="currentGearInfo.owner_company" class="info-row">
-                    <span class="info-label">Company:</span>
-                    <span class="info-value">{{ currentGearInfo.owner_company }}</span>
-                  </div>
-                  <div v-if="!currentGearInfo.is_user_gear" class="info-row">
-                    <span class="info-label">Type:</span>
-                    <span class="info-value project-gear-type">Project Gear</span>
-                  </div>
-                  <div v-if="!currentGearInfo.is_user_gear && currentGearInfo.vendor" class="info-row">
-                    <span class="info-label">Vendor:</span>
-                    <span class="info-value">{{ currentGearInfo.vendor }}</span>
-                  </div>
-                  <div v-if="currentGearInfo.is_rented" class="info-row">
-                    <span class="info-label">Status:</span>
-                    <span class="info-value rented-status">Rented</span>
-                  </div>
-                </div>
-
-                <div class="info-section">
-                  <h4>Assignments</h4>
-                  <div v-if="Object.keys(currentGearInfo.assignments || {}).length === 0" class="info-row">
-                    <span class="info-value no-assignments">No assignments</span>
-                  </div>
-                  <div v-else v-for="(amount, locationId) in currentGearInfo.assignments" :key="locationId" class="info-row">
-                    <span class="info-label">{{ getLocationName(locationId) }}:</span>
-                    <span class="info-value">{{ amount }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- USER GEAR SELECTOR MODAL -->
-      <transition name="fade">
-        <div v-if="showUserGearSelector" class="modal-backdrop">
-          <div class="modal-content user-gear-modal">
-            <div class="modal-header">
-              <h3>Add User Gear to Project</h3>
-              <button class="modal-close" @click="closeUserGearSelector">×</button>
-            </div>
-            <div class="modal-body">
-              <UserGearSelector
-                :project-id="currentProject?.id"
-                @gear-selected="handleUserGearSelected"
-                @gear-added="handleUserGearAdded"
+            <div class="form-group">
+              <label for="gearVendor" class="form-label">Vendor</label>
+              <input 
+                id="gearVendor"
+                v-model="gearVendor" 
+                placeholder="Vendor name (optional)" 
+                class="form-input"
               />
             </div>
           </div>
-        </div>
-      </transition>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add Gear</button>
+            <button type="button" @click="toggleAddGear" class="btn btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      <!-- EXPORT BUTTON -->
-      <button
-        @click="exportGearToPDF"
-        class="btn btn-success full-width mt-2"
-        :disabled="gearList.length===0 || loading"
-      >
-        Export Gear List to PDF
-      </button>
-    </section>
-  </div>
+    <!-- GEAR INFO MODAL -->
+    <div v-if="showGearInfoModal" class="modal-overlay" @click="closeGearInfoModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Gear Information</h3>
+          <button class="modal-close" @click="closeGearInfoModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="selectedGear" class="gear-info">
+            <div class="info-section">
+              <h4 class="info-title">Basic Details</h4>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Name:</span>
+                  <span class="info-value">{{ selectedGear.gear_name }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Type:</span>
+                  <span class="info-value">{{ selectedGear.gear_type || 'No type' }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Total Amount:</span>
+                  <span class="info-value">{{ selectedGear.gear_amount }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Available:</span>
+                  <span class="info-value">{{ selectedGear.unassigned_amount }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Assigned:</span>
+                  <span class="info-value">{{ selectedGear.total_assigned }}</span>
+                </div>
+                <div v-if="selectedGear.vendor" class="info-item">
+                  <span class="info-label">Vendor:</span>
+                  <span class="info-value">{{ selectedGear.vendor }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="selectedGear.assignments && selectedGear.assignments.length" class="info-section">
+              <h4 class="info-title">Current Assignments</h4>
+              <div class="assignments-list">
+                <div 
+                  v-for="assignment in selectedGear.assignments" 
+                  :key="assignment.id"
+                  class="assignment-item"
+                >
+                  <div class="assignment-header">
+                    <span class="assignment-stage">{{ assignment.stage_name }}</span>
+                    <span class="assignment-amount">{{ assignment.amount }}</span>
+                  </div>
+                  <div class="assignment-details">
+                    <span class="assignment-venue">{{ assignment.venue_name }}</span>
+                    <span class="assignment-dates">{{ formatDateRange(assignment.start_date, assignment.end_date) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASSIGNMENT MODAL -->
+    <div v-if="showAssignmentModal" class="modal-overlay" @click="closeAssignmentModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Assign Gear</h3>
+          <button class="modal-close" @click="closeAssignmentModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="selectedGear" class="assignment-form">
+            <div class="gear-summary">
+              <h4 class="gear-summary-title">{{ selectedGear.gear_name }}</h4>
+              <div class="gear-summary-details">
+                <span class="summary-item">Available: {{ selectedGear.unassigned_amount }}</span>
+                <span class="summary-item">Total: {{ selectedGear.gear_amount }}</span>
+              </div>
+            </div>
+
+            <form @submit.prevent="saveAssignment" class="assignment-form-content">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="assignmentStage" class="form-label">Stage<span class="required">*</span></label>
+                  <select id="assignmentStage" v-model="assignmentStageId" required class="form-select">
+                    <option value="">Select a stage</option>
+                    <option
+                      v-for="location in locationsList"
+                      :key="location.id"
+                      :value="location.id"
+                    >
+                      {{ location.stage_name }} ({{ location.venue_name }})
+                    </option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="assignmentAmount" class="form-label">Amount<span class="required">*</span></label>
+                  <input 
+                    id="assignmentAmount"
+                    v-model="assignmentAmount" 
+                    type="number" 
+                    min="1" 
+                    :max="selectedGear.unassigned_amount"
+                    required 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="assignmentStartDate" class="form-label">Start Date<span class="required">*</span></label>
+                  <input 
+                    id="assignmentStartDate"
+                    v-model="assignmentStartDate" 
+                    type="date" 
+                    required 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="assignmentEndDate" class="form-label">End Date<span class="required">*</span></label>
+                  <input 
+                    id="assignmentEndDate"
+                    v-model="assignmentEndDate" 
+                    type="date" 
+                    required 
+                    class="form-input"
+                  />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Assignment</button>
+                <button type="button" @click="closeAssignmentModal" class="btn btn-secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDIT GEAR MODAL -->
+    <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Edit Gear</h3>
+          <button class="modal-close" @click="closeEditModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="selectedGear" class="edit-form">
+            <form @submit.prevent="saveEdit" class="edit-form-content">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="editGearName" class="form-label">Gear Name<span class="required">*</span></label>
+                  <input 
+                    id="editGearName"
+                    v-model="editGearName" 
+                    required 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editGearType" class="form-label">Type<span class="required">*</span></label>
+                  <select id="editGearType" v-model="editGearType" required class="form-select">
+                    <option value="source">Source (Microphones)</option>
+                    <option value="transformer">Transformer</option>
+                    <option value="recorder">Recorder</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="editGearAmount" class="form-label">Amount<span class="required">*</span></label>
+                  <input 
+                    id="editGearAmount"
+                    v-model="editGearAmount" 
+                    type="number" 
+                    min="1" 
+                    required 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editGearVendor" class="form-label">Vendor</label>
+                  <input 
+                    id="editGearVendor"
+                    v-model="editGearVendor" 
+                    class="form-input"
+                  />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" @click="closeEditModal" class="btn btn-secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 </template>
 
@@ -1187,506 +1016,805 @@ setup() {
 </script>
 
 <style scoped>
-/* Modern background and card */
-.modern-bg {
-  background: #f3f4f6;
+/* Base Styles - Mobile First */
+.project-gear {
   min-height: 100vh;
-  padding: 2.5rem 0;
-}
-.gear-card {
-  background: #fff;
-  border-radius: 1.25rem;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 1.5px 4px rgba(0,0,0,0.03);
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2.5rem 2rem 2rem 2rem;
+  background: #ffffff;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: #1a1a1a;
 }
 
-body, .project-gear {
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 1.08rem;
-  color: #222;
+/* Typography Scale */
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0;
+  color: #1a1a1a;
 }
 
-.section-divider {
-  border-bottom: 1.5px solid #e5e7eb;
-  margin: 1.5rem 0 0.5rem 0;
+.page-subtitle {
+  font-size: 16px;
+  color: #6c757d;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
 }
 
-.header-section h1 {
-  font-size: 2.1rem;
-  font-weight: 800;
-  margin: 0.5rem 0 0.25rem;
-  letter-spacing: -1px;
-}
-.header-section p {
-  color: #6b7280;
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
-}
-
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 1.3rem;
-  border: none;
-  border-radius: 0.7rem;
-  font-size: 1.05rem;
+.section-title {
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+/* Page Header */
+.page-header {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.18s, box-shadow 0.18s, color 0.18s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  transition: all 0.2s ease;
+  min-height: 44px;
+  color: #1a1a1a;
 }
-.btn-sm {
-  padding: 0.45rem 0.8rem;
-  font-size: 0.98rem;
+
+.back-btn:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
-.btn-primary   { background: #2563eb; color: #fff; }
-.btn-primary:hover, .btn-primary:focus { background: #1d4ed8; }
-.btn-accent    { background: #0ea5e9; color: #fff; }
-.btn-accent:hover, .btn-accent:focus { background: #0369a1; }
-.btn-success   { background: #22c55e; color: #fff; }
-.btn-success:hover, .btn-success:focus { background: #16a34a; }
-.btn-warning   { background: #fbbf24; color: #222; }
-.btn-warning:hover, .btn-warning:focus { background: #f59e42; }
-.btn-danger    { background: #ef4444; color: #fff; }
-.btn-danger:hover, .btn-danger:focus { background: #b91c1c; }
-.btn-secondary { background: #64748b; color: #fff; }
-.btn-secondary:hover, .btn-secondary:focus { background: #334155; }
-.btn-light     { background: #f1f5f9; color: #222; }
-.btn-light:hover, .btn-light:focus { background: #e0e7ef; }
-.btn:active {
-  box-shadow: 0 0 0 2px #2563eb33;
+
+.back-btn:active {
+  transform: scale(0.98);
 }
+
 .btn-icon {
-  font-size: 1.15em;
-  vertical-align: middle;
+  font-size: 18px;
+}
+
+.btn-text {
+  font-size: 16px;
+}
+
+/* Filter Section */
+.filter-section {
+  margin-bottom: 24px;
+}
+
+.filter-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  min-height: 44px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+/* Loading Skeleton */
+.loading-skeleton {
+  padding: 16px;
+}
+
+.skeleton-header,
+.skeleton-filter,
+.skeleton-gear {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.skeleton-header {
+  height: 80px;
+}
+
+.skeleton-filter {
+  height: 60px;
+}
+
+.skeleton-gear {
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-gear-item {
+  flex: 1;
+  background: inherit;
+  border-radius: 8px;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Error Message */
+.error-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  color: #dc2626;
+}
+
+.error-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.error-content {
+  flex: 1;
+}
+
+/* Gear Management */
+.gear-management {
+  margin-bottom: 24px;
 }
 
 .actions-header {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-  margin-bottom: 1.2rem;
+  margin-bottom: 20px;
 }
-@media (min-width: 600px) {
-  .actions-header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .actions-group {
-    flex-direction: row;
-    gap: 0.7rem;
-  }
-}
+
 .actions-group {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 12px;
+  margin-top: 16px;
 }
 
-.table-wrapper {
-  overflow-x: auto;
-  margin-bottom: 1.5rem;
+.tip-text {
+  color: #6c757d;
+  font-size: 14px;
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
 }
-.table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: #f9fafb;
-  border-radius: 1rem;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-}
-.table th, .table td {
-  padding: 1rem 0.9rem;
-  border-bottom: 1px solid #e5e7eb;
-  text-align: left;
-}
-.table th {
-  background: #2563eb;
-  color: #fff;
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0.5px;
-}
-.table tr:last-child td {
-  border-bottom: none;
-}
-.stripe { background: #f3f4f6; }
-.table tr:hover { background: #e0e7ef; transition: background 0.15s; }
-.no-data { text-align: center; color: #6c757d; }
 
-/* Gear Name Cell */
-.gear-name-cell {
+/* Gear Cards */
+.gear-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 16px;
+}
+
+.gear-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.gear-card:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.gear-card.user-gear {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.gear-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.gear-name-section {
+  flex: 1;
 }
 
 .gear-name {
-  font-weight: 500;
-  color: #1e293b;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
 }
 
 .user-gear-indicator {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+  gap: 8px;
 }
 
 .user-gear-badge {
-background: #3b82f6;
-color: white;
-padding: 0.125rem 0.375rem;
-border-radius: 0.25rem;
-font-size: 0.75rem;
-font-weight: 500;
+  background: #f59e0b;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .owner-name {
-  color: #64748b;
-  font-size: 0.75rem;
+  color: #6c757d;
+  font-size: 14px;
 }
 
-/* Info Button */
-.btn-info {
-  background: #0ea5e9;
-  color: white;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.375rem 0.5rem;
-  font-size: 0.75rem;
-}
-
-.info-icon {
-  font-size: 0.875rem;
-}
-
-.info-text {
-  font-weight: 500;
-}
-
-/* User Gear Styling */
-.user-gear-owner {
-display: flex;
-flex-direction: column;
-gap: 0.25rem;
-font-size: 0.875rem;
-}
-
-.project-gear-owner {
-color: #64748b;
-font-size: 0.875rem;
-}
-
-/* Modal backdrop */
-.modal-backdrop {
-position: fixed;
-inset: 0;
-background: rgba(0,0,0,0.5);
-display: flex;
-align-items: center;
-justify-content: center;
-padding: 1rem;
-}
-.modal-content {
-background: #fff;
-border-radius: 0.5rem;
-padding: 1.25rem;
-width: 100%;
-max-width: 360px;
-max-height: 90vh;
-overflow-y: auto;
-box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-}
-
-/* Fade */
-.fade-enter-active, .fade-leave-active {
-transition: opacity .2s ease, transform .2s ease;
-}
-.fade-enter-from, .fade-leave-to {
-opacity: 0;
-transform: scale(0.95);
-}
-
-/* Form stack */
-.form-stack { display: flex; flex-direction: column; gap: 1rem; }
-.form-group { display: flex; flex-direction: column; }
-label { font-weight: 500; }
-
-/* Gear Info Modal */
-.gear-info-modal {
-  max-width: 600px;
-  max-height: 90vh;
-  width: 100%;
-}
-
-.gear-info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.info-section {
-  background: #f8fafc;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
-}
-
-.info-section h4 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
+.gear-type-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
-  color: #1e293b;
-  border-bottom: 1px solid #cbd5e1;
-  padding-bottom: 0.5rem;
+  white-space: nowrap;
 }
 
-.info-row {
+/* Gear Details */
+.gear-details {
+  margin-bottom: 20px;
+}
+
+.detail-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f3f4;
 }
 
-.info-row:last-child {
+.detail-row:last-child {
   border-bottom: none;
 }
 
-.info-label {
+.detail-label {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #1a1a1a;
   font-weight: 500;
-  color: #475569;
-  font-size: 0.875rem;
+  font-size: 14px;
 }
 
-.info-value {
+/* Gear Actions */
+.gear-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 20px;
   font-weight: 600;
-  color: #1e293b;
-  font-size: 0.875rem;
+  margin-bottom: 8px;
+  color: #1a1a1a;
 }
 
-.user-gear-type {
-  color: #3b82f6;
+.empty-message {
+  font-size: 16px;
+  color: #6c757d;
+  margin-bottom: 24px;
 }
 
-.project-gear-type {
-  color: #059669;
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
 }
 
-.rented-status {
-  color: #dc2626;
-}
-
-.no-assignments {
-  color: #64748b;
-  font-style: italic;
-  font-weight: normal;
-}
-
-/* User Gear Modal */
-.user-gear-modal {
-  max-width: 800px;
-  max-height: 90vh;
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  max-width: 500px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 1rem;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid #e9ecef;
 }
 
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
+.modal-title {
+  font-size: 20px;
   font-weight: 600;
+  margin: 0;
+  color: #1a1a1a;
 }
 
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 24px;
+  color: #6c757d;
   cursor: pointer;
-  color: #64748b;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal-close:hover {
-  background: #f1f5f9;
+  background: #f8f9fa;
+  color: #1a1a1a;
 }
 
 .modal-body {
-  max-height: calc(90vh - 120px);
-  overflow-y: auto;
-}
-input, select { padding: 0.5rem; border: 1px solid #dee2e6; border-radius: 0.375rem; }
-
-/* Checkbox */
-.checkbox-label { display: inline-flex; align-items: center; cursor: pointer; }
-.checkbox-label input { margin-right: 0.5rem; width: 1rem; height: 1rem; }
-
-/* Form errors */
-.form-error { color: #dc3545; font-size: 0.9rem; }
-
-/* Form actions */
-.form-actions { display: flex; flex-direction: column; gap: 0.5rem; }
-@media (min-width: 480px) {
-.form-actions { flex-direction: row; justify-content: flex-end; }
+  padding: 20px;
 }
 
-/* Responsive Design */
-.desktop-only {
-  display: block;
-}
-.mobile-only {
-  display: none;
+/* Form Elements */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-@media (max-width: 768px) {
-  .desktop-only {
-    display: none;
+.form-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.required {
+  color: #dc3545;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  min-height: 44px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #0066cc;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: #ffffff;
+}
+
+.btn-info:hover {
+  background: #138496;
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #1a1a1a;
+}
+
+.btn-warning:hover {
+  background: #e0a800;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Gear Info Modal */
+.gear-info {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.info-section {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.info-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+.info-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.info-value {
+  color: #1a1a1a;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* Assignments List */
+.assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.assignment-item {
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+}
+
+.assignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.assignment-stage {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+
+.assignment-amount {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.assignment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.assignment-venue {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.assignment-dates {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+/* Assignment Form */
+.assignment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gear-summary {
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.gear-summary-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #1a1a1a;
+}
+
+.gear-summary-details {
+  display: flex;
+  gap: 16px;
+}
+
+.summary-item {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+/* Edit Form */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.edit-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Focus States for Accessibility */
+.back-btn:focus,
+.filter-select:focus,
+.btn:focus,
+.modal-close:focus,
+.form-input:focus,
+.form-select:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .project-gear {
+    padding: 24px;
   }
-  .mobile-only {
-    display: block;
+
+  .page-title {
+    font-size: 28px;
   }
-  
-  .gear-card {
-    padding: 1.5rem 1rem;
-    margin: 0 1rem;
+
+  .actions-group {
+    flex-direction: row;
+    gap: 16px;
   }
-  
-  .gear-card-item {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+
+  .gear-actions {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
   }
-  
-  .gear-card-item.user-gear {
-    border-left: 4px solid #3b82f6;
+
+  .modal {
+    max-width: 600px;
   }
-  
-  .gear-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.75rem;
+
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
   }
-  
-  .gear-name-section {
-    flex: 1;
+
+  .info-grid {
+    grid-template-columns: 1fr 1fr;
   }
-  
-  .gear-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0 0 0.25rem 0;
-    color: #1e293b;
+}
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .project-gear {
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
   }
-  
-  .gear-type-badge {
-    background: #f1f5f9;
-    color: #475569;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
+
+  .page-title {
+    font-size: 32px;
   }
-  
-  .gear-card-details {
-    margin-bottom: 1rem;
+
+  .gear-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
   }
-  
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.25rem 0;
-    font-size: 0.875rem;
+
+  .modal {
+    max-width: 700px;
   }
-  
-  .detail-label {
-    color: #64748b;
-    font-weight: 500;
+
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
-  
-  .detail-value {
-    color: #1e293b;
-    font-weight: 600;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .gear-card,
+  .btn,
+  .form-input,
+  .form-select,
+  .filter-select {
+    border-width: 2px;
   }
-  
-  .gear-card-actions {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  
-  .gear-card-actions .btn {
-    flex: 1;
-    min-width: 0;
-    justify-content: center;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-  }
-  
-  .btn-text {
-    display: inline;
-  }
-  
-  .no-data-card {
-    text-align: center;
-    padding: 2rem;
-    color: #6c757d;
-    background: #f8fafc;
-    border-radius: 0.75rem;
-    border: 1px solid #e2e8f0;
-  }
-  
-  /* Adjust modal content for mobile */
-  .modal-content {
-    margin: 1rem;
-    max-width: calc(100vw - 2rem);
-  }
-  
-  /* Adjust gear card padding for mobile */
-  .gear-card {
-    padding: 1.5rem 1rem;
-  }
-  
-  /* Make buttons more touch-friendly */
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .back-btn,
   .btn {
-    min-height: 44px;
+    transition: none;
   }
   
-  .btn-sm {
-    min-height: 36px;
+  .back-btn:hover,
+  .btn:hover {
+    transform: none;
   }
-}
-
-/* Desktop button text hiding */
-@media (min-width: 769px) {
-  .btn-text {
-    display: none;
+  
+  .back-btn:active,
+  .btn:active {
+    transform: none;
   }
-}
-
-/* Keyframes */
-@keyframes spin {
-to { transform: rotate(360deg); }
 }
 </style>

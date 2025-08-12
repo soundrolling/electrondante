@@ -1,69 +1,152 @@
 <template>
 <div class="parking-section">
+  <!-- Header Section -->
   <div class="header-section">
     <h1>Parking</h1>
     <p>Log where you parked for this trip</p>
   </div>
-  <div v-if="isLoading" class="loading-spinner">
-    <div class="spinner"></div>
-    <p>Loading parking entries...</p>
+
+  <!-- Loading State -->
+  <div v-if="isLoading" class="loading-state">
+    <div class="skeleton-loader">
+      <div class="skeleton-item"></div>
+      <div class="skeleton-item"></div>
+      <div class="skeleton-item"></div>
+    </div>
   </div>
-  <div v-else>
+
+  <!-- Content Container -->
+  <div v-else class="content-container">
     <div class="section-header">
       <h2>Parking Entries</h2>
-      <button @click="openForm" class="add-button">
-        <span class="icon">+</span> Add Parking
+      <button @click="openForm" class="add-button" aria-label="Add new parking entry">
+        <span class="icon">+</span>
+        <span class="button-text">Add Parking</span>
       </button>
     </div>
+
+    <!-- Add/Edit Form -->
     <div v-if="showForm" class="parking-form-container">
       <h3>{{ editingParking ? 'Edit Parking' : 'Add New Parking' }}</h3>
       <form @submit.prevent="saveParking">
         <div class="form-group">
           <label for="airport">Airport</label>
-          <input type="text" id="airport" v-model="parkingForm.airport" required placeholder="e.g., John F. Kennedy International Airport" />
+          <input 
+            type="text" 
+            id="airport" 
+            v-model="parkingForm.airport" 
+            required 
+            placeholder="e.g., John F. Kennedy International Airport"
+            class="form-input"
+          />
         </div>
         <div class="form-group">
           <label for="parking_provider">Parking Provider</label>
-          <input type="text" id="parking_provider" v-model="parkingForm.parking_provider" required placeholder="e.g., Main Street Garage" />
+          <input 
+            type="text" 
+            id="parking_provider" 
+            v-model="parkingForm.parking_provider" 
+            required 
+            placeholder="e.g., Main Street Garage"
+            class="form-input"
+          />
         </div>
         <div class="form-group">
           <label for="start_datetime">Start Date and Time</label>
-          <input type="datetime-local" id="start_datetime" v-model="parkingForm.start_datetime" required />
+          <input 
+            type="datetime-local" 
+            id="start_datetime" 
+            v-model="parkingForm.start_datetime" 
+            required
+            class="form-input"
+          />
         </div>
         <div class="form-group">
           <label for="end_datetime">End Date and Time</label>
-          <input type="datetime-local" id="end_datetime" v-model="parkingForm.end_datetime" required />
+          <input 
+            type="datetime-local" 
+            id="end_datetime" 
+            v-model="parkingForm.end_datetime" 
+            required
+            class="form-input"
+          />
         </div>
         <div class="form-group">
           <label for="cost">Cost</label>
-          <input type="text" id="cost" v-model="parkingForm.cost" required placeholder="e.g., $10" />
+          <input 
+            type="text" 
+            id="cost" 
+            v-model="parkingForm.cost" 
+            required 
+            placeholder="e.g., $10"
+            class="form-input"
+          />
         </div>
         <div class="form-group">
           <label for="notes">Notes</label>
-          <textarea id="notes" v-model="parkingForm.notes" rows="2" placeholder="Details, level, spot, etc."></textarea>
+          <textarea 
+            id="notes" 
+            v-model="parkingForm.notes" 
+            rows="2" 
+            placeholder="Details, level, spot, etc."
+            class="form-textarea"
+          ></textarea>
         </div>
         <div class="form-actions">
-          <button type="button" @click="closeForm" class="cancel-button">Cancel</button>
-          <button type="submit" class="save-button" :disabled="isSaving">
+          <button type="button" @click="closeForm" class="secondary-button">
+            Cancel
+          </button>
+          <button type="submit" class="primary-button" :disabled="isSaving">
+            <span v-if="isSaving" class="loading-spinner-small"></span>
             {{ isSaving ? 'Saving...' : (editingParking ? 'Update Parking' : 'Add Parking') }}
           </button>
         </div>
       </form>
     </div>
+
+    <!-- Empty State -->
     <div v-if="parkingEntries.length === 0" class="empty-state">
-      <p>No parking entries yet. Add your first parking spot!</p>
+      <div class="empty-icon">🅿️</div>
+      <h3>No parking entries yet</h3>
+      <p>Add your first parking spot to get started!</p>
     </div>
+
+    <!-- Parking List -->
     <div v-else class="parking-list">
       <div v-for="entry in parkingEntries" :key="entry.id" class="parking-card">
         <div class="parking-card-header">
           <h3>{{ entry.airport }}</h3>
+          <span class="parking-provider">{{ entry.parking_provider }}</span>
         </div>
         <div class="parking-card-body">
-          <p>{{ entry.parking_provider }}</p>
+          <div class="parking-details">
+            <div class="detail-item">
+              <span class="detail-label">Start:</span>
+              <span class="detail-value">{{ formatDateTime(entry.start_datetime) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">End:</span>
+              <span class="detail-value">{{ formatDateTime(entry.end_datetime) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Cost:</span>
+              <span class="detail-value cost">{{ entry.cost }}</span>
+            </div>
+            <div v-if="entry.notes" class="detail-item">
+              <span class="detail-label">Notes:</span>
+              <span class="detail-value">{{ entry.notes }}</span>
+            </div>
+          </div>
         </div>
         <div class="parking-card-footer">
-          <button @click="editParking(entry)" class="edit-button">Edit</button>
-          <button @click="deleteParking(entry.id)" class="delete-button">Delete</button>
+          <button @click="editParking(entry)" class="action-button edit-button" aria-label="Edit parking entry">
+            <span class="action-icon">✏️</span>
+            <span class="action-text">Edit</span>
+          </button>
+          <button @click="deleteParking(entry.id)" class="action-button delete-button" aria-label="Delete parking entry">
+            <span class="action-icon">🗑️</span>
+            <span class="action-text">Delete</span>
+          </button>
         </div>
       </div>
     </div>
@@ -190,201 +273,620 @@ setup(props) {
 </script>
 
 <style scoped>
+/* Mobile-first base styles */
 .parking-section {
-max-width: 900px;
-margin: 32px auto;
-background: #f8f9fa;
-border-radius: 12px;
-box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-border: 1.5px solid #e5e7eb;
-padding: 32px 20px 24px 20px;
+  width: 100%;
+  padding: 16px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
+  line-height: 1.5;
+  background: #f8fafc;
+  min-height: 100vh;
 }
+
+/* Safe area margins for mobile devices */
+@supports (padding: max(0px)) {
+  .parking-section {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Header Section */
 .header-section {
-text-align: center;
-margin-bottom: 24px;
-background: #fff;
-padding: 2rem 1rem 1.5rem 1rem;
-border-radius: 12px;
-box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-border: 1.5px solid #e5e7eb;
+  text-align: center;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 24px 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
+
 .header-section h1 {
-font-size: 2rem;
-color: #1f2937;
-font-weight: 700;
-margin-bottom: 0.25em;
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.4;
 }
+
 .header-section p {
-color: #64748b;
-margin: 0.2em 0;
-font-size: 1.1rem;
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.5;
 }
-.section-header {
-display: flex;
-flex-direction: column;
-gap: 1rem;
-margin-bottom: 1.5rem;
+
+/* Content Container */
+.content-container {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
-@media (min-width: 480px) {
+
 .section-header {
-  flex-direction: row;
+  display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
-}
+
 .section-header h2 {
-font-size: 1.4rem;
-color: #1f2937;
-font-weight: 600;
-margin: 0;
+  font-size: 20px;
+  margin: 0;
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.4;
 }
-button {
-border: none;
-border-radius: 8px;
-padding: 10px 18px;
-font-size: 1rem;
-font-weight: 500;
-cursor: pointer;
-transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-}
-button:focus {
-outline: none;
-box-shadow: 0 0 0 2px #dbeafe;
-}
+
+/* Add Button */
 .add-button {
-background: #10b981;
-color: #fff;
+  background: #3b82f6;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .add-button:hover {
-background: #059669;
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-.edit-button {
-background: #f1f5f9;
-color: #2563eb;
-border: 1.5px solid #cbd5e1;
+
+.add-button:active {
+  transform: translateY(0);
 }
-.edit-button:hover {
-background: #e0e7ef;
-color: #1d4ed8;
-border-color: #3b82f6;
+
+.add-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
 }
-.delete-button {
-background: #ef4444;
-color: #fff;
+
+.icon {
+  font-size: 18px;
+  font-weight: bold;
 }
-.delete-button:hover {
-background: #dc2626;
+
+.button-text {
+  display: none;
 }
-.parking-form-container {
-background-color: #fff;
-border: 1.5px solid #e5e7eb;
-padding: 1.2rem 1rem 1rem 1rem;
-border-radius: 12px;
-margin-bottom: 1.5rem;
-box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
 }
-.parking-form-container h3 {
-margin-top: 0;
-margin-bottom: 1rem;
-color: #1f2937;
-font-weight: 600;
+
+.skeleton-loader {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.form-group {
-margin-bottom: 1.25rem;
+
+.skeleton-item {
+  height: 100px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
 }
-.form-group label {
-display: block;
-font-weight: 500;
-margin-bottom: 0.5rem;
-color: #222;
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
-.form-group input,
-.form-group textarea {
-width: 100%;
-padding: 0.6rem;
-border: 1.5px solid #e5e7eb;
-border-radius: 8px;
-font-size: 1rem;
-box-sizing: border-box;
-background: #fff;
-color: #222;
-}
-.form-actions {
-display: flex;
-justify-content: flex-end;
-gap: 1rem;
-}
-.cancel-button {
-background-color: #6c757d;
-color: #fff;
-}
-.cancel-button:hover {
-background-color: #5a6268;
-}
-.save-button {
-background-color: #10b981;
-color: #fff;
-}
-.save-button:hover {
-background-color: #059669;
-}
-.save-button:disabled {
-background-color: #a7f3d0;
-cursor: not-allowed;
-}
+
+/* Empty State */
 .empty-state {
-text-align: center;
-padding: 1rem;
-background-color: #fefefe;
-border: 1.5px dashed #cbd5e1;
-border-radius: 10px;
-font-style: italic;
-color: #64748b;
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px dashed #e5e7eb;
 }
-.parking-list {
-display: flex;
-flex-direction: column;
-gap: 1.2rem;
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
 }
-.parking-card {
-background-color: #fff;
-border: 1.5px solid #e5e7eb;
-padding: 1.1rem 1rem 0.8rem 1rem;
-border-radius: 10px;
-box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-transition: background 0.2s, box-shadow 0.2s;
+
+.empty-state h3 {
+  font-size: 20px;
+  margin: 0 0 8px 0;
+  color: #374151;
+  font-weight: 600;
 }
-.parking-card:hover {
-background: #f1f5f9;
-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
 }
-.parking-card-header {
-display: flex;
-justify-content: space-between;
-align-items: center;
-}
-.parking-card-header h3 {
-margin: 0;
-font-size: 1.1rem;
-color: #1f2937;
-}
-.parking-card-body {
-margin-top: 0.5rem;
-color: #555;
-}
-.parking-card-footer {
-margin-top: 1rem;
-display: flex;
-flex-wrap: wrap;
-gap: 0.5rem;
-}
-@media (max-width: 700px) {
-.parking-section {
-  padding: 10px 2px 12px 2px;
-}
+
+/* Parking Form Container */
 .parking-form-container {
-  padding: 1.2rem 0.5rem 1rem 0.5rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 20px 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
+
+.parking-form-container h3 {
+  margin: 0 0 20px 0;
+  color: #111827;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111827;
+  transition: all 0.2s ease;
+  min-height: 48px;
+}
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+/* Button Styles */
+.primary-button {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.primary-button:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}
+
+.primary-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+}
+
+.primary-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.secondary-button {
+  background: #6b7280;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.secondary-button:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.secondary-button:active {
+  transform: translateY(0);
+}
+
+.secondary-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+}
+
+.loading-spinner-small {
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #10b981;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Parking List */
+.parking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.parking-card {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px 16px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.parking-card:hover {
+  background: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.parking-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.parking-card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.parking-provider {
+  font-size: 14px;
+  color: #6b7280;
+  background: #e5e7eb;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.parking-card-body {
+  margin-bottom: 16px;
+}
+
+.parking-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #111827;
+  font-size: 14px;
+  text-align: right;
+}
+
+.detail-value.cost {
+  font-weight: 600;
+  color: #059669;
+}
+
+.parking-card-footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  background: #f9fafb;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.action-button.edit-button {
+  background: #f0f9ff;
+  color: #1d4ed8;
+  border-color: #bae6fd;
+}
+
+.action-button.edit-button:hover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+
+.action-button.delete-button {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.action-button.delete-button:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.action-icon {
+  font-size: 16px;
+}
+
+.action-text {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.2;
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .parking-section {
+    padding: 24px;
+  }
+  
+  .header-section {
+    padding: 32px 24px;
+    margin-bottom: 32px;
+  }
+  
+  .header-section h1 {
+    font-size: 28px;
+  }
+  
+  .content-container {
+    padding: 24px 20px;
+  }
+  
+  .parking-form-container {
+    padding: 24px 20px;
+  }
+  
+  .parking-card {
+    padding: 24px 20px;
+  }
+  
+  .parking-card-header {
+    flex-direction: row;
+    align-items: center;
+  }
+  
+  .action-button {
+    flex-direction: row;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  
+  .action-text {
+    display: inline;
+    font-size: 14px;
+  }
+  
+  .button-text {
+    display: inline;
+  }
+}
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .parking-section {
+    max-width: 1200px;
+    padding: 32px;
+  }
+  
+  .header-section {
+    padding: 40px 32px;
+    margin-bottom: 40px;
+  }
+  
+  .header-section h1 {
+    font-size: 32px;
+  }
+  
+  .content-container {
+    padding: 32px 28px;
+  }
+  
+  .parking-form-container {
+    padding: 32px 28px;
+  }
+  
+  .parking-card {
+    padding: 32px 28px;
+  }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 600px) {
+  .parking-section {
+    padding: 12px;
+  }
+  
+  .header-section {
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  
+  .header-section h1 {
+    font-size: 22px;
+  }
+  
+  .content-container {
+    padding: 16px 12px;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .add-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .parking-form-container {
+    padding: 16px 12px;
+  }
+  
+  .parking-card {
+    padding: 16px 12px;
+  }
+  
+  .parking-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .parking-card-footer {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .action-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
+    width: 100%;
+  }
 }
 </style> 

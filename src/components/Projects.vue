@@ -4,22 +4,30 @@
 <template>
 <div class="projects">
   <!-- ─── PAGE‑TITLE & TOP‑BAR ─────────────────────────────── -->
-  <header class="page-bar">
+  <header class="page-header">
     <h1 class="page-title">Your Projects</h1>
     <div class="page-actions">
-      <button @click="refreshProjects" class="btn btn-blue">
-        <i class="fas fa-sync-alt" /> Refresh
+      <button @click="refreshProjects" class="action-btn refresh-btn">
+        <span class="btn-icon">🔄</span>
+        <span class="btn-text">Refresh</span>
       </button>
-      <button @click="toggleNewProjectForm" class="btn btn-green">
-        <i class="fas fa-plus" />
-        {{ showNewProjectForm ? 'Close' : 'New Project' }}
+      <button @click="toggleNewProjectForm" class="action-btn new-project-btn">
+        <span class="btn-icon">{{ showNewProjectForm ? '✕' : '➕' }}</span>
+        <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
       </button>
     </div>
   </header>
 
   <!-- ─── LOADING ──────────────────────────────────────────── -->
-  <div v-if="loading" class="loading">
-    <div class="spinner" /><span>Loading projects…</span>
+  <div v-if="loading" class="loading-skeleton">
+    <div class="skeleton-header"></div>
+    <div class="skeleton-toolbar"></div>
+    <div class="skeleton-tabs"></div>
+    <div class="skeleton-projects">
+      <div class="skeleton-project"></div>
+      <div class="skeleton-project"></div>
+      <div class="skeleton-project"></div>
+    </div>
   </div>
 
   <!-- ─── MAIN CONTENT ─────────────────────────────────────── -->
@@ -27,41 +35,64 @@
     <!-- new‑project form -->
     <form
       v-if="userStore.isAuthenticated && showNewProjectForm"
-      class="new-form"
+      class="new-project-form"
       @submit.prevent="addProject"
     >
-      <h2>Create a New Project</h2>
-      <input
-        v-model="newProjectName"
-        placeholder="Project name…"
-        class="input"
-      />
-      <input
-        v-model="newProjectLocation"
-        placeholder="Location (e.g. London, UK)"
-        class="input"
-      />
-      <input
-        v-model="newProjectWebsite"
-        placeholder="Official festival website (https://...)"
-        class="input"
-        type="url"
-      />
-      <textarea
-        v-model="newProjectShowDays"
-        placeholder="Show days (comma-separated, e.g. 2024-07-01,2024-07-02)"
-        class="input"
-        rows="2"
-      ></textarea>
-      <textarea
-        v-model="newProjectBuildDays"
-        placeholder="Build days (comma-separated, e.g. 2024-06-29,2024-06-30)"
-        class="input"
-        rows="2"
-      ></textarea>
-      <div class="new-form__actions">
-        <button type="submit" class="btn btn-green">Add</button>
-        <button type="button" @click="cancelNewProject" class="btn btn-red">
+      <h2 class="form-title">Create a New Project</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="newProjectName" class="form-label">Project Name</label>
+          <input
+            id="newProjectName"
+            v-model="newProjectName"
+            placeholder="Project name…"
+            class="form-input"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="newProjectLocation" class="form-label">Location</label>
+          <input
+            id="newProjectLocation"
+            v-model="newProjectLocation"
+            placeholder="e.g. London, UK"
+            class="form-input"
+          />
+        </div>
+        <div class="form-group">
+          <label for="newProjectWebsite" class="form-label">Official Website</label>
+          <input
+            id="newProjectWebsite"
+            v-model="newProjectWebsite"
+            placeholder="https://..."
+            class="form-input"
+            type="url"
+          />
+        </div>
+        <div class="form-group">
+          <label for="newProjectShowDays" class="form-label">Show Days</label>
+          <textarea
+            id="newProjectShowDays"
+            v-model="newProjectShowDays"
+            placeholder="Comma-separated dates: 2024-07-01,2024-07-02"
+            class="form-input"
+            rows="2"
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label for="newProjectBuildDays" class="form-label">Build Days</label>
+          <textarea
+            id="newProjectBuildDays"
+            v-model="newProjectBuildDays"
+            placeholder="Comma-separated dates: 2024-06-29,2024-06-30"
+            class="form-input"
+            rows="2"
+          ></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Project</button>
+        <button type="button" @click="cancelNewProject" class="btn btn-secondary">
           Cancel
         </button>
       </div>
@@ -69,237 +100,280 @@
 
     <!-- sorter + search -->
     <div class="toolbar">
-      <div class="sorter">
-        <label for="sort">Sort by:</label>
-        <div class="select-wrapper">
-          <select
-            id="sort"
-            v-model="selectedSortOption"
-            @change="sortProjects"
-            class="input select styled-select"
-          >
-            <option value="newest">Newest → Oldest</option>
-            <option value="oldest">Oldest → Newest</option>
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
-          </select>
-          <span class="select-arrow">▼</span>
+      <div class="toolbar-left">
+        <div class="sorter">
+          <label for="sort" class="sorter-label">Sort by:</label>
+          <div class="select-wrapper">
+            <select
+              id="sort"
+              v-model="selectedSortOption"
+              @change="sortProjects"
+              class="form-select"
+            >
+              <option value="newest">Newest → Oldest</option>
+              <option value="oldest">Oldest → Newest</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+            <span class="select-arrow">▼</span>
+          </div>
         </div>
       </div>
-      <input
-        v-model="searchQuery"
-        placeholder="Search projects…"
-        class="input search-input"
-      />
+      <div class="toolbar-right">
+        <div class="search-wrapper">
+          <span class="search-icon">🔍</span>
+          <input
+            v-model="searchQuery"
+            placeholder="Search projects…"
+            class="search-input"
+          />
+        </div>
+      </div>
     </div>
 
     <div class="project-tabs">
       <button
         :class="['tab-btn', { active: activeTab === 'active' }]"
         @click="activeTab = 'active'"
-      >Active Projects</button>
+      >
+        <span class="tab-icon">📁</span>
+        <span class="tab-text">Active Projects</span>
+      </button>
       <button
         :class="['tab-btn', { active: activeTab === 'archived' }]"
         @click="activeTab = 'archived'"
-      >Archived Projects</button>
+      >
+        <span class="tab-icon">📦</span>
+        <span class="tab-text">Archived Projects</span>
+      </button>
     </div>
 
-    <div v-if="activeTab === 'active'">
-      <ul class="cards">
-        <li v-for="p in activeProjects" :key="p.id" class="card">
-          <div class="card__main">
-            <h3 class="card__title">{{ p.project_name }}</h3>
-            <div class="project-meta">
-              <div v-if="p.location"><strong>Location:</strong> {{ p.location }}</div>
-              <div v-if="p.official_website" class="project-website">
-                <a :href="p.official_website" target="_blank" rel="noopener" class="website-link">
-                  <strong>Website</strong>
-                </a>
-              </div>
-              <table v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="date-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th>Start</th>
-                    <th>End</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="p.build_days && p.build_days.length">
-                    <td><strong>Build</strong></td>
-                    <td>{{ formatSingleDate(p.build_days[0]) }}</td>
-                    <td>{{ formatSingleDate(p.build_days[p.build_days.length-1]) }}</td>
-                  </tr>
-                  <tr v-if="p.main_show_days && p.main_show_days.length">
-                    <td><strong>Show</strong></td>
-                    <td>{{ formatSingleDate(p.main_show_days[0]) }}</td>
-                    <td>{{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+    <div v-if="activeTab === 'active'" class="projects-section">
+      <div class="projects-grid">
+        <div v-for="p in activeProjects" :key="p.id" class="project-card">
+          <div class="project-header">
+            <h3 class="project-title">{{ p.project_name }}</h3>
+            <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
+          </div>
+          
+          <div class="project-meta">
+            <div v-if="p.location" class="meta-item">
+              <span class="meta-icon">📍</span>
+              <span class="meta-text">{{ p.location }}</span>
             </div>
-            <div v-if="p.role === 'owner'" class="owner-tools-row">
-              <button @click="openEditModal(p)" class="btn btn-ghost">
-                <i class="fas fa-pencil-alt" /> Edit
-              </button>
-              <button @click="confirmDeleteProject(p.id)" class="btn btn-red">
-                <i class="fas fa-trash-alt" /> Delete
-              </button>
-              <button @click="duplicateProject(p)" class="btn btn-ghost">
-                <i class="fas fa-copy" /> Duplicate
-              </button>
-              <button @click="archiveProject(p)" class="btn btn-ghost archive-btn">
-                <i class="fas fa-archive" /> Archive
-              </button>
+            <div v-if="p.official_website" class="meta-item">
+              <span class="meta-icon">🌐</span>
+              <a :href="p.official_website" target="_blank" rel="noopener" class="meta-link">
+                Official Website
+              </a>
             </div>
           </div>
-          <div class="card__actions" :class="{ 'card__actions--owner': p.role === 'owner' }">
-            <button class="btn btn-green" @click="openProject(p)">Open</button>
+
+          <div v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="project-timeline">
+            <div v-if="p.build_days && p.build_days.length" class="timeline-item">
+              <div class="timeline-icon build">🔨</div>
+              <div class="timeline-content">
+                <div class="timeline-label">Build Period</div>
+                <div class="timeline-dates">
+                  {{ formatSingleDate(p.build_days[0]) }} - {{ formatSingleDate(p.build_days[p.build_days.length-1]) }}
+                </div>
+              </div>
+            </div>
+            <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
+              <div class="timeline-icon show">🎭</div>
+              <div class="timeline-content">
+                <div class="timeline-label">Show Period</div>
+                <div class="timeline-dates">
+                  {{ formatSingleDate(p.main_show_days[0]) }} - {{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="project-actions">
+            <button @click="openProject(p)" class="btn btn-primary open-btn">
+              <span class="btn-icon">🚀</span>
+              <span class="btn-text">Open Project</span>
+            </button>
+            
+            <div v-if="p.role === 'owner'" class="owner-actions">
+              <button @click="openEditModal(p)" class="btn btn-secondary">
+                <span class="btn-icon">✏️</span>
+                <span class="btn-text">Edit</span>
+              </button>
+              <button @click="duplicateProject(p)" class="btn btn-secondary">
+                <span class="btn-icon">📋</span>
+                <span class="btn-text">Duplicate</span>
+              </button>
+              <button @click="archiveProject(p)" class="btn btn-secondary">
+                <span class="btn-icon">📦</span>
+                <span class="btn-text">Archive</span>
+              </button>
+              <button @click="confirmDeleteProject(p.id)" class="btn btn-danger">
+                <span class="btn-icon">🗑️</span>
+                <span class="btn-text">Delete</span>
+              </button>
+            </div>
+            
             <button
               v-if="p.role !== 'owner'"
               @click="leaveProject(p)"
-              class="btn btn-red leave-btn"
+              class="btn btn-danger leave-btn"
             >
-              Leave
+              <span class="btn-icon">👋</span>
+              <span class="btn-text">Leave Project</span>
             </button>
           </div>
-        </li>
-      </ul>
+        </div>
+      </div>
     </div>
 
-    <div v-if="activeTab === 'archived'">
-      <ul class="cards">
-        <li v-for="p in archivedProjects" :key="p.id" class="card archived-card">
+    <div v-if="activeTab === 'archived'" class="projects-section">
+      <div class="projects-grid">
+        <div v-for="p in archivedProjects" :key="p.id" class="project-card archived">
           <div class="archived-badge">Archived</div>
-          <div class="card__main">
-            <h3 class="card__title">{{ p.project_name }}</h3>
-            <div class="project-meta">
-              <div v-if="p.location"><strong>Location:</strong> {{ p.location }}</div>
-              <div v-if="p.official_website" class="project-website">
-                <a :href="p.official_website" target="_blank" rel="noopener" class="website-link">
-                  <strong>Website</strong>
-                </a>
+          <div class="project-header">
+            <h3 class="project-title">{{ p.project_name }}</h3>
+            <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
+          </div>
+          
+          <div class="project-meta">
+            <div v-if="p.location" class="meta-item">
+              <span class="meta-icon">📍</span>
+              <span class="meta-text">{{ p.location }}</span>
+            </div>
+            <div v-if="p.official_website" class="meta-item">
+              <span class="meta-icon">🌐</span>
+              <a :href="p.official_website" target="_blank" rel="noopener" class="meta-link">
+                Official Website
+              </a>
+            </div>
+          </div>
+
+          <div v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="project-timeline">
+            <div v-if="p.build_days && p.build_days.length" class="timeline-item">
+              <div class="timeline-icon build">🔨</div>
+              <div class="timeline-content">
+                <div class="timeline-label">Build Period</div>
+                <div class="timeline-dates">
+                  {{ formatSingleDate(p.build_days[0]) }} - {{ formatSingleDate(p.build_days[p.build_days.length-1]) }}
+                </div>
               </div>
-              <table v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="date-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th>Start</th>
-                    <th>End</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="p.build_days && p.build_days.length">
-                    <td><strong>Build</strong></td>
-                    <td>{{ formatSingleDate(p.build_days[0]) }}</td>
-                    <td>{{ formatSingleDate(p.build_days[p.build_days.length-1]) }}</td>
-                  </tr>
-                  <tr v-if="p.main_show_days && p.main_show_days.length">
-                    <td><strong>Show</strong></td>
-                    <td>{{ formatSingleDate(p.main_show_days[0]) }}</td>
-                    <td>{{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}</td>
-                  </tr>
-                </tbody>
-              </table>
             </div>
-            <div v-if="p.role === 'owner'" class="owner-tools-row">
-              <button @click="openEditModal(p)" class="btn btn-ghost">
-                <i class="fas fa-pencil-alt" /> Edit
+            <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
+              <div class="timeline-icon show">🎭</div>
+              <div class="timeline-content">
+                <div class="timeline-label">Show Period</div>
+                <div class="timeline-dates">
+                  {{ formatSingleDate(p.main_show_days[0]) }} - {{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="project-actions">
+            <button @click="openProject(p)" class="btn btn-primary open-btn">
+              <span class="btn-icon">🚀</span>
+              <span class="btn-text">Open Project</span>
+            </button>
+            
+            <div v-if="p.role === 'owner'" class="owner-actions">
+              <button @click="openEditModal(p)" class="btn btn-secondary">
+                <span class="btn-icon">✏️</span>
+                <span class="btn-text">Edit</span>
               </button>
-              <button @click="confirmDeleteProject(p.id)" class="btn btn-red">
-                <i class="fas fa-trash-alt" /> Delete
-              </button>
-              <button @click="duplicateProject(p)" class="btn btn-ghost">
-                <i class="fas fa-copy" /> Duplicate
-              </button>
-              <button @click="unarchiveProject(p)" class="btn btn-ghost archive-btn">
-                <i class="fas fa-undo" /> Unarchive
+              <button @click="unarchiveProject(p)" class="btn btn-secondary">
+                <span class="btn-icon">📤</span>
+                <span class="btn-text">Unarchive</span>
               </button>
             </div>
           </div>
-          <div class="card__actions" :class="{ 'card__actions--owner': p.role === 'owner' }">
-            <button class="btn btn-green" @click="openProject(p)">Open</button>
-          </div>
-        </li>
-      </ul>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Edit Project Modal -->
   <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
     <div class="modal" @click.stop>
-      <h2>Edit Project</h2>
+      <div class="modal-header">
+        <h2 class="modal-title">Edit Project</h2>
+        <button class="modal-close" @click="closeEditModal">✕</button>
+      </div>
       <div class="modal-content">
-        <div class="form-group">
-          <label for="editProjectName">Project Name:</label>
-          <input
-            id="editProjectName"
-            v-model="editProjectName"
-            type="text"
-            class="input"
-            placeholder="Project name"
-          />
-        </div>
-        <div class="form-group">
-          <label for="editProjectLocation">Location:</label>
-          <input
-            id="editProjectLocation"
-            v-model="editProjectLocation"
-            type="text"
-            class="input"
-            placeholder="Location (e.g. London, UK)"
-          />
-        </div>
-        <div class="form-group">
-          <label for="editProjectWebsite">Official Website:</label>
-          <input
-            id="editProjectWebsite"
-            v-model="editProjectWebsite"
-            type="url"
-            class="input"
-            placeholder="https://..."
-          />
-        </div>
-        <div class="date-range-group">
-          <label>Show Days:</label>
-          <div class="date-range-row">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="editProjectName" class="form-label">Project Name</label>
             <input
-              v-model="editShowFrom"
-              type="date"
-              class="input"
-              placeholder="From"
-            />
-            <span>to</span>
-            <input
-              v-model="editShowTo"
-              type="date"
-              class="input"
-              placeholder="To"
+              id="editProjectName"
+              v-model="editProjectName"
+              type="text"
+              class="form-input"
+              placeholder="Project name"
+              required
             />
           </div>
-        </div>
-        <div class="date-range-group">
-          <label>Build Days:</label>
-          <div class="date-range-row">
+          <div class="form-group">
+            <label for="editProjectLocation" class="form-label">Location</label>
             <input
-              v-model="editBuildFrom"
-              type="date"
-              class="input"
-              placeholder="From"
+              id="editProjectLocation"
+              v-model="editProjectLocation"
+              type="text"
+              class="form-input"
+              placeholder="e.g. London, UK"
             />
-            <span>to</span>
+          </div>
+          <div class="form-group">
+            <label for="editProjectWebsite" class="form-label">Official Website</label>
             <input
-              v-model="editBuildTo"
-              type="date"
-              class="input"
-              placeholder="To"
+              id="editProjectWebsite"
+              v-model="editProjectWebsite"
+              type="url"
+              class="form-input"
+              placeholder="https://..."
             />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Show Days</label>
+            <div class="date-range-row">
+              <input
+                v-model="editShowFrom"
+                type="date"
+                class="form-input"
+                placeholder="From"
+              />
+              <span class="date-separator">to</span>
+              <input
+                v-model="editShowTo"
+                type="date"
+                class="form-input"
+                placeholder="To"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Build Days</label>
+            <div class="date-range-row">
+              <input
+                v-model="editBuildFrom"
+                type="date"
+                class="form-input"
+                placeholder="From"
+              />
+              <span class="date-separator">to</span>
+              <input
+                v-model="editBuildTo"
+                type="date"
+                class="form-input"
+                placeholder="To"
+              />
+            </div>
           </div>
         </div>
       </div>
       <div class="modal-actions">
-        <button @click="closeEditModal" class="btn btn-ghost">Cancel</button>
-        <button @click="saveEditProject" class="btn btn-green">Save Changes</button>
+        <button @click="saveEditProject" class="btn btn-primary">Save Changes</button>
+        <button @click="closeEditModal" class="btn btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
@@ -737,576 +811,749 @@ setup() {
 </script>
 
 <style scoped>
-/* ---------- CONTAINER ---------- */
+/* Base Styles - Mobile First */
 .projects {
-  max-width: 600px; /* Mobile content width limit */
-  margin: 16px auto; /* 4-point spacing */
-  padding: 16px; /* 4-point spacing */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px; /* 8-point spacing */
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 16px 32px rgba(0, 0, 0, 0.06);
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  /* Safe area support */
-  margin-top: max(16px, env(safe-area-inset-top));
-  margin-bottom: max(16px, env(safe-area-inset-bottom));
+  line-height: 1.5;
+  color: #1a1a1a;
 }
 
-/* ---------- BUTTONS ---------- */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px; /* 4-point spacing */
-  font-weight: 600;
-  font-size: 16px; /* Body: 16px */
-  padding: 12px 16px; /* 4-point spacing */
-  border: none;
-  border-radius: 8px; /* 4-point spacing */
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  /* Minimum touch size: 44×44px */
-  min-height: 44px;
-  min-width: 44px;
-  line-height: 1.4;
-}
-.btn-blue {
-  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
-  color: #fff;
-}
-.btn-blue:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 122, 255, 0.3);
-}
-.btn-green {
-  background: linear-gradient(135deg, #34C759 0%, #30D158 100%);
-  color: #fff;
-}
-.btn-green:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(52, 199, 89, 0.3);
-}
-.btn-red {
-  background: linear-gradient(135deg, #FF3B30 0%, #FF453A 100%);
-  color: #fff;
-}
-.btn-red:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(255, 59, 48, 0.3);
-}
-.btn-ghost {
-  background: rgba(245, 245, 247, 0.8);
-  backdrop-filter: blur(16px);
-  color: #1d1d1f;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-}
-.btn-ghost:hover {
-  background: rgba(235, 235, 237, 0.9);
-  border-color: rgba(0, 0, 0, 0.12);
-  transform: translateY(-1px);
-}
-
-/* ---------- INPUTS ---------- */
-.input {
-  padding: 12px 16px; /* 4-point spacing */
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px; /* 4-point spacing */
-  font-size: 16px; /* Body: 16px */
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  color: #1d1d1f;
-  transition: all 0.2s ease;
-  outline: none;
-  font-weight: 400;
-  line-height: 1.4;
-  /* Minimum touch size: 44×48px */
-  min-height: 48px;
-}
-.input:focus {
-  border-color: #007AFF;
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
-  background: rgba(255, 255, 255, 0.95);
-}
-.select {
-  min-width: 140px;
-}
-.search-input {
-  flex: 1;
-  min-width: 180px;
-}
-
-/* ---------- HEADER BAR ---------- */
-.page-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px; /* 4-point spacing */
-  margin-bottom: 24px; /* 8-point spacing */
-}
+/* Typography Scale */
 .page-title {
-  margin: 0;
-  font-size: 24px; /* H1: 24px (600 weight) - mobile first */
-  color: #1d1d1f;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
 }
+
+.form-title,
+.modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+/* Page Header */
+.page-header {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
 .page-actions {
   display: flex;
-  gap: 8px; /* 4-point spacing */
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-/* ---------- TOOLBAR (sort + search) ---------- */
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px; /* 4-point spacing */
-  align-items: center;
-  flex-wrap: wrap;
-  margin: 20px 0 16px 0; /* 8-point spacing */
-}
-.sorter {
+.action-btn {
   display: flex;
   align-items: center;
-  gap: 8px; /* 4-point spacing */
-}
-
-/* ---------- NEW PROJECT FORM ---------- */
-.new-form {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  border-radius: 12px; /* 8-point spacing */
-  padding: 20px; /* 8-point spacing */
-  margin-bottom: 24px; /* 8-point spacing */
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 16px; /* 4-point spacing */
-}
-.new-form h2 {
-  margin: 0 0 12px; /* 4-point spacing */
-  font-size: 20px; /* H2: 20px (600 weight) */
-  color: #1d1d1f;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.new-form__actions {
-  display: flex;
-  gap: 8px; /* 4-point spacing */
-  margin-top: 8px; /* 4-point spacing */
-  flex-wrap: wrap;
-}
-
-/* ---------- CARD LIST ---------- */
-.cards {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px; /* 4-point spacing */
-}
-.card {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 16px; /* 4-point spacing */
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px; /* 8-point spacing */
-  padding: 20px; /* 8-point spacing */
-  align-items: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 44px;
+  background: #ffffff;
+  color: #1a1a1a;
 }
-.card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+
+.action-btn:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
-.card__title {
-  margin: 0 0 8px; /* 4-point spacing */
-  font-size: 18px; /* H3: 18px (600 weight) */
-  color: #1d1d1f;
-  font-weight: 600;
-  line-height: 1.4;
+
+.action-btn:active {
+  transform: scale(0.98);
 }
-.card__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px; /* 4-point spacing */
+
+.refresh-btn {
+  border-color: #e9ecef;
 }
-.card__actions--owner {
-  justify-content: flex-end;
-  gap: 0;
+
+.new-project-btn {
+  background: #0066cc;
+  color: #ffffff;
+  border-color: #0066cc;
 }
-.leave-btn {
-  margin-left: auto;
+
+.new-project-btn:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
 }
-.owner-tools-row {
-  display: flex;
-  flex-direction: row;
-  gap: 8px; /* 4-point spacing */
-  margin-bottom: 8px; /* 4-point spacing */
-  flex-wrap: wrap;
+
+.btn-icon {
+  font-size: 18px;
 }
-.card__main {
+
+.btn-text {
+  font-size: 16px;
+}
+
+/* Loading Skeleton */
+.loading-skeleton {
+  padding: 16px;
+}
+
+.skeleton-header,
+.skeleton-toolbar,
+.skeleton-tabs,
+.skeleton-projects {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.skeleton-header {
+  height: 80px;
+}
+
+.skeleton-toolbar {
+  height: 60px;
+}
+
+.skeleton-tabs {
+  height: 50px;
+}
+
+.skeleton-projects {
+  height: 300px;
   display: flex;
   flex-direction: column;
-  gap: 8px; /* 4-point spacing */
+  gap: 16px;
 }
 
-/* ---------- LOADING ---------- */
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* 4-point spacing */
-  justify-content: center;
-  height: 100px;
-  color: #86868b;
-}
-.spinner {
-  border: 3px solid #f3f4f6;
-  border-top: 3px solid #007AFF;
-  border-radius: 50%;
-  width: 24px; /* 4-point spacing */
-  height: 24px; /* 4-point spacing */
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.skeleton-project {
+  flex: 1;
+  background: inherit;
+  border-radius: 8px;
 }
 
-/* ---------- MISC ---------- */
-.section-title {
-  margin: 0 0 16px; /* 4-point spacing */
-  font-size: 20px; /* H2: 20px (600 weight) */
-  color: #1d1d1f;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.no-projects {
-  color: #86868b;
-  text-align: center;
-  margin: 24px 0; /* 8-point spacing */
-  font-size: 16px; /* Body: 16px */
-  line-height: 1.5;
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-/* ---------- RESPONSIVE ---------- */
-@media (max-width: 600px) {
-  .projects {
-    padding: 12px; /* 4-point spacing */
-    margin: 12px; /* 4-point spacing */
-  }
-  .card {
-    padding: 16px; /* 4-point spacing */
-    grid-template-columns: 1fr;
-  }
-  .page-bar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .page-actions {
-    justify-content: flex-start;
-  }
-  .toolbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .card__actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px; /* 4-point spacing */
-  }
-  .owner-tools-row {
-    flex-direction: row;
-    gap: 6px; /* 4-point spacing */
-  }
+/* New Project Form */
+.new-project-form {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
 }
 
-.project-meta {
-  margin-bottom: 8px; /* 4-point spacing */
-  font-size: 14px; /* Caption: 14px */
-  color: #424245;
-  display: flex;
-  flex-direction: column;
-  gap: 4px; /* 4-point spacing */
-  line-height: 1.5;
+.form-grid {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(16px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 16px; /* 4-point spacing */
-  /* Safe area support */
-  padding-top: max(16px, env(safe-area-inset-top));
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
-}
-.modal {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px; /* 8-point spacing */
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
-  min-width: 320px;
-  max-width: 95vw;
-  display: flex;
-  flex-direction: column;
-  gap: 12px; /* 4-point spacing */
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-.modal h2 {
-  margin: 0 0 12px; /* 4-point spacing */
-  font-size: 20px; /* H2: 20px (600 weight) */
-  color: #1d1d1f;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.modal-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px; /* 4-point spacing */
-}
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px; /* 4-point spacing */
 }
-.form-group label {
+
+.form-label {
   font-weight: 600;
-  color: #1d1d1f;
-  font-size: 16px; /* Body: 16px */
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-size: 16px;
   line-height: 1.4;
 }
-.modal-actions {
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.form-input::placeholder {
+  color: #6c757d;
+}
+
+.form-actions {
   display: flex;
-  gap: 8px; /* 4-point spacing */
-  margin-top: 16px; /* 4-point spacing */
-  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-.date-range-group {
-  margin-top: 8px; /* 4-point spacing */
-}
-.date-range-row {
+
+/* Toolbar */
+.toolbar {
   display: flex;
-  align-items: center;
-  gap: 8px; /* 4-point spacing */
-  margin-top: 4px; /* 4-point spacing */
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
 }
-.date-lines {
-  margin-left: 12px; /* 4-point spacing */
-  margin-bottom: 4px; /* 4-point spacing */
-  font-size: 14px; /* Caption: 14px */
-  color: #424245;
-  line-height: 1.5;
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.date-label {
-  font-weight: 500;
-  margin-right: 4px; /* 4-point spacing */
+
+.sorter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.date-table {
-  border-collapse: collapse;
-  margin-top: 4px; /* 4-point spacing */
-  margin-bottom: 4px; /* 4-point spacing */
-  font-size: 14px; /* Caption: 14px */
-  line-height: 1.4;
-}
-.date-table th, .date-table td {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 8px; /* 4-point spacing */
-  text-align: left;
+
+.sorter-label {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 16px;
 }
 
 .select-wrapper {
   position: relative;
-  display: inline-block;
 }
-.styled-select {
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  min-height: 44px;
   appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  padding-right: 2em;
-  min-width: 140px;
   cursor: pointer;
-  font-size: 16px; /* Body: 16px */
-  color: #1d1d1f;
-  transition: border-color 0.2s;
-  /* Minimum touch size: 44×48px */
-  min-height: 48px;
-  line-height: 1.4;
 }
-.styled-select:focus {
-  border-color: #007AFF;
-  outline: none;
-}
+
 .select-arrow {
   position: absolute;
-  right: 12px; /* 4-point spacing */
+  right: 16px;
   top: 50%;
   transform: translateY(-50%);
+  color: #6c757d;
   pointer-events: none;
-  color: #86868b;
-  font-size: 0.9em;
+}
+
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  font-size: 18px;
+  color: #6c757d;
+  z-index: 2;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px 12px 48px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1a1a1a;
+  min-height: 44px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+/* Project Tabs */
+.project-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6c757d;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  border-color: #0066cc;
+  color: #0066cc;
+}
+
+.tab-btn.active {
+  background: #0066cc;
+  color: #ffffff;
+  border-color: #0066cc;
+}
+
+.tab-icon {
+  font-size: 18px;
+}
+
+.tab-text {
+  font-size: 16px;
+}
+
+/* Projects Grid */
+.projects-section {
+  margin-bottom: 24px;
+}
+
+.projects-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.project-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.project-card:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.project-card.archived {
+  opacity: 0.7;
+  background: #f8f9fa;
 }
 
 .archived-badge {
   position: absolute;
-  top: 12px; /* 4-point spacing */
-  right: 16px; /* 4-point spacing */
-  background: #86868b;
-  color: #fff;
-  font-size: 12px; /* Caption: 12px */
+  top: 12px;
+  right: 12px;
+  background: #6c757d;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 4px 8px; /* 4-point spacing */
-  border-radius: 6px; /* 4-point spacing */
-  z-index: 2;
-  letter-spacing: 0.5px;
-  line-height: 1.4;
-}
-.archived-card {
-  position: relative;
-  opacity: 0.8;
-  background: rgba(245, 245, 247, 0.6);
-}
-.archive-btn {
-  color: #86868b;
 }
 
-.project-tabs {
+.project-header {
   display: flex;
-  gap: 0;
-  margin-bottom: 16px; /* 4-point spacing */
-  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
-}
-.tab-btn {
-  background: none;
-  border: none;
-  font-size: 16px; /* Body: 16px */
-  font-weight: 600;
-  color: #86868b;
-  padding: 12px 24px 8px 24px; /* 4-point spacing */
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-  /* Minimum touch size: 44×44px */
-  min-height: 44px;
-  line-height: 1.4;
-}
-.tab-btn.active {
-  color: #1d1d1f;
-  border-bottom: 2px solid #007AFF;
-  background: rgba(0, 122, 255, 0.04);
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
 }
 
-.project-website {
-  margin-bottom: 8px; /* 4-point spacing */
-  font-size: 14px; /* Caption: 14px */
-  color: #424245;
-  line-height: 1.5;
+.project-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1.4;
 }
-.website-link {
-  color: #007AFF;
+
+.project-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.project-badge.owner {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+/* Project Meta */
+.project-meta {
+  margin-bottom: 16px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.meta-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.meta-text {
+  color: #495057;
+}
+
+.meta-link {
+  color: #0066cc;
   text-decoration: none;
+  font-weight: 500;
 }
-.website-link:hover {
+
+.meta-link:hover {
   text-decoration: underline;
 }
 
-/* Mobile-First Responsive Design */
-/* Mobile: 0–600px (default) */
-/* Tablet: 601–1024px */
+/* Project Timeline */
+.project-timeline {
+  margin-bottom: 20px;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.timeline-icon.build {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.timeline-icon.show {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.timeline-content {
+  flex: 1;
+}
+
+.timeline-label {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: #1a1a1a;
+}
+
+.timeline-dates {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+/* Project Actions */
+.project-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.open-btn {
+  width: 100%;
+}
+
+.owner-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: #0066cc;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #ffffff;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  padding-top: env(safe-area-inset-top, 16px);
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 20px 16px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  background: #f8f9fa;
+  color: #1a1a1a;
+}
+
+.modal-content {
+  padding: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px 20px 20px;
+  border-top: 1px solid #e9ecef;
+  flex-wrap: wrap;
+}
+
+/* Date Range */
+.date-range-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.date-separator {
+  color: #6c757d;
+  font-size: 16px;
+}
+
+/* Focus States for Accessibility */
+.action-btn:focus,
+.tab-btn:focus,
+.btn:focus,
+.form-input:focus,
+.form-select:focus,
+.search-input:focus,
+.modal-close:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .projects {
-    padding: 20px; /* 8-point spacing */
-    max-width: 700px;
+    padding: 24px;
   }
-  
+
   .page-title {
-    font-size: 28px; /* H1: 28px for tablet */
+    font-size: 28px;
   }
-  
-  .btn {
-    padding: 14px 20px; /* 4-point spacing */
-    font-size: 16px; /* Body: 16px */
-    min-height: 48px;
+
+  .toolbar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
-  
-  .card {
-    padding: 24px; /* 8-point spacing */
+
+  .toolbar-left,
+  .toolbar-right {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .owner-actions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .projects-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
   }
 }
 
-/* Desktop: 1025px+ */
+/* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .projects {
-    padding: 24px; /* 8-point spacing */
-    max-width: 800px;
-    margin: 24px auto; /* 8-point spacing */
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
   }
-  
+
   .page-title {
-    font-size: 32px; /* H1: 32px for desktop */
+    font-size: 32px;
   }
-  
+
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .projects-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
   .modal {
-    min-width: 480px;
-  }
-  
-  .card {
-    padding: 28px; /* 8-point spacing */
-  }
-  
-  .new-form {
-    padding: 28px; /* 8-point spacing */
+    max-width: 600px;
   }
 }
 
-/* High DPI displays */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .projects {
-    border: 0.5px solid rgba(255, 255, 255, 0.2);
-  }
-  
-  .card {
-    border: 0.5px solid rgba(0, 0, 0, 0.06);
-  }
-  
-  .input {
-    border-width: 0.5px;
-  }
-  
-  .btn {
-    border-width: 0.5px;
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .project-card,
   .btn,
-  .card {
+  .form-input,
+  .form-select,
+  .search-input {
+    border-width: 2px;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .action-btn,
+  .btn,
+  .tab-btn {
     transition: none;
   }
   
+  .action-btn:hover,
   .btn:hover,
-  .card:hover {
+  .tab-btn:hover {
+    transform: none;
+  }
+  
+  .action-btn:active,
+  .btn:active,
+  .tab-btn:active {
     transform: none;
   }
 }

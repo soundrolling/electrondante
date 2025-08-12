@@ -1,17 +1,24 @@
 <template>
 <div class="accommodations">
+  <!-- Header Section -->
   <div class="header-section">
     <h1>Accommodations</h1>
     <p>Manage your hotel and lodging information</p>
-    <button class="back-button" @click="goBackToDashboard">Back to Dashboard</button>
+    <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
+      <span class="back-icon">←</span>
+      <span class="back-text">Back to Dashboard</span>
+    </button>
   </div>
 
+  <!-- Trip Selector -->
   <div class="trip-selector">
     <label for="trip-select">Select Trip:</label>
     <select
       id="trip-select"
       v-model="selectedTripId"
       @change="loadAccommodations"
+      class="trip-select-input"
+      aria-label="Select a trip to view accommodations"
     >
       <option value="">-- Select a Trip --</option>
       <option v-for="trip in trips" :key="trip.id" :value="trip.id">
@@ -20,20 +27,29 @@
     </select>
   </div>
 
-  <div v-if="isLoading" class="loading-spinner">
-    <div class="spinner"></div>
-    <p>Loading accommodations...</p>
+  <!-- Loading State -->
+  <div v-if="isLoading" class="loading-state">
+    <div class="skeleton-loader">
+      <div class="skeleton-item"></div>
+      <div class="skeleton-item"></div>
+      <div class="skeleton-item"></div>
+    </div>
   </div>
 
+  <!-- Empty State -->
   <div v-else-if="!selectedTripId" class="empty-state">
-    <p>Please select a trip to view accommodations</p>
+    <div class="empty-icon">🏨</div>
+    <h3>Select a trip</h3>
+    <p>Please select a trip to view and manage accommodations</p>
   </div>
 
+  <!-- Content Container -->
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Accommodations</h2>
-      <button @click="openAddForm" class="add-button">
-        <span class="icon">+</span> Add Accommodation
+      <button @click="openAddForm" class="add-button" aria-label="Add new accommodation">
+        <span class="icon">+</span>
+        <span class="button-text">Add Accommodation</span>
       </button>
     </div>
 
@@ -49,12 +65,13 @@
             v-model="accommodationForm.name"
             required
             placeholder="e.g., Hilton Downtown"
+            class="form-input"
           />
         </div>
 
         <div class="form-group">
           <label for="accommodationType">Accommodation Type</label>
-          <select id="accommodationType" v-model="accommodationForm.type" required>
+          <select id="accommodationType" v-model="accommodationForm.type" required class="form-select">
             <option value="">-- Select Type --</option>
             <option value="Hotel">Hotel</option>
             <option value="Airbnb">Airbnb</option>
@@ -73,6 +90,7 @@
             v-model="accommodationForm.address"
             required
             placeholder="Full address"
+            class="form-input"
           />
         </div>
 
@@ -84,6 +102,7 @@
               id="checkInDate"
               v-model="accommodationForm.check_in_date"
               required
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -93,155 +112,124 @@
               id="checkOutDate"
               v-model="accommodationForm.check_out_date"
               required
+              class="form-input"
             />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label for="checkInTime">Check-in Time</label>
+            <label for="confirmationNumber">Confirmation Number</label>
             <input
-              type="time"
-              id="checkInTime"
-              v-model="accommodationForm.check_in_time"
-              required
+              type="text"
+              id="confirmationNumber"
+              v-model="accommodationForm.confirmation_number"
+              placeholder="Optional"
+              class="form-input"
             />
           </div>
           <div class="form-group">
-            <label for="checkOutTime">Check-out Time</label>
+            <label for="phoneNumber">Phone Number</label>
             <input
-              type="time"
-              id="checkOutTime"
-              v-model="accommodationForm.check_out_time"
-              required
+              type="tel"
+              id="phoneNumber"
+              v-model="accommodationForm.phone_number"
+              placeholder="Optional"
+              class="form-input"
             />
           </div>
         </div>
 
         <div class="form-group">
-          <label for="confirmationNumber">Confirmation Number (Optional)</label>
-          <input
-            type="text"
-            id="confirmationNumber"
-            v-model="accommodationForm.confirmation_number"
-            placeholder="e.g., ABC123"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="roomType">Room Type (Optional)</label>
-          <input
-            type="text"
-            id="roomType"
-            v-model="accommodationForm.room_type"
-            placeholder="e.g., King Suite"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="mapLink">Map Link (Optional)</label>
-          <input
-            type="url"
-            id="mapLink"
-            v-model="accommodationForm.map_link"
-            placeholder="Google Maps URL"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="amenities">Amenities (Optional, comma separated)</label>
-          <input
-            type="text"
-            id="amenities"
-            v-model="accommodationForm.amenities"
-            placeholder="e.g., WiFi, Pool, Breakfast"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="accommodationNotes">Notes (Optional)</label>
+          <label for="notes">Notes</label>
           <textarea
-            id="accommodationNotes"
+            id="notes"
             v-model="accommodationForm.notes"
             rows="3"
-            placeholder="Any additional information"
+            placeholder="Any additional notes about this accommodation"
+            class="form-textarea"
           ></textarea>
         </div>
 
         <div class="form-actions">
-          <button type="button" @click="closeForm" class="cancel-button">Cancel</button>
-          <button type="submit" class="save-button" :disabled="isSaving">
-            {{ isSaving ? 'Saving...' : (editingAccommodation ? 'Update Accommodation' : 'Add Accommodation') }}
+          <button
+            type="button"
+            @click="cancelForm"
+            class="secondary-button"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="primary-button">
+            {{ editingAccommodation ? 'Update' : 'Add' }} Accommodation
           </button>
         </div>
       </form>
     </div>
 
-    <div v-if="accommodations.length === 0" class="empty-state">
-      <p>No accommodations added yet. Add your first accommodation to get started!</p>
+    <!-- Accommodations List -->
+    <div v-if="accommodations.length === 0" class="empty-accommodations">
+      <div class="empty-icon">🏠</div>
+      <h3>No accommodations yet</h3>
+      <p>Add your first accommodation to get started</p>
     </div>
 
     <div v-else class="accommodations-list">
       <div
-        v-for="accommodation in sortedAccommodations"
+        v-for="accommodation in accommodations"
         :key="accommodation.id"
         class="accommodation-card"
       >
         <div class="accommodation-card-header">
           <h3>{{ accommodation.name }}</h3>
-          <div class="accommodation-dates">
+          <span class="accommodation-dates">
             {{ formatDateRange(accommodation.check_in_date, accommodation.check_out_date) }}
-          </div>
+          </span>
         </div>
+        
         <div class="accommodation-card-body">
           <div class="accommodation-address">
-            <div class="address-icon">📍</div>
-            <div class="address-text">{{ accommodation.address }}</div>
+            <span class="address-icon">📍</span>
+            <span>{{ accommodation.address }}</span>
           </div>
+          
           <div class="accommodation-details">
             <div class="detail-item">
-              <span class="detail-label">Confirmation #:</span>
-              <span class="detail-value">{{ accommodation.confirmation_number || 'N/A' }}</span>
+              <span class="detail-label">Type:</span>
+              <span>{{ accommodation.type }}</span>
             </div>
-            <div class="detail-item">
-              <span class="detail-label">Room Type:</span>
-              <span class="detail-value">{{ accommodation.room_type || 'N/A' }}</span>
+            <div v-if="accommodation.confirmation_number" class="detail-item">
+              <span class="detail-label">Confirmation:</span>
+              <span>{{ accommodation.confirmation_number }}</span>
             </div>
-            <div class="detail-item">
-              <span class="detail-label">Check-in:</span>
-              <span class="detail-value">{{ formatTime(accommodation.check_in_time) || 'N/A' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Check-out:</span>
-              <span class="detail-value">{{ formatTime(accommodation.check_out_time) || 'N/A' }}</span>
+            <div v-if="accommodation.phone_number" class="detail-item">
+              <span class="detail-label">Phone:</span>
+              <span>{{ accommodation.phone_number }}</span>
             </div>
           </div>
+          
           <div v-if="accommodation.notes" class="accommodation-notes">
-            <div class="detail-label">Notes:</div>
-            <p>{{ accommodation.notes }}</p>
-          </div>
-          <div v-if="accommodation.amenities" class="accommodation-amenities">
-            <div class="detail-label">Amenities:</div>
-            <div class="amenities-list">
-              <span
-                v-for="(amenity, index) in parseAmenities(accommodation.amenities)"
-                :key="index"
-                class="amenity-tag"
-              >
-                {{ amenity }}
-              </span>
-            </div>
+            <span class="detail-label">Notes:</span>
+            <span>{{ accommodation.notes }}</span>
           </div>
         </div>
+        
         <div class="accommodation-card-footer">
-          <button @click="editAccommodation(accommodation)" class="edit-button">Edit</button>
-          <button @click="deleteAccommodation(accommodation.id)" class="delete-button">Delete</button>
           <button
-            v-if="accommodation.map_link"
-            @click="openMapLink(accommodation.map_link)"
-            class="map-button"
+            @click="editAccommodation(accommodation)"
+            class="action-button edit-button"
+            aria-label="Edit accommodation"
           >
-            View Map
+            <span class="action-icon">✏️</span>
+            <span class="action-text">Edit</span>
+          </button>
+          
+          <button
+            @click="deleteAccommodation(accommodation)"
+            class="action-button delete-button"
+            aria-label="Delete accommodation"
+          >
+            <span class="action-icon">🗑️</span>
+            <span class="action-text">Delete</span>
           </button>
         </div>
       </div>
@@ -293,7 +281,8 @@ setup(props) {
     room_type: '',
     map_link: '',
     amenities: '',
-    notes: ''
+    notes: '',
+    phone_number: '' // Added phone_number to form
   });
 
   const sortedAccommodations = computed(() => {
@@ -445,11 +434,12 @@ setup(props) {
       room_type: '',
       map_link: '',
       amenities: '',
-      notes: ''
+      notes: '',
+      phone_number: '' // Reset phone_number
     };
   };
 
-  const closeForm = () => {
+  const cancelForm = () => {
     showAccommodationForm.value = false;
     resetAccommodationForm();
     editingAccommodation.value = null;
@@ -505,7 +495,7 @@ setup(props) {
     deleteAccommodation,
     openMapLink,
     saveAccommodation,
-    closeForm,
+    cancelForm, // Changed from closeForm
 
     // The fixed method
     goBackToDashboard,
@@ -521,356 +511,741 @@ setup(props) {
 
 
 <style scoped>
+/* Mobile-first base styles */
 .accommodations {
   width: 100%;
-  padding: 32px;
+  padding: 16px;
   margin: 0 auto;
   box-sizing: border-box;
-  color: #222;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #1f2937;
   line-height: 1.5;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: #f8f9fa;
+  background: #f8fafc;
+  min-height: 100vh;
 }
-@media (min-width: 768px) {
+
+/* Safe area margins for mobile devices */
+@supports (padding: max(0px)) {
   .accommodations {
-    max-width: 900px;
-    padding: 48px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
 
+/* Header Section */
 .header-section {
   text-align: center;
-  margin-bottom: 2rem;
-  background: #fff;
-  padding: 2rem 1rem 1.5rem 1rem;
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 24px 16px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
+
 .header-section h1 {
-  font-size: 2rem;
-  margin: 0 0 0.5rem;
-  color: #1f2937;
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: #111827;
   font-weight: 700;
+  line-height: 1.4;
 }
+
 .header-section p {
-  margin: 0;
-  color: #64748b;
-  font-size: 1.1rem;
+  margin: 0 0 20px 0;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.5;
 }
+
 .back-button {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: 1.5px solid #cbd5e1;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
-  padding: 0.5rem 1.2rem;
-  font-size: 1rem;
-  font-weight: 500;
-  margin-top: 1rem;
-  transition: background 0.2s, color 0.2s, border 0.2s;
+  padding: 12px 16px;
   cursor: pointer;
-}
-.back-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
-  border-color: #3b82f6;
-}
-
-.trip-selector {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1.5rem;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
-  padding: 1.2rem 1rem 1rem 1rem;
-}
-.trip-selector label {
+  font-size: 16px;
   font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: #222;
-}
-.trip-selector select {
-  padding: 0.6rem;
-  font-size: 1rem;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 8px;
-  max-width: 100%;
-  background: #f8fafc;
-  color: #222;
-}
-@media (min-width: 768px) {
-  .trip-selector {
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
-  }
-  .trip-selector label {
-    margin-bottom: 0;
-  }
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.loading-spinner {
+.back-button:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.back-button:active {
+  transform: translateY(0);
+}
+
+.back-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.back-icon {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.back-text {
+  display: none;
+}
+
+/* Trip Selector */
+.trip-selector {
+  margin-bottom: 24px;
+  background: #ffffff;
+  padding: 20px 16px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.trip-selector label {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.trip-select-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
+.trip-select-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+.skeleton-loader {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 0;
+  gap: 16px;
+  width: 100%;
+  max-width: 600px;
 }
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3b82f6;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+
+.skeleton-item {
+  height: 80px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7280;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  font-size: 20px;
+  margin: 0 0 8px 0;
+  color: #374151;
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Content Container */
+.content-container {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
 }
 
 .section-header {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-@media (min-width: 480px) {
-  .section-header {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-}
-.section-header h2 {
-  font-size: 1.4rem;
-  margin: 0;
-  color: #1f2937;
-  font-weight: 600;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-button {
+.section-header h2 {
+  font-size: 20px;
+  margin: 0;
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Add Button */
+.add-button {
+  background: #3b82f6;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 10px 18px;
-  font-size: 1rem;
-  font-weight: 500;
+  padding: 12px 16px;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-}
-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px #dbeafe;
-}
-.add-button {
-  background: #10b981;
-  color: #fff;
-}
-.add-button:hover {
-  background: #059669;
-}
-.edit-button {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: 1.5px solid #cbd5e1;
-}
-.edit-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
-  border-color: #3b82f6;
-}
-.delete-button {
-  background: #ef4444;
-  color: #fff;
-}
-.delete-button:hover {
-  background: #dc2626;
-}
-.map-button {
-  background: #3b82f6;
-  color: #fff;
-}
-.map-button:hover {
-  background: #2563eb;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.add-button:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.add-button:active {
+  transform: translateY(0);
+}
+
+.add-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.icon {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.button-text {
+  display: none;
+}
+
+/* Form Container */
 .accommodation-form-container {
-  background-color: #fff;
-  border: 1.5px solid #e5e7eb;
-  padding: 1.2rem 1rem 1rem 1rem;
+  background: #f9fafb;
   border-radius: 12px;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  padding: 24px 20px;
+  margin-bottom: 24px;
+  border: 1px solid #e5e7eb;
 }
+
 .accommodation-form-container h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: #1f2937;
+  font-size: 18px;
+  margin: 0 0 20px 0;
+  color: #111827;
   font-weight: 600;
+  line-height: 1.4;
 }
+
+/* Form Styles */
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 20px;
 }
+
 .form-group label {
   display: block;
+  margin-bottom: 8px;
   font-weight: 500;
-  margin-bottom: 0.5rem;
-  color: #222;
+  color: #374151;
+  font-size: 16px;
+  line-height: 1.4;
 }
-.form-group input,
-.form-group select,
-.form-group textarea {
+
+.form-input,
+.form-select,
+.form-textarea {
   width: 100%;
-  padding: 0.6rem;
-  font-size: 1rem;
-  border: 1.5px solid #e5e7eb;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
   border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.5;
   box-sizing: border-box;
-  background: #fff;
-  color: #222;
+  background: #ffffff;
+  color: #111827;
+  transition: all 0.2s ease;
+  min-height: 48px;
 }
+
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .form-row {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-@media (min-width: 576px) {
-  .form-row {
-    flex-direction: row;
-  }
-}
-.form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: flex-end;
-}
-.cancel-button {
-  background-color: #6c757d;
-  color: #fff;
-}
-.cancel-button:hover {
-  background-color: #5a6268;
-}
-.save-button {
-  background-color: #10b981;
-  color: #fff;
-}
-.save-button:hover {
-  background-color: #059669;
-}
-.save-button:disabled {
-  background-color: #a7f3d0;
-  cursor: not-allowed;
+  gap: 16px;
 }
 
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+/* Button Styles */
+.primary-button {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.primary-button:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}
+
+.primary-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+}
+
+.primary-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.secondary-button {
+  background: #6b7280;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.secondary-button:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.secondary-button:active {
+  transform: translateY(0);
+}
+
+.secondary-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+}
+
+/* Empty Accommodations */
+.empty-accommodations {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7280;
+}
+
+.empty-accommodations .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-accommodations h3 {
+  font-size: 20px;
+  margin: 0 0 8px 0;
+  color: #374151;
+  font-weight: 600;
+}
+
+.empty-accommodations p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Accommodations List */
 .accommodations-list {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 16px;
 }
+
 .accommodation-card {
-  background-color: #fff;
-  border: 1.5px solid #e5e7eb;
-  padding: 1.1rem 1rem 0.8rem 1rem;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  transition: background 0.2s, box-shadow 0.2s;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px 16px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
+
 .accommodation-card:hover {
-  background: #f1f5f9;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
+
 .accommodation-card-header {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 8px;
+  margin-bottom: 16px;
 }
-@media (min-width: 480px) {
+
+.accommodation-card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.accommodation-dates {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.accommodation-card-body {
+  margin-bottom: 20px;
+}
+
+.accommodation-address {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+.address-icon {
+  font-size: 16px;
+  color: #6b7280;
+}
+
+.accommodation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-item {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.detail-label {
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.accommodation-notes {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.4;
+  padding: 12px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+}
+
+.accommodation-card-footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  background: #f9fafb;
+  min-height: 44px;
+  min-width: 44px;
+  flex: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: translateY(0);
+}
+
+.action-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.action-button.edit-button {
+  background: #f0f9ff;
+  color: #1d4ed8;
+  border-color: #bae6fd;
+}
+
+.action-button.edit-button:hover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+}
+
+.action-button.delete-button {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.action-button.delete-button:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.action-icon {
+  font-size: 16px;
+}
+
+.action-text {
+  display: none;
+}
+
+/* Tablet Breakpoint (601px - 1024px) */
+@media (min-width: 601px) {
+  .accommodations {
+    padding: 24px;
+  }
+  
+  .header-section {
+    padding: 32px 24px;
+    margin-bottom: 32px;
+  }
+  
+  .header-section h1 {
+    font-size: 28px;
+  }
+  
+  .trip-selector {
+    padding: 24px 20px;
+    margin-bottom: 32px;
+  }
+  
+  .content-container {
+    padding: 24px 20px;
+  }
+  
+  .accommodation-form-container {
+    padding: 28px 24px;
+  }
+  
+  .accommodation-card {
+    padding: 24px 20px;
+  }
+  
   .accommodation-card-header {
     flex-direction: row;
     justify-content: space-between;
     align-items: baseline;
   }
-}
-.accommodation-card-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-.accommodation-dates {
-  font-size: 0.95rem;
-  color: #64748b;
-}
-.accommodation-card-body {
-  margin-top: 1rem;
-}
-.accommodation-address {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.address-icon {
-  font-size: 1.2rem;
-  margin-right: 0.5rem;
-}
-.accommodation-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 0.5rem;
-}
-.detail-item {
-  flex: 1 1 45%;
-  font-size: 0.9rem;
-  color: #555;
-}
-.detail-label {
-  font-weight: 600;
-  margin-right: 0.25rem;
-}
-.accommodation-notes,
-.accommodation-amenities {
-  margin-top: 0.75rem;
-  font-size: 0.9rem;
-  color: #555;
-}
-.amenities-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-}
-.amenity-tag {
-  background-color: #e9ecef;
-  padding: 0.3rem 0.5rem;
-  border-radius: 4px;
-}
-.accommodation-card-footer {
-  margin-top: 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.empty-state {
-  text-align: center;
-  padding: 1rem;
-  background-color: #fefefe;
-  border: 1.5px dashed #cbd5e1;
-  border-radius: 10px;
-  font-style: italic;
-  color: #64748b;
-}
-@media (max-width: 700px) {
-  .accommodations {
-    padding: 10px;
+  
+  .accommodation-details {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
+  
+  .detail-item {
+    flex: 1 1 45%;
+  }
+  
+  .action-text {
+    display: inline;
+  }
+  
+  .button-text {
+    display: inline;
+  }
+  
+  .back-text {
+    display: inline;
+  }
+  
+  .form-row {
+    flex-direction: row;
+  }
+  
+  .form-row .form-group {
+    flex: 1;
+  }
+}
+
+/* Desktop Breakpoint (1025px+) */
+@media (min-width: 1025px) {
+  .accommodations {
+    max-width: 1200px;
+    padding: 32px;
+  }
+  
+  .header-section {
+    padding: 40px 32px;
+    margin-bottom: 40px;
+  }
+  
+  .header-section h1 {
+    font-size: 32px;
+  }
+  
+  .trip-selector {
+    padding: 32px 28px;
+    margin-bottom: 40px;
+  }
+  
+  .content-container {
+    padding: 32px 28px;
+  }
+  
   .accommodation-form-container {
-    padding: 1.2rem 0.5rem 1rem 0.5rem;
+    padding: 32px 28px;
+  }
+  
+  .accommodation-card {
+    padding: 28px 24px;
+  }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 600px) {
+  .accommodations {
+    padding: 12px;
+  }
+  
+  .header-section {
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  
+  .header-section h1 {
+    font-size: 22px;
+  }
+  
+  .trip-selector {
+    padding: 16px 12px;
+    margin-bottom: 20px;
+  }
+  
+  .content-container {
+    padding: 16px 12px;
+  }
+  
+  .accommodation-form-container {
+    padding: 20px 16px;
+  }
+  
+  .accommodation-card {
+    padding: 16px 12px;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .add-button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .accommodation-card-footer {
+    flex-direction: column;
+  }
+  
+  .action-button {
+    width: 100%;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
+    width: 100%;
   }
 }
 </style>

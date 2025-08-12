@@ -1,19 +1,29 @@
 <template>
 <div class="flight-details">
+  <!-- Header Section -->
   <div class="header-section">
-    <h1>Flights &amp; Transportation</h1>
+    <h1>Flights & Transportation</h1>
     <p>Manage your flight and transportation details</p>
   </div>
 
   <!-- Back to Dashboard Button -->
   <div class="back-button-container">
-    <button class="back-button" @click="goBackToDashboard">Back to Dashboard</button>
+    <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
+      <span class="back-icon">←</span>
+      <span class="back-text">Back to Dashboard</span>
+    </button>
   </div>
 
   <!-- Trip Selector -->
   <div class="trip-selector">
     <label for="trip-select">Select Trip:</label>
-    <select id="trip-select" v-model="selectedTripId" @change="loadAllTransportData">
+    <select 
+      id="trip-select" 
+      v-model="selectedTripId" 
+      @change="loadAllTransportData"
+      class="trip-select-input"
+      aria-label="Select a trip to view transportation details"
+    >
       <option value="">-- Select a Trip --</option>
       <option 
         v-for="trip in trips" 
@@ -26,39 +36,52 @@
   </div>
 
   <!-- Loading & Empty States -->
-  <div v-if="isLoading" class="loading-spinner">
-    <div class="spinner"></div>
-    <p>Loading data...</p>
+  <div v-if="isLoading" class="loading-state">
+    <div class="skeleton-loader">
+      <div class="skeleton-item"></div>
+      <div class="skeleton-item"></div>
+      <div class="skeleton-item"></div>
+    </div>
   </div>
 
   <div v-else-if="!selectedTripId" class="empty-state">
+    <div class="empty-icon">✈️</div>
+    <h3>Select a trip</h3>
     <p>Please select a trip to view flight/transportation details</p>
   </div>
 
   <div v-else class="content-container">
     <!-- Tabs Navigation -->
-    <div class="tabs-nav">
+    <div class="tabs-nav" role="tablist">
       <button
         v-for="tab in tabs"
         :key="tab.id"
         :class="['tab-btn', { active: activeTab === tab.id }]"
         @click="activeTab = tab.id"
+        :aria-selected="activeTab === tab.id"
+        :aria-controls="`${tab.id}-panel`"
+        role="tab"
       >
         {{ tab.label }}
       </button>
     </div>
-    <!-- End Tabs Navigation -->
+
     <!-- Flights Section -->
-    <div v-if="activeTab === 'flights'" class="section-content">
+    <div v-if="activeTab === 'flights'" class="section-content" role="tabpanel" id="flights-panel">
       <div class="section-header">
         <h2>Flight Information</h2>
-        <button @click="openFlightModal()" class="add-button">
-          <span class="icon">+</span> Add Flight
+        <button @click="openFlightModal()" class="add-button" aria-label="Add new flight">
+          <span class="icon">+</span>
+          <span class="button-text">Add Flight</span>
         </button>
       </div>
-      <div v-if="flights.length === 0" class="empty-state">
-        <p>No flights added yet. Add your first flight!</p>
+      
+      <div v-if="flights.length === 0" class="empty-section">
+        <div class="empty-icon">🛫</div>
+        <h3>No flights yet</h3>
+        <p>Add your first flight to get started!</p>
       </div>
+      
       <div v-else class="flights-list">
         <div 
           v-for="flight in sortedFlights" 
@@ -114,24 +137,35 @@
           </div>
           
           <div class="flight-card-footer">
-            <button @click="openFlightModal(flight)" class="edit-button">Edit</button>
-            <button @click="deleteFlight(flight.id)" class="delete-button">Delete</button>
+            <button @click="openFlightModal(flight)" class="action-button edit-button" aria-label="Edit flight">
+              <span class="action-icon">✏️</span>
+              <span class="action-text">Edit</span>
+            </button>
+            <button @click="deleteFlight(flight.id)" class="action-button delete-button" aria-label="Delete flight">
+              <span class="action-icon">🗑️</span>
+              <span class="action-text">Delete</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Rental Cars Section -->
-    <div v-if="activeTab === 'rental'" class="section-content">
+    <div v-if="activeTab === 'rental'" class="section-content" role="tabpanel" id="rental-panel">
       <div class="section-header">
         <h2>Rental Car Information</h2>
-        <button @click="openRentalModal()" class="add-button">
-          <span class="icon">+</span> Add Rental Car
+        <button @click="openRentalModal()" class="add-button" aria-label="Add new rental car">
+          <span class="icon">+</span>
+          <span class="button-text">Add Rental Car</span>
         </button>
       </div>
-      <div v-if="rentalCars.length === 0" class="empty-state">
-        <p>No rental cars added yet. Add your first rental car!</p>
+      
+      <div v-if="rentalCars.length === 0" class="empty-section">
+        <div class="empty-icon">🚗</div>
+        <h3>No rental cars yet</h3>
+        <p>Add your first rental car to get started!</p>
       </div>
+      
       <div v-else class="rental-list">
         <div v-for="rental in rentalCars" :key="rental.id" class="rental-card">
           <div class="rental-card-header">
@@ -165,24 +199,35 @@
             </div>
           </div>
           <div class="rental-card-footer">
-            <button @click="openRentalModal(rental)" class="edit-button">Edit</button>
-            <button @click="deleteRental(rental.id)" class="delete-button">Delete</button>
+            <button @click="openRentalModal(rental)" class="action-button edit-button" aria-label="Edit rental car">
+              <span class="action-icon">✏️</span>
+              <span class="action-text">Edit</span>
+            </button>
+            <button @click="deleteRental(rental.id)" class="action-button delete-button" aria-label="Delete rental car">
+              <span class="action-icon">🗑️</span>
+              <span class="action-text">Delete</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Local Transport Section -->
-    <div v-if="activeTab === 'local'" class="section-content">
+    <div v-if="activeTab === 'local'" class="section-content" role="tabpanel" id="local-panel">
       <div class="section-header">
         <h2>Local Transportation</h2>
-        <button @click="openLocalTransportModal()" class="add-button">
-          <span class="icon">+</span> Add Local Transport
+        <button @click="openLocalTransportModal()" class="add-button" aria-label="Add new local transport">
+          <span class="icon">+</span>
+          <span class="button-text">Add Local Transport</span>
         </button>
       </div>
-      <div v-if="localTransport.length === 0" class="empty-state">
-        <p>No local transportation added yet.</p>
+      
+      <div v-if="localTransport.length === 0" class="empty-section">
+        <div class="empty-icon">🚇</div>
+        <h3>No local transport yet</h3>
+        <p>Add your first local transportation to get started!</p>
       </div>
+      
       <div v-else class="transport-list">
         <div v-for="transport in localTransport" :key="transport.id" class="transport-card">
           <div class="transport-card-header">
@@ -214,24 +259,35 @@
             </div>
           </div>
           <div class="transport-card-footer">
-            <button @click="openLocalTransportModal(transport)" class="edit-button">Edit</button>
-            <button @click="deleteLocalTransport(transport.id)" class="delete-button">Delete</button>
+            <button @click="openLocalTransportModal(transport)" class="action-button edit-button" aria-label="Edit local transport">
+              <span class="action-icon">✏️</span>
+              <span class="action-text">Edit</span>
+            </button>
+            <button @click="deleteLocalTransport(transport.id)" class="action-button delete-button" aria-label="Delete local transport">
+              <span class="action-icon">🗑️</span>
+              <span class="action-text">Delete</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Parking Section -->
-    <div v-if="activeTab === 'parking'" class="section-content">
+    <div v-if="activeTab === 'parking'" class="section-content" role="tabpanel" id="parking-panel">
       <div class="section-header">
         <h2>Airport Car Parking</h2>
-        <button @click="openNewParkingModal()" class="add-button">
-          <span class="icon">🚗</span> Add Parking
+        <button @click="openNewParkingModal()" class="add-button" aria-label="Add new parking">
+          <span class="icon">🚗</span>
+          <span class="button-text">Add Parking</span>
         </button>
       </div>
-      <div v-if="parkingSlots.length === 0" class="empty-state">
-        <p>No parking recorded. Add your airport parking to get started!</p>
+      
+      <div v-if="parkingSlots.length === 0" class="empty-section">
+        <div class="empty-icon">🅿️</div>
+        <h3>No parking yet</h3>
+        <p>Add your airport parking to get started!</p>
       </div>
+      
       <div v-else class="parking-list">
         <div
           v-for="slot in parkingSlots"
@@ -245,12 +301,18 @@
             </span>
           </div>
           <div class="parking-card-body">
-            <p>Cost: £{{ parseFloat(slot.cost).toFixed(2) }}</p>
-            <p v-if="slot.notes">{{ slot.notes }}</p>
+            <p class="parking-cost">Cost: £{{ parseFloat(slot.cost).toFixed(2) }}</p>
+            <p v-if="slot.notes" class="parking-notes">{{ slot.notes }}</p>
           </div>
           <div class="parking-card-footer">
-            <button @click="openEditParkingModal(slot)" class="edit-button">Edit</button>
-            <button @click="deleteParking(slot.id)" class="delete-button">Delete</button>
+            <button @click="openEditParkingModal(slot)" class="action-button edit-button" aria-label="Edit parking">
+              <span class="action-icon">✏️</span>
+              <span class="action-text">Edit</span>
+            </button>
+            <button @click="deleteParking(slot.id)" class="action-button delete-button" aria-label="Delete parking">
+              <span class="action-icon">🗑️</span>
+              <span class="action-text">Delete</span>
+            </button>
           </div>
         </div>
       </div>
@@ -258,12 +320,12 @@
   </div>
 
   <!-- Flight Modal -->
-  <div v-if="showFlightModal" class="modal">
+  <div v-if="showFlightModal" class="modal" role="dialog" aria-labelledby="flight-modal-title">
     <div class="modal-overlay" @click="closeFlightModal"></div>
     <div class="modal-container">
-      <button class="close-button" @click="closeFlightModal">✕</button>
+      <button class="close-button" @click="closeFlightModal" aria-label="Close modal">✕</button>
       <div class="modal-header">
-        <h2>{{ editingFlight ? 'Edit Flight' : 'Add Flight' }}</h2>
+        <h2 id="flight-modal-title">{{ editingFlight ? 'Edit Flight' : 'Add Flight' }}</h2>
       </div>
       <div class="modal-body">
         <form @submit.prevent="saveFlight">
@@ -275,6 +337,7 @@
               v-model="flightForm.airline"
               required
               placeholder="e.g., British Airways"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -285,6 +348,7 @@
               v-model="flightForm.flight_number"
               required
               placeholder="e.g., BA2490"
+              class="form-input"
             />
           </div>
           <div class="form-row">
@@ -295,6 +359,7 @@
                 id="departureDate"
                 v-model="flightForm.departure_date"
                 required
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -304,6 +369,7 @@
                 id="departureTime"
                 v-model="flightForm.departure_time"
                 required
+                class="form-input"
               />
             </div>
           </div>
@@ -316,6 +382,7 @@
                 v-model="flightForm.departure_city"
                 required
                 placeholder="e.g., London"
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -326,6 +393,7 @@
                 v-model="flightForm.departure_airport_code"
                 required
                 placeholder="e.g., LHR"
+                class="form-input"
               />
             </div>
           </div>
@@ -337,6 +405,7 @@
                 id="departureTerminal"
                 v-model="flightForm.departure_terminal"
                 placeholder="e.g., 5"
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -346,6 +415,7 @@
                 id="departureGate"
                 v-model="flightForm.departure_gate"
                 placeholder="e.g., A12"
+                class="form-input"
               />
             </div>
           </div>
@@ -358,6 +428,7 @@
                 v-model="flightForm.arrival_city"
                 required
                 placeholder="e.g., New York"
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -368,6 +439,7 @@
                 v-model="flightForm.arrival_airport_code"
                 required
                 placeholder="e.g., JFK"
+                class="form-input"
               />
             </div>
           </div>
@@ -378,6 +450,7 @@
               id="arrivalTime"
               v-model="flightForm.arrival_time"
               required
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -387,6 +460,7 @@
               id="seatAssignment"
               v-model="flightForm.seat_assignment"
               placeholder="e.g., 12A"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -396,21 +470,23 @@
               v-model="flightForm.notes"
               rows="3"
               placeholder="Any special instructions"
+              class="form-textarea"
             ></textarea>
           </div>
           <div class="form-actions">
             <button
               type="button"
               @click="closeFlightModal"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="save-button"
+              class="primary-button"
               :disabled="isSaving"
             >
+              <span v-if="isSaving" class="loading-spinner-small"></span>
               {{ isSaving ? 'Saving…' : (editingFlight ? 'Update Flight' : 'Add Flight') }}
             </button>
           </div>
@@ -420,12 +496,12 @@
   </div>
 
   <!-- Rental Car Modal -->
-  <div v-if="showRentalModal" class="modal">
+  <div v-if="showRentalModal" class="modal" role="dialog" aria-labelledby="rental-modal-title">
     <div class="modal-overlay" @click="closeRentalModal"></div>
     <div class="modal-container">
-      <button class="close-button" @click="closeRentalModal">✕</button>
+      <button class="close-button" @click="closeRentalModal" aria-label="Close modal">✕</button>
       <div class="modal-header">
-        <h2>{{ editingRental ? 'Edit Rental Car' : 'Add Rental Car' }}</h2>
+        <h2 id="rental-modal-title">{{ editingRental ? 'Edit Rental Car' : 'Add Rental Car' }}</h2>
       </div>
       <div class="modal-body">
         <form @submit.prevent="saveRentalCar">
@@ -437,6 +513,7 @@
               v-model="rentalForm.company"
               required
               placeholder="e.g., Hertz"
+              class="form-input"
             />
           </div>
           <div class="form-row">
@@ -447,6 +524,7 @@
                 id="pickupDate"
                 v-model="rentalForm.pickup_date"
                 required
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -456,6 +534,7 @@
                 id="returnDate"
                 v-model="rentalForm.return_date"
                 required
+                class="form-input"
               />
             </div>
           </div>
@@ -467,6 +546,7 @@
               v-model="rentalForm.vehicle_type"
               required
               placeholder="e.g., SUV"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -477,6 +557,7 @@
               v-model="rentalForm.reservation_number"
               required
               placeholder="e.g., ABC123456"
+              class="form-input"
             />
           </div>
           <div class="form-row">
@@ -488,6 +569,7 @@
                 v-model="rentalForm.pickup_location"
                 required
                 placeholder="e.g., LHR Terminal 5"
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -498,6 +580,7 @@
                 v-model="rentalForm.return_location"
                 required
                 placeholder="e.g., JFK Terminal 4"
+                class="form-input"
               />
             </div>
           </div>
@@ -508,19 +591,20 @@
               v-model="rentalForm.notes"
               rows="3"
               placeholder="Any special instructions"
+              class="form-textarea"
             ></textarea>
           </div>
           <div class="form-actions">
             <button
               type="button"
               @click="closeRentalModal"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="save-button"
+              class="primary-button"
               :disabled="isSaving"
             >
               {{ editingRental ? 'Update Rental' : 'Add Rental' }}
@@ -532,12 +616,12 @@
   </div>
 
   <!-- Local Transport Modal -->
-  <div v-if="showLocalTransportModal" class="modal">
+  <div v-if="showLocalTransportModal" class="modal" role="dialog" aria-labelledby="transport-modal-title">
     <div class="modal-overlay" @click="closeLocalTransportModal"></div>
     <div class="modal-container">
-      <button class="close-button" @click="closeLocalTransportModal">✕</button>
+      <button class="close-button" @click="closeLocalTransportModal" aria-label="Close modal">✕</button>
       <div class="modal-header">
-        <h2>{{ editingTransport ? 'Edit Local Transport' : 'Add Local Transport' }}</h2>
+        <h2 id="transport-modal-title">{{ editingTransport ? 'Edit Local Transport' : 'Add Local Transport' }}</h2>
       </div>
       <div class="modal-body">
         <form @submit.prevent="saveLocalTransport">
@@ -549,6 +633,7 @@
               v-model="transportForm.type"
               required
               placeholder="e.g., Taxi, Bus, Train"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -558,6 +643,7 @@
               id="transportDate"
               v-model="transportForm.date"
               required
+              class="form-input"
             />
           </div>
           <div class="form-row">
@@ -569,6 +655,7 @@
                 v-model="transportForm.from_location"
                 required
                 placeholder="e.g., Hotel"
+                class="form-input"
               />
             </div>
             <div class="form-group">
@@ -579,6 +666,7 @@
                 v-model="transportForm.to_location"
                 required
                 placeholder="e.g., Airport"
+                class="form-input"
               />
             </div>
           </div>
@@ -589,6 +677,7 @@
               id="departureTime"
               v-model="transportForm.departure_time"
               required
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -598,6 +687,7 @@
               id="confirmationNumber"
               v-model="transportForm.confirmation_number"
               placeholder="Booking reference"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -607,19 +697,20 @@
               v-model="transportForm.notes"
               rows="3"
               placeholder="Any special instructions"
+              class="form-textarea"
             ></textarea>
           </div>
           <div class="form-actions">
             <button
               type="button"
               @click="closeLocalTransportModal"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="save-button"
+              class="primary-button"
               :disabled="isSaving"
             >
               {{ editingTransport ? 'Update Transport' : 'Add Transport' }}
@@ -631,12 +722,12 @@
   </div>
 
   <!-- New Parking Modal -->
-  <div v-if="showNewParkingModal" class="modal">
+  <div v-if="showNewParkingModal" class="modal" role="dialog" aria-labelledby="parking-modal-title">
     <div class="modal-overlay" @click="showNewParkingModal = false"></div>
     <div class="modal-container">
-      <button class="close-button" @click="showNewParkingModal = false">✕</button>
+      <button class="close-button" @click="showNewParkingModal = false" aria-label="Close modal">✕</button>
       <div class="modal-header">
-        <h2>Add Parking</h2>
+        <h2 id="parking-modal-title">Add Parking</h2>
       </div>
       <div class="modal-body">
         <form @submit.prevent="saveNewParking">
@@ -648,6 +739,7 @@
               v-model="newParking.airport"
               required
               placeholder="e.g., Heathrow"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -658,25 +750,28 @@
               v-model="newParking.parking_provider"
               required
               placeholder="e.g., NCP"
+              class="form-input"
             />
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="startDateTime">Start Date &amp; Time</label>
+              <label for="startDateTime">Start Date & Time</label>
               <input
                 type="datetime-local"
                 id="startDateTime"
                 v-model="newParking.start_datetime"
                 required
+                class="form-input"
               />
             </div>
             <div class="form-group">
-              <label for="endDateTime">End Date &amp; Time</label>
+              <label for="endDateTime">End Date & Time</label>
               <input
                 type="datetime-local"
                 id="endDateTime"
                 v-model="newParking.end_datetime"
                 required
+                class="form-input"
               />
             </div>
           </div>
@@ -690,6 +785,7 @@
               min="0"
               step="0.01"
               placeholder="e.g., 45.00"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -699,21 +795,23 @@
               v-model="newParking.notes"
               rows="3"
               placeholder="Any special instructions or booking ref"
+              class="form-textarea"
             ></textarea>
           </div>
           <div class="form-actions">
             <button
               type="button"
               @click="showNewParkingModal = false"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="save-button"
+              class="primary-button"
               :disabled="isSavingParking"
             >
+              <span v-if="isSavingParking" class="loading-spinner-small"></span>
               {{ isSavingParking ? 'Saving…' : 'Add Parking' }}
             </button>
           </div>
@@ -723,12 +821,12 @@
   </div>
 
   <!-- Edit Parking Modal -->
-  <div v-if="showEditParkingModal" class="modal">
+  <div v-if="showEditParkingModal" class="modal" role="dialog" aria-labelledby="edit-parking-modal-title">
     <div class="modal-overlay" @click="showEditParkingModal = false"></div>
     <div class="modal-container">
-      <button class="close-button" @click="showEditParkingModal = false">✕</button>
+      <button class="close-button" @click="showEditParkingModal = false" aria-label="Close modal">✕</button>
       <div class="modal-header">
-        <h2>Edit Parking</h2>
+        <h2 id="edit-parking-modal-title">Edit Parking</h2>
       </div>
       <div class="modal-body">
         <form @submit.prevent="updateParking">
@@ -739,6 +837,7 @@
               id="editAirport"
               v-model="editParking.airport"
               required
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -748,25 +847,28 @@
               id="editProvider"
               v-model="editParking.parking_provider"
               required
+              class="form-input"
             />
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="editStartDateTime">Start Date &amp; Time</label>
+              <label for="editStartDateTime">Start Date & Time</label>
               <input
                 type="datetime-local"
                 id="editStartDateTime"
                 v-model="editParking.start_datetime"
                 required
+                class="form-input"
               />
             </div>
             <div class="form-group">
-              <label for="editEndDateTime">End Date &amp; Time</label>
+              <label for="editEndDateTime">End Date & Time</label>
               <input
                 type="datetime-local"
                 id="editEndDateTime"
                 v-model="editParking.end_datetime"
                 required
+                class="form-input"
               />
             </div>
           </div>
@@ -779,6 +881,7 @@
               required
               min="0"
               step="0.01"
+              class="form-input"
             />
           </div>
           <div class="form-group">
@@ -787,17 +890,18 @@
               id="editNotes"
               v-model="editParking.notes"
               rows="3"
+              class="form-textarea"
             ></textarea>
           </div>
           <div class="form-actions">
             <button
               type="button"
               @click="showEditParkingModal = false"
-              class="cancel-button"
+              class="secondary-button"
             >
               Cancel
             </button>
-            <button type="submit" class="save-button">Update Parking</button>
+            <button type="submit" class="primary-button">Update Parking</button>
           </div>
         </form>
       </div>
@@ -1414,11 +1518,29 @@ setup(props) {
   font-weight: 500;
   transition: background 0.2s, color 0.2s, border 0.2s;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .back-button:hover {
   background: #e0e7ef;
   color: #1d4ed8;
   border-color: #3b82f6;
+}
+.back-icon {
+  font-size: 1.2rem;
+}
+.back-text {
+  display: none; /* Hide text on small screens */
+}
+
+@media (min-width: 576px) {
+  .back-button {
+    padding: 0.5rem 1.5rem;
+  }
+  .back-text {
+    display: inline-block;
+  }
 }
 
 .trip-selector {
@@ -1436,13 +1558,15 @@ setup(props) {
   font-weight: 500;
   color: #222;
 }
-.trip-selector select {
+.trip-select-input {
   padding: 0.6rem;
   border: 1.5px solid #e5e7eb;
   border-radius: 8px;
   font-size: 1rem;
   background: #f8fafc;
   color: #222;
+  width: 100%;
+  box-sizing: border-box;
 }
 @media (min-width: 576px) {
   .trip-selector {
@@ -1450,26 +1574,45 @@ setup(props) {
     align-items: center;
     gap: 1rem;
   }
+  .trip-select-input {
+    width: auto;
+  }
 }
 
-.loading-spinner {
+.loading-state {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
   padding: 2rem 0;
   color: #64748b;
 }
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.skeleton-loader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 600px;
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.skeleton-item {
+  background-color: #e5e7eb;
+  border-radius: 8px;
+  height: 20px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+.skeleton-item:nth-child(1) { width: 80%; }
+.skeleton-item:nth-child(2) { width: 60%; }
+.skeleton-item:nth-child(3) { width: 70%; }
+
+@keyframes pulse {
+  0% {
+    background-color: #e5e7eb;
+  }
+  50% {
+    background-color: #f3f4f6;
+  }
+  100% {
+    background-color: #e5e7eb;
+  }
 }
 
 .empty-state {
@@ -1480,6 +1623,38 @@ setup(props) {
   border: 1.5px dashed #cbd5e1;
   border-radius: 10px;
   font-style: italic;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.empty-icon {
+  font-size: 3rem;
+}
+.empty-section {
+  padding: 1rem;
+  text-align: center;
+  color: #64748b;
+  background-color: #fff;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  font-style: italic;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.empty-section .empty-icon {
+  font-size: 2.5rem;
+}
+
+.content-container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1.5px solid #e5e7eb;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
 }
 
 .tabs-nav {
@@ -1488,6 +1663,11 @@ setup(props) {
   gap: 0.5rem;
   margin-bottom: 24px;
   flex-wrap: wrap;
+  background: #f1f5f9;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  border: 1.5px solid #e5e7eb;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
 }
 .tab-btn {
   background: #f1f5f9;
@@ -1500,6 +1680,9 @@ setup(props) {
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border 0.2s;
   outline: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .tab-btn.active {
   background: #fff;
@@ -1512,14 +1695,20 @@ setup(props) {
   background: #e0e7ef;
   color: #2563eb;
 }
-@media (max-width: 700px) {
-  .tabs-nav {
-    gap: 0.2rem;
-    margin-bottom: 12px;
-  }
+.tab-btn .icon {
+  font-size: 1.1rem;
+}
+.tab-btn .button-text {
+  display: none; /* Hide text on small screens */
+}
+
+@media (min-width: 576px) {
   .tab-btn {
-    padding: 8px 10px;
-    font-size: 0.97rem;
+    padding: 10px 22px;
+    font-size: 1rem;
+  }
+  .tab-btn .button-text {
+    display: inline-block;
   }
 }
 
@@ -1562,6 +1751,21 @@ setup(props) {
 .add-button:hover {
   background: #059669;
 }
+.add-button .icon {
+  font-size: 1.1rem;
+}
+.add-button .button-text {
+  display: none; /* Hide text on small screens */
+}
+
+@media (min-width: 576px) {
+  .add-button {
+    padding: 0.5rem 1rem;
+  }
+  .add-button .button-text {
+    display: inline-block;
+  }
+}
 
 .flights-list,
 .rental-list,
@@ -1589,6 +1793,8 @@ setup(props) {
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   border: 1.5px solid #e5e7eb;
   transition: box-shadow 0.2s, transform 0.2s;
+  display: flex;
+  flex-direction: column;
 }
 .flight-card:hover,
 .rental-card:hover,
@@ -1624,6 +1830,7 @@ setup(props) {
 .transport-card-body,
 .parking-card-body {
   padding: 0.75rem;
+  flex-grow: 1; /* Allow body to grow and take available space */
 }
 .parking-card-body p {
   margin: 0.5rem 0;
@@ -1637,6 +1844,7 @@ setup(props) {
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: nowrap;
+  margin-bottom: 0.75rem;
 }
 
 .duration-line {
@@ -1690,12 +1898,33 @@ setup(props) {
 .parking-card-footer {
   padding: 0.75rem;
   text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 .flight-card-footer button,
 .rental-card-footer button,
 .transport-card-footer button,
 .parking-card-footer button {
   margin-left: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+}
+.flight-card-footer button:hover,
+.rental-card-footer button:hover,
+.transport-card-footer button:hover,
+.parking-card-footer button:hover {
+  background: #e0e7ef;
+  color: #1d4ed8;
+  border-color: #3b82f6;
 }
 .edit-button {
   background: #f1f5f9;
@@ -1713,6 +1942,22 @@ setup(props) {
   color: #1d4ed8;
   border-color: #3b82f6;
 }
+.edit-button .action-icon {
+  font-size: 1.1rem;
+}
+.edit-button .action-text {
+  display: none; /* Hide text on small screens */
+}
+
+@media (min-width: 576px) {
+  .edit-button {
+    padding: 0.5rem 1rem;
+  }
+  .edit-button .action-text {
+    display: inline-block;
+  }
+}
+
 .delete-button {
   background: #ef4444;
   color: #fff;
@@ -1726,6 +1971,54 @@ setup(props) {
 .delete-button:hover {
   background: #dc2626;
 }
+.delete-button .action-icon {
+  font-size: 1.1rem;
+}
+.delete-button .action-text {
+  display: none; /* Hide text on small screens */
+}
+
+@media (min-width: 576px) {
+  .delete-button {
+    padding: 0.5rem 1rem;
+  }
+  .delete-button .action-text {
+    display: inline-block;
+  }
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+}
+.action-button:hover {
+  background: #e0e7ef;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+}
+.action-button .action-icon {
+  font-size: 1.1rem;
+}
+.action-button .action-text {
+  display: none; /* Hide text on small screens */
+}
+
+@media (min-width: 576px) {
+  .action-button {
+    padding: 0.5rem 1rem;
+  }
+  .action-button .action-text {
+    display: inline-block;
+  }
+}
 
 .modal {
   position: fixed;
@@ -1737,6 +2030,18 @@ setup(props) {
   align-items: center;
   justify-content: center;
   z-index: 999;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+}
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  z-index: -1;
 }
 .modal-container {
   background: #fff;
@@ -1748,6 +2053,9 @@ setup(props) {
   box-sizing: border-box;
   padding: 2rem 1.5rem 1.5rem 1.5rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 .close-button {
   position: absolute;
@@ -1828,7 +2136,7 @@ setup(props) {
   gap: 1rem;
   margin-top: 1rem;
 }
-.cancel-button {
+.secondary-button {
   background-color: #6c757d;
   color: #fff;
   border-radius: 8px;
@@ -1837,10 +2145,10 @@ setup(props) {
   cursor: pointer;
   transition: background 0.2s;
 }
-.cancel-button:hover {
+.secondary-button:hover {
   background-color: #5a6268;
 }
-.save-button {
+.primary-button {
   background-color: #10b981;
   color: #fff;
   border-radius: 8px;
@@ -1849,11 +2157,24 @@ setup(props) {
   cursor: pointer;
   transition: background 0.2s;
 }
-.save-button:hover {
+.primary-button:hover {
   background-color: #059669;
 }
-.save-button:disabled {
+.primary-button:disabled {
   background-color: #a7f3d0;
   cursor: not-allowed;
+}
+.loading-spinner-small {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #10b981;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
