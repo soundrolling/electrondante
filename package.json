@@ -37,12 +37,12 @@
     "pinia": "^2.2.2",
     "supabase": "^2.20.12",
     "sweetalert2": "^11.6.13",
-    "vue": "^3.0.0",
+    "vue": "^3.5.0",
     "vue-konva": "^3.2.1",
     "vue-leaflet": "^0.1.0",
     "vue-router": "^4.0.13",
     "vue-toastification": "^2.0.0-rc.5",
-    "vuedraggable": "^2.24.3"
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -52,9 +52,7 @@
     "autoprefixer": "^10.4.21",
     "babel-loader": "^9.1.3",
     "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.17",
-    "vue-loader": "^16.8.3",
-    "vue-template-compiler": "^2.7.16"
+    "tailwindcss": "^3.4.17"
   },
   "browserslist": [
     "> 1%",

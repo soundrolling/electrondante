@@ -4,9 +4,7 @@ module.exports = defineConfig({
   transpileDependencies: true,
   configureWebpack: {
     resolve: {
-      alias: {
-        vue: '@vue/compat'
-      }
+      // Remove the Vue compatibility alias for proper Vue 3 support
     }
   },
   chainWebpack: config => {

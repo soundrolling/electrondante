@@ -60,32 +60,7 @@ async function bootstrap() {
 
   app.mount('#app');
 
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('/service-worker.js')
-        .then((registration) => {
-          console.log('Service Worker registered with scope:', registration.scope);
-
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (
-                  newWorker.state === 'installed' &&
-                  navigator.serviceWorker.controller
-                ) {
-                  console.log('New Service Worker is installed and waiting.');
-                }
-              });
-            }
-          });
-        })
-        .catch((err) => {
-          console.warn('Service Worker registration failed:', err);
-        });
-    });
-  }
+  // Service worker removed - app will work normally online
 
   window.addEventListener('online', async () => {
     console.log('App is online; syncing offline changes...');
