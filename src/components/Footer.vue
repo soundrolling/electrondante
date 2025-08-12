@@ -190,8 +190,8 @@ window.removeEventListener('appinstalled', () => {
   background-color: #ffffff;
   color: #1a1a1a;
   border-top: 1px solid #e9ecef;
-  padding: 16px 0 0 0;
-  font-size: 16px;
+  padding: 8px 0 0 0;
+  font-size: 14px;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
@@ -199,24 +199,24 @@ window.removeEventListener('appinstalled', () => {
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 /* Grid for Cards */
 .footer-columns {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 /* Card Layout - Shared */
 .footer-card {
   background-color: #ffffff;
   border: 1px solid #e9ecef;
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  padding: 20px;
+  padding: 12px;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
@@ -232,12 +232,12 @@ window.removeEventListener('appinstalled', () => {
 
 /* Card Heading */
 .card-title {
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   color: #1a1a1a;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   border-bottom: 1px solid #e9ecef;
-  padding-bottom: 12px;
+  padding-bottom: 6px;
 }
 
 /* Button Shared Styling */
@@ -245,15 +245,15 @@ window.removeEventListener('appinstalled', () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 20px;
-  margin-top: 12px;
+  padding: 8px 16px;
+  margin-top: 8px;
   border: none;
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 6px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 44px;
+  min-height: 36px;
 }
 
 .btn:hover {
@@ -296,7 +296,7 @@ window.removeEventListener('appinstalled', () => {
 .timecode-timesource-flex {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .timecode-section,
@@ -306,23 +306,23 @@ window.removeEventListener('appinstalled', () => {
 
 .timecode-display {
   background-color: #f8f9fa;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
   border: 1px solid #e9ecef;
 }
 
 .timecode {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
   text-align: center;
   color: #1a1a1a;
 }
 
 .time-source {
-  font-size: 14px;
+  font-size: 12px;
   text-align: center;
   margin: 0;
   color: #6c757d;
@@ -331,10 +331,10 @@ window.removeEventListener('appinstalled', () => {
 /* Session Card Specific */
 .compact-user-info {
   background-color: #f8f9fa;
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
   border: 1px solid #e9ecef;
 }
 
@@ -349,10 +349,10 @@ window.removeEventListener('appinstalled', () => {
 .admin-badge {
   background-color: #f59e0b;
   color: #ffffff;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-left: 6px;
   font-weight: 600;
 }
 
@@ -360,7 +360,7 @@ window.removeEventListener('appinstalled', () => {
 .section-divider {
   height: 1px;
   background-color: #e9ecef;
-  margin: 16px 0;
+  margin: 12px 0;
   width: 100%;
 }
 
@@ -368,8 +368,8 @@ window.removeEventListener('appinstalled', () => {
 .usage-details {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
-  margin-bottom: 8px;
+  font-size: 12px;
+  margin-bottom: 6px;
   color: #6c757d;
 }
 
@@ -379,15 +379,15 @@ window.removeEventListener('appinstalled', () => {
 
 .storage-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .usage-indicator {
   background-color: #f8f9fa;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
   color: #10b981;
   font-weight: 500;
 }
@@ -398,11 +398,11 @@ window.removeEventListener('appinstalled', () => {
 
 /* Usage Bar */
 .usage-bar {
-  height: 8px;
+  height: 6px;
   background-color: #e9ecef;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .usage-fill {
@@ -417,23 +417,23 @@ window.removeEventListener('appinstalled', () => {
 
 /* App Section */
 .app-status-text {
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
   color: #10b981;
 }
 
 .install-unavailable {
-  font-size: 16px;
+  font-size: 14px;
   color: #6c757d;
 }
 
 /* Footer Bottom */
 .footer-bottom {
   background-color: #f8f9fa;
-  padding: 16px 0;
+  padding: 8px 0;
   text-align: center;
-  font-size: 14px;
-  margin-top: 8px;
+  font-size: 12px;
+  margin-top: 4px;
   color: #6c757d;
   border-top: 1px solid #e9ecef;
 }
@@ -452,58 +452,58 @@ window.removeEventListener('appinstalled', () => {
 /* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .container {
-    padding: 0 24px;
+    padding: 0 16px;
   }
 
   .footer-columns {
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 12px;
   }
 
   .footer-card {
-    padding: 24px;
+    padding: 16px;
   }
 
   .timecode-timesource-flex {
     flex-direction: row;
-    gap: 24px;
+    gap: 16px;
   }
 
   .timecode {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .card-title {
-    font-size: 20px;
+    font-size: 18px;
   }
 }
 
 /* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .container {
-    padding: 0 32px;
+    padding: 0 20px;
   }
 
   .footer-columns {
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 16px;
   }
 
   .footer-card {
-    padding: 28px;
+    padding: 20px;
   }
 
   .timecode {
-    font-size: 28px;
-  }
-
-  .card-title {
     font-size: 22px;
   }
 
+  .card-title {
+    font-size: 18px;
+  }
+
   .btn {
-    padding: 14px 24px;
-    font-size: 16px;
+    padding: 10px 18px;
+    font-size: 14px;
   }
 }
 
