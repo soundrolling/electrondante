@@ -7,12 +7,11 @@
         <div class="logo-icon">🎵</div>
         <h1 class="login-title">Spatial Notes</h1>
       </div>
-      <p class="login-subtitle">Professional Audio Production Management</p>
+      <p class="login-subtitle">Audio Production Management</p>
       
       <div class="version-badge" @click="showChangelog = true">
         <span class="version-text">v21.49</span>
         <span class="version-date">July 8th</span>
-        <span class="version-arrow">→</span>
       </div>
     </div>
 
@@ -27,22 +26,17 @@
         <div class="changelog-content">
           <div class="changelog-section">
             <h3>🎯 Contacts Table Redesign</h3>
-            <p>Simplified table with compact, mobile-friendly design. Stage location assignment with multi-stage support.</p>
+            <p>Simplified table with compact, mobile-friendly design.</p>
           </div>
           
           <div class="changelog-section">
             <h3>📅 Calendar Week/Grid View</h3>
-            <p>Vertical week view with Monday start, proper navigation, and integrated stage hours.</p>
+            <p>Vertical week view with Monday start and integrated stage hours.</p>
           </div>
           
           <div class="changelog-section">
             <h3>🎨 UI/UX Improvements</h3>
-            <p>Modern tab design, collapsible legend, and consistent mobile-first responsive design.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🔗 Enhanced Integration</h3>
-            <p>Stage hours auto-sync to calendar events, unified event management system.</p>
+            <p>Modern tab design and consistent mobile-first responsive design.</p>
           </div>
         </div>
         
@@ -64,14 +58,14 @@
     <!-- Login Form -->
     <form @submit.prevent="handleSubmit" class="login-form">
       <div class="form-group">
-        <label for="email" class="form-label">Email Address</label>
+        <label for="email" class="form-label">Email</label>
         <div class="input-wrapper">
           <div class="input-icon">📧</div>
           <input
             id="email"
             v-model="email"
             type="email"
-            placeholder="Enter your email"
+            placeholder="Enter email"
             required
             class="form-input"
             :class="{ 'input-error': errorMessage }"
@@ -87,7 +81,7 @@
             id="password"
             v-model="password"
             :type="showPassword ? 'text' : 'password'"
-            placeholder="Enter your password"
+            placeholder="Enter password"
             required
             class="form-input"
             :class="{ 'input-error': errorMessage }"
@@ -105,7 +99,7 @@
 
       <button type="submit" :disabled="loading" class="btn-primary login-btn">
         <span v-if="loading" class="loading-spinner"></span>
-        <span v-else>Sign In to Spatial Notes</span>
+        <span v-else>Sign In</span>
       </button>
     </form>
 
@@ -116,12 +110,12 @@
 
     <router-link to="/magic-link" class="btn-secondary magic-link-btn">
       <span class="btn-icon">🔗</span>
-      <span>Use Magic Link Login</span>
+      <span>Magic Link Login</span>
     </router-link>
 
     <!-- Footer -->
     <div class="login-footer">
-      <p class="footer-text">Secure authentication powered by Supabase</p>
+      <p class="footer-text">Powered by Supabase</p>
     </div>
   </div>
 </div>
@@ -219,10 +213,9 @@ setup() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
   background: linear-gradient(180deg, #fbfbfd 0%, #f5f5f7 100%);
   position: relative;
-  overflow: hidden;
 }
 
 .login-container::before {
@@ -233,26 +226,23 @@ setup() {
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 149, 0, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(88, 86, 214, 0.02) 0%, transparent 50%);
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.02) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 149, 0, 0.02) 0%, transparent 50%);
   pointer-events: none;
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
   box-shadow: 
     0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 1px 3px 0 rgba(0, 0, 0, 0.1),
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  padding: 56px 48px;
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 12px 24px rgba(0, 0, 0, 0.06);
+  padding: 32px 24px;
   width: 100%;
-  max-width: 520px;
+  max-width: 400px;
   position: relative;
   z-index: 1;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -261,20 +251,20 @@ setup() {
 /* Header Section */
 .login-header {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 32px;
 }
 
 .logo-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .logo-icon {
-  font-size: 3rem;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.08));
+  font-size: 2rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));
   background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -282,45 +272,43 @@ setup() {
 }
 
 .login-title {
-  font-size: 2.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
   background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   line-height: 1.1;
 }
 
 .login-subtitle {
   color: #86868b;
-  font-size: 1.125rem;
-  margin: 0 0 32px 0;
+  font-size: 0.95rem;
+  margin: 0 0 20px 0;
   font-weight: 400;
-  letter-spacing: -0.01em;
 }
 
 .version-badge {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: rgba(245, 245, 247, 0.8);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 16px;
-  padding: 10px 20px;
+  border-radius: 12px;
+  padding: 8px 16px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 0.875rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .version-badge:hover {
   background: rgba(235, 235, 237, 0.9);
   border-color: rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .version-text {
@@ -332,26 +320,16 @@ setup() {
   color: #86868b;
 }
 
-.version-arrow {
-  color: #007AFF;
-  font-weight: 600;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.version-badge:hover .version-arrow {
-  transform: translateX(3px);
-}
-
 /* Messages */
 .message {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 18px 20px;
-  border-radius: 16px;
-  margin-bottom: 28px;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 24px;
   border: 1px solid;
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
 }
 
 .error-message {
@@ -367,32 +345,31 @@ setup() {
 }
 
 .message-icon {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   flex-shrink: 0;
 }
 
 .message-content {
   font-weight: 500;
-  line-height: 1.5;
-  font-size: 0.95rem;
+  line-height: 1.4;
+  font-size: 0.9rem;
 }
 
 /* Form */
 .login-form {
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
 .form-group {
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .form-label {
   display: block;
   font-weight: 600;
   color: #1d1d1f;
-  margin-bottom: 10px;
-  font-size: 0.95rem;
-  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
 }
 
 .input-wrapper {
@@ -403,8 +380,8 @@ setup() {
 
 .input-icon {
   position: absolute;
-  left: 18px;
-  font-size: 1.1rem;
+  left: 16px;
+  font-size: 1rem;
   color: #86868b;
   z-index: 2;
   opacity: 0.8;
@@ -412,25 +389,23 @@ setup() {
 
 .form-input {
   width: 100%;
-  padding: 18px 18px 18px 52px;
+  padding: 14px 14px 14px 44px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  font-size: 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
   background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
   color: #1d1d1f;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   box-sizing: border-box;
   font-weight: 400;
-  letter-spacing: -0.01em;
 }
 
 .form-input:focus {
   outline: none;
   border-color: #007AFF;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
   background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-1px);
 }
 
 .form-input::placeholder {
@@ -444,18 +419,18 @@ setup() {
 
 .input-error:focus {
   border-color: #ff3b30;
-  box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.1);
 }
 
 .toggle-password-btn {
   position: absolute;
-  right: 18px;
+  right: 16px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 10px;
-  border-radius: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
   color: #86868b;
 }
 
@@ -465,35 +440,29 @@ setup() {
 }
 
 .toggle-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 /* Buttons */
 .btn-primary {
   width: 100%;
-  padding: 18px;
+  padding: 14px;
   background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
   color: white;
   border: none;
-  border-radius: 16px;
-  font-size: 1.125rem;
+  border-radius: 12px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  letter-spacing: -0.01em;
-  box-shadow: 
-    0 1px 3px 0 rgba(0, 0, 0, 0.1),
-    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-    0 10px 15px -3px rgba(0, 122, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
 }
 
 .btn-primary:active {
@@ -507,13 +476,13 @@ setup() {
 }
 
 .login-btn {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .loading-spinner {
   display: inline-block;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border: 2px solid rgba(255,255,255,0.3);
   border-radius: 50%;
   border-top-color: #fff;
@@ -527,7 +496,7 @@ setup() {
 /* Divider */
 .login-divider {
   text-align: center;
-  margin: 36px 0;
+  margin: 24px 0;
   position: relative;
 }
 
@@ -542,15 +511,14 @@ setup() {
 }
 
 .divider-text {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  padding: 0 20px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  padding: 0 16px;
   color: #86868b;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   position: relative;
   z-index: 1;
-  letter-spacing: -0.01em;
 }
 
 /* Secondary Button */
@@ -558,51 +526,45 @@ setup() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  padding: 18px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
   color: #1d1d1f;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  font-size: 1rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  letter-spacing: -0.01em;
-  box-shadow: 
-    0 1px 3px 0 rgba(0, 0, 0, 0.1),
-    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .btn-secondary:hover {
   background: rgba(245, 245, 247, 0.9);
   border-color: rgba(0, 0, 0, 0.12);
   transform: translateY(-1px);
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .btn-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 /* Footer */
 .login-footer {
   text-align: center;
-  margin-top: 36px;
-  padding-top: 28px;
+  margin-top: 24px;
+  padding-top: 20px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .footer-text {
   color: #86868b;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   margin: 0;
   font-weight: 400;
-  letter-spacing: -0.01em;
 }
 
 /* Modal */
@@ -613,25 +575,23 @@ setup() {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  padding: 20px;
+  padding: 16px;
 }
 
 .changelog-modal {
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-radius: 24px;
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  max-width: 640px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  max-width: 480px;
   width: 100%;
-  max-height: 80vh;
+  max-height: 70vh;
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -640,29 +600,28 @@ setup() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 32px 20px 32px;
+  padding: 24px 24px 16px 24px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .modal-header h2 {
   margin: 0;
   color: #1d1d1f;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
 }
 
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   color: #86868b;
   cursor: pointer;
-  padding: 10px;
-  border-radius: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  width: 44px;
-  height: 44px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -674,15 +633,15 @@ setup() {
 }
 
 .changelog-content {
-  padding: 28px 32px;
+  padding: 20px 24px;
 }
 
 .changelog-section {
-  margin-bottom: 28px;
-  padding: 24px;
+  margin-bottom: 20px;
+  padding: 16px;
   background: rgba(245, 245, 247, 0.5);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
@@ -691,67 +650,29 @@ setup() {
 }
 
 .changelog-section h3 {
-  margin: 0 0 14px 0;
+  margin: 0 0 8px 0;
   color: #1d1d1f;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
 }
 
 .changelog-section p {
   margin: 0;
   color: #424245;
-  line-height: 1.6;
-  font-size: 0.95rem;
+  line-height: 1.5;
+  font-size: 0.9rem;
   font-weight: 400;
 }
 
 .changelog-modal .btn-primary {
-  margin: 0 32px 32px 32px;
+  margin: 0 24px 24px 24px;
 }
 
-/* Responsive Design */
-@media (max-width: 640px) {
+/* Mobile-First Responsive Design */
+@media (min-width: 480px) {
   .login-card {
-    padding: 40px 28px;
-    margin: 16px;
-    border-radius: 24px;
-  }
-  
-  .login-title {
-    font-size: 2.25rem;
-  }
-  
-  .changelog-modal {
-    margin: 16px;
-    border-radius: 20px;
-  }
-  
-  .modal-header,
-  .changelog-content {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-  
-  .changelog-modal .btn-primary {
-    margin-left: 24px;
-    margin-right: 24px;
-  }
-}
-
-@media (max-width: 480px) {
-  .login-container {
-    padding: 16px;
-  }
-  
-  .login-card {
-    padding: 32px 24px;
-    border-radius: 20px;
-  }
-  
-  .logo-container {
-    flex-direction: column;
-    gap: 16px;
+    padding: 40px 32px;
+    max-width: 440px;
   }
   
   .login-title {
@@ -765,6 +686,25 @@ setup() {
   .btn-primary,
   .btn-secondary {
     padding: 16px;
+  }
+}
+
+@media (min-width: 640px) {
+  .login-container {
+    padding: 24px;
+  }
+  
+  .login-card {
+    padding: 48px 40px;
+    max-width: 480px;
+  }
+  
+  .login-title {
+    font-size: 2.25rem;
+  }
+  
+  .changelog-modal {
+    max-width: 560px;
   }
 }
 
