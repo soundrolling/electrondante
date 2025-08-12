@@ -5,7 +5,7 @@ import App from './App.vue';
 import router from './router';
 import '@fortawesome/fontawesome-free/css/all.css';
 
-// ← named import instead of default:
+// VueFlow imports
 import { VueFlow } from '@vue-flow/core';
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';

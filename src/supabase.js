@@ -1,18 +1,21 @@
 // src/supabase.js
 import { createClient } from '@supabase/supabase-js'
+import { config, validateConfig } from './config'
 
-const URL              = process.env.VUE_APP_SUPABASE_URL
-const ANON_KEY         = process.env.VUE_APP_SUPABASE_ANON_KEY
-const SERVICE_ROLE_KEY = process.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY
+const URL              = config.supabase.url
+const ANON_KEY         = config.supabase.anonKey
+const SERVICE_ROLE_KEY = config.supabase.serviceRoleKey
+
+// Validate configuration before proceeding
+if (!validateConfig()) {
+  throw new Error('Supabase configuration validation failed. Check your environment variables.')
+}
 
 // Debug: verify env-vars in the browser console
 console.log('✅ URL:', URL)
 console.log('✅ ANON_KEY loaded?', !!ANON_KEY)
+console.log('✅ ANON_KEY length:', ANON_KEY ? ANON_KEY.length : 0)
 console.log('✅ SERVICE_ROLE_KEY loaded?', !!SERVICE_ROLE_KEY)
-
-if (!URL || !ANON_KEY) {
-  throw new Error('Missing VUE_APP_SUPABASE_URL or VUE_APP_SUPABASE_KEY')
-}
 
 // Public (anon) client
 export const supabase = createClient(URL, ANON_KEY, {
