@@ -19,44 +19,33 @@
 
   <!-- Project Content -->
   <div v-else-if="currentProject" class="project-content">
-    <!-- Header Section -->
-    <header class="project-header">
-      <h1 class="project-title">{{ currentProject.project_name }}</h1>
-      <div class="project-meta">
-        <div v-if="currentProject.location" class="meta-item">
-          <span class="meta-icon">📍</span>
-          <span class="meta-text">{{ currentProject.location }}</span>
-        </div>
-        <div v-if="currentProject.official_website" class="meta-item">
-          <span class="meta-icon">🌐</span>
-          <a :href="currentProject.official_website" target="_blank" rel="noopener" class="meta-link">
-            Official Website
-          </a>
+    <!-- Compact Header with Timeline -->
+    <section class="compact-header">
+      <div class="header-main">
+        <h1 class="project-title">{{ currentProject.project_name }}</h1>
+        <div class="project-meta">
+          <div v-if="currentProject.location" class="meta-item">
+            <span class="meta-icon">📍</span>
+            <span class="meta-text">{{ currentProject.location }}</span>
+          </div>
+          <div v-if="currentProject.official_website" class="meta-item">
+            <span class="meta-icon">🌐</span>
+            <a :href="currentProject.official_website" target="_blank" rel="noopener" class="meta-link">
+              Official Website
+            </a>
+          </div>
         </div>
       </div>
-    </header>
-
-    <!-- Date Timeline -->
-    <section v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="date-timeline">
-      <h2 class="section-title">Timeline</h2>
-      <div class="timeline-container">
-        <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-item">
-          <div class="timeline-icon build">🔨</div>
-          <div class="timeline-content">
-            <div class="timeline-label">Build Period</div>
-            <div class="timeline-dates">
-              {{ formatSingleDate(currentProject.build_days[0]) }} - {{ formatSingleDate(currentProject.build_days[currentProject.build_days.length-1]) }}
-            </div>
-          </div>
+      
+      <!-- Inline Timeline -->
+      <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="inline-timeline">
+        <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-chip build">
+          <span class="chip-icon">🔨</span>
+          <span class="chip-text">Build: {{ formatSingleDate(currentProject.build_days[0]) }} - {{ formatSingleDate(currentProject.build_days[currentProject.build_days.length-1]) }}</span>
         </div>
-        <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-item">
-          <div class="timeline-icon show">🎭</div>
-          <div class="timeline-content">
-            <div class="timeline-label">Show Period</div>
-            <div class="timeline-dates">
-              {{ formatSingleDate(currentProject.main_show_days[0]) }} - {{ formatSingleDate(currentProject.main_show_days[currentProject.main_show_days.length-1]) }}
-            </div>
-          </div>
+        <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-chip show">
+          <span class="chip-icon">🎭</span>
+          <span class="chip-text">Show: {{ formatSingleDate(currentProject.main_show_days[0]) }} - {{ formatSingleDate(currentProject.main_show_days[currentProject.main_show_days.length-1]) }}</span>
         </div>
       </div>
     </section>
@@ -403,63 +392,93 @@ export default {
   text-decoration: underline;
 }
 
-/* Date Timeline */
-.date-timeline {
+/* Compact Header with Timeline */
+.compact-header {
   margin-bottom: 24px;
-}
-
-.timeline-container {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.timeline-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
   padding: 16px;
   background: #f8f9fa;
   border-radius: 12px;
   border: 1px solid #e9ecef;
 }
 
-.timeline-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+.header-main {
+  margin-bottom: 16px;
+}
+
+.project-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.meta-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
+  gap: 8px;
+  font-size: 14px;
 }
 
-.timeline-icon.build {
+.meta-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.meta-text {
+  color: #495057;
+}
+
+.meta-link {
+  color: #0066cc;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.meta-link:hover {
+  text-decoration: underline;
+}
+
+/* Inline Timeline */
+.inline-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.timeline-chip.build {
   background: #e3f2fd;
   color: #1976d2;
+  border: 1px solid #bbdefb;
 }
 
-.timeline-icon.show {
+.timeline-chip.show {
   background: #f3e5f5;
   color: #7b1fa2;
+  border: 1px solid #e1bee7;
 }
 
-.timeline-content {
-  flex: 1;
-}
-
-.timeline-label {
-  font-weight: 600;
-  font-size: 16px;
-  margin-bottom: 4px;
-  color: #1a1a1a;
-}
-
-.timeline-dates {
+.chip-icon {
   font-size: 14px;
-  color: #6c757d;
+  width: 16px;
+  text-align: center;
 }
+
+.chip-text {
+  line-height: 1.3;
+}
+
+
 
 /* Stages Section */
 .stages-section {
@@ -692,12 +711,13 @@ export default {
     gap: 20px;
   }
 
-  .project-header {
+  .compact-header {
     padding: 24px;
   }
 
-  .timeline-item {
-    padding: 20px;
+  .inline-timeline {
+    flex-direction: row;
+    gap: 12px;
   }
 
   .stage-card {
