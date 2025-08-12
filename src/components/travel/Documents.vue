@@ -241,553 +241,498 @@ import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '../../stores/userStore';
 import { format, parseISO } from 'date-fns';
-
-// For navigation
 import { useRouter } from 'vue-router';
-
-// Offline file storage
 import { storeDocumentFile, getDocumentFile } from '@/utils/indexedDB';
 
 export default {
-name: "Documents",
-props: ["id", "tripId"],
-setup(props) {
-  const toast = useToast();
-  const userStore = useUserStore();
-  const router = useRouter();  // <<-- create the router instance
+  name: "Documents",
+  props: ["id", "tripId"],
+  setup(props) {
+    const toast = useToast();
+    const userStore = useUserStore();
+    const router = useRouter();
 
-  // For RLS
-  const userId = ref(userStore.user?.id || null);
+    const userId = ref(userStore.user?.id || null);
+    const projectId = ref(userStore.currentProject?.id || props.id);
+    const selectedTripId = ref(props.tripId || "");
 
-  // Determine project & trip from props
-  const projectId = ref(userStore.currentProject?.id || props.id);
-  const selectedTripId = ref(props.tripId || "");
+    const trips = ref([]);
+    const documents = ref([]);
+    const isLoading = ref(false);
+    const showModal = ref(false);
+    const editingDocument = ref(null);
+    const isSaving = ref(false);
+    const fileInput = ref(null);
+    const selectedFile = ref(null);
+    const selectedFileName = ref("");
 
-  const trips = ref([]);
-  const documents = ref([]);
-  const isLoading = ref(false);
-
-  const showModal = ref(false);
-  const editingDocument = ref(null);
-  const isSaving = ref(false);
-
-  // For file uploads
-  const fileInput = ref(null);
-  const selectedFile = ref(null);
-  const selectedFileName = ref("");
-
-  const documentForm = ref({
-    title: "",
-    type: "",
-    description: "",
-    url: "",
-    file_path: "",
-    date: ""
-  });
-
-  // Go back to dashboard
-  const goBackToDashboard = () => {
-    router.push({
-      name: 'TravelDashboard',
-      params: {
-        id: userStore.currentProject?.id || projectId.value
-      }
-    });
-  };
-
-  // Date helpers - Format as "Friday 4th July" (day-of-week, ordinal day, month)
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = parseISO(dateStr);
-    const dayOfWeek = format(d, "EEEE");
-    const day = format(d, "d");
-    const month = format(d, "MMMM");
-    
-    // Add ordinal suffix to day
-    const ordinalSuffix = (day) => {
-      if (day > 3 && day < 21) return 'th';
-      switch (day % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
-      }
-    };
-    
-    return `${dayOfWeek} ${day}${ordinalSuffix(day)} ${month}`;
-  };
-  
-  const formatDateRange = (start, end) => {
-    if (!start || !end) return "";
-    const s = parseISO(start);
-    const e = parseISO(end);
-    
-    // If same month, show "Friday 4th - Sunday 6th July"
-    if (format(s, "MMMM yyyy") === format(e, "MMMM yyyy")) {
-      const startDay = format(s, "EEEE");
-      const startDate = format(s, "d");
-      const endDay = format(e, "EEEE");
-      const endDate = format(e, "d");
-      const month = format(s, "MMMM");
-      
-      const startOrdinal = (startDate) => {
-        if (startDate > 3 && startDate < 21) return 'th';
-        switch (startDate % 10) {
-          case 1: return 'st';
-          case 2: return 'nd';
-          case 3: return 'rd';
-          default: return 'th';
-        }
-      };
-      
-      const endOrdinal = (endDate) => {
-        if (endDate > 3 && endDate < 21) return 'th';
-        switch (endDate % 10) {
-          case 1: return 'st';
-          case 2: return 'nd';
-          case 3: return 'rd';
-          default: return 'th';
-        }
-      };
-      
-      return `${startDay} ${startDate}${startOrdinal(startDate)} - ${endDay} ${endDate}${endOrdinal(endDate)} ${month}`;
-    }
-    
-    // Different months, show full dates
-    return `${formatDate(start)} - ${formatDate(end)}`;
-  };
-
-  // Check if file is image or PDF
-  const isImageFile = (filePath = "") => {
-    const ext = filePath.split(".").pop().toLowerCase();
-    return ["jpg","jpeg","png","gif","webp","bmp"].includes(ext);
-  };
-  const isPdfFile = (filePath = "") => {
-    const ext = filePath.split(".").pop().toLowerCase();
-    return ext === "pdf";
-  };
-
-  // Load all trips for the select
-  const loadTrips = async () => {
-    try {
-      if (!projectId.value) return;
-      const { data, error } = await supabase
-        .from("travel_trips")
-        .select("*")
-        .eq("project_id", projectId.value)
-        .order("start_date", { ascending: true });
-      if (error) throw error;
-      trips.value = data || [];
-    } catch (err) {
-      console.error("Error loading trips:", err);
-      toast.error("Failed to load trips");
-    }
-  };
-
-  // Load documents for the selected trip
-  const loadDocuments = async () => {
-    if (!selectedTripId.value) return;
-    isLoading.value = true;
-    try {
-      const { data, error } = await supabase
-        .from("travel_documents")
-        .select("*")
-        .eq("trip_id", selectedTripId.value)
-        .order("date", { ascending: true });
-      if (error) throw error;
-
-      // Start each doc with localUrl = null for offline embedding
-      documents.value = (data || []).map(doc => ({ ...doc, localUrl: null }));
-    } catch (err) {
-      console.error("Error loading documents:", err);
-      toast.error("Failed to load documents");
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  // Modal controls
-  const openModal = () => {
-    editingDocument.value = null;
-    resetForm();
-    showModal.value = true;
-  };
-  const closeModal = () => {
-    showModal.value = false;
-    selectedFile.value = null;
-    selectedFileName.value = "";
-    if (fileInput.value) {
-      fileInput.value.value = "";
-    }
-  };
-
-  // Editing / Deleting
-  const editDocument = (doc) => {
-    editingDocument.value = doc;
-    documentForm.value = { ...doc };
-    selectedFile.value = null;
-    selectedFileName.value = "";
-    if (fileInput.value) {
-      fileInput.value.value = "";
-    }
-    showModal.value = true;
-  };
-
-  const deleteDocument = async (doc) => {
-    if (!confirm("Are you sure you want to delete this document?")) return;
-    try {
-      // Remove old file from bucket if exists
-      if (doc.file_path) {
-        await removeStorageFile(doc.file_path);
-      }
-      const { error } = await supabase
-        .from("travel_documents")
-        .delete()
-        .eq("id", doc.id);
-      if (error) throw error;
-
-      documents.value = documents.value.filter(d => d.id !== doc.id);
-      toast.success("Document deleted successfully");
-    } catch (err) {
-      console.error("Error deleting document:", err);
-      toast.error("Failed to delete document");
-    }
-  };
-
-  // File handling
-  const handleFileChange = (e) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // 5MB check
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File is too large (max 5MB).");
-      e.target.value = "";
-      return;
-    }
-    selectedFile.value = file;
-    selectedFileName.value = file.name;
-  };
-
-  // Upload to the "travel-documents" bucket
-  const uploadStorageFile = async () => {
-    if (!selectedFile.value) return null;
-    try {
-      const uid = userId.value || "anon";
-      const filePath = `user_${uid}/${Date.now()}_${selectedFile.value.name}`;
-
-      const { data, error } = await supabase.storage
-        .from("travel-documents")
-        .upload(filePath, selectedFile.value);
-
-      if (error) {
-        console.error("Upload error:", error);
-        toast.error(`Upload failed: ${error.message}`);
-        return null;
-      }
-      return data.path; 
-    } catch (err) {
-      console.error("Unexpected error uploading file:", err);
-      toast.error("Unexpected error uploading file");
-      return null;
-    }
-  };
-
-  // Remove from bucket
-  const removeStorageFile = async (path) => {
-    if (!path) return;
-    try {
-      const { error } = await supabase.storage
-        .from("travel-documents")
-        .remove([path]);
-      if (error) {
-        console.error("Error removing file:", error);
-      }
-    } catch (err) {
-      console.error("Unexpected error removing file:", err);
-    }
-  };
-
-  // Signed URL for online viewing
-  const viewStorageFile = async (filePath) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from("travel-documents")
-        .createSignedUrl(filePath, 60);
-      if (error || !data?.signedUrl) {
-        console.error("Signed URL error:", error);
-        toast.error("Unable to generate signed URL");
-        return;
-      }
-      window.open(data.signedUrl, "_blank");
-    } catch (err) {
-      console.error("Error generating signed URL:", err);
-      toast.error("Error opening file");
-    }
-  };
-
-  // Direct download function
-  const downloadDocument = async (doc) => {
-    if (!doc.file_path) {
-      toast.error("No file to download");
-      return;
-    }
-    
-    try {
-      if (!navigator.onLine) {
-        // Try to get cached file
-        const cachedBlob = await getDocumentFile(doc.file_path);
-        if (cachedBlob) {
-          downloadBlob(cachedBlob, doc.title || 'document');
-          return;
-        } else {
-          toast.error("Offline - no cached file found");
-          return;
-        }
-      }
-
-      // Download from Supabase
-      const { data: fileBlob, error } = await supabase.storage
-        .from("travel-documents")
-        .download(doc.file_path);
-      
-      if (error) {
-        console.error("Download error:", error);
-        toast.error(`Failed to download file: ${error.message}`);
-        return;
-      }
-      
-      if (fileBlob) {
-        // Store for offline use
-        await storeDocumentFile(doc.file_path, fileBlob);
-        
-        // Trigger download
-        const fileName = doc.title || doc.file_path.split('/').pop() || 'document';
-        downloadBlob(fileBlob, fileName);
-        
-        toast.success("Document downloaded successfully");
-      }
-    } catch (err) {
-      console.error("downloadDocument error:", err);
-      toast.error("Failed to download document");
-    }
-  };
-
-  // Helper function to trigger download
-  const downloadBlob = (blob, fileName) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // Offline caching approach (kept for backward compatibility)
-  const downloadForOffline = async (doc) => {
-    if (!doc.file_path) return;
-    try {
-      if (!navigator.onLine) {
-        const cachedBlob = await getDocumentFile(doc.file_path);
-        if (!cachedBlob) {
-          toast.error("Offline - no cached file found.");
-          return;
-        }
-        if (isImageFile(doc.file_path)) {
-          doc.localUrl = URL.createObjectURL(cachedBlob);
-        } else {
-          const objectURL = URL.createObjectURL(cachedBlob);
-          window.open(objectURL, "_blank");
-        }
-        return;
-      }
-
-      // Download from Supabase if online
-      const { data: fileBlob, error } = await supabase.storage
-        .from("travel-documents")
-        .download(doc.file_path);
-      if (error) {
-        console.error("Download error:", error);
-        toast.error(`Failed to download file: ${error.message}`);
-        return;
-      }
-      if (fileBlob) {
-        await storeDocumentFile(doc.file_path, fileBlob);
-
-        if (isImageFile(doc.file_path)) {
-          doc.localUrl = URL.createObjectURL(fileBlob);
-        } else {
-          const objectURL = URL.createObjectURL(fileBlob);
-          window.open(objectURL, "_blank");
-        }
-      }
-    } catch (err) {
-      console.error("downloadForOffline error:", err);
-      toast.error("Failed to load file offline");
-    }
-  };
-
-  // Insert or Update a Document
-  const saveDocument = async () => {
-    if (!selectedTripId.value) {
-      toast.error("No trip selected");
-      return;
-    }
-    if (!userId.value) {
-      toast.error("No user is logged in. Cannot save with RLS.");
-      return;
-    }
-
-    isSaving.value = true;
-    try {
-      let newFilePath = null;
-      if (selectedFile.value) {
-        // If editing, remove old file
-        if (editingDocument.value?.file_path) {
-          await removeStorageFile(editingDocument.value.file_path);
-        }
-        newFilePath = await uploadStorageFile();
-        if (!newFilePath) {
-          isSaving.value = false;
-          return;
-        }
-      }
-
-      if (editingDocument.value) {
-        // Update existing
-        const payload = {
-          title: documentForm.value.title,
-          type: documentForm.value.type,
-          description: documentForm.value.description,
-          url: documentForm.value.url,
-          date: documentForm.value.date,
-          user_id: userId.value
-        };
-        if (newFilePath) {
-          payload.file_path = newFilePath;
-          payload.url = newFilePath;
-        }
-
-        const { error } = await supabase
-          .from("travel_documents")
-          .update(payload)
-          .eq("id", editingDocument.value.id)
-          .select();
-        if (error) throw error;
-
-        // Reflect changes in local array
-        const idx = documents.value.findIndex(d => d.id === editingDocument.value.id);
-        if (idx !== -1) {
-          documents.value[idx] = { ...documents.value[idx], ...payload };
-        }
-        toast.success("Document updated successfully");
-      } else {
-        // Insert new
-        const payload = {
-          ...documentForm.value,
-          trip_id: selectedTripId.value,
-          project_id: projectId.value,
-          user_id: userId.value
-        };
-        if (newFilePath) {
-          payload.file_path = newFilePath;
-          payload.url = newFilePath;
-        }
-
-        const { data, error } = await supabase
-          .from("travel_documents")
-          .insert(payload)
-          .select();
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          documents.value.push({ ...data[0], localUrl: null });
-        }
-        toast.success("Document added successfully");
-      }
-
-      closeModal();
-    } catch (err) {
-      console.error("Error saving document:", err);
-      toast.error("Failed to save document: " + err.message);
-    } finally {
-      isSaving.value = false;
-    }
-  };
-
-  // Reset form
-  const resetForm = () => {
-    documentForm.value = {
+    const documentForm = ref({
       title: "",
       type: "",
       description: "",
       url: "",
       file_path: "",
       date: ""
+    });
+
+    const goBackToDashboard = () => {
+      router.push({
+        name: 'TravelDashboard',
+        params: {
+          id: userStore.currentProject?.id || projectId.value
+        }
+      });
     };
-  };
 
-  // Add a helper to get a preview URL for images from Supabase
-  const getPreviewUrl = (filePath) => {
-    if (!filePath) return '';
-    // For public buckets, construct the URL using the configured Supabase URL
-    // For private buckets, you would need to use signed URLs instead
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VUE_APP_SUPABASE_URL;
-    if (supabaseUrl) {
-      return `${supabaseUrl}/storage/v1/object/public/travel-documents/${filePath}`;
-    }
-    // Fallback to a generic message if no URL configured
-    return '';
-  };
+    const formatDate = (dateStr) => {
+      if (!dateStr) return "";
+      const d = parseISO(dateStr);
+      const dayOfWeek = format(d, "EEEE");
+      const day = format(d, "d");
+      const month = format(d, "MMMM");
+      
+      const ordinalSuffix = (day) => {
+        if (day > 3 && day < 21) return 'th';
+        switch (day % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
+        }
+      };
+      
+      return `${dayOfWeek} ${day}${ordinalSuffix(day)} ${month}`;
+    };
+    
+    const formatDateRange = (start, end) => {
+      if (!start || !end) return "";
+      const s = parseISO(start);
+      const e = parseISO(end);
+      
+      if (format(s, "MMMM yyyy") === format(e, "MMMM yyyy")) {
+        const startDay = format(s, "EEEE");
+        const startDate = format(s, "d");
+        const endDay = format(e, "EEEE");
+        const endDate = format(e, "d");
+        const month = format(s, "MMMM");
+        
+        const startOrdinal = (startDate) => {
+          if (startDate > 3 && startDate < 21) return 'th';
+          switch (startDate % 10) {
+            case 1: return 'st';
+            case 2: return 'nd';
+            case 3: return 'rd';
+            default: return 'th';
+          }
+        };
+        
+        const endOrdinal = (endDate) => {
+          if (endDate > 3 && endDate < 21) return 'th';
+          switch (endDate % 10) {
+            case 1: return 'st';
+            case 2: return 'nd';
+            case 3: return 'rd';
+            default: return 'th';
+          }
+        };
+        
+        return `${startDay} ${startDate}${startOrdinal(startDate)} - ${endDay} ${endDate}${endOrdinal(endDate)} ${month}`;
+      }
+      
+      return `${formatDate(start)} - ${formatDate(end)}`;
+    };
 
-  // On mount
-  onMounted(() => {
-    loadTrips();
-    if (selectedTripId.value) {
-      loadDocuments();
-    }
-  });
+    const isImageFile = (filePath = "") => {
+      const ext = filePath.split(".").pop().toLowerCase();
+      return ["jpg","jpeg","png","gif","webp","bmp"].includes(ext);
+    };
+    
+    const isPdfFile = (filePath = "") => {
+      const ext = filePath.split(".").pop().toLowerCase();
+      return ext === "pdf";
+    };
 
-  return {
-    // Reactive Refs
-    trips,
-    documents,
-    selectedTripId,
-    isLoading,
-    showModal,
-    editingDocument,
-    isSaving,
-    documentForm,
-    fileInput,
-    selectedFile,
-    selectedFileName,
+    const loadTrips = async () => {
+      try {
+        if (!projectId.value) return;
+        const { data, error } = await supabase
+          .from("travel_trips")
+          .select("*")
+          .eq("project_id", projectId.value)
+          .order("start_date", { ascending: true });
+        if (error) throw error;
+        trips.value = data || [];
+      } catch (err) {
+        console.error("Error loading trips:", err);
+        toast.error("Failed to load trips");
+      }
+    };
 
-    // Methods
-    goBackToDashboard,  // <--- the "Back to Dashboard" button
-    formatDate,
-    formatDateRange,
-    loadDocuments,
-    openModal,
-    closeModal,
-    editDocument,
-    deleteDocument,
-    handleFileChange,
-    saveDocument,
-    resetForm,
-    removeStorageFile,
-    viewStorageFile,
-    downloadForOffline,
-    downloadDocument,
-    isImageFile,
-    isPdfFile,
-    getPreviewUrl,
-  };
-}
+    const loadDocuments = async () => {
+      if (!selectedTripId.value) return;
+      isLoading.value = true;
+      try {
+        const { data, error } = await supabase
+          .from("travel_documents")
+          .select("*")
+          .eq("trip_id", selectedTripId.value)
+          .order("date", { ascending: true });
+        if (error) throw error;
+        documents.value = (data || []).map(doc => ({ ...doc, localUrl: null }));
+      } catch (err) {
+        console.error("Error loading documents:", err);
+        toast.error("Failed to load documents");
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    const openModal = () => {
+      editingDocument.value = null;
+      resetForm();
+      showModal.value = true;
+    };
+    
+    const closeModal = () => {
+      showModal.value = false;
+      selectedFile.value = null;
+      selectedFileName.value = "";
+      if (fileInput.value) {
+        fileInput.value.value = "";
+      }
+    };
+
+    const editDocument = (doc) => {
+      editingDocument.value = doc;
+      documentForm.value = { ...doc };
+      selectedFile.value = null;
+      selectedFileName.value = "";
+      if (fileInput.value) {
+        fileInput.value.value = "";
+      }
+      showModal.value = true;
+    };
+
+    const deleteDocument = async (doc) => {
+      if (!confirm("Are you sure you want to delete this document?")) return;
+      try {
+        if (doc.file_path) {
+          await removeStorageFile(doc.file_path);
+        }
+        const { error } = await supabase
+          .from("travel_documents")
+          .delete()
+          .eq("id", doc.id);
+        if (error) throw error;
+        documents.value = documents.value.filter(d => d.id !== doc.id);
+        toast.success("Document deleted successfully");
+      } catch (err) {
+        console.error("Error deleting document:", err);
+        toast.error("Failed to delete document");
+      }
+    };
+
+    const handleFileChange = (e) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File is too large (max 5MB).");
+        e.target.value = "";
+        return;
+      }
+      selectedFile.value = file;
+      selectedFileName.value = file.name;
+    };
+
+    const uploadStorageFile = async () => {
+      if (!selectedFile.value) return null;
+      try {
+        const uid = userId.value || "anon";
+        const filePath = `user_${uid}/${Date.now()}_${selectedFile.value.name}`;
+        const { data, error } = await supabase.storage
+          .from("travel-documents")
+          .upload(filePath, selectedFile.value);
+        if (error) {
+          console.error("Upload error:", error);
+          toast.error(`Upload failed: ${error.message}`);
+          return null;
+        }
+        return data.path; 
+      } catch (err) {
+        console.error("Unexpected error uploading file:", err);
+        toast.error("Unexpected error uploading file");
+        return null;
+      }
+    };
+
+    const removeStorageFile = async (path) => {
+      if (!path) return;
+      try {
+        const { error } = await supabase.storage
+          .from("travel-documents")
+          .remove([path]);
+        if (error) {
+          console.error("Error removing file:", error);
+        }
+      } catch (err) {
+        console.error("Unexpected error removing file:", err);
+      }
+    };
+
+    const viewStorageFile = async (filePath) => {
+      try {
+        const { data, error } = await supabase.storage
+          .from("travel-documents")
+          .createSignedUrl(filePath, 60);
+        if (error || !data?.signedUrl) {
+          console.error("Signed URL error:", error);
+          toast.error("Unable to generate signed URL");
+          return;
+        }
+        window.open(data.signedUrl, "_blank");
+      } catch (err) {
+        console.error("Error generating signed URL:", err);
+        toast.error("Error opening file");
+      }
+    };
+
+    const downloadDocument = async (doc) => {
+      if (!doc.file_path) {
+        toast.error("No file to download");
+        return;
+      }
+      
+      try {
+        if (!navigator.onLine) {
+          const cachedBlob = await getDocumentFile(doc.file_path);
+          if (cachedBlob) {
+            downloadBlob(cachedBlob, doc.title || 'document');
+            return;
+          } else {
+            toast.error("Offline - no cached file found");
+            return;
+          }
+        }
+
+        const { data: fileBlob, error } = await supabase.storage
+          .from("travel-documents")
+          .download(doc.file_path);
+        
+        if (error) {
+          console.error("Download error:", error);
+          toast.error(`Failed to download file: ${error.message}`);
+          return;
+        }
+        
+        if (fileBlob) {
+          await storeDocumentFile(doc.file_path, fileBlob);
+          const fileName = doc.title || doc.file_path.split('/').pop() || 'document';
+          downloadBlob(fileBlob, fileName);
+          toast.success("Document downloaded successfully");
+        }
+      } catch (err) {
+        console.error("downloadDocument error:", err);
+        toast.error("Failed to download document");
+      }
+    };
+
+    const downloadBlob = (blob, fileName) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    const downloadForOffline = async (doc) => {
+      if (!doc.file_path) return;
+      try {
+        if (!navigator.onLine) {
+          const cachedBlob = await getDocumentFile(doc.file_path);
+          if (!cachedBlob) {
+            toast.error("Offline - no cached file found.");
+            return;
+          }
+          if (isImageFile(doc.file_path)) {
+            doc.localUrl = URL.createObjectURL(cachedBlob);
+          } else {
+            const objectURL = URL.createObjectURL(cachedBlob);
+            window.open(objectURL, "_blank");
+          }
+          return;
+        }
+
+        const { data: fileBlob, error } = await supabase.storage
+          .from("travel-documents")
+          .download(doc.file_path);
+        if (error) {
+          console.error("Download error:", error);
+          toast.error(`Failed to download file: ${error.message}`);
+          return;
+        }
+        if (fileBlob) {
+          await storeDocumentFile(doc.file_path, fileBlob);
+          if (isImageFile(doc.file_path)) {
+            doc.localUrl = URL.createObjectURL(fileBlob);
+          } else {
+            const objectURL = URL.createObjectURL(fileBlob);
+            window.open(objectURL, "_blank");
+          }
+        }
+      } catch (err) {
+        console.error("downloadForOffline error:", err);
+        toast.error("Failed to load file offline");
+      }
+    };
+
+    const saveDocument = async () => {
+      if (!selectedTripId.value) {
+        toast.error("No trip selected");
+        return;
+      }
+      if (!userId.value) {
+        toast.error("No user is logged in. Cannot save with RLS.");
+        return;
+      }
+
+      isSaving.value = true;
+      try {
+        let newFilePath = null;
+        if (selectedFile.value) {
+          if (editingDocument.value?.file_path) {
+            await removeStorageFile(editingDocument.value.file_path);
+          }
+          newFilePath = await uploadStorageFile();
+          if (!newFilePath) {
+            isSaving.value = false;
+            return;
+          }
+        }
+
+        if (editingDocument.value) {
+          const payload = {
+            title: documentForm.value.title,
+            type: documentForm.value.type,
+            description: documentForm.value.description,
+            url: documentForm.value.url,
+            date: documentForm.value.date,
+            user_id: userId.value
+          };
+          if (newFilePath) {
+            payload.file_path = newFilePath;
+            payload.url = newFilePath;
+          }
+
+          const { error } = await supabase
+            .from("travel_documents")
+            .update(payload)
+            .eq("id", editingDocument.value.id)
+            .select();
+          if (error) throw error;
+
+          const idx = documents.value.findIndex(d => d.id === editingDocument.value.id);
+          if (idx !== -1) {
+            documents.value[idx] = { ...documents.value[idx], ...payload };
+          }
+          toast.success("Document updated successfully");
+        } else {
+          const payload = {
+            ...documentForm.value,
+            trip_id: selectedTripId.value,
+            project_id: projectId.value,
+            user_id: userId.value
+          };
+          if (newFilePath) {
+            payload.file_path = newFilePath;
+            payload.url = newFilePath;
+          }
+
+          const { data, error } = await supabase
+            .from("travel_documents")
+            .insert(payload)
+            .select();
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            documents.value.push({ ...data[0], localUrl: null });
+          }
+          toast.success("Document added successfully");
+        }
+
+        closeModal();
+      } catch (err) {
+        console.error("Error saving document:", err);
+        toast.error("Failed to save document: " + err.message);
+      } finally {
+        isSaving.value = false;
+      }
+    };
+
+    const resetForm = () => {
+      documentForm.value = {
+        title: "",
+        type: "",
+        description: "",
+        url: "",
+        file_path: "",
+        date: ""
+      };
+    };
+
+    const getPreviewUrl = (filePath) => {
+      if (!filePath) return '';
+      const supabaseUrl = process.env.VUE_APP_SUPABASE_URL;
+      if (supabaseUrl) {
+        return `${supabaseUrl}/storage/v1/object/public/travel-documents/${filePath}`;
+      }
+      return '';
+    };
+
+    onMounted(() => {
+      loadTrips();
+      if (selectedTripId.value) {
+        loadDocuments();
+      }
+    });
+
+    return {
+      trips,
+      documents,
+      selectedTripId,
+      isLoading,
+      showModal,
+      editingDocument,
+      isSaving,
+      documentForm,
+      fileInput,
+      selectedFile,
+      selectedFileName,
+      goBackToDashboard,
+      formatDate,
+      formatDateRange,
+      loadDocuments,
+      openModal,
+      closeModal,
+      editDocument,
+      deleteDocument,
+      handleFileChange,
+      saveDocument,
+      resetForm,
+      removeStorageFile,
+      viewStorageFile,
+      downloadForOffline,
+      downloadDocument,
+      isImageFile,
+      isPdfFile,
+      getPreviewUrl,
+    };
+  }
+};
 </script>
-
 
 <style scoped>
 /* Mobile-first base styles */
