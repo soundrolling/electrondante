@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const URL              = process.env.VUE_APP_SUPABASE_URL
-const ANON_KEY         = process.env.VUE_APP_SUPABASE_KEY
+const ANON_KEY         = process.env.VUE_APP_SUPABASE_ANON_KEY
 const SERVICE_ROLE_KEY = process.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY
 
 // Debug: verify env-vars in the browser console
