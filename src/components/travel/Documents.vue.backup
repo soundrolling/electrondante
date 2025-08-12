@@ -295,66 +295,17 @@ setup(props) {
     });
   };
 
-  // Date helpers - Format as "Friday 4th July" (day-of-week, ordinal day, month)
+  // Date helpers
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const d = parseISO(dateStr);
-    const dayOfWeek = format(d, "EEEE");
-    const day = format(d, "d");
-    const month = format(d, "MMMM");
-    
-    // Add ordinal suffix to day
-    const ordinalSuffix = (day) => {
-      if (day > 3 && day < 21) return 'th';
-      switch (day % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
-      }
-    };
-    
-    return `${dayOfWeek} ${day}${ordinalSuffix(day)} ${month}`;
+    return format(d, "MMM d, yyyy");
   };
-  
   const formatDateRange = (start, end) => {
     if (!start || !end) return "";
     const s = parseISO(start);
     const e = parseISO(end);
-    
-    // If same month, show "Friday 4th - Sunday 6th July"
-    if (format(s, "MMMM yyyy") === format(e, "MMMM yyyy")) {
-      const startDay = format(s, "EEEE");
-      const startDate = format(s, "d");
-      const endDay = format(e, "EEEE");
-      const endDate = format(e, "d");
-      const month = format(s, "MMMM");
-      
-      const startOrdinal = (startDate) => {
-        if (startDate > 3 && startDate < 21) return 'th';
-        switch (startDate % 10) {
-          case 1: return 'st';
-          case 2: return 'nd';
-          case 3: return 'rd';
-          default: return 'th';
-        }
-      };
-      
-      const endOrdinal = (endDate) => {
-        if (endDate > 3 && endDate < 21) return 'th';
-        switch (endDate % 10) {
-          case 1: return 'st';
-          case 2: return 'nd';
-          case 3: return 'rd';
-          default: return 'th';
-        }
-      };
-      
-      return `${startDay} ${startDate}${startOrdinal(startDate)} - ${endDay} ${endDate}${endOrdinal(endDate)} ${month}`;
-    }
-    
-    // Different months, show full dates
-    return `${formatDate(start)} - ${formatDate(end)}`;
+    return `${format(s, "MMM d, yyyy")} - ${format(e, "MMM d, yyyy")}`;
   };
 
   // Check if file is image or PDF
@@ -733,14 +684,9 @@ setup(props) {
   // Add a helper to get a preview URL for images from Supabase
   const getPreviewUrl = (filePath) => {
     if (!filePath) return '';
-    // For public buckets, construct the URL using the configured Supabase URL
-    // For private buckets, you would need to use signed URLs instead
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VUE_APP_SUPABASE_URL;
-    if (supabaseUrl) {
-      return `${supabaseUrl}/storage/v1/object/public/travel-documents/${filePath}`;
-    }
-    // Fallback to a generic message if no URL configured
-    return '';
+    // For public buckets, you could construct the URL directly. For private, you may need a signed URL.
+    // Here, we assume public for preview. Adjust as needed for your setup.
+    return `https://YOUR_SUPABASE_PROJECT.supabase.co/storage/v1/object/public/travel-documents/${filePath}`;
   };
 
   // On mount
@@ -783,7 +729,7 @@ setup(props) {
     downloadDocument,
     isImageFile,
     isPdfFile,
-    getPreviewUrl,
+    getPreviewUrl
   };
 }
 </script>
