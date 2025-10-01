@@ -30,7 +30,7 @@
         <button
           v-if="userEmail"
           @click="emitSignOut"
-          class="btn secondary-btn"
+          class="btn btn-danger secondary-btn"
         >
           Sign Out
         </button>
@@ -55,7 +55,7 @@
             ></div>
           </div>
           <div class="storage-actions">
-            <button @click="confirmAndClearCache" class="btn warning-btn">
+            <button @click="confirmAndClearCache" class="btn btn-warning warning-btn">
               Clear Cache
             </button>
           </div>
@@ -67,7 +67,7 @@
           <button
             v-if="hasUpdateAvailable"
             @click="updatePWA"
-            class="btn update-btn"
+            class="btn btn-positive update-btn"
           >
             Update Available
           </button>
@@ -76,7 +76,7 @@
           <button
             v-if="canInstallPWA"
             @click="installPWA"
-            class="btn install-btn"
+            class="btn btn-primary install-btn"
           >
             Install App
           </button>

@@ -17,7 +17,7 @@
         <button
           v-if="showBackButton"
           @click="goBack"
-          class="back-btn"
+          class="btn btn-warning back-btn"
           title="Go back"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -55,7 +55,7 @@
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
-          class="bug-report-btn"
+          class="btn btn-positive bug-report-btn"
           title="Report a bug or suggestion"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -70,7 +70,7 @@
         <button
           v-if="isAuthenticated"
           @click="handleSignOut"
-          class="sign-out-btn"
+          class="btn btn-danger sign-out-btn"
           title="Sign out"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -92,7 +92,7 @@
     <div class="project-home-container">
       <button
         @click="goToProjectHome"
-        class="project-home-btn"
+        class="btn btn-primary project-home-btn"
       >
         <svg class="home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>

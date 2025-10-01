@@ -7,11 +7,11 @@
   <header class="page-header">
     <h1 class="page-title">Your Projects</h1>
     <div class="page-actions">
-      <button @click="refreshProjects" class="action-btn refresh-btn">
+      <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
         <span class="btn-icon">🔄</span>
         <span class="btn-text">Refresh</span>
       </button>
-      <button @click="toggleNewProjectForm" class="action-btn new-project-btn">
+      <button @click="toggleNewProjectForm" class="btn btn-positive action-btn new-project-btn">
         <span class="btn-icon">{{ showNewProjectForm ? '✕' : '➕' }}</span>
         <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
       </button>
@@ -91,8 +91,8 @@
         </div>
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Create Project</button>
-        <button type="button" @click="cancelNewProject" class="btn btn-secondary">
+        <button type="submit" class="btn btn-positive">Create Project</button>
+        <button type="button" @click="cancelNewProject" class="btn btn-warning">
           Cancel
         </button>
       </div>
@@ -191,21 +191,21 @@
           </div>
 
           <div class="project-actions">
-            <button @click="openProject(p)" class="btn btn-primary open-btn">
+            <button @click="openProject(p)" class="btn btn-positive open-btn">
               <span class="btn-icon">🚀</span>
               <span class="btn-text">Open Project</span>
             </button>
             
             <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-secondary">
+              <button @click="openEditModal(p)" class="btn btn-warning">
                 <span class="btn-icon">✏️</span>
                 <span class="btn-text">Edit</span>
               </button>
-              <button @click="duplicateProject(p)" class="btn btn-secondary">
+              <button @click="duplicateProject(p)" class="btn btn-warning">
                 <span class="btn-icon">📋</span>
                 <span class="btn-text">Duplicate</span>
               </button>
-              <button @click="archiveProject(p)" class="btn btn-secondary">
+              <button @click="archiveProject(p)" class="btn btn-danger">
                 <span class="btn-icon">📦</span>
                 <span class="btn-text">Archive</span>
               </button>
@@ -272,17 +272,17 @@
           </div>
 
           <div class="project-actions">
-            <button @click="openProject(p)" class="btn btn-primary open-btn">
+            <button @click="openProject(p)" class="btn btn-positive open-btn">
               <span class="btn-icon">🚀</span>
               <span class="btn-text">Open Project</span>
             </button>
             
             <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-secondary">
+              <button @click="openEditModal(p)" class="btn btn-warning">
                 <span class="btn-icon">✏️</span>
                 <span class="btn-text">Edit</span>
               </button>
-              <button @click="unarchiveProject(p)" class="btn btn-secondary">
+              <button @click="unarchiveProject(p)" class="btn btn-positive">
                 <span class="btn-icon">📤</span>
                 <span class="btn-text">Unarchive</span>
               </button>
@@ -372,8 +372,8 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button @click="saveEditProject" class="btn btn-primary">Save Changes</button>
-        <button @click="closeEditModal" class="btn btn-secondary">Cancel</button>
+        <button @click="saveEditProject" class="btn btn-positive">Save Changes</button>
+        <button @click="closeEditModal" class="btn btn-warning">Cancel</button>
       </div>
     </div>
   </div>

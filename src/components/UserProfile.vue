@@ -453,7 +453,7 @@ async function saveSecurity() {
             <div class="form-actions">
               <button 
                 type="submit" 
-                class="btn btn-primary"
+                class="btn btn-positive"
                 :disabled="saving"
               >
                 <span v-if="saving" class="loading-spinner"></span>
