@@ -53,6 +53,16 @@ CREATE INDEX IF NOT EXISTS idx_bug_report_comments_report_id ON bug_report_comme
 ALTER TABLE bug_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bug_report_comments ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (to handle updates)
+DROP POLICY IF EXISTS "Users can insert their own bug reports" ON bug_reports;
+DROP POLICY IF EXISTS "Users can view all bug reports" ON bug_reports;
+DROP POLICY IF EXISTS "Users can update all bug reports" ON bug_reports;
+DROP POLICY IF EXISTS "Users can delete all bug reports" ON bug_reports;
+DROP POLICY IF EXISTS "Users can insert comments" ON bug_report_comments;
+DROP POLICY IF EXISTS "Users can view all comments" ON bug_report_comments;
+DROP POLICY IF EXISTS "Users can update comments" ON bug_report_comments;
+DROP POLICY IF EXISTS "Users can delete comments" ON bug_report_comments;
+
 -- Create policies for bug_reports table
 -- Allow authenticated users to insert their own reports
 CREATE POLICY "Users can insert their own bug reports" ON bug_reports
