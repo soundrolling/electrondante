@@ -5,26 +5,39 @@
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- Single row layout with all elements -->
-    <div class="single-row-header">
-      <button class="btn btn-warning back" @click="goBack">← Back</button>
+    <!-- Top Project Home button -->
+    <div class="top-project-home">
       <button class="btn btn-primary project-home" @click="goToProjectHome">
         <span class="home-icon">🏠</span>
         Project Home
       </button>
-      <div class="stage-title">
+    </div>
+
+    <!-- Main content card -->
+    <div class="main-content-card">
+      <!-- Left side: Back button and sync status -->
+      <div class="left-section">
+        <button class="btn btn-warning back" @click="goBack">← Back</button>
+        <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
+          <span class="sync-dot">●</span>
+          <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+        </div>
+        <button class="btn btn-positive mini primary" @click="createNote">New note</button>
+      </div>
+
+      <!-- Center: Stage title -->
+      <div class="center-section">
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
       </div>
-      <div class="timecode-display">
-        <strong class="tc">{{ liveTimecode }}</strong>
-        <small class="tc-label">{{ currentTimeSourceLabel }}</small>
+
+      <!-- Right side: Timecode -->
+      <div class="right-section">
+        <div class="timecode-display">
+          <strong class="tc">{{ liveTimecode }}</strong>
+          <small class="tc-label">{{ currentTimeSourceLabel }}</small>
+        </div>
       </div>
-      <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
-        <span class="sync-dot">●</span>
-        <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
-      </div>
-      <button class="btn btn-positive mini primary" @click="createNote">New note</button>
     </div>
 
     <!-- tab buttons -->
@@ -224,33 +237,59 @@ min-height: 100vh;
 background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-.single-row-header {
+.top-project-home {
+display: flex;
+justify-content: center;
+margin: 16px 24px 8px 24px;
+}
+
+.main-content-card {
 background: rgba(255, 255, 255, 0.9);
-margin: 16px 24px;
-padding: 16px 20px;
+margin: 0 24px 16px 24px;
+padding: 20px;
 border-radius: 12px;
 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
 display: flex;
 align-items: center;
-gap: 16px;
-flex-wrap: wrap;
+gap: 20px;
 }
 
 .btn.project-home {
 background: #2563eb;
 color: #ffffff;
 border: 0;
-border-radius: 6px;
-padding: 8px 12px;
-font-size: 0.8rem;
+border-radius: 8px;
+padding: 10px 16px;
+font-size: 0.9rem;
 font-weight: 600;
 flex-shrink: 0;
 display: flex;
 align-items: center;
-gap: 4px;
+gap: 6px;
 white-space: nowrap;
+}
+
+.left-section {
+display: flex;
+flex-direction: column;
+gap: 12px;
+align-items: flex-start;
+flex-shrink: 0;
+}
+
+.center-section {
+flex: 1;
+text-align: center;
+min-width: 0;
+}
+
+.right-section {
+display: flex;
+flex-direction: column;
+align-items: flex-end;
+flex-shrink: 0;
 }
 
 .btn.back {
@@ -269,46 +308,40 @@ white-space: nowrap;
 font-size: 0.8rem;
 }
 
-.stage-title {
-flex: 1;
-min-width: 200px;
-text-align: center;
-}
-
-.stage-title h2 {
-margin: 0 0 2px 0;
-font-size: 1.1rem;
+.center-section h2 {
+margin: 0 0 4px 0;
+font-size: 1.3rem;
 font-weight: 700;
 color: #1e293b;
-line-height: 1.1;
+line-height: 1.2;
 }
 
 .subtitle {
 color: #6c7a92;
-font-size: 0.75rem;
+font-size: 0.85rem;
 margin: 0;
-line-height: 1.1;
+line-height: 1.2;
 }
 
 .timecode-display {
 display: flex;
 flex-direction: column;
-align-items: center;
-gap: 1px;
+align-items: flex-end;
+gap: 2px;
 flex-shrink: 0;
-min-width: 70px;
+min-width: 80px;
 }
 
 .tc {
 font-family: monospace;
-font-size: 1rem;
+font-size: 1.2rem;
 font-weight: 700;
 color: #1e293b;
 line-height: 1;
 }
 
 .tc-label {
-font-size: 0.65rem;
+font-size: 0.7rem;
 color: #6c7a92;
 line-height: 1;
 }
@@ -317,7 +350,7 @@ line-height: 1;
 display: flex;
 align-items: center;
 gap: 4px;
-font-size: 0.75rem;
+font-size: 0.8rem;
 color: #10b981;
 font-weight: 500;
 flex-shrink: 0;
@@ -337,56 +370,54 @@ font-size: 0.7rem;
 
 /* Responsive design */
 @media (max-width: 768px) {
-.single-row-header {
-  margin: 12px 16px;
-  padding: 12px 16px;
+.top-project-home {
+  margin: 12px 16px 8px 16px;
+}
+
+.main-content-card {
+  margin: 0 16px 12px 16px;
+  padding: 16px;
   flex-direction: column;
   align-items: stretch;
-  gap: 12px;
+  gap: 16px;
 }
 
-.stage-title {
+.left-section {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.center-section {
   text-align: left;
   order: 1;
-  min-width: auto;
 }
 
-.btn.back {
+.left-section {
   order: 2;
-  align-self: flex-start;
 }
 
-.btn.project-home {
+.right-section {
   order: 3;
-  align-self: flex-start;
-}
-
-.timecode-display {
   align-items: flex-start;
-  order: 4;
 }
 
-.sync-status {
-  order: 5;
-  align-self: flex-start;
-}
-
-.single-row-header .btn.mini.primary {
-  order: 6;
-  align-self: flex-start;
-}
-
-.stage-title h2 {
-  font-size: 1rem;
+.center-section h2 {
+  font-size: 1.1rem;
 }
 
 .tc {
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
-.btn.project-home,
+.btn.project-home {
+  font-size: 0.8rem;
+  padding: 8px 14px;
+}
+
 .btn.back {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   padding: 6px 10px;
 }
 }
