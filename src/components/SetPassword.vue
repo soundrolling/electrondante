@@ -17,7 +17,7 @@
       />
       <button
         type="button"
-        class="toggle-password-btn"
+        class="btn btn-warning toggle-password-btn"
         @click="togglePasswordVisibility"
       >
         {{ showPassword ? 'Hide' : 'Show' }}
@@ -40,6 +40,7 @@
   <button
     @click="handleSetPassword"
     :disabled="loading || !password || !confirmPassword"
+    class="btn btn-positive"
   >
     Set Password
   </button>

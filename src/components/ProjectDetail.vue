@@ -76,27 +76,27 @@
     <section class="actions-section">
       <h2 class="section-title">Project Tools</h2>
       <div class="actions-grid">
-        <button class="action-button primary" @click="goToLocations">
+        <button class="btn btn-primary action-button primary" @click="goToLocations">
           <span class="action-icon">🏢</span>
           <span class="action-label">All Stages</span>
         </button>
-        <button class="action-button" @click="goToCalendar">
+        <button class="btn btn-positive action-button" @click="goToCalendar">
           <span class="action-icon">📅</span>
           <span class="action-label">Calendar</span>
         </button>
-        <button class="action-button" @click="goToTravelHub">
+        <button class="btn btn-positive action-button" @click="goToTravelHub">
           <span class="action-icon">✈️</span>
           <span class="action-label">Travel Hub</span>
         </button>
-        <button class="action-button" @click="goToContacts">
+        <button class="btn btn-positive action-button" @click="goToContacts">
           <span class="action-icon">👥</span>
           <span class="action-label">Contacts</span>
         </button>
-        <button class="action-button" @click="goToSettings">
+        <button class="btn btn-warning action-button" @click="goToSettings">
           <span class="action-icon">⚙️</span>
           <span class="action-label">Settings</span>
         </button>
-        <button class="action-button" @click="goToProfile">
+        <button class="btn btn-primary action-button" @click="goToProfile">
           <span class="action-icon">👤</span>
           <span class="action-label">Profile</span>
         </button>
@@ -109,7 +109,7 @@
     <div class="error-icon">⚠️</div>
     <h2 class="error-title">Unable to Load Project</h2>
     <p class="error-message">Please check your connection and try again.</p>
-    <button class="retry-button" @click="loadProject">
+    <button class="btn btn-warning retry-button" @click="loadProject">
       <span class="retry-icon">🔄</span>
       Retry
     </button>

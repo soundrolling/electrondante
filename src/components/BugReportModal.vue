@@ -3,7 +3,7 @@
     <div class="modal-container" @click.stop>
       <div class="modal-header">
         <h3>Report a Bug or Suggestion</h3>
-        <button @click="closeModal" class="close-btn" title="Close">
+        <button @click="closeModal" class="btn btn-warning close-btn" title="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -16,7 +16,7 @@
         <div class="quick-actions">
           <h4>Quick Report</h4>
           <div class="quick-buttons">
-            <button type="button" @click="quickReport('bug')" class="quick-btn bug">
+            <button type="button" @click="quickReport('bug')" class="btn btn-danger quick-btn bug">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -24,14 +24,14 @@
               </svg>
               Report Bug
             </button>
-            <button type="button" @click="quickReport('suggestion')" class="quick-btn suggestion">
+            <button type="button" @click="quickReport('suggestion')" class="btn btn-positive quick-btn suggestion">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 12l2 2 4-4"></path>
                 <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"></path>
               </svg>
               Suggest Feature
             </button>
-            <button type="button" @click="quickReport('improvement')" class="quick-btn improvement">
+            <button type="button" @click="quickReport('improvement')" class="btn btn-warning quick-btn improvement">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
               </svg>
@@ -154,12 +154,12 @@
 
 
         <div class="form-actions">
-          <button type="button" @click="closeModal" class="cancel-btn">
+          <button type="button" @click="closeModal" class="btn btn-warning cancel-btn">
             Cancel
           </button>
           <button 
             type="submit" 
-            class="submit-btn"
+            class="btn btn-positive submit-btn"
             :disabled="isSubmitting || !isFormValid"
           >
             {{ isSubmitting ? 'Submitting...' : 'Submit Report' }}

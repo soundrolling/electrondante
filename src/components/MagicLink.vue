@@ -20,7 +20,7 @@
       class="input-field"
     />
     
-    <button type="submit" :disabled="loading" class="magic-link-button">
+    <button type="submit" :disabled="loading" class="btn btn-positive magic-link-button">
       {{ loading ? 'Sending...' : 'Send Magic Link' }}
     </button>
   </form>

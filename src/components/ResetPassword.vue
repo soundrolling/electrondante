@@ -12,7 +12,7 @@
     required
   />
   
-  <button @click="requestPasswordReset" :disabled="loading" class="reset-button">
+  <button @click="requestPasswordReset" :disabled="loading" class="btn btn-positive reset-button">
     {{ loading ? 'Sending...' : 'Send Reset Link' }}
   </button>
   

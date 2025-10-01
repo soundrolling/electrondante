@@ -5,7 +5,7 @@
       <div class="header-top">
         <h3>Bug Reports & Suggestions</h3>
         <div class="header-actions">
-          <button @click="refreshReports" class="refresh-btn" :disabled="isLoading">
+          <button @click="refreshReports" class="btn btn-warning refresh-btn" :disabled="isLoading">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23,4 23,10 17,10"></polyline>
               <polyline points="1,20 1,14 7,14"></polyline>
@@ -49,7 +49,7 @@
           </select>
         </div>
 
-        <button @click="clearFilters" class="clear-filters-btn">Clear Filters</button>
+        <button @click="clearFilters" class="btn btn-warning clear-filters-btn">Clear Filters</button>
       </div>
     </div>
 
@@ -110,7 +110,7 @@
             <div class="report-actions">
               <button 
                 @click="toggleReportDetails(report.id)"
-                class="toggle-btn"
+                class="btn btn-primary toggle-btn"
                 :title="expandedReports.includes(report.id) ? 'Collapse' : 'Expand'"
               >
                 <svg 
@@ -212,7 +212,7 @@
                   
                   <button 
                     @click="deleteReport(report.id)"
-                    class="delete-btn"
+                    class="btn btn-danger delete-btn"
                     title="Delete report"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
