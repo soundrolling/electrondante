@@ -491,9 +491,9 @@ margin-left: 8px;
   gap: 6px;
 }
 .refresh-btn {
-  background: #f3f4f6;
-  color: #4a6cf7;
-  border: none;
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -505,6 +505,6 @@ margin-left: 8px;
   transition: background 0.2s;
 }
 .refresh-btn:hover {
-  background: #e0e7ff;
+  background: #b45309;
 }
 </style>

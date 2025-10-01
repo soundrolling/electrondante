@@ -676,17 +676,17 @@ font-weight: 600;
 color: #111827;
 }
 .modal-close {
-background: none;
-border: none;
+background: #d97706;
+color: #ffffff;
+border: 1px solid #b45309;
 font-size: 1.5rem;
-color: #6b7280;
 cursor: pointer;
 padding: 4px;
 border-radius: 4px;
 transition: background .2s;
 }
 .modal-close:hover {
-background: #f3f4f6;
+background: #b45309;
 }
 .modal-body {
 padding: 20px 24px;

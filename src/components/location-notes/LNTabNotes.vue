@@ -901,18 +901,18 @@ animation: pulse 2s infinite;
 }
 
 .export-btn {
-  background: #fff;
-  color: #6c7a92;
-  border: 1px solid #dce0e8;
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
 }
 
 .export-btn:hover {
-  background: #f4f5f7;
+  background: #b45309;
 }
 
 .sync-btn {
   background: #10b981;
-  color: #fff;
+  color: #ffffff;
 }
 
 .sync-btn:hover {
@@ -920,12 +920,13 @@ background: #059669;
 }
 
 .sync-btn:disabled {
-background: #9ca3af;
+background: #6b7280;
+color: #ffffff;
 cursor: not-allowed;
 }
 
 .sync-btn:disabled:hover {
-background: #9ca3af;
+background: #6b7280;
 }
 
 .sync-btn:disabled {
@@ -1393,9 +1394,9 @@ opacity: 0.6;
   gap: 6px;
 }
 .refresh-btn {
-  background: #f3f4f6;
-  color: #4a6cf7;
-  border: none;
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -1407,7 +1408,7 @@ opacity: 0.6;
   transition: background 0.2s;
 }
 .refresh-btn:hover {
-  background: #e0e7ff;
+  background: #b45309;
 }
 
 /* Today and Previous Day button styles are now handled by btn btn-primary classes */
