@@ -305,14 +305,15 @@ font-size: 0.875rem;
 
 .search-filters {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
   flex-wrap: wrap;
-  border: 2px solid var(--border-medium);
-  border-radius: 0.75rem;
-  background: var(--bg-secondary);
-  padding: 1rem;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-grouped);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
 }
 
 .search-container {
@@ -324,7 +325,7 @@ min-width: 250px;
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 1rem;
   background: var(--bg-primary);
@@ -335,7 +336,7 @@ min-width: 250px;
 .search-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
 .search-icon {
@@ -353,7 +354,7 @@ gap: 0.5rem;
 
 .filter-select {
   padding: 0.75rem 1rem;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 1rem;
   background: var(--bg-primary);
@@ -365,7 +366,7 @@ gap: 0.5rem;
 .filter-select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
 .loading-state {
@@ -409,19 +410,20 @@ gap: 0.75rem;
 .gear-result-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border: 2px solid var(--border-medium);
-  border-radius: 0.75rem;
-  transition: all 0.2s ease;
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-sm);
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  transition: all var(--transition-normal);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
 }
 
 .gear-result-item:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: var(--text-link);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
 }
 
 .gear-result-item.selected {

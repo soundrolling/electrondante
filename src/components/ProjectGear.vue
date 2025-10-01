@@ -1109,12 +1109,13 @@ setup() {
 .filter-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  border: 2px solid var(--border-medium);
-  border-radius: 0.75rem;
-  background: var(--bg-secondary);
-  padding: 1rem;
-  box-shadow: var(--shadow-sm);
+  gap: var(--space-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-grouped);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
 }
 
 .filter-label {
@@ -1127,7 +1128,7 @@ setup() {
 .filter-select {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 16px;
   background: var(--bg-primary);
@@ -1142,7 +1143,7 @@ setup() {
 .filter-select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
 /* Loading Skeleton */
@@ -1242,18 +1243,19 @@ setup() {
 }
 
 .gear-card {
-  background: var(--bg-primary);
-  border: 2px solid var(--border-medium);
-  border-radius: 0.75rem;
-  padding: 20px;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
 }
 
 .gear-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: var(--text-link);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
 }
 
 .gear-card.user-gear {

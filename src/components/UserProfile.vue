@@ -907,7 +907,7 @@ async function saveSecurity() {
 .form-textarea {
   width: 100%;
   padding: 0.6rem;
-  border: 2px solid var(--input-border);
+  border: 1px solid var(--input-border);
   border-radius: 0.4rem;
   font-size: 0.9rem;
   background: var(--input-bg);
@@ -969,7 +969,7 @@ async function saveSecurity() {
   display: flex;
   gap: 0;
   margin-top: 0.75rem;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-medium);
   border-radius: 0.75rem;
   background: var(--bg-card);
   padding: 0.75rem;
@@ -1004,14 +1004,15 @@ async function saveSecurity() {
 
 .gear-controls {
   display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
   flex-wrap: wrap;
-  border: 2px solid var(--border-medium);
-  border-radius: 0.75rem;
-  background: var(--bg-secondary);
-  padding: 1rem;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-grouped);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px);
 }
 
 .search-container {
@@ -1023,7 +1024,7 @@ async function saveSecurity() {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--bg-primary);
@@ -1035,7 +1036,7 @@ async function saveSecurity() {
 .search-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
 .search-icon {
@@ -1048,7 +1049,7 @@ async function saveSecurity() {
 
 .filter-select {
   padding: 0.75rem 1rem;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--bg-primary);
@@ -1061,7 +1062,7 @@ async function saveSecurity() {
 .filter-select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
 .gear-grid {
@@ -1071,20 +1072,21 @@ async function saveSecurity() {
 }
 
 .gear-card {
-  background: var(--bg-card);
-  border: 2px solid var(--border-medium);
-  border-radius: 0.75rem;
-  padding: 1.25rem;
-  transition: all 0.2s;
-  color: var(--text-main);
-  box-shadow: var(--shadow-sm);
-  font-size: 0.95rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  transition: all var(--transition-normal);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-base);
+  backdrop-filter: blur(20px);
 }
 
 .gear-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: var(--text-link);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
 }
 
 .gear-card-header {

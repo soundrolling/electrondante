@@ -72,42 +72,47 @@
   --color-neutral-800: #262626;
   --color-neutral-900: #171717;
 
-  /* Background Colors */
+  /* Background Colors - Apple Design System */
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
+  --bg-secondary: #f5f5f7;
+  --bg-tertiary: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --bg-grouped: #f2f2f7;
 
-  /* Button Color Scheme */
-  --btn-positive-bg: #f0fdf4;
-  --btn-positive-border: #bbf7d0;
-  --btn-positive-text: #166534;
-  --btn-positive-hover-bg: #dcfce7;
-  --btn-positive-hover-border: #86efac;
+  /* Button Color Scheme - Apple Design System */
+  --btn-positive-bg: #e8f5e8;
+  --btn-positive-border: #34c759;
+  --btn-positive-text: #1d4ed8;
+  --btn-positive-hover-bg: #d4edda;
+  --btn-positive-hover-border: #28a745;
 
-  --btn-danger-bg: #fef2f2;
-  --btn-danger-border: #fecaca;
-  --btn-danger-text: #991b1b;
-  --btn-danger-hover-bg: #fee2e2;
-  --btn-danger-hover-border: #fca5a5;
+  --btn-danger-bg: #f8d7da;
+  --btn-danger-border: #dc3545;
+  --btn-danger-text: #721c24;
+  --btn-danger-hover-bg: #f5c6cb;
+  --btn-danger-hover-border: #c82333;
 
-  --btn-warning-bg: #fefce8;
-  --btn-warning-border: #fde68a;
-  --btn-warning-text: #92400e;
-  --btn-warning-hover-bg: #fef3c7;
-  --btn-warning-hover-border: #fcd34d;
+  --btn-warning-bg: #fff3cd;
+  --btn-warning-border: #ffc107;
+  --btn-warning-text: #856404;
+  --btn-warning-hover-bg: #ffeaa7;
+  --btn-warning-hover-border: #e0a800;
 
-  /* Text Colors */
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-tertiary: #94a3b8;
+  /* Text Colors - Apple Design System */
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #8e8e93;
+  --text-quaternary: #c7c7cc;
   --text-inverse: #ffffff;
+  --text-link: #007aff;
 
-  /* Border Colors */
-  --border-light: #e2e8f0;
-  --border-medium: #cbd5e1;
-  --border-dark: #94a3b8;
+  /* Border Colors - Apple Design System */
+  --border-light: #f2f2f7;
+  --border-medium: #d1d1d6;
+  --border-dark: #c7c7cc;
+  --border-separator: #c6c6c8;
 
-  /* Spacing Scale */
+  /* Spacing Scale - Apple 8pt Grid System */
   --space-1: 0.25rem;   /* 4px */
   --space-2: 0.5rem;    /* 8px */
   --space-3: 0.75rem;   /* 12px */
@@ -120,6 +125,8 @@
   --space-16: 4rem;     /* 64px */
   --space-20: 5rem;     /* 80px */
   --space-24: 6rem;     /* 96px */
+  --space-32: 8rem;     /* 128px */
+  --space-40: 10rem;    /* 160px */
 
   /* Border Radius */
   --radius-sm: 0.375rem;   /* 6px */
@@ -129,14 +136,16 @@
   --radius-2xl: 1.5rem;    /* 24px */
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* Shadows - Apple Design System */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.15);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.1);
 
-  /* Typography */
-  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Typography - Apple Design System */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 
   /* Font Sizes */
@@ -194,15 +203,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Component Base Styles */
+/* Component Base Styles - Apple Design System */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-6);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--text-base);
   font-weight: var(--font-medium);
   line-height: var(--leading-tight);
@@ -211,6 +220,7 @@ body {
   transition: all var(--transition-normal);
   min-height: 44px;
   min-width: 44px;
+  box-shadow: var(--shadow-card);
 }
 
 .btn:focus {
@@ -327,7 +337,7 @@ body {
 .form-input {
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
@@ -356,18 +366,19 @@ body {
   line-height: var(--leading-tight);
 }
 
-/* Card Components */
+/* Card Components - Apple Design System */
 .card {
-  background-color: var(--bg-primary);
+  background-color: var(--bg-elevated);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
   transition: all var(--transition-normal);
+  backdrop-filter: blur(20px);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
 }
 
 .card-header {
