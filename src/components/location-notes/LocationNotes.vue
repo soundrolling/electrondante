@@ -1,31 +1,27 @@
 <!-- src/components/location-notes/LocationNotes.vue -->
 <template>
 <div class="location-notes">
-  <!-- top bar -->
-  <header class="top-bar">
-    <button class="btn btn-warning back" @click="goBack">← Back</button>
-  </header>
-
   <div v-if="isLoading" class="load">Loading…</div>
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- Combined stage header and timecode strip -->
-    <div class="combined-header">
-      <!-- Row 1: Stage info and timecode -->
-      <div class="header-row-1">
-        <div class="stage-info">
+    <!-- Ultra-compact 2-row layout -->
+    <div class="compact-header">
+      <!-- Row 1: Back button, stage title, and timecode -->
+      <div class="compact-row-1">
+        <button class="btn btn-warning back" @click="goBack">← Back</button>
+        <div class="stage-title">
           <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
           <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
         </div>
-        <div class="timecode-info">
+        <div class="timecode-display">
           <strong class="tc">{{ liveTimecode }}</strong>
           <small class="tc-label">{{ currentTimeSourceLabel }}</small>
         </div>
       </div>
       
-      <!-- Row 2: Sync status and actions -->
-      <div class="header-row-2">
+      <!-- Row 2: Sync status and new note button -->
+      <div class="compact-row-2">
         <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
           <span class="sync-dot">●</span>
           <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
@@ -230,79 +226,77 @@ min-height: 100vh;
 background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-.top-bar {
-position: sticky;
-top: 0;
-z-index: 30;
-background: rgba(255, 255, 255, 0.95);
-padding: 16px 24px;
-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-backdrop-filter: blur(20px);
-border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-.btn.back {
-background: #d97706;
-color: #ffffff;
-border: 0;
-border-radius: 8px;
-padding: 6px 12px;
-font-size: 0.9rem;
-}
-.combined-header {
+.compact-header {
 background: rgba(255, 255, 255, 0.9);
-margin: 24px;
-padding: 24px;
-border-radius: 16px;
-box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+margin: 16px 24px;
+padding: 16px 20px;
+border-radius: 12px;
+box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
 }
 
-.header-row-1 {
+.compact-row-1 {
 display: flex;
-justify-content: space-between;
-align-items: flex-start;
-margin-bottom: 16px;
-gap: 20px;
+align-items: center;
+gap: 16px;
+margin-bottom: 12px;
 }
 
-.stage-info {
+.btn.back {
+background: #d97706;
+color: #ffffff;
+border: 0;
+border-radius: 6px;
+padding: 8px 12px;
+font-size: 0.85rem;
+font-weight: 600;
+flex-shrink: 0;
+}
+
+.stage-title {
 flex: 1;
+min-width: 0;
 }
 
-.stage-info h2 {
-margin: 0 0 4px 0;
-font-size: 1.5rem;
+.stage-title h2 {
+margin: 0 0 2px 0;
+font-size: 1.25rem;
 font-weight: 700;
 color: #1e293b;
+line-height: 1.2;
 }
 
 .subtitle {
 color: #6c7a92;
-font-size: 0.9rem;
+font-size: 0.8rem;
 margin: 0;
+line-height: 1.2;
 }
 
-.timecode-info {
+.timecode-display {
 display: flex;
 flex-direction: column;
 align-items: flex-end;
-gap: 2px;
+gap: 1px;
+flex-shrink: 0;
 }
 
 .tc {
 font-family: monospace;
-font-size: 1.4rem;
+font-size: 1.2rem;
 font-weight: 700;
 color: #1e293b;
+line-height: 1;
 }
 
 .tc-label {
-font-size: 0.75rem;
+font-size: 0.7rem;
 color: #6c7a92;
+line-height: 1;
 }
 
-.header-row-2 {
+.compact-row-2 {
 display: flex;
 justify-content: space-between;
 align-items: center;
@@ -311,25 +305,33 @@ gap: 16px;
 
 /* Responsive design */
 @media (max-width: 768px) {
-.header-row-1 {
+.compact-header {
+  margin: 12px 16px;
+  padding: 12px 16px;
+}
+
+.compact-row-1 {
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
 }
 
-.timecode-info {
+.timecode-display {
   align-items: flex-start;
 }
 
-.header-row-2 {
+.compact-row-2 {
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
 }
 
-.combined-header {
-  margin: 16px;
-  padding: 20px;
+.stage-title h2 {
+  font-size: 1.1rem;
+}
+
+.tc {
+  font-size: 1.1rem;
 }
 }
 .load {
@@ -378,7 +380,7 @@ display: flex;
 background: rgba(255, 255, 255, 0.95);
 border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 position: sticky;
-top: 80px;
+top: 0;
 z-index: 20;
 backdrop-filter: blur(20px);
 box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
