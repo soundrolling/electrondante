@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.49">
-        <span class="version-text">v21.49</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.50">
+        <span class="version-text">v21.50</span>
         <span class="version-date">July 8th</span>
       </button>
     </div>
@@ -19,11 +19,21 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.49</h2>
+          <h2 id="changelog-title">What's New in 21.50</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🎨 Traffic Light Button System</h3>
+            <p>Consistent button styling across all components with green (positive), yellow (warning), red (danger), and blue (primary) color coding for better user experience and accessibility.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>📝 Location Notes Enhancement</h3>
+            <p>Improved button contrast and styling in Notes, Schedule, and Quickfire tabs with proper dark backgrounds and white text for optimal readability.</p>
+          </div>
+          
           <div class="changelog-section">
             <h3>🎯 Contacts Table Redesign</h3>
             <p>Simplified table with compact, mobile-friendly design.</p>
