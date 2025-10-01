@@ -74,9 +74,9 @@
     <table class="notes-table">
       <thead>
         <tr>
-          <th style="width: 20%;">Time / Date</th>
-          <th style="width: 60%;">Note</th>
-          <th style="width: 20%;">Actions</th>
+          <th style="width: 15%; min-width: 120px;">Time / Date</th>
+          <th style="width: 70%;">Note</th>
+          <th style="width: 15%; min-width: 100px;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -1043,6 +1043,17 @@ opacity: 0.6;
     width: 100%;
     max-width: 100%;
   }
+  .note-datetime {
+    width: 20%;
+    min-width: 100px;
+  }
+  .note-text {
+    width: 60%;
+  }
+  .note-actions {
+    width: 20%;
+    min-width: 80px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1070,8 +1081,8 @@ opacity: 0.6;
 
 /* Spreadsheet-like table view */
 .notes-table-wrapper {
-  width: 50%;
-  max-width: 50%;
+  width: 100%;
+  max-width: 100%;
   margin-bottom: 32px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -1125,7 +1136,8 @@ opacity: 0.6;
   flex-direction: column;
   gap: 2px;
   font-size: 0.9rem;
-  width: 20%;
+  width: 15%;
+  min-width: 120px;
 }
 .note-time {
   font-weight: 600;
@@ -1139,14 +1151,15 @@ opacity: 0.6;
 .note-text {
   white-space: pre-line;
   word-break: break-word;
-  width: 60%;
+  width: 70%;
   font-size: 0.9rem;
   line-height: 1.4;
 }
 .note-actions {
   display: flex;
   gap: 6px;
-  width: 20%;
+  width: 15%;
+  min-width: 100px;
   justify-content: center;
 }
 .icon-btn {
