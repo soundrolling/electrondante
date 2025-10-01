@@ -12,7 +12,7 @@
     <div class="dashboard-card upcoming-trips">
       <div class="card-header">
         <h2>Upcoming Trips</h2>
-        <button @click="createNewTrip" class="add-button" aria-label="Create new trip">
+        <button @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
           <span class="icon">+</span>
           <span class="button-text">New Trip</span>
         </button>
@@ -32,7 +32,7 @@
         <div class="empty-icon">✈️</div>
         <h3>No upcoming trips</h3>
         <p>Create your first trip to get started!</p>
-        <button @click="createNewTrip" class="primary-button">Create First Trip</button>
+        <button @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
       </div>
       
       <!-- Trip List -->
@@ -284,7 +284,7 @@
             >
               Cancel
             </button>
-            <button type="submit" class="primary-button">
+            <button type="submit" class="btn btn-positive primary-button">
               Update Trip
             </button>
           </div>

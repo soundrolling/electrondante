@@ -8,7 +8,7 @@
 
   <!-- Back to Dashboard Button -->
   <div class="back-button-container">
-    <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
+    <button class="btn btn-warning back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
       <span class="back-icon">←</span>
       <span class="back-text">Back to Dashboard</span>
     </button>
@@ -70,7 +70,7 @@
     <div v-if="activeTab === 'flights'" class="section-content" role="tabpanel" id="flights-panel">
       <div class="section-header">
         <h2>Flight Information</h2>
-        <button @click="openFlightModal()" class="add-button" aria-label="Add new flight">
+        <button @click="openFlightModal()" class="btn btn-positive add-button" aria-label="Add new flight">
           <span class="icon">+</span>
           <span class="button-text">Add Flight</span>
         </button>
@@ -137,11 +137,11 @@
           </div>
           
           <div class="flight-card-footer">
-            <button @click="openFlightModal(flight)" class="action-button edit-button" aria-label="Edit flight">
+            <button @click="openFlightModal(flight)" class="btn btn-warning action-button edit-button" aria-label="Edit flight">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
             </button>
-            <button @click="deleteFlight(flight.id)" class="action-button delete-button" aria-label="Delete flight">
+            <button @click="deleteFlight(flight.id)" class="btn btn-danger action-button delete-button" aria-label="Delete flight">
               <span class="action-icon">🗑️</span>
               <span class="action-text">Delete</span>
             </button>
@@ -154,7 +154,7 @@
     <div v-if="activeTab === 'rental'" class="section-content" role="tabpanel" id="rental-panel">
       <div class="section-header">
         <h2>Rental Car Information</h2>
-        <button @click="openRentalModal()" class="add-button" aria-label="Add new rental car">
+        <button @click="openRentalModal()" class="btn btn-positive add-button" aria-label="Add new rental car">
           <span class="icon">+</span>
           <span class="button-text">Add Rental Car</span>
         </button>
@@ -199,11 +199,11 @@
             </div>
           </div>
           <div class="rental-card-footer">
-            <button @click="openRentalModal(rental)" class="action-button edit-button" aria-label="Edit rental car">
+            <button @click="openRentalModal(rental)" class="btn btn-warning action-button edit-button" aria-label="Edit rental car">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
             </button>
-            <button @click="deleteRental(rental.id)" class="action-button delete-button" aria-label="Delete rental car">
+            <button @click="deleteRental(rental.id)" class="btn btn-danger action-button delete-button" aria-label="Delete rental car">
               <span class="action-icon">🗑️</span>
               <span class="action-text">Delete</span>
             </button>
@@ -216,7 +216,7 @@
     <div v-if="activeTab === 'local'" class="section-content" role="tabpanel" id="local-panel">
       <div class="section-header">
         <h2>Local Transportation</h2>
-        <button @click="openLocalTransportModal()" class="add-button" aria-label="Add new local transport">
+        <button @click="openLocalTransportModal()" class="btn btn-positive add-button" aria-label="Add new local transport">
           <span class="icon">+</span>
           <span class="button-text">Add Local Transport</span>
         </button>
@@ -259,11 +259,11 @@
             </div>
           </div>
           <div class="transport-card-footer">
-            <button @click="openLocalTransportModal(transport)" class="action-button edit-button" aria-label="Edit local transport">
+            <button @click="openLocalTransportModal(transport)" class="btn btn-warning action-button edit-button" aria-label="Edit local transport">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
             </button>
-            <button @click="deleteLocalTransport(transport.id)" class="action-button delete-button" aria-label="Delete local transport">
+            <button @click="deleteLocalTransport(transport.id)" class="btn btn-danger action-button delete-button" aria-label="Delete local transport">
               <span class="action-icon">🗑️</span>
               <span class="action-text">Delete</span>
             </button>
@@ -276,7 +276,7 @@
     <div v-if="activeTab === 'parking'" class="section-content" role="tabpanel" id="parking-panel">
       <div class="section-header">
         <h2>Airport Car Parking</h2>
-        <button @click="openNewParkingModal()" class="add-button" aria-label="Add new parking">
+        <button @click="openNewParkingModal()" class="btn btn-positive add-button" aria-label="Add new parking">
           <span class="icon">🚗</span>
           <span class="button-text">Add Parking</span>
         </button>
@@ -305,11 +305,11 @@
             <p v-if="slot.notes" class="parking-notes">{{ slot.notes }}</p>
           </div>
           <div class="parking-card-footer">
-            <button @click="openEditParkingModal(slot)" class="action-button edit-button" aria-label="Edit parking">
+            <button @click="openEditParkingModal(slot)" class="btn btn-warning action-button edit-button" aria-label="Edit parking">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
             </button>
-            <button @click="deleteParking(slot.id)" class="action-button delete-button" aria-label="Delete parking">
+            <button @click="deleteParking(slot.id)" class="btn btn-danger action-button delete-button" aria-label="Delete parking">
               <span class="action-icon">🗑️</span>
               <span class="action-text">Delete</span>
             </button>
@@ -323,7 +323,7 @@
   <div v-if="showFlightModal" class="modal" role="dialog" aria-labelledby="flight-modal-title">
     <div class="modal-overlay" @click="closeFlightModal"></div>
     <div class="modal-container">
-      <button class="close-button" @click="closeFlightModal" aria-label="Close modal">✕</button>
+      <button class="btn btn-warning close-button" @click="closeFlightModal" aria-label="Close modal">✕</button>
       <div class="modal-header">
         <h2 id="flight-modal-title">{{ editingFlight ? 'Edit Flight' : 'Add Flight' }}</h2>
       </div>
@@ -483,7 +483,7 @@
             </button>
             <button
               type="submit"
-              class="primary-button"
+              class="btn btn-positive primary-button"
               :disabled="isSaving"
             >
               <span v-if="isSaving" class="loading-spinner-small"></span>
@@ -499,7 +499,7 @@
   <div v-if="showRentalModal" class="modal" role="dialog" aria-labelledby="rental-modal-title">
     <div class="modal-overlay" @click="closeRentalModal"></div>
     <div class="modal-container">
-      <button class="close-button" @click="closeRentalModal" aria-label="Close modal">✕</button>
+      <button class="btn btn-warning close-button" @click="closeRentalModal" aria-label="Close modal">✕</button>
       <div class="modal-header">
         <h2 id="rental-modal-title">{{ editingRental ? 'Edit Rental Car' : 'Add Rental Car' }}</h2>
       </div>
@@ -604,7 +604,7 @@
             </button>
             <button
               type="submit"
-              class="primary-button"
+              class="btn btn-positive primary-button"
               :disabled="isSaving"
             >
               {{ editingRental ? 'Update Rental' : 'Add Rental' }}
@@ -619,7 +619,7 @@
   <div v-if="showLocalTransportModal" class="modal" role="dialog" aria-labelledby="transport-modal-title">
     <div class="modal-overlay" @click="closeLocalTransportModal"></div>
     <div class="modal-container">
-      <button class="close-button" @click="closeLocalTransportModal" aria-label="Close modal">✕</button>
+      <button class="btn btn-warning close-button" @click="closeLocalTransportModal" aria-label="Close modal">✕</button>
       <div class="modal-header">
         <h2 id="transport-modal-title">{{ editingTransport ? 'Edit Local Transport' : 'Add Local Transport' }}</h2>
       </div>
@@ -710,7 +710,7 @@
             </button>
             <button
               type="submit"
-              class="primary-button"
+              class="btn btn-positive primary-button"
               :disabled="isSaving"
             >
               {{ editingTransport ? 'Update Transport' : 'Add Transport' }}
@@ -725,7 +725,7 @@
   <div v-if="showNewParkingModal" class="modal" role="dialog" aria-labelledby="parking-modal-title">
     <div class="modal-overlay" @click="showNewParkingModal = false"></div>
     <div class="modal-container">
-      <button class="close-button" @click="showNewParkingModal = false" aria-label="Close modal">✕</button>
+      <button class="btn btn-warning close-button" @click="showNewParkingModal = false" aria-label="Close modal">✕</button>
       <div class="modal-header">
         <h2 id="parking-modal-title">Add Parking</h2>
       </div>
@@ -808,7 +808,7 @@
             </button>
             <button
               type="submit"
-              class="primary-button"
+              class="btn btn-positive primary-button"
               :disabled="isSavingParking"
             >
               <span v-if="isSavingParking" class="loading-spinner-small"></span>
@@ -824,7 +824,7 @@
   <div v-if="showEditParkingModal" class="modal" role="dialog" aria-labelledby="edit-parking-modal-title">
     <div class="modal-overlay" @click="showEditParkingModal = false"></div>
     <div class="modal-container">
-      <button class="close-button" @click="showEditParkingModal = false" aria-label="Close modal">✕</button>
+      <button class="btn btn-warning close-button" @click="showEditParkingModal = false" aria-label="Close modal">✕</button>
       <div class="modal-header">
         <h2 id="edit-parking-modal-title">Edit Parking</h2>
       </div>
@@ -901,7 +901,7 @@
             >
               Cancel
             </button>
-            <button type="submit" class="primary-button">Update Parking</button>
+            <button type="submit" class="btn btn-positive primary-button">Update Parking</button>
           </div>
         </form>
       </div>

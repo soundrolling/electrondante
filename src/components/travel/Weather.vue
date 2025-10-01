@@ -29,7 +29,7 @@
     </div>
     
     <div class="control-buttons">
-      <button @click="go" :disabled="!searchTerm" class="go-button" aria-label="Search weather">
+      <button @click="go" :disabled="!searchTerm" class="btn btn-positive go-button" aria-label="Search weather">
         Go
       </button>
       <button
@@ -136,7 +136,7 @@
     <div class="error-icon">⚠️</div>
     <h3>Unable to load weather</h3>
     <p>{{ error }}</p>
-    <button @click="retryWeather" class="retry-button">Try Again</button>
+    <button @click="retryWeather" class="btn btn-warning retry-button">Try Again</button>
   </div>
 </div>
 </template>
