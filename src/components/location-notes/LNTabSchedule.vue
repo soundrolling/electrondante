@@ -456,19 +456,23 @@ onMounted(fetchAll)
 
 <style scoped>
 .schedule-pane {
---bg-light:      #f9fafd;
---text-med:      #6c7a92;
---border:        #dce0e8;
---accent:        #1890ff;
---accent2:       #4a6cf7;
---accent2-dark:  #3b5bd0;
---danger:        #ff7070;
---danger-dark:   #e65c5c;
---success-bg:    #e6ffed;
---success-text:  #047857;
-background: var(--bg-light);
-padding: 24px 18px;
-border-radius: 12px;
+--bg-light:      #f8fafc;
+--text-med:      #64748b;
+--border:        #e2e8f0;
+--accent:        #3b82f6;
+--accent2:       #3b82f6;
+--accent2-dark:  #2563eb;
+--danger:        #ef4444;
+--danger-dark:   #dc2626;
+--success-bg:    #ecfdf5;
+--success-text:  #059669;
+background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+padding: 32px;
+border-radius: 16px;
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+border: 1px solid rgba(255, 255, 255, 0.2);
+max-width: 1200px;
+margin: 0 auto;
 }
 
 /* controls */
@@ -476,9 +480,15 @@ border-radius: 12px;
 .controls-bottom {
 display: flex;
 align-items: center;
-gap: 12px;
+gap: 16px;
 flex-wrap: wrap;
-margin-bottom: 16px;
+margin-bottom: 20px;
+padding: 20px;
+background: rgba(255, 255, 255, 0.8);
+border-radius: 12px;
+border: 1px solid rgba(255, 255, 255, 0.3);
+backdrop-filter: blur(10px);
+box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 .label {
 font-size: 0.9rem;
@@ -554,16 +564,23 @@ margin-top: 16px;
 display: flex;
 justify-content: space-between;
 align-items: center;
-background: #fff;
-border: 1px solid var(--border);
-border-radius: 6px;
-padding: 12px;
-margin-bottom: 12px;
-box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-transition: background .3s;
+background: rgba(255, 255, 255, 0.9);
+border: 1px solid rgba(255, 255, 255, 0.3);
+border-radius: 12px;
+padding: 20px;
+margin-bottom: 16px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+backdrop-filter: blur(10px);
 }
 .row-card.active-card {
-background: var(--success-bg);
+background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+border-color: #10b981;
+box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+}
+.row-card:hover {
+transform: translateY(-2px);
+box-shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 .row-content {
 flex: 1;
@@ -750,9 +767,15 @@ cursor: default;
 .controls-range {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 .range-input {
   padding: 8px;

@@ -224,16 +224,18 @@ function refreshTimestamp() {
 <style scoped>
 .location-notes {
 min-height: 100vh;
-background: #f7f9fc;
-font-family: Inter, Arial, sans-serif;
+background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .top-bar {
 position: sticky;
 top: 0;
 z-index: 30;
-background: #fff;
-padding: 8px 16px;
-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+background: rgba(255, 255, 255, 0.95);
+padding: 16px 24px;
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+backdrop-filter: blur(20px);
+border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 .btn.back {
 background: #e2e6ea;
@@ -243,11 +245,13 @@ padding: 6px 12px;
 font-size: 0.9rem;
 }
 .stage-card {
-background: #fff;
-margin: 16px;
-padding: 20px;
-border-radius: 12px;
-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+background: rgba(255, 255, 255, 0.9);
+margin: 24px;
+padding: 32px;
+border-radius: 16px;
+box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+border: 1px solid rgba(255, 255, 255, 0.3);
+backdrop-filter: blur(10px);
 }
 .subtitle {
 color: #6c7a92;
@@ -268,14 +272,16 @@ border-radius: 8px;
 }
 .timecode-strip {
 position: sticky;
-top: 56px;
+top: 80px;
 z-index: 25;
-background: #fff;
+background: rgba(255, 255, 255, 0.95);
 display: flex;
 align-items: center;
 justify-content: space-between;
-padding: 12px 16px;
-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+padding: 20px 24px;
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+backdrop-filter: blur(20px);
+border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 .tc-wrap {
 display: flex;
@@ -326,32 +332,42 @@ border-radius: 6px;
 }
 .tabs {
 display: flex;
-background: #fff;
-border-bottom: 1px solid #e3e7ee;
+background: rgba(255, 255, 255, 0.95);
+border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 position: sticky;
-top: 104px;
+top: 140px;
 z-index: 20;
+backdrop-filter: blur(20px);
+box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 .tabs button {
 flex: 1;
-padding: 12px 0;
+padding: 16px 0;
 border: 0;
 background: none;
-color: #6c7a92;
-font-weight: 500;
+color: #64748b;
+font-weight: 600;
+font-size: 0.95rem;
+transition: all 0.2s ease;
 }
 .tabs button.active {
-color: #4a6cf7;
+color: #3b82f6;
 position: relative;
+background: rgba(59, 130, 246, 0.05);
+}
+.tabs button:hover {
+color: #3b82f6;
+background: rgba(59, 130, 246, 0.02);
 }
 .tabs button.active::after {
 content: '';
 position: absolute;
-bottom: -1px;
+bottom: 0;
 left: 0;
 width: 100%;
-height: 2px;
-background: #4a6cf7;
+height: 3px;
+background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+border-radius: 2px 2px 0 0;
 }
 .note-modal {
 position: fixed;

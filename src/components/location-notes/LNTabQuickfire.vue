@@ -227,13 +227,17 @@ onMounted(fetchAll)
 <style scoped>
 /* component‐scoped palette */
 .pane {
---bg-light: #f9fafd;
---text-med: #6c7a92;
---border:   #dce0e8;
---accent:   #1890ff;
-background: var(--bg-light);
-padding: 24px 18px;
-border-radius: 12px;
+--bg-light: #f8fafc;
+--text-med: #64748b;
+--border:   #e2e8f0;
+--accent:   #3b82f6;
+background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+padding: 32px;
+border-radius: 16px;
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+border: 1px solid rgba(255, 255, 255, 0.2);
+max-width: 1200px;
+margin: 0 auto;
 }
 .info {
 font-size: 0.9rem;
@@ -242,9 +246,14 @@ margin-bottom: 12px;
 }
 .grid {
 display: grid;
-grid-template-columns: repeat(auto-fill, minmax(120px,1fr));
-gap: 16px;
-margin-bottom: 16px;
+grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
+gap: 20px;
+margin-bottom: 24px;
+padding: 20px;
+background: rgba(255, 255, 255, 0.6);
+border-radius: 12px;
+border: 1px solid rgba(255, 255, 255, 0.3);
+backdrop-filter: blur(10px);
 }
 /* quickfire buttons */
 .qf {
@@ -252,20 +261,24 @@ margin-bottom: 16px;
 --fg: #000;
 background: var(--bg);
 color: var(--fg);
-border: none;
-border-radius: 12px;
-padding: 20px 12px;
-font-weight: 600;
-font-size: 0.95rem;
+border: 2px solid rgba(255, 255, 255, 0.3);
+border-radius: 16px;
+padding: 24px 16px;
+font-weight: 700;
+font-size: 1rem;
 text-align: center;
 cursor: pointer;
-box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-transition: transform .15s, box-shadow .15s, opacity .15s;
+box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+backdrop-filter: blur(10px);
 }
 .qf:hover {
-transform: translateY(-2px);
-box-shadow: 0 4px 8px rgba(0,0,0,0.12);
-opacity: 0.95;
+transform: translateY(-4px) scale(1.02);
+box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+opacity: 0.9;
+}
+.qf:active {
+transform: translateY(-2px) scale(0.98);
 }
 /* add-toggle */
 .add {
@@ -397,6 +410,12 @@ cursor: default;
 .table {
 width: 100%;
 border-collapse: collapse;
+background: rgba(255, 255, 255, 0.9);
+border-radius: 12px;
+overflow: hidden;
+box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+border: 1px solid rgba(255, 255, 255, 0.3);
+backdrop-filter: blur(10px);
 }
 .table th,
 .table td {

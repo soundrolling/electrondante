@@ -847,22 +847,30 @@ animation: pulse 2s infinite;
 }
 
 .notes-pane {
-  background: #f9fafd;
-  padding: 24px;
-  border-radius: 12px;
-  color: #1f2937;
-  font-family: system-ui, sans-serif;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  padding: 32px;
+  border-radius: 16px;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   max-width: 1200px;
   margin: 0 auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .header-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  gap: 8px;
+  margin-bottom: 24px;
+  gap: 16px;
   flex-wrap: wrap;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
 .header-actions {
@@ -958,16 +966,17 @@ opacity: 0.6;
 
 .filter-bar-compact {
   display: flex;
-  max-width: 800px;
-  margin: 0 auto 20px auto;
-  gap: 32px;
+  max-width: 900px;
+  margin: 0 auto 24px auto;
+  gap: 40px;
   align-items: flex-end;
   justify-content: flex-start;
-  padding: 16px;
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(10px);
 }
 .filter-col {
   display: flex;
@@ -1053,11 +1062,13 @@ opacity: 0.6;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
-  margin-bottom: 24px;
-  background: #ffffff;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
 }
 .notes-table {
   width: 100%;
@@ -1076,16 +1087,27 @@ opacity: 0.6;
   word-break: break-word;
 }
 .notes-table th {
-  background: #f8fafc;
-  font-weight: 600;
-  color: #1e40af;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  font-weight: 700;
+  color: #1e293b;
   position: sticky;
   top: 0;
   z-index: 1;
   border-bottom: 3px solid #3b82f6;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
 }
 .notes-table tr:last-child td {
   border-bottom: none;
+}
+.notes-table tbody tr {
+  transition: all 0.2s ease;
+}
+.notes-table tbody tr:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 .note-datetime {
   display: flex;
