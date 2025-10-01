@@ -1,11 +1,11 @@
 <template>
 <div class="timeline-view">
   <div class="timeline-nav">
-    <button class="nav-button" @click="$emit('previous-day')">
+    <button class="btn btn-warning nav-button" @click="$emit('previous-day')">
       &lt;
     </button>
     <strong>{{ formattedTimelineDate }}</strong>
-    <button class="nav-button" @click="$emit('next-day')">
+    <button class="btn btn-warning nav-button" @click="$emit('next-day')">
       &gt;
     </button>
   </div>

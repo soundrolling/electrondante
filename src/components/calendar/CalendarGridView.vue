@@ -1,14 +1,14 @@
 <template>
 <div class="calendar-grid-view">
   <div class="calendar-header">
-    <button class="nav-button" @click="$emit('previous-period')">
+    <button class="btn btn-warning nav-button" @click="$emit('previous-period')">
       &lt;
     </button>
     <strong>{{ weekRangeHeader }}</strong>
-    <button class="nav-button" @click="$emit('next-period')">
+    <button class="btn btn-warning nav-button" @click="$emit('next-period')">
       &gt;
     </button>
-    <button class="jump-today-btn" @click="jumpToToday">Today</button>
+    <button class="btn btn-primary jump-today-btn" @click="jumpToToday">Today</button>
   </div>
 
   <!-- SCROLL CONTAINER: synchronizes header & grid -->

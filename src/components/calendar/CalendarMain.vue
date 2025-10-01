@@ -3,7 +3,7 @@
   <!-- HEADER -->
   <header class="header-section">
     <h1>Call Sheet & Project Events</h1>
-    <button class="button add-button" @click="openNewEventModal">
+    <button class="btn btn-positive add-button" @click="openNewEventModal">
       + Add Event
     </button>
   </header>

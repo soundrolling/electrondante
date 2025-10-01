@@ -32,9 +32,9 @@
       </div>
       
       <div class="modal-actions">
-        <button v-if="!isStageHourEvent" class="button edit-button" @click="$emit('edit')">Edit</button>
-        <button v-if="!isStageHourEvent" class="button delete-button" @click="$emit('delete')">Delete</button>
-        <button class="button close-button" @click="$emit('close')">Close</button>
+        <button v-if="!isStageHourEvent" class="btn btn-warning edit-button" @click="$emit('edit')">Edit</button>
+        <button v-if="!isStageHourEvent" class="btn btn-danger delete-button" @click="$emit('delete')">Delete</button>
+        <button class="btn btn-warning close-button" @click="$emit('close')">Close</button>
       </div>
     </template>
     <template v-else>
@@ -104,8 +104,8 @@
         <textarea v-model="localEvent.notes" rows="2"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="button save-button" @click="$emit('save', localEvent)">Save</button>
-        <button class="button cancel-button" @click="$emit('cancel-edit')">Cancel</button>
+        <button class="btn btn-positive save-button" @click="$emit('save', localEvent)">Save</button>
+        <button class="btn btn-warning cancel-button" @click="$emit('cancel-edit')">Cancel</button>
       </div>
     </template>
   </div>

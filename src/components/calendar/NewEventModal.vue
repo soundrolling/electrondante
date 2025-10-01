@@ -67,8 +67,8 @@
       <textarea v-model="newEvent.notes" rows="2"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="button save-button" @click="$emit('create', newEvent)">Save</button>
-      <button class="button cancel-button" @click="$emit('close')">Cancel</button>
+      <button class="btn btn-positive save-button" @click="$emit('create', newEvent)">Save</button>
+      <button class="btn btn-warning cancel-button" @click="$emit('close')">Cancel</button>
     </div>
   </div>
 </div>

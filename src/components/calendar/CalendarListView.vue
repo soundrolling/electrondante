@@ -33,16 +33,16 @@
             <span class="category-icon">{{ getCategoryIcon(evt.category) }}</span>
             {{ getCategoryLabel(evt.category) }}
           </span>
-          <button v-if="evt.isStageHour" class="info-btn" @click="openInfoModal(evt)">ℹ️</button>
+          <button v-if="evt.isStageHour" class="btn btn-primary info-btn" @click="openInfoModal(evt)">ℹ️</button>
           <div class="cog-menu-wrapper">
-            <button class="cog-btn" @click="toggleCogMenu(evt)">⚙️</button>
+            <button class="btn btn-warning cog-btn" @click="toggleCogMenu(evt)">⚙️</button>
             <div v-if="showCogMenuFor === evt.id" class="cog-menu" @mouseleave="closeCogMenu">
               <template v-if="!evt.isStageHour">
-                <button class="cog-menu-item" @click="openEditModal(evt)">Edit</button>
-                <button class="cog-menu-item delete" @click="deleteEvent(evt)">Delete</button>
+                <button class="btn btn-warning cog-menu-item" @click="openEditModal(evt)">Edit</button>
+                <button class="btn btn-danger cog-menu-item delete" @click="deleteEvent(evt)">Delete</button>
               </template>
               <template v-else>
-                <button class="cog-menu-item" @click="goToProjectLocations(evt)">Edit in Project Locations</button>
+                <button class="btn btn-warning cog-menu-item" @click="goToProjectLocations(evt)">Edit in Project Locations</button>
               </template>
             </div>
           </div>
@@ -87,7 +87,7 @@
         <p v-if="infoEvent.notes"><strong>Notes:</strong> {{ infoEvent.notes }}</p>
       </div>
       <div class="modal-actions">
-        <button class="button close-button" @click="closeInfoModal">Close</button>
+        <button class="btn btn-warning close-button" @click="closeInfoModal">Close</button>
       </div>
     </div>
   </div>
@@ -133,8 +133,8 @@
           <textarea v-model="editEventData.notes" rows="2"></textarea>
         </div>
         <div class="modal-actions">
-          <button class="button save-button" type="submit">Save</button>
-          <button class="button close-button" type="button" @click="closeEditModal">Cancel</button>
+          <button class="btn btn-positive save-button" type="submit">Save</button>
+          <button class="btn btn-warning close-button" type="button" @click="closeEditModal">Cancel</button>
         </div>
       </form>
     </div>

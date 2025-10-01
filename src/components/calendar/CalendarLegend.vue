@@ -2,7 +2,7 @@
 <section class="legend-section legend-standout">
   <div class="legend-header" @click="collapsed = !collapsed">
     <h3>Event Categories Legend</h3>
-    <button class="legend-toggle-btn" :aria-label="collapsed ? 'Expand legend' : 'Collapse legend'">
+    <button class="btn btn-warning legend-toggle-btn" :aria-label="collapsed ? 'Expand legend' : 'Collapse legend'">
       <span v-if="collapsed">▼</span>
       <span v-else>▲</span>
     </button>
