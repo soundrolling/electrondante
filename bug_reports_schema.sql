@@ -106,6 +106,9 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS update_bug_reports_updated_at ON bug_reports;
+
 -- Create trigger to automatically update updated_at on bug_reports
 CREATE TRIGGER update_bug_reports_updated_at
   BEFORE UPDATE ON bug_reports
