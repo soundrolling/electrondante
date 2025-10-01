@@ -140,11 +140,63 @@
                   <div v-if="report.device" class="detail-item">
                     <strong>Device:</strong> {{ report.device }}
                   </div>
+                  <div v-if="report.platform" class="detail-item">
+                    <strong>Platform:</strong> {{ report.platform }}
+                  </div>
+                  <div v-if="report.screen_resolution" class="detail-item">
+                    <strong>Screen:</strong> {{ report.screen_resolution }}
+                  </div>
+                  <div v-if="report.viewport_size" class="detail-item">
+                    <strong>Viewport:</strong> {{ report.viewport_size }}
+                  </div>
+                  <div v-if="report.timezone" class="detail-item">
+                    <strong>Timezone:</strong> {{ report.timezone }}
+                  </div>
                   <div class="detail-item">
                     <strong>Submitted:</strong> {{ formatDate(report.created_at) }}
                   </div>
                   <div v-if="report.updated_at !== report.created_at" class="detail-item">
                     <strong>Last Updated:</strong> {{ formatDate(report.updated_at) }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="report.steps" class="detail-section">
+                <h5>Steps to Reproduce</h5>
+                <div class="steps-content">{{ report.steps }}</div>
+              </div>
+
+              <div v-if="report.expected_behavior || report.actual_behavior" class="detail-section">
+                <h5>Expected vs Actual Behavior</h5>
+                <div class="behavior-comparison">
+                  <div v-if="report.expected_behavior" class="behavior-item">
+                    <strong>Expected:</strong>
+                    <div class="behavior-text">{{ report.expected_behavior }}</div>
+                  </div>
+                  <div v-if="report.actual_behavior" class="behavior-item">
+                    <strong>Actual:</strong>
+                    <div class="behavior-text">{{ report.actual_behavior }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="report.additional_info" class="detail-section">
+                <h5>Additional Information</h5>
+                <div class="additional-info">{{ report.additional_info }}</div>
+              </div>
+
+              <div v-if="report.url || report.page_title" class="detail-section">
+                <h5>Page Information</h5>
+                <div class="detail-grid">
+                  <div v-if="report.page_title" class="detail-item">
+                    <strong>Page Title:</strong> {{ report.page_title }}
+                  </div>
+                  <div v-if="report.url" class="detail-item">
+                    <strong>URL:</strong> 
+                    <a :href="report.url" target="_blank" class="url-link">{{ report.url }}</a>
+                  </div>
+                  <div v-if="report.referrer" class="detail-item">
+                    <strong>Referrer:</strong> {{ report.referrer }}
                   </div>
                 </div>
               </div>
@@ -683,6 +735,49 @@ export default {
   font-weight: var(--font-medium);
 }
 
+.steps-content,
+.behavior-text,
+.additional-info {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+  white-space: pre-wrap;
+  font-family: var(--font-mono, 'Monaco', 'Menlo', 'Ubuntu Mono', monospace);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.behavior-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.behavior-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.behavior-item strong {
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.url-link {
+  color: var(--color-primary-600);
+  text-decoration: none;
+  word-break: break-all;
+  font-size: var(--text-sm);
+}
+
+.url-link:hover {
+  text-decoration: underline;
+}
+
 .status-controls {
   display: flex;
   gap: var(--space-3);
@@ -766,6 +861,11 @@ export default {
   .status-controls {
     flex-direction: column;
     align-items: stretch;
+  }
+  
+  .behavior-comparison {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
   }
 }
 

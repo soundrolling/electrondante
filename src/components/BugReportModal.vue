@@ -77,6 +77,58 @@
           />
         </div>
 
+        <div class="form-group">
+          <label for="steps">Steps to Reproduce (for bugs)</label>
+          <textarea
+            v-model="formData.steps"
+            id="steps"
+            placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+            rows="4"
+            maxlength="2000"
+          ></textarea>
+          <div class="char-count">{{ formData.steps.length }}/2000</div>
+        </div>
+
+        <div class="form-group">
+          <label for="expected">Expected vs Actual Behavior</label>
+          <div class="behavior-grid">
+            <div>
+              <label for="expectedBehavior">Expected:</label>
+              <textarea
+                v-model="formData.expectedBehavior"
+                id="expectedBehavior"
+                placeholder="What should have happened?"
+                rows="3"
+                maxlength="1000"
+              ></textarea>
+              <div class="char-count">{{ formData.expectedBehavior.length }}/1000</div>
+            </div>
+            <div>
+              <label for="actualBehavior">Actual:</label>
+              <textarea
+                v-model="formData.actualBehavior"
+                id="actualBehavior"
+                placeholder="What actually happened?"
+                rows="3"
+                maxlength="1000"
+              ></textarea>
+              <div class="char-count">{{ formData.actualBehavior.length }}/1000</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="additionalInfo">Additional Information</label>
+          <textarea
+            v-model="formData.additionalInfo"
+            id="additionalInfo"
+            placeholder="Any other relevant information, screenshots description, etc."
+            rows="3"
+            maxlength="1500"
+          ></textarea>
+          <div class="char-count">{{ formData.additionalInfo.length }}/1500</div>
+        </div>
+
         <div class="form-actions">
           <button type="button" @click="closeModal" class="cancel-btn">
             Cancel
@@ -118,7 +170,11 @@ export default {
       description: '',
       priority: 'medium',
       browser: '',
-      device: ''
+      device: '',
+      steps: '',
+      expectedBehavior: '',
+      actualBehavior: '',
+      additionalInfo: ''
     })
 
     const isFormValid = computed(() => {
@@ -138,7 +194,11 @@ export default {
         description: '',
         priority: 'medium',
         browser: '',
-        device: ''
+        device: '',
+        steps: '',
+        expectedBehavior: '',
+        actualBehavior: '',
+        additionalInfo: ''
       }
     }
 
@@ -147,12 +207,30 @@ export default {
       
       isSubmitting.value = true
       try {
+        // Capture comprehensive system information
+        const systemInfo = {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          language: navigator.language,
+          cookieEnabled: navigator.cookieEnabled,
+          onLine: navigator.onLine,
+          screenResolution: `${screen.width}x${screen.height}`,
+          viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+          colorDepth: screen.colorDepth,
+          pixelRatio: window.devicePixelRatio || 1,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+          referrer: document.referrer || 'Direct',
+          pageTitle: document.title,
+          // Capture any console errors if available
+          consoleErrors: window.consoleErrors || []
+        }
+
         const reportData = {
           ...formData.value,
-          timestamp: new Date().toISOString(),
-          status: 'open',
-          user_agent: navigator.userAgent,
-          url: window.location.href
+          ...systemInfo,
+          status: 'open'
         }
         
         emit('submit', reportData)
@@ -190,14 +268,15 @@ export default {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: var(--space-4);
+  overflow-y: auto;
 }
 
 .modal-container {
@@ -299,6 +378,24 @@ export default {
   margin-top: var(--space-1);
 }
 
+.behavior-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.behavior-grid > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.behavior-grid label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
 .form-actions {
   display: flex;
   gap: var(--space-3);
@@ -356,6 +453,11 @@ export default {
   .modal-header,
   .modal-form {
     padding: var(--space-4);
+  }
+  
+  .behavior-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
   }
   
   .form-actions {

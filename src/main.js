@@ -21,6 +21,18 @@ import { syncOfflineChanges } from './services/syncService'; // ✅ Centralized 
 
 import { restoreSessionFromUrl } from './supabase';
 
+// Capture console errors for bug reports
+window.consoleErrors = []
+const originalError = console.error
+console.error = function(...args) {
+  window.consoleErrors.push({
+    message: args.join(' '),
+    timestamp: new Date().toISOString(),
+    stack: new Error().stack
+  })
+  originalError.apply(console, args)
+}
+
 async function bootstrap() {
   if (typeof window !== 'undefined') {
     await restoreSessionFromUrl();
