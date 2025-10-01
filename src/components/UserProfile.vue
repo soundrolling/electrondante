@@ -898,7 +898,7 @@ async function saveSecurity() {
 .form-textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--input-border);
+  border: 2px solid var(--input-border);
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--input-bg);
@@ -1014,7 +1014,7 @@ async function saveSecurity() {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 1px solid var(--input-border);
+  border: 2px solid var(--input-border);
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--input-bg);
@@ -1038,7 +1038,7 @@ async function saveSecurity() {
 
 .filter-select {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--input-border);
+  border: 2px solid var(--input-border);
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--input-bg);
@@ -1060,7 +1060,7 @@ async function saveSecurity() {
 
 .gear-card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: 0.5rem;
   padding: 1.25rem;
   transition: all 0.2s;
@@ -1228,7 +1228,7 @@ async function saveSecurity() {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  border: 1px solid transparent;
+  border: 2px solid transparent;
   border-radius: 0.5rem;
   font-size: 0.95rem;
   font-weight: 500;
@@ -1240,7 +1240,7 @@ async function saveSecurity() {
 .btn-primary {
   background: var(--primary);
   color: var(--primary-contrast);
-  border: 1px solid var(--primary);
+  border: 2px solid var(--primary);
   border-radius: 0.5rem;
   font-weight: 600;
   font-size: 0.95rem;
@@ -1260,7 +1260,7 @@ async function saveSecurity() {
 .btn-secondary {
   background: var(--secondary);
   color: var(--secondary-contrast);
-  border: 1px solid var(--secondary);
+  border: 2px solid var(--secondary);
   border-radius: 0.5rem;
   font-weight: 600;
   font-size: 0.95rem;
