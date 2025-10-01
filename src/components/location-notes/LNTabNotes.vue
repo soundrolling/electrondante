@@ -74,9 +74,9 @@
     <table class="notes-table">
       <thead>
         <tr>
-          <th style="width: 25%; min-width: 150px;">Time / Date</th>
-          <th style="width: 60%;">Note</th>
-          <th style="width: 15%; min-width: 120px;">Actions</th>
+          <th style="width: 20%; min-width: 150px;">Time / Date</th>
+          <th style="width: 55%;">Note</th>
+          <th style="width: 25%; min-width: 150px;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -1044,15 +1044,15 @@ opacity: 0.6;
     max-width: 100%;
   }
   .note-datetime {
-    width: 30%;
+    width: 25%;
     min-width: 130px;
   }
   .note-text {
-    width: 50%;
+    width: 45%;
   }
   .note-actions {
-    width: 20%;
-    min-width: 100px;
+    width: 30%;
+    min-width: 120px;
   }
 }
 
@@ -1136,7 +1136,7 @@ opacity: 0.6;
   flex-direction: column;
   gap: 2px;
   font-size: 0.9rem;
-  width: 25%;
+  width: 20%;
   min-width: 150px;
   white-space: nowrap;
 }
@@ -1152,15 +1152,15 @@ opacity: 0.6;
 .note-text {
   white-space: pre-line;
   word-break: break-word;
-  width: 60%;
+  width: 55%;
   font-size: 0.9rem;
   line-height: 1.4;
 }
 .note-actions {
   display: flex;
-  gap: 6px;
-  width: 15%;
-  min-width: 120px;
+  gap: 8px;
+  width: 25%;
+  min-width: 150px;
   justify-content: center;
 }
 .icon-btn {
