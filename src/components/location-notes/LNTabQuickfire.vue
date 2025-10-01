@@ -20,7 +20,7 @@
   </div>
 
   <!-- add-toggle -->
-  <button class="mini primary add" @click="open = !open">
+  <button class="btn btn-positive mini primary add" @click="open = !open">
     Add button
   </button>
 
@@ -29,7 +29,7 @@
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h4>{{ editIdx !== null ? 'Edit' : 'Add' }} Quickfire Button</h4>
-        <button class="modal-close" @click="resetForm">×</button>
+        <button class="btn btn-warning modal-close" @click="resetForm">×</button>
       </div>
       <form @submit.prevent="save" class="modal-body">
         <div class="form-field">
@@ -52,8 +52,8 @@
         <p v-if="err" class="error-text">{{ err }}</p>
       </form>
       <div class="modal-footer">
-        <button class="btn cancel-btn" type="button" @click="resetForm">Cancel</button>
-        <button class="btn save-btn" @click="save" :disabled="busy">
+        <button class="btn btn-warning cancel-btn" type="button" @click="resetForm">Cancel</button>
+        <button class="btn btn-positive save-btn" @click="save" :disabled="busy">
           {{ busy ? 'Saving…' : 'Save' }}
         </button>
       </div>
@@ -85,7 +85,7 @@
         <td class="actions">
           <!-- EDIT -->
           <button
-            class="icon edit"
+            class="btn btn-warning icon edit"
             @click="edit(i)"
             title="Edit"
           >
@@ -102,7 +102,7 @@
 
           <!-- DELETE -->
           <button
-            class="icon delete"
+            class="btn btn-danger icon delete"
             @click="remove(b.id,i)"
             title="Delete"
           >

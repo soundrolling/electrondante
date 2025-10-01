@@ -9,29 +9,29 @@
       <option value="desc">Latest</option>
       <option value="artist">Artist A–Z</option>
     </select>
-    <button class="btn-add" @click="openForm()">Add Schedule Item</button>
+    <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
   </div>
 
   <!-- Date range filter -->
   <div class="controls-range">
     <label class="label">From:</label>
     <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
-    <button v-if="fromDateTime" class="clear-btn" @click="clearFrom">×</button>
+    <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
     <label class="label">To:</label>
     <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
-    <button v-if="toDateTime" class="clear-btn" @click="clearTo">×</button>
+    <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
     <div class="range-shortcuts">
-      <button class="shortcut-btn" @click="setToday">Today</button>
-      <button class="shortcut-btn" @click="setPreviousDay">Previous Day</button>
+      <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
+      <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
     </div>
   </div>
 
   <!-- Date navigation -->
   <div class="controls-bottom">
     <label class="label">Date:</label>
-    <button class="nav-btn" @click="idx--" :disabled="idx===0">‹</button>
+    <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
     <div class="current-date">{{ niceDate(day.date) }}</div>
-    <button class="nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
+    <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
   </div>
 
   <!-- Schedule list -->
@@ -50,12 +50,12 @@
           </div>
         </div>
         <div class="row-actions">
-          <button class="icon note" @click="emitChangeNote(r.artist_name)" title="Add quick note">
+          <button class="btn btn-positive icon note" @click="emitChangeNote(r.artist_name)" title="Add quick note">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon-svg" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
             </svg>
           </button>
-          <button class="icon edit" @click="openForm(r)" title="Edit">
+          <button class="btn btn-warning icon edit" @click="openForm(r)" title="Edit">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon-svg" viewBox="0 0 20 20" fill="currentColor">
               <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"/>
               <path fill-rule="evenodd"
@@ -63,7 +63,7 @@
                     clip-rule="evenodd"/>
             </svg>
           </button>
-          <button class="icon delete" @click="remove(r.id)" title="Delete">
+          <button class="btn btn-danger icon delete" @click="remove(r.id)" title="Delete">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon-svg" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd"
                     d="M6 2a1 1 0 00-1 1v1H3.5a.5.5 0 000 1H4v10.5a1.5 1.5 0 001.5 1.5h9a1.5 1.5 0 001.5-1.5V5h.5a.5.5 0 000-1H15V3a1 1 0 00-1-1H6zm3 4a.5.5 0 011 0v8a.5.5 0 01-1 0V6zm3 0a.5.5 0 011 0v8a.5.5 0 01-1 0V6z"
@@ -81,7 +81,7 @@
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h4>{{ isEdit ? 'Edit' : 'Add' }} Schedule</h4>
-        <button class="modal-close" @click="closeForm">×</button>
+        <button class="btn btn-warning modal-close" @click="closeForm">×</button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
@@ -105,8 +105,8 @@
         <p v-if="err" class="error-text">{{ err }}</p>
       </div>
       <div class="modal-footer">
-        <button class="btn cancel-btn" @click="closeForm">Cancel</button>
-        <button class="btn save-btn" @click="save" :disabled="busy">
+        <button class="btn btn-warning cancel-btn" @click="closeForm">Cancel</button>
+        <button class="btn btn-positive save-btn" @click="save" :disabled="busy">
           {{ busy ? 'Saving…' : 'Save' }}
         </button>
       </div>
@@ -784,19 +784,5 @@ cursor: default;
   gap: 10px;
   margin-top: 8px;
 }
-.shortcut-btn {
-  background: #e0e7ff;
-  color: #2563eb;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 18px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-.shortcut-btn:hover {
-  background: #c7d2fe;
-  color: #1d4ed8;
-}
+/* Shortcut button styles are now handled by btn btn-primary classes */
 </style>

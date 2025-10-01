@@ -3,7 +3,7 @@
 <div class="location-notes">
   <!-- top bar -->
   <header class="top-bar">
-    <button class="btn back" @click="goBack">← Back</button>
+    <button class="btn btn-warning back" @click="goBack">← Back</button>
   </header>
 
   <!-- stage header -->
@@ -27,7 +27,7 @@
           <span class="sync-dot">●</span>
           <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
         </div>
-        <button class="btn mini primary" @click="createNote">New note</button>
+        <button class="btn btn-positive mini primary" @click="createNote">New note</button>
       </div>
     </div>
 
@@ -60,15 +60,15 @@
         <label>Timestamp</label>
         <div class="timestamp-row">
           <input :value="copiedTimecode" disabled />
-          <button type="button" class="refresh-btn" @click="refreshTimestamp" title="Set to current time">🔄</button>
+          <button type="button" class="btn btn-warning refresh-btn" @click="refreshTimestamp" title="Set to current time">🔄</button>
         </div>
         <label>Date</label>
         <input type="date" v-model="recordingDate" required />
         <label>Note</label>
         <textarea v-model="newNote" rows="4" required />
         <div class="modal-actions">
-          <button type="button" class="btn mini" @click="resetNoteForm">Cancel</button>
-          <button class="btn mini primary" :disabled="isSubmitting">
+          <button type="button" class="btn btn-warning mini" @click="resetNoteForm">Cancel</button>
+          <button class="btn btn-positive mini primary" :disabled="isSubmitting">
             {{ isSubmitting ? 'Saving…' : 'Save' }}
           </button>
         </div>

@@ -18,12 +18,12 @@
     </div>
     <div class="header-actions">
       <button
-        class="action-btn add-btn"
+        class="btn btn-positive action-btn add-btn"
         @click="startEdit({ timestamp: nowTime(), recording_date: todayISO(), note: '' })"
       >
         New Note
       </button>
-      <button class="action-btn export-btn" @click="openExportModal">Export</button>
+      <button class="btn btn-warning action-btn export-btn" @click="openExportModal">Export</button>
     </div>
   </div>
 
@@ -55,16 +55,16 @@
       <div class="date-row">
         <label class="label">From:</label>
         <input type="datetime-local" v-model="rangeStart" class="date-range-input" />
-        <button class="reset-btn" @click="rangeStart = ''" title="Clear from date">✕</button>
+        <button class="btn btn-danger reset-btn" @click="rangeStart = ''" title="Clear from date">✕</button>
       </div>
       <div class="date-row">
         <label class="label">To:</label>
         <input type="datetime-local" v-model="rangeEnd" class="date-range-input" />
-        <button class="reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
+        <button class="btn btn-danger reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
       </div>
       <div class="quick-range-btns">
-        <button class="today-btn" @click="setTodayRange" title="Set range to today">Today</button>
-        <button class="prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
+        <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
+        <button class="btn btn-primary prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
       </div>
     </div>
   </div>
@@ -88,17 +88,17 @@
           <td class="note-text">{{ n.note }}</td>
           <td class="note-actions">
             <button
-              class="icon-btn info"
+              class="btn btn-primary icon-btn info"
               @click="showInfoModal(n)"
               title="More info"
             >ℹ️</button>
             <button
-              class="icon-btn edit"
+              class="btn btn-warning icon-btn edit"
               @click="startEdit(n)"
               title="Edit"
             >✎</button>
             <button
-              class="icon-btn del"
+              class="btn btn-danger icon-btn del"
               @click="deleteNote(n.id)"
               title="Delete"
             >🗑</button>
@@ -124,7 +124,7 @@
             placeholder="HH:MM:SS"
             class="time-input"
           />
-          <button class="refresh-btn" @click="refreshTimestamp" title="Set to current time">🔄</button>
+          <button class="btn btn-warning refresh-btn" @click="refreshTimestamp" title="Set to current time">🔄</button>
         </div>
         <input
           v-model="draft.recording_date"
@@ -139,9 +139,9 @@
         placeholder="Your note..."
       ></textarea>
       <div class="modal-actions">
-        <button class="cancel-btn" @click="cancelEdit">Cancel</button>
+        <button class="btn btn-warning cancel-btn" @click="cancelEdit">Cancel</button>
         <button
-          class="save-btn"
+          class="btn btn-positive save-btn"
           @click="saveEdit"
           :disabled="!draft.note.trim()"
         >
@@ -163,7 +163,7 @@
       </div>
       <div style="margin-top: 12px;"><strong>Note:</strong><br>{{ infoNote?.note }}</div>
       <div class="modal-actions">
-        <button class="cancel-btn" @click="closeInfoModal">Close</button>
+        <button class="btn btn-warning cancel-btn" @click="closeInfoModal">Close</button>
       </div>
     </div>
   </div>
@@ -184,9 +184,9 @@
         </label>
       </div>
       <div class="modal-actions">
-        <button class="cancel-btn" @click="closeExportModal">Cancel</button>
-        <button class="save-btn" @click="doExportPdf">Export PDF</button>
-        <button class="save-btn" @click="doExportCsv">Export CSV</button>
+        <button class="btn btn-warning cancel-btn" @click="closeExportModal">Cancel</button>
+        <button class="btn btn-positive save-btn" @click="doExportPdf">Export PDF</button>
+        <button class="btn btn-positive save-btn" @click="doExportCsv">Export CSV</button>
       </div>
     </div>
   </div>
@@ -1320,20 +1320,7 @@ opacity: 0.6;
   background: #e0e7ff;
 }
 
-.today-btn, .prevday-btn {
-  background: #e0e7ff;
-  color: #4a6cf7;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 0.92rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.today-btn:hover, .prevday-btn:hover {
-  background: #c7d2fe;
-}
+/* Today and Previous Day button styles are now handled by btn btn-primary classes */
 
 .quick-range-btns {
   display: flex;
