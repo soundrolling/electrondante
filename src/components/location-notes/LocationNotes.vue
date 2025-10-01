@@ -244,7 +244,7 @@ backdrop-filter: blur(10px);
 .unified-row-1 {
 display: flex;
 align-items: center;
-gap: 16px;
+gap: 20px;
 margin-bottom: 12px;
 }
 
@@ -260,6 +260,7 @@ flex-shrink: 0;
 display: flex;
 align-items: center;
 gap: 6px;
+white-space: nowrap;
 }
 
 .btn.back {
@@ -271,6 +272,7 @@ padding: 8px 12px;
 font-size: 0.85rem;
 font-weight: 600;
 flex-shrink: 0;
+white-space: nowrap;
 }
 
 .home-icon {
@@ -278,9 +280,9 @@ font-size: 0.9rem;
 }
 
 .stage-title {
-flex: 0 1 auto;
+flex: 1;
 min-width: 0;
-max-width: 300px;
+text-align: center;
 }
 
 .stage-title h2 {
@@ -304,6 +306,7 @@ flex-direction: column;
 align-items: flex-end;
 gap: 1px;
 flex-shrink: 0;
+min-width: 80px;
 }
 
 .tc {
@@ -336,18 +339,33 @@ gap: 16px;
 
 .unified-row-1 {
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.stage-title {
+  text-align: left;
+  order: 1;
+}
+
+.unified-row-1 .btn.back {
+  order: 2;
+}
+
+.unified-row-1 .btn.project-home {
+  order: 3;
 }
 
 .timecode-display {
   align-items: flex-start;
+  order: 4;
 }
 
 .unified-row-2 {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
 }
 
 .stage-title h2 {
@@ -362,6 +380,7 @@ gap: 16px;
 .btn.back {
   font-size: 0.8rem;
   padding: 6px 10px;
+  align-self: flex-start;
 }
 }
 .load {
