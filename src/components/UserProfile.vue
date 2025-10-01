@@ -969,18 +969,18 @@ async function saveSecurity() {
   display: flex;
   gap: 0;
   margin-top: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
   background: var(--bg-card);
   padding: 0.75rem;
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-item {
   text-align: center;
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
-  border-right: 1px solid var(--border);
+  border-right: 2px solid var(--border-medium);
   flex: 1;
 }
 
@@ -1007,11 +1007,11 @@ async function saveSecurity() {
   gap: 0.75rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  background: var(--bg-card);
-  padding: 0.75rem;
-  box-shadow: none;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-container {
@@ -1023,18 +1023,19 @@ async function saveSecurity() {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 2px solid var(--input-border);
+  border: 2px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 0.95rem;
-  background: var(--input-bg);
+  background: var(--bg-primary);
   color: var(--input-text);
-  box-shadow: none;
-  transition: border-color 0.2s;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
 }
 
 .search-input:focus {
   outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .search-icon {
@@ -1047,18 +1048,20 @@ async function saveSecurity() {
 
 .filter-select {
   padding: 0.75rem 1rem;
-  border: 2px solid var(--input-border);
+  border: 2px solid var(--border-medium);
   border-radius: 0.5rem;
   font-size: 0.95rem;
-  background: var(--input-bg);
+  background: var(--bg-primary);
   min-width: 120px;
   color: var(--input-text);
-  transition: border-color 0.2s;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
 }
 
 .filter-select:focus {
   outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .gear-grid {
@@ -1069,18 +1072,19 @@ async function saveSecurity() {
 
 .gear-card {
   background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 0.5rem;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
   padding: 1.25rem;
   transition: all 0.2s;
   color: var(--text-main);
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
   font-size: 0.95rem;
 }
 
 .gear-card:hover {
   border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .gear-card-header {

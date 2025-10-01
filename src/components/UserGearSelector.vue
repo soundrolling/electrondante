@@ -304,10 +304,15 @@ font-size: 0.875rem;
 }
 
 .search-filters {
-display: flex;
-gap: 1rem;
-margin-bottom: 1.5rem;
-flex-wrap: wrap;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-container {
@@ -317,18 +322,20 @@ min-width: 250px;
 }
 
 .search-input {
-width: 100%;
-padding: 0.75rem 1rem 0.75rem 2.5rem;
-border: 2px solid #e2e8f0;
-border-radius: 0.5rem;
-font-size: 1rem;
-transition: border-color 0.2s ease;
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
 }
 
 .search-input:focus {
-outline: none;
-border-color: #3b82f6;
-box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .search-icon {
@@ -345,17 +352,20 @@ gap: 0.5rem;
 }
 
 .filter-select {
-padding: 0.75rem 1rem;
-border: 2px solid #e2e8f0;
-border-radius: 0.5rem;
-font-size: 1rem;
-background: white;
-min-width: 120px;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background: var(--bg-primary);
+  min-width: 120px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
 }
 
 .filter-select:focus {
-outline: none;
-border-color: #3b82f6;
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .loading-state {
@@ -397,24 +407,27 @@ gap: 0.75rem;
 }
 
 .gear-result-item {
-display: flex;
-align-items: center;
-gap: 1rem;
-padding: 1rem;
-border: 2px solid #e2e8f0;
-border-radius: 0.5rem;
-transition: all 0.2s ease;
-background: white;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .gear-result-item:hover {
-border-color: #3b82f6;
-box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .gear-result-item.selected {
-border-color: #3b82f6;
-background: #eff6ff;
+  border-color: var(--primary);
+  background: var(--color-primary-50);
+  box-shadow: var(--shadow-md);
 }
 
 .gear-info {

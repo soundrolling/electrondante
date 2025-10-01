@@ -1110,6 +1110,11 @@ setup() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .filter-label {
@@ -1122,20 +1127,22 @@ setup() {
 .filter-select {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  border: 2px solid var(--border-medium);
+  border-radius: 0.5rem;
   font-size: 16px;
-  background: #ffffff;
+  background: var(--bg-primary);
   color: #1a1a1a;
   min-height: 44px;
   appearance: none;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #0066cc;
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 /* Loading Skeleton */
@@ -1235,16 +1242,18 @@ setup() {
 }
 
 .gear-card {
-  background: #ffffff;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-medium);
+  border-radius: 0.75rem;
   padding: 20px;
   transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .gear-card:hover {
-  border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .gear-card.user-gear {
