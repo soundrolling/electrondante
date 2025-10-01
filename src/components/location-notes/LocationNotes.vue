@@ -5,10 +5,14 @@
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- Ultra-compact 2-row layout -->
-    <div class="compact-header">
-      <!-- Row 1: Back button, stage title, and timecode -->
-      <div class="compact-row-1">
+    <!-- Unified compact section with all elements -->
+    <div class="unified-header">
+      <!-- Row 1: Project Home, Back button, stage title, and timecode -->
+      <div class="unified-row-1">
+        <button class="btn btn-primary project-home" @click="goToProjectHome">
+          <span class="home-icon">🏠</span>
+          Project Home
+        </button>
         <button class="btn btn-warning back" @click="goBack">← Back</button>
         <div class="stage-title">
           <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
@@ -21,7 +25,7 @@
       </div>
       
       <!-- Row 2: Sync status and new note button -->
-      <div class="compact-row-2">
+      <div class="unified-row-2">
         <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
           <span class="sync-dot">●</span>
           <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
@@ -92,6 +96,7 @@ const router = useRouter();
 const toast = useToast();
 const store = useUserStore();
 const goBack = () => router.back();
+const goToProjectHome = () => router.push('/projects');
 
 const location  = ref(null);
 const isLoading = ref(true);
@@ -226,7 +231,7 @@ min-height: 100vh;
 background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-.compact-header {
+.unified-header {
 background: rgba(255, 255, 255, 0.9);
 margin: 16px 24px;
 padding: 16px 20px;
@@ -236,11 +241,25 @@ border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
 }
 
-.compact-row-1 {
+.unified-row-1 {
 display: flex;
 align-items: center;
-gap: 16px;
+gap: 12px;
 margin-bottom: 12px;
+}
+
+.btn.project-home {
+background: #2563eb;
+color: #ffffff;
+border: 0;
+border-radius: 6px;
+padding: 8px 12px;
+font-size: 0.85rem;
+font-weight: 600;
+flex-shrink: 0;
+display: flex;
+align-items: center;
+gap: 6px;
 }
 
 .btn.back {
@@ -252,6 +271,10 @@ padding: 8px 12px;
 font-size: 0.85rem;
 font-weight: 600;
 flex-shrink: 0;
+}
+
+.home-icon {
+font-size: 0.9rem;
 }
 
 .stage-title {
@@ -305,12 +328,12 @@ gap: 16px;
 
 /* Responsive design */
 @media (max-width: 768px) {
-.compact-header {
+.unified-header {
   margin: 12px 16px;
   padding: 12px 16px;
 }
 
-.compact-row-1 {
+.unified-row-1 {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
@@ -320,7 +343,7 @@ gap: 16px;
   align-items: flex-start;
 }
 
-.compact-row-2 {
+.unified-row-2 {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
@@ -332,6 +355,12 @@ gap: 16px;
 
 .tc {
   font-size: 1.1rem;
+}
+
+.btn.project-home,
+.btn.back {
+  font-size: 0.8rem;
+  padding: 6px 10px;
 }
 }
 .load {
