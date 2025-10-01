@@ -1774,30 +1774,33 @@ setup() {
 
 .btn-primary {
   background: #0066cc;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .btn-primary:hover {
   background: #0052a3;
+  color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
 }
 
 .btn-secondary {
   background: #6c757d;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .btn-secondary:hover {
   background: #5a6268;
+  color: #ffffff !important;
 }
 
 .btn-danger {
   background: #dc3545;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .btn-danger:hover {
   background: #c82333;
+  color: #ffffff !important;
 }
 
 /* Hours Table */
@@ -1869,7 +1872,7 @@ setup() {
   gap: 8px;
   padding: 12px 20px;
   background: #0066cc;
-  color: #ffffff;
+  color: #ffffff !important;
   border: none;
   border-radius: 8px;
   font-size: 16px;
@@ -1883,11 +1886,13 @@ setup() {
 
 .primary-button:hover {
   background: #0052a3;
+  color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
   transform: translateY(-1px);
 }
 
 .primary-button:active {
+  color: #ffffff !important;
   transform: scale(0.98);
 }
 
@@ -1898,7 +1903,7 @@ setup() {
   gap: 8px;
   padding: 12px 20px;
   background: #6c757d;
-  color: #ffffff;
+  color: #ffffff !important;
   border: none;
   border-radius: 8px;
   font-size: 16px;
@@ -1912,10 +1917,12 @@ setup() {
 
 .secondary-button:hover {
   background: #5a6268;
+  color: #ffffff !important;
   transform: translateY(-1px);
 }
 
 .secondary-button:active {
+  color: #ffffff !important;
   transform: scale(0.98);
 }
 
