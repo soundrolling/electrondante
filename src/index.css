@@ -78,6 +78,20 @@ h1, h2, h3, h4, h5, h6 {
   color: #000000 !important;
 }
 
+/* Button Contrast Rules */
+/* Ensure buttons with dark backgrounds have light text */
+.btn-primary[style*="background"],
+.btn[style*="background"][style*="#"],
+.btn[style*="background"][style*="rgb"],
+.btn[style*="background"][style*="gradient"] {
+  color: #ffffff !important;
+}
+
+/* Ensure buttons with light backgrounds have dark text */
+.btn:not([style*="background"]) {
+  color: #000000 !important;
+}
+
 /* Design System - CSS Custom Properties */
 :root {
   /* Color Tokens */

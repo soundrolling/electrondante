@@ -469,7 +469,7 @@ setup() {
   width: 100%;
   padding: 16px; /* 4-point spacing */
   background: linear-gradient(135deg, #0066cc 0%, #5856D6 100%);
-  color: white;
+  color: #ffffff !important;
   border: none;
   border-radius: 8px; /* 4-point spacing */
   font-size: 16px; /* Body: 16px */
@@ -502,6 +502,11 @@ setup() {
 
 .login-btn {
   margin-top: 8px; /* 4-point spacing */
+  color: #ffffff !important;
+}
+
+.login-btn span {
+  color: #ffffff !important;
 }
 
 .loading-spinner {
