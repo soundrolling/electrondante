@@ -783,7 +783,7 @@ async function saveSecurity() {
   font-size: 1.6rem;
   font-weight: 700;
   margin: 0 0 0.2rem;
-  color: var(--text-heading);
+  color: #000000 !important;
 }
 
 .profile-subtitle {
@@ -862,7 +862,7 @@ async function saveSecurity() {
   font-size: 1.3rem;
   font-weight: 600;
   margin: 0 0 1rem;
-  color: var(--text-heading);
+  color: #000000 !important;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--border);
 }
@@ -1099,7 +1099,7 @@ async function saveSecurity() {
 .gear-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-heading);
+  color: #000000 !important;
   margin: 0;
   flex: 1;
 }
@@ -1215,7 +1215,7 @@ async function saveSecurity() {
 
 .empty-state h3 {
   margin: 0 0 0.5rem;
-  color: var(--text-heading);
+  color: #000000 !important;
 }
 
 .empty-state p {

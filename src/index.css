@@ -1,7 +1,82 @@
-/* src/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* src/index.css - Hardcoded Design System */
+/* CSS Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+body {
+  font-family: var(--font-family-sans);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hardcoded Base Styles for Visibility */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-heading);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+p {
+  color: var(--text-primary);
+  margin: 0;
+}
+
+a {
+  color: var(--text-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Ensure all text is visible */
+* {
+  color: inherit;
+}
+
+/* Override any white text issues */
+.text-white {
+  color: var(--text-primary) !important;
+}
+
+.text-white-important {
+  color: var(--text-primary) !important;
+}
+
+/* Force all headings to be visible */
+h1, h2, h3, h4, h5, h6 {
+  color: #000000 !important;
+}
+
+/* Force all text to be visible */
+p, span, div, label {
+  color: var(--text-primary) !important;
+}
+
+/* Override any Tailwind or conflicting styles */
+* {
+  color: inherit !important;
+}
+
+/* Specific overrides for common issues */
+.profile-title,
+.section-title,
+.gear-name,
+h1, h2, h3, h4, h5, h6 {
+  color: #000000 !important;
+}
 
 /* Design System - CSS Custom Properties */
 :root {
@@ -98,13 +173,15 @@
   --btn-warning-hover-bg: #ffeaa7;
   --btn-warning-hover-border: #e0a800;
 
-  /* Text Colors - Apple Design System */
-  --text-primary: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #8e8e93;
-  --text-quaternary: #c7c7cc;
+  /* Text Colors - Hardcoded for Visibility */
+  --text-primary: #000000;
+  --text-secondary: #3c3c43;
+  --text-tertiary: #6d6d70;
+  --text-quaternary: #8e8e93;
   --text-inverse: #ffffff;
   --text-link: #007aff;
+  --text-heading: #1d1d1f;
+  --text-muted: #6e6e73;
 
   /* Border Colors - Apple Design System */
   --border-light: #f2f2f7;
