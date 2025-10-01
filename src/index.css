@@ -168,31 +168,31 @@ h1, h2, h3, h4, h5, h6 {
   --bg-elevated: #ffffff;
   --bg-grouped: #f2f2f7;
 
-  /* Button Color Scheme - Apple Design System */
-  --btn-positive-bg: #e8f5e8;
-  --btn-positive-border: #34c759;
-  --btn-positive-text: #1d4ed8;
-  --btn-positive-hover-bg: #d4edda;
-  --btn-positive-hover-border: #28a745;
+  /* Button Color Scheme - Dark Backgrounds with White Text */
+  --btn-positive-bg: #059669;
+  --btn-positive-border: #047857;
+  --btn-positive-text: #ffffff;
+  --btn-positive-hover-bg: #047857;
+  --btn-positive-hover-border: #065f46;
 
-  --btn-danger-bg: #f8d7da;
-  --btn-danger-border: #dc3545;
-  --btn-danger-text: #721c24;
-  --btn-danger-hover-bg: #f5c6cb;
-  --btn-danger-hover-border: #c82333;
+  --btn-danger-bg: #dc2626;
+  --btn-danger-border: #b91c1c;
+  --btn-danger-text: #ffffff;
+  --btn-danger-hover-bg: #b91c1c;
+  --btn-danger-hover-border: #991b1b;
 
-  --btn-warning-bg: #fff3cd;
-  --btn-warning-border: #ffc107;
-  --btn-warning-text: #856404;
-  --btn-warning-hover-bg: #ffeaa7;
-  --btn-warning-hover-border: #e0a800;
+  --btn-warning-bg: #d97706;
+  --btn-warning-border: #b45309;
+  --btn-warning-text: #ffffff;
+  --btn-warning-hover-bg: #b45309;
+  --btn-warning-hover-border: #92400e;
 
-  /* Primary Actions (Light Blue) */
-  --btn-primary-bg: #dbeafe;
-  --btn-primary-border: #2563eb;
-  --btn-primary-text: #1e40af;
-  --btn-primary-hover-bg: #bfdbfe;
-  --btn-primary-hover-border: #1d4ed8;
+  /* Primary Actions (Dark Blue) */
+  --btn-primary-bg: #2563eb;
+  --btn-primary-border: #1d4ed8;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover-bg: #1d4ed8;
+  --btn-primary-hover-border: #1e40af;
 
   /* Secondary Actions (Light Gray) */
   --btn-secondary-bg: #f1f5f9;

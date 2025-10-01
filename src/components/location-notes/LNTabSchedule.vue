@@ -516,8 +516,8 @@ color: var(--text-med);
   outline: none;
 }
 .btn-add {
-background: var(--accent2);
-color: #fff;
+background: #059669;
+color: #ffffff;
 padding: 8px 16px;
 border: none;
 border-radius: 6px;
@@ -525,7 +525,7 @@ cursor: pointer;
 transition: background .2s;
 }
 .btn-add:hover {
-background: var(--accent2-dark);
+background: #047857;
 }
 
 /* date nav */
@@ -616,16 +616,18 @@ cursor: pointer;
 transition: background .2s;
 }
 .icon.edit {
-background: var(--accent2);
+background: #d97706;
+color: #ffffff;
 }
 .icon.edit:hover {
-background: var(--accent2-dark);
+background: #b45309;
 }
 .icon.delete {
-background: var(--danger);
+background: #dc2626;
+color: #ffffff;
 }
 .icon.delete:hover {
-background: var(--danger-dark);
+background: #b91c1c;
 }
 .icon-svg {
 width: 16px;
@@ -732,17 +734,17 @@ cursor: pointer;
 font-size: 0.95rem;
 }
 .cancel-btn {
-background: #fff;
-color: #111827;
-border: 1px solid var(--border);
+background: #d97706;
+color: #ffffff;
+border: 1px solid #b45309;
 }
 .save-btn {
-background: var(--accent2);
-color: #fff;
+background: #059669;
+color: #ffffff;
 transition: background .2s;
 }
 .save-btn:hover:not(:disabled) {
-background: var(--accent2-dark);
+background: #047857;
 }
 .save-btn:disabled {
 opacity: 0.6;
@@ -757,11 +759,11 @@ cursor: default;
 }
 
 .icon.note {
-  background: #10b981;
-  color: #fff;
+  background: #059669;
+  color: #ffffff;
 }
 .icon.note:hover {
-  background: #059669;
+  background: #047857;
 }
 
 .controls-range {

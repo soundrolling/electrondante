@@ -892,12 +892,12 @@ animation: pulse 2s infinite;
 }
 
 .add-btn {
-  background: #4a6cf7;
-  color: #fff;
+  background: #059669;
+  color: #ffffff;
 }
 
 .add-btn:hover {
-  background: #3b5bd0;
+  background: #047857;
 }
 
 .export-btn {
@@ -1297,17 +1297,17 @@ opacity: 0.6;
 }
 
 .cancel-btn {
-  background: #fff;
-  color: #1f2937;
-  border: 1px solid #dce0e8;
+  background: #d97706;
+  color: #ffffff;
+  border: 1px solid #b45309;
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
 }
 
 .save-btn {
-  background: #4a6cf7;
-  color: #fff;
+  background: #059669;
+  color: #ffffff;
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
@@ -1316,7 +1316,7 @@ opacity: 0.6;
 }
 
 .save-btn:hover {
-  background: #3b5bd0;
+  background: #047857;
 }
 
 .save-btn:disabled {
@@ -1372,11 +1372,11 @@ opacity: 0.6;
 }
 
 .icon-btn.info {
-  background: #f3f4f6;
-  color: #4a6cf7;
+  background: #2563eb;
+  color: #ffffff;
 }
 .icon-btn.info:hover {
-  background: #e0e7ff;
+  background: #1d4ed8;
 }
 
 .export-filename-input {

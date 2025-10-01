@@ -293,14 +293,14 @@ font-size: 0.85rem;
 cursor: pointer;
 }
 .mini.primary {
-background: var(--accent);
-color: #fff;
+background: #059669;
+color: #ffffff;
 border-radius: 6px;
 padding: 6px 14px;
 transition: background .2s;
 }
 .mini.primary:hover:not(:disabled) {
-background: #1572e8;
+background: #047857;
 }
 /* modal */
 .modal-overlay {
@@ -390,17 +390,17 @@ cursor: pointer;
 font-size: 0.95rem;
 }
 .cancel-btn {
-background: #fff;
-color: #111827;
-border: 1px solid var(--border);
+background: #d97706;
+color: #ffffff;
+border: 1px solid #b45309;
 }
 .save-btn {
-background: var(--accent);
-color: #fff;
+background: #059669;
+color: #ffffff;
 transition: background .2s;
 }
 .save-btn:hover:not(:disabled) {
-background: #1572e8;
+background: #047857;
 }
 .save-btn:disabled {
 opacity: 0.6;
@@ -445,16 +445,18 @@ cursor: pointer;
 transition: background .2s;
 }
 .icon.edit {
-background: #4a6cf7;
+background: #d97706;
+color: #ffffff;
 }
 .icon.edit:hover {
-background: #3b5bd0;
+background: #b45309;
 }
 .icon.delete {
-background: #ff7070;
+background: #dc2626;
+color: #ffffff;
 }
 .icon.delete:hover {
-background: #e65c5c;
+background: #b91c1c;
 }
 /* inline SVG */
 .icon-svg {

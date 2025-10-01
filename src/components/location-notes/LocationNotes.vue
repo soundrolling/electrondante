@@ -238,7 +238,8 @@ backdrop-filter: blur(20px);
 border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 .btn.back {
-background: #e2e6ea;
+background: #d97706;
+color: #ffffff;
 border: 0;
 border-radius: 8px;
 padding: 6px 12px;
@@ -326,8 +327,8 @@ font-size: 0.8rem;
 padding: 4px 8px;
 }
 .btn.mini.primary {
-background: #4a6cf7;
-color: #fff;
+background: #059669;
+color: #ffffff;
 border-radius: 6px;
 }
 .tabs {
