@@ -25,7 +25,6 @@ export class BugReportService {
           steps: reportData.steps || null,
           expected_behavior: reportData.expectedBehavior || null,
           actual_behavior: reportData.actualBehavior || null,
-          additional_info: reportData.additionalInfo || null,
           // System information
           user_agent: reportData.userAgent || null,
           platform: reportData.platform || null,

@@ -180,10 +180,6 @@
                 </div>
               </div>
 
-              <div v-if="report.additional_info" class="detail-section">
-                <h5>Additional Information</h5>
-                <div class="additional-info">{{ report.additional_info }}</div>
-              </div>
 
               <div v-if="report.url || report.page_title" class="detail-section">
                 <h5>Page Information</h5>

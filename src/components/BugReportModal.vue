@@ -63,7 +63,7 @@
           />
         </div>
 
-        <div class="form-group">
+        <div class="form-group" v-if="formData.type !== 'bug'">
           <label for="description">Description</label>
           <textarea
             v-model="formData.description"
@@ -152,17 +152,6 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="additionalInfo">Additional Information</label>
-          <textarea
-            v-model="formData.additionalInfo"
-            id="additionalInfo"
-            placeholder="Any other relevant information, screenshots description, etc."
-            rows="3"
-            maxlength="1500"
-          ></textarea>
-          <div class="char-count">{{ formData.additionalInfo.length }}/1500</div>
-        </div>
 
         <div class="form-actions">
           <button type="button" @click="closeModal" class="cancel-btn">
@@ -208,14 +197,20 @@ export default {
       device: '',
       steps: '',
       expectedBehavior: '',
-      actualBehavior: '',
-      additionalInfo: ''
+      actualBehavior: ''
     })
 
     const isFormValid = computed(() => {
-      return formData.value.type && 
-             formData.value.title.trim() && 
-             formData.value.description.trim()
+      const hasType = formData.value.type
+      const hasTitle = formData.value.title.trim()
+      
+      // For bugs, we don't require description since we have steps and behavior
+      if (formData.value.type === 'bug') {
+        return hasType && hasTitle
+      }
+      
+      // For suggestions and improvements, description is required
+      return hasType && hasTitle && formData.value.description.trim()
     })
 
     const closeModal = () => {
@@ -341,7 +336,8 @@ export default {
       if (type === 'bug') {
         formData.value.title = 'Bug: '
         formData.value.priority = 'medium'
-        formData.value.description = 'Describe what happened, what you expected to happen, and any error messages you saw.'
+        // Don't set description for bugs - they use steps and behavior instead
+        formData.value.description = ''
       } else if (type === 'suggestion') {
         formData.value.title = 'Suggestion: '
         formData.value.priority = 'low'
@@ -372,8 +368,7 @@ export default {
         device: detectDeviceInfo(),
         steps: '',
         expectedBehavior: '',
-        actualBehavior: '',
-        additionalInfo: ''
+        actualBehavior: ''
       }
     }
 
