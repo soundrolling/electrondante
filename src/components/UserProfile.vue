@@ -485,7 +485,7 @@ async function saveSecurity() {
                 </div>
               </div>
             </div>
-            <button class="btn btn-primary" @click="openAddGear">
+            <button class="btn btn-positive" @click="openAddGear">
               <span class="btn-icon">+</span>
               Add Gear
             </button>
@@ -521,7 +521,7 @@ async function saveSecurity() {
             <div class="empty-icon">🎛️</div>
             <h3>No gear found</h3>
             <p>{{ search || gearFilter !== 'all' ? 'Try adjusting your search or filters' : 'Start by adding your first piece of gear' }}</p>
-            <button class="btn btn-primary" @click="openAddGear">Add Your First Gear</button>
+            <button class="btn btn-positive" @click="openAddGear">Add Your First Gear</button>
           </div>
 
           <div v-else class="gear-grid">
@@ -541,7 +541,7 @@ async function saveSecurity() {
                     ✏️
                   </button>
                   <button 
-                    class="btn-icon btn-delete"
+                    class="btn-icon btn-danger"
                     @click="deleteGear(item.id)"
                     title="Delete"
                   >
@@ -592,7 +592,7 @@ async function saveSecurity() {
               <span class="input-note">Enable email notifications</span>
             </div>
             <div class="form-actions">
-              <button type="submit" class="btn btn-primary" :disabled="savingPreferences">
+              <button type="submit" class="btn btn-positive" :disabled="savingPreferences">
                 {{ savingPreferences ? 'Saving...' : 'Save Preferences' }}
               </button>
             </div>
@@ -619,7 +619,7 @@ async function saveSecurity() {
               <input type="password" v-model="security.confirmPassword" class="form-input" autocomplete="new-password" />
             </div>
             <div class="form-actions">
-              <button type="submit" class="btn btn-primary" :disabled="savingSecurity">
+              <button type="submit" class="btn btn-positive" :disabled="savingSecurity">
                 {{ savingSecurity ? 'Saving...' : 'Change Password' }}
               </button>
             </div>
@@ -727,13 +727,13 @@ async function saveSecurity() {
           </div>
 
         <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" @click="closeGearModal">
+            <button type="button" class="btn btn-warning" @click="closeGearModal">
               Cancel
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="saving">
+            <button type="submit" class="btn btn-positive" :disabled="saving">
               <span v-if="saving" class="loading-spinner"></span>
               {{ saving ? 'Saving...' : (isEditGear ? 'Update Gear' : 'Add Gear') }}
-          </button>
+            </button>
         </div>
         </form>
       </div>

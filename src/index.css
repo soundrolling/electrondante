@@ -77,6 +77,25 @@
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
 
+  /* Button Color Scheme */
+  --btn-positive-bg: #f0fdf4;
+  --btn-positive-border: #bbf7d0;
+  --btn-positive-text: #166534;
+  --btn-positive-hover-bg: #dcfce7;
+  --btn-positive-hover-border: #86efac;
+
+  --btn-danger-bg: #fef2f2;
+  --btn-danger-border: #fecaca;
+  --btn-danger-text: #991b1b;
+  --btn-danger-hover-bg: #fee2e2;
+  --btn-danger-hover-border: #fca5a5;
+
+  --btn-warning-bg: #fefce8;
+  --btn-warning-border: #fde68a;
+  --btn-warning-text: #92400e;
+  --btn-warning-hover-bg: #fef3c7;
+  --btn-warning-hover-border: #fcd34d;
+
   /* Text Colors */
   --text-primary: #1e293b;
   --text-secondary: #64748b;
@@ -260,6 +279,46 @@ body {
 .btn-error:hover {
   background-color: var(--color-error-600);
   border-color: var(--color-error-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Color-Coded Button Classes */
+.btn-positive {
+  background-color: var(--btn-positive-bg);
+  color: var(--btn-positive-text);
+  border-color: var(--btn-positive-border);
+}
+
+.btn-positive:hover {
+  background-color: var(--btn-positive-hover-bg);
+  border-color: var(--btn-positive-hover-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-danger {
+  background-color: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+  border-color: var(--btn-danger-border);
+}
+
+.btn-danger:hover {
+  background-color: var(--btn-danger-hover-bg);
+  border-color: var(--btn-danger-hover-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-warning {
+  background-color: var(--btn-warning-bg);
+  color: var(--btn-warning-text);
+  border-color: var(--btn-warning-border);
+}
+
+.btn-warning:hover {
+  background-color: var(--btn-warning-hover-bg);
+  border-color: var(--btn-warning-hover-border);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

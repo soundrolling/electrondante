@@ -48,7 +48,7 @@
       <span class="results-count">{{ searchResults.length }} items found</span>
       <button 
         v-if="selectedItems.length > 0"
-        class="btn btn-primary btn-sm"
+        class="btn btn-positive btn-sm"
         @click="addSelectedToProject"
       >
         Add {{ selectedItems.length }} to Project
@@ -115,7 +115,7 @@
   <div v-if="selectedItems.length > 0" class="selected-summary">
     <div class="summary-header">
       <h4>Selected Items ({{ selectedItems.length }})</h4>
-      <button class="btn btn-secondary btn-sm" @click="clearSelection">
+      <button class="btn btn-warning btn-sm" @click="clearSelection">
         Clear All
       </button>
     </div>

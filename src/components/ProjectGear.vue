@@ -55,11 +55,11 @@
     <div class="actions-header">
       <h2 class="section-title">Gear List</h2>
       <div class="actions-group">
-        <button class="btn btn-secondary" @click="toggleAddGear">
+        <button class="btn btn-positive" @click="toggleAddGear">
           <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
           <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
         </button>
-        <button class="btn btn-primary" @click="openUserGearSelector">
+        <button class="btn btn-positive" @click="openUserGearSelector">
           <span class="btn-icon">👤</span>
           <span class="btn-text">Add User Gear</span>
         </button>
@@ -121,11 +121,11 @@
             <span class="btn-icon">ℹ️</span>
             <span class="btn-text">Info</span>
           </button>
-          <button class="btn btn-primary" @click="openAssignmentModal(gear)" title="Assign">
+          <button class="btn btn-positive" @click="openAssignmentModal(gear)" title="Assign">
             <span class="btn-icon">📋</span>
             <span class="btn-text">Assign</span>
           </button>
-          <button class="btn btn-secondary" @click="openEditModal(gear)" title="Edit">
+          <button class="btn btn-warning" @click="openEditModal(gear)" title="Edit">
             <span class="btn-icon">✏️</span>
             <span class="btn-text">Edit</span>
           </button>
@@ -188,8 +188,8 @@
             </div>
           </div>
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Add Gear</button>
-            <button type="button" @click="toggleAddGear" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-positive">Add Gear</button>
+            <button type="button" @click="toggleAddGear" class="btn btn-warning">Cancel</button>
           </div>
         </form>
       </div>
@@ -324,8 +324,8 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save Assignment</button>
-                <button type="button" @click="closeAssignmentModal" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-positive">Save Assignment</button>
+                <button type="button" @click="closeAssignmentModal" class="btn btn-warning">Cancel</button>
               </div>
             </form>
           </div>
@@ -382,8 +382,8 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-                <button type="button" @click="closeEditModal" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-positive">Save Changes</button>
+                <button type="button" @click="closeEditModal" class="btn btn-warning">Cancel</button>
               </div>
             </form>
           </div>
