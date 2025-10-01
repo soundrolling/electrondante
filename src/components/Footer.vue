@@ -64,18 +64,30 @@
         <h3 class="card-title">App</h3>
         <div v-if="isPWAInstalled" class="app-status">
           <p class="app-status-text">App is installed on your device.</p>
+          <button
+            v-if="hasUpdateAvailable"
+            @click="updatePWA"
+            class="btn update-btn"
+          >
+            Update Available
+          </button>
         </div>
         <div v-else class="app-install">
           <button
-            v-if="deferredPrompt"
+            v-if="canInstallPWA"
             @click="installPWA"
             class="btn install-btn"
           >
             Install App
           </button>
-          <span v-else class="install-unavailable">
-            Install prompt unavailable
-          </span>
+          <div v-else class="install-info">
+            <span class="install-unavailable">
+              Install prompt unavailable
+            </span>
+            <p class="install-hint">
+              Use your browser's menu to install this app
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -91,6 +103,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import TimeSourceSelector from './TimeSourceSelector.vue';
 import { useUserStore } from '@/stores/userStore';
+import pwaService from '@/services/pwaService';
 
 // Define props
 const props = defineProps({
@@ -123,38 +136,39 @@ width: `${usagePercentage.value}%`,
 // Current year
 const currentYear = new Date().getFullYear();
 
-// Handle PWA install prompt
-const deferredPrompt = ref(null);
+// PWA state
 const isPWAInstalled = ref(false);
+const canInstallPWA = ref(false);
+const hasUpdateAvailable = ref(false);
+const isOnline = ref(navigator.onLine);
 
+// PWA methods
 const installPWA = async () => {
-if (deferredPrompt.value) {
-  deferredPrompt.value.prompt();
-  const { outcome } = await deferredPrompt.value.userChoice;
-  console.log(
-    outcome === 'accepted'
-      ? 'User accepted the install prompt'
-      : 'User dismissed the install prompt'
-  );
-  deferredPrompt.value = null;
-}
+  try {
+    const success = await pwaService.installPWA();
+    if (success) {
+      isPWAInstalled.value = true;
+      canInstallPWA.value = false;
+    }
+  } catch (error) {
+    console.error('Failed to install PWA:', error);
+  }
 };
 
-// Detect if PWA is already installed
-const checkPWAInstalled = () => {
-// For most browsers
-if (window.matchMedia('(display-mode: standalone)').matches) {
-  isPWAInstalled.value = true;
-}
-// For iOS Safari
-if (window.navigator.standalone === true) {
-  isPWAInstalled.value = true;
-}
+const updatePWA = async () => {
+  try {
+    await pwaService.updatePWA();
+  } catch (error) {
+    console.error('Failed to update PWA:', error);
+  }
 };
 
-const handleBeforeInstallPrompt = (e) => {
-e.preventDefault();
-deferredPrompt.value = e;
+// Check PWA status
+const checkPWAStatus = () => {
+  isPWAInstalled.value = pwaService.isInstalled;
+  canInstallPWA.value = pwaService.canInstall();
+  hasUpdateAvailable.value = pwaService.hasUpdate();
+  isOnline.value = pwaService.isOnline();
 };
 
 // Emit helpers
@@ -166,32 +180,45 @@ if (window.confirm('Are you sure you want to clear the cache?')) {
 
 const emitSignOut = () => emit('signOut');
 
+// Override PWA service notifications
+pwaService.notifyInstallAvailable = () => {
+  canInstallPWA.value = true;
+};
+
+pwaService.notifyInstalled = () => {
+  isPWAInstalled.value = true;
+  canInstallPWA.value = false;
+};
+
+pwaService.notifyUpdateAvailable = () => {
+  hasUpdateAvailable.value = true;
+};
+
+pwaService.notifyOnlineStatus = (online) => {
+  isOnline.value = online;
+};
+
 // Lifecycle
 onMounted(() => {
-window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-window.addEventListener('appinstalled', () => {
-  isPWAInstalled.value = true;
-  deferredPrompt.value = null;
-});
-checkPWAInstalled();
-});
-
-onUnmounted(() => {
-window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-window.removeEventListener('appinstalled', () => {
-  isPWAInstalled.value = true;
-});
+  checkPWAStatus();
+  
+  // Check status periodically
+  const statusInterval = setInterval(checkPWAStatus, 5000);
+  
+  onUnmounted(() => {
+    clearInterval(statusInterval);
+  });
 });
 </script>
 
 <style scoped>
 /* Base Styles - Mobile First */
 .footer {
-  background-color: #ffffff;
-  color: #1a1a1a;
-  border-top: 1px solid #e9ecef;
-  padding: 8px 0 0 0;
-  font-size: 14px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-light);
+  padding: var(--space-2) 0 0 0;
+  font-size: var(--text-sm);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
@@ -199,25 +226,25 @@ window.removeEventListener('appinstalled', () => {
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
 }
 
 /* Grid for Cards */
 .footer-columns {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 /* Card Layout - Shared */
 .footer-card {
-  background-color: #ffffff;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  padding: 12px;
-  transition: all 0.2s ease;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+  transition: var(--transition-normal);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -226,18 +253,18 @@ window.removeEventListener('appinstalled', () => {
 }
 
 .footer-card:hover {
-  background-color: #f8f9fa;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background-color: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
 }
 
 /* Card Heading */
 .card-title {
-  margin: 0 0 8px;
-  color: #1a1a1a;
-  font-size: 16px;
-  font-weight: 600;
-  border-bottom: 1px solid #e9ecef;
-  padding-bottom: 6px;
+  margin: 0 0 var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: var(--space-1-5);
 }
 
 /* Button Shared Styling */
@@ -245,20 +272,20 @@ window.removeEventListener('appinstalled', () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
-  margin-top: 8px;
+  padding: var(--space-2) var(--space-4);
+  margin-top: var(--space-2);
   border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-normal);
   min-height: 36px;
 }
 
 .btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .btn:active {
@@ -266,37 +293,60 @@ window.removeEventListener('appinstalled', () => {
 }
 
 .secondary-btn {
-  background-color: #6c757d;
-  color: #ffffff;
+  background-color: var(--color-secondary-600);
+  color: var(--text-inverse);
 }
 
 .secondary-btn:hover {
-  background-color: #5a6268;
+  background-color: var(--color-secondary-700);
 }
 
 .warning-btn {
-  background-color: #f59e0b;
-  color: #ffffff;
+  background-color: var(--color-warning-500);
+  color: var(--text-inverse);
 }
 
 .warning-btn:hover {
-  background-color: #d97706;
+  background-color: var(--color-warning-600);
 }
 
 .install-btn {
-  background-color: #10b981;
-  color: #ffffff;
+  background-color: var(--color-success-500);
+  color: var(--text-inverse);
 }
 
 .install-btn:hover {
-  background-color: #059669;
+  background-color: var(--color-success-600);
+}
+
+.update-btn {
+  background-color: var(--color-primary-500);
+  color: var(--text-inverse);
+  margin-top: var(--space-2);
+}
+
+.update-btn:hover {
+  background-color: var(--color-primary-600);
+}
+
+.install-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.install-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+  font-style: italic;
 }
 
 /* Timecode Card Specific */
 .timecode-timesource-flex {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .timecode-section,
@@ -305,62 +355,62 @@ window.removeEventListener('appinstalled', () => {
 }
 
 .timecode-display {
-  background-color: #f8f9fa;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  border: 1px solid #e9ecef;
+  background-color: var(--bg-secondary);
+  padding: var(--space-2-5);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border-light);
 }
 
 .timecode {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  margin: 0 0 var(--space-1) 0;
   text-align: center;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .time-source {
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-align: center;
   margin: 0;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 /* Session Card Specific */
 .compact-user-info {
-  background-color: #f8f9fa;
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  border: 1px solid #e9ecef;
+  background-color: var(--bg-secondary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  border: 1px solid var(--border-light);
 }
 
 .user-email {
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .guest-text {
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .admin-badge {
-  background-color: #f59e0b;
-  color: #ffffff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  margin-left: 6px;
-  font-weight: 600;
+  background-color: var(--color-warning-500);
+  color: var(--text-inverse);
+  padding: var(--space-0-5) var(--space-1-5);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  margin-left: var(--space-1-5);
+  font-weight: var(--font-semibold);
 }
 
 /* Section Divider */
 .section-divider {
   height: 1px;
-  background-color: #e9ecef;
-  margin: 12px 0;
+  background-color: var(--border-light);
+  margin: var(--space-3) 0;
   width: 100%;
 }
 
@@ -368,142 +418,142 @@ window.removeEventListener('appinstalled', () => {
 .usage-details {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  margin-bottom: 6px;
-  color: #6c757d;
+  font-size: var(--text-xs);
+  margin-bottom: var(--space-1-5);
+  color: var(--text-secondary);
 }
 
 .usage-text {
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .storage-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .usage-indicator {
-  background-color: #f8f9fa;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #10b981;
-  font-weight: 500;
+  background-color: var(--bg-secondary);
+  padding: var(--space-0-5) var(--space-1-5);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--color-success-500);
+  font-weight: var(--font-medium);
 }
 
 .usage-indicator.high-usage {
-  color: #f59e0b;
+  color: var(--color-warning-500);
 }
 
 /* Usage Bar */
 .usage-bar {
   height: 6px;
-  background-color: #e9ecef;
-  border-radius: 3px;
+  background-color: var(--border-light);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .usage-fill {
   height: 100%;
-  background-color: #10b981;
-  transition: width 0.3s ease;
+  background-color: var(--color-success-500);
+  transition: var(--transition-slow);
 }
 
 .usage-fill.high-usage {
-  background-color: #f59e0b;
+  background-color: var(--color-warning-500);
 }
 
 /* App Section */
 .app-status-text {
-  font-size: 14px;
+  font-size: var(--text-sm);
   margin: 0;
-  color: #10b981;
+  color: var(--color-success-500);
 }
 
 .install-unavailable {
-  font-size: 14px;
-  color: #6c757d;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 
 /* Footer Bottom */
 .footer-bottom {
-  background-color: #f8f9fa;
-  padding: 8px 0;
+  background-color: var(--bg-secondary);
+  padding: var(--space-2) 0;
   text-align: center;
-  font-size: 12px;
-  margin-top: 4px;
-  color: #6c757d;
-  border-top: 1px solid #e9ecef;
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
 }
 
 .copyright-text {
   margin: 0;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 /* Focus States for Accessibility */
 .btn:focus {
-  outline: 2px solid #0066cc;
+  outline: 2px solid var(--color-primary-500);
   outline-offset: 2px;
 }
 
 /* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .container {
-    padding: 0 16px;
+    padding: 0 var(--space-4);
   }
 
   .footer-columns {
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .footer-card {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .timecode-timesource-flex {
     flex-direction: row;
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .timecode {
-    font-size: 20px;
+    font-size: var(--text-xl);
   }
 
   .card-title {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
 }
 
 /* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .container {
-    padding: 0 20px;
+    padding: 0 var(--space-5);
   }
 
   .footer-columns {
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .footer-card {
-    padding: 20px;
+    padding: var(--space-5);
   }
 
   .timecode {
-    font-size: 22px;
+    font-size: var(--text-2xl);
   }
 
   .card-title {
-    font-size: 18px;
+    font-size: var(--text-lg);
   }
 
   .btn {
-    padding: 10px 18px;
-    font-size: 14px;
+    padding: var(--space-2-5) var(--space-4-5);
+    font-size: var(--text-sm);
   }
 }
 

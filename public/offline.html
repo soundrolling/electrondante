@@ -1,42 +1,293 @@
-<!-- public/offline.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Offline</title>
+  <title>Offline - ProApp</title>
+  <meta name="theme-color" content="#0ea5e9">
   <style>
+    :root {
+      --color-primary-500: #0ea5e9;
+      --color-primary-600: #0284c7;
+      --color-primary-700: #0369a1;
+      --color-secondary-500: #64748b;
+      --color-secondary-600: #475569;
+      --color-success-500: #22c55e;
+      --color-success-600: #16a34a;
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --text-tertiary: #94a3b8;
+      --border-light: #e2e8f0;
+      --radius-lg: 0.75rem;
+      --radius-md: 0.5rem;
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --text-lg: 1.125rem;
+      --text-xl: 1.25rem;
+      --text-2xl: 1.5rem;
+      --text-3xl: 1.875rem;
+      --font-semibold: 600;
+      --font-bold: 700;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 50px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
     }
-    h1 {
-      font-size: 2em;
-      color: #333;
-    }
-    p {
-      color: #666;
-    }
+
     .container {
-      max-width: 600px;
-      margin: 0 auto;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      background: var(--bg-primary);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: var(--space-12) var(--space-8);
+      border: 1px solid var(--border-light);
     }
-    a {
-      color: #007bff;
+
+    .offline-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--space-6);
+      background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    h1 {
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
+      color: var(--text-primary);
+      margin-bottom: var(--space-4);
+    }
+
+    .subtitle {
+      font-size: var(--text-lg);
+      color: var(--text-secondary);
+      margin-bottom: var(--space-6);
+      font-weight: var(--font-semibold);
+    }
+
+    .description {
+      color: var(--text-secondary);
+      margin-bottom: var(--space-8);
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4) var(--space-8);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
       text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 200px;
     }
-    a:hover {
-      text-decoration: underline;
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600));
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+      background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-700));
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-light);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border-light);
+      transform: translateY(-1px);
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-6);
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-6);
+      border: 1px solid var(--border-light);
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ef4444;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .features {
+      text-align: left;
+      margin-top: var(--space-8);
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--border-light);
+    }
+
+    .features h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      margin-bottom: var(--space-4);
+      text-align: center;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      color: var(--text-secondary);
+    }
+
+    .feature-icon {
+      width: 20px;
+      height: 20px;
+      background: var(--color-success-500);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: var(--space-8) var(--space-6);
+        margin: var(--space-4);
+      }
+      
+      h1 {
+        font-size: var(--text-2xl);
+      }
+      
+      .offline-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="offline-icon">📱</div>
+    
     <h1>You're Offline</h1>
-    <p>It seems like you are not connected to the internet. Please check your connection and try again.</p>
-    <p>You can still navigate to pages that you visited before going offline, or try reloading when you're back online.</p>
-    <a href="/">Go to Home</a>
+    <p class="subtitle">No Internet Connection</p>
+    
+    <div class="status-indicator">
+      <div class="status-dot"></div>
+      <span>Connection Lost</span>
+    </div>
+    
+    <p class="description">
+      It looks like you've lost your internet connection. Don't worry - you can still access previously visited pages and some features will work offline.
+    </p>
+    
+    <div class="actions">
+      <a href="/" class="btn btn-primary">Go to Home</a>
+      <button onclick="window.location.reload()" class="btn btn-secondary">Try Again</button>
+    </div>
+    
+    <div class="features">
+      <h3>Available Offline</h3>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <span>Previously visited pages</span>
+        </li>
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <span>Cached project data</span>
+        </li>
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <span>Offline note taking</span>
+        </li>
+        <li class="feature-item">
+          <div class="feature-icon">✓</div>
+          <span>Local storage access</span>
+        </li>
+      </ul>
+    </div>
   </div>
+
+  <script>
+    // Auto-retry connection
+    function checkConnection() {
+      if (navigator.onLine) {
+        window.location.reload();
+      }
+    }
+
+    // Check connection every 5 seconds
+    setInterval(checkConnection, 5000);
+
+    // Listen for online event
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+  </script>
 </body>
 </html>

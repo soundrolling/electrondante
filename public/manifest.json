@@ -1,21 +1,65 @@
 {
-  "name": "Location Notes App",
-  "short_name": "LocNotes",
-  "description": "A PWA for managing location notes and schedules",
+  "name": "Soundrolling Project Management",
+  "short_name": "ProApp",
+  "description": "Professional project management and location notes for sound production teams",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
-  "theme_color": "#007bff",
+  "theme_color": "#0ea5e9",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["productivity", "business", "utilities"],
   "icons": [
     {
       "src": "/img/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/img/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Project",
+      "short_name": "New Project",
+      "description": "Create a new project",
+      "url": "/projects?action=new",
+      "icons": [
+        {
+          "src": "/img/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View project dashboard",
+      "url": "/projects",
+      "icons": [
+        {
+          "src": "/img/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

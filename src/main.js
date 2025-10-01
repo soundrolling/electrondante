@@ -60,7 +60,17 @@ async function bootstrap() {
 
   app.mount('#app');
 
-  // Service worker removed - app will work normally online
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('/service-worker.js');
+        console.log('Service Worker registered successfully:', registration);
+      } catch (error) {
+        console.error('Service Worker registration failed:', error);
+      }
+    });
+  }
 
   window.addEventListener('online', async () => {
     console.log('App is online; syncing offline changes...');
