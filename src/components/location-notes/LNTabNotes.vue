@@ -82,8 +82,11 @@
       <tbody>
         <tr v-for="n in filteredAndSortedNotes" :key="n.id || n._queuedKey">
           <td class="note-datetime">
-            <div class="note-time">{{ n.timestamp }}</div>
-            <div class="note-date">{{ fmtDate(n.recording_date) }}</div>
+            <div class="datetime-combined">
+              <span class="note-time">{{ n.timestamp }}</span>
+              <span class="datetime-separator"> • </span>
+              <span class="note-date">{{ fmtDate(n.recording_date) }}</span>
+            </div>
           </td>
           <td class="note-text">{{ n.note }}</td>
           <td class="note-actions">
@@ -1132,13 +1135,15 @@ opacity: 0.6;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 .note-datetime {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   font-size: 0.9rem;
   width: 15%;
   min-width: 120px;
   white-space: nowrap;
+}
+.datetime-combined {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .note-time {
   font-weight: 600;
@@ -1148,6 +1153,10 @@ opacity: 0.6;
 .note-date {
   font-size: 0.8rem;
   color: #64748b;
+}
+.datetime-separator {
+  color: #9ca3af;
+  font-weight: 400;
 }
 .note-text {
   white-space: pre-line;
