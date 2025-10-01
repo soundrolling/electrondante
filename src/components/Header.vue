@@ -268,6 +268,19 @@ export default {
   padding-top: env(safe-area-inset-top, 0);
 }
 
+/* Force text visibility */
+.header * {
+  color: #000000 !important;
+}
+
+.header .nav-link,
+.header .btn-text,
+.header .nav-text,
+.header .home-text,
+.header .status-text {
+  color: #000000 !important;
+}
+
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
@@ -366,6 +379,7 @@ export default {
 
 .nav-text {
   font-size: var(--text-base);
+  color: #000000 !important;
 }
 
 /* Back button */
@@ -456,6 +470,7 @@ export default {
 .btn-text {
   font-weight: var(--font-medium);
   font-size: var(--text-base);
+  color: #000000 !important;
 }
 
 /* Project home bar */

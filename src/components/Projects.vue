@@ -820,7 +820,22 @@ setup() {
   padding-bottom: env(safe-area-inset-bottom, var(--space-4));
   font-family: var(--font-family-sans);
   line-height: var(--leading-normal);
-  color: var(--text-primary);
+  color: #000000 !important;
+}
+
+/* Force text visibility */
+.projects * {
+  color: #000000 !important;
+}
+
+.projects h1,
+.projects h2,
+.projects h3,
+.projects .page-title,
+.projects .form-title,
+.projects .modal-title,
+.projects .project-title {
+  color: #000000 !important;
 }
 
 /* Typography Scale */
@@ -829,7 +844,7 @@ setup() {
   font-weight: var(--font-bold);
   line-height: var(--leading-tight);
   margin: 0 0 var(--space-4) 0;
-  color: var(--text-primary);
+  color: #000000 !important;
 }
 
 .form-title,
@@ -838,7 +853,7 @@ setup() {
   font-weight: var(--font-semibold);
   line-height: var(--leading-snug);
   margin: 0 0 var(--space-4) 0;
-  color: var(--text-primary);
+  color: #000000 !important;
 }
 
 /* Page Header */
@@ -1192,7 +1207,7 @@ setup() {
 .project-title {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  color: #000000 !important;
   margin: 0;
   line-height: var(--leading-snug);
 }

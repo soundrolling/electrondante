@@ -284,10 +284,7 @@ setup() {
 .login-title {
   font-size: 24px; /* H1: 24px (600 weight) - mobile first */
   font-weight: 600;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #000000 !important;
   margin: 0;
   letter-spacing: -0.01em;
   line-height: 1.4; /* 1.4 for readability */

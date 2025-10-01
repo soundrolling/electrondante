@@ -215,11 +215,24 @@ onMounted(() => {
 /* Base Styles - Mobile First */
 .footer {
   background-color: var(--bg-primary);
-  color: var(--text-primary);
+  color: #000000 !important;
   border-top: 1px solid var(--border-light);
   padding: var(--space-2) 0 0 0;
   font-size: var(--text-sm);
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Force text visibility */
+.footer * {
+  color: #000000 !important;
+}
+
+.footer .card-title,
+.footer .timecode,
+.footer .time-source,
+.footer .user-email,
+.footer .guest-text {
+  color: #000000 !important;
 }
 
 /* Wrapper */
