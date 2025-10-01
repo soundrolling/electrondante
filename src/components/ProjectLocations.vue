@@ -1379,15 +1379,17 @@ setup() {
 
 .stage-card {
   background: #ffffff;
-  border: 1px solid #e9ecef;
+  border: 2px solid #e9ecef;
   border-radius: 12px;
   padding: 20px;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stage-card:hover {
   border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
+  transform: translateY(-2px);
 }
 
 .stage-header {
@@ -1490,7 +1492,7 @@ setup() {
   gap: 8px;
   padding: 12px 16px;
   background: #ffffff;
-  border: 1px solid #e9ecef;
+  border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
@@ -1498,11 +1500,13 @@ setup() {
   transition: all 0.2s ease;
   min-height: 44px;
   color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .availability-btn:hover {
   border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
+  transform: translateY(-1px);
 }
 
 .availability-btn:active {
@@ -1522,9 +1526,9 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 16px 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  background: #ffffff;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 72px;
@@ -1532,12 +1536,14 @@ setup() {
   font-size: 14px;
   font-weight: 500;
   color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stage-action-btn:hover {
   border-color: #0066cc;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
+  transform: translateY(-2px);
 }
 
 .stage-action-btn:active {
@@ -1583,6 +1589,16 @@ setup() {
   padding: 16px;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .modal {
@@ -1782,6 +1798,125 @@ setup() {
 
 .btn-danger:hover {
   background: #c82333;
+}
+
+/* Hours Table */
+.hours-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.hours-table th {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #1a1a1a;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.hours-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
+  color: #1a1a1a;
+}
+
+.hours-table tr:hover {
+  background: #f8f9fa;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+  min-width: 36px;
+}
+
+.icon-action:hover {
+  background: #e9ecef;
+  border-color: #0066cc;
+}
+
+.icon-action.delete:hover {
+  background: #fef2f2;
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+/* Primary Button */
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #0066cc;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.primary-button:hover {
+  background: #0052a3;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+  transform: translateY(-1px);
+}
+
+.primary-button:active {
+  transform: scale(0.98);
+}
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #6c757d;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.secondary-button:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.secondary-button:active {
+  transform: scale(0.98);
 }
 
 /* Link Button */
