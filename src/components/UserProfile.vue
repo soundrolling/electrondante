@@ -763,7 +763,7 @@ async function saveSecurity() {
 .profile-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 1rem 0.75rem;
   background: var(--bg-main);
   min-height: 100vh;
   color: var(--text-main);
@@ -772,9 +772,9 @@ async function saveSecurity() {
 .profile-header {
   background: var(--bg-header);
   color: var(--text-inverse);
-  padding: 1.5rem 1rem;
-  border-radius: 0.75rem;
-  margin-bottom: 1.5rem;
+  padding: 1rem 0.75rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
   text-align: center;
   border: 1px solid var(--border);
 }
@@ -797,9 +797,9 @@ async function saveSecurity() {
 .tab-navigation {
   display: flex;
   background: var(--bg-card);
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   padding: 0.25rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   border: 1px solid var(--border);
   overflow-x: auto;
   gap: 0.25rem;
@@ -810,17 +810,17 @@ async function saveSecurity() {
 .tab-button {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 0.5rem;
+  border-radius: 0.4rem;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
   font-weight: 500;
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   box-shadow: none;
 }
 
@@ -851,25 +851,29 @@ async function saveSecurity() {
 
 .content-card {
   background: var(--bg-card);
-  border-radius: 0.75rem;
-  padding: 2rem;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
   box-shadow: none;
   color: var(--text-main);
   border: 1px solid var(--border);
 }
 
 .section-title {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 600;
-  margin: 0 0 1.5rem;
+  margin: 0 0 1rem;
   color: var(--text-heading);
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border);
 }
 
 .subsection-title {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin: 1.5rem 0 1rem;
+  margin: 1.25rem 0 0.75rem;
   color: var(--text-heading);
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .profile-form {
@@ -878,29 +882,34 @@ async function saveSecurity() {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: #fafbfc;
 }
 
 .form-label {
   display: block;
-  font-weight: 500;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--text-heading);
   margin-bottom: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.6rem;
   border: 2px solid var(--input-border);
-  border-radius: 0.5rem;
-  font-size: 0.95rem;
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
   background: var(--input-bg);
   color: var(--input-text);
   box-shadow: none;

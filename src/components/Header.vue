@@ -54,6 +54,21 @@
       <div class="header-right">
         <button
           v-if="isAuthenticated"
+          @click="showBugReportModal = true"
+          class="bug-report-btn"
+          title="Report a bug or suggestion"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 12l2 2 4-4"/>
+            <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
+            <path d="M12 7v6"/>
+            <path d="M12 17h.01"/>
+          </svg>
+          <span class="btn-text">Report</span>
+        </button>
+        
+        <button
+          v-if="isAuthenticated"
           @click="handleSignOut"
           class="sign-out-btn"
           title="Sign out"
@@ -87,6 +102,13 @@
       </button>
     </div>
   </div>
+
+  <!-- Bug Report Modal -->
+  <BugReportModal
+    :is-open="showBugReportModal"
+    @close="showBugReportModal = false"
+    @submit="handleBugReportSubmit"
+  />
 </div>
 </template>
 
@@ -94,12 +116,18 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
+import { useBugReportStore } from '../stores/bugReportStore';
+import BugReportModal from './BugReportModal.vue';
 
 export default {
-setup() {
-  const userStore = useUserStore();
-  const router = useRouter();
-  const route = useRoute();
+  components: {
+    BugReportModal
+  },
+  setup() {
+    const userStore = useUserStore();
+    const bugReportStore = useBugReportStore();
+    const router = useRouter();
+    const route = useRoute();
 
   const isAuthenticated = computed(() => userStore.isAuthenticated);
   const currentProject = computed(() => userStore.getCurrentProject);
@@ -150,6 +178,16 @@ setup() {
     } catch (error) {
       console.error('Error during sign out:', error.message);
       isLoggingOut.value = false;
+    }
+  };
+
+  // Bug report modal
+  const showBugReportModal = ref(false);
+  const handleBugReportSubmit = async (reportData) => {
+    try {
+      await bugReportStore.submitReport(reportData);
+    } catch (error) {
+      console.error('Error submitting bug report:', error);
     }
   };
 
@@ -209,6 +247,9 @@ setup() {
     goToProjectHome,
     goBack,
     isActiveRoute,
+
+    showBugReportModal,
+    handleBugReportSubmit,
   };
 },
 };
@@ -354,6 +395,32 @@ setup() {
   transform: scale(0.98);
 }
 
+/* Bug report button */
+.bug-report-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background-color: var(--color-primary-50);
+  color: var(--color-primary-600);
+  border: 1px solid var(--color-primary-200);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-size: var(--text-base);
+  min-height: 44px;
+}
+
+.bug-report-btn:hover {
+  background-color: var(--color-primary-100);
+  border-color: var(--color-primary-300);
+}
+
+.bug-report-btn:active {
+  transform: scale(0.98);
+}
+
 /* Sign out button */
 .sign-out-btn {
   display: flex;
@@ -492,6 +559,7 @@ setup() {
 
 /* Focus States for Accessibility */
 .back-btn:focus,
+.bug-report-btn:focus,
 .sign-out-btn:focus,
 .project-home-btn:focus,
 .nav-link:focus {
@@ -624,6 +692,7 @@ setup() {
   }
   
   .back-btn,
+  .bug-report-btn,
   .sign-out-btn,
   .nav-link,
   .status-indicator,
@@ -635,12 +704,14 @@ setup() {
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   .back-btn,
+  .bug-report-btn,
   .sign-out-btn,
   .project-home-btn {
     transition: none;
   }
   
   .back-btn:active,
+  .bug-report-btn:active,
   .sign-out-btn:active,
   .project-home-btn:active {
     transform: none;

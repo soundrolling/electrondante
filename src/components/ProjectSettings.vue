@@ -11,130 +11,181 @@
     </div>
   </div>
 
-  <!-- Invite / Add Section -->
-  <div v-if="canManageProject" class="card">
-    <h4>Invite or Add a User to This Project</h4>
-    <p>
-      Enter the user's email and select a role.
-      If they already have an account, they'll be added immediately;
-      otherwise we'll send them a "set password" invite.
-    </p>
-
-    <div class="invite-form">
-      <input
-        v-model="inviteEmail"
-        type="email"
-        placeholder="Enter user's email"
-      />
-      <select v-model="selectedRole">
-        <option value="viewer">Viewer</option>
-        <option value="contributor">Contributor</option>
-        <option value="admin">Admin</option>
-      </select>
-      <button
-        @click="inviteUserToProject"
-        class="invite-button"
-        :disabled="isInviting || !isInviteFormValid"
-      >
-        {{ isInviting ? 'Processing…' : 'Invite & Add User' }}
-      </button>
-    </div>
-
-    <hr />
-
-    <button
-      @click="showRoleDescriptions = !showRoleDescriptions"
-      class="toggle-btn"
+  <!-- Tab Navigation -->
+  <div class="tab-navigation">
+    <button 
+      @click="activeTab = 'members'"
+      :class="['tab-btn', { active: activeTab === 'members' }]"
     >
-      {{ showRoleDescriptions ? 'Hide Role Descriptions' : 'Show Role Descriptions' }}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      Members
     </button>
-    <div v-if="showRoleDescriptions" class="role-descriptions">
-      <h5>Role Descriptions</h5>
-      <ul>
-        <li><strong>Viewer:</strong> read-only access.</li>
-        <li><strong>Contributor:</strong> edit/delete own items.</li>
-        <li><strong>Admin:</strong> owner-like powers (no project deletion).</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- Members Table or Loading -->
-  <div v-if="loadingMembers" class="card">
-    Loading project members…
-  </div>
-  <div v-else-if="projectMembers.length" class="card">
-    <h4>Project Members</h4>
-    <p class="scroll-hint-text">Scroll horizontally →</p>
-    <div class="table-responsive">
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="m in projectMembers" :key="m.id">
-            <td>{{ m.user_email }}</td>
-            <td>{{ m.role }}</td>
-            <td>
-              <button
-                v-if="canManageProject && m.role !== 'owner'"
-                @click="removeMember(m.id)"
-                class="remove-btn"
-              >Remove</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <div v-else class="card">
-    <p>No members found. Invite users to get started.</p>
-  </div>
-
-  <div class="section-break"><hr/></div>
-
-  <!-- Project Details -->
-  <div class="card">
-    <h4>Project Details</h4>
-    <div v-if="projectDetails">
-      <p><strong>Sample Rate:</strong> {{ projectDetails.sample_rate }} Hz</p>
-      <p><strong>Bit Depth:</strong> {{ projectDetails.bit_depth }} bits</p>
-      <p><strong>Frame Rate:</strong> {{ projectDetails.frame_rate }} FPS</p>
-    </div>
-    <div v-else><p>No details yet. Click below to add.</p></div>
-    <button @click="showForm = !showForm" class="toggle-btn">
-      {{ showForm ? 'Hide Form' : 'Edit Project Details' }}
+    <button 
+      @click="activeTab = 'details'"
+      :class="['tab-btn', { active: activeTab === 'details' }]"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14,2 14,8 20,8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10,9 9,9 8,9"></polyline>
+      </svg>
+      Details
     </button>
-    <div v-if="showForm" class="form-container">
-      <label for="sampleRate">Sample Rate (Hz):</label>
-      <select v-model="sampleRate" id="sampleRate">
-        <option value="44100">44.1 kHz</option>
-        <option value="48000">48 kHz</option>
-        <option value="96000">96 kHz</option>
-      </select>
+    <button 
+      @click="activeTab = 'bug-reports'"
+      :class="['tab-btn', { active: activeTab === 'bug-reports' }]"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      Bug Reports
+    </button>
+  </div>
 
-      <label for="bitDepth">Bit Depth (bits):</label>
-      <select v-model="bitDepth" id="bitDepth">
-        <option value="16">16 bits</option>
-        <option value="24">24 bits</option>
-        <option value="32">32 bits</option>
-      </select>
+  <!-- Tab Content -->
+  <div class="tab-content">
+    <!-- Members Tab -->
+    <div v-if="activeTab === 'members'" class="tab-panel">
+      <!-- Invite / Add Section -->
+      <div v-if="canManageProject" class="card">
+        <h4>Invite or Add a User to This Project</h4>
+        <p>
+          Enter the user's email and select a role.
+          If they already have an account, they'll be added immediately;
+          otherwise we'll send them a "set password" invite.
+        </p>
 
-      <label for="frameRate">Frame Rate (FPS):</label>
-      <select v-model="frameRate" id="frameRate">
-        <option value="23.98">23.976 FPS</option>
-        <option value="24">24 FPS</option>
-        <option value="25">25 FPS</option>
-        <option value="30">30 FPS</option>
-        <option value="60">60 FPS</option>
-      </select>
+        <div class="invite-form">
+          <input
+            v-model="inviteEmail"
+            type="email"
+            placeholder="Enter user's email"
+          />
+          <select v-model="selectedRole">
+            <option value="viewer">Viewer</option>
+            <option value="contributor">Contributor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button
+            @click="inviteUserToProject"
+            class="invite-button"
+            :disabled="isInviting || !isInviteFormValid"
+          >
+            {{ isInviting ? 'Processing…' : 'Invite & Add User' }}
+          </button>
+        </div>
 
-      <button @click="saveProjectDetails" class="save-button">
-        Save Details
-      </button>
+        <hr />
+
+        <button
+          @click="showRoleDescriptions = !showRoleDescriptions"
+          class="toggle-btn"
+        >
+          {{ showRoleDescriptions ? 'Hide Role Descriptions' : 'Show Role Descriptions' }}
+        </button>
+        <div v-if="showRoleDescriptions" class="role-descriptions">
+          <h5>Role Descriptions</h5>
+          <ul>
+            <li><strong>Viewer:</strong> read-only access.</li>
+            <li><strong>Contributor:</strong> edit/delete own items.</li>
+            <li><strong>Admin:</strong> owner-like powers (no project deletion).</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Members Table or Loading -->
+      <div v-if="loadingMembers" class="card">
+        Loading project members…
+      </div>
+      <div v-else-if="projectMembers.length" class="card">
+        <h4>Project Members</h4>
+        <p class="scroll-hint-text">Scroll horizontally →</p>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in projectMembers" :key="m.id">
+                <td>{{ m.user_email }}</td>
+                <td>{{ m.role }}</td>
+                <td>
+                  <button
+                    v-if="canManageProject && m.role !== 'owner'"
+                    @click="removeMember(m.id)"
+                    class="remove-btn"
+                  >Remove</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-else class="card">
+        <p>No members found. Invite users to get started.</p>
+      </div>
+    </div>
+
+    <!-- Details Tab -->
+    <div v-if="activeTab === 'details'" class="tab-panel">
+      <div class="card">
+        <h4>Project Details</h4>
+        <div v-if="projectDetails">
+          <p><strong>Sample Rate:</strong> {{ projectDetails.sample_rate }} Hz</p>
+          <p><strong>Bit Depth:</strong> {{ projectDetails.bit_depth }} bits</p>
+          <p><strong>Frame Rate:</strong> {{ projectDetails.frame_rate }} FPS</p>
+        </div>
+        <div v-else><p>No details yet. Click below to add.</p></div>
+        <button @click="showForm = !showForm" class="toggle-btn">
+          {{ showForm ? 'Hide Form' : 'Edit Project Details' }}
+        </button>
+        <div v-if="showForm" class="form-container">
+          <label for="sampleRate">Sample Rate (Hz):</label>
+          <select v-model="sampleRate" id="sampleRate">
+            <option value="44100">44.1 kHz</option>
+            <option value="48000">48 kHz</option>
+            <option value="96000">96 kHz</option>
+          </select>
+
+          <label for="bitDepth">Bit Depth (bits):</label>
+          <select v-model="bitDepth" id="bitDepth">
+            <option value="16">16 bits</option>
+            <option value="24">24 bits</option>
+            <option value="32">32 bits</option>
+          </select>
+
+          <label for="frameRate">Frame Rate (FPS):</label>
+          <select v-model="frameRate" id="frameRate">
+            <option value="23.98">23.976 FPS</option>
+            <option value="24">24 FPS</option>
+            <option value="25">25 FPS</option>
+            <option value="30">30 FPS</option>
+            <option value="60">60 FPS</option>
+          </select>
+
+          <button @click="saveProjectDetails" class="save-button">
+            Save Details
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bug Reports Tab -->
+    <div v-if="activeTab === 'bug-reports'" class="tab-panel">
+      <BugReportList />
     </div>
   </div>
 </div>
@@ -146,13 +197,20 @@ import { useRoute } from 'vue-router'
 import { supabase, adminClient } from '../supabase'
 import { useUserStore } from '../stores/userStore'
 import { useToast } from 'vue-toastification'
+import BugReportList from './BugReportList.vue'
 
 export default {
-setup() {
-  const route = useRoute()
-  const userStore = useUserStore()
-  const currentProject = computed(() => userStore.getCurrentProject)
-  const toast = useToast()
+  components: {
+    BugReportList
+  },
+  setup() {
+    const route = useRoute()
+    const userStore = useUserStore()
+    const currentProject = computed(() => userStore.getCurrentProject)
+    const toast = useToast()
+
+    // Tab management
+    const activeTab = ref('members')
 
   const projectMembers = ref([])
   const loadingMembers = ref(false)
@@ -382,6 +440,7 @@ setup() {
   })
 
   return {
+    activeTab,
     currentProject,
     projectMembers,
     loadingMembers,
@@ -445,6 +504,62 @@ h5 {
   font-weight: 600;
 }
 .user-info p { margin: 5px 0; }
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-2);
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-size: var(--text-sm);
+  min-height: 44px;
+}
+
+.tab-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-200);
+}
+
+.tab-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.tab-content {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  min-height: 400px;
+}
+
+.tab-panel {
+  padding: var(--space-6);
+}
 
 .invite-form {
   display: flex;
@@ -616,6 +731,20 @@ tr:nth-child(even) td {
   h3 { font-size: 1.3rem; }
   h4 { font-size: 1.1rem; }
   th, td { padding: 7px 8px; }
+  
+  .tab-navigation {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  
+  .tab-btn {
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .tab-panel {
+    padding: var(--space-4);
+  }
 }
 @media (max-width:500px) {
   .invite-form {
