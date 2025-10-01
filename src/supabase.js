@@ -23,7 +23,7 @@ export const supabase = createClient(URL, ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false, // we handle URL tokens manually
-    storage: window.localStorage,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     flowType: 'pkce',
   },
   global: {

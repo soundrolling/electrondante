@@ -241,7 +241,7 @@ const editingId = ref(null);
 const draft = ref({ timestamp: '', recording_date: '', note: '' });
 const showForm = ref(false);
 const hasLoaded = ref(false);
-const isOnline = ref(navigator.onLine);
+const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
 const hasPendingSync = ref(false);
 const isSyncing = ref(false);
 const showInfo = ref(false);
