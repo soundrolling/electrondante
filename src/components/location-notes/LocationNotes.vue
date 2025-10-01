@@ -5,13 +5,9 @@
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- Single row layout with all elements -->
+    <!-- Clean single row layout -->
     <div class="single-row-header">
       <button class="btn btn-warning back" @click="goBack">← Back</button>
-      <button class="btn btn-primary project-home" @click="goToProjectHome">
-        <span class="home-icon">🏠</span>
-        Project Home
-      </button>
       <div class="stage-title">
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
@@ -238,24 +234,9 @@ gap: 16px;
 flex-wrap: wrap;
 }
 
-.btn.project-home {
-background: #2563eb;
-color: #ffffff;
-border: 0;
-border-radius: 6px;
-padding: 8px 12px;
-font-size: 0.8rem;
-font-weight: 600;
-flex-shrink: 0;
-display: flex;
-align-items: center;
-gap: 4px;
-white-space: nowrap;
-}
-
 .stage-title {
 flex: 1;
-min-width: 200px;
+min-width: 300px;
 text-align: center;
 }
 
@@ -271,9 +252,6 @@ flex-shrink: 0;
 white-space: nowrap;
 }
 
-.home-icon {
-font-size: 0.8rem;
-}
 
 .stage-title h2 {
 margin: 0 0 2px 0;
@@ -356,23 +334,18 @@ font-size: 0.7rem;
   align-self: flex-start;
 }
 
-.btn.project-home {
-  order: 3;
-  align-self: flex-start;
-}
-
 .timecode-display {
   align-items: flex-start;
-  order: 4;
+  order: 3;
 }
 
 .sync-status {
-  order: 5;
+  order: 4;
   align-self: flex-start;
 }
 
 .single-row-header .btn.mini.primary {
-  order: 6;
+  order: 5;
   align-self: flex-start;
 }
 
@@ -384,7 +357,6 @@ font-size: 0.7rem;
   font-size: 0.9rem;
 }
 
-.btn.project-home,
 .btn.back {
   font-size: 0.75rem;
   padding: 6px 10px;
