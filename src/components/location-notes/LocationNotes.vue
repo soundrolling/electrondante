@@ -5,19 +5,15 @@
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- Top Project Home button -->
-    <div class="top-project-home">
-      <button class="btn btn-primary project-home" @click="goToProjectHome">
-        <span class="home-icon">🏠</span>
-        Project Home
-      </button>
-    </div>
-
     <!-- Main content card -->
     <div class="main-content-card">
       <!-- Left side: Back button and sync status -->
       <div class="left-section">
         <button class="btn btn-warning back" @click="goBack">← Back</button>
+        <button class="btn btn-primary project-home" @click="goToProjectHome">
+          <span class="home-icon">🏠</span>
+          Project Home
+        </button>
         <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
           <span class="sync-dot">●</span>
           <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
@@ -237,15 +233,9 @@ min-height: 100vh;
 background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
-.top-project-home {
-display: flex;
-justify-content: center;
-margin: 16px 24px 8px 24px;
-}
-
 .main-content-card {
 background: rgba(255, 255, 255, 0.9);
-margin: 0 24px 16px 24px;
+margin: 16px 24px;
 padding: 20px;
 border-radius: 12px;
 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
@@ -370,12 +360,8 @@ font-size: 0.7rem;
 
 /* Responsive design */
 @media (max-width: 768px) {
-.top-project-home {
-  margin: 12px 16px 8px 16px;
-}
-
 .main-content-card {
-  margin: 0 16px 12px 16px;
+  margin: 12px 16px;
   padding: 16px;
   flex-direction: column;
   align-items: stretch;
@@ -387,6 +373,7 @@ font-size: 0.7rem;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .center-section {
