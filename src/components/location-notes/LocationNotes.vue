@@ -7,13 +7,13 @@
   <main v-if="location && !isLoading && !error">
     <!-- Unified compact section with all elements -->
     <div class="unified-header">
-      <!-- Row 1: Project Home, Back button, stage title, and timecode -->
+      <!-- Row 1: Back button, Project Home, stage title, and timecode -->
       <div class="unified-row-1">
+        <button class="btn btn-warning back" @click="goBack">← Back</button>
         <button class="btn btn-primary project-home" @click="goToProjectHome">
           <span class="home-icon">🏠</span>
           Project Home
         </button>
-        <button class="btn btn-warning back" @click="goBack">← Back</button>
         <div class="stage-title">
           <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
           <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
@@ -244,7 +244,7 @@ backdrop-filter: blur(10px);
 .unified-row-1 {
 display: flex;
 align-items: center;
-gap: 12px;
+gap: 16px;
 margin-bottom: 12px;
 }
 
@@ -278,8 +278,9 @@ font-size: 0.9rem;
 }
 
 .stage-title {
-flex: 1;
+flex: 0 1 auto;
 min-width: 0;
+max-width: 300px;
 }
 
 .stage-title h2 {
