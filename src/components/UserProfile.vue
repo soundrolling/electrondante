@@ -907,20 +907,20 @@ async function saveSecurity() {
 .form-textarea {
   width: 100%;
   padding: 0.6rem;
-  border: 1px solid var(--input-border);
+  border: 2px solid var(--border-medium) !important;
   border-radius: 0.4rem;
   font-size: 0.9rem;
   background: var(--input-bg);
-  color: var(--input-text);
-  box-shadow: none;
-  transition: border-color 0.2s;
+  color: #000000 !important;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
 }
 
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .form-input.readonly {
@@ -1024,11 +1024,11 @@ async function saveSecurity() {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 1px solid var(--border-medium);
+  border: 2px solid var(--border-medium) !important;
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--bg-primary);
-  color: var(--input-text);
+  color: #000000 !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
@@ -1049,12 +1049,12 @@ async function saveSecurity() {
 
 .filter-select {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-medium);
+  border: 2px solid var(--border-medium) !important;
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--bg-primary);
   min-width: 120px;
-  color: var(--input-text);
+  color: #000000 !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
@@ -1463,15 +1463,15 @@ async function saveSecurity() {
 .modal-form select {
   width: 100%;
   padding: 0.7rem 1rem;
-  border: 2px solid #2563eb !important;
+  border: 2px solid var(--border-medium) !important;
   border-radius: 0.5rem !important;
   font-size: 1.05rem;
   background: #fff !important;
-  color: #111 !important;
-  box-shadow: none !important;
+  color: #000000 !important;
+  box-shadow: var(--shadow-sm) !important;
   margin-top: 0.1rem;
   margin-bottom: 0.1rem;
-  transition: border-color 0.18s;
+  transition: all 0.18s;
 }
 
 .modal-form .form-input:focus,

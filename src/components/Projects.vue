@@ -996,14 +996,15 @@ setup() {
 .form-input {
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-light);
+  border: 2px solid var(--border-medium) !important;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: #000000 !important;
   transition: all var(--transition-normal);
   min-height: 44px;
   box-sizing: border-box;
+  box-shadow: var(--shadow-sm);
 }
 
 .form-input:focus {
@@ -1060,14 +1061,15 @@ setup() {
 .form-select {
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-light);
+  border: 2px solid var(--border-medium) !important;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: #000000 !important;
   min-height: 44px;
   appearance: none;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
 }
 
 .select-arrow {
@@ -1096,12 +1098,13 @@ setup() {
 .search-input {
   width: 100%;
   padding: var(--space-3) var(--space-4) var(--space-3) 48px;
-  border: 1px solid var(--border-light);
+  border: 2px solid var(--border-medium) !important;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: #000000 !important;
   min-height: 44px;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-input:focus {
