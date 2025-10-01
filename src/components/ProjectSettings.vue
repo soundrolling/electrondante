@@ -88,7 +88,7 @@
 
         <button
           @click="showRoleDescriptions = !showRoleDescriptions"
-          class="toggle-btn"
+          class="btn btn-warning toggle-btn"
         >
           {{ showRoleDescriptions ? 'Hide Role Descriptions' : 'Show Role Descriptions' }}
         </button>
@@ -126,7 +126,7 @@
                   <button
                     v-if="canManageProject && m.role !== 'owner'"
                     @click="removeMember(m.id)"
-                    class="remove-btn"
+                    class="btn btn-danger remove-btn"
                   >Remove</button>
                 </td>
               </tr>
@@ -176,7 +176,7 @@
             <option value="60">60 FPS</option>
           </select>
 
-          <button @click="saveProjectDetails" class="save-button">
+          <button @click="saveProjectDetails" class="btn btn-positive save-button">
             Save Details
           </button>
         </div>

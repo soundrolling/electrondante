@@ -3,7 +3,7 @@
 <div class="container">
   <!-- Breadcrumb Navigation -->
   <nav class="breadcrumb">
-    <button class="breadcrumb-item" @click="goBack">← Back to Locations</button>
+    <button class="btn btn-warning breadcrumb-item" @click="goBack">← Back to Locations</button>
     <span class="breadcrumb-separator">/</span>
     <span class="breadcrumb-text">Project Documents</span>
   </nav>
@@ -16,7 +16,7 @@
     </div>
     <div class="header-actions">
       <button 
-        class="btn btn-secondary" 
+        class="btn btn-warning" 
         @click="exportPdf"
         :disabled="!filteredDocs.length"
       >
@@ -94,7 +94,7 @@
       <!-- Upload Button -->
       <div class="selected-files-upload-btn">
         <button
-          class="btn btn-primary"
+          class="btn btn-positive"
           :disabled="isUploading || !selectedFiles.length"
           @click="uploadProjectDocs"
         >
@@ -164,14 +164,14 @@
               <div class="doc-actions">
                 <button 
                   @click="viewDoc(doc)" 
-                  class="action-btn view-btn"
+                  class="btn btn-primary action-btn view-btn"
                   title="View document"
                 >
                   👁
                 </button>
                 <button 
                   @click="downloadDoc(doc)" 
-                  class="action-btn download-btn"
+                  class="btn btn-positive action-btn download-btn"
                   title="Download document"
                 >
                   📥
@@ -217,8 +217,8 @@
           </div>
         </div>
         <div class="preview-modal-footer">
-          <button class="btn btn-primary" @click="printPreview">Print</button>
-          <button class="btn btn-secondary" @click="closePreviewModal">Close</button>
+          <button class="btn btn-positive" @click="printPreview">Print</button>
+          <button class="btn btn-warning" @click="closePreviewModal">Close</button>
         </div>
       </div>
     </div>

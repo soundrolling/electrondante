@@ -3,7 +3,7 @@
   <!-- TOP BAR -->
   <header class="page-header">
     <div class="header-content">
-      <button class="back-btn" @click="goBack">
+      <button class="btn btn-warning back-btn" @click="goBack">
         <span class="btn-icon">←</span>
         <span class="btn-text">Back</span>
       </button>
@@ -117,7 +117,7 @@
         </div>
 
         <div class="gear-actions">
-          <button class="btn btn-info" @click="openGearInfoModal(gear)" title="Info">
+          <button class="btn btn-primary" @click="openGearInfoModal(gear)" title="Info">
             <span class="btn-icon">ℹ️</span>
             <span class="btn-text">Info</span>
           </button>

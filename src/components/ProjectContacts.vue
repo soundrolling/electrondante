@@ -61,7 +61,7 @@
         <div class="contact-count">
           {{ filteredContacts.length }} contact{{ filteredContacts.length !== 1 ? 's' : '' }}
         </div>
-        <button @click="toggleAddContact" class="add-contact-square" title="Add Contact">
+        <button @click="toggleAddContact" class="btn btn-positive add-contact-square" title="Add Contact">
           <svg class="add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"/>
           </svg>
@@ -92,7 +92,7 @@
         </div>
         <h3>No contacts found</h3>
         <p>{{ roleFilter === 'All' ? 'Add your first contact to get started.' : `No contacts found for ${roleFilter} role.` }}</p>
-        <button @click="toggleAddContact" class="empty-state-btn">
+        <button @click="toggleAddContact" class="btn btn-positive empty-state-btn">
           Add Your First Contact
         </button>
       </div>
@@ -115,7 +115,7 @@
           <div class="contact-actions-group" style="display:flex;align-items:center;gap:4px;margin-left:auto;">
             <button
               v-if="canManageProject"
-              class="action-btn edit-btn"
+              class="btn btn-warning action-btn edit-btn"
               @click="startEdit(contact)"
               title="Edit or delete contact"
             >
@@ -125,7 +125,7 @@
               </svg>
             </button>
             <button
-              class="action-btn view-btn"
+              class="btn btn-primary action-btn view-btn"
               @click="openContactInfo(contact)"
               title="View contact details"
             >
@@ -212,7 +212,7 @@
 
       <div class="modal-footer">
         <button
-          class="btn btn-primary"
+          class="btn btn-positive"
           @click="saveContact"
           :disabled="saving"
         >
@@ -224,7 +224,7 @@
           </svg>
           {{ saving ? 'Saving...' : 'Save Changes' }}
         </button>
-        <button class="btn btn-secondary" @click="closeEditModal">Cancel</button>
+        <button class="btn btn-warning" @click="closeEditModal">Cancel</button>
       </div>
     </div>
   </div>
@@ -345,7 +345,7 @@
 
       <div class="modal-footer">
         <button
-          class="btn btn-primary"
+          class="btn btn-positive"
           @click="addContact"
           :disabled="addingContact"
         >
@@ -357,7 +357,7 @@
           </svg>
           {{ addingContact ? 'Adding...' : 'Add Contact' }}
         </button>
-        <button class="btn btn-secondary" @click="toggleAddContact">Cancel</button>
+        <button class="btn btn-warning" @click="toggleAddContact">Cancel</button>
       </div>
     </div>
   </div>
@@ -414,7 +414,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" @click="closeContactInfo">Close</button>
+        <button class="btn btn-warning" @click="closeContactInfo">Close</button>
       </div>
     </div>
   </div>
