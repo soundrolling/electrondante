@@ -6,23 +6,26 @@
     <button class="btn btn-warning back" @click="goBack">← Back</button>
   </header>
 
-  <!-- stage header -->
-  <section v-if="location" class="stage-card">
-    <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
-    <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
-  </section>
-
   <div v-if="isLoading" class="load">Loading…</div>
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- sticky live-timecode strip -->
-    <div class="timecode-strip">
-      <div class="tc-wrap">
-        <strong class="tc">{{ liveTimecode }}</strong>
-        <small class="tc-label">{{ currentTimeSourceLabel }}</small>
+    <!-- Combined stage header and timecode strip -->
+    <div class="combined-header">
+      <!-- Row 1: Stage info and timecode -->
+      <div class="header-row-1">
+        <div class="stage-info">
+          <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
+          <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
+        </div>
+        <div class="timecode-info">
+          <strong class="tc">{{ liveTimecode }}</strong>
+          <small class="tc-label">{{ currentTimeSourceLabel }}</small>
+        </div>
       </div>
-      <div class="tc-actions">
+      
+      <!-- Row 2: Sync status and actions -->
+      <div class="header-row-2">
         <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
           <span class="sync-dot">●</span>
           <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
@@ -245,19 +248,89 @@ border-radius: 8px;
 padding: 6px 12px;
 font-size: 0.9rem;
 }
-.stage-card {
+.combined-header {
 background: rgba(255, 255, 255, 0.9);
 margin: 24px;
-padding: 32px;
+padding: 24px;
 border-radius: 16px;
 box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
 }
+
+.header-row-1 {
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+margin-bottom: 16px;
+gap: 20px;
+}
+
+.stage-info {
+flex: 1;
+}
+
+.stage-info h2 {
+margin: 0 0 4px 0;
+font-size: 1.5rem;
+font-weight: 700;
+color: #1e293b;
+}
+
 .subtitle {
 color: #6c7a92;
 font-size: 0.9rem;
-margin-top: 4px;
+margin: 0;
+}
+
+.timecode-info {
+display: flex;
+flex-direction: column;
+align-items: flex-end;
+gap: 2px;
+}
+
+.tc {
+font-family: monospace;
+font-size: 1.4rem;
+font-weight: 700;
+color: #1e293b;
+}
+
+.tc-label {
+font-size: 0.75rem;
+color: #6c7a92;
+}
+
+.header-row-2 {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 16px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+.header-row-1 {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.timecode-info {
+  align-items: flex-start;
+}
+
+.header-row-2 {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.combined-header {
+  margin: 16px;
+  padding: 20px;
+}
 }
 .load {
 padding: 40px;
@@ -270,37 +343,6 @@ background: #ffe8e8;
 color: #d92d20;
 border-left: 4px solid #d92d20;
 border-radius: 8px;
-}
-.timecode-strip {
-position: sticky;
-top: 80px;
-z-index: 25;
-background: rgba(255, 255, 255, 0.95);
-display: flex;
-align-items: center;
-justify-content: space-between;
-padding: 20px 24px;
-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-backdrop-filter: blur(20px);
-border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-.tc-wrap {
-display: flex;
-flex-direction: column;
-gap: 2px;
-}
-.tc {
-font-family: monospace;
-font-size: 1.4rem;
-}
-.tc-label {
-font-size: 0.75rem;
-color: #6c7a92;
-}
-.tc-actions {
-display: flex;
-gap: 8px;
-align-items: center;
 }
 .sync-status {
 display: flex;
@@ -336,7 +378,7 @@ display: flex;
 background: rgba(255, 255, 255, 0.95);
 border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 position: sticky;
-top: 140px;
+top: 80px;
 z-index: 20;
 backdrop-filter: blur(20px);
 box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
