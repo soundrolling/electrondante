@@ -11,7 +11,7 @@
       
       <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.50">
         <span class="version-text">v21.50</span>
-        <span class="version-date">July 8th</span>
+        <span class="version-date">December 19th</span>
       </button>
     </div>
 
