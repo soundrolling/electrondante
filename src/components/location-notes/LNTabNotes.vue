@@ -1038,6 +1038,13 @@ opacity: 0.6;
     min-width: 0;
   }
 }
+@media (max-width: 768px) {
+  .notes-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 600px) {
   .filter-bar-compact {
     flex-direction: column;
@@ -1055,12 +1062,16 @@ opacity: 0.6;
   .notes-pane {
     padding: 16px;
   }
+  .notes-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 /* Spreadsheet-like table view */
 .notes-table-wrapper {
-  width: 100%;
-  max-width: 100%;
+  width: 50%;
+  max-width: 50%;
   overflow-x: auto;
   margin-bottom: 32px;
   background: rgba(255, 255, 255, 0.95);
