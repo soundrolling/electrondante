@@ -74,9 +74,9 @@
     <table class="notes-table">
       <thead>
         <tr>
-          <th style="width: 110px;">Time / Date</th>
-          <th>Note</th>
-          <th style="width: 90px;">Actions</th>
+          <th style="width: 120px;">Time / Date</th>
+          <th style="width: 1fr;">Note</th>
+          <th style="width: 100px;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -848,11 +848,11 @@ animation: pulse 2s infinite;
 
 .notes-pane {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  padding: 32px;
+  padding: 24px;
   border-radius: 16px;
   color: #1e293b;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -966,12 +966,12 @@ opacity: 0.6;
 
 .filter-bar-compact {
   display: flex;
-  max-width: 900px;
-  margin: 0 auto 24px auto;
-  gap: 40px;
+  max-width: 800px;
+  margin: 0 auto 20px auto;
+  gap: 32px;
   align-items: flex-end;
   justify-content: flex-start;
-  padding: 24px;
+  padding: 20px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 16px;
@@ -1076,11 +1076,12 @@ opacity: 0.6;
   min-width: 0;
   background: #fff;
   border-radius: 8px;
-  font-size: 0.97rem;
+  font-size: 0.95rem;
   table-layout: fixed;
+  max-width: 100%;
 }
 .notes-table th, .notes-table td {
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-bottom: 2px solid #e5e7eb;
   text-align: left;
   vertical-align: top;
@@ -1113,42 +1114,45 @@ opacity: 0.6;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 0.97rem;
-  min-width: 80px;
+  font-size: 0.9rem;
+  min-width: 100px;
+  max-width: 120px;
 }
 .note-time {
   font-weight: 600;
-  color: #4a6cf7;
-  font-size: 0.97rem;
+  color: #3b82f6;
+  font-size: 0.9rem;
 }
 .note-date {
-  font-size: 0.92rem;
-  color: #6c7a92;
+  font-size: 0.8rem;
+  color: #64748b;
 }
 .note-text {
   white-space: pre-line;
   word-break: break-word;
-  max-width: 320px;
-  font-size: 0.97rem;
+  max-width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 .note-actions {
   display: flex;
-  gap: 4px;
-  min-width: 70px;
-  justify-content: flex-start;
+  gap: 6px;
+  min-width: 80px;
+  max-width: 100px;
+  justify-content: center;
 }
 .icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 2px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 14px;
-  margin: 0 2px;
+  font-size: 12px;
+  margin: 0 1px;
 }
 .icon-btn:hover {
   transform: translateY(-1px);
