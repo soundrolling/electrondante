@@ -302,6 +302,26 @@ transition: background .2s;
 .mini.primary:hover:not(:disabled) {
 background: #047857;
 }
+
+/* High-contrast base button classes for consistency within location-notes */
+.btn.btn-positive {
+  background-color: #047857 !important;
+  color: #ffffff !important;
+  border: 2px solid #065f46 !important;
+  font-weight: 700;
+}
+.btn.btn-warning {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  border: 2px solid #b45309 !important;
+  font-weight: 700;
+}
+.btn.btn-danger {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border: 2px solid #b91c1c !important;
+  font-weight: 700;
+}
 /* modal */
 .modal-overlay {
 position: fixed;

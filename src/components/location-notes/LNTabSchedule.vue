@@ -528,6 +528,25 @@ transition: background .2s;
 background: #047857;
 }
 
+/* High-contrast positive and warning button treatments across schedule UI */
+.btn.btn-positive {
+  background-color: #047857 !important;
+  color: #ffffff !important;
+  border: 2px solid #065f46 !important;
+  font-weight: 700;
+}
+.btn.btn-positive:hover { background-color: #065f46 !important; }
+.btn.btn-positive:focus { outline: 3px solid rgba(4,120,87,.35); outline-offset: 2px; }
+
+.btn.btn-warning {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  border: 2px solid #b45309 !important;
+  font-weight: 700;
+}
+.btn.btn-warning:hover { background-color: #b45309 !important; }
+.btn.btn-warning:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
+
 /* date nav */
 .nav-btn {
 width: 32px; height: 32px;

@@ -399,9 +399,11 @@ font-size: 0.8rem;
 padding: 4px 8px;
 }
 .btn.mini.primary {
-background: #059669;
-color: #ffffff;
-border-radius: 6px;
+  background: #047857;
+  color: #ffffff;
+  border-radius: 6px;
+  border: 2px solid #065f46;
+  font-weight: 700;
 }
 .tabs {
 display: flex;
