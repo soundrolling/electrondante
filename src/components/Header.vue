@@ -38,6 +38,17 @@
           </svg>
           <span class="btn-text">Back</span>
         </button>
+        <!-- Home Button (mobile) -->
+        <button
+          @click="goHome"
+          class="btn home-btn light-btn"
+          title="Home"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7"/>
+            <path d="M9 22V12h6v10"/>
+          </svg>
+        </button>
         
         <!-- Online/Offline Status -->
         <div :class="['status-indicator', onlineStatusClass]">
@@ -82,18 +93,6 @@
 
       <!-- Right side: User actions -->
       <div class="header-right">
-        <!-- Mobile menu button (right side, visible on small screens) -->
-        <button
-          class="btn mobile-menu-btn-right light-btn"
-          @click="showMobileMenu = true"
-          aria-label="Open menu"
-        >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </button>
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
@@ -273,6 +272,18 @@ export default {
     }
   };
 
+  const goHome = () => {
+    if (isAuthenticated.value) {
+      if (currentProject.value?.id) {
+        router.push({ name: 'ProjectDetail', params: { id: currentProject.value.id } });
+      } else {
+        router.push('/projects');
+      }
+    } else {
+      router.push('/');
+    }
+  };
+
   // For highlighting links
   const isActiveRoute = (path) => route.path.startsWith(path);
 
@@ -324,6 +335,7 @@ export default {
     isLoggingOut,
     handleSignOut,
     goToProjectHome,
+    goHome,
     goBack,
     isActiveRoute,
 
@@ -819,13 +831,12 @@ export default {
   .sync-indicator,
   .bug-report-btn,
   .sign-out-btn { display: none; }
-  .mobile-menu-btn, .mobile-menu-btn-right { display: inline-flex; }
+  .mobile-menu-btn { display: inline-flex; }
 }
 
 /* Mobile menu sheet */
 @media (min-width: 769px) {
   .mobile-menu-btn { display: none; }
-  .mobile-menu-btn-right { display: none; }
 }
 .mobile-menu-backdrop {
   position: fixed;
