@@ -697,7 +697,7 @@ onMounted(() => {
 }
 
 /* Mobile layout: condense into bar and hide grid */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .footer-columns { display: none; }
   .footer-mobile-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
   .mobile-footer-menu { display: inline-flex; }

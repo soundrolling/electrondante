@@ -761,7 +761,7 @@ export default {
 }
 
 /* Mobile-specific adjustments */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .btn-text,
   .nav-text,
   .home-text { display: none; }
