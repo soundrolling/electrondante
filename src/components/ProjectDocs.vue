@@ -4,7 +4,7 @@
   
 
   <!-- Header Section -->
-  <header class="header-section">
+  <header class="header-section ui-page-header">
     <div class="header-content">
       <h1 class="header-title">All Documents</h1>
       <p class="header-subtitle">Project: {{ projectName }}</p>
@@ -101,7 +101,7 @@
 
   <!-- Search & Stage Filter Section -->
   <section v-if="!isLoading" class="search-filter-section">
-    <div class="filter-container">
+    <div class="filter-container ui-filter-bar">
       <div class="stage-filter">
         <label for="stageSelect" class="filter-label">Filter by Stage:</label>
         <select id="stageSelect" v-model="selectedStageId" class="select-stage">

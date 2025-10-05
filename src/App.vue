@@ -70,7 +70,7 @@ setup() {
   const currentTimeSourceLabel = computed(() => userStore.getCurrentTimeSourceLabel)
 
   const isHiddenRoute = computed(() => {
-    const hidden = ['/', '/auth/reset-password', '/auth/set-password']
+    const hidden = ['/', '/login', '/auth/reset-password', '/auth/set-password']
     return hidden.includes(route.path)
   })
 

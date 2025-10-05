@@ -2,7 +2,7 @@
 <template>
 <div class="container">
   <!-- Project Header & User Info -->
-  <div class="card">
+  <div class="card ui-page-header">
     <h3>Project Settings for {{ currentProject?.project_name || 'Loading…' }}</h3>
     <div class="user-info">
       <p><strong>Logged in as:</strong> {{ currentUserEmail }}</p>

@@ -41,14 +41,14 @@ data() {
   background: #f9fafb;
   box-shadow: 0 2px 8px rgba(0,0,0,0.03);
   border-radius: 8px 8px 0 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   padding-left: 2px;
 }
 .view-button {
   background: none;
   border: none;
   border-bottom: 2.5px solid transparent;
-  padding: 0.8rem 2.1rem 0.7rem 2.1rem;
+  padding: 0.72rem 1.6rem 0.64rem 1.6rem;
   font-size: 1.09rem;
   font-weight: 500;
   color: #333;
@@ -74,8 +74,12 @@ data() {
 }
 @media (max-width: 600px) {
   .view-button {
-    padding: 0.7rem 0.7rem 0.6rem 0.7rem;
-    font-size: 0.98rem;
+    padding: 0.6rem 0.7rem 0.55rem 0.7rem;
+    font-size: 0.95rem;
+  }
+  .view-controls {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 </style> 

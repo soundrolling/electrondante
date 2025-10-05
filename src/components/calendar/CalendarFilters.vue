@@ -105,7 +105,8 @@ watch: {
 .filters-bar {
 display: flex;
 flex-wrap: wrap;
-gap: 1rem;
+align-items: center;
+gap: 0.6rem 1rem;
 }
 .filter-group {
 display: flex;
@@ -118,9 +119,31 @@ color: #555;
 }
 .filters-bar input,
 .filters-bar select {
-padding: 0.4rem;
+padding: 0.45rem 0.55rem;
 border: 1px solid #ccd0d5;
-border-radius: 4px;
+border-radius: 6px;
 font-size: 0.95rem;
+background: #fff;
+}
+@media (min-width: 700px) {
+  /* On wider screens, align label/field inline for compactness */
+  .filter-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .filter-group label {
+    margin: 0;
+    white-space: nowrap;
+  }
+}
+@media (max-width: 600px) {
+  .filters-bar {
+    width: 100%;
+  }
+  .filters-bar select,
+  .filters-bar input {
+    width: 100%;
+  }
 }
 </style> 

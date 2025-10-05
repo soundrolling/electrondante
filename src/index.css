@@ -493,6 +493,18 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+/* Light pill-style button used in header; make it global so footer can match */
+.btn-light {
+  background-color: #e0f2fe; /* sky-100 */
+  color: #0c4a6e !important; /* cyan-900 */
+  border: 1px solid #7dd3fc; /* sky-300 */
+}
+.btn-light:hover {
+  background-color: #bae6fd; /* sky-200 */
+  color: #0c4a6e !important;
+  border-color: #38bdf8; /* sky-400 */
+}
+
 /* Form Elements */
 .form-input {
   width: 100%;
@@ -695,4 +707,27 @@ select:focus {
   color: #ffffff !important;
   border: 2px solid #b45309 !important;
   font-weight: 700;
+}
+
+/* === Shared layout utilities for standardized headers/filters === */
+.ui-page-header {
+  padding: 12px 16px !important;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.ui-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+.ui-right { margin-left: auto; }
+
+@media (max-width: 768px) {
+  .ui-filter-bar { padding: 12px 16px; gap: 10px; }
+  .ui-page-header { padding: 12px 14px; }
 }

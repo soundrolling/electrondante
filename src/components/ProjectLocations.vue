@@ -1175,8 +1175,8 @@ setup() {
 
 /* Page Header */
 .page-header {
-  margin-bottom: 24px;
-  padding: 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px; /* align with standardized header density */
   background: #f8f9fa;
   border-radius: 12px;
   border: 1px solid #e9ecef;

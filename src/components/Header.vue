@@ -13,6 +13,18 @@
     <div class="header-content">
       <!-- Left side: Back button and Status -->
       <div class="header-left">
+        <!-- Mobile menu button -->
+        <button
+          class="btn mobile-menu-btn light-btn"
+          @click="showMobileMenu = true"
+          aria-label="Open menu"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <!-- Back Button -->
         <button
           v-if="showBackButton"
@@ -110,6 +122,41 @@
     @close="showBugReportModal = false"
     @submit="handleBugReportSubmit"
   />
+
+  <!-- Mobile Menu Sheet -->
+  <div v-if="showMobileMenu" class="mobile-menu-backdrop" @click.self="showMobileMenu = false">
+    <div class="mobile-menu-sheet" role="dialog" aria-modal="true">
+      <div class="mobile-menu-header">
+        <span class="menu-title">Menu</span>
+        <button class="btn close-btn" @click="showMobileMenu = false" aria-label="Close menu">
+          ✕
+        </button>
+      </div>
+      <div class="menu-section">
+        <div :class="['status-indicator', onlineStatusClass]">
+          <div class="status-dot"></div>
+          <span class="status-text">{{ onlineStatusText }}</span>
+        </div>
+        <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
+          <div class="sync-dot"></div>
+          <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+        </div>
+      </div>
+      <div class="menu-section">
+        <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="nav-link light-btn" @click="showMobileMenu = false">All Projects</router-link>
+        <router-link
+          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !routeMeta.hideHeaderProjectHome"
+          :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
+          class="nav-link light-btn"
+          @click="showMobileMenu = false"
+        >Project Home</router-link>
+      </div>
+      <div class="menu-section actions">
+        <button v-if="isAuthenticated" class="btn btn-positive" @click="showBugReportModal = true; showMobileMenu = false">Report</button>
+        <button v-if="isAuthenticated" class="btn btn-danger" @click="handleSignOut">Sign Out</button>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -181,6 +228,8 @@ export default {
 
   // Bug report modal
   const showBugReportModal = ref(false);
+  // Mobile menu state
+  const showMobileMenu = ref(false);
   const handleBugReportSubmit = async (reportData) => {
     try {
       await bugReportStore.submitReport(reportData);
@@ -268,6 +317,7 @@ export default {
 
     showBugReportModal,
     handleBugReportSubmit,
+    showMobileMenu,
   };
 },
 };
@@ -714,9 +764,7 @@ export default {
 @media (max-width: 600px) {
   .btn-text,
   .nav-text,
-  .home-text {
-    display: none;
-  }
+  .home-text { display: none; }
 
   .header-content {
     padding: var(--space-3) var(--space-4);
@@ -752,6 +800,47 @@ export default {
     padding: var(--space-2);
     min-height: 44px;
   }
+
+  /* Hide crowded items and show menu button on mobile */
+  .navigation,
+  .status-indicator,
+  .sync-indicator,
+  .bug-report-btn,
+  .sign-out-btn { display: none; }
+  .mobile-menu-btn { display: inline-flex; }
+}
+
+/* Mobile menu sheet */
+.mobile-menu-btn { display: none; }
+.mobile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: var(--z-modal);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.mobile-menu-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-primary);
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: var(--space-4);
+}
+.mobile-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.menu-title { font-weight: var(--font-semibold); }
+.close-btn { background: var(--bg-secondary); }
+.menu-section { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.menu-section.actions { justify-content: flex-end; }
 }
 
 /* High Contrast Mode Support */

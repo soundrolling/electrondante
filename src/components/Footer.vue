@@ -2,6 +2,21 @@
 <footer v-if="!isHiddenRoute" class="footer">
   <div class="container">
     <div class="footer-columns">
+      <!-- Mobile: condensed header with menu button -->
+      <div class="footer-mobile-bar">
+        <button class="btn mobile-footer-menu btn-light" @click="showMobileFooter = true" aria-label="Open footer menu">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+          <span class="btn-text">Menu</span>
+        </button>
+        <div class="timecode-display compact">
+          <p class="timecode">{{ liveTimecode }}</p>
+          <p class="time-source">{{ currentTimeSourceLabel }}</p>
+        </div>
+      </div>
       <!-- Top row: Combined Timecode and Time Source Selector -->
       <div class="footer-card timecode-timesource-card">
         <div class="timecode-timesource-flex">
@@ -95,6 +110,74 @@
   <div class="footer-bottom">
     <p class="copyright-text">&copy; {{ currentYear }} Soundrolling Notes</p>
   </div>
+  <!-- Mobile Footer Sheet -->
+  <div v-if="showMobileFooter" class="mobile-menu-backdrop" @click.self="showMobileFooter = false">
+    <div class="mobile-menu-sheet" role="dialog" aria-modal="true">
+      <div class="mobile-menu-header">
+        <span class="menu-title">Footer</span>
+        <button class="btn close-btn" @click="showMobileFooter = false" aria-label="Close menu">✕</button>
+      </div>
+      <div class="menu-section">
+        <div class="footer-card timecode-timesource-card">
+          <div class="timecode-timesource-flex">
+            <div class="timecode-section">
+              <h3 class="card-title">Timecode</h3>
+              <div class="timecode-display">
+                <p class="timecode">{{ liveTimecode }}</p>
+                <p class="time-source">{{ currentTimeSourceLabel }}</p>
+              </div>
+            </div>
+            <div class="timesource-section">
+              <h3 class="card-title">Select Time Source:</h3>
+              <TimeSourceSelector />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="menu-section">
+        <div class="footer-card session-card">
+          <h3 class="card-title">Session</h3>
+          <div class="compact-user-info">
+            <span v-if="userEmail" class="user-email">
+              {{ userEmail }} <span v-if="isAdmin" class="admin-badge">A</span>
+            </span>
+            <span v-else class="guest-text">Guest</span>
+          </div>
+          <button v-if="userEmail" @click="emitSignOut; showMobileFooter = false" class="btn btn-danger secondary-btn">Sign Out</button>
+        </div>
+      </div>
+      <div class="menu-section">
+        <div class="footer-card storage-app-card">
+          <h3 class="card-title">Storage</h3>
+          <div class="storage-display">
+            <div class="usage-details">
+              <span class="usage-text">{{ localStorageUsage.used }} / {{ localStorageUsage.max }} KB</span>
+              <span class="usage-indicator" :class="{ 'high-usage': usagePercentage > 80 }">{{ Math.round(usagePercentage) }}%</span>
+            </div>
+            <div class="usage-bar">
+              <div class="usage-fill" :style="usageFillStyle" :class="{ 'high-usage': usagePercentage > 80 }"></div>
+            </div>
+            <div class="storage-actions">
+              <button @click="confirmAndClearCache; showMobileFooter = false" class="btn btn-warning warning-btn">Clear Cache</button>
+            </div>
+          </div>
+          <div class="section-divider"></div>
+          <h3 class="card-title">App</h3>
+          <div v-if="isPWAInstalled" class="app-status">
+            <p class="app-status-text">App is installed on your device.</p>
+            <button v-if="hasUpdateAvailable" @click="updatePWA" class="btn btn-positive update-btn">Update Available</button>
+          </div>
+          <div v-else class="app-install">
+            <button v-if="canInstallPWA" @click="installPWA" class="btn btn-primary install-btn">Install App</button>
+            <div v-else class="install-info">
+              <span class="install-unavailable">Install prompt unavailable</span>
+              <p class="install-hint">Use your browser's menu to install this app</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </footer>
 </template>
 
@@ -119,7 +202,7 @@ const emit = defineEmits(['clearCache', 'signOut']);
 
 // Hide the footer on specific routes
 const route = useRoute();
-const HIDDEN_ROUTES = ['/', '/auth/reset-password', '/auth/set-password'];
+const HIDDEN_ROUTES = ['/', '/login', '/auth/reset-password', '/auth/set-password'];
 const isHiddenRoute = computed(() => HIDDEN_ROUTES.includes(route.path));
 
 // Usage percentage for local storage
@@ -141,6 +224,9 @@ const isPWAInstalled = ref(false);
 const canInstallPWA = ref(false);
 const hasUpdateAvailable = ref(false);
 const isOnline = ref(navigator.onLine);
+
+// Mobile footer state
+const showMobileFooter = ref(false);
 
 // PWA methods
 const installPWA = async () => {
@@ -609,4 +695,27 @@ onMounted(() => {
     transition: none;
   }
 }
+
+/* Mobile layout: condense into bar and hide grid */
+@media (max-width: 600px) {
+  .footer-columns { display: none; }
+  .footer-mobile-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+  .mobile-footer-menu { display: inline-flex; }
+  .timecode-display.compact { margin: 0; border: 1px solid var(--border-light); background: var(--bg-secondary); border-radius: var(--radius-md); padding: var(--space-1) var(--space-2); }
+}
+
+/* Shared mobile menu styles (match header) */
+.mobile-menu-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: var(--z-modal);
+  display: flex; justify-content: center; align-items: flex-end;
+}
+.mobile-menu-sheet {
+  width: 100%; max-width: 640px; background: var(--bg-primary);
+  border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl); padding: var(--space-4);
+}
+.mobile-menu-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.menu-title { font-weight: var(--font-semibold); }
+.close-btn { background: var(--bg-secondary); }
+.menu-section { margin-bottom: var(--space-3); }
 </style>

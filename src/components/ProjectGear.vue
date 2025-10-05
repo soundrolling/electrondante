@@ -2,7 +2,7 @@
 <div class="project-gear">
   
   <!-- TOP BAR -->
-  <header class="page-header">
+  <header class="page-header ui-page-header">
     <div class="header-content">
       <button class="btn btn-warning back-btn" @click="goBack">
         <span class="btn-icon">←</span>
@@ -15,7 +15,7 @@
 
   <!-- FILTER -->
   <section class="filter-section">
-    <div class="filter-container">
+    <div class="filter-container ui-filter-bar">
       <label for="filterAssignment" class="filter-label">Filter Gear:</label>
       <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
         <option value="all">All Gear</option>

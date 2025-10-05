@@ -20,7 +20,7 @@
   <!-- Project Content -->
   <div v-else-if="currentProject" class="project-content">
     <!-- Compact Header with Timeline -->
-    <section class="compact-header">
+    <section class="compact-header ui-page-header">
       <div class="header-main">
         <h1 class="project-title">{{ currentProject.project_name }}</h1>
         <div class="project-meta">

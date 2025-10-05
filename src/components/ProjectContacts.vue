@@ -879,20 +879,20 @@ overflow: hidden;
 
 /* Filter Section */
 .filter-section {
-display: flex;
-flex-wrap: wrap;
-align-items: center;
-justify-content: space-between;
-gap: 1rem;
-padding: 24px 32px;
-background: #f9fafb;
-border-bottom: 1px solid #e5e7eb;
+ display: flex;
+ flex-wrap: wrap;
+ align-items: center;
+ justify-content: space-between;
+ gap: 0.6rem 1rem;
+ padding: 12px 16px; /* tighter like calendar header */
+ background: #f9fafb;
+ border-bottom: 1px solid #e5e7eb;
 }
 
 .filter-controls {
-display: flex;
-align-items: center;
-gap: 24px;
+ display: flex;
+ align-items: center;
+ gap: 14px;
 }
 
 .search-control {
@@ -917,14 +917,14 @@ pointer-events: none;
 }
 
 .search-input {
-width: 240px;
-padding: 10px 12px 10px 40px;
-border: 1px solid #d1d5db;
-border-radius: 8px;
-background: #fff;
-font-size: 0.95rem;
-color: #374151;
-transition: all 0.2s ease;
+ width: 260px;
+ padding: 9px 10px 9px 38px;
+ border: 1px solid #d1d5db;
+ border-radius: 8px;
+ background: #fff;
+ font-size: 0.95rem;
+ color: #374151;
+ transition: all 0.2s ease;
 }
 
 .search-input:focus {
@@ -957,14 +957,14 @@ font-size: 0.9rem;
 }
 
 .filter-select {
-min-width: 160px;
-padding: 10px 12px;
-border: 1px solid #d1d5db;
-border-radius: 8px;
-background: #fff;
-font-size: 0.95rem;
-color: #374151;
-transition: all 0.2s ease;
+ min-width: 160px;
+ padding: 9px 10px;
+ border: 1px solid #d1d5db;
+ border-radius: 8px;
+ background: #fff;
+ font-size: 0.95rem;
+ color: #374151;
+ transition: all 0.2s ease;
 }
 
 .filter-select:focus {
@@ -1384,16 +1384,17 @@ color: currentColor;
   width: 100%;
 }
 
-.filter-section {
-  padding: 20px 24px;
-  flex-direction: column;
-  align-items: stretch;
-}
+  .filter-section {
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
 
 .filter-controls {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
 }
 
 .search-control,
@@ -1407,9 +1408,9 @@ color: currentColor;
   width: 100%;
 }
 
-.contacts-section {
-  padding: 24px;
-}
+  .contacts-section {
+    padding: 16px;
+  }
 
 .contacts-list-container {
   max-width: 98vw;

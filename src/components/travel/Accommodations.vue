@@ -1,7 +1,7 @@
 <template>
 <div class="accommodations">
   <!-- Header Section -->
-  <div class="header-section">
+  <div class="header-section ui-page-header">
     <h1>Accommodations</h1>
     <p>Manage your hotel and lodging information</p>
     <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
@@ -11,7 +11,7 @@
   </div>
 
   <!-- Trip Selector -->
-  <div class="trip-selector">
+  <div class="trip-selector ui-filter-bar">
     <label for="trip-select">Select Trip:</label>
     <select
       id="trip-select"

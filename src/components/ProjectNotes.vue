@@ -1,7 +1,7 @@
 <template>
 <div class="project-notes">
   <!-- Header Section -->
-  <div class="header-section">
+  <div class="header-section ui-page-header">
     <h1>Project Notes</h1>
   </div>
 

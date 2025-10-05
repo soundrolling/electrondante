@@ -871,20 +871,20 @@ to { transform: rotate(360deg); }
 
 /* Filters and Controls */
 .filters-section-modern {
-  margin-bottom: 28px;
+  margin-bottom: 20px;
   background: #fff;
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow: 0 2px 12px 0 rgba(30,34,90,0.07);
-  padding: 20px 16px 12px 16px;
+  padding: 12px 12px 10px 12px; /* match calendar tighter header */
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 .filters-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  row-gap: 18px;
+  align-items: center;
+  gap: 10px 14px;
 }
 .filter-block {
   display: flex;
@@ -893,17 +893,17 @@ to { transform: rotate(360deg); }
   flex: 1 1 140px;
 }
 .label-modern {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #4a5677;
   margin-bottom: 6px;
 }
 .input-modern {
-  padding: 10px 12px;
+  padding: 9px 10px;
   border: 1.5px solid #e3e7ef;
   border-radius: 8px;
-  font-size: 1rem;
-  background: #f9fafd;
+  font-size: 0.98rem;
+  background: #fff;
   transition: border-color .2s;
 }
 .input-modern:focus {
@@ -914,7 +914,7 @@ to { transform: rotate(360deg); }
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 .nav-btn-modern {
   width: 32px;
@@ -957,14 +957,15 @@ to { transform: rotate(360deg); }
 @media (max-width: 700px) {
   .filters-grid {
     flex-direction: column;
-    gap: 10px;
+    align-items: stretch;
+    gap: 8px;
   }
   .filter-block {
     min-width: unset;
     flex: 1 1 100%;
   }
   .filters-section-modern {
-    padding: 14px 6px 8px 6px;
+    padding: 10px 8px 8px 8px;
   }
   .add-schedule-btn-modern {
     width: 100%;

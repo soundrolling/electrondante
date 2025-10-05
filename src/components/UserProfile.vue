@@ -352,7 +352,7 @@ async function saveSecurity() {
 <template>
   <div class="profile-container">
     <!-- Header -->
-    <div class="profile-header">
+    <div class="profile-header ui-page-header">
       <div class="header-content">
         <h1 class="profile-title">My Profile</h1>
         <p class="profile-subtitle">Manage your account settings and personal gear</p>

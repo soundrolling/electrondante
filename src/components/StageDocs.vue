@@ -18,7 +18,7 @@
   </div>
 
   <!-- Header Section -->
-  <header class="header-section">
+  <header class="header-section ui-page-header">
     <div class="header-content">
       <h1 class="header-title">{{ stageName }} Documents</h1>
       <p class="header-subtitle">Venue: {{ venueName }}</p>

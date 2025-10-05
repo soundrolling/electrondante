@@ -1,7 +1,7 @@
 <template>
 <div class="flight-details">
   <!-- Header Section -->
-  <div class="header-section">
+  <div class="header-section ui-page-header">
     <h1>Flights & Transportation</h1>
     <p>Manage your flight and transportation details</p>
   </div>
@@ -15,7 +15,7 @@
   </div>
 
   <!-- Trip Selector -->
-  <div class="trip-selector">
+  <div class="trip-selector ui-filter-bar">
     <label for="trip-select">Select Trip:</label>
     <select 
       id="trip-select" 

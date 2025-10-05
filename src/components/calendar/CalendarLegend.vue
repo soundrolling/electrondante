@@ -62,11 +62,11 @@ data() {
 
 <style scoped>
 .legend-section {
-  padding: 1rem 1.5rem;
+  padding: 0.8rem 1rem;
   background: #fff;
   border-bottom: 1px solid #e1e5eb;
   max-width: 700px;
-  margin: 0 auto 1.5rem auto;
+  margin: 0 auto 1rem auto;
   box-sizing: border-box;
 }
 .legend-header {
@@ -138,7 +138,7 @@ color: #999;
   border: 1.5px solid #d1d5db;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  padding: 1.1rem 1.5rem 1.2rem 1.5rem;
+  padding: 0.8rem 1rem 0.9rem 1rem;
   margin-bottom: 0;
   max-width: 700px;
   margin-left: auto;

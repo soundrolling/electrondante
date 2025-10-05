@@ -21,10 +21,6 @@
       @update:filters="updateFilters"
     />
 
-    <div class="controls-spacer"></div>
-    <button class="btn light-btn" @click="goToProjectHome">
-      Project Home
-    </button>
     <button class="btn btn-positive add-button" @click="openNewEventModal">
       + Add Event
     </button>
@@ -128,7 +124,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useUserStore } from "../../stores/userStore";
 import { fetchTableData } from "../../services/dataService";
 import { supabase } from "../../supabase";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 // Import subcomponents
 import CalendarViewSelector from "./CalendarViewSelector.vue";
@@ -156,7 +152,6 @@ components: {
 setup() {
   const userStore = useUserStore();
   const route = useRoute();
-  const router = useRouter();
   const loading = ref(true);
   const error = ref("");
   const calendarError = ref("");
@@ -670,13 +665,6 @@ setup() {
   });
   watch(() => route.query, syncFromRoute);
 
-  function goToProjectHome() {
-    const project = userStore.getCurrentProject;
-    if (project?.id) {
-      router.push({ name: 'ProjectDetail', params: { id: project.id } });
-    }
-  }
-
   async function onEditEvent(event) {
     if (!event.id) { toastMsg.value = "Missing event ID"; return; }
     const { error } = await supabase
@@ -726,7 +714,7 @@ setup() {
     jumpToToday,
     todayDate,
     onEditEvent, onDeleteEvent,
-    goToProjectHome
+    
   };
 }
 };
@@ -787,12 +775,18 @@ z-index: 1000;
 
 /* === CONTROLS === */
 .controls-section {
-padding: 0.7rem 1.2rem 0.5rem 1.2rem;
+padding: 0.75rem 1rem 0.6rem 1rem;
 background: #fff;
 border-bottom: 1px solid #e1e5eb;
 display: flex;
 flex-wrap: wrap;
-gap: 0.7rem;
+align-items: center;
+gap: 0.6rem 1rem;
+}
+
+/* Push the add button to the right on wide screens */
+.add-button {
+  margin-left: auto;
 }
 
 /* === STATUS === */
@@ -820,7 +814,7 @@ to { transform: rotate(360deg); }
 
 /* === GLOBAL PADDING FOR VIEWS === */
 .views-container {
-padding: 6px 0 0 0;
+padding: 8px 0 0 0;
 box-sizing: border-box;
 }
 

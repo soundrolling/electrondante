@@ -1,7 +1,7 @@
 <template>
 <div class="project-quickfire">
   <!-- ────────── TOP BAR ────────── -->
-  <div class="quickfire-topbar">
+  <div class="quickfire-topbar ui-page-header">
     <button class="back-button" @click="goBack">← Back</button>
     <h1>Quickfire Buttons</h1>
   </div>
@@ -17,7 +17,7 @@
 
   <div v-else>
     <!-- ────────── FILTER ────────── -->
-    <div class="filter-container">
+    <div class="filter-container ui-filter-bar">
       <label for="filterLocation">Filter by Location:</label>
       <select id="filterLocation" v-model="filterLocationId">
         <option :value="null">All Locations</option>
