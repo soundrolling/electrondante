@@ -78,18 +78,7 @@
           </svg>
           <span class="nav-text">All Projects</span>
         </router-link>
-        <router-link
-          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !routeMeta.hideHeaderProjectHome"
-          :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
-          class="nav-link light-btn"
-          :class="{ active: currentRouteName === 'ProjectDetail' }"
-        >
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-            <polyline points="9,22 9,12 15,12 15,22"/>
-          </svg>
-          <span class="nav-text">Project Home</span>
-        </router-link>
+        
       </nav>
 
       <!-- Right side: User actions -->
@@ -156,12 +145,6 @@
       </div>
       <div class="menu-section">
         <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="nav-link light-btn" @click="showMobileMenu = false">All Projects</router-link>
-        <router-link
-          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !routeMeta.hideHeaderProjectHome"
-          :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
-          class="nav-link light-btn"
-          @click="showMobileMenu = false"
-        >Project Home</router-link>
       </div>
       <div class="menu-section actions">
         <button v-if="isAuthenticated" class="btn btn-positive" @click="showBugReportModal = true; showMobileMenu = false">Report</button>
