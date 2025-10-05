@@ -921,19 +921,22 @@ setup() {
 }
 
 .refresh-btn {
-  border-color: var(--border-light);
+  /* Lighter pill w/ darker text */
+  background: #fef3c7 !important;   /* amber-100 */
+  color: #92400e !important;        /* amber-800 */
+  border: 2px solid #f59e0b !important; /* amber-500 */
 }
+
+.refresh-btn:hover { background: #fde68a !important; } /* amber-200 */
 
 .new-project-btn {
-  background: var(--color-primary-500);
-  color: var(--text-inverse);
-  border-color: var(--color-primary-500);
+  /* Lighter pill w/ darker text */
+  background: #dbeafe !important;   /* blue-100 */
+  color: #1e40af !important;        /* blue-800 */
+  border: 2px solid #2563eb !important; /* blue-600 */
 }
 
-.new-project-btn:hover {
-  background: var(--color-primary-600);
-  box-shadow: var(--shadow-lg);
-}
+.new-project-btn:hover { background: #bfdbfe !important; } /* blue-200 */
 
 .btn-icon {
   font-size: var(--text-lg);
@@ -1080,11 +1083,12 @@ setup() {
 
 .select-wrapper {
   position: relative;
+  min-width: 240px; /* prevent arrow overlap with text */
 }
 
 .form-select {
   width: 100%;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) 48px var(--space-3) var(--space-4); /* extra right padding for arrow */
   border: 2px solid var(--border-medium) !important;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
