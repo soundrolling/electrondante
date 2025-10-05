@@ -505,6 +505,18 @@ body {
   border-color: #38bdf8; /* sky-400 */
 }
 
+/* Pale danger variant for destructive but less aggressive actions */
+.btn-danger-light {
+  background-color: #fee2e2; /* red-100 */
+  color: #991b1b !important; /* red-800 */
+  border: 1px solid #fecaca; /* red-200 */
+}
+.btn-danger-light:hover {
+  background-color: #fecaca; /* red-200 */
+  border-color: #fca5a5; /* red-300 */
+  color: #7f1d1d !important; /* red-900 */
+}
+
 /* Form Elements */
 .form-input {
   width: 100%;

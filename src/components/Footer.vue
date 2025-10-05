@@ -45,7 +45,7 @@
         <button
           v-if="userEmail"
           @click="emitSignOut"
-          class="btn btn-danger secondary-btn"
+          class="btn btn-danger-light"
         >
           Sign Out
         </button>
@@ -70,7 +70,7 @@
             ></div>
           </div>
           <div class="storage-actions">
-            <button @click="confirmAndClearCache" class="btn btn-warning warning-btn">
+            <button @click="confirmAndClearCache" class="btn btn-danger-light">
               Clear Cache
             </button>
           </div>
@@ -143,7 +143,7 @@
             </span>
             <span v-else class="guest-text">Guest</span>
           </div>
-          <button v-if="userEmail" @click="emitSignOut; showMobileFooter = false" class="btn btn-danger secondary-btn">Sign Out</button>
+          <button v-if="userEmail" @click="emitSignOut; showMobileFooter = false" class="btn btn-danger-light">Sign Out</button>
         </div>
       </div>
       <div class="menu-section">
@@ -158,7 +158,7 @@
               <div class="usage-fill" :style="usageFillStyle" :class="{ 'high-usage': usagePercentage > 80 }"></div>
             </div>
             <div class="storage-actions">
-              <button @click="confirmAndClearCache; showMobileFooter = false" class="btn btn-warning warning-btn">Clear Cache</button>
+              <button @click="confirmAndClearCache; showMobileFooter = false" class="btn btn-danger-light">Clear Cache</button>
             </div>
           </div>
           <div class="section-divider"></div>

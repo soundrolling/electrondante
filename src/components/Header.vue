@@ -100,7 +100,7 @@
         <button
           v-if="isAuthenticated"
           @click="handleSignOut"
-          class="btn btn-danger sign-out-btn"
+          class="btn btn-danger-light sign-out-btn"
           title="Sign out"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
