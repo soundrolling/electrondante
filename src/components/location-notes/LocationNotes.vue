@@ -72,7 +72,7 @@
 
 <script setup>
 import { ref, computed, defineAsyncComponent, onMounted, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/userStore';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
@@ -82,6 +82,7 @@ import autoTable from 'jspdf-autotable';
 
 const props = defineProps({ locationId: { type: String, required: true } });
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 const store = useUserStore();
 const goBack = () => router.back();
@@ -91,7 +92,7 @@ const location  = ref(null);
 const isLoading = ref(true);
 const error     = ref(null);
 
-const activeTab = ref('notes');
+const activeTab = ref(route.query.tab === 'schedule' ? 'schedule' : (route.query.tab === 'quickfire' ? 'quickfire' : 'notes'));
 const tabRef = ref(null);
 
 const Tabs = {

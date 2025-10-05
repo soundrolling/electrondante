@@ -60,7 +60,8 @@ if (type === 'notes') {
 } else if (type === 'docs') {
   router.push({ name: 'StageDocs', params: { id }, query: { venueId: s.venue_id, stageId: s.id } });
 } else if (type === 'schedule') {
-  router.push({ name: 'ProjectSchedule', params: { id }, query: { locationId: s.id } });
+  // Route into Location Notes with schedule tab active for this stage
+  router.push({ name: 'LocationNotes', params: { id, locationId: s.id }, query: { tab: 'schedule' } });
 } else if (type === 'calendar') {
   const today = new Date().toISOString().slice(0, 10);
   router.push({ name: 'Calendar', params: { id }, query: { locationId: s.id, date: today, view: 'timeline' } });
