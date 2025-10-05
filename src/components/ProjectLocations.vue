@@ -2,16 +2,7 @@
 <div class="project-locations">
   <ProjectBreadcrumbs />
   
-  <!-- ────────── header ────────── -->
-  <header class="page-header">
-    <div class="header-content">
-      <h1 class="page-title">Manage Stages</h1>
-      <button class="header-action-btn" @click="openLocationsModal" title="Manage Stages">
-        <span class="btn-icon">⚙️</span>
-        <span class="btn-text">Manage</span>
-      </button>
-    </div>
-  </header>
+  <!-- Header removed (duplicate of global header) -->
 
   <!-- ────────── loading / error ────────── -->
   <div v-if="loading" class="loading-skeleton">
