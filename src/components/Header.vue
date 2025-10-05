@@ -32,6 +32,12 @@
           <div class="status-dot"></div>
           <span class="status-text">{{ onlineStatusText }}</span>
         </div>
+
+        <!-- Sync Status -->
+        <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
+          <div class="sync-dot"></div>
+          <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+        </div>
       </div>
 
       <!-- Center: Navigation -->
@@ -156,6 +162,10 @@ export default {
   const onlineStatusText = computed(() => (isOnline.value ? 'Online' : 'Offline'));
   const onlineStatusClass = computed(() => (isOnline.value ? 'online' : 'offline'));
 
+  // Sync status (background queue)
+  const hasPendingSync = ref(false);
+  const syncStatusText = computed(() => hasPendingSync.value ? 'There are changes waiting to sync' : 'All changes synced');
+
   // Logging out overlay
   const isLoggingOut = ref(false);
   const handleSignOut = async () => {
@@ -212,6 +222,24 @@ export default {
   onMounted(() => {
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
+
+    // Lazy-load to avoid bundling cost on initial paint
+    const startSyncPolling = async () => {
+      try {
+        const mod = await import('@/services/dataService');
+        const poll = async () => {
+          try {
+            const res = await mod.hasPendingChanges?.();
+            if (typeof res === 'boolean') hasPendingSync.value = res;
+          } catch {}
+        };
+        // initial + poll
+        poll();
+        const id = setInterval(poll, 7000);
+        onUnmounted(() => clearInterval(id));
+      } catch {}
+    };
+    startSyncPolling();
   });
   onUnmounted(() => {
     window.removeEventListener('online', updateOnlineStatus);
@@ -325,6 +353,26 @@ export default {
 .status-text {
   font-weight: var(--font-medium);
 }
+
+/* Sync indicator */
+.sync-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-normal);
+  min-height: 44px;
+}
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; }
+.sync-indicator.synced .sync-dot { background-color: #059669; }
+.sync-indicator.pending .sync-dot { background-color: #f59e0b; }
+.sync-text { font-weight: var(--font-medium); }
 
 /* Navigation */
 .navigation {
