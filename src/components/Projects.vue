@@ -1083,13 +1083,13 @@ setup() {
 
 .select-wrapper {
   position: relative;
-  min-width: 240px; /* prevent arrow overlap with text */
+  min-width: 260px; /* prevent arrow overlap with text and improve readability */
 }
 
 .form-select {
   width: 100%;
   padding: var(--space-3) 48px var(--space-3) var(--space-4); /* extra right padding for arrow */
-  border: 2px solid var(--border-medium) !important;
+  border: 2px solid #94a3b8 !important; /* slate-400 for higher contrast */
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
@@ -1105,7 +1105,7 @@ setup() {
   right: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-tertiary);
+  color: #475569; /* slate-700 for better arrow contrast */
   pointer-events: none;
 }
 
@@ -1126,7 +1126,7 @@ setup() {
 .search-input {
   width: 100%;
   padding: var(--space-3) var(--space-4) var(--space-3) 48px;
-  border: 2px solid var(--border-medium) !important;
+  border: 2px solid #94a3b8 !important; /* slate-400 for higher contrast */
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
@@ -1155,10 +1155,10 @@ setup() {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-light);
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
-  color: var(--text-secondary);
+  background: #eef2f7; /* light gray pill for contrast */
+  color: #111827;       /* strong text for readability */
   font-size: var(--text-base);
   font-weight: var(--font-medium);
   cursor: pointer;
@@ -1169,13 +1169,14 @@ setup() {
 
 .tab-btn:hover {
   border-color: var(--color-primary-500);
-  color: var(--color-primary-500);
+  color: var(--color-primary-700);
 }
 
 .tab-btn.active {
   background: var(--color-primary-500);
   color: var(--text-inverse);
   border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .tab-icon {
@@ -1600,7 +1601,7 @@ setup() {
 @media (min-width: 1025px) {
   .projects {
     padding: var(--space-8);
-    max-width: 1200px;
+    max-width: 1400px; /* increase content width on desktop */
     margin: 0 auto;
   }
 
@@ -1630,7 +1631,7 @@ setup() {
   }
   .toolbar-left { justify-self: start; }
   .toolbar-center { justify-self: center; }
-  .toolbar-right { justify-self: end; width: 100%; max-width: 420px; }
+  .toolbar-right { justify-self: end; width: 100%; max-width: 520px; }
 
   /* When tabs are inside toolbar, remove outer spacing and center them */
   .toolbar .project-tabs {
