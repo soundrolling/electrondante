@@ -555,25 +555,25 @@ background: #047857;
 
 /* date nav */
 .nav-btn {
-width: 32px; height: 32px;
-background: #fff;
-border: 1px solid var(--border);
-border-radius: 6px;
-display: inline-flex;
-align-items: center;
-justify-content: center;
-font-size: 1.25rem;
-color: var(--accent);
-cursor: pointer;
-transition: background .2s;
+  width: 40px; height: 40px;
+  background-color: #d97706;
+  color: #ffffff;
+  border: 2px solid #b45309;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s;
 }
 .nav-btn:disabled {
 opacity: 0.4;
 cursor: default;
 }
-.nav-btn:hover:not(:disabled) {
-background: #f0f5ff;
-}
+.nav-btn:hover:not(:disabled) { background-color: #b45309; }
+.nav-btn:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
 .current-date {
 flex: 1;
 text-align: center;
@@ -636,8 +636,8 @@ gap: 8px;
 
 /* inline edit/delete icons */
 .icon {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
 border: none;
 border-radius: 6px;
 display: inline-flex;
@@ -650,7 +650,7 @@ transition: background .2s;
 .icon.edit:hover { background: #d97706; }
 .icon.delete { background: #ef4444; color: #ffffff; }
 .icon.delete:hover { background: #dc2626; }
-.icon-svg { width: 26px; height: 26px; color: #fff; }
+.icon-svg { width: 32px; height: 32px; color: #fff; }
 
 .empty-text {
 text-align: center;

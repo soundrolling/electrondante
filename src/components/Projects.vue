@@ -1428,6 +1428,26 @@ setup() {
   background: var(--color-error-600);
 }
 
+/* Lighter pill buttons with dark text for card actions */
+.project-actions .open-btn {
+  background: #d1fae5 !important;     /* emerald-100 */
+  color: #065f46 !important;          /* emerald-800 */
+  border: 2px solid #10b981 !important;/* emerald-500 */
+  box-shadow: none;
+}
+.project-actions .open-btn:hover {
+  background: #a7f3d0 !important;     /* emerald-200 */
+}
+.project-actions .leave-btn {
+  background: #fee2e2 !important;     /* red-100 */
+  color: #991b1b !important;          /* red-800 */
+  border: 2px solid #ef4444 !important;/* red-500 */
+  box-shadow: none;
+}
+.project-actions .leave-btn:hover {
+  background: #fecaca !important;     /* red-200 */
+}
+
 /* Modal */
 .modal-overlay {
   position: fixed;
