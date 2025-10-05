@@ -67,6 +67,10 @@
           <span class="btn-icon">↕️</span>
           <span class="btn-text">Reorder</span>
         </button>
+        <button class="btn btn-primary" @click="exportGearToPDF">
+          <span class="btn-icon">📄</span>
+          <span class="btn-text">Export PDF</span>
+        </button>
       </div>
     </div>
 
@@ -196,50 +200,50 @@
     </div>
 
     <!-- GEAR INFO MODAL -->
-    <div v-if="showGearInfoModal" class="modal-overlay" @click="closeGearInfoModal">
+    <div v-if="gearInfoModalVisible" class="modal-overlay" @click="closeGearInfoModal">
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">Gear Information</h3>
           <button class="modal-close" @click="closeGearInfoModal">✕</button>
         </div>
         <div class="modal-body">
-          <div v-if="selectedGear" class="gear-info">
+          <div v-if="currentGearInfo && Object.keys(currentGearInfo).length" class="gear-info">
             <div class="info-section">
               <h4 class="info-title">Basic Details</h4>
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Name:</span>
-                  <span class="info-value">{{ selectedGear.gear_name }}</span>
+                  <span class="info-value">{{ currentGearInfo.gear_name }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Type:</span>
-                  <span class="info-value">{{ selectedGear.gear_type || 'No type' }}</span>
+                  <span class="info-value">{{ currentGearInfo.gear_type || 'No type' }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Total Amount:</span>
-                  <span class="info-value">{{ selectedGear.gear_amount }}</span>
+                  <span class="info-value">{{ currentGearInfo.gear_amount }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Available:</span>
-                  <span class="info-value">{{ selectedGear.unassigned_amount }}</span>
+                  <span class="info-value">{{ currentGearInfo.unassigned_amount }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Assigned:</span>
-                  <span class="info-value">{{ selectedGear.total_assigned }}</span>
+                  <span class="info-value">{{ currentGearInfo.total_assigned }}</span>
                 </div>
-                <div v-if="selectedGear.vendor" class="info-item">
+                <div v-if="currentGearInfo.vendor" class="info-item">
                   <span class="info-label">Vendor:</span>
-                  <span class="info-value">{{ selectedGear.vendor }}</span>
+                  <span class="info-value">{{ currentGearInfo.vendor }}</span>
                 </div>
               </div>
             </div>
 
-            <div v-if="selectedGear.assignments && selectedGear.assignments.length" class="info-section">
+            <div v-if="currentGearAssignmentsList.length" class="info-section">
               <h4 class="info-title">Current Assignments</h4>
               <div class="assignments-list">
                 <div 
-                  v-for="assignment in selectedGear.assignments" 
-                  :key="assignment.id"
+                  v-for="assignment in currentGearAssignmentsList" 
+                  :key="assignment.location_id"
                   class="assignment-item"
                 >
                   <div class="assignment-header">
@@ -248,7 +252,6 @@
                   </div>
                   <div class="assignment-details">
                     <span class="assignment-venue">{{ assignment.venue_name }}</span>
-                    <span class="assignment-dates">{{ formatDateRange(assignment.start_date, assignment.end_date) }}</span>
                   </div>
                 </div>
               </div>
@@ -314,7 +317,7 @@
     </div>
 
     <!-- EDIT GEAR MODAL -->
-    <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+    <div v-if="editModalVisible" class="modal-overlay" @click="closeEditModal">
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">Edit Gear</h3>
@@ -366,6 +369,51 @@
                 <button type="button" @click="closeEditModal" class="btn btn-warning">Cancel</button>
               </div>
             </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REORDER MODAL -->
+    <div v-if="reorderModalVisible" class="modal-overlay" @click="closeReorderModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Reorder Gear</h3>
+          <button class="modal-close" @click="closeReorderModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="reorder-list">
+            <div v-for="(g, i) in reorderList" :key="g.id" class="reorder-item">
+              <span class="reorder-name">{{ g.gear_name }}</span>
+              <div class="reorder-actions">
+                <button class="btn btn-secondary" @click="moveInReorder(i, -1)">↑</button>
+                <button class="btn btn-secondary" @click="moveInReorder(i, 1)">↓</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top: 12px;">
+            <button class="btn btn-positive" @click="saveReorder">Save Order</button>
+            <button class="btn btn-warning" @click="closeReorderModal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USER GEAR SELECTOR MODAL -->
+    <div v-if="showUserGearSelector" class="modal-overlay" @click="closeUserGearSelector">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">Add User Gear</h3>
+          <button class="modal-close" @click="closeUserGearSelector">✕</button>
+        </div>
+        <div class="modal-body">
+          <UserGearSelector 
+            :project-id="String(currentProject?.id || '')"
+            @gear-selected="handleUserGearSelected"
+            @gear-added="handleUserGearAdded"
+          />
+          <div class="form-actions" style="margin-top: 12px;">
+            <button class="btn btn-warning" @click="closeUserGearSelector">Close</button>
           </div>
         </div>
       </div>
@@ -454,6 +502,23 @@ setup() {
     if (filterLocationId.value === 'unassigned') return gearList.value.filter(g => g.unassigned_amount > 0)
     if (filterLocationId.value === 'assigned')   return gearList.value.filter(g => g.total_assigned > 0)
     return gearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+  })
+
+  const currentGearAssignmentsList = computed(() => {
+    const info = currentGearInfo.value
+    if (!info || !info.assignments) return []
+    const entries = Object.entries(info.assignments)
+    return entries
+      .filter(([, amount]) => (amount || 0) > 0)
+      .map(([locationId, amount]) => {
+        const loc = locationsList.value.find(l => l.id === Number(locationId))
+        return {
+          location_id: Number(locationId),
+          amount: amount,
+          stage_name: loc?.stage_name || `Location ${locationId}`,
+          venue_name: loc?.venue_name || ''
+        }
+      })
   })
 
   watch(gearType, t => {
@@ -1041,6 +1106,7 @@ setup() {
     // Gear Info Modal
     gearInfoModalVisible,
     currentGearInfo,
+    currentGearAssignmentsList,
     openGearInfoModal,
     closeGearInfoModal,
     getLocationName,

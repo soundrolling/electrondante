@@ -57,9 +57,11 @@
       <button :class="{ active: tool === 'text' }" @click="setTool('text')" aria-label="Text Tool" title="Text Tool (T)">🏷️</button>
       <button :class="{ active: tool === 'link' }" @click="setTool('link')" aria-label="Link Tool" title="Link/Connect Gear (C)">🔗</button>
       <button @click="deleteSelectedElement" :disabled="!hasSelectedElement" aria-label="Delete Selected" title="Delete Selected Element">🗑️</button>
+      <button @click="duplicateSelectedNode" :disabled="!canDuplicateSelected" aria-label="Duplicate Node" title="Duplicate Selected Node">📄</button>
       <div class="toolbar-divider"></div>
       <button @click="saveLayout" title="Save Layout">💾 Save</button>
       <button @click="openSavedLayoutsModal" title="Load Layout">📂 Load</button>
+      <button @click="exportConnectionsCSV" title="Export Connections CSV">📊 Export CSV</button>
     </div>
 
     <!-- Canvas Management -->
@@ -89,6 +91,7 @@
                 @touchmove.prevent="onTouchMove"
                 @touchend.prevent="onTouchEnd"
                 @click="onCanvasClick"
+                @contextmenu.prevent="onCanvasContextMenu"
                 @dblclick="onCanvasDblClick"
         />
         <div v-if="tool !== 'select'" class="tool-indicator">
@@ -200,6 +203,16 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div 
+    v-if="showContextMenu" 
+    class="context-menu" 
+    :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
+  >
+    <button @click="duplicateSelectedNode" :disabled="!canDuplicateSelected">Duplicate</button>
+    <button @click="deleteSelectedElement" :disabled="!hasSelectedElement">Delete</button>
   </div>
 
   <!-- Connection Details Modal -->
@@ -335,7 +348,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, onUnmounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { fetchTableData, mutateTableData } from '@/services/dataService'
@@ -404,6 +417,15 @@ const pendingConnection = ref(null)
 const matrixPortMapperNodeId = ref(null)
 const showMatrixModal = ref(false)
 const matrixModalNode = ref(null)
+
+  const canDuplicateSelected = computed(() => {
+    const el = selectedElement.value
+    return !!(el && el.type === 'gear')
+  })
+
+  // Context menu state
+  const showContextMenu = ref(false)
+  const contextMenuPos = ref({ x: 0, y: 0 })
 
 // Gear data
 const gearList = ref([])
@@ -1345,6 +1367,91 @@ if (pendingConnection.value && pendingConnection.value.fromNode && pendingConnec
     console.error('Failed to create connection:', err)
     toast.error('Failed to create connection: ' + err.message)
   }
+
+  async function duplicateSelectedNode() {
+    const el = selectedElement.value
+    if (!el || el.type !== 'gear' || !projectId.value) return
+    try {
+      const newNode = await addNode({
+        project_id: projectId.value,
+        type: 'gear',
+        gear_id: el.gearId,
+        label: el.label,
+        x: (el.x || 0) + 20,
+        y: (el.y || 0) + 20,
+        gear_type: el.gear_type || el.gearType || 'other',
+        num_inputs: el.num_inputs || 1,
+        num_outputs: el.num_outputs || 1,
+        num_tracks: el.num_tracks || 0
+      })
+      // Add to local elements immediately
+      elements.value.push({
+        ...el,
+        id: newNode.id,
+        x: newNode.x,
+        y: newNode.y,
+        selected: false
+      })
+      toast.success('Node duplicated')
+      nextTick(drawCanvas)
+    } catch (err) {
+      console.error('Duplicate node failed:', err)
+      toast.error(err.message || 'Failed to duplicate node')
+    }
+  }
+
+  async function exportConnectionsCSV() {
+    try {
+      const list = await getConnections(projectId.value)
+      const header = ['from_node_id','to_node_id','input_number','track_number']
+      const rows = list.map(c => [c.from_node_id, c.to_node_id, c.input_number ?? '', c.track_number ?? ''])
+      let csv = header.join(',') + '\n'
+      rows.forEach(r => { csv += r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n' })
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `connections_${new Date().toISOString().slice(0,10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Connections CSV exported')
+    } catch (err) {
+      console.error('Export CSV failed:', err)
+      toast.error(err.message || 'Failed to export CSV')
+    }
+  }
+
+  function onCanvasContextMenu(e) {
+    if (!selectedElement.value || selectedElement.value.type !== 'gear') return
+    showContextMenu.value = true
+    contextMenuPos.value = { x: e.clientX, y: e.clientY }
+    const hide = () => {
+      showContextMenu.value = false
+      document.removeEventListener('click', hide)
+    }
+    document.addEventListener('click', hide)
+  }
+
+  function onKeyDown(e) {
+    const isMod = e.metaKey || e.ctrlKey
+    if (!isMod) return
+    if (e.key.toLowerCase() === 'd') {
+      e.preventDefault()
+      duplicateSelectedNode()
+    } else if (e.key.toLowerCase() === 'e') {
+      e.preventDefault()
+      exportConnectionsCSV()
+    }
+  }
+
+  onMounted(() => {
+    window.addEventListener('keydown', onKeyDown)
+  })
+  onBeforeUnmount(() => {
+    window.removeEventListener('keydown', onKeyDown)
+  })
 }
 closeConnectionModal()
 }
