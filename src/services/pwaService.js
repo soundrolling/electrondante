@@ -52,9 +52,28 @@ class PWAService {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               this.updateAvailable = true;
               this.notifyUpdateAvailable();
+              // Auto-reload when a new worker is waiting
+              if (this.swRegistration.waiting) {
+                this.swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                this.swRegistration.waiting.addEventListener('statechange', (e) => {
+                  if (e.target.state === 'activated') {
+                    window.location.reload();
+                  }
+                });
+              }
             }
           });
         });
+
+        // If there's already a waiting worker on load, activate it and reload
+        if (this.swRegistration.waiting) {
+          this.swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          this.swRegistration.waiting.addEventListener('statechange', (e) => {
+            if (e.target.state === 'activated') {
+              window.location.reload();
+            }
+          });
+        }
         
       } catch (error) {
         console.error('Service Worker registration failed:', error);
