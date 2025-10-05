@@ -1,5 +1,6 @@
 <template>
 <div class="project-locations">
+  <ProjectBreadcrumbs />
   
   <!-- ────────── header ────────── -->
   <header class="page-header">
