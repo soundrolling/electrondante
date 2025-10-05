@@ -75,6 +75,7 @@
 
   <!-- Spreadsheet-like table view -->
   <div v-if="filteredAndSortedNotes.length" class="notes-table-wrapper">
+    <div class="notes-table-scroll">
     <table class="notes-table">
       <thead>
         <tr>
@@ -113,6 +114,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
   <p v-else class="empty-state">No notes yet.</p>
 
@@ -1148,6 +1150,19 @@ opacity: 0.6;
   }
 }
 
+/* Mobile stacking for top controls */
+@media (max-width: 640px) {
+  .controls-row.top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .quick-range-btns {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+}
+
 @media (max-width: 600px) {
   .controls-row { flex-direction: column; align-items: stretch; }
   .date-col {
@@ -1177,6 +1192,11 @@ opacity: 0.6;
   backdrop-filter: blur(10px);
   overflow: hidden;
 }
+.notes-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .notes-table {
   width: 100%;
   border-collapse: collapse;
@@ -1186,6 +1206,20 @@ opacity: 0.6;
   font-size: 0.95rem;
   table-layout: fixed;
   max-width: 100%;
+}
+/* prevent column collapse on very small screens */
+@media (max-width: 768px) {
+  .notes-table {
+    min-width: 720px;
+  }
+}
+
+/* Optional: cap table height on small screens for better ergonomics */
+@media (max-width: 640px) {
+  .notes-table-scroll {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
 }
 .notes-table th, .notes-table td {
   padding: 12px 20px;
@@ -1366,6 +1400,8 @@ opacity: 0.6;
   border-radius: 8px;
   width: 90%;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-grid {

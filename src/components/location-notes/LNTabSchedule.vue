@@ -36,6 +36,7 @@
 
   <!-- Schedule list -->
   <div class="list-wrapper">
+    <div class="list-scroll">
     <template v-if="filteredRows.length">
       <div
         v-for="(r, i) in filteredRows"
@@ -74,6 +75,7 @@
       </div>
     </template>
     <p v-else class="empty-text">No schedule for this range.</p>
+    </div>
   </div>
 
   <!-- Modal overlay -->
@@ -583,6 +585,12 @@ color: #111827;
 .list-wrapper {
 margin-top: 16px;
 }
+.list-scroll {
+max-height: 60vh;
+overflow-y: auto;
+padding-right: 4px;
+-webkit-overflow-scrolling: touch;
+}
 .row-card {
 display: flex;
 justify-content: space-between;
@@ -765,6 +773,26 @@ cursor: default;
 .schedule-pane {
   padding: 24px;
 }
+}
+
+/* Mobile stacking for controls */
+@media (max-width: 640px) {
+  .controls-top.combined {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .left-stack, .right-stack {
+    width: 100%;
+  }
+  .controls-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .current-date {
+    text-align: left;
+  }
 }
 
 .icon.note { background: #34d399; color: #ffffff; }

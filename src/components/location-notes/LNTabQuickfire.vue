@@ -61,7 +61,8 @@
   </div>
 
   <!-- table -->
-  <table v-if="buttons.length" class="table">
+  <div class="table-scroll" v-if="buttons.length">
+  <table class="table">
     <thead>
       <tr>
         <th>Name</th>
@@ -119,6 +120,7 @@
       </tr>
     </tbody>
   </table>
+  </div>
 </section>
 </template>
 
@@ -254,6 +256,11 @@ background: rgba(255, 255, 255, 0.6);
 border-radius: 12px;
 border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
+}
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }
 /* quickfire buttons */
 .qf {
@@ -436,6 +443,10 @@ overflow: hidden;
 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
+}
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 768px) {
+  .table { min-width: 640px; }
 }
 .table th,
 .table td {

@@ -32,14 +32,16 @@
 
     <!-- dynamic tab content wrapped in keep-alive -->
     <keep-alive>
-      <component
-        :is="ActiveTabComp"
-        :location-id="props.locationId"
-        :live-timecode="liveTimecode"
-        @quick="openQuickfireNote"
-        @changeover-note="handleChangeoverNote"
-        ref="tabRef"
-      />
+      <div class="tab-content-scroll">
+        <component
+          :is="ActiveTabComp"
+          :location-id="props.locationId"
+          :live-timecode="liveTimecode"
+          @quick="openQuickfireNote"
+          @changeover-note="handleChangeoverNote"
+          ref="tabRef"
+        />
+      </div>
     </keep-alive>
   </main>
 
@@ -233,6 +235,11 @@ display: flex;
 align-items: center;
 gap: 16px;
 flex-wrap: wrap;
+}
+@media (max-width: 420px) {
+  .single-row-header {
+    overflow: hidden;
+  }
 }
 
 .stage-title {
@@ -445,6 +452,16 @@ height: 3px;
 background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
 border-radius: 2px 2px 0 0;
 }
+.tab-content-scroll {
+  padding: 12px 16px 24px;
+}
+@media (max-width: 640px) {
+  .tab-content-scroll {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 .note-modal {
 position: fixed;
 inset: 0;
@@ -468,6 +485,8 @@ max-width: 420px;
 box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 display: grid;
 gap: 10px;
+ max-height: 90vh;
+ overflow-y: auto;
 }
 .modal-card label {
 font-weight: 600;
