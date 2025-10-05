@@ -17,7 +17,7 @@
         <button
           v-if="showBackButton"
           @click="goBack"
-          class="btn btn-warning back-btn"
+          class="btn btn-warning back-btn light-btn"
           title="Go back"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -39,7 +39,7 @@
         <router-link
           v-if="isAuthenticated && !isProjectsRoute"
           to="/projects"
-          class="nav-link"
+          class="nav-link light-btn"
           :class="{ active: isActiveRoute('/projects') }"
         >
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -51,7 +51,7 @@
         <router-link
           v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !routeMeta.hideHeaderProjectHome"
           :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
-          class="nav-link"
+          class="nav-link light-btn"
           :class="{ active: route.name === 'ProjectDetail' }"
         >
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -139,17 +139,8 @@ export default {
   const isProjectsRoute = computed(() => route.path === '/projects');
 
   // Back button logic
-  const showBackButton = computed(() => {
-    // Don't show on main pages
-    const mainPages = ['/projects', '/login', '/auth/reset-password', '/auth/set-password'];
-    if (mainPages.includes(route.path)) return false;
-    
-    // Don't show if we're at the root
-    if (route.path === '/') return false;
-    
-    // Show on all other pages
-    return true;
-  });
+  // Always provide a global back control in the header
+  const showBackButton = computed(() => true);
 
   const goBack = () => {
     if (window.history.length > 1) {
@@ -350,7 +341,7 @@ export default {
   color: var(--text-primary);
   font-weight: var(--font-medium);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   transition: all var(--transition-normal);
   background-color: transparent;
   border: 1px solid transparent;
@@ -389,7 +380,7 @@ export default {
   color: var(--text-primary);
   border: 1px solid var(--border-light);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-weight: var(--font-medium);
   cursor: pointer;
   transition: all var(--transition-normal);
@@ -438,9 +429,9 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  background-color: var(--color-error-50);
-  color: var(--color-error-600);
-  border: 1px solid var(--color-error-200);
+  background-color: var(--color-error-500);
+  color: #ffffff !important;
+  border: 1px solid var(--color-error-500);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   font-weight: var(--font-medium);
@@ -451,8 +442,8 @@ export default {
 }
 
 .sign-out-btn:hover {
-  background-color: var(--color-error-100);
-  border-color: var(--color-error-300);
+  background-color: var(--color-error-600);
+  border-color: var(--color-error-600);
 }
 
 .sign-out-btn:active {
@@ -469,6 +460,21 @@ export default {
   font-weight: var(--font-medium);
   font-size: var(--text-base);
   color: #000000 !important;
+}
+
+/* Lighter pill buttons with white text for contrast */
+.light-btn {
+  background-color: #2563eb; /* blue-600 */
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8; /* blue-700 */
+}
+.light-btn:hover {
+  background-color: #1d4ed8; /* blue-700 */
+  color: #ffffff !important;
+}
+.light-btn .nav-text,
+.light-btn .btn-text {
+  color: #ffffff !important;
 }
 
 /* Project home bar */
