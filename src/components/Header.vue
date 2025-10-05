@@ -48,6 +48,18 @@
           </svg>
           <span class="nav-text">Projects</span>
         </router-link>
+        <router-link
+          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute"
+          :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
+          class="nav-link"
+          :class="{ active: route.name === 'ProjectDetail' }"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            <polyline points="9,22 9,12 15,12 15,22"/>
+          </svg>
+          <span class="nav-text">Project Home</span>
+        </router-link>
       </nav>
 
       <!-- Right side: User actions -->
@@ -84,24 +96,7 @@
     </div>
   </header>
 
-  <!-- Project Home Button Bar -->
-  <div
-    v-if="showProjectHomeButton"
-    class="project-home-bar"
-  >
-    <div class="project-home-container">
-      <button
-        @click="goToProjectHome"
-        class="btn btn-primary project-home-btn"
-      >
-        <svg class="home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-          <polyline points="9,22 9,12 15,12 15,22"/>
-        </svg>
-        <span class="home-text">Project Home</span>
-      </button>
-    </div>
-  </div>
+  <!-- Project Home Button Bar removed to avoid duplication -->
 
   <!-- Bug Report Modal -->
   <BugReportModal

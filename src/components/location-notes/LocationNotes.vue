@@ -5,16 +5,10 @@
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <ProjectBreadcrumbs>
-      <template #left>
-        <button class="btn btn-warning back" @click="goBack">← Back</button>
-      </template>
-      <template #right>
-        <button class="btn btn-positive mini primary" @click="createNote">New note</button>
-      </template>
-    </ProjectBreadcrumbs>
+    <!-- Page-level breadcrumbs removed to avoid duplication with global header -->
     <!-- Clean single row layout -->
     <div class="single-row-header">
+      <button class="btn btn-warning back" @click="goBack">← Back</button>
       <div class="stage-title">
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
@@ -27,6 +21,7 @@
         <span class="sync-dot">●</span>
         <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
       </div>
+      <button class="btn btn-positive mini primary" @click="createNote">New note</button>
     </div>
 
     <!-- tab buttons -->
@@ -81,7 +76,6 @@
 <script setup>
 import { ref, computed, defineAsyncComponent, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/userStore';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
