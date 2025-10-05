@@ -8,14 +8,7 @@
     <span class="breadcrumb-text">Stage Documents</span>
   </nav>
 
-  <!-- Project Header -->
-  <div v-if="isLoadingProject" class="loading-indicator">
-    <div class="spinner"></div>
-    <p>Loading project…</p>
-  </div>
-  <div v-else-if="currentProject" class="project-header">
-    <h2 class="project-title">Project: {{ currentProject.project_name }}</h2>
-  </div>
+  <!-- Project header removed per design (covered elsewhere) -->
 
   <!-- Header Section -->
   <header class="header-section ui-page-header">
