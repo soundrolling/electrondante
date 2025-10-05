@@ -96,6 +96,7 @@
             <path d="M12 17h.01"/>
           </svg>
           <span class="btn-text">Report</span>
+          <span v-if="openReportsCount > 0" class="badge badge-danger" :title="openReportsCount + ' open reports'">{{ openReportsCount }}</span>
         </button>
         
         <button
@@ -223,6 +224,8 @@ export default {
 
   // Bug report modal
   const showBugReportModal = ref(false);
+  // Badge count for open reports
+  const openReportsCount = computed(() => bugReportStore.openReportsCount);
   // Mobile menu state
   const showMobileMenu = ref(false);
   const handleBugReportSubmit = async (reportData) => {
@@ -296,6 +299,9 @@ export default {
       } catch {}
     };
     startSyncPolling();
+
+    // Ensure we have latest reports for badge
+    try { bugReportStore.fetchReports(); } catch {}
   });
   onUnmounted(() => {
     window.removeEventListener('online', updateOnlineStatus);
@@ -326,6 +332,7 @@ export default {
     showBugReportModal,
     handleBugReportSubmit,
     showMobileMenu,
+    openReportsCount,
   };
 },
 };

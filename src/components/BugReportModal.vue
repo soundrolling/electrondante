@@ -2,7 +2,7 @@
   <div v-if="isOpen" class="modal-overlay" @click="closeModal">
     <div class="modal-container" @click.stop>
       <div class="modal-header">
-        <h3>Report a Bug or Suggestion</h3>
+        <h3>Report Center</h3>
         <button @click="closeModal" class="btn btn-warning close-btn" title="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -11,7 +11,15 @@
         </button>
       </div>
 
-      <form @submit.prevent="submitReport" class="modal-form">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button type="button" class="tab" :class="{ active: activeTab === 'new' }" @click="activeTab = 'new'">New Report</button>
+        <button type="button" class="tab" :class="{ active: activeTab === 'review' }" @click="activeTab = 'review'">
+          Review <span v-if="openReportsCount > 0" class="tab-badge">{{ openReportsCount }}</span>
+        </button>
+      </div>
+
+      <form v-if="activeTab === 'new'" @submit.prevent="submitReport" class="modal-form">
         <!-- Quick Actions -->
         <div class="quick-actions">
           <h4>Quick Report</h4>
@@ -166,16 +174,23 @@
           </button>
         </div>
       </form>
+
+      <div v-else class="modal-form review-pane">
+        <BugReportList />
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { ref, computed, watch } from 'vue'
+import BugReportList from './BugReportList.vue'
+import { useBugReportStore } from '../stores/bugReportStore'
 import { useToast } from 'vue-toastification'
 
 export default {
   name: 'BugReportModal',
+  components: { BugReportList },
   props: {
     isOpen: {
       type: Boolean,
@@ -185,8 +200,11 @@ export default {
   emits: ['close', 'submit'],
   setup(props, { emit }) {
     const toast = useToast()
+    const bugReportStore = useBugReportStore()
     
     const isSubmitting = ref(false)
+    const activeTab = ref('new')
+    const openReportsCount = computed(() => bugReportStore.openReportsCount)
     
     const formData = ref({
       type: '',
@@ -415,10 +433,12 @@ export default {
       }
     }
 
-    // Reset form when modal opens
-    watch(() => props.isOpen, (isOpen) => {
+    // Reset form and refresh reports when modal opens
+    watch(() => props.isOpen, async (isOpen) => {
       if (isOpen) {
         resetForm()
+        activeTab.value = 'new'
+        try { await bugReportStore.fetchReports() } catch {}
       }
     })
 
@@ -431,13 +451,43 @@ export default {
       getTitlePlaceholder,
       getDescriptionPlaceholder,
       autoFillDescription,
-      quickReport
+      quickReport,
+      activeTab,
+      openReportsCount
     }
   }
 }
 </script>
 
 <style scoped>
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 var(--space-6);
+  margin-top: var(--space-4);
+}
+.tab {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tab.active {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-300);
+}
+.tab-badge {
+  background: #ef4444;
+  color: #fff;
+  border-radius: 9999px;
+  padding: 0 6px;
+  margin-left: 6px;
+  font-size: 12px;
+}
+.review-pane {
+  padding-top: 0;
+}
 .modal-overlay {
   position: fixed;
   top: 0;
