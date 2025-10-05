@@ -186,7 +186,7 @@
                   class="icon-button edit"
                   aria-label="Edit"
                 >
-                  <svg class="action-icon" viewBox="0 0 24 24">
+                  <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z" />
                   </svg>
                 </button>
@@ -195,7 +195,7 @@
                   class="icon-button delete"
                   aria-label="Delete"
                 >
-                  <svg class="action-icon" viewBox="0 0 24 24">
+                  <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -822,20 +822,24 @@ display: inline-flex; align-items: center; justify-content: center;
 cursor: pointer; transition: background .2s, transform .2s;
 }
 .icon-button.edit {
-background: #ffc107; color: #000;
+ background: #f59e0b !important; /* amber-500 */
+ color: #111827 !important;     /* gray-900 for strong contrast */
 }
 .icon-button.edit:hover {
-background: #e0a800; transform: translateY(-2px);
+ background: #d97706 !important; /* amber-600 */
+ transform: translateY(-2px);
 }
 .icon-button.delete {
-background: var(--danger); color: #fff;
+ background: var(--danger) !important;
+ color: #ffffff !important;
 }
 .icon-button.delete:hover {
-background: var(--danger-dark); transform: translateY(-2px);
+ background: var(--danger-dark) !important;
+ transform: translateY(-2px);
 }
 .action-icon {
 width: 16px; height: 16px;
-stroke: currentColor; fill: none; stroke-width: 2;
+ stroke: currentColor; fill: none; stroke-width: 2;
 stroke-linecap: round; stroke-linejoin: round;
 }
 
