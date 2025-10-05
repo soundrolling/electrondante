@@ -557,7 +557,7 @@ onMounted(() => {
   }
 
   .footer-columns {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr; /* three columns on wider screens */
     gap: var(--space-4);
   }
 

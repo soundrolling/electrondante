@@ -849,10 +849,7 @@ setup() {
   color: #000000 !important;
 }
 
-/* Force text visibility */
-.projects * {
-  color: #000000 !important;
-}
+/* Avoid forcing color on all descendants to preserve contrast on buttons, links, badges */
 
 .projects h1,
 .projects h2,
@@ -1401,6 +1398,30 @@ setup() {
 }
 
 .btn-danger { background: var(--color-error-500); color: var(--text-inverse); }
+/* High-contrast positive and warning variants used on this page */
+.btn-positive {
+  background: #0f766e;           /* teal-700 */
+  color: #ffffff !important;     /* enforce readable text */
+}
+
+.btn-positive:hover {
+  background: #115e59;           /* teal-800 */
+}
+
+.btn-warning {
+  background: #f59e0b;           /* amber-500 */
+  color: #111827 !important;     /* gray-900 for strong contrast on amber */
+}
+
+.btn-warning:hover {
+  background: #d97706;           /* amber-600 */
+}
+
+/* Ensure action buttons (top bar) keep intended contrast */
+.action-btn.new-project-btn {
+  color: #ffffff !important;
+}
+
 
 .btn-danger:hover {
   background: var(--color-error-600);
@@ -1508,6 +1529,14 @@ setup() {
     font-size: var(--text-3xl);
   }
 
+  /* Condense the header into one row on larger screens */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
   .toolbar {
     flex-direction: row;
     justify-content: space-between;
@@ -1518,6 +1547,13 @@ setup() {
   .toolbar-right {
     flex-direction: row;
     align-items: center;
+  }
+
+  /* Place the sorter label and select inline */
+  .sorter {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-3);
   }
 
   .form-grid {
