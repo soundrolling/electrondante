@@ -1,28 +1,28 @@
 <!-- src/components/location-notes/LNTabSchedule.vue -->
 <template>
 <section class="schedule-pane">
-  <!-- Top controls (sort + add) -->
-  <div class="controls-top">
-    <label class="label">Sort by:</label>
-    <select v-model="sortOrder" class="sort-select">
-      <option value="asc">Earliest</option>
-      <option value="desc">Latest</option>
-      <option value="artist">Artist A–Z</option>
-    </select>
-    <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
-  </div>
-
-  <!-- Date range filter -->
-  <div class="controls-range">
-    <label class="label">From:</label>
-    <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
-    <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
-    <label class="label">To:</label>
-    <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
-    <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
-    <div class="range-shortcuts">
-      <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
-      <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
+  <!-- Combined top row: sort/add + date range -->
+  <div class="controls-top combined">
+    <div class="left-stack">
+      <label class="label">Sort by:</label>
+      <select v-model="sortOrder" class="sort-select">
+        <option value="asc">Earliest</option>
+        <option value="desc">Latest</option>
+        <option value="artist">Artist A–Z</option>
+      </select>
+      <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
+    </div>
+    <div class="right-stack">
+      <label class="label">From:</label>
+      <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
+      <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
+      <label class="label">To:</label>
+      <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
+      <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
+      <div class="range-shortcuts">
+        <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
+        <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
+      </div>
     </div>
   </div>
 
@@ -490,6 +490,10 @@ border: 1px solid rgba(255, 255, 255, 0.3);
 backdrop-filter: blur(10px);
 box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
+.controls-top.combined {
+  justify-content: space-between;
+}
+.left-stack, .right-stack { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .label {
 font-size: 0.9rem;
 font-weight: 600;
@@ -785,19 +789,6 @@ cursor: default;
   background: #047857;
 }
 
-.controls-range {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-}
 .range-input {
   padding: 8px;
   border: 1px solid var(--border);
