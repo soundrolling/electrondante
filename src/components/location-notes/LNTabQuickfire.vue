@@ -261,7 +261,7 @@ backdrop-filter: blur(10px);
 --fg: #000;
 background: var(--bg);
 color: var(--fg);
-border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(0, 0, 0, 0.25);
 border-radius: 16px;
 padding: 24px 16px;
 font-weight: 700;
@@ -273,9 +273,9 @@ transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 backdrop-filter: blur(10px);
 }
 .qf:hover {
-transform: translateY(-4px) scale(1.02);
-box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-opacity: 0.9;
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  filter: saturate(1.05);
 }
 .qf:active {
 transform: translateY(-2px) scale(0.98);

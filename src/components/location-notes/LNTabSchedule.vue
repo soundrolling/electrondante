@@ -809,5 +809,13 @@ cursor: default;
   gap: 10px;
   margin-top: 8px;
 }
-/* Shortcut button styles are now handled by btn btn-primary classes */
+/* High-contrast primary buttons for date shortcuts */
+.btn.btn-primary {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  border: 2px solid #1e40af !important;
+  font-weight: 700;
+}
+.btn.btn-primary:hover { background-color: #1e40af !important; }
+.btn.btn-primary:focus { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
 </style>

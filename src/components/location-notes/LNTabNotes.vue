@@ -1438,4 +1438,19 @@ opacity: 0.6;
   margin-top: 4px;
   align-self: flex-end;
 }
+
+/* High-contrast primary buttons for Today / Previous Day */
+.btn.btn-primary {
+  background-color: #1d4ed8 !important; /* stronger blue */
+  color: #ffffff !important;
+  border: 2px solid #1e40af !important;
+  font-weight: 700;
+}
+.btn.btn-primary:hover {
+  background-color: #1e40af !important;
+}
+.btn.btn-primary:focus {
+  outline: 3px solid rgba(29, 78, 216, 0.35);
+  outline-offset: 2px;
+}
 </style> 
