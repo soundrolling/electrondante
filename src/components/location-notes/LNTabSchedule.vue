@@ -624,8 +624,8 @@ gap: 8px;
 
 /* inline edit/delete icons */
 .icon {
-width: 32px;
-height: 32px;
+  width: 44px;
+  height: 44px;
 border: none;
 border-radius: 6px;
 display: inline-flex;
@@ -649,8 +649,8 @@ color: #ffffff;
 background: #b91c1c;
 }
 .icon-svg {
-width: 16px;
-height: 16px;
+  width: 22px;
+  height: 22px;
 color: #fff;
 }
 
