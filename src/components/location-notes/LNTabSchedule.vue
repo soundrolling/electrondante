@@ -638,25 +638,11 @@ justify-content: center;
 cursor: pointer;
 transition: background .2s;
 }
-.icon.edit {
-background: #d97706;
-color: #ffffff;
-}
-.icon.edit:hover {
-background: #b45309;
-}
-.icon.delete {
-background: #dc2626;
-color: #ffffff;
-}
-.icon.delete:hover {
-background: #b91c1c;
-}
-.icon-svg {
-  width: 22px;
-  height: 22px;
-color: #fff;
-}
+.icon.edit { background: #f59e0b; color: #ffffff; }
+.icon.edit:hover { background: #d97706; }
+.icon.delete { background: #ef4444; color: #ffffff; }
+.icon.delete:hover { background: #dc2626; }
+.icon-svg { width: 26px; height: 26px; color: #fff; }
 
 .empty-text {
 text-align: center;
@@ -781,13 +767,8 @@ cursor: default;
 }
 }
 
-.icon.note {
-  background: #059669;
-  color: #ffffff;
-}
-.icon.note:hover {
-  background: #047857;
-}
+.icon.note { background: #34d399; color: #ffffff; }
+.icon.note:hover { background: #10b981; }
 
 .range-input {
   padding: 8px;
