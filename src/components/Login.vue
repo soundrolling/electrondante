@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.50">
-        <span class="version-text">v21.50</span>
-        <span class="version-date">December 19th</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.51">
+        <span class="version-text">v21.51</span>
+        <span class="version-date">October 5</span>
       </button>
     </div>
 
@@ -19,34 +19,24 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.50</h2>
+          <h2 id="changelog-title">What's New in 21.51</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🎨 Traffic Light Button System</h3>
-            <p>Consistent button styling across all components with green (positive), yellow (warning), red (danger), and blue (primary) color coding for better user experience and accessibility.</p>
+            <h3>📅 Schedule Controls Consolidated</h3>
+            <p>Three separate schedule control rows are now combined into two: a single top row for sorting, adding, and date range; and a second row for date navigation.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>📝 Location Notes Enhancement</h3>
-            <p>Improved button contrast and styling in Notes, Schedule, and Quickfire tabs with proper dark backgrounds and white text for optimal readability.</p>
+            <h3>🔘 Larger, Clearer Action Buttons</h3>
+            <p>Note/Edit/Delete buttons in Schedule now use larger icons with lighter backgrounds for improved legibility and accessibility.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🎯 Contacts Table Redesign</h3>
-            <p>Simplified table with compact, mobile-friendly design.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>📅 Calendar Week/Grid View</h3>
-            <p>Vertical week view with Monday start and integrated stage hours.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🎨 UI/UX Improvements</h3>
-            <p>Modern tab design and consistent mobile-first responsive design.</p>
+            <h3>🧹 Misc Fixes & Polish</h3>
+            <p>Minor visual tweaks and consistency improvements across Location Notes and Schedule.</p>
           </div>
         </div>
         
