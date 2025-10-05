@@ -49,7 +49,7 @@
           <span class="nav-text">All Projects</span>
         </router-link>
         <router-link
-          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !route.meta?.hideHeaderProjectHome"
+          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !routeMeta.hideHeaderProjectHome"
           :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
           class="nav-link"
           :class="{ active: route.name === 'ProjectDetail' }"
@@ -123,6 +123,8 @@ export default {
     const bugReportStore = useBugReportStore();
     const router = useRouter();
     const route = useRoute();
+  // Safe access to route.meta for template usage
+  const routeMeta = computed(() => (route && route.meta) ? route.meta : {});
 
   const isAuthenticated = computed(() => userStore.isAuthenticated);
   const currentProject = computed(() => userStore.getCurrentProject);
@@ -233,6 +235,7 @@ export default {
     isProjectDetailRoute,
     showProjectHomeButton,
     showBackButton,
+    routeMeta,
 
     onlineStatusText,
     onlineStatusClass,
