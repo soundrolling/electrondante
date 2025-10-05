@@ -440,6 +440,13 @@ setup() {
   const currentAssignmentGear   = ref(null)
   const gearAssignments         = ref({})
 
+  // Single-assignment workflow state (used by Assign modal form)
+  const selectedGear            = ref(null)
+  const assignmentStageId       = ref('')
+  const assignmentAmount        = ref(1)
+  const assignmentStartDate     = ref('')
+  const assignmentEndDate       = ref('')
+
   const editModalVisible        = ref(false)
   const currentEditGear         = ref({})
   const editGearName            = ref('')
@@ -705,14 +712,30 @@ setup() {
   }
 
   function openAssignmentModal(gear) {
+    // Legacy batch-assignment state (kept for compatibility)
     currentAssignmentGear.value = gear
     const init = {}
     locationsList.value.forEach(l => init[l.id] = gear.assignments?.[l.id] || 0)
     gearAssignments.value = init
+
+    // New single-assignment form state
+    selectedGear.value        = gear
+    assignmentStageId.value   = ''
+    assignmentAmount.value    = Math.min(1, Math.max(0, gear.unassigned_amount || 1))
+    // Default dates: today → today
+    const today = new Date().toISOString().slice(0,10)
+    assignmentStartDate.value = today
+    assignmentEndDate.value   = today
+
     assignmentModalVisible.value = true
   }
   function closeAssignmentModal() {
     assignmentModalVisible.value = false
+    selectedGear.value        = null
+    assignmentStageId.value   = ''
+    assignmentAmount.value    = 1
+    assignmentStartDate.value = ''
+    assignmentEndDate.value   = ''
   }
 
   async function saveGearAssignments() {
@@ -742,6 +765,51 @@ setup() {
       toast.error(err.message)
     } finally {
       loading.value = false
+    }
+  }
+
+  // Save from the single-assignment form
+  async function saveAssignment() {
+    try {
+      if (!selectedGear.value) { toast.error('No gear selected'); return }
+      if (!assignmentStageId.value) { toast.error('Please choose a stage'); return }
+      const amount = Number(assignmentAmount.value || 0)
+      if (amount < 1) { toast.error('Amount must be at least 1'); return }
+      if (amount > (selectedGear.value.unassigned_amount || 0)) {
+        toast.error('Amount exceeds available')
+        return
+      }
+
+      const gid = selectedGear.value.id
+      const sid = Number(assignmentStageId.value)
+
+      // Upsert by gear_id + location_id
+      const existing = await fetchTableData('gear_assignments', {
+        eq: { gear_id: gid, location_id: sid }
+      })
+
+      if (existing.length) {
+        await mutateTableData('gear_assignments', 'update', {
+          id: existing[0].id,
+          assigned_amount: amount,
+          start_date: assignmentStartDate.value || null,
+          end_date: assignmentEndDate.value || null,
+        })
+      } else {
+        await mutateTableData('gear_assignments', 'insert', {
+          gear_id: gid,
+          location_id: sid,
+          assigned_amount: amount,
+          start_date: assignmentStartDate.value || null,
+          end_date: assignmentEndDate.value || null,
+        })
+      }
+
+      toast.success('Assignment saved')
+      closeAssignmentModal()
+      await fetchGearList()
+    } catch (err) {
+      toast.error(err.message || 'Failed to save assignment')
     }
   }
 
@@ -973,9 +1041,16 @@ setup() {
     openAssignmentModal,
     closeAssignmentModal,
     saveGearAssignments,
+    saveAssignment,
     assignmentModalVisible,
     currentAssignmentGear,
     gearAssignments,
+    // Single-assign form state
+    selectedGear,
+    assignmentStageId,
+    assignmentAmount,
+    assignmentStartDate,
+    assignmentEndDate,
     openEditModal,
     closeEditModal,
     saveEdit,
