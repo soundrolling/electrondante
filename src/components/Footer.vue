@@ -718,4 +718,7 @@ onMounted(() => {
 .menu-title { font-weight: var(--font-semibold); }
 .close-btn { background: var(--bg-secondary); }
 .menu-section { margin-bottom: var(--space-3); }
+
+/* Desktop default: hide the mobile bar */
+.footer-mobile-bar { display: none; }
 </style>
