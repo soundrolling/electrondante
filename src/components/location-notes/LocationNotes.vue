@@ -22,30 +22,33 @@
           </svg>
         </router-link>
       </template>
-    </ProjectBreadcrumbs>
-    <!-- Clean single row layout -->
-    <div class="single-row-header">
-      <div class="stage-title">
-        <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
-        <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
-      </div>
-      <div class="timecode-display">
-        <strong class="tc">{{ liveTimecode }}</strong>
-        <small class="tc-label">{{ currentTimeSourceLabel }}</small>
-      </div>
-      <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
-        <span class="sync-dot">●</span>
-        <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
-      </div>
-      <button class="btn btn-positive mini primary" @click="createNote">New note</button>
-    </div>
+      <template #below>
+        <!-- Page header content lives with breadcrumbs for consistency -->
+        <div class="single-row-header">
+          <div class="stage-title">
+            <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
+            <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
+          </div>
+          <div class="timecode-display">
+            <strong class="tc">{{ liveTimecode }}</strong>
+            <small class="tc-label">{{ currentTimeSourceLabel }}</small>
+          </div>
+          <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
+            <span class="sync-dot">●</span>
+            <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+          </div>
+          <button class="btn btn-positive mini primary" @click="createNote">New note</button>
+        </div>
 
-    <!-- tab buttons -->
-    <nav class="tabs">
-      <button :class="{ active: activeTab==='notes' }"    @click="activeTab='notes'">Notes</button>
-      <button :class="{ active: activeTab==='schedule' }" @click="activeTab='schedule'">Schedule</button>
-      <button :class="{ active: activeTab==='quickfire' }" @click="activeTab='quickfire'">Shortcuts</button>
-    </nav>
+        <!-- tab buttons -->
+        <nav class="tabs">
+          <button :class="{ active: activeTab==='notes' }"    @click="activeTab='notes'">Notes</button>
+          <button :class="{ active: activeTab==='schedule' }" @click="activeTab='schedule'">Schedule</button>
+          <button :class="{ active: activeTab==='quickfire' }" @click="activeTab='quickfire'">Shortcuts</button>
+        </nav>
+      </template>
+    </ProjectBreadcrumbs>
+    
 
     <!-- dynamic tab content wrapped in keep-alive -->
     <keep-alive>

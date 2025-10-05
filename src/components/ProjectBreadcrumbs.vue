@@ -15,6 +15,9 @@
     <slot name="right"></slot>
   </div>
 </nav>
+<div v-if="$slots.below" class="breadcrumbs-below">
+  <slot name="below"></slot>
+</div>
 </template>
 
 <script setup>
@@ -72,6 +75,16 @@ gap: 10px;
   }
   .bc-left { order: 1; }
   .bc-right { order: 3; margin-left: auto; }
+}
+
+.breadcrumbs-below {
+  background: rgba(255, 255, 255, 0.9);
+  margin: 12px 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
 }
 </style>
 
