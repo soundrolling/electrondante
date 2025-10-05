@@ -302,26 +302,6 @@
                     class="form-input"
                   />
                 </div>
-                <div class="form-group">
-                  <label for="assignmentStartDate" class="form-label">Start Date<span class="required">*</span></label>
-                  <input 
-                    id="assignmentStartDate"
-                    v-model="assignmentStartDate" 
-                    type="date" 
-                    required 
-                    class="form-input"
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="assignmentEndDate" class="form-label">End Date<span class="required">*</span></label>
-                  <input 
-                    id="assignmentEndDate"
-                    v-model="assignmentEndDate" 
-                    type="date" 
-                    required 
-                    class="form-input"
-                  />
-                </div>
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn-positive">Save Assignment</button>
@@ -444,8 +424,6 @@ setup() {
   const selectedGear            = ref(null)
   const assignmentStageId       = ref('')
   const assignmentAmount        = ref(1)
-  const assignmentStartDate     = ref('')
-  const assignmentEndDate       = ref('')
 
   const editModalVisible        = ref(false)
   const currentEditGear         = ref({})
@@ -722,10 +700,6 @@ setup() {
     selectedGear.value        = gear
     assignmentStageId.value   = ''
     assignmentAmount.value    = Math.min(1, Math.max(0, gear.unassigned_amount || 1))
-    // Default dates: today → today
-    const today = new Date().toISOString().slice(0,10)
-    assignmentStartDate.value = today
-    assignmentEndDate.value   = today
 
     assignmentModalVisible.value = true
   }
@@ -734,8 +708,6 @@ setup() {
     selectedGear.value        = null
     assignmentStageId.value   = ''
     assignmentAmount.value    = 1
-    assignmentStartDate.value = ''
-    assignmentEndDate.value   = ''
   }
 
   async function saveGearAssignments() {
@@ -792,16 +764,12 @@ setup() {
         await mutateTableData('gear_assignments', 'update', {
           id: existing[0].id,
           assigned_amount: amount,
-          start_date: assignmentStartDate.value || null,
-          end_date: assignmentEndDate.value || null,
         })
       } else {
         await mutateTableData('gear_assignments', 'insert', {
           gear_id: gid,
           location_id: sid,
           assigned_amount: amount,
-          start_date: assignmentStartDate.value || null,
-          end_date: assignmentEndDate.value || null,
         })
       }
 
@@ -1049,8 +1017,6 @@ setup() {
     selectedGear,
     assignmentStageId,
     assignmentAmount,
-    assignmentStartDate,
-    assignmentEndDate,
     openEditModal,
     closeEditModal,
     saveEdit,
