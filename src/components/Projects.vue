@@ -5,7 +5,7 @@
 <div class="projects">
   <!-- ─── PAGE‑TITLE & TOP‑BAR ─────────────────────────────── -->
   <header class="page-header">
-    <h1 class="page-title">Your Projects</h1>
+    <h1 class="page-title">All Projects</h1>
     <div class="page-actions">
       <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
         <span class="btn-icon">🔄</span>
@@ -137,14 +137,14 @@
         @click="activeTab = 'active'"
       >
         <span class="tab-icon">📁</span>
-        <span class="tab-text">Active Projects</span>
+        <span class="tab-text">Active</span>
       </button>
       <button
         :class="['tab-btn', { active: activeTab === 'archived' }]"
         @click="activeTab = 'archived'"
       >
         <span class="tab-icon">📦</span>
-        <span class="tab-text">Archived Projects</span>
+        <span class="tab-text">Archived</span>
       </button>
     </div>
 
