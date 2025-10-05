@@ -13,37 +13,24 @@ export class BugReportService {
    */
   static async submitReport(reportData) {
     try {
+      // Insert only columns that exist in the current schema
+      const insertData = {
+        type: reportData.type,
+        title: reportData.title,
+        description: reportData.description ?? '',
+        priority: reportData.priority,
+        browser: reportData.browser || null,
+        device: reportData.device || null,
+        user_agent: reportData.userAgent || null,
+        url: reportData.url || null,
+        status: 'open',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
       const { data, error } = await supabase
         .from('bug_reports')
-        .insert({
-          type: reportData.type,
-          title: reportData.title,
-          description: reportData.description,
-          priority: reportData.priority,
-          browser: reportData.browser || null,
-          device: reportData.device || null,
-          steps: reportData.steps || null,
-          expected_behavior: reportData.expectedBehavior || null,
-          actual_behavior: reportData.actualBehavior || null,
-          // System information
-          user_agent: reportData.userAgent || null,
-          platform: reportData.platform || null,
-          language: reportData.language || null,
-          cookie_enabled: reportData.cookieEnabled || null,
-          online_status: reportData.onLine || null,
-          screen_resolution: reportData.screenResolution || null,
-          viewport_size: reportData.viewportSize || null,
-          color_depth: reportData.colorDepth || null,
-          pixel_ratio: reportData.pixelRatio || null,
-          timezone: reportData.timezone || null,
-          url: reportData.url || null,
-          referrer: reportData.referrer || null,
-          page_title: reportData.pageTitle || null,
-          console_errors: reportData.consoleErrors || null,
-          status: 'open',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .insert(insertData)
         .select()
         .single()
 
