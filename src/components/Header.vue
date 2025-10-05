@@ -82,6 +82,18 @@
 
       <!-- Right side: User actions -->
       <div class="header-right">
+        <!-- Mobile menu button (right side, visible on small screens) -->
+        <button
+          class="btn mobile-menu-btn-right light-btn"
+          @click="showMobileMenu = true"
+          aria-label="Open menu"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
@@ -807,11 +819,12 @@ export default {
   .sync-indicator,
   .bug-report-btn,
   .sign-out-btn { display: none; }
-  .mobile-menu-btn { display: inline-flex; }
+  .mobile-menu-btn, .mobile-menu-btn-right { display: inline-flex; }
 }
 
 /* Mobile menu sheet */
 .mobile-menu-btn { display: none; }
+.mobile-menu-btn-right { display: none; }
 .mobile-menu-backdrop {
   position: fixed;
   inset: 0;
