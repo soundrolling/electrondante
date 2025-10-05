@@ -83,6 +83,15 @@
 
       <!-- Right side: User actions -->
       <div class="header-right">
+        <!-- Mobile online/offline dot indicator -->
+        <span
+          class="online-dot"
+          :class="isOnline ? 'online' : 'offline'"
+          :title="onlineStatusText"
+          aria-hidden="false"
+          role="img"
+        ></span>
+
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
@@ -835,13 +844,20 @@ export default {
     min-height: 44px;
   }
 
-  /* Hide crowded items and show menu button on mobile */
+  /* Icon-only mobile header */
   .navigation,
   .status-indicator,
-  .sync-indicator,
+  .sync-indicator { display: none; }
+  .mobile-menu-btn { display: none; }
+  /* Keep bug report and sign out as icons only */
   .bug-report-btn,
-  .sign-out-btn { display: none; }
-  .mobile-menu-btn { display: inline-flex; }
+  .sign-out-btn { display: inline-flex; padding: var(--space-2); min-height: 40px; }
+  .bug-report-btn .btn-icon,
+  .sign-out-btn .btn-icon { width: 22px; height: 22px; }
+  /* Online dot */
+  .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--space-2); }
+  .online-dot.online { background-color: #10b981; }
+  .online-dot.offline { background-color: #ef4444; }
 }
 
 /* Mobile menu sheet */
