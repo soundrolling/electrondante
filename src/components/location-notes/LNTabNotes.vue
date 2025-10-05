@@ -53,10 +53,6 @@
         </select>
       </div>
       <div class="spacer"></div>
-      <div class="quick-range-btns">
-        <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
-        <button class="btn btn-primary prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
-      </div>
       <button class="btn btn-warning filter-toggle" @click="toggleFilters" :aria-expanded="showFilters">{{ showFilters ? 'Hide Filters' : 'Filters' }}</button>
     </div>
     <div v-if="showFilters" class="controls-row filters">
@@ -69,6 +65,10 @@
         <label class="label">To:</label>
         <input type="datetime-local" v-model="rangeEnd" class="date-range-input" />
         <button class="btn btn-danger reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
+      </div>
+      <div class="quick-range-btns">
+        <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
+        <button class="btn btn-primary prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
       </div>
     </div>
   </div>
