@@ -950,7 +950,7 @@ setup() {
   position: relative;
   background: var(--bg-primary);
   border-radius: var(--radius-2xl);
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-7) var(--space-6);
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
@@ -1007,7 +1007,7 @@ setup() {
 
 /* Form Styles */
 .form-group {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .form-group label {
@@ -1022,7 +1022,7 @@ setup() {
 .form-input,
 .form-textarea {
   width: 100%;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
   font-size: var(--text-base);

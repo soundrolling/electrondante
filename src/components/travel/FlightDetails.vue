@@ -1653,7 +1653,7 @@ setup(props) {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   border: 1.5px solid #e5e7eb;
-  padding: 1.5rem;
+  padding: 2rem 1.75rem;
   margin-top: 1.5rem;
 }
 
@@ -2051,7 +2051,7 @@ setup(props) {
   max-height: 90vh;
   overflow-y: auto;
   box-sizing: border-box;
-  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  padding: 2.25rem 1.75rem 1.75rem 1.75rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
@@ -2096,7 +2096,7 @@ setup(props) {
   }
 }
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 .form-group label {
   display: block;

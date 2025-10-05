@@ -702,7 +702,7 @@ setup(props) {
 .content-container {
   background: #ffffff;
   border-radius: 12px;
-  padding: 20px 16px;
+  padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
 }
@@ -771,7 +771,7 @@ setup(props) {
 .accommodation-form-container {
   background: #f9fafb;
   border-radius: 12px;
-  padding: 24px 20px;
+  padding: 28px 24px;
   margin-bottom: 24px;
   border: 1px solid #e5e7eb;
 }
@@ -786,7 +786,7 @@ setup(props) {
 
 /* Form Styles */
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .form-group label {
@@ -802,7 +802,7 @@ setup(props) {
 .form-select,
 .form-textarea {
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 16px;

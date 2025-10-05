@@ -300,7 +300,7 @@ clearInterval(clockTimer)
 .weather-info {
   background: #ffffff;
   border-radius: 12px;
-  padding: 28px 20px;
+  padding: 32px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
   transition: all 0.2s ease;
@@ -335,7 +335,7 @@ clearInterval(clockTimer)
 
 .dest-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 16px;
