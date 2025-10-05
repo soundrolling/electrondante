@@ -1746,12 +1746,12 @@ color: currentColor;
   padding: 10px;
 }
 .action-btn.view-btn {
-  background: #1e40af; /* stronger blue */
-  color: #ffffff;
+  background: #e0f2fe; /* pale sky blue */
+  color: #0369a1;      /* readable blue text */
   margin-right: 4px;
 }
 .action-btn.view-btn:hover {
-  background: #1d4ed8;
+  background: #bae6fd; /* slightly darker on hover */
 }
 .action-btn.view-btn .info-icon {
   width: 22px;
