@@ -48,20 +48,30 @@ align-items: center;
 gap: 8px;
 }
 .bc-center {
-display: flex;
-align-items: center;
-gap: 10px;
+ display: flex;
+ align-items: center;
+ gap: 10px;
 }
-.link { text-decoration: none; font-weight: 700; border: 2px solid #1e40af !important; }
+/* Light pill buttons with dark text to match global header */
+.link {
+  text-decoration: none;
+  font-weight: 700;
+  border: 1px solid #7dd3fc !important; /* sky-300 */
+  background: #e0f2fe; /* sky-100 */
+  color: #0c4a6e !important; /* cyan-900 */
+  padding: 10px 16px;
+  border-radius: 14px;
+}
+.link:hover { background: #bae6fd; border-color: #38bdf8 !important; color: #0c4a6e !important; }
 
 .icon-btn {
-  background-color: #1d4ed8 !important;
-  color: #ffffff !important;
-  border: 2px solid #1e40af !important;
-  width: 44px; height: 44px; display: inline-flex; align-items:center; justify-content:center; border-radius: 6px;
+  background-color: #e0f2fe !important;
+  color: #0c4a6e !important;
+  border: 1px solid #7dd3fc !important;
+  width: 44px; height: 44px; display: inline-flex; align-items:center; justify-content:center; border-radius: 10px;
 }
-.icon-btn:hover { background-color: #1e40af !important; }
-.icon-svg { width: 20px; height: 20px; color: #fff; }
+.icon-btn:hover { background-color: #bae6fd !important; border-color: #38bdf8 !important; }
+.icon-svg { width: 20px; height: 20px; color: #0c4a6e; }
 
 @media (max-width: 640px) {
   .breadcrumbs {

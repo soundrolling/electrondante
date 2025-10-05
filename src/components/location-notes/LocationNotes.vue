@@ -7,7 +7,7 @@
   <main v-if="location && !isLoading && !error">
     <ProjectBreadcrumbs>
       <template #left>
-        <button class="btn btn-warning back" @click="goBack">← Back</button>
+        <button class="btn btn-warning back light-pill" @click="goBack">← Back</button>
       </template>
       <template #right>
         <router-link
@@ -270,15 +270,15 @@ text-align: center;
 }
 
 .btn.back {
-background: #d97706;
-color: #ffffff;
-border: 0;
-border-radius: 6px;
-padding: 8px 12px;
-font-size: 0.8rem;
-font-weight: 600;
-flex-shrink: 0;
-white-space: nowrap;
+ background: #e0f2fe;
+ color: #0c4a6e;
+ border: 1px solid #7dd3fc;
+ border-radius: 10px;
+ padding: 8px 12px;
+ font-size: 0.8rem;
+ font-weight: 700;
+ flex-shrink: 0;
+ white-space: nowrap;
 }
 
 
