@@ -462,19 +462,20 @@ export default {
   color: #000000 !important;
 }
 
-/* Lighter pill buttons with white text for contrast */
+/* Light pill buttons with DARK text for contrast */
 .light-btn {
-  background-color: #2563eb; /* blue-600 */
-  color: #ffffff !important;
-  border: 1px solid #1d4ed8; /* blue-700 */
+  background-color: #e0f2fe; /* sky-100 */
+  color: #0c4a6e !important; /* cyan-900 */
+  border: 1px solid #7dd3fc; /* sky-300 */
 }
 .light-btn:hover {
-  background-color: #1d4ed8; /* blue-700 */
-  color: #ffffff !important;
+  background-color: #bae6fd; /* sky-200 */
+  color: #0c4a6e !important;
+  border-color: #38bdf8; /* sky-400 */
 }
 .light-btn .nav-text,
 .light-btn .btn-text {
-  color: #ffffff !important;
+  color: #0c4a6e !important;
 }
 
 /* Project home bar */
