@@ -877,8 +877,8 @@ overflow: hidden;
 }
 
 .add-contact-fab .add-icon {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   stroke: currentColor;
 }
 
@@ -1015,8 +1015,8 @@ font-weight: 500;
 }
 
 .add-contact-square .add-icon {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   stroke: currentColor;
 }
 
