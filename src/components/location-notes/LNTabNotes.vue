@@ -500,8 +500,8 @@ function openExportModal() {
   // Prefill from filter range; reset whole-day option
   exportRangeStart.value = rangeStart.value || '';
   exportRangeEnd.value = rangeEnd.value || '';
-  exportWholeDay.value = false;
-  exportWholeDayDate.value = '';
+  exportWholeDay.value = true;
+  exportWholeDayDate.value = todayISO();
   exportFilename.value = `location-notes-${props.locationId}.pdf`;
 }
 function closeExportModal() {
