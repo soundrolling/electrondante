@@ -575,6 +575,26 @@ export default {
   color: #000000 !important;
 }
 
+/* Numeric badge styling */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 6px;
+  margin-left: 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: var(--font-bold);
+  line-height: 1;
+}
+.badge-danger {
+  background-color: #ef4444; /* red-500 */
+  color: #ffffff !important;
+  border: 1px solid #dc2626; /* red-600 */
+}
+
 /* Light pill buttons with DARK text for contrast */
 .light-btn {
   background-color: #e0f2fe; /* sky-100 */
