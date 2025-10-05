@@ -42,16 +42,24 @@
     </div>
   </div>
 
-  <!-- Filter Bar: Compact, Responsive Layout -->
-  <div class="filter-bar-compact">
-    <div class="filter-col sort-col">
-      <label for="sortKey" class="label">Sort:</label>
-      <select id="sortKey" v-model="sortKey" class="sort-select">
-        <option value="desc">Latest first</option>
-        <option value="asc">Earliest first</option>
-      </select>
+  <!-- Controls: two neat rows; filters collapsed by default -->
+  <div class="notes-controls">
+    <div class="controls-row top">
+      <div class="sort-wrap">
+        <label for="sortKey" class="label">Sort:</label>
+        <select id="sortKey" v-model="sortKey" class="sort-select">
+          <option value="desc">Latest first</option>
+          <option value="asc">Earliest first</option>
+        </select>
+      </div>
+      <div class="spacer"></div>
+      <div class="quick-range-btns">
+        <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
+        <button class="btn btn-primary prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
+      </div>
+      <button class="btn btn-warning filter-toggle" @click="toggleFilters" :aria-expanded="showFilters">{{ showFilters ? 'Hide Filters' : 'Filters' }}</button>
     </div>
-    <div class="filter-col date-col">
+    <div v-if="showFilters" class="controls-row filters">
       <div class="date-row">
         <label class="label">From:</label>
         <input type="datetime-local" v-model="rangeStart" class="date-range-input" />
@@ -61,10 +69,6 @@
         <label class="label">To:</label>
         <input type="datetime-local" v-model="rangeEnd" class="date-range-input" />
         <button class="btn btn-danger reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
-      </div>
-      <div class="quick-range-btns">
-        <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
-        <button class="btn btn-primary prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
       </div>
     </div>
   </div>
@@ -455,6 +459,8 @@ startEdit({
 
 const rangeStart = ref('');
 const rangeEnd = ref('');
+const showFilters = ref(false);
+function toggleFilters(){ showFilters.value = !showFilters.value }
 function clearRange() {
   rangeStart.value = '';
   rangeEnd.value = '';
@@ -968,20 +974,21 @@ opacity: 0.6;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.filter-bar-compact {
+.notes-controls { margin: 0 auto 20px auto; max-width: 1100px; }
+.controls-row {
   display: flex;
-  max-width: 800px;
-  margin: 0 auto 20px auto;
-  gap: 32px;
-  align-items: flex-end;
-  justify-content: flex-start;
-  padding: 20px;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   backdrop-filter: blur(10px);
 }
+.controls-row.top { margin-bottom: 12px; }
+.sort-wrap { display: flex; align-items: center; gap: 8px; }
+.spacer { flex: 1; }
 .filter-col {
   display: flex;
   flex-direction: column;
@@ -1027,36 +1034,10 @@ opacity: 0.6;
   outline: none;
 }
 @media (max-width: 900px) {
-  .filter-bar-compact {
-    max-width: 100%;
-    gap: 20px;
-    padding: 12px;
-  }
-  .sort-col, .date-col {
-    max-width: 100%;
-    min-width: 0;
-    flex: 1 1 100%;
-  }
-  .sort-select, .date-range-input {
-    max-width: 100%;
-    min-width: 0;
-  }
+  .controls-row { flex-wrap: wrap; }
 }
-/* Desktop: force single-row layout */
 @media (min-width: 1024px) {
-  .filter-bar-compact {
-    max-width: 100%;
-    gap: 20px;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: nowrap;
-  }
-  .date-col {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .date-row { margin-bottom: 0; }
+  .controls-row.top { flex-wrap: nowrap; }
   .quick-range-btns { margin-top: 0; }
 }
 @media (max-width: 768px) {
@@ -1081,13 +1062,7 @@ opacity: 0.6;
 }
 
 @media (max-width: 600px) {
-  .filter-bar-compact {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding: 12px;
-  }
+  .controls-row { flex-direction: column; align-items: stretch; }
   .date-col {
     gap: 0.4em;
   }
