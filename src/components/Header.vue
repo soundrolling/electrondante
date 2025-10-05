@@ -823,8 +823,10 @@ export default {
 }
 
 /* Mobile menu sheet */
-.mobile-menu-btn { display: none; }
-.mobile-menu-btn-right { display: none; }
+@media (min-width: 769px) {
+  .mobile-menu-btn { display: none; }
+  .mobile-menu-btn-right { display: none; }
+}
 .mobile-menu-backdrop {
   position: fixed;
   inset: 0;
