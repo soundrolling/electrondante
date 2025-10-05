@@ -129,7 +129,7 @@
               @click="openContactInfo(contact)"
               title="View contact details"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="9"/>
                 <path d="M12 11v6"/>
                 <circle cx="12" cy="7.5" r="1.5"/>
@@ -1747,6 +1747,10 @@ color: currentColor;
 }
 .action-btn.view-btn:hover {
   background: #1d4ed8;
+}
+.action-btn.view-btn .info-icon {
+  width: 22px;
+  height: 22px;
 }
 .info-value.muted {
   color: #9ca3af;
