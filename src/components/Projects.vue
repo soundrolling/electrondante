@@ -813,6 +813,32 @@ setup() {
 <style scoped>
 /* Base Styles - Mobile First */
 .projects {
+  /* Modern accessible color palette (tailwind-inspired) */
+  --bg-primary:            #ffffff;
+  --bg-secondary:          #f8fafc; /* slate-50 */
+  --text-primary:          #111827; /* gray-900 */
+  --text-secondary:        #374151; /* gray-700 */
+  --text-tertiary:         #6b7280; /* gray-500 */
+  --text-inverse:          #ffffff;
+  --border-light:          #e5e7eb; /* gray-200 */
+  --border-medium:         #cbd5e1; /* slate-300 */
+  --color-primary-100:     #dbeafe; /* blue-100 */
+  --color-primary-500:     #2563eb; /* blue-600 */
+  --color-primary-600:     #1d4ed8; /* blue-700 */
+  --color-primary-700:     #1e40af; /* blue-800 */
+  --color-secondary-100:   #e2e8f0; /* slate-200 */
+  --color-secondary-200:   #cbd5e1; /* slate-300 */
+  --color-secondary-500:   #64748b; /* slate-500 */
+  --color-secondary-600:   #475569; /* slate-600 */
+  --color-warning-100:     #fef3c7; /* amber-100 */
+  --color-warning-700:     #b45309; /* amber-700 */
+  --color-error-500:       #ef4444; /* red-500 */
+  --color-error-600:       #dc2626; /* red-600 */
+  --shadow-sm:             0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:             0 4px 10px rgba(0,0,0,0.08);
+  --shadow-lg:             0 8px 16px rgba(0,0,0,0.12);
+  --shadow-xl:             0 10px 24px rgba(0,0,0,0.14);
+
   min-height: 100vh;
   background: var(--bg-primary);
   padding: var(--space-4);
@@ -1361,29 +1387,20 @@ setup() {
   transform: scale(0.98);
 }
 
-.btn-primary {
-  background: var(--color-primary-500);
-  color: var(--text-inverse);
-}
+.btn-primary { background: var(--color-primary-500); color: var(--text-inverse); }
 
 .btn-primary:hover {
   background: var(--color-primary-600);
   box-shadow: var(--shadow-lg);
 }
 
-.btn-secondary {
-  background: var(--color-secondary-500);
-  color: var(--text-inverse);
-}
+.btn-secondary { background: var(--color-secondary-500); color: var(--text-inverse); }
 
 .btn-secondary:hover {
   background: var(--color-secondary-600);
 }
 
-.btn-danger {
-  background: var(--color-error-500);
-  color: var(--text-inverse);
-}
+.btn-danger { background: var(--color-error-500); color: var(--text-inverse); }
 
 .btn-danger:hover {
   background: var(--color-error-600);
