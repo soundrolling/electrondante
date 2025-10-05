@@ -1042,6 +1042,23 @@ opacity: 0.6;
     min-width: 0;
   }
 }
+/* Desktop: force single-row layout */
+@media (min-width: 1024px) {
+  .filter-bar-compact {
+    max-width: 100%;
+    gap: 20px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  .date-col {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .date-row { margin-bottom: 0; }
+  .quick-range-btns { margin-top: 0; }
+}
 @media (max-width: 768px) {
   .notes-table-wrapper {
     width: 100%;
