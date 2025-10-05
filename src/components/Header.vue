@@ -396,7 +396,7 @@ export default {
 .status-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 /* Online/offline status indicator */
@@ -404,18 +404,18 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px 10px; /* compact */
+  padding: 4px 8px; /* more compact */
   border-radius: var(--radius-full);
-  font-size: 0.85rem; /* slightly smaller */
+  font-size: 0.8rem; /* smaller */
   font-weight: var(--font-semibold);
   color: #ffffff !important;
-  background-color: #059669; /* default green-ish */
+  background-color: #047857; /* darker green */
   border: 1px solid rgba(0,0,0,0.05);
   transition: all var(--transition-normal);
   min-height: 0;
 }
 
-.status-indicator:hover { filter: brightness(0.95); }
+.status-indicator:hover { filter: brightness(0.92); color: #ffffff !important; }
 
 .status-dot {
   width: 8px;
@@ -423,8 +423,8 @@ export default {
   border-radius: 50%;
 }
 
-.online.status-indicator { background-color: #059669; } /* green-600 */
-.offline.status-indicator { background-color: #b91c1c; } /* red-700 */
+.online.status-indicator { background-color: #065f46; } /* green-800 */
+.offline.status-indicator { background-color: #7f1d1d; } /* red-900 */
 
 .status-text {
   font-weight: var(--font-medium);
@@ -435,18 +435,18 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px 10px; /* compact */
+  padding: 4px 8px; /* more compact */
   border-radius: var(--radius-full);
-  font-size: 0.85rem; /* slightly smaller */
+  font-size: 0.8rem; /* smaller */
   font-weight: var(--font-semibold);
   color: #ffffff !important;
-  background-color: #059669; /* default synced */
+  background-color: #047857; /* darker synced */
   border: 1px solid rgba(0,0,0,0.05);
   transition: all var(--transition-normal);
   min-height: 0;
 }
-.sync-indicator.synced { background-color: #059669; } /* green-600 */
-.sync-indicator.pending { background-color: #b45309; } /* amber-700 */
+.sync-indicator.synced { background-color: #065f46; } /* green-800 */
+.sync-indicator.pending { background-color: #78350f; } /* amber-900 */
 .sync-text { font-weight: var(--font-semibold); color: #ffffff !important; }
 
 /* Navigation */
