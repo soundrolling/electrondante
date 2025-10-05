@@ -1,5 +1,26 @@
 <template>
 <div class="project-gear">
+  <ProjectBreadcrumbs>
+    <template #left>
+      <button class="btn btn-warning back-btn" @click="goBack">
+        <span class="btn-icon">←</span>
+        <span class="btn-text">Back</span>
+      </button>
+    </template>
+    <template #right>
+      <router-link
+        v-if="currentProject?.id"
+        :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
+        class="icon-btn"
+        title="Project Home"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <path d="M9 22V12h6v10"/>
+        </svg>
+      </router-link>
+    </template>
+  </ProjectBreadcrumbs>
   <!-- TOP BAR -->
   <header class="page-header">
     <div class="header-content">
@@ -433,11 +454,13 @@ import { useToast } from 'vue-toastification'
 import { fetchTableData, mutateTableData } from '../services/dataService'
 import { supabase } from '../supabase'
 import UserGearSelector from './UserGearSelector.vue'
+import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
 
 export default {
 name: 'ProjectGear',
 components: {
-  UserGearSelector
+  UserGearSelector,
+  ProjectBreadcrumbs
 },
 setup() {
   const route     = useRoute()
