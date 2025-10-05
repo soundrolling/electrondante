@@ -145,9 +145,8 @@ export default {
   // Check if on "/projects"
   const isProjectsRoute = computed(() => route.path === '/projects');
 
-  // Back button logic
-  // Always provide a global back control in the header
-  const showBackButton = computed(() => true);
+  // Back button logic: hide on main projects list
+  const showBackButton = computed(() => route.path !== '/projects');
 
   const goBack = () => {
     if (window.history.length > 1) {
