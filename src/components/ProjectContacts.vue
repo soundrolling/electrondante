@@ -62,8 +62,8 @@
           {{ filteredContacts.length }} contact{{ filteredContacts.length !== 1 ? 's' : '' }}
         </div>
         <button @click="toggleAddContact" class="btn btn-positive add-contact-square" title="Add Contact">
-          <svg class="add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14"/>
+          <svg class="add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 4v16M4 12h16"/>
           </svg>
         </button>
       </div>
@@ -1185,6 +1185,7 @@ transform: translateY(-1px);
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
 /* Edit Contact Modal */
@@ -1330,8 +1331,8 @@ cursor: not-allowed;
 }
 
 .btn-primary {
-background-color: #3b82f6;
-color: #fff;
+  background-color: #1d4ed8; /* darker for better contrast */
+  color: #ffffff;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -1340,8 +1341,8 @@ transform: translateY(-1px);
 }
 
 .btn-secondary {
-background-color: #6b7280;
-color: #fff;
+  background-color: #374151; /* darker gray */
+  color: #ffffff;
 }
 
 .btn-secondary:hover {
@@ -1739,12 +1740,12 @@ color: currentColor;
   padding: 10px;
 }
 .action-btn.view-btn {
-  background: #e0e7ff;
-  color: #3b82f6;
+  background: #1e40af; /* stronger blue */
+  color: #ffffff;
   margin-right: 4px;
 }
 .action-btn.view-btn:hover {
-  background: #c7d2fe;
+  background: #1d4ed8;
 }
 .info-value.muted {
   color: #9ca3af;
