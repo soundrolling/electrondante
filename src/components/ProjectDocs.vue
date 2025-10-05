@@ -99,23 +99,10 @@
     </div>
   </div>
 
-  <!-- Search & Stage Filter Section -->
+  <!-- Search Section -->
   <section v-if="!isLoading" class="search-filter-section">
     <div class="filter-container ui-filter-bar">
-      <div class="stage-filter">
-        <label for="stageSelect" class="filter-label">Filter by Stage:</label>
-        <select id="stageSelect" v-model="selectedStageId" class="select-stage">
-          <option value="">All Stages</option>
-          <option
-            v-for="stage in stagesList"
-            :key="stage.id"
-            :value="stage.id"
-          >
-            {{ stage.stage_name }}
-          </option>
-        </select>
-      </div>
-      <div class="search-section">
+      <div class="search-section" style="flex:1">
         <input
           v-model="searchTerm"
           placeholder="Search documents…"
@@ -176,8 +163,6 @@
             <div class="doc-meta">
               <span class="meta-item">{{ mimeLabel(doc.mime_type) }}</span>
               <span class="meta-item">📅 {{ formatDate(doc.inserted_at) }}</span>
-              <span class="meta-item">🏢 {{ doc.venue_name }}</span>
-              <span class="meta-item">🎭 {{ doc.stage_name }}</span>
               <span v-if="doc.uploaded_by" class="meta-item">👤 {{ doc.uploaded_by }}</span>
             </div>
           </div>
@@ -240,9 +225,7 @@ const isLoading   = ref(false)
 const docs        = ref([])
 const searchTerm  = ref('')
 
-// Dropdown of stages (locations) that have docs for this project
-const stagesList      = ref([])
-const selectedStageId = ref('')  // empty = no filter
+// Project-level documents (no stage filtering on this page)
 
 // ─── UPLOAD STATE ───────────────────────────────────────────────────────────────
 const selectedFiles = ref([])
@@ -349,41 +332,13 @@ if (error) {
 }
 }
 
-// ─── FETCH STAGES LIST ──────────────────────────────────────────────────────────
-// Get all distinct stages (locations) that have at least one stage_doc for this project
-async function fetchStagesList() {
-const { data, error } = await supabase
-  .from('stage_docs')
-  .select('stage_id, locations!inner(stage_name)')
-  .eq('project_id', projectId)
-
-if (error) {
-  console.error(error)
-  return
-}
-
-// Build a map of stage_id → stage_name to ensure uniqueness
-const map = new Map()
-data.forEach((row) => {
-  if (!map.has(row.stage_id)) {
-    map.set(row.stage_id, row.locations.stage_name)
-  }
-})
-
-// Convert map entries into array of { id, stage_name }
-stagesList.value = Array.from(map, ([id, name]) => ({ id, stage_name: name }))
-// Sort alphabetically by stage_name
-stagesList.value.sort((a, b) => a.stage_name.localeCompare(b.stage_name))
-}
-
-// ─── FETCH STAGE_DOCS ───────────────────────────────────────────────────────────
-// Fetch stage_docs for this project, optionally filtered by selectedStageId
-async function fetchStageDocs() {
+// ─── FETCH PROJECT_DOCS ─────────────────────────────────────────────────────────
+async function fetchProjectDocs() {
 isLoading.value = true
 
 try {
-  let query = supabase
-    .from('stage_docs')
+  const { data, error } = await supabase
+    .from('project_docs')
     .select(`
       id,
       file_name,
@@ -391,18 +346,11 @@ try {
       description,
       inserted_at,
       file_path,
-      venue_id,
-      stage_id,
-      venues!inner(venue_name),
-      locations!inner(stage_name)
+      uploaded_by,
+      order
     `)
     .eq('project_id', projectId)
-
-  if (selectedStageId.value) {
-    query = query.eq('stage_id', selectedStageId.value)
-  }
-
-  const { data, error } = await query.order('order', { ascending: true })
+    .order('order', { ascending: true })
   if (error) throw error
 
   // Build signed URLs for each document
@@ -419,8 +367,6 @@ try {
         mime_type:   d.mime_type,
         description: d.description,
         inserted_at: d.inserted_at,
-        venue_name:  d.venues.venue_name,
-        stage_name:  d.locations.stage_name,
         uploaded_by: d.uploaded_by || null,
         url:         urlData.signedUrl
       }
@@ -433,11 +379,6 @@ try {
   isLoading.value = false
 }
 }
-
-// Re-fetch docs whenever selectedStageId changes
-watch(selectedStageId, () => {
-fetchStageDocs()
-})
 
 // ─── UPLOAD PROJECT DOCS ────────────────────────────────────────────────────────
 // Upload selected files into the existing "stage-docs" bucket, then insert into project_docs
@@ -557,9 +498,7 @@ if (!term) return docs.value
 
 return docs.value.filter((d) =>
   d.file_name.toLowerCase().includes(term) ||
-  (d.description || '').toLowerCase().includes(term) ||
-  d.venue_name.toLowerCase().includes(term) ||
-  d.stage_name.toLowerCase().includes(term)
+  (d.description || '').toLowerCase().includes(term)
 )
 })
 
@@ -629,8 +568,7 @@ async function exportPdf() {
 // ─── ON MOUNT ───────────────────────────────────────────────────────────────────
 onMounted(async () => {
 await fetchProjectName()
-await fetchStagesList()
-await fetchStageDocs()
+await fetchProjectDocs()
 })
 </script>
 
