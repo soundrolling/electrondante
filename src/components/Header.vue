@@ -49,7 +49,7 @@
           <span class="nav-text">All Projects</span>
         </router-link>
         <router-link
-          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute"
+          v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !route.meta?.hideHeaderProjectHome"
           :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
           class="nav-link"
           :class="{ active: route.name === 'ProjectDetail' }"

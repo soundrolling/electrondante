@@ -8,7 +8,14 @@
     <!-- Page-level breadcrumbs removed to avoid duplication with global header -->
     <!-- Clean single row layout -->
     <div class="single-row-header">
-      <button class="btn btn-warning back" @click="goBack">← Back</button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-warning back" @click="goBack">← Back</button>
+        <button
+          v-if="store.getCurrentProject?.id"
+          class="btn btn-primary"
+          @click="goToProjectHome"
+        >Project Home</button>
+      </div>
       <div class="stage-title">
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
@@ -89,7 +96,7 @@ const route = useRoute();
 const toast = useToast();
 const store = useUserStore();
 const goBack = () => router.back();
-const goToProjectHome = () => router.push('/projects');
+const goToProjectHome = () => router.push({ name: 'ProjectDetail', params: { id: store.getCurrentProject?.id || route.params.id } });
 
 const location  = ref(null);
 const isLoading = ref(true);
