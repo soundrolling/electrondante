@@ -1214,6 +1214,12 @@ opacity: 0.6;
   }
 }
 
+/* Stack time and date on small screens to avoid overlap */
+@media (max-width: 640px) {
+  .datetime-combined { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .datetime-separator { display: none; }
+}
+
 /* Optional: cap table height on small screens for better ergonomics */
 @media (max-width: 640px) {
   .notes-table-scroll {
