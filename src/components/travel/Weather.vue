@@ -300,7 +300,7 @@ clearInterval(clockTimer)
 .weather-info {
   background: #ffffff;
   border-radius: 12px;
-  padding: 20px 16px;
+  padding: 28px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
   transition: all 0.2s ease;
@@ -324,8 +324,8 @@ clearInterval(clockTimer)
 .weather-controls {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 20px;
+  margin-bottom: 28px;
 }
 
 .input-wrapper {
@@ -402,7 +402,7 @@ clearInterval(clockTimer)
 /* Control Buttons */
 .control-buttons {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -492,7 +492,7 @@ clearInterval(clockTimer)
 .favorites-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .favorites-select {
@@ -555,7 +555,7 @@ clearInterval(clockTimer)
 /* Empty State */
 .empty-state {
   text-align: center;
-  padding: 32px 16px;
+  padding: 48px 16px;
   color: #6b7280;
 }
 
@@ -665,7 +665,7 @@ clearInterval(clockTimer)
 
 .current-weather {
   text-align: center;
-  padding: 24px 16px;
+  padding: 28px 20px;
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -809,7 +809,7 @@ clearInterval(clockTimer)
 /* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .weather-info {
-    padding: 24px 20px;
+    padding: 28px 24px;
   }
   
   .weather-info h2 {
@@ -876,7 +876,7 @@ clearInterval(clockTimer)
 /* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .weather-info {
-    padding: 32px 28px;
+    padding: 40px 32px;
   }
   
   .weather-info h2 {
@@ -885,8 +885,8 @@ clearInterval(clockTimer)
   }
   
   .weather-controls {
-    gap: 24px;
-    margin-bottom: 40px;
+    gap: 28px;
+    margin-bottom: 44px;
   }
   
   .weather-main {
@@ -908,14 +908,14 @@ clearInterval(clockTimer)
   }
   
   .forecast-day {
-    padding: 24px 20px;
+    padding: 26px 22px;
   }
 }
 
 /* Mobile-specific adjustments */
 @media (max-width: 600px) {
   .weather-info {
-    padding: 16px 12px;
+    padding: 20px 16px;
   }
   
   .weather-info h2 {
@@ -924,8 +924,8 @@ clearInterval(clockTimer)
   }
   
   .weather-controls {
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 16px;
+    margin-bottom: 24px;
   }
   
   .control-buttons {
