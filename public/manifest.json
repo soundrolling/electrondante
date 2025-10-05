@@ -1,6 +1,6 @@
 {
-  "name": "Soundrolling Project Management",
-  "short_name": "ProApp",
+  "name": "Spaital Manager",
+  "short_name": "Spaital",
   "description": "Professional project management and location notes for sound production teams",
   "start_url": "/",
   "display": "standalone",

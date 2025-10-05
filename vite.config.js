@@ -13,9 +13,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       },
       manifest: {
-        name: 'ProApp',
-        short_name: 'ProApp',
-        description: 'Professional Project Management App',
+        name: 'Spaital Manager',
+        short_name: 'Spaital',
+        description: 'Spatial production manager and notes',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
