@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.51">
-        <span class="version-text">v21.51</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.52">
+        <span class="version-text">v21.52</span>
         <span class="version-date">October 5</span>
       </button>
     </div>
@@ -19,24 +19,24 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.51</h2>
+          <h2 id="changelog-title">What's New in 21.52</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>📅 Schedule Controls Consolidated</h3>
-            <p>Three separate schedule control rows are now combined into two: a single top row for sorting, adding, and date range; and a second row for date navigation.</p>
+            <h3>🎛️ More Comfortable Forms</h3>
+            <p>Increased padding and spacing around forms and modals across Travel (Accommodations, Documents, Expenses, Flights, Parking, Dashboard, Trip Detail, Weather) so elements aren’t tight to the edges.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🔘 Larger, Clearer Action Buttons</h3>
-            <p>Note/Edit/Delete buttons in Schedule now use larger icons with lighter backgrounds for improved legibility and accessibility.</p>
+            <h3>🧭 Travel UX Polish</h3>
+            <p>Consistent content container padding and input spacing, plus small visual refinements for better readability on all screen sizes.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🧹 Misc Fixes & Polish</h3>
-            <p>Minor visual tweaks and consistency improvements across Location Notes and Schedule.</p>
+            <h3>🔧 Stability & Cleanup</h3>
+            <p>General code cleanup and minor accessibility improvements.</p>
           </div>
         </div>
         
