@@ -52,15 +52,13 @@
         
         <!-- Status Pills: stacked vertically even on desktop -->
         <div class="status-group">
-          <!-- Online/Offline Status -->
-          <div :class="['status-indicator', onlineStatusClass]">
-            <div class="status-dot"></div>
+          <!-- Online/Offline Status (background color conveys status; white text) -->
+          <div :class="['status-indicator', onlineStatusClass]" :title="onlineStatusText">
             <span class="status-text">{{ onlineStatusText }}</span>
           </div>
 
-          <!-- Sync Status -->
+          <!-- Sync Status (background color conveys status; white text) -->
           <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
-            <div class="sync-dot"></div>
             <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
           </div>
         </div>
@@ -409,17 +407,15 @@ export default {
   padding: 6px 10px; /* compact */
   border-radius: var(--radius-full);
   font-size: 0.85rem; /* slightly smaller */
-  font-weight: var(--font-medium);
-  color: var(--text-secondary);
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
+  font-weight: var(--font-semibold);
+  color: #ffffff !important;
+  background-color: #059669; /* default green-ish */
+  border: 1px solid rgba(0,0,0,0.05);
   transition: all var(--transition-normal);
   min-height: 0;
 }
 
-.status-indicator:hover {
-  background-color: var(--color-secondary-200);
-}
+.status-indicator:hover { filter: brightness(0.95); }
 
 .status-dot {
   width: 8px;
@@ -427,13 +423,8 @@ export default {
   border-radius: 50%;
 }
 
-.online .status-dot {
-  background-color: var(--color-success-500);
-}
-
-.offline .status-dot {
-  background-color: var(--color-error-500);
-}
+.online.status-indicator { background-color: #059669; } /* green-600 */
+.offline.status-indicator { background-color: #b91c1c; } /* red-700 */
 
 .status-text {
   font-weight: var(--font-medium);
@@ -447,17 +438,16 @@ export default {
   padding: 6px 10px; /* compact */
   border-radius: var(--radius-full);
   font-size: 0.85rem; /* slightly smaller */
-  font-weight: var(--font-medium);
-  color: var(--text-secondary);
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-light);
+  font-weight: var(--font-semibold);
+  color: #ffffff !important;
+  background-color: #059669; /* default synced */
+  border: 1px solid rgba(0,0,0,0.05);
   transition: all var(--transition-normal);
   min-height: 0;
 }
-.sync-dot { width: 8px; height: 8px; border-radius: 50%; }
-.sync-indicator.synced .sync-dot { background-color: #059669; }
-.sync-indicator.pending .sync-dot { background-color: #f59e0b; }
-.sync-text { font-weight: var(--font-medium); }
+.sync-indicator.synced { background-color: #059669; } /* green-600 */
+.sync-indicator.pending { background-color: #b45309; } /* amber-700 */
+.sync-text { font-weight: var(--font-semibold); color: #ffffff !important; }
 
 /* Navigation */
 .navigation {
