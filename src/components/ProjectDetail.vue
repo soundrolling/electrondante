@@ -563,51 +563,45 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 20px 16px;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
+  background: #e0f2fe; /* consistent light background */
+  border: 1px solid #7dd3fc; /* sky-300 */
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 88px;
   text-align: center;
   font-size: 16px;
-  font-weight: 500;
-  color: #1a1a1a;
+  font-weight: 600;
+  color: #0c4a6e; /* dark readable text */
 }
 
 .action-button:hover {
-  border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  background: #bae6fd; /* subtle */
+  border-color: #38bdf8; /* sky-400 */
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15);
 }
 
 .action-button:active {
   transform: scale(0.98);
-  background: #f8f9fa;
+  background: #bfe3fb;
 }
 
+/* Primary variant aligns with same palette (no drastic inversion) */
 .action-button.primary {
-  background: #0066cc;
-  color: #ffffff;
-  border-color: #0066cc;
+  background: #e0f2fe;
+  color: #0c4a6e !important;
+  border-color: #7dd3fc;
 }
 
 .action-button.primary:hover {
-  background: #0052a3;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+  background: #bae6fd;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2);
 }
 
-/* Ensure high-contrast text on primary tiles even with global overrides */
-.action-button.primary,
-.action-button.primary .action-icon,
-.action-button.primary .action-label {
-  color: #ffffff !important;
-}
-
-/* Ensure non-primary tiles use dark text on light backgrounds */
-.action-button:not(.primary),
-.action-button:not(.primary) .action-icon,
-.action-button:not(.primary) .action-label {
-  color: #1a1a1a !important;
+/* Ensure icon/label use the readable dark text on light background */
+.action-button .action-icon,
+.action-button .action-label {
+  color: #0c4a6e !important;
 }
 
 .action-icon {
