@@ -537,7 +537,7 @@ setup() {
 /* Mobile-first base styles */
 .travel-dashboard {
   width: 100%;
-  padding: var(--space-4);
+  padding: var(--space-5);
   margin: 0 auto;
   box-sizing: border-box;
   font-family: var(--font-family-sans);
@@ -550,10 +550,10 @@ setup() {
 /* Safe area margins for mobile devices */
 @supports (padding: max(0px)) {
   .travel-dashboard {
-    padding-left: max(var(--space-4), env(safe-area-inset-left));
-    padding-right: max(var(--space-4), env(safe-area-inset-right));
-    padding-top: max(var(--space-4), env(safe-area-inset-top));
-    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+    padding-left: max(var(--space-5), env(safe-area-inset-left));
+    padding-right: max(var(--space-5), env(safe-area-inset-right));
+    padding-top: max(var(--space-5), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
   }
 }
 
@@ -587,14 +587,14 @@ setup() {
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 /* Dashboard Cards */
 .dashboard-card {
   background: var(--bg-primary);
   border-radius: var(--radius-lg);
-  padding: var(--space-5) var(--space-4);
+  padding: var(--space-6) var(--space-5);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-light);
   transition: all var(--transition-normal);
@@ -692,7 +692,7 @@ setup() {
 /* Empty State */
 .empty-state {
   text-align: center;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-9) var(--space-5);
   color: var(--text-secondary);
 }
 
@@ -760,7 +760,7 @@ setup() {
 .trip-card {
   background: var(--bg-tertiary);
   border-radius: var(--radius-lg);
-  padding: var(--space-5) var(--space-4);
+  padding: var(--space-6) var(--space-5);
   border: 1px solid var(--border-light);
   position: relative;
   transition: all var(--transition-normal);
@@ -1107,12 +1107,12 @@ setup() {
 /* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .travel-dashboard {
-    padding: var(--space-6);
+    padding: var(--space-7);
   }
   
   .header-section {
-    padding: var(--space-8) var(--space-6);
-    margin-bottom: var(--space-8);
+    padding: var(--space-9) var(--space-7);
+    margin-bottom: var(--space-9);
   }
   
   .header-section h1 {
@@ -1120,11 +1120,11 @@ setup() {
   }
   
   .dashboard-grid {
-    gap: var(--space-6);
+    gap: var(--space-7);
   }
   
   .dashboard-card {
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-7) var(--space-6);
   }
   
   .trip-card {
@@ -1152,17 +1152,17 @@ setup() {
 @media (min-width: 1025px) {
   .travel-dashboard {
     max-width: 1200px;
-    padding: var(--space-8);
+    padding: var(--space-9);
   }
   
   .dashboard-grid {
     grid-template-columns: 2fr 1fr;
-    gap: var(--space-8);
+    gap: var(--space-9);
   }
   
   .header-section {
-    padding: var(--space-10) var(--space-8);
-    margin-bottom: var(--space-10);
+    padding: var(--space-12) var(--space-9);
+    margin-bottom: var(--space-12);
   }
   
   .header-section h1 {
@@ -1170,7 +1170,7 @@ setup() {
   }
   
   .dashboard-card {
-    padding: var(--space-8) var(--space-7);
+    padding: var(--space-9) var(--space-8);
   }
   
   .trip-card {
@@ -1199,11 +1199,11 @@ setup() {
   }
   
   .dashboard-card {
-    padding: var(--space-4) var(--space-3);
+    padding: var(--space-5) var(--space-4);
   }
   
   .trip-card {
-    padding: var(--space-4) var(--space-3);
+    padding: var(--space-5) var(--space-4);
   }
   
   .card-header {
