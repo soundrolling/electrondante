@@ -352,8 +352,7 @@ export default {
 .header .nav-link,
 .header .btn-text,
 .header .nav-text,
-.header .home-text,
-.header .status-text {
+.header .home-text {
   color: #000000 !important;
 }
 
@@ -410,7 +409,8 @@ export default {
 .offline.status-indicator { background-color: #7f1d1d; } /* red-900 */
 
 .status-text {
-  font-weight: var(--font-medium);
+  font-weight: var(--font-semibold);
+  color: #ffffff !important;
 }
 
 /* Sync indicator */
