@@ -596,6 +596,20 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
 }
 
+/* Ensure high-contrast text on primary tiles even with global overrides */
+.action-button.primary,
+.action-button.primary .action-icon,
+.action-button.primary .action-label {
+  color: #ffffff !important;
+}
+
+/* Ensure non-primary tiles use dark text on light backgrounds */
+.action-button:not(.primary),
+.action-button:not(.primary) .action-icon,
+.action-button:not(.primary) .action-label {
+  color: #1a1a1a !important;
+}
+
 .action-icon {
   font-size: 32px;
   margin-bottom: 8px;

@@ -74,9 +74,9 @@
     <table class="notes-table">
       <thead>
         <tr>
-          <th style="width: 15%; min-width: 120px;">Time / Date</th>
-          <th style="width: 60%;">Note</th>
-          <th style="width: 25%; min-width: 150px;">Actions</th>
+          <th class="note-datetime-header">Time / Date</th>
+          <th class="note-text-header">Note</th>
+          <th class="note-actions-header">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -1047,16 +1047,19 @@ opacity: 0.6;
     width: 100%;
     max-width: 100%;
   }
+  .note-datetime-header,
   .note-datetime {
-    width: 20%;
-    min-width: 110px;
+    width: 22%;
+    min-width: 130px;
   }
+  .note-text-header,
   .note-text {
-    width: 50%;
+    width: 48%;
   }
+  .note-actions-header,
   .note-actions {
     width: 30%;
-    min-width: 120px;
+    min-width: 140px;
   }
 }
 
@@ -1106,7 +1109,7 @@ opacity: 0.6;
   max-width: 100%;
 }
 .notes-table th, .notes-table td {
-  padding: 10px 12px;
+  padding: 12px 20px;
   border-bottom: 2px solid #e5e7eb;
   text-align: left;
   vertical-align: top;
@@ -1135,10 +1138,11 @@ opacity: 0.6;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
+.note-datetime-header,
 .note-datetime {
   font-size: 0.9rem;
-  width: 15%;
-  min-width: 120px;
+  width: 18%;
+  min-width: 140px;
   white-space: nowrap;
 }
 .datetime-combined {
@@ -1159,19 +1163,34 @@ opacity: 0.6;
   color: #9ca3af;
   font-weight: 400;
 }
+.note-text-header,
 .note-text {
   white-space: pre-line;
   word-break: break-word;
-  width: 60%;
+  width: 55%;
   font-size: 0.9rem;
   line-height: 1.4;
 }
+.note-actions-header,
 .note-actions {
   display: flex;
-  gap: 8px;
-  width: 25%;
-  min-width: 150px;
+  gap: 12px;
+  width: 27%;
+  min-width: 160px;
   justify-content: center;
+}
+
+/* Ensure header cells have proper alignment */
+.note-datetime-header {
+  text-align: left;
+}
+
+.note-text-header {
+  text-align: left;
+}
+
+.note-actions-header {
+  text-align: center;
 }
 .icon-btn {
   width: 28px;

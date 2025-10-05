@@ -182,15 +182,30 @@ class PWAService {
 
   // Utility methods
   canInstall() {
-    return !this.isInstalled && this.deferredPrompt !== null;
+    try {
+      return !this.isInstalled && this.deferredPrompt !== null;
+    } catch (error) {
+      console.error('Error checking canInstall:', error);
+      return false;
+    }
   }
 
   hasUpdate() {
-    return this.updateAvailable;
+    try {
+      return this.updateAvailable;
+    } catch (error) {
+      console.error('Error checking hasUpdate:', error);
+      return false;
+    }
   }
 
   isOnline() {
-    return this.isOnline;
+    try {
+      return this.isOnline;
+    } catch (error) {
+      console.error('Error checking isOnline:', error);
+      return navigator.onLine;
+    }
   }
 
   // Cache management

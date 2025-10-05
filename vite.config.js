@@ -11,6 +11,26 @@ export default defineConfig({
       injectRegister: null,  // you'll register it manually
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+      },
+      manifest: {
+        name: 'ProApp',
+        short_name: 'ProApp',
+        description: 'Professional Project Management App',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        icons: [
+          {
+            src: '/img/icon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/img/icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
       }
     })
   ],

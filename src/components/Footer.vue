@@ -165,10 +165,19 @@ const updatePWA = async () => {
 
 // Check PWA status
 const checkPWAStatus = () => {
-  isPWAInstalled.value = pwaService.isInstalled;
-  canInstallPWA.value = pwaService.canInstall();
-  hasUpdateAvailable.value = pwaService.hasUpdate();
-  isOnline.value = pwaService.isOnline();
+  try {
+    isPWAInstalled.value = pwaService.isInstalled;
+    canInstallPWA.value = pwaService.canInstall();
+    hasUpdateAvailable.value = pwaService.hasUpdate();
+    isOnline.value = pwaService.isOnline();
+  } catch (error) {
+    console.error('Error checking PWA status:', error);
+    // Fallback values
+    isPWAInstalled.value = false;
+    canInstallPWA.value = false;
+    hasUpdateAvailable.value = false;
+    isOnline.value = navigator.onLine;
+  }
 };
 
 // Emit helpers
