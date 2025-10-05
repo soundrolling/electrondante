@@ -689,6 +689,68 @@ select:focus {
   }
 }
 
+/* === Global High-Contrast Enforcement for Button-like Elements === */
+/* Ensure any element behaving like a button has visible text and focus ring */
+button,
+[role="button"],
+a[role="button"],
+.button,
+.btn {
+  color: var(--text-primary) !important;
+}
+
+/* If an inline background is applied (often dark), force white text for contrast */
+button[style*="background"][style*="#"],
+button[style*="background"][style*="rgb"],
+[role="button"][style*="background"][style*="#"],
+[role="button"][style*="background"][style*="rgb"],
+a[role="button"][style*="background"][style*="#"],
+a[role="button"][style*="background"][style*="rgb"] {
+  color: #ffffff !important;
+}
+
+/* Default raw <button> styling to avoid low-contrast gray-on-gray */
+button:not(.btn) {
+  background-color: var(--btn-neutral-bg) !important;
+  color: var(--btn-neutral-text) !important;
+  border: 2px solid var(--btn-neutral-border) !important;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+/* Hover: nudge background darker and ensure readable text */
+button:not(.btn):hover,
+[role="button"]:hover,
+a[role="button"]:hover {
+  background-color: var(--btn-neutral-hover-bg) !important;
+  color: #111827 !important; /* gray-900 */
+  border-color: var(--btn-neutral-hover-border) !important;
+}
+
+/* Global visible focus indicators for keyboard users */
+button:focus-visible,
+[role="button"]:focus-visible,
+a[role="button"]:focus-visible,
+.btn:focus-visible,
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.edit-button:focus-visible,
+.delete-button:focus-visible,
+.back-button:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.6) !important; /* blue-500 ring */
+  outline-offset: 2px !important;
+}
+
+/* Strengthen contrast on our shared color-coded button classes */
+.primary-button,
+.secondary-button,
+.edit-button,
+.delete-button,
+.back-button {
+  font-weight: 700;
+}
+
 /* Cross-page button normalization for contrast (for components using ad-hoc classes) */
 .primary-button {
   background-color: var(--btn-primary-bg) !important;

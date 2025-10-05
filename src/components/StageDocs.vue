@@ -988,7 +988,8 @@ function printPreview() {
 }
 
 .file-remove:hover:not(:disabled) {
-  background: #fecaca;
+  background: #b91c1c;
+  color: #ffffff;
 }
 
 /* Upload Button */
@@ -1198,13 +1199,13 @@ function printPreview() {
 }
 
 .view-btn:hover {
-  background: #dbeafe;
-  color: #2563eb;
+  background: #1e3a8a;
+  color: #ffffff;
 }
 
 .download-btn:hover {
-  background: #dcfce7;
-  color: #16a34a;
+  background: #166534;
+  color: #ffffff;
 }
 
 .doc-meta {
@@ -1251,7 +1252,8 @@ function printPreview() {
 }
 
 .order-btn:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: #d1d5db;
+  color: #111827;
 }
 
 .order-btn:disabled {
@@ -1441,6 +1443,15 @@ function printPreview() {
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
+}
+.btn:focus-visible,
+.action-btn:focus-visible,
+.order-btn:focus-visible,
+.file-remove:focus-visible,
+.preview-modal-close:focus-visible,
+.breadcrumb-item:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
 }
 .preview-modal-body {
   flex: 1;
