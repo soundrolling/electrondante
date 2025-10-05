@@ -259,7 +259,7 @@
     </div>
 
     <!-- ASSIGNMENT MODAL -->
-    <div v-if="showAssignmentModal" class="modal-overlay" @click="closeAssignmentModal">
+    <div v-if="assignmentModalVisible" class="modal-overlay" @click="closeAssignmentModal">
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">Assign Gear</h3>
@@ -1402,7 +1402,7 @@ setup() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 20px 16px 20px;
+  padding: 24px 24px 20px 24px;
   border-bottom: 1px solid #e9ecef;
 }
 
@@ -1435,14 +1435,15 @@ setup() {
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 24px;
 }
 
 /* Form Elements */
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  padding: 24px;
 }
 
 .form-grid {
@@ -1507,8 +1508,9 @@ setup() {
 
 .form-actions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+  padding-top: 8px;
 }
 
 /* Buttons */
@@ -1539,13 +1541,15 @@ setup() {
 }
 
 .btn-primary {
-  background: #0066cc;
+  background: #1d4ed8;
   color: #ffffff;
+  border-color: #1e40af;
 }
 
 .btn-primary:hover {
-  background: #0052a3;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+  background: #1e40af;
+  border-color: #1e3a8a;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3);
 }
 
 .btn-secondary {
@@ -1567,12 +1571,14 @@ setup() {
 }
 
 .btn-warning {
-  background: #ffc107;
-  color: #1a1a1a;
+  background: #f59e0b;
+  color: #ffffff;
+  border-color: #d97706;
 }
 
 .btn-warning:hover {
-  background: #e0a800;
+  background: #d97706;
+  border-color: #b45309;
 }
 
 .btn-danger {
@@ -1798,6 +1804,39 @@ setup() {
   .form-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* High Contrast Button Overrides */
+.btn-positive,
+.btn-positive .btn-icon,
+.btn-positive .btn-text {
+  background-color: #047857 !important;
+  color: #ffffff !important;
+  border-color: #065f46 !important;
+}
+
+.btn-warning,
+.btn-warning .btn-icon,
+.btn-warning .btn-text {
+  background-color: #f59e0b !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+}
+
+.btn-primary,
+.btn-primary .btn-icon,
+.btn-primary .btn-text {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  border-color: #1e40af !important;
+}
+
+.btn-danger,
+.btn-danger .btn-icon,
+.btn-danger .btn-text {
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
 }
 
 /* High Contrast Mode Support */

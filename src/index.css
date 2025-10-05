@@ -169,10 +169,10 @@ h1, h2, h3, h4, h5, h6 {
   --bg-grouped: #f2f2f7;
 
   /* Button Color Scheme - Dark Backgrounds with White Text */
-  --btn-positive-bg: #059669;
-  --btn-positive-border: #047857;
+  --btn-positive-bg: #047857;
+  --btn-positive-border: #065f46;
   --btn-positive-text: #ffffff;
-  --btn-positive-hover-bg: #047857;
+  --btn-positive-hover-bg: #065f46;
   --btn-positive-hover-border: #065f46;
 
   --btn-danger-bg: #dc2626;
@@ -181,17 +181,17 @@ h1, h2, h3, h4, h5, h6 {
   --btn-danger-hover-bg: #b91c1c;
   --btn-danger-hover-border: #991b1b;
 
-  --btn-warning-bg: #d97706;
-  --btn-warning-border: #b45309;
+  --btn-warning-bg: #f59e0b;
+  --btn-warning-border: #d97706;
   --btn-warning-text: #ffffff;
-  --btn-warning-hover-bg: #b45309;
+  --btn-warning-hover-bg: #d97706;
   --btn-warning-hover-border: #92400e;
 
   /* Primary Actions (Dark Blue) */
-  --btn-primary-bg: #2563eb;
-  --btn-primary-border: #1d4ed8;
+  --btn-primary-bg: #1d4ed8;
+  --btn-primary-border: #1e40af;
   --btn-primary-text: #ffffff;
-  --btn-primary-hover-bg: #1d4ed8;
+  --btn-primary-hover-bg: #1e40af;
   --btn-primary-hover-border: #1e40af;
 
   /* Secondary Actions (Light Gray) */
