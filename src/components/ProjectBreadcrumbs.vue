@@ -49,7 +49,16 @@ display: flex;
 align-items: center;
 gap: 10px;
 }
-.link { text-decoration: none; }
+.link { text-decoration: none; font-weight: 700; border: 2px solid #1e40af !important; }
+
+.icon-btn {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  border: 2px solid #1e40af !important;
+  width: 44px; height: 44px; display: inline-flex; align-items:center; justify-content:center; border-radius: 6px;
+}
+.icon-btn:hover { background-color: #1e40af !important; }
+.icon-svg { width: 20px; height: 20px; color: #fff; }
 
 @media (max-width: 640px) {
   .breadcrumbs {

@@ -5,17 +5,27 @@
   <div v-if="error" class="alert">{{ error }}</div>
 
   <main v-if="location && !isLoading && !error">
-    <!-- Page-level breadcrumbs removed to avoid duplication with global header -->
+    <ProjectBreadcrumbs>
+      <template #left>
+        <button class="btn btn-warning back" @click="goBack">← Back</button>
+      </template>
+      <template #right>
+        <router-link
+          v-if="store.getCurrentProject?.id"
+          :to="{ name: 'ProjectDetail', params: { id: store.getCurrentProject?.id || route.params.id } }"
+          class="icon-btn"
+          title="Project Home"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon-svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            <path d="M9 22V12h6v10"/>
+          </svg>
+        </router-link>
+        <button class="btn btn-positive mini primary" @click="createNote">New note</button>
+      </template>
+    </ProjectBreadcrumbs>
     <!-- Clean single row layout -->
     <div class="single-row-header">
-      <div style="display:flex; gap:8px; align-items:center;">
-        <button class="btn btn-warning back" @click="goBack">← Back</button>
-        <button
-          v-if="store.getCurrentProject?.id"
-          class="btn btn-primary"
-          @click="goToProjectHome"
-        >Project Home</button>
-      </div>
       <div class="stage-title">
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
@@ -83,6 +93,7 @@
 <script setup>
 import { ref, computed, defineAsyncComponent, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/userStore';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
@@ -96,7 +107,7 @@ const route = useRoute();
 const toast = useToast();
 const store = useUserStore();
 const goBack = () => router.back();
-const goToProjectHome = () => router.push({ name: 'ProjectDetail', params: { id: store.getCurrentProject?.id || route.params.id } });
+// inline Project Home control now provided via breadcrumb right slot
 
 const location  = ref(null);
 const isLoading = ref(true);
