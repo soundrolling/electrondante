@@ -21,7 +21,6 @@
             <path d="M9 22V12h6v10"/>
           </svg>
         </router-link>
-        <button class="btn btn-positive mini primary" @click="createNote">New note</button>
       </template>
     </ProjectBreadcrumbs>
     <!-- Clean single row layout -->
@@ -443,23 +442,23 @@ backdrop-filter: blur(20px);
 box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 .tabs button {
-flex: 1;
-padding: 16px 0;
-border: 0;
-background: none;
-color: #64748b;
-font-weight: 600;
-font-size: 0.95rem;
-transition: all 0.2s ease;
+	flex: 1;
+	padding: 16px 0;
+	border: 0;
+	background: none;
+	color: #334155; /* darker slate for better contrast */
+	font-weight: 700;
+	font-size: 0.95rem;
+	transition: all 0.2s ease;
 }
 .tabs button.active {
-color: #3b82f6;
-position: relative;
-background: rgba(59, 130, 246, 0.05);
+	color: #0f172a; /* near-black for strong contrast */
+	position: relative;
+	background: rgba(59, 130, 246, 0.14); /* stronger background for contrast */
 }
 .tabs button:hover {
-color: #3b82f6;
-background: rgba(59, 130, 246, 0.02);
+	color: #0f172a;
+	background: rgba(59, 130, 246, 0.12);
 }
 .tabs button.active::after {
 content: '';
@@ -467,9 +466,14 @@ position: absolute;
 bottom: 0;
 left: 0;
 width: 100%;
-height: 3px;
-background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+	height: 4px; /* thicker underline for visibility */
+	background: linear-gradient(90deg, #1d4ed8 0%, #1e40af 100%);
 border-radius: 2px 2px 0 0;
+}
+.tabs button:focus-visible {
+	outline: 3px solid #1d4ed8;
+	outline-offset: 2px;
+	border-radius: 6px;
 }
 .tab-content-scroll {
   padding: 12px 16px 24px;
