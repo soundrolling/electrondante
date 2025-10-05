@@ -181,13 +181,17 @@
       <h4>Export Notes & Schedule</h4>
       <div class="modal-grid">
         <label>From:
-          <input type="datetime-local" v-model="exportRangeStart" class="date-range-input" />
+          <input type="datetime-local" v-model="exportRangeStart" class="date-range-input" :disabled="exportWholeDay" />
         </label>
         <label>To:
-          <input type="datetime-local" v-model="exportRangeEnd" class="date-range-input" />
+          <input type="datetime-local" v-model="exportRangeEnd" class="date-range-input" :disabled="exportWholeDay" />
         </label>
         <label>Filename:
           <input type="text" v-model="exportFilename" class="export-filename-input" placeholder="location-notes.pdf" />
+        </label>
+        <label style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" v-model="exportWholeDay" /> Export whole day
+          <input type="date" v-model="exportWholeDayDate" class="date-range-input" :disabled="!exportWholeDay" />
         </label>
       </div>
       <div class="modal-actions">
@@ -257,6 +261,8 @@ const infoNote = ref(null);
 const showExportModal = ref(false);
 const exportRangeStart = ref('');
 const exportRangeEnd = ref('');
+const exportWholeDay = ref(false);
+const exportWholeDayDate = ref('');
 const exportFilename = ref('location-notes.pdf');
 let exportCsvMode = false;
 
@@ -491,9 +497,11 @@ const filteredAndSortedNotes = computed(() => {
 
 function openExportModal() {
   showExportModal.value = true;
-  // If a date range is set in the notes filter, pre-fill the export modal's date range
+  // Prefill from filter range; reset whole-day option
   exportRangeStart.value = rangeStart.value || '';
   exportRangeEnd.value = rangeEnd.value || '';
+  exportWholeDay.value = false;
+  exportWholeDayDate.value = '';
   exportFilename.value = `location-notes-${props.locationId}.pdf`;
 }
 function closeExportModal() {
@@ -503,13 +511,23 @@ function closeExportModal() {
 // Only use date range for export, not for table filtering
 function getExportedNotes() {
   let arr = [...notes.value];
-  if (exportRangeStart.value) {
-    const start = new Date(exportRangeStart.value);
-    arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) >= start);
-  }
-  if (exportRangeEnd.value) {
-    const end = new Date(exportRangeEnd.value);
-    arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
+  if (exportWholeDay.value && exportWholeDayDate.value) {
+    const d = exportWholeDayDate.value;
+    const start = new Date(`${d}T00:00:00`);
+    const end = new Date(`${d}T23:59:59`);
+    arr = arr.filter(n => {
+      const dt = toDateTime(n.recording_date, n.timestamp);
+      return dt >= start && dt <= end;
+    });
+  } else {
+    if (exportRangeStart.value) {
+      const start = new Date(exportRangeStart.value);
+      arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) >= start);
+    }
+    if (exportRangeEnd.value) {
+      const end = new Date(exportRangeEnd.value);
+      arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
+    }
   }
   // Sort
   return arr.sort((a, b) => {
@@ -539,8 +557,15 @@ async function doExportPdf() {
     }
     // Date range
     let dateRange = '';
-    if (exportRangeStart.value || exportRangeEnd.value) {
-      dateRange = `${exportRangeStart.value || '...'} to ${exportRangeEnd.value || '...'}`;
+    if (exportWholeDay.value && exportWholeDayDate.value) {
+      const d = new Date(exportWholeDayDate.value);
+      const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' });
+      dateRange = `${label} (00:00–23:59:59)`;
+    } else if (exportRangeStart.value || exportRangeEnd.value) {
+      const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…';
+      const endLbl   = exportRangeEnd.value ? fmt(exportRangeEnd.value)     : '…';
+      dateRange = `${startLbl} → ${endLbl}`;
     }
     let y = 40;
     doc.setFontSize(14);
@@ -579,13 +604,20 @@ async function doExportPdf() {
       ]
     });
     // Filter schedules by range
-    if (exportRangeStart.value) {
-      const start = new Date(exportRangeStart.value);
-      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
-    }
-    if (exportRangeEnd.value) {
-      const end = new Date(exportRangeEnd.value);
-      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
+    if (exportWholeDay.value && exportWholeDayDate.value) {
+      const d = exportWholeDayDate.value;
+      const start = new Date(`${d}T00:00:00`);
+      const end = new Date(`${d}T23:59:59`);
+      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start && new Date(`${s.recording_date}T${s.start_time}`) <= end);
+    } else {
+      if (exportRangeStart.value) {
+        const start = new Date(exportRangeStart.value);
+        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
+      }
+      if (exportRangeEnd.value) {
+        const end = new Date(exportRangeEnd.value);
+        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
+      }
     }
     // Add schedule table on new page if schedules exist
     if (schedules.length > 0) {
@@ -642,8 +674,15 @@ async function doExportCsv() {
     }
     // Date range
     let dateRange = '';
-    if (exportRangeStart.value || exportRangeEnd.value) {
-      dateRange = `${exportRangeStart.value || '...'} to ${exportRangeEnd.value || '...'}`;
+    if (exportWholeDay.value && exportWholeDayDate.value) {
+      const d = new Date(exportWholeDayDate.value);
+      const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' });
+      dateRange = `${label} (00:00–23:59:59)`;
+    } else if (exportRangeStart.value || exportRangeEnd.value) {
+      const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…';
+      const endLbl   = exportRangeEnd.value ? fmt(exportRangeEnd.value)     : '…';
+      dateRange = `${startLbl} → ${endLbl}`;
     }
     // Notes table
     const exportedNotes = getExportedNotes();
@@ -670,13 +709,20 @@ async function doExportCsv() {
       ]
     });
     // Filter schedules by range
-    if (exportRangeStart.value) {
-      const start = new Date(exportRangeStart.value);
-      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
-    }
-    if (exportRangeEnd.value) {
-      const end = new Date(exportRangeEnd.value);
-      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
+    if (exportWholeDay.value && exportWholeDayDate.value) {
+      const d = exportWholeDayDate.value;
+      const start = new Date(`${d}T00:00:00`);
+      const end = new Date(`${d}T23:59:59`);
+      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start && new Date(`${s.recording_date}T${s.start_time}`) <= end);
+    } else {
+      if (exportRangeStart.value) {
+        const start = new Date(exportRangeStart.value);
+        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
+      }
+      if (exportRangeEnd.value) {
+        const end = new Date(exportRangeEnd.value);
+        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
+      }
     }
     if (schedules.length > 0) {
       csv += '\n';
