@@ -1193,8 +1193,8 @@ opacity: 0.6;
   text-align: center;
 }
 .icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border: 2px solid #e5e7eb;
   border-radius: 6px;
   display: flex;
@@ -1202,7 +1202,7 @@ opacity: 0.6;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 12px;
+  font-size: 18px;
   margin: 0 1px;
 }
 .icon-btn:hover {
