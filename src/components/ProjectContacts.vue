@@ -62,9 +62,7 @@
           {{ filteredContacts.length }} contact{{ filteredContacts.length !== 1 ? 's' : '' }}
         </div>
         <button @click="toggleAddContact" class="btn btn-positive add-contact-square" title="Add Contact">
-          <svg class="add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 4v16M4 12h16"/>
-          </svg>
+          <span class="icon-text">+</span>
         </button>
       </div>
     </div>
@@ -129,11 +127,7 @@
               @click="openContactInfo(contact)"
               title="View contact details"
             >
-              <svg class="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M12 11v6"/>
-                <circle cx="12" cy="7.5" r="1.5"/>
-              </svg>
+              <span class="icon-text">i</span>
             </button>
           </div>
         </div>
@@ -1019,6 +1013,17 @@ font-weight: 500;
   width: 30px !important;
   height: 30px !important;
   stroke: currentColor;
+}
+
+/* Fallback text icons to guarantee visibility even if SVGs are blocked */
+.icon-text {
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-block;
+}
+.action-btn.view-btn .icon-text {
+  font-size: 18px;
 }
 
 /* Contact Cards */
