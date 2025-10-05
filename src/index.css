@@ -664,3 +664,35 @@ select:focus {
     border-width: 2px;
   }
 }
+
+/* Cross-page button normalization for contrast (for components using ad-hoc classes) */
+.primary-button {
+  background-color: var(--btn-primary-bg) !important;
+  color: #ffffff !important;
+  border: 2px solid var(--btn-primary-border) !important;
+  font-weight: 700;
+}
+.secondary-button {
+  background-color: #6c757d !important;
+  color: #ffffff !important;
+  border: 2px solid #5a6268 !important;
+  font-weight: 700;
+}
+.edit-button {
+  background-color: var(--btn-warning-bg) !important;
+  color: #111827 !important;
+  border: 2px solid var(--btn-warning-border) !important;
+  font-weight: 700;
+}
+.delete-button {
+  background-color: var(--btn-danger-bg) !important;
+  color: #ffffff !important;
+  border: 2px solid var(--btn-danger-border) !important;
+  font-weight: 700;
+}
+.back-button {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+  border: 2px solid #b45309 !important;
+  font-weight: 700;
+}
