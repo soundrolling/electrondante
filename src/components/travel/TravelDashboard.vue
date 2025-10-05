@@ -1,10 +1,6 @@
 <template>
 <div class="travel-dashboard">
-  <!-- Header Section -->
-  <div class="header-section">
-    <h1>Travel Dashboard</h1>
-    <p>Manage all your travel details in one place</p>
-  </div>
+  <!-- Global header is provided by App.vue; local header removed to avoid duplication -->
 
   <!-- Dashboard Grid -->
   <div class="dashboard-grid">

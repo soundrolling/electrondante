@@ -58,7 +58,7 @@
           v-if="isAuthenticated && currentProject && !isProjectDetailRoute && !isProjectsRoute && !routeMeta.hideHeaderProjectHome"
           :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
           class="nav-link light-btn"
-          :class="{ active: route.name === 'ProjectDetail' }"
+          :class="{ active: currentRouteName === 'ProjectDetail' }"
         >
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
@@ -129,6 +129,7 @@ export default {
     const bugReportStore = useBugReportStore();
     const router = useRouter();
     const route = useRoute();
+    const currentRouteName = computed(() => (route && route.name) ? route.name : '');
   // Safe access to route.meta for template usage
   const routeMeta = computed(() => (route && route.meta) ? route.meta : {});
 
@@ -255,6 +256,7 @@ export default {
     showProjectHomeButton,
     showBackButton,
     routeMeta,
+    currentRouteName,
 
     onlineStatusText,
     onlineStatusClass,

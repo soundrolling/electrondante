@@ -1,12 +1,6 @@
 <template>
 <div class="calendar-page">
-  <!-- HEADER -->
-  <header class="header-section">
-    <h1>Call Sheet & Project Events</h1>
-    <button class="btn btn-positive add-button" @click="openNewEventModal">
-      + Add Event
-    </button>
-  </header>
+  <!-- Global header is rendered by App.vue; remove local page header to avoid duplication -->
 
   <!-- TOAST -->
   <div v-if="toastMsg" class="toast" @click="toastMsg = ''">
@@ -26,6 +20,14 @@
       :showDateFilters="currentView === 'list'"
       @update:filters="updateFilters"
     />
+
+    <div class="controls-spacer"></div>
+    <button class="btn light-btn" @click="goToProjectHome">
+      Project Home
+    </button>
+    <button class="btn btn-positive add-button" @click="openNewEventModal">
+      + Add Event
+    </button>
   </section>
 
   <!-- LEGEND -->
@@ -126,7 +128,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useUserStore } from "../../stores/userStore";
 import { fetchTableData } from "../../services/dataService";
 import { supabase } from "../../supabase";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 // Import subcomponents
 import CalendarViewSelector from "./CalendarViewSelector.vue";
@@ -154,6 +156,7 @@ components: {
 setup() {
   const userStore = useUserStore();
   const route = useRoute();
+  const router = useRouter();
   const loading = ref(true);
   const error = ref("");
   const calendarError = ref("");
@@ -667,6 +670,13 @@ setup() {
   });
   watch(() => route.query, syncFromRoute);
 
+  function goToProjectHome() {
+    const project = userStore.getCurrentProject;
+    if (project?.id) {
+      router.push({ name: 'ProjectDetail', params: { id: project.id } });
+    }
+  }
+
   async function onEditEvent(event) {
     if (!event.id) { toastMsg.value = "Missing event ID"; return; }
     const { error } = await supabase
@@ -715,7 +725,8 @@ setup() {
     isCurrentWeek,
     jumpToToday,
     todayDate,
-    onEditEvent, onDeleteEvent
+    onEditEvent, onDeleteEvent,
+    goToProjectHome
   };
 }
 };

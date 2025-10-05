@@ -2,8 +2,11 @@
 <template>
 <div class="project-contacts-container">
   
-  <!-- Header Bar -->
-  <!-- Remove the back to dashboard button -->
+  <!-- Header Bar: local fallback navigation -->
+  <div class="header-bar" style="display:flex; gap:8px; align-items:center; margin-bottom:16px;">
+    <button class="btn back-button" @click="goBack">Back</button>
+    <button class="btn btn-secondary" @click="goProjectHome">Project Home</button>
+  </div>
 
   <!-- Main Content -->
   <div class="main-content">
@@ -667,6 +670,11 @@ const showEditModal = ref(false);
 
 const displayRole = r => (PRESET_ROLES.includes(r) ? r : r || 'N/A');
 const goBackToDashboard = () => router.back();
+const goBack = () => router.back();
+function goProjectHome() {
+  const pid = currentProject.value?.id;
+  if (pid) router.push({ name: 'ProjectDetail', params: { id: pid } });
+}
 
 async function removeContact(id) {
   if (!confirm('Remove this contact?')) return;
@@ -772,6 +780,8 @@ return {
   removeContact,
   displayRole,
   goBackToDashboard,
+  goBack,
+  goProjectHome,
 
   showEditModal,
   showContactInfoModal,
