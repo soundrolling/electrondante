@@ -4,7 +4,7 @@
     <slot name="left"></slot>
   </div>
   <div class="bc-center">
-    <router-link class="btn btn-primary link" :to="{ name: 'Projects' }">Projects</router-link>
+    <router-link class="btn btn-primary link" :to="{ name: 'Projects' }">All Projects</router-link>
     <router-link
       v-if="currentProjectId"
       class="btn btn-primary link"
