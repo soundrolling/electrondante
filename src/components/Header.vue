@@ -92,6 +92,22 @@
           role="img"
         ></span>
 
+        <!-- World (All Projects) icon for mobile -->
+        <router-link
+          v-if="isAuthenticated && !isProjectsRoute"
+          to="/projects"
+          class="btn light-btn world-btn"
+          title="All Projects"
+          aria-label="All Projects"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M2 12h20"/>
+            <path d="M12 2a15.3 15.3 0 010 20"/>
+            <path d="M12 2a15.3 15.3 0 000 20"/>
+          </svg>
+        </router-link>
+
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
@@ -318,6 +334,7 @@ export default {
   });
 
   return {
+    isOnline,
     isAuthenticated,
     currentProject,
     isHiddenRoute,
@@ -851,9 +868,11 @@ export default {
   .mobile-menu-btn { display: none; }
   /* Keep bug report and sign out as icons only */
   .bug-report-btn,
-  .sign-out-btn { display: inline-flex; padding: var(--space-2); min-height: 40px; }
+  .sign-out-btn,
+  .world-btn { display: inline-flex; padding: var(--space-2); min-height: 40px; }
   .bug-report-btn .btn-icon,
-  .sign-out-btn .btn-icon { width: 22px; height: 22px; }
+  .sign-out-btn .btn-icon,
+  .world-btn .btn-icon { width: 22px; height: 22px; }
   /* Online dot */
   .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--space-2); }
   .online-dot.online { background-color: #10b981; }
