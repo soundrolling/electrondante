@@ -858,8 +858,8 @@ overflow: hidden;
 }
 
 .add-contact-fab {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background-color: #22c55e;
   color: #fff;
@@ -877,8 +877,8 @@ overflow: hidden;
 }
 
 .add-contact-fab .add-icon {
-  width: 26px;
-  height: 26px;
+  width: 30px !important;
+  height: 30px !important;
   stroke: currentColor;
 }
 
@@ -994,8 +994,8 @@ font-weight: 500;
 }
 
 .add-contact-square {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   background-color: #22c55e;
   color: #fff;
@@ -1015,8 +1015,8 @@ font-weight: 500;
 }
 
 .add-contact-square .add-icon {
-  width: 26px;
-  height: 26px;
+  width: 30px !important;
+  height: 30px !important;
   stroke: currentColor;
 }
 
