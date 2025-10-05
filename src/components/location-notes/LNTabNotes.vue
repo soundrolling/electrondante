@@ -193,6 +193,10 @@
           <input type="checkbox" v-model="exportWholeDay" /> Export whole day
           <input type="date" v-model="exportWholeDayDate" class="date-range-input" :disabled="!exportWholeDay" />
         </label>
+        <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
+          <button class="btn btn-primary" type="button" @click="applyFilterRange">Use current Notes filter range</button>
+          <small style="color:#64748b">Quickly copy the From/To range from the table filters.</small>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-warning cancel-btn" @click="closeExportModal">Cancel</button>
@@ -288,6 +292,12 @@ function loadExportPrefs() {
     exportRangeEnd.value = p.end || '';
     return true;
   } catch { return false; }
+}
+
+function applyFilterRange() {
+  exportWholeDay.value = false;
+  exportRangeStart.value = rangeStart.value || '';
+  exportRangeEnd.value = rangeEnd.value || '';
 }
 const exportFilename = ref('location-notes.pdf');
 let exportCsvMode = false;
