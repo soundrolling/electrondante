@@ -3,7 +3,7 @@ class PWAService {
   constructor() {
     this.deferredPrompt = null;
     this.isInstalled = false;
-    this.isOnline = navigator.onLine;
+    this.onlineStatus = navigator.onLine;
     this.updateAvailable = false;
     this.swRegistration = null;
     
@@ -79,12 +79,12 @@ class PWAService {
 
     // Listen for online/offline events
     window.addEventListener('online', () => {
-      this.isOnline = true;
+      this.onlineStatus = true;
       this.notifyOnlineStatus(true);
     });
 
     window.addEventListener('offline', () => {
-      this.isOnline = false;
+      this.onlineStatus = false;
       this.notifyOnlineStatus(false);
     });
 
@@ -199,13 +199,18 @@ class PWAService {
     }
   }
 
-  isOnline() {
+  getOnlineStatus() {
     try {
-      return this.isOnline;
+      return this.onlineStatus;
     } catch (error) {
-      console.error('Error checking isOnline:', error);
+      console.error('Error checking getOnlineStatus:', error);
       return navigator.onLine;
     }
+  }
+
+  // Backward-compat shim for older callers (e.g. isOnline())
+  isOnline() {
+    return this.getOnlineStatus();
   }
 
   // Cache management

@@ -1,9 +1,9 @@
 /// <reference lib="webworker" />
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'proapp-cache-v7'
-const STATIC_CACHE = 'proapp-static-v7'
-const DYNAMIC_CACHE = 'proapp-dynamic-v7'
+const CACHE_NAME = 'proapp-cache-v8'
+const STATIC_CACHE = 'proapp-static-v8'
+const DYNAMIC_CACHE = 'proapp-dynamic-v8'
 
 const urlsToCache = [
   '/',

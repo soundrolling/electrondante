@@ -169,7 +169,7 @@ const checkPWAStatus = () => {
     isPWAInstalled.value = pwaService.isInstalled;
     canInstallPWA.value = pwaService.canInstall();
     hasUpdateAvailable.value = pwaService.hasUpdate();
-    isOnline.value = pwaService.isOnline();
+    isOnline.value = pwaService.getOnlineStatus();
   } catch (error) {
     console.error('Error checking PWA status:', error);
     // Fallback values

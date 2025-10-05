@@ -98,7 +98,7 @@
       </div>
     </form>
 
-    <!-- sorter + search -->
+    <!-- sorter + tabs + search (combined on desktop) -->
     <div class="toolbar">
       <div class="toolbar-left">
         <div class="sorter">
@@ -119,6 +119,24 @@
           </div>
         </div>
       </div>
+
+      <div class="toolbar-center project-tabs">
+        <button
+          :class="['tab-btn', { active: activeTab === 'active' }]"
+          @click="activeTab = 'active'"
+        >
+          <span class="tab-icon">📁</span>
+          <span class="tab-text">Active</span>
+        </button>
+        <button
+          :class="['tab-btn', { active: activeTab === 'archived' }]"
+          @click="activeTab = 'archived'"
+        >
+          <span class="tab-icon">📦</span>
+          <span class="tab-text">Archived</span>
+        </button>
+      </div>
+
       <div class="toolbar-right">
         <div class="search-wrapper">
           <span class="search-icon">🔍</span>
@@ -129,23 +147,6 @@
           />
         </div>
       </div>
-    </div>
-
-    <div class="project-tabs">
-      <button
-        :class="['tab-btn', { active: activeTab === 'active' }]"
-        @click="activeTab = 'active'"
-      >
-        <span class="tab-icon">📁</span>
-        <span class="tab-text">Active</span>
-      </button>
-      <button
-        :class="['tab-btn', { active: activeTab === 'archived' }]"
-        @click="activeTab = 'archived'"
-      >
-        <span class="tab-icon">📦</span>
-        <span class="tab-text">Archived</span>
-      </button>
     </div>
 
     <div v-if="activeTab === 'active'" class="projects-section">
@@ -1594,6 +1595,23 @@ setup() {
 
   .modal {
     max-width: 600px;
+  }
+
+  /* Combine toolbar into a clean 3-column grid on desktop */
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--space-4);
+  }
+  .toolbar-left { justify-self: start; }
+  .toolbar-center { justify-self: center; }
+  .toolbar-right { justify-self: end; width: 100%; max-width: 420px; }
+
+  /* When tabs are inside toolbar, remove outer spacing and center them */
+  .toolbar .project-tabs {
+    margin-bottom: 0;
+    padding-bottom: 0;
   }
 }
 

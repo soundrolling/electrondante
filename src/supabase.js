@@ -15,7 +15,10 @@ if (!validateConfig()) {
 console.log('✅ URL:', URL)
 console.log('✅ ANON_KEY loaded?', !!ANON_KEY)
 console.log('✅ ANON_KEY length:', ANON_KEY ? ANON_KEY.length : 0)
-console.log('✅ SERVICE_ROLE_KEY loaded?', !!SERVICE_ROLE_KEY)
+// Avoid leaking service role info in the browser
+if (typeof window === 'undefined') {
+  console.log('✅ SERVICE_ROLE_KEY loaded?', !!SERVICE_ROLE_KEY)
+}
 
 // Public (anon) client
 export const supabase = createClient(URL, ANON_KEY, {
@@ -33,7 +36,8 @@ export const supabase = createClient(URL, ANON_KEY, {
 })
 
 // Admin (service-role) client for RLS-bypassing operations
-export const adminClient = SERVICE_ROLE_KEY
+// Only instantiate admin client in server environments (never in the browser)
+export const adminClient = (typeof window === 'undefined' && SERVICE_ROLE_KEY)
   ? createClient(URL, SERVICE_ROLE_KEY, {
       auth: {
         persistSession: false,
@@ -46,7 +50,9 @@ export const adminClient = SERVICE_ROLE_KEY
     })
   : null
 
-console.log('→ adminClient ready?', !!adminClient)
+if (typeof window === 'undefined') {
+  console.log('→ adminClient ready?', !!adminClient)
+}
 
 // Clean up localStorage and redirect on sign-out
 supabase.auth.onAuthStateChange((event) => {
