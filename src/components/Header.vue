@@ -50,16 +50,19 @@
           </svg>
         </button>
         
-        <!-- Online/Offline Status -->
-        <div :class="['status-indicator', onlineStatusClass]">
-          <div class="status-dot"></div>
-          <span class="status-text">{{ onlineStatusText }}</span>
-        </div>
+        <!-- Status Pills: stacked vertically even on desktop -->
+        <div class="status-group">
+          <!-- Online/Offline Status -->
+          <div :class="['status-indicator', onlineStatusClass]">
+            <div class="status-dot"></div>
+            <span class="status-text">{{ onlineStatusText }}</span>
+          </div>
 
-        <!-- Sync Status -->
-        <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
-          <div class="sync-dot"></div>
-          <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+          <!-- Sync Status -->
+          <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
+            <div class="sync-dot"></div>
+            <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+          </div>
         </div>
       </div>
 
@@ -391,20 +394,27 @@ export default {
   gap: var(--space-3);
 }
 
+/* Stack status pills vertically and make them compact */
+.status-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* Online/offline status indicator */
 .status-indicator {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: 6px 10px; /* compact */
   border-radius: var(--radius-full);
-  font-size: var(--text-sm);
+  font-size: 0.85rem; /* slightly smaller */
   font-weight: var(--font-medium);
   color: var(--text-secondary);
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-light);
   transition: all var(--transition-normal);
-  min-height: 44px;
+  min-height: 0;
 }
 
 .status-indicator:hover {
@@ -434,15 +444,15 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: 6px 10px; /* compact */
   border-radius: var(--radius-full);
-  font-size: var(--text-sm);
+  font-size: 0.85rem; /* slightly smaller */
   font-weight: var(--font-medium);
   color: var(--text-secondary);
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-light);
   transition: all var(--transition-normal);
-  min-height: 44px;
+  min-height: 0;
 }
 .sync-dot { width: 8px; height: 8px; border-radius: 50%; }
 .sync-indicator.synced .sync-dot { background-color: #059669; }
