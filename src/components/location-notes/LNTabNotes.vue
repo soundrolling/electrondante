@@ -263,6 +263,32 @@ const exportRangeStart = ref('');
 const exportRangeEnd = ref('');
 const exportWholeDay = ref(false);
 const exportWholeDayDate = ref('');
+const EXPORT_PREF_KEY = 'ln_notes_export_prefs';
+
+function saveExportPrefs() {
+  try {
+    const prefs = {
+      wholeDay: exportWholeDay.value,
+      day: exportWholeDayDate.value,
+      start: exportRangeStart.value,
+      end: exportRangeEnd.value,
+    };
+    localStorage.setItem(EXPORT_PREF_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+
+function loadExportPrefs() {
+  try {
+    const raw = localStorage.getItem(EXPORT_PREF_KEY);
+    if (!raw) return false;
+    const p = JSON.parse(raw);
+    exportWholeDay.value = !!p.wholeDay;
+    exportWholeDayDate.value = p.day || todayISO();
+    exportRangeStart.value = p.start || '';
+    exportRangeEnd.value = p.end || '';
+    return true;
+  } catch { return false; }
+}
 const exportFilename = ref('location-notes.pdf');
 let exportCsvMode = false;
 
@@ -497,11 +523,14 @@ const filteredAndSortedNotes = computed(() => {
 
 function openExportModal() {
   showExportModal.value = true;
-  // Prefill from filter range; reset whole-day option
-  exportRangeStart.value = rangeStart.value || '';
-  exportRangeEnd.value = rangeEnd.value || '';
-  exportWholeDay.value = true;
-  exportWholeDayDate.value = todayISO();
+  // Load saved prefs if available; otherwise defaults
+  const loaded = loadExportPrefs();
+  if (!loaded) {
+    exportRangeStart.value = rangeStart.value || '';
+    exportRangeEnd.value = rangeEnd.value || '';
+    exportWholeDay.value = true;
+    exportWholeDayDate.value = todayISO();
+  }
   exportFilename.value = `location-notes-${props.locationId}.pdf`;
 }
 function closeExportModal() {
@@ -646,6 +675,7 @@ async function doExportPdf() {
       });
     }
     doc.save(exportFilename.value || `location-notes-${props.locationId}.pdf`);
+    saveExportPrefs();
     toast.success('PDF exported successfully');
     closeExportModal();
   } catch (error) {
@@ -748,6 +778,7 @@ async function doExportCsv() {
     link.click();
     document.body.removeChild(link);
     toast.success('CSV exported successfully');
+    saveExportPrefs();
     closeExportModal();
   } catch (error) {
     console.error('Export error:', error);
