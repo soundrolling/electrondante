@@ -157,85 +157,24 @@
             <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
           </div>
           
-          <div class="project-meta">
-            <div v-if="p.location" class="meta-item">
-              <span class="meta-icon">📍</span>
-              <span class="meta-text">{{ p.location }}</span>
+          <!-- Icon Legend for Owner Actions -->
+          <div v-if="p.role === 'owner'" class="icon-legend">
+            <div class="legend-item">
+              <span class="legend-icon">✏️</span>
+              <span class="legend-text">Edit</span>
             </div>
-            <div v-if="p.official_website" class="meta-item">
-              <span class="meta-icon">🌐</span>
-              <a :href="p.official_website" target="_blank" rel="noopener" class="meta-link">
-                Official Website
-              </a>
+            <div class="legend-item">
+              <span class="legend-icon">📋</span>
+              <span class="legend-text">Duplicate</span>
             </div>
-          </div>
-
-          <div v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="project-timeline">
-            <div v-if="p.build_days && p.build_days.length" class="timeline-item">
-              <div class="timeline-icon build">🔨</div>
-              <div class="timeline-content">
-                <div class="timeline-label">Build Period</div>
-                <div class="timeline-dates">
-                  {{ formatSingleDate(p.build_days[0]) }} - {{ formatSingleDate(p.build_days[p.build_days.length-1]) }}
-                </div>
-              </div>
+            <div class="legend-item">
+              <span class="legend-icon">📦</span>
+              <span class="legend-text">Archive</span>
             </div>
-            <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
-              <div class="timeline-icon show">🎭</div>
-              <div class="timeline-content">
-                <div class="timeline-label">Show Period</div>
-                <div class="timeline-dates">
-                  {{ formatSingleDate(p.main_show_days[0]) }} - {{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}
-                </div>
-              </div>
+            <div class="legend-item">
+              <span class="legend-icon">🗑️</span>
+              <span class="legend-text">Delete</span>
             </div>
-          </div>
-
-          <div class="project-actions">
-            <button @click="openProject(p)" class="btn btn-positive open-btn">
-              <span class="btn-icon">🚀</span>
-              <span class="btn-text">Open Project</span>
-            </button>
-            
-            <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-warning" title="Edit Project">
-                <span class="btn-icon">✏️</span>
-                <span class="btn-text">Edit</span>
-              </button>
-              <button @click="duplicateProject(p)" class="btn btn-warning" title="Duplicate Project">
-                <span class="btn-icon">📋</span>
-                <span class="btn-text">Duplicate</span>
-              </button>
-              <button @click="archiveProject(p)" class="btn btn-danger" title="Archive Project">
-                <span class="btn-icon">📦</span>
-                <span class="btn-text">Archive</span>
-              </button>
-              <button @click="confirmDeleteProject(p.id)" class="btn btn-danger" title="Delete Project">
-                <span class="btn-icon">🗑️</span>
-                <span class="btn-text">Delete</span>
-              </button>
-            </div>
-            
-            <button
-              v-if="p.role !== 'owner'"
-              @click="leaveProject(p)"
-              class="btn btn-danger leave-btn"
-            >
-              <span class="btn-icon">👋</span>
-              <span class="btn-text">Leave Project</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="activeTab === 'archived'" class="projects-section">
-      <div class="projects-grid">
-        <div v-for="p in archivedProjects" :key="p.id" class="project-card archived">
-          <div class="archived-badge">Archived</div>
-          <div class="project-header">
-            <h3 class="project-title">{{ p.project_name }}</h3>
-            <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
           </div>
           
           <div class="project-meta">
@@ -279,13 +218,100 @@
             </button>
             
             <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-warning" title="Edit Project">
+              <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
                 <span class="btn-icon">✏️</span>
-                <span class="btn-text">Edit</span>
               </button>
-              <button @click="unarchiveProject(p)" class="btn btn-positive" title="Unarchive Project">
+              <button @click="duplicateProject(p)" class="btn btn-warning icon-only" title="Duplicate Project">
+                <span class="btn-icon">📋</span>
+              </button>
+              <button @click="archiveProject(p)" class="btn btn-danger icon-only" title="Archive Project">
+                <span class="btn-icon">📦</span>
+              </button>
+              <button @click="confirmDeleteProject(p.id)" class="btn btn-danger icon-only" title="Delete Project">
+                <span class="btn-icon">🗑️</span>
+              </button>
+            </div>
+            
+            <button
+              v-if="p.role !== 'owner'"
+              @click="leaveProject(p)"
+              class="btn btn-danger leave-btn"
+            >
+              <span class="btn-icon">👋</span>
+              <span class="btn-text">Leave Project</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="activeTab === 'archived'" class="projects-section">
+      <div class="projects-grid">
+        <div v-for="p in archivedProjects" :key="p.id" class="project-card archived">
+          <div class="archived-badge">Archived</div>
+          <div class="project-header">
+            <h3 class="project-title">{{ p.project_name }}</h3>
+            <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
+          </div>
+          
+          <!-- Icon Legend for Owner Actions -->
+          <div v-if="p.role === 'owner'" class="icon-legend">
+            <div class="legend-item">
+              <span class="legend-icon">✏️</span>
+              <span class="legend-text">Edit</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-icon">📤</span>
+              <span class="legend-text">Unarchive</span>
+            </div>
+          </div>
+          
+          <div class="project-meta">
+            <div v-if="p.location" class="meta-item">
+              <span class="meta-icon">📍</span>
+              <span class="meta-text">{{ p.location }}</span>
+            </div>
+            <div v-if="p.official_website" class="meta-item">
+              <span class="meta-icon">🌐</span>
+              <a :href="p.official_website" target="_blank" rel="noopener" class="meta-link">
+                Official Website
+              </a>
+            </div>
+          </div>
+
+          <div v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="project-timeline">
+            <div v-if="p.build_days && p.build_days.length" class="timeline-item">
+              <div class="timeline-icon build">🔨</div>
+              <div class="timeline-content">
+                <div class="timeline-label">Build Period</div>
+                <div class="timeline-dates">
+                  {{ formatSingleDate(p.build_days[0]) }} - {{ formatSingleDate(p.build_days[p.build_days.length-1]) }}
+                </div>
+              </div>
+            </div>
+            <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
+              <div class="timeline-icon show">🎭</div>
+              <div class="timeline-content">
+                <div class="timeline-label">Show Period</div>
+                <div class="timeline-dates">
+                  {{ formatSingleDate(p.main_show_days[0]) }} - {{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="project-actions">
+            <button @click="openProject(p)" class="btn btn-positive open-btn">
+              <span class="btn-icon">🚀</span>
+              <span class="btn-text">Open Project</span>
+            </button>
+            
+            <div v-if="p.role === 'owner'" class="owner-actions">
+              <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
+                <span class="btn-icon">✏️</span>
+              </button>
+              <button @click="unarchiveProject(p)" class="btn btn-positive icon-only" title="Unarchive Project">
                 <span class="btn-icon">📤</span>
-                <span class="btn-text">Unarchive</span>
               </button>
             </div>
           </div>
@@ -1346,6 +1372,36 @@ setup() {
   color: var(--text-secondary);
 }
 
+/* Icon Legend */
+.icon-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.legend-icon {
+  font-size: var(--text-base);
+  width: 20px;
+  text-align: center;
+}
+
+.legend-text {
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
 /* Project Actions */
 .project-actions {
   display: flex;
@@ -1358,25 +1414,27 @@ setup() {
 }
 
 .owner-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: var(--space-2);
-}
-
-/* Icon-only buttons on small screens */
-.owner-actions .btn {
-  padding: var(--space-2);
-  min-width: 44px;
   justify-content: center;
 }
 
-.owner-actions .btn-text {
-  display: none;
+/* Icon-only buttons */
+.owner-actions .btn.icon-only {
+  padding: var(--space-2);
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  border-radius: var(--radius-md);
 }
 
-.owner-actions .btn-icon {
+.owner-actions .btn.icon-only .btn-icon {
   font-size: var(--text-lg);
   margin: 0;
+}
+
+.owner-actions .btn.icon-only .btn-text {
+  display: none;
 }
 
 /* Buttons */
@@ -1489,7 +1547,7 @@ setup() {
 .modal {
   background: var(--bg-primary);
   border-radius: var(--radius-lg);
-  max-width: 500px;
+  max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -1537,16 +1595,31 @@ setup() {
   flex-wrap: wrap;
 }
 
+/* Modal Form Grid */
+.modal .form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
 /* Date Range */
 .date-range-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.date-range-row .form-input {
+  flex: 1;
+  min-width: 120px;
 }
 
 .date-separator {
   color: var(--text-secondary);
   font-size: var(--text-base);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Focus States for Accessibility */
@@ -1601,19 +1674,22 @@ setup() {
   .form-grid {
     grid-template-columns: 1fr 1fr;
   }
+  
+  /* Modal form grid for larger screens */
+  .modal .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 
   .owner-actions {
-    grid-template-columns: repeat(4, 1fr);
+    justify-content: center;
+    gap: var(--space-3);
   }
   
-  /* Show text on larger screens */
-  .owner-actions .btn-text {
-    display: inline;
-  }
-  
-  .owner-actions .btn {
-    padding: var(--space-3) var(--space-4);
-    gap: var(--space-2);
+  /* Icon-only buttons remain icon-only on all screen sizes */
+  .owner-actions .btn.icon-only {
+    padding: var(--space-3);
+    min-width: 48px;
+    min-height: 48px;
   }
 
   .projects-grid {
@@ -1643,9 +1719,20 @@ setup() {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-6);
   }
+  
+  /* Icon legend on desktop */
+  .icon-legend {
+    justify-content: center;
+    gap: var(--space-4);
+  }
 
   .modal {
-    max-width: 600px;
+    max-width: 700px;
+  }
+  
+  /* Modal form grid for desktop */
+  .modal .form-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
   /* Combine toolbar into a clean 3-column grid on desktop */

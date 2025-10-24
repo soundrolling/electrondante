@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.52">
-        <span class="version-text">v21.52</span>
-        <span class="version-date">October 5</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.53">
+        <span class="version-text">v21.53</span>
+        <span class="version-date">October 25</span>
       </button>
     </div>
 
@@ -19,24 +19,29 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.52</h2>
+          <h2 id="changelog-title">What's New in 21.53</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
+            <h3>🎯 Streamlined Project Actions</h3>
+            <p>Project cards now feature icon-only action buttons (Edit, Duplicate, Archive, Delete) with a helpful legend below the project title. This creates a cleaner, more compact interface while maintaining full functionality.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>📝 Improved Edit Project Modal</h3>
+            <p>Enhanced the project editing modal with better layout and spacing. Increased modal width and improved form grid responsiveness to ensure all elements fit comfortably within the container.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>👥 Enhanced Project Visibility</h3>
+            <p>All project members can now view essential project details including show days, build days, and location information. This improves collaboration by ensuring everyone has access to key project information.</p>
+          </div>
+          
+          <div class="changelog-section">
             <h3>🎛️ More Comfortable Forms</h3>
-            <p>Increased padding and spacing around forms and modals across Travel (Accommodations, Documents, Expenses, Flights, Parking, Dashboard, Trip Detail, Weather) so elements aren’t tight to the edges.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🧭 Travel UX Polish</h3>
-            <p>Consistent content container padding and input spacing, plus small visual refinements for better readability on all screen sizes.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🔧 Stability & Cleanup</h3>
-            <p>General code cleanup and minor accessibility improvements.</p>
+            <p>Increased padding and spacing around forms and modals across Travel (Accommodations, Documents, Expenses, Flights, Parking, Dashboard, Trip Detail, Weather) so elements aren't tight to the edges.</p>
           </div>
         </div>
         
