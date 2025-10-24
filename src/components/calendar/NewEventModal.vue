@@ -67,7 +67,7 @@
       <textarea v-model="newEvent.notes" rows="2"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-positive save-button" @click="$emit('create', newEvent)">Save</button>
+      <button class="btn btn-positive save-button" @click="handleCreate">Save</button>
       <button class="btn btn-warning cancel-button" @click="$emit('close')">Cancel</button>
     </div>
   </div>
@@ -124,6 +124,10 @@ methods: {
     if (!contact) return '?';
     const name = contact.name || contact.email || '?';
     return name.charAt(0).toUpperCase();
+  },
+  handleCreate() {
+    console.log('[NewEventModal] Creating event with data:', this.newEvent);
+    this.$emit('create', this.newEvent);
   }
 },
 watch: {
@@ -140,8 +144,12 @@ watch: {
         notes: "",
         assigned_contacts: []
       };
+      console.log('[NewEventModal] Modal opened, form reset');
     }
   }
+},
+mounted() {
+  console.log('[NewEventModal] Component mounted');
 }
 }
 </script>

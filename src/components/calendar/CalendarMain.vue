@@ -24,6 +24,9 @@
     <button class="btn btn-positive add-button" @click="openNewEventModal">
       + Add Event
     </button>
+    <button class="btn btn-secondary" @click="forceRefresh" style="margin-left: 0.5rem;">
+      🔄 Refresh
+    </button>
   </section>
 
   <!-- LEGEND -->
@@ -225,8 +228,11 @@ setup() {
     // Calendar events
     let rawCal = [];
     try {
+      console.log('[fetchAll] Fetching calendar events for project:', pid);
       rawCal = await fetchTableData("calendar_events", { eq: { project_id: pid } });
+      console.log('[fetchAll] Fetched calendar events:', rawCal.length);
     } catch (e) {
+      console.error('[fetchAll] Calendar events error:', e);
       calendarError.value = "Failed to load calendar events: " + e.message;
     }
     const calData = rawCal.map(c => ({
@@ -283,6 +289,7 @@ setup() {
     }
 
     events.value = calData;
+    console.log('[fetchAll] Final events count:', events.value.length);
     loading.value = false;
   }
 
@@ -616,14 +623,20 @@ setup() {
   function closeNewEventModal() {
     showNewModal.value = false;
   }
+  
+  // Force refresh function for debugging
+  async function forceRefresh() {
+    console.log('[forceRefresh] Manually refreshing calendar data...');
+    await fetchAll();
+  }
   async function createNewEvent(newEventData) {
     if (!newEventData.title || !newEventData.event_date || !newEventData.start_time) {
       toastMsg.value = "Please fill in title, date & start time.";
       return;
     }
-    const { error } = await supabase
-      .from("calendar_events")
-      .insert([{
+    
+    try {
+      const eventPayload = {
         project_id: userStore.getCurrentProject.id,
         category: newEventData.category,
         event_date: newEventData.event_date,
@@ -633,9 +646,36 @@ setup() {
         location_id: newEventData.location_id,
         notes: newEventData.notes,
         assigned_contacts: newEventData.assigned_contacts || []
-      }]);
-    if (error) toastMsg.value = "Create failed: " + error.message;
-    else { closeNewEventModal(); fetchAll(); }
+      };
+      
+      const { error } = await supabase
+        .from("calendar_events")
+        .insert([eventPayload]);
+        
+      if (error) {
+        console.error('Calendar event creation error:', error);
+        toastMsg.value = "Create failed: " + error.message;
+        return;
+      }
+      
+      // Close modal and refresh data
+      closeNewEventModal();
+      
+      // Add a small delay to ensure the database operation is complete
+      setTimeout(async () => {
+        await fetchAll();
+        toastMsg.value = "Event created successfully!";
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          toastMsg.value = "";
+        }, 3000);
+      }, 500);
+      
+    } catch (err) {
+      console.error('Calendar event creation error:', err);
+      toastMsg.value = "Create failed: " + err.message;
+    }
   }
 
   // Helper functions for calendar grid
@@ -714,6 +754,7 @@ setup() {
     jumpToToday,
     todayDate,
     onEditEvent, onDeleteEvent,
+    forceRefresh,
     
   };
 }
