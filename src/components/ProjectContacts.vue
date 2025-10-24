@@ -1223,7 +1223,6 @@ line-height: 1.5;
   align-items: center;
   padding: 16px 0;
   border-bottom: 1px solid #374151;
-  background: #1f2937; /* Dark background for white text */
   min-width: 0;
   border-radius: 8px;
   margin-bottom: 8px;
@@ -1318,9 +1317,11 @@ line-height: 1.5;
 }
 
 .edit-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 18px !important;
+  height: 18px !important;
   stroke: #374151 !important; /* Ensure pencil icon is visible */
+  display: block !important; /* Force SVG to display */
+  fill: none !important;
 }
 
 /* Info button styling */
@@ -1340,9 +1341,11 @@ line-height: 1.5;
 }
 
 .view-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 18px !important;
+  height: 18px !important;
   stroke: #ffffff !important; /* White info icon */
+  display: block !important; /* Force SVG to display */
+  fill: none !important;
 }
 
 /* Desktop-only contact details */
@@ -2003,18 +2006,6 @@ color: currentColor;
   color: #9ca3af;
   font-style: italic;
   padding: 10px;
-}
-.action-btn.view-btn {
-  background: #e0f2fe; /* pale sky blue */
-  color: #0369a1;      /* readable blue text */
-  margin-right: 4px;
-}
-.action-btn.view-btn:hover {
-  background: #bae6fd; /* slightly darker on hover */
-}
-.action-btn.view-btn .info-icon {
-  width: 22px;
-  height: 22px;
 }
 .info-value.muted {
   color: #9ca3af;
