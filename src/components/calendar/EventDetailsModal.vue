@@ -10,8 +10,10 @@
         <span v-if="isStageHourEvent" class="stage-hour-badge">Stage Hours</span>
       </div>
       <p><strong>Title:</strong> <span v-html="localEvent.title"></span></p>
-      <p><strong>Date:</strong> {{ formatDate(localEvent.event_date) }}</p>
-      <p><strong>Time:</strong> {{ formatTime(localEvent.start_time) }} – {{ formatTime(localEvent.end_time) }}</p>
+      <p><strong>Start Date:</strong> {{ formatDate(localEvent.event_date) }}</p>
+      <p><strong>Start Time:</strong> {{ formatTime(localEvent.start_time) }}</p>
+      <p v-if="localEvent.end_date && localEvent.end_date !== localEvent.event_date"><strong>End Date:</strong> {{ formatDate(localEvent.end_date) }}</p>
+      <p><strong>End Time:</strong> {{ formatTime(localEvent.end_time) }}</p>
       <p><strong>Location:</strong> {{ getLocationName(localEvent.location_id) }}</p>
       <p v-if="localEvent.notes"><strong>Notes:</strong> {{ localEvent.notes }}</p>
       
@@ -52,12 +54,16 @@
         <input v-model="localEvent.title" type="text" />
       </div>
       <div class="form-field">
-        <label>Date</label>
+        <label>Start Date</label>
         <input v-model="localEvent.event_date" type="date" />
       </div>
       <div class="form-field">
         <label>Start Time</label>
         <input v-model="localEvent.start_time" type="time" />
+      </div>
+      <div class="form-field">
+        <label>End Date</label>
+        <input v-model="localEvent.end_date" type="date" />
       </div>
       <div class="form-field">
         <label>End Time</label>

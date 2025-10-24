@@ -202,6 +202,7 @@ setup() {
     title: "",
     event_date: "",
     start_time: "",
+    end_date: "",
     end_time: "",
     location_id: null,
     notes: ""
@@ -241,6 +242,7 @@ setup() {
       title: c.title,
       event_date: c.event_date,
       start_time: c.start_time,
+      end_date: c.end_date || c.event_date, // Default to event_date if no end_date
       end_time: c.end_time,
       location_id: c.location_id,
       notes: c.notes || "",
@@ -290,6 +292,29 @@ setup() {
 
     events.value = calData;
     console.log('[fetchAll] Final events count:', events.value.length);
+    
+    // Auto-calculate filter range to include all days with events
+    if (calData.length > 0) {
+      const allDates = [];
+      calData.forEach(event => {
+        allDates.push(event.event_date);
+        if (event.end_date && event.end_date !== event.event_date) {
+          // Add all dates between start and end date
+          const start = new Date(event.event_date);
+          const end = new Date(event.end_date);
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            allDates.push(d.toISOString().split('T')[0]);
+          }
+        }
+      });
+      
+      if (allDates.length > 0) {
+        const sortedDates = [...new Set(allDates)].sort();
+        filters.value.dateStart = sortedDates[0];
+        filters.value.dateEnd = sortedDates[sortedDates.length - 1];
+      }
+    }
+    
     loading.value = false;
   }
 
@@ -430,8 +455,22 @@ setup() {
   // FILTER & SORT
   const filteredEvents = computed(() => {
     let arr = allEvents.value.slice();
-    if (filters.value.dateStart) arr = arr.filter(e => e.event_date >= filters.value.dateStart);
-    if (filters.value.dateEnd) arr = arr.filter(e => e.event_date <= filters.value.dateEnd);
+    
+    // Filter by date range - check if event overlaps with the filter range
+    if (filters.value.dateStart || filters.value.dateEnd) {
+      arr = arr.filter(e => {
+        const eventStart = e.event_date;
+        const eventEnd = e.end_date || e.event_date;
+        
+        // Event overlaps with filter range if:
+        // - Event starts before filter ends AND event ends after filter starts
+        const filterStart = filters.value.dateStart || '1900-01-01';
+        const filterEnd = filters.value.dateEnd || '2100-12-31';
+        
+        return eventStart <= filterEnd && eventEnd >= filterStart;
+      });
+    }
+    
     if (filters.value.category) arr = arr.filter(e => e.category === filters.value.category);
     if (filters.value.location) arr = arr.filter(e => e.location_id === parseInt(filters.value.location));
     return arr;
@@ -606,6 +645,7 @@ setup() {
         category: ev.category,
         event_date: ev.event_date,
         start_time: ev.start_time,
+        end_date: ev.end_date || ev.event_date, // Default to start date if no end date
         end_time: ev.end_time,
         title: ev.title,
         location_id: ev.location_id,
@@ -641,6 +681,7 @@ setup() {
         category: newEventData.category,
         event_date: newEventData.event_date,
         start_time: newEventData.start_time,
+        end_date: newEventData.end_date || newEventData.event_date, // Default to start date if no end date
         end_time: newEventData.end_time,
         title: newEventData.title,
         location_id: newEventData.location_id,
@@ -680,10 +721,18 @@ setup() {
 
   // Helper functions for calendar grid
   function hasEvents(d) {
-    return sortedEvents.value.some(e => e.event_date === d);
+    return sortedEvents.value.some(e => {
+      const eventStart = e.event_date;
+      const eventEnd = e.end_date || e.event_date;
+      return d >= eventStart && d <= eventEnd;
+    });
   }
   function getEventsForDay(d) {
-    return sortedEvents.value.filter(e => e.event_date === d);
+    return sortedEvents.value.filter(e => {
+      const eventStart = e.event_date;
+      const eventEnd = e.end_date || e.event_date;
+      return d >= eventStart && d <= eventEnd;
+    });
   }
 
   // --- NEW: Sync filters and view from route query ---
@@ -713,6 +762,7 @@ setup() {
         category: event.category,
         event_date: event.event_date,
         start_time: event.start_time,
+        end_date: event.end_date || event.event_date, // Default to start date if no end date
         end_time: event.end_time,
         title: event.title,
         location_id: event.location_id,

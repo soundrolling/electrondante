@@ -15,12 +15,16 @@
       <input v-model="newEvent.title" type="text" />
     </div>
     <div class="form-field">
-      <label>Date</label>
+      <label>Start Date</label>
       <input v-model="newEvent.event_date" type="date" />
     </div>
     <div class="form-field">
       <label>Start Time</label>
       <input v-model="newEvent.start_time" type="time" />
+    </div>
+    <div class="form-field">
+      <label>End Date</label>
+      <input v-model="newEvent.end_date" type="date" />
     </div>
     <div class="form-field">
       <label>End Time</label>
@@ -102,6 +106,7 @@ data() {
       category: "calltimes",
       event_date: "",
       start_time: "",
+      end_date: "",
       end_time: "",
       title: "",
       location_id: null,
@@ -138,6 +143,7 @@ watch: {
         category: "calltimes",
         event_date: "",
         start_time: "",
+        end_date: "",
         end_time: "",
         title: "",
         location_id: null,

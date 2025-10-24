@@ -50,6 +50,7 @@
         <div class="event-main-row">
           <div class="event-date-time">
             <div class="event-date">{{ formatDate(evt.event_date) }}</div>
+            <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="event-end-date">{{ formatDate(evt.end_date) }}</div>
             <div class="event-time">{{ formatTime(evt.start_time) }} – {{ formatTime(evt.end_time) }}</div>
           </div>
           <div class="event-info">
@@ -102,12 +103,16 @@
           <input v-model="editEventData.title" type="text" required />
         </div>
         <div class="form-field">
-          <label>Date</label>
+          <label>Start Date</label>
           <input v-model="editEventData.event_date" type="date" required />
         </div>
         <div class="form-field">
           <label>Start Time</label>
           <input v-model="editEventData.start_time" type="time" required />
+        </div>
+        <div class="form-field">
+          <label>End Date</label>
+          <input v-model="editEventData.end_date" type="date" />
         </div>
         <div class="form-field">
           <label>End Time</label>
@@ -402,8 +407,15 @@ gap: 0.2rem;
 }
 
 .event-date {
-font-weight: 700;
-font-size: 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.event-end-date {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.1rem;
 }
 
 .event-time {
