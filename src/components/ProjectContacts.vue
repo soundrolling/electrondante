@@ -109,6 +109,9 @@
             <div class="contact-name">{{ contact.name || 'Unnamed Contact' }}</div>
             <div v-if="contact.role" class="contact-role">{{ displayRole(contact.role) }}</div>
             <div v-if="contact.stage_location" class="contact-location">{{ contact.stage_location }}</div>
+            <!-- Desktop-only contact details -->
+            <div v-if="contact.email" class="contact-email desktop-only">{{ contact.email }}</div>
+            <div v-if="contact.phone" class="contact-phone desktop-only">{{ contact.phone }}</div>
           </div>
           <div class="contact-actions-group" style="display:flex;align-items:center;gap:4px;margin-left:auto;">
             <button
@@ -117,7 +120,7 @@
               @click="startEdit(contact)"
               title="Edit or delete contact"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
@@ -1022,9 +1025,13 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .contact-count {
-font-size: 0.9rem;
-color: #6b7280;
-font-weight: 500;
+  font-size: 0.9rem;
+  color: #ffffff !important; /* White text for better contrast */
+  font-weight: 600; /* Bolder text */
+  background-color: #374151; /* Dark gray background */
+  padding: 6px 12px; /* Add padding for better appearance */
+  border-radius: 6px; /* Rounded corners */
+  border: 1px solid #4b5563; /* Subtle border */
 }
 
 .add-contact-square {
@@ -1064,6 +1071,7 @@ font-weight: 500;
   font-size: 22px;
   line-height: 1;
   display: inline-block;
+  color: #ffffff !important; /* Ensure white text for + symbol */
 }
 .action-btn.view-btn .icon-text {
   font-size: 18px;
@@ -1157,16 +1165,22 @@ line-height: 1.5;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 8px; /* Add gap between contact rows */
+  background: #111827; /* Dark background for the container */
+  padding: 16px;
+  border-radius: 12px;
 }
 
 .contact-list-row {
   display: flex;
   align-items: center;
   padding: 16px 0;
-  border-bottom: 1px solid #f3f4f6;
-  background: #fff;
+  border-bottom: 1px solid #374151;
+  background: #1f2937; /* Dark background for white text */
   min-width: 0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  padding: 16px;
 }
 
 .contact-list-row:last-child {
@@ -1198,7 +1212,7 @@ line-height: 1.5;
 
 .contact-name {
   font-weight: 600;
-  color: #111827;
+  color: #ffffff !important; /* White text for better contrast */
   line-height: 1.3;
   white-space: normal;
   word-break: break-word;
@@ -1207,7 +1221,7 @@ line-height: 1.5;
 
 .contact-role {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: #d1d5db !important; /* Light gray for better contrast */
   font-weight: 500;
   white-space: normal;
   word-break: break-word;
@@ -1215,7 +1229,7 @@ line-height: 1.5;
 
 .contact-location {
   font-size: 0.8rem;
-  color: #4b5563;
+  color: #9ca3af !important; /* Lighter gray for better contrast */
   margin-top: 2px;
   white-space: normal;
   word-break: break-word;
@@ -1259,6 +1273,29 @@ line-height: 1.5;
 .edit-btn svg {
   width: 16px;
   height: 16px;
+  stroke: #374151 !important; /* Ensure pencil icon is visible */
+}
+
+/* Desktop-only contact details */
+.desktop-only {
+  display: none; /* Hidden by default on mobile */
+}
+
+@media (min-width: 769px) {
+  .desktop-only {
+    display: block; /* Show on desktop */
+    color: #d1d5db !important; /* Light gray text for desktop details */
+    font-size: 0.85rem;
+    margin-top: 2px;
+  }
+  
+  .contact-email {
+    color: #9ca3af !important; /* Slightly different color for email */
+  }
+  
+  .contact-phone {
+    color: #9ca3af !important; /* Slightly different color for phone */
+  }
 }
 
 /* Edit Contact Modal */
@@ -1305,27 +1342,30 @@ color: #111827;
 }
 
 .modal-close {
-display: flex;
-align-items: center;
-justify-content: center;
-width: 32px;
-height: 32px;
-background: transparent;
-border: none;
-border-radius: 8px;
-cursor: pointer;
-color: #6b7280;
-transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #f3f4f6; /* Light gray background for better visibility */
+  border: 1px solid #d1d5db; /* Add border for definition */
+  border-radius: 8px;
+  cursor: pointer;
+  color: #374151 !important; /* Darker color for better contrast */
+  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
-background-color: #f3f4f6;
-color: #374151;
+  background-color: #e5e7eb; /* Darker gray on hover */
+  color: #1f2937 !important; /* Even darker text on hover */
+  border-color: #9ca3af;
+  transform: scale(1.05); /* Slight scale effect */
 }
 
 .modal-close svg {
-width: 20px;
-height: 20px;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.5; /* Thicker stroke for better visibility */
 }
 
 .modal-body {
@@ -1737,20 +1777,23 @@ color: currentColor;
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: transparent;
-  border: none;
+  background: #f3f4f6; /* Light gray background for better visibility */
+  border: 1px solid #d1d5db; /* Add border for definition */
   border-radius: 8px;
   cursor: pointer;
-  color: #6b7280;
+  color: #374151 !important; /* Darker color for better contrast */
   transition: all 0.2s ease;
 }
 .modal-close:hover {
-  background-color: #f3f4f6;
-  color: #374151;
+  background-color: #e5e7eb; /* Darker gray on hover */
+  color: #1f2937 !important; /* Even darker text on hover */
+  border-color: #9ca3af;
+  transform: scale(1.05); /* Slight scale effect */
 }
 .modal-close svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.5; /* Thicker stroke for better visibility */
 }
 .modal-body {
   padding: 24px;
