@@ -113,7 +113,7 @@
           <div class="contact-actions-group" style="display:flex;align-items:center;gap:4px;margin-left:auto;">
             <button
               v-if="canManageProject"
-              class="btn btn-warning action-btn edit-btn"
+              class="btn action-btn edit-btn"
               @click="startEdit(contact)"
               title="Edit or delete contact"
             >
@@ -389,15 +389,35 @@
             </div>
             <div class="info-row">
               <span class="info-label">Email:</span>
-              <span v-if="selectedContact?.email">
+              <span v-if="selectedContact?.email" class="info-value-with-copy">
                 <a :href="`mailto:${selectedContact.email}`" class="info-value link">{{ selectedContact.email }}</a>
+                <button 
+                  @click="copyToClipboard(selectedContact.email, 'Email')" 
+                  class="copy-btn" 
+                  title="Copy email to clipboard"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
               </span>
               <span v-else class="info-value muted">Not set</span>
             </div>
             <div class="info-row">
               <span class="info-label">Phone:</span>
-              <span v-if="selectedContact?.phone">
+              <span v-if="selectedContact?.phone" class="info-value-with-copy">
                 <a :href="`tel:${selectedContact.phone}`" class="info-value link">{{ selectedContact.phone }}</a>
+                <button 
+                  @click="copyToClipboard(selectedContact.phone, 'Phone')" 
+                  class="copy-btn" 
+                  title="Copy phone to clipboard"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
               </span>
               <span v-else class="info-value muted">Not set</span>
             </div>
@@ -685,6 +705,24 @@ function closeContactInfo() {
   selectedContact.value = null;
 }
 
+// Copy to clipboard functionality
+async function copyToClipboard(text, type) {
+  try {
+    await navigator.clipboard.writeText(text);
+    // You could add a toast notification here if you have a toast system
+    console.log(`${type} copied to clipboard: ${text}`);
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+  }
+}
+
 async function fetchProjectStageLocations() {
   if (!currentProject.value?.id) return;
   const { data } = await supabase
@@ -772,6 +810,7 @@ return {
   selectedContact,
   openContactInfo,
   closeContactInfo,
+  copyToClipboard,
 
   projectStageLocations,
 };
@@ -992,23 +1031,25 @@ font-weight: 500;
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  background-color: #15803d; /* Darker green for better contrast */
+  background-color: #1e40af; /* Dark blue for better contrast */
   color: #ffffff !important; /* Force white text for high contrast */
-  border: none;
+  border: 2px solid #1d4ed8; /* Add border for better definition */
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.2);
-  font-size: 1.2rem;
-  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.2);
+  font-size: 1.4rem; /* Larger + symbol */
+  font-weight: 700; /* Bolder text */
 }
 
 .add-contact-square:hover {
-  background-color: #166534; /* Even darker green on hover */
+  background-color: #1d4ed8; /* Slightly lighter blue on hover */
   color: #ffffff !important; /* Ensure white text on hover */
-  box-shadow: 0 4px 16px rgba(21, 128, 61, 0.3);
+  border-color: #1e40af;
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.3);
+  transform: translateY(-1px);
 }
 
 .add-contact-square .add-icon {
@@ -1197,6 +1238,27 @@ line-height: 1.5;
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* Edit button styling - white background with pencil icon */
+.edit-btn {
+  background-color: #ffffff !important;
+  color: #374151 !important; /* Dark gray for pencil icon */
+  border: 1px solid #d1d5db !important; /* Light gray border */
+  transition: all 0.2s ease;
+}
+
+.edit-btn:hover {
+  background-color: #f9fafb !important; /* Light gray on hover */
+  color: #1f2937 !important; /* Darker gray on hover */
+  border-color: #9ca3af !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.edit-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Edit Contact Modal */
@@ -1801,5 +1863,39 @@ color: currentColor;
 .info-value.muted {
   color: #9ca3af;
   font-style: italic;
+}
+
+/* Copy button styling */
+.info-value-with-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copy-btn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #6b7280;
+  min-width: 28px;
+  height: 28px;
+}
+
+.copy-btn:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+  color: #374151;
+  transform: translateY(-1px);
+}
+
+.copy-btn svg {
+  width: 14px;
+  height: 14px;
 }
 </style>
