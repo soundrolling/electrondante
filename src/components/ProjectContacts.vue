@@ -110,8 +110,32 @@
             <div v-if="contact.role" class="contact-role">{{ displayRole(contact.role) }}</div>
             <div v-if="contact.stage_location" class="contact-location">{{ contact.stage_location }}</div>
             <!-- Desktop-only contact details -->
-            <div v-if="contact.email" class="contact-email desktop-only">{{ contact.email }}</div>
-            <div v-if="contact.phone" class="contact-phone desktop-only">{{ contact.phone }}</div>
+            <div v-if="contact.email" class="contact-email desktop-only">
+              <span>{{ contact.email }}</span>
+              <button 
+                class="copy-btn" 
+                @click="copyToClipboard(contact.email)"
+                title="Copy email"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+            </div>
+            <div v-if="contact.phone" class="contact-phone desktop-only">
+              <span>{{ contact.phone }}</span>
+              <button 
+                class="copy-btn" 
+                @click="copyToClipboard(contact.phone)"
+                title="Copy phone"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="contact-actions-group" style="display:flex;align-items:center;gap:4px;margin-left:auto;">
             <button
@@ -1170,9 +1194,7 @@ line-height: 1.5;
   display: flex;
   flex-direction: column;
   gap: 8px; /* Add gap between contact rows */
-  background: #111827; /* Dark background for the container */
   padding: 16px;
-  border-radius: 12px;
 }
 
 /* Desktop layout with more space */
@@ -1339,11 +1361,44 @@ line-height: 1.5;
   .contact-email {
     color: #9ca3af !important; /* Slightly different color for email */
     font-weight: 500; /* Medium weight for better readability */
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   
   .contact-phone {
     color: #9ca3af !important; /* Slightly different color for phone */
     font-weight: 500; /* Medium weight for better readability */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .copy-btn {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: #6b7280;
+    min-width: 28px;
+    height: 28px;
+  }
+  
+  .copy-btn:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+    color: #374151;
+    transform: translateY(-1px);
+  }
+  
+  .copy-btn svg {
+    width: 14px;
+    height: 14px;
   }
   
   .contact-role {
