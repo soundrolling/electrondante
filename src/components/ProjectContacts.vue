@@ -992,21 +992,23 @@ font-weight: 500;
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  background-color: #22c55e;
-  color: #fff;
+  background-color: #15803d; /* Darker green for better contrast */
+  color: #ffffff !important; /* Force white text for high contrast */
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 8px rgba(34,197,94,0.10);
+  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.2);
   font-size: 1.2rem;
+  font-weight: 600;
 }
 
 .add-contact-square:hover {
-  background-color: #16a34a;
-  box-shadow: 0 4px 16px rgba(34,197,94,0.18);
+  background-color: #166534; /* Even darker green on hover */
+  color: #ffffff !important; /* Ensure white text on hover */
+  box-shadow: 0 4px 16px rgba(21, 128, 61, 0.3);
 }
 
 .add-contact-square .add-icon {
@@ -1088,20 +1090,23 @@ line-height: 1.5;
 }
 
 .empty-state-btn {
-padding: 12px 24px;
-font-size: 1rem;
-border-radius: 8px;
-background-color: #3b82f6;
-color: #fff;
-border: none;
-cursor: pointer;
-transition: all 0.2s ease;
-font-weight: 600;
+  padding: 12px 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  background-color: #1e40af; /* Darker blue for better contrast */
+  color: #ffffff !important; /* Force white text for high contrast */
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(30, 64, 175, 0.2);
 }
 
 .empty-state-btn:hover {
-background-color: #2563eb;
-transform: translateY(-1px);
+  background-color: #1d4ed8; /* Even darker on hover */
+  color: #ffffff !important; /* Ensure white text on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(30, 64, 175, 0.3);
 }
 
 /* Contacts List (Flex Layout) */
@@ -1331,29 +1336,64 @@ transition: all 0.2s ease;
 min-height: 44px;
 }
 
+/* High contrast button base class */
+.btn-positive {
+  background-color: #1e40af; /* Dark blue for high contrast */
+  color: #ffffff !important; /* Force white text */
+  border: 1px solid #1e40af;
+  font-weight: 600;
+}
+
+.btn-positive:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  color: #ffffff !important;
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background-color: #dc2626; /* Dark red for high contrast */
+  color: #ffffff !important; /* Force white text */
+  border: 1px solid #dc2626;
+  font-weight: 600;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background-color: #b91c1c;
+  color: #ffffff !important;
+  border-color: #b91c1c;
+  transform: translateY(-1px);
+}
+
 .btn:disabled {
 opacity: 0.6;
 cursor: not-allowed;
 }
 
 .btn-primary {
-  background-color: #1d4ed8; /* darker for better contrast */
-  color: #ffffff;
+  background-color: #1e40af; /* Darker blue for better contrast */
+  color: #ffffff !important; /* Force white text for high contrast */
+  border: 1px solid #1e40af;
 }
 
 .btn-primary:hover:not(:disabled) {
-background-color: #2563eb;
-transform: translateY(-1px);
+  background-color: #1d4ed8; /* Even darker on hover */
+  color: #ffffff !important; /* Ensure white text on hover */
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background-color: #374151; /* darker gray */
-  color: #ffffff;
+  background-color: #1f2937; /* Darker gray for better contrast */
+  color: #ffffff !important; /* Force white text for high contrast */
+  border: 1px solid #1f2937;
 }
 
 .btn-secondary:hover {
-background-color: #4b5563;
-transform: translateY(-1px);
+  background-color: #374151; /* Slightly lighter on hover */
+  color: #ffffff !important; /* Ensure white text on hover */
+  border-color: #374151;
+  transform: translateY(-1px);
 }
 
 .spinner {
