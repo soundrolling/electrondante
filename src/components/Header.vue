@@ -38,18 +38,19 @@
           </svg>
           <span class="btn-text">Back</span>
         </button>
-        <!-- Home Button (mobile) -->
+        
+        <!-- Mobile Home Button -->
         <button
-          @click="goHome"
-          class="btn home-btn light-btn"
-          title="Home"
+          v-if="showProjectHomeButton"
+          @click="goToProjectHome"
+          class="btn home-btn light-btn mobile-only"
+          title="Project Home"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 9l9-7 9 7"/>
             <path d="M9 22V12h6v10"/>
           </svg>
         </button>
-        
         <!-- Status Pills: stacked vertically even on desktop -->
         <div class="status-group">
           <!-- Online/Offline Status (background color conveys status; white text) -->
@@ -105,13 +106,13 @@
           :title="onlineStatusText"
           aria-hidden="false"
           role="img"
-        ></span>
+        >        </span>
 
-        <!-- World (All Projects) icon for mobile -->
+        <!-- Mobile Globe Button (All Projects) -->
         <router-link
           v-if="isAuthenticated && !isProjectsRoute"
           to="/projects"
-          class="btn light-btn world-btn"
+          class="btn light-btn world-btn mobile-only"
           title="All Projects"
           aria-label="All Projects"
         >
@@ -122,6 +123,33 @@
             <path d="M12 2a15.3 15.3 0 000 20"/>
           </svg>
         </router-link>
+
+        <!-- Mobile Clock/History Button -->
+        <button
+          v-if="isAuthenticated"
+          @click="showBugReportModal = true"
+          class="btn light-btn clock-btn mobile-only"
+          title="Report a bug or suggestion"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12,6 12,12 16,14"/>
+          </svg>
+        </button>
+
+        <!-- Mobile Sign Out Button -->
+        <button
+          v-if="isAuthenticated"
+          @click="handleSignOut"
+          class="btn btn-danger-light sign-out-btn mobile-only"
+          title="Sign out"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16,17 21,12 16,7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
 
         <button
           v-if="isAuthenticated"
@@ -836,6 +864,11 @@ export default {
   }
 }
 
+/* Mobile-only buttons - hidden on desktop */
+.mobile-only {
+  display: none;
+}
+
 /* Mobile-specific adjustments */
 @media (max-width: 768px) {
   .btn-text,
@@ -877,18 +910,26 @@ export default {
     min-height: 44px;
   }
 
+  /* Show mobile-only buttons on mobile */
+  .mobile-only {
+    display: inline-flex;
+    padding: var(--space-2);
+    min-height: 40px;
+  }
+
+  .mobile-only .btn-icon {
+    width: 22px;
+    height: 22px;
+  }
+
   /* Icon-only mobile header */
   .navigation,
   .status-indicator,
   .sync-indicator { display: none; }
   .mobile-menu-btn { display: none; }
-  /* Keep bug report and sign out as icons only */
+  /* Hide desktop buttons on mobile - use mobile versions instead */
   .bug-report-btn,
-  .sign-out-btn,
-  .world-btn { display: inline-flex; padding: var(--space-2); min-height: 40px; }
-  .bug-report-btn .btn-icon,
-  .sign-out-btn .btn-icon,
-  .world-btn .btn-icon { width: 22px; height: 22px; }
+  .sign-out-btn { display: none; }
   /* Online dot */
   .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--space-2); }
   .online-dot.online { background-color: #10b981; }
