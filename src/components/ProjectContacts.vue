@@ -1067,7 +1067,7 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 
 .contact-count {
   font-size: 0.9rem;
-  color: #ffffff !important; /* White text for better contrast */
+  color: #000000 !important; /* Black text */
   font-weight: 600; /* Bolder text */
   background-color: #374151; /* Dark gray background */
   padding: 6px 12px; /* Add padding for better appearance */
@@ -1272,7 +1272,7 @@ line-height: 1.5;
 
 .contact-name {
   font-weight: 600;
-  color: #ffffff !important; /* White text for better contrast */
+  color: #000000 !important; /* Black text */
   line-height: 1.3;
   white-space: normal;
   word-break: break-word;
@@ -1281,7 +1281,7 @@ line-height: 1.5;
 
 .contact-role {
   font-size: 0.85rem;
-  color: #d1d5db !important; /* Light gray for better contrast */
+  color: #000000 !important; /* Black text */
   font-weight: 500;
   white-space: normal;
   word-break: break-word;
@@ -1289,7 +1289,7 @@ line-height: 1.5;
 
 .contact-location {
   font-size: 0.8rem;
-  color: #9ca3af !important; /* Lighter gray for better contrast */
+  color: #000000 !important; /* Black text */
   margin-top: 2px;
   white-space: normal;
   word-break: break-word;
@@ -1847,7 +1847,7 @@ color: currentColor;
 
 .contact-location {
   font-size: 0.8rem;
-  color: #4b5563;
+  color: #000000;
   margin-top: 2px;
 }
 
@@ -1984,7 +1984,7 @@ color: currentColor;
 }
 .contact-location-large {
   font-size: 0.85rem;
-  color: #4b5563;
+  color: #000000;
 }
 .contact-info-list {
   display: flex;
