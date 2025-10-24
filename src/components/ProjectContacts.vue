@@ -130,7 +130,11 @@
               @click="openContactInfo(contact)"
               title="View contact details"
             >
-              <span class="icon-text">i</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+              </svg>
             </button>
           </div>
         </div>
@@ -1171,6 +1175,27 @@ line-height: 1.5;
   border-radius: 12px;
 }
 
+/* Desktop layout with more space */
+@media (min-width: 769px) {
+  .contacts-list-container {
+    max-width: 800px; /* Much wider on desktop */
+    width: 100%;
+  }
+  
+  .contact-list-row {
+    padding: 20px; /* More padding on desktop */
+    margin-bottom: 12px; /* More space between rows */
+  }
+  
+  .contact-list-details {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* Better spacing between details */
+  }
+}
+
 .contact-list-row {
   display: flex;
   align-items: center;
@@ -1271,9 +1296,31 @@ line-height: 1.5;
 }
 
 .edit-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   stroke: #374151 !important; /* Ensure pencil icon is visible */
+}
+
+/* Info button styling */
+.view-btn {
+  background-color: #3b82f6 !important; /* Blue background */
+  color: #ffffff !important; /* White icon */
+  border: 1px solid #2563eb !important;
+  transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.view-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: #ffffff !important; /* White info icon */
 }
 
 /* Desktop-only contact details */
@@ -1285,16 +1332,27 @@ line-height: 1.5;
   .desktop-only {
     display: block; /* Show on desktop */
     color: #d1d5db !important; /* Light gray text for desktop details */
-    font-size: 0.85rem;
-    margin-top: 2px;
+    font-size: 0.9rem; /* Slightly larger for desktop */
+    margin-top: 3px;
   }
   
   .contact-email {
     color: #9ca3af !important; /* Slightly different color for email */
+    font-weight: 500; /* Medium weight for better readability */
   }
   
   .contact-phone {
     color: #9ca3af !important; /* Slightly different color for phone */
+    font-weight: 500; /* Medium weight for better readability */
+  }
+  
+  .contact-role {
+    font-size: 0.9rem; /* Larger role text on desktop */
+    font-weight: 600; /* Bolder role text */
+  }
+  
+  .contact-location {
+    font-size: 0.85rem; /* Slightly larger location text */
   }
 }
 
