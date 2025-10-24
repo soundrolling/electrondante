@@ -1,16 +1,16 @@
 /// <reference lib="webworker" />
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'proapp-cache-v9'
-const STATIC_CACHE = 'proapp-static-v9'
-const DYNAMIC_CACHE = 'proapp-dynamic-v9'
+const CACHE_NAME = 'proapp-cache-v10'
+const STATIC_CACHE = 'proapp-static-v10'
+const DYNAMIC_CACHE = 'proapp-dynamic-v10'
 
 const urlsToCache = [
   '/',
   '/index.html',
   '/offline.html',
   '/login',
-  '/favcon.ico',
+  '/favicon.ico',
   '/manifest.json',
   '/img/icon-192x192.png',
   '/img/icon-512x512.png'
