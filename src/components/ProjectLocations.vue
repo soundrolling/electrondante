@@ -1602,10 +1602,12 @@ setup() {
 
 .empty-state-button .btn-icon {
   font-size: 20px;
+  color: #ffffff;
 }
 
 .empty-state-button .btn-text {
   font-size: 16px;
+  color: #ffffff;
 }
 
 /* Modal */
