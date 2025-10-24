@@ -66,6 +66,21 @@
 
       <!-- Center: Navigation -->
       <nav class="navigation">
+        <!-- Project Home Button -->
+        <router-link
+          v-if="showProjectHomeButton"
+          :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
+          class="nav-link light-btn"
+          :class="{ active: isActiveRoute(`/projects/${currentProject.id}`) }"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7"/>
+            <path d="M9 22V12h6v10"/>
+          </svg>
+          <span class="nav-text">Project Home</span>
+        </router-link>
+        
+        <!-- All Projects Button -->
         <router-link
           v-if="isAuthenticated && !isProjectsRoute"
           to="/projects"
@@ -170,6 +185,7 @@
         </div>
       </div>
       <div class="menu-section">
+        <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="nav-link light-btn" @click="showMobileMenu = false">Project Home</router-link>
         <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="nav-link light-btn" @click="showMobileMenu = false">All Projects</router-link>
       </div>
       <div class="menu-section actions">
