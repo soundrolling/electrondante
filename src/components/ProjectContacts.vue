@@ -144,21 +144,14 @@
               @click="startEdit(contact)"
               title="Edit or delete contact"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
+              ✏️
             </button>
             <button
               class="btn btn-primary action-btn view-btn"
               @click="openContactInfo(contact)"
               title="View contact details"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 16v-4"/>
-                <path d="M12 8h.01"/>
-              </svg>
+              ℹ️
             </button>
           </div>
         </div>
@@ -1223,6 +1216,7 @@ line-height: 1.5;
   align-items: center;
   padding: 16px 0;
   border-bottom: 1px solid #374151;
+  border: 2px solid #000000; /* Black border around contact */
   min-width: 0;
   border-radius: 8px;
   margin-bottom: 8px;
@@ -1316,12 +1310,12 @@ line-height: 1.5;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.edit-btn svg {
-  width: 18px !important;
-  height: 18px !important;
-  stroke: #374151 !important; /* Ensure pencil icon is visible */
-  display: block !important; /* Force SVG to display */
-  fill: none !important;
+.edit-btn {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* Info button styling */
@@ -1340,12 +1334,12 @@ line-height: 1.5;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
-.view-btn svg {
-  width: 18px !important;
-  height: 18px !important;
-  stroke: #ffffff !important; /* White info icon */
-  display: block !important; /* Force SVG to display */
-  fill: none !important;
+.view-btn {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* Desktop-only contact details */
