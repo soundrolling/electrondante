@@ -157,26 +157,6 @@
             <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
           </div>
           
-          <!-- Icon Legend for Owner Actions -->
-          <div v-if="p.role === 'owner'" class="icon-legend">
-            <div class="legend-item">
-              <span class="legend-icon">✏️</span>
-              <span class="legend-text">Edit</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-icon">📋</span>
-              <span class="legend-text">Duplicate</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-icon">📦</span>
-              <span class="legend-text">Archive</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-icon">🗑️</span>
-              <span class="legend-text">Delete</span>
-            </div>
-          </div>
-          
           <div class="project-meta">
             <div v-if="p.location" class="meta-item">
               <span class="meta-icon">📍</span>
@@ -252,18 +232,6 @@
           <div class="project-header">
             <h3 class="project-title">{{ p.project_name }}</h3>
             <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
-          </div>
-          
-          <!-- Icon Legend for Owner Actions -->
-          <div v-if="p.role === 'owner'" class="icon-legend">
-            <div class="legend-item">
-              <span class="legend-icon">✏️</span>
-              <span class="legend-text">Edit</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-icon">📤</span>
-              <span class="legend-text">Unarchive</span>
-            </div>
           </div>
           
           <div class="project-meta">
@@ -622,7 +590,8 @@ setup() {
   };
 
   const confirmDeleteProject = async id => {
-    if (!confirm('Delete this project permanently?')) return;
+    const project = projects.value.find(p => p.id === id);
+    if (!confirm(`You are about to permanently delete the project "${project?.project_name || 'this project'}". This action cannot be undone. Continue?`)) return;
     try {
       await mutateTableData('projects','delete',{ id });
       projects.value = projects.value.filter(p=>p.id!==id);
@@ -632,7 +601,7 @@ setup() {
   };
 
   const duplicateProject = async src => {
-    if (!confirm('Duplicate this project?')) return;
+    if (!confirm(`You are about to duplicate the whole project "${src.project_name}". This is useful for doing another record at the same project location. Continue?`)) return;
     try {
       const { data:s } = await supabase.auth.getSession();
       const uid = s?.session?.user?.id;
@@ -775,6 +744,7 @@ setup() {
   }
 
   async function archiveProject(p) {
+    if (!confirm(`You are about to archive the project "${p.project_name}". Archived projects are hidden from the main view but can be restored later. Continue?`)) return;
     try {
       await mutateTableData('projects', 'update', { id: p.id, archived: true });
       p.archived = true;
@@ -1372,35 +1342,6 @@ setup() {
   color: var(--text-secondary);
 }
 
-/* Icon Legend */
-.icon-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding: var(--space-3);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-}
-
-.legend-icon {
-  font-size: var(--text-base);
-  width: 20px;
-  text-align: center;
-}
-
-.legend-text {
-  color: var(--text-secondary);
-  font-weight: var(--font-medium);
-}
 
 /* Project Actions */
 .project-actions {
@@ -1720,11 +1661,6 @@ setup() {
     gap: var(--space-6);
   }
   
-  /* Icon legend on desktop */
-  .icon-legend {
-    justify-content: center;
-    gap: var(--space-4);
-  }
 
   .modal {
     max-width: 700px;
