@@ -198,19 +198,19 @@
             </button>
             
             <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-warning">
+              <button @click="openEditModal(p)" class="btn btn-warning" title="Edit Project">
                 <span class="btn-icon">✏️</span>
                 <span class="btn-text">Edit</span>
               </button>
-              <button @click="duplicateProject(p)" class="btn btn-warning">
+              <button @click="duplicateProject(p)" class="btn btn-warning" title="Duplicate Project">
                 <span class="btn-icon">📋</span>
                 <span class="btn-text">Duplicate</span>
               </button>
-              <button @click="archiveProject(p)" class="btn btn-danger">
+              <button @click="archiveProject(p)" class="btn btn-danger" title="Archive Project">
                 <span class="btn-icon">📦</span>
                 <span class="btn-text">Archive</span>
               </button>
-              <button @click="confirmDeleteProject(p.id)" class="btn btn-danger">
+              <button @click="confirmDeleteProject(p.id)" class="btn btn-danger" title="Delete Project">
                 <span class="btn-icon">🗑️</span>
                 <span class="btn-text">Delete</span>
               </button>
@@ -279,11 +279,11 @@
             </button>
             
             <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-warning">
+              <button @click="openEditModal(p)" class="btn btn-warning" title="Edit Project">
                 <span class="btn-icon">✏️</span>
                 <span class="btn-text">Edit</span>
               </button>
-              <button @click="unarchiveProject(p)" class="btn btn-positive">
+              <button @click="unarchiveProject(p)" class="btn btn-positive" title="Unarchive Project">
                 <span class="btn-icon">📤</span>
                 <span class="btn-text">Unarchive</span>
               </button>
@@ -1363,6 +1363,22 @@ setup() {
   gap: var(--space-2);
 }
 
+/* Icon-only buttons on small screens */
+.owner-actions .btn {
+  padding: var(--space-2);
+  min-width: 44px;
+  justify-content: center;
+}
+
+.owner-actions .btn-text {
+  display: none;
+}
+
+.owner-actions .btn-icon {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;
@@ -1588,6 +1604,16 @@ setup() {
 
   .owner-actions {
     grid-template-columns: repeat(4, 1fr);
+  }
+  
+  /* Show text on larger screens */
+  .owner-actions .btn-text {
+    display: inline;
+  }
+  
+  .owner-actions .btn {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
   }
 
   .projects-grid {
