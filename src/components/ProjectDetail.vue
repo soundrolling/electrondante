@@ -72,6 +72,19 @@
       </div>
     </section>
 
+    <!-- Startup Section - Show when no stages exist -->
+    <section v-if="!stages.length" class="startup-section">
+      <div class="startup-content">
+        <div class="startup-icon">🏗️</div>
+        <h2 class="startup-title">Get Started with Your Project</h2>
+        <p class="startup-description">Add your first stage to begin organizing your recording locations and equipment.</p>
+        <button class="btn btn-primary startup-button" @click="goToLocations">
+          <span class="startup-button-icon">🏢</span>
+          <span class="startup-button-text">Add Your First Stage</span>
+        </button>
+      </div>
+    </section>
+
     <!-- Primary Actions -->
     <section class="actions-section">
       <h2 class="section-title">Project Tools</h2>
@@ -546,6 +559,78 @@ export default {
   font-weight: 300;
 }
 
+/* Startup Section */
+.startup-section {
+  margin-bottom: 32px;
+  padding: 32px 24px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.startup-content {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.startup-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.startup-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
+  line-height: 1.3;
+}
+
+.startup-description {
+  font-size: 16px;
+  color: #6c757d;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.startup-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #0066cc;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 56px;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
+}
+
+.startup-button:hover {
+  background: #0052a3;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 102, 204, 0.3);
+}
+
+.startup-button:active {
+  transform: scale(0.98);
+}
+
+.startup-button-icon {
+  font-size: 20px;
+}
+
+.startup-button-text {
+  font-size: 16px;
+}
+
 /* Actions Section */
 .actions-section {
   margin-bottom: 24px;
@@ -736,12 +821,31 @@ export default {
     padding: 24px 20px;
     min-height: 96px;
   }
+
+  .startup-section {
+    padding: 40px 32px;
+  }
+
+  .startup-title {
+    font-size: 28px;
+  }
+
+  .startup-description {
+    font-size: 18px;
+  }
+
+  .startup-button {
+    padding: 20px 32px;
+    font-size: 20px;
+    min-height: 64px;
+  }
 }
 
 /* Focus States for Accessibility */
 .stage-card:focus,
 .action-button:focus,
-.retry-button:focus {
+.retry-button:focus,
+.startup-button:focus {
   outline: 2px solid #0066cc;
   outline-offset: 2px;
 }
@@ -762,12 +866,21 @@ export default {
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   .stage-card,
-  .action-button {
+  .action-button,
+  .startup-button {
     transition: none;
   }
   
   .stage-card:active,
   .stage-card.touch-active {
+    transform: none;
+  }
+
+  .startup-button:hover {
+    transform: none;
+  }
+
+  .startup-button:active {
     transform: none;
   }
 }

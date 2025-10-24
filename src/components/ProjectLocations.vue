@@ -133,7 +133,11 @@
   <div v-else-if="!loading && !error && !stages.length" class="empty-state">
     <div class="empty-icon">🏗️</div>
     <h3 class="empty-title">No stages found</h3>
-    <p class="empty-message">Click <strong>Manage Stages</strong> to create your first stage.</p>
+    <p class="empty-message">Get started by adding your first stage to organize your recording locations and equipment.</p>
+    <button class="btn btn-primary empty-state-button" @click="openLocationsModal">
+      <span class="btn-icon">🏢</span>
+      <span class="btn-text">Add Your First Stage</span>
+    </button>
   </div>
 
   <!-- ────────── Venue Modal ────────── -->
@@ -1569,6 +1573,41 @@ setup() {
   margin-bottom: 24px;
 }
 
+.empty-state-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: #0066cc;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 56px;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
+}
+
+.empty-state-button:hover {
+  background: #0052a3;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 102, 204, 0.3);
+}
+
+.empty-state-button:active {
+  transform: scale(0.98);
+}
+
+.empty-state-button .btn-icon {
+  font-size: 20px;
+}
+
+.empty-state-button .btn-text {
+  font-size: 16px;
+}
+
 /* Modal */
 .modal-overlay {
   position: fixed;
@@ -2131,7 +2170,8 @@ setup() {
 .form-select:focus,
 .btn:focus,
 .order-btn:focus,
-.action-btn:focus {
+.action-btn:focus,
+.empty-state-button:focus {
   outline: 2px solid #0066cc;
   outline-offset: 2px;
 }
@@ -2217,7 +2257,8 @@ setup() {
   .stage-action-btn,
   .btn,
   .order-btn,
-  .action-btn {
+  .action-btn,
+  .empty-state-button {
     transition: none;
   }
   
@@ -2228,7 +2269,8 @@ setup() {
   .stage-action-btn:hover,
   .btn:hover,
   .order-btn:hover,
-  .action-btn:hover {
+  .action-btn:hover,
+  .empty-state-button:hover {
     transform: none;
   }
   
@@ -2239,7 +2281,8 @@ setup() {
   .stage-action-btn:active,
   .btn:active,
   .order-btn:active,
-  .action-btn:active {
+  .action-btn:active,
+  .empty-state-button:active {
     transform: none;
   }
 }
