@@ -502,7 +502,25 @@ async function fetchContacts() {
     .from('project_contacts')
     .select('*')
     .eq('project_id', currentProject.value.id);
-  contacts.value = data ?? [];
+  
+  // Process contacts to populate stage_location from stage_ids
+  const processedContacts = (data || []).map(contact => {
+    if (contact.stage_ids && contact.stage_ids.length > 0) {
+      // Find the stage names for the assigned stage IDs
+      const stageNames = contact.stage_ids.map(stageId => {
+        const location = projectStageLocations.value.find(loc => loc.id === stageId);
+        return location ? location.stage_name : null;
+      }).filter(Boolean);
+      
+      // Set stage_location to the first stage name, or comma-separated list if multiple
+      contact.stage_location = stageNames.length > 0 ? stageNames.join(', ') : null;
+    } else {
+      contact.stage_location = null;
+    }
+    return contact;
+  });
+  
+  contacts.value = processedContacts;
   loadingContacts.value = false;
 }
 
@@ -693,8 +711,9 @@ async function saveContact() {
       stage_ids: f.stage_ids,
     };
     await supabase.from('project_contacts').update(upd).eq('id', editingContactId.value).throwOnError();
-    const idx = contacts.value.findIndex(c => c.id === editingContactId.value);
-    if (idx !== -1) contacts.value[idx] = { ...contacts.value[idx], ...upd };
+    
+    // Refresh contacts to update stage_location display
+    await fetchContacts();
     closeEditModal();
   } finally {
     saving.value = false;
@@ -762,6 +781,8 @@ async function boot() {
     if (pid) await store.fetchProjectById(pid);
   }
   if (currentProject.value?.id) {
+    // Fetch stage locations first, then contacts (which depends on stage locations)
+    await fetchProjectStageLocations();
     await Promise.all([
       fetchContacts(),
       fetchMemberProfiles(),
@@ -771,7 +792,6 @@ async function boot() {
 }
 onMounted(() => {
   boot();
-  fetchProjectStageLocations();
   if (route.query.stage) {
     stageLocationFilter.value = route.query.stage;
   }
