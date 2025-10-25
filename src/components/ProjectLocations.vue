@@ -1887,20 +1887,23 @@ setup() {
 
 .modal {
   background: #ffffff;
-  border-radius: 12px;
-  max-width: 500px;
+  border-radius: 16px;
+  max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  margin: 20px;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 20px 16px 20px;
+  padding: 24px 28px 20px 28px;
   border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+  border-radius: 16px 16px 0 0;
 }
 
 .modal-title {
@@ -1935,11 +1938,13 @@ setup() {
   display: flex;
   gap: 0;
   border-bottom: 1px solid #e9ecef;
+  background: #ffffff;
+  padding: 0 8px;
 }
 
 .modal-tab {
   flex: 1;
-  padding: 16px;
+  padding: 20px 24px;
   background: none;
   border: none;
   font-size: 16px;
@@ -1947,8 +1952,10 @@ setup() {
   color: #6c757d;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 44px;
+  min-height: 48px;
   border-bottom: 2px solid transparent;
+  margin: 0 4px;
+  border-radius: 8px 8px 0 0;
 }
 
 .modal-tab:hover {
@@ -1963,44 +1970,46 @@ setup() {
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 28px;
+  background: #ffffff;
 }
 
 /* Form Elements */
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .form-grid {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .form-label {
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   font-size: 16px;
   line-height: 1.4;
 }
 
 .form-input {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  padding: 16px 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
   font-size: 16px;
   background: #ffffff;
   color: #1a1a1a;
   transition: all 0.2s ease;
-  min-height: 44px;
+  min-height: 48px;
   box-sizing: border-box;
 }
 
@@ -2012,21 +2021,23 @@ setup() {
 
 .form-select {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  padding: 16px 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
   font-size: 16px;
   background: #ffffff;
   color: #1a1a1a;
-  min-height: 44px;
+  min-height: 48px;
   appearance: none;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .form-actions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+  margin-top: 8px;
 }
 
 /* Buttons */
@@ -2228,39 +2239,55 @@ setup() {
 
 /* Venue Selection */
 .venue-selection {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
 }
 
 .venue-selection .form-label {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 /* Venue Editor */
 .venue-editor {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .stages-section {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  padding: 24px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
 }
 
 .stages-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .stage-item {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
+  padding: 20px;
+  background: #ffffff;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.stage-item:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
 
 .stage-order {
@@ -2338,10 +2365,11 @@ setup() {
 }
 
 .add-stage {
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
+  padding: 24px;
+  background: #ffffff;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  margin-top: 16px;
 }
 
 .add-stage-title {
@@ -2363,23 +2391,23 @@ setup() {
 
 /* Venue Details */
 .venue-details {
-  padding: 20px;
+  padding: 24px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid #e9ecef;
 }
 
 .venue-details .form-grid {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 /* Danger Zone */
 .danger-zone {
-  padding: 20px;
+  padding: 24px;
   background: #fef2f2;
   border: 1px solid #fed7d7;
-  border-radius: 8px;
-  margin-top: 20px;
+  border-radius: 12px;
+  margin-top: 24px;
 }
 
 .danger-title {
