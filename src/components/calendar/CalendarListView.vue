@@ -52,6 +52,7 @@
             <div class="event-date">{{ formatDate(evt.event_date) }}</div>
             <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="event-end-date">{{ formatDate(evt.end_date) }}</div>
             <div class="event-time">{{ formatTime(evt.start_time) }} – {{ formatTime(evt.end_time) }}</div>
+            <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="multi-day-badge">Multi-day</div>
           </div>
           <div class="event-info">
             <div class="event-title">
@@ -416,6 +417,17 @@ gap: 0.2rem;
   font-size: 0.9rem;
   color: #666;
   margin-top: 0.1rem;
+}
+
+.multi-day-badge {
+  font-size: 0.75rem;
+  color: #ff6b35;
+  font-weight: 600;
+  background: rgba(255, 107, 53, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  margin-top: 0.3rem;
+  display: inline-block;
 }
 
 .event-time {

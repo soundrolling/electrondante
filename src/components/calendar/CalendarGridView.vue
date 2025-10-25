@@ -19,7 +19,7 @@
         <div class="vertical-weekday-cell" :class="{ 'has-events': hasEvents(day.date) }">
           <div class="day-number">{{ new Date(day.date).getDate() }}</div>
           <div v-if="hasEvents(day.date)" class="event-list">
-            <div v-for="evt in getEventsForDay(day.date)" :key="evt.category+'-'+evt.id" class="event-list-item" @click="$emit('event-click', evt)">
+            <div v-for="evt in getEventsForDay(day.date)" :key="evt.category+'-'+evt.id" class="event-list-item" :class="{ 'multi-day-event': evt.end_date && evt.end_date !== evt.event_date }" @click="$emit('event-click', evt)">
               <div class="event-flex">
                 <div class="event-times-col">
                   <div class="event-time event-time-start">{{ formatTime12(evt.start_time) }}</div>
@@ -29,6 +29,9 @@
                 <div class="event-info-col">
                   <div class="event-title" v-html="evt.title"></div>
                   <div v-if="evt.location_id && getLocationName" class="event-location">{{ getLocationName(evt.location_id) }}</div>
+                  <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="multi-day-indicator">
+                    <span class="multi-day-text">Multi-day event</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -377,5 +380,20 @@ font-weight: 700;
   color: #888;
   font-size: 0.97em;
   font-style: italic;
+}
+.multi-day-event {
+  border-left: 4px solid #ff6b35 !important;
+  background: #fff5f0 !important;
+}
+.multi-day-indicator {
+  margin-top: 0.2rem;
+}
+.multi-day-text {
+  font-size: 0.8em;
+  color: #ff6b35;
+  font-weight: 600;
+  background: rgba(255, 107, 53, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
 }
 </style> 

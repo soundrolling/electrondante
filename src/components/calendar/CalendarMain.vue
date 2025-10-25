@@ -484,7 +484,16 @@ setup() {
 
   // TIMELINE
   const daysWithEvents = computed(() => {
-    return Array.from(new Set(sortedEvents.value.map(e => e.event_date))).sort();
+    const dates = new Set();
+    sortedEvents.value.forEach(e => {
+      // Add the start date
+      dates.add(e.event_date);
+      // Add the end date if it's different from start date
+      if (e.end_date && e.end_date !== e.event_date) {
+        dates.add(e.end_date);
+      }
+    });
+    return Array.from(dates).sort();
   });
   const activeDayIndex = ref(-1);
   watch(sortedEvents, () => {
@@ -509,13 +518,44 @@ setup() {
       date.getDate() === today.getDate();
   }
 
-  // Only show events between 03:00 and 23:59 for today if no explicit filter is set
+  // Show events for the current day, including events that cross midnight
   const timelineDayEvents = computed(() => {
-    let events = sortedEvents.value.filter(e => e.event_date === currentDateString.value && e.start_time && e.end_time);
-    if (isToday(currentDate.value) && !filters.value.dateStart && !filters.value.dateEnd) {
+    const currentDate = currentDateString.value;
+    let events = sortedEvents.value.filter(e => {
+      // Include events that start on the current day
+      if (e.event_date === currentDate && e.start_time && e.end_time) {
+        return true;
+      }
+      
+      // Include events that start on the previous day but end on the current day
+      const prevDate = new Date(currentDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split('T')[0];
+      
+      if (e.event_date === prevDateStr && e.end_date === currentDate && e.start_time && e.end_time) {
+        return true;
+      }
+      
+      // Include events that start on the current day but end on the next day
+      const nextDate = new Date(currentDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextDateStr = nextDate.toISOString().split('T')[0];
+      
+      if (e.event_date === currentDate && e.end_date === nextDateStr && e.start_time && e.end_time) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    if (isToday(new Date(currentDate)) && !filters.value.dateStart && !filters.value.dateEnd) {
       events = events.filter(e => {
-        // Compare start_time >= 03:00 and end_time <= 23:59
-        return e.start_time >= '03:00' && e.start_time <= '23:59';
+        // For events starting today, only show if start_time >= 03:00
+        if (e.event_date === currentDate) {
+          return e.start_time >= '03:00';
+        }
+        // For events starting yesterday but ending today, always show
+        return true;
       });
     }
     return events;
