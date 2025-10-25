@@ -983,6 +983,7 @@ watch(() => route.query.stageId, async (newVal) => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
+  color: inherit;
 }
 
 .btn:disabled {
@@ -993,36 +994,38 @@ watch(() => route.query.stageId, async (newVal) => {
 .btn-secondary {
   background: #f3f4f6;
   color: #374151;
+  border: 1px solid #d1d5db;
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: #e5e7eb;
+  color: #374151;
 }
 
 .btn-outline {
   background: transparent;
-  color: #3b82f6;
+  color: #3b82f6 !important;
   border: 1px solid #3b82f6;
 }
 
 .btn-outline:hover:not(:disabled) {
   background: #3b82f6;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .btn-outline--active {
-  background: #3b82f6;
-  color: #ffffff;
+  background: #3b82f6 !important;
+  color: #ffffff !important;
 }
 
 .btn-danger {
-  background: #dc2626;
-  color: #ffffff;
+  background: #dc2626 !important;
+  color: #ffffff !important;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
-  color: #ffffff;
+  background: #b91c1c !important;
+  color: #ffffff !important;
 }
 
 .btn-icon {
