@@ -645,6 +645,11 @@ export default {
   color: #000000 !important;
 }
 
+/* Sign out button text should be white */
+.sign-out-btn .btn-text {
+  color: #ffffff !important;
+}
+
 /* Numeric badge styling */
 .badge {
   display: inline-flex;
