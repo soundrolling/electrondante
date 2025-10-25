@@ -1,7 +1,5 @@
 <template>
 <div class="project-locations">
-  <ProjectBreadcrumbs />
-  
   <!-- Header removed (duplicate of global header) -->
 
   <!-- ────────── loading / error ────────── -->
@@ -535,11 +533,9 @@ import { useToast } from 'vue-toastification';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
 import { getData } from '@/utils/indexedDB';
 import { supabase } from '@/supabase';
-import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue';
 
 export default {
 name: 'ProjectLocations',
-components: { ProjectBreadcrumbs },
 setup() {
   const route = useRoute();
   const router = useRouter();
