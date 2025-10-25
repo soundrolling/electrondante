@@ -9,9 +9,13 @@ DROP POLICY IF EXISTS "Users can view project members" ON project_members;
 DROP POLICY IF EXISTS "Authenticated users can insert project members" ON project_members;
 DROP POLICY IF EXISTS "Admins can update project members" ON project_members;
 DROP POLICY IF EXISTS "Admins can delete project members" ON project_members;
+DROP POLICY IF EXISTS "select_project_members" ON project_members;
+DROP POLICY IF EXISTS "insert_project_members" ON project_members;
+DROP POLICY IF EXISTS "update_project_members" ON project_members;
+DROP POLICY IF EXISTS "delete_project_members" ON project_members;
 
--- Drop the function if it exists
-DROP FUNCTION IF EXISTS is_project_admin(UUID, TEXT);
+-- Drop the function if it exists (with CASCADE to handle dependencies)
+DROP FUNCTION IF EXISTS is_project_admin(UUID, TEXT) CASCADE;
 
 -- SELECT: Allow all authenticated users to view project members
 -- Authorization is handled in the frontend based on project membership
