@@ -129,6 +129,7 @@ import { useUserStore } from "../../stores/userStore";
 import { fetchTableData } from "../../services/dataService";
 import { supabase } from "../../supabase";
 import { useRoute } from "vue-router";
+import { useToast } from "vue-toastification";
 
 // Import subcomponents
 import CalendarViewSelector from "./CalendarViewSelector.vue";
@@ -156,6 +157,7 @@ components: {
 setup() {
   const userStore = useUserStore();
   const route = useRoute();
+  const toast = useToast();
   const loading = ref(true);
   const error = ref("");
   const calendarError = ref("");
@@ -670,12 +672,17 @@ setup() {
     showDetailsModal.value = false;
   }
   async function confirmDelete() {
-    if (!detailsEvent.value.id) { toastMsg.value = "Missing ID"; return; }
+    if (!detailsEvent.value.id) { toast.error("Missing ID"); return; }
     if (!confirm("Delete this event?")) return;
     const { error } = await supabase.from("calendar_events")
       .delete().eq("id", detailsEvent.value.id);
-    if (error) toastMsg.value = "Delete failed: " + error.message;
-    else { closeDetailsModal(); fetchAll(); }
+    if (error) {
+      toast.error("Failed to delete event: " + error.message);
+    } else { 
+      closeDetailsModal(); 
+      fetchAll();
+      toast.success("Event deleted successfully");
+    }
   }
   async function saveDetails() {
     const ev = detailsEvent.value;
@@ -694,8 +701,14 @@ setup() {
         assigned_contacts: ev.assigned_contacts || []
       })
       .eq("id", ev.id);
-    if (error) toastMsg.value = "Update failed: " + error.message;
-    else { detailsMode.value = "view"; fetchAll(); }
+    if (error) {
+      toastMsg.value = "Update failed: " + error.message;
+      toast.error("Failed to save event changes");
+    } else { 
+      detailsMode.value = "view"; 
+      fetchAll();
+      toast.success("Event changes saved successfully");
+    }
   }
 
   function openNewEventModal() {
@@ -712,7 +725,7 @@ setup() {
   }
   async function createNewEvent(newEventData) {
     if (!newEventData.title || !newEventData.event_date || !newEventData.start_time) {
-      toastMsg.value = "Please fill in title, date & start time.";
+      toast.error("Please fill in title, date & start time.");
       return;
     }
     
@@ -736,7 +749,7 @@ setup() {
         
       if (error) {
         console.error('Calendar event creation error:', error);
-        toastMsg.value = "Create failed: " + error.message;
+        toast.error("Failed to create event: " + error.message);
         return;
       }
       
@@ -746,17 +759,12 @@ setup() {
       // Add a small delay to ensure the database operation is complete
       setTimeout(async () => {
         await fetchAll();
-        toastMsg.value = "Event created successfully!";
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          toastMsg.value = "";
-        }, 3000);
+        toast.success("Event created successfully!");
       }, 500);
       
     } catch (err) {
       console.error('Calendar event creation error:', err);
-      toastMsg.value = "Create failed: " + err.message;
+      toast.error("Failed to create event: " + err.message);
     }
   }
 
@@ -811,19 +819,28 @@ setup() {
         assigned_contacts: event.assigned_contacts || []
       })
       .eq("id", event.id);
-    if (error) toastMsg.value = "Update failed: " + error.message;
-    else fetchAll();
+    if (error) {
+      toastMsg.value = "Update failed: " + error.message;
+      toast.error("Failed to save event changes");
+    } else {
+      fetchAll();
+      toast.success("Event changes saved successfully");
+    }
   }
 
   async function onDeleteEvent(event) {
-    if (!event.id) { toastMsg.value = "Missing event ID"; return; }
+    if (!event.id) { toast.error("Missing event ID"); return; }
     if (!confirm("Delete this event?")) return;
     const { error } = await supabase
       .from("calendar_events")
       .delete()
       .eq("id", event.id);
-    if (error) toastMsg.value = "Delete failed: " + error.message;
-    else fetchAll();
+    if (error) {
+      toast.error("Failed to delete event: " + error.message);
+    } else {
+      fetchAll();
+      toast.success("Event deleted successfully");
+    }
   }
 
   return {
