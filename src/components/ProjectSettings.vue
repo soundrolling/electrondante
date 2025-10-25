@@ -194,7 +194,7 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { supabase, adminClient } from '../supabase'
+import { supabase } from '../supabase'
 import { useUserStore } from '../stores/userStore'
 import { useToast } from 'vue-toastification'
 import BugReportList from './BugReportList.vue'
@@ -309,7 +309,24 @@ export default {
     }
   }
 
-  // 4) Invite/Add flow
+  // 4) Call Edge Function for user invitation
+  const callInviteUserFunction = async (email, projectId, role) => {
+    const { data, error } = await supabase.functions.invoke('invite-user', {
+      body: {
+        email,
+        projectId,
+        role
+      }
+    })
+
+    if (error) {
+      throw new Error(error.message || 'Failed to call invite function')
+    }
+
+    return data
+  }
+
+  // 5) Invite/Add flow using Edge Function
   const inviteUserToProject = async () => {
     const email = inviteEmail.value.trim().toLowerCase()
     if (!isInviteFormValid.value) {
@@ -317,10 +334,6 @@ export default {
       return
     }
     if (!currentProject.value?.id) return
-    if (!adminClient) {
-      toast.error('Invite unavailable: service-role key missing.')
-      return
-    }
 
     isInviting.value = true
     try {
@@ -336,70 +349,14 @@ export default {
         return
       }
 
-      // b) list users
-      const { data: listData, error: listErr } = await adminClient
-        .auth.admin.listUsers({ page: 1, perPage: 1000 })
-      if (listErr) throw listErr
-
-      let userId = listData.users.find(u => u.email.toLowerCase() === email)?.id
-
-      // c) invite if needed
-      if (!userId) {
-        const { error: inviteErr } = await adminClient
-          .auth.admin.inviteUserByEmail(email, {
-            redirectTo: `${window.location.origin}/auth/set-password`
-          })
-        if (inviteErr) {
-          if (inviteErr.message && inviteErr.message.includes('already been invited')) {
-            toast.info('This user has already been invited but has not registered yet. They need to complete registration before being added.')
-            return
-          }
-          throw inviteErr
-        }
-        // Wait for user to appear in user list (race condition handling)
-        let retries = 0
-        while (retries < 5 && !userId) {
-          await new Promise(res => setTimeout(res, 1000))
-          const { data: fresh } = await adminClient
-            .auth.admin.listUsers({ page: 1, perPage: 1000 })
-          userId = fresh.users.find(u => u.email.toLowerCase() === email)?.id
-          retries++
-        }
-        if (!userId) {
-          toast.info('Invitation sent! The user will be added to the project after they register.')
-          // Optionally, insert membership with just email (no user_id)
-          const { error: pmErr } = await adminClient
-            .from('project_members')
-            .insert({
-              project_id: currentProject.value.id,
-              user_email: email,
-              role: selectedRole.value
-            })
-          if (pmErr) throw pmErr
-          await fetchProjectMembers()
-          inviteEmail.value = ''
-          selectedRole.value = 'viewer'
-          isInviting.value = false
-          return
-        }
-      }
-
-      // d) insert membership
-      const { error: pmErr } = await adminClient
-        .from('project_members')
-        .insert({
-          project_id: currentProject.value.id,
-          user_email: email,
-          role: selectedRole.value,
-          ...(userId && { user_id: userId })
-        })
-      if (pmErr) throw pmErr
-
-      // e) refresh
+      // b) call edge function to handle invitation and project membership
+      const result = await callInviteUserFunction(email, currentProject.value.id, selectedRole.value)
+      
+      // c) refresh members list
       await fetchProjectMembers()
       inviteEmail.value = ''
       selectedRole.value = 'viewer'
-      toast.success('User added to project successfully.')
+      toast.success(result.message || 'User invited/added successfully.')
     } catch (err) {
       console.error('Invite failed:', err)
       toast.error(err.message || 'Failed to invite/add user.')
@@ -408,7 +365,7 @@ export default {
     }
   }
 
-  // 5) Remove a member
+  // 6) Remove a member
   const removeMember = async (id) => {
     if (!confirm('Remove this user from the project?')) return
     const { error } = await supabase

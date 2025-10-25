@@ -37,6 +37,7 @@ export const supabase = createClient(URL, ANON_KEY, {
 
 // Admin (service-role) client for RLS-bypassing operations
 // Only instantiate admin client in server environments (never in the browser)
+// NOTE: This is not used in the frontend - user invitations are handled via Edge Functions
 export const adminClient = (typeof window === 'undefined' && SERVICE_ROLE_KEY)
   ? createClient(URL, SERVICE_ROLE_KEY, {
       auth: {
