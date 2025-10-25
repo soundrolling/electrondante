@@ -767,47 +767,56 @@ function printPreview() {
 
 .btn-secondary {
   background: #f3f4f6;
-  color: #374151;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db;
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: #e5e7eb;
+  color: #111827 !important;
+  border-color: #9ca3af;
 }
 
 .btn-primary {
   background: #2563eb;
-  color: #fff;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: #1e40af;
+  color: #ffffff !important;
+  border-color: #1e3a8a;
 }
 
 .btn-save {
   background: #16a34a;
-  color: #fff;
+  color: #ffffff !important;
 }
 
 .btn-save:hover:not(:disabled) {
   background: #15803d;
+  color: #ffffff !important;
 }
 
 .btn-delete {
   background: #dc2626;
-  color: #fff;
+  color: #ffffff !important;
 }
 
 .btn-delete:hover:not(:disabled) {
   background: #b91c1c;
+  color: #ffffff !important;
 }
 
 .btn-cancel {
   background: #6b7280;
-  color: #fff;
+  color: #ffffff !important;
 }
 
 .btn-cancel:hover:not(:disabled) {
   background: #4b5563;
+  color: #ffffff !important;
 }
 
 .btn-icon {
@@ -968,8 +977,8 @@ function printPreview() {
 
 .file-remove {
   background: #fef2f2;
-  color: #dc2626;
-  border: none;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca;
   border-radius: 4px;
   width: 24px;
   height: 24px;
@@ -982,7 +991,8 @@ function printPreview() {
 
 .file-remove:hover:not(:disabled) {
   background: #b91c1c;
-  color: #ffffff;
+  color: #ffffff !important;
+  border-color: #991b1b;
 }
 
 /* Upload Button */
@@ -1173,8 +1183,8 @@ function printPreview() {
 
 .action-btn {
   background: #f3f4f6;
-  color: #374151;
-  border: none;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -1188,17 +1198,21 @@ function printPreview() {
 
 .action-btn:hover {
   background: #e5e7eb;
+  color: #111827 !important;
+  border-color: #9ca3af;
   transform: scale(1.05);
 }
 
 .view-btn:hover {
   background: #1e3a8a;
-  color: #ffffff;
+  color: #ffffff !important;
+  border-color: #1e40af;
 }
 
 .download-btn:hover {
   background: #166534;
-  color: #ffffff;
+  color: #ffffff !important;
+  border-color: #15803d;
 }
 
 .doc-meta {
@@ -1231,8 +1245,8 @@ function printPreview() {
 
 .order-btn {
   background: #f3f4f6;
-  color: #374151;
-  border: none;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
   width: 28px;
   height: 28px;
@@ -1246,7 +1260,8 @@ function printPreview() {
 
 .order-btn:hover:not(:disabled) {
   background: #d1d5db;
-  color: #111827;
+  color: #111827 !important;
+  border-color: #9ca3af;
 }
 
 .order-btn:disabled {
