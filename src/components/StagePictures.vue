@@ -120,6 +120,17 @@
     </div>
   </div>
 
+  <!-- Debug Info -->
+  <div v-if="!isLoading" class="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px;">
+    <strong>Debug Info:</strong><br>
+    Project ID: {{ projectId }}<br>
+    Venue ID: {{ venueId }}<br>
+    Stage ID: {{ stageId }}<br>
+    Images Count: {{ images.length }}<br>
+    Venue Name: {{ venueName }}<br>
+    Stage Name: {{ stageName }}
+  </div>
+
   <!-- Images Grid -->
   <div v-else-if="images.length" class="images-section">
     <div class="images-header">
@@ -382,18 +393,24 @@ function formatFileSize(bytes) {
 // Data fetching
 async function fetchNames() {
   try {
-    const { data: v } = await supabase
+    console.log('Fetching venue name for venueId:', venueId);
+    const { data: v, error: venueError } = await supabase
       .from('venues')
       .select('venue_name')
       .eq('id', venueId)
       .single();
+    
+    console.log('Venue query result:', { data: v, error: venueError });
     if (v) venueName.value = v.venue_name;
 
-    const { data: s } = await supabase
+    console.log('Fetching stage name for stageId:', stageId);
+    const { data: s, error: stageError } = await supabase
       .from('locations')
       .select('stage_name')
       .eq('id', stageId)
       .single();
+    
+    console.log('Stage query result:', { data: s, error: stageError });
     if (s) stageName.value = s.stage_name;
   } catch (error) {
     console.error('Error fetching names:', error);
@@ -404,6 +421,12 @@ async function fetchNames() {
 async function fetchImages() {
   isLoading.value = true;
   try {
+    console.log('Fetching images with filters:', {
+      projectId,
+      venueId,
+      stageId
+    });
+    
     const { data, error } = await supabase
       .from('stage_pictures')
       .select('*')
@@ -411,6 +434,8 @@ async function fetchImages() {
       .eq('venue_id', venueId)
       .eq('stage_id', stageId)
       .order('order', { ascending: true });
+    
+    console.log('Images query result:', { data, error });
     
     if (error) throw error;
 
@@ -886,6 +911,12 @@ async function moveImageToStage(img, newStageId) {
 
 // Initialize
 onMounted(async () => {
+  console.log('StagePictures mounted with params:', {
+    projectId,
+    venueId,
+    stageId
+  });
+  
   await fetchNames();
   await fetchImages();
   await fetchAllStages();
