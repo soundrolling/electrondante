@@ -161,6 +161,11 @@
                 </div>
               </div>
 
+              <div v-if="report.description" class="detail-section">
+                <h5>Description</h5>
+                <div class="description-content">{{ report.description }}</div>
+              </div>
+
               <div v-if="report.steps" class="detail-section">
                 <h5>Steps to Reproduce</h5>
                 <div class="steps-content">{{ report.steps }}</div>
@@ -733,7 +738,8 @@ export default {
 
 .steps-content,
 .behavior-text,
-.additional-info {
+.additional-info,
+.description-content {
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);

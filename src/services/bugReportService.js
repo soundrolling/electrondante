@@ -13,17 +13,34 @@ export class BugReportService {
    */
   static async submitReport(reportData) {
     try {
-      // Insert only columns that exist in the current schema
+      // Insert all available fields from the schema
       const insertData = {
         type: reportData.type,
         title: reportData.title,
         description: reportData.description ?? '',
         priority: reportData.priority,
+        status: 'open',
         browser: reportData.browser || null,
         device: reportData.device || null,
+        steps: reportData.steps || null,
+        expected_behavior: reportData.expectedBehavior || null,
+        actual_behavior: reportData.actualBehavior || null,
+        additional_info: reportData.additionalInfo || null,
+        // System information
         user_agent: reportData.userAgent || null,
+        platform: reportData.platform || null,
+        language: reportData.language || null,
+        cookie_enabled: reportData.cookieEnabled || null,
+        online_status: reportData.onLine || null,
+        screen_resolution: reportData.screenResolution || null,
+        viewport_size: reportData.viewportSize || null,
+        color_depth: reportData.colorDepth || null,
+        pixel_ratio: reportData.pixelRatio || null,
+        timezone: reportData.timezone || null,
         url: reportData.url || null,
-        status: 'open',
+        referrer: reportData.referrer || null,
+        page_title: reportData.pageTitle || null,
+        console_errors: reportData.consoleErrors || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
