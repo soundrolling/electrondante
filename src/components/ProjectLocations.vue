@@ -2223,18 +2223,34 @@ setup() {
 
 /* Link Button */
 .link-btn {
-  background: none;
-  border: none;
-  color: #0066cc;
-  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #10b981;
+  border: 2px solid #10b981;
+  color: #ffffff;
+  text-decoration: none;
   cursor: pointer;
-  font-size: 16px;
-  padding: 0;
-  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  margin: 0 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  min-height: 36px;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
 }
 
 .link-btn:hover {
-  color: #0052a3;
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.link-btn:active {
+  transform: scale(0.98);
 }
 
 /* Venue Selection */
@@ -2452,7 +2468,8 @@ setup() {
 .empty-state-button:focus,
 .manage-btn:focus,
 .add-venue-btn:focus,
-.add-stage-btn:focus {
+.add-stage-btn:focus,
+.link-btn:focus {
   outline: 2px solid #0066cc;
   outline-offset: 2px;
 }
