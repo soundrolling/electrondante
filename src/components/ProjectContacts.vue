@@ -1067,7 +1067,7 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 
 .contact-count {
   font-size: 0.9rem;
-  color: #000000 !important; /* Black text */
+  color: #ffffff !important; /* White text for contrast */
   font-weight: 600; /* Bolder text */
   background-color: #374151; /* Dark gray background */
   padding: 6px 12px; /* Add padding for better appearance */
