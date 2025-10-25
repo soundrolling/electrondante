@@ -1273,4 +1273,8 @@ await fetchProjectDocs()
   border-top: 1px solid #e5e7eb;
   background: #f9fafb;
 }
+
+.preview-modal-footer .btn {
+  color: white;
+}
 </style>

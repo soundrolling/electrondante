@@ -311,54 +311,82 @@ export default {
 
   // 4) Call Edge Function for user invitation
   const callInviteUserFunction = async (email, projectId, role) => {
-    const { data, error } = await supabase.functions.invoke('invite-user', {
-      body: {
-        email,
-        projectId,
-        role
+    console.log('🚀 Calling invite-user Edge Function with:', { email, projectId, role })
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: {
+          email,
+          projectId,
+          role
+        }
+      })
+
+      console.log('📤 Edge Function response:', { data, error })
+
+      if (error) {
+        console.error('❌ Edge Function error:', error)
+        throw new Error(error.message || 'Failed to call invite function')
       }
-    })
 
-    if (error) {
-      throw new Error(error.message || 'Failed to call invite function')
+      console.log('✅ Edge Function success:', data)
+      return data
+    } catch (err) {
+      console.error('💥 Edge Function call failed:', err)
+      throw err
     }
-
-    return data
   }
 
   // 5) Invite/Add flow using Edge Function
   const inviteUserToProject = async () => {
     const email = inviteEmail.value.trim().toLowerCase()
+    console.log('🎯 Starting invite process for:', email)
+    
     if (!isInviteFormValid.value) {
       toast.error('Please enter a valid email address.')
       return
     }
-    if (!currentProject.value?.id) return
+    if (!currentProject.value?.id) {
+      console.error('❌ No current project ID')
+      toast.error('No project selected.')
+      return
+    }
 
     isInviting.value = true
     try {
+      console.log('🔍 Checking for existing membership...')
       // a) prevent duplicate membership
-      const { data: existingMember } = await supabase
+      const { data: existingMember, error: checkError } = await supabase
         .from('project_members')
         .select('id')
         .eq('project_id', currentProject.value.id)
         .eq('user_email', email)
         .single()
+        
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ Error checking existing membership:', checkError)
+        throw new Error('Failed to check existing membership')
+      }
+      
       if (existingMember) {
+        console.log('ℹ️ User already a member')
         toast.info('This user is already a member of the project.')
         return
       }
 
+      console.log('📞 Calling Edge Function...')
       // b) call edge function to handle invitation and project membership
       const result = await callInviteUserFunction(email, currentProject.value.id, selectedRole.value)
       
+      console.log('🔄 Refreshing members list...')
       // c) refresh members list
       await fetchProjectMembers()
       inviteEmail.value = ''
       selectedRole.value = 'viewer'
       toast.success(result.message || 'User invited/added successfully.')
+      console.log('✅ Invite process completed successfully')
     } catch (err) {
-      console.error('Invite failed:', err)
+      console.error('💥 Invite process failed:', err)
       toast.error(err.message || 'Failed to invite/add user.')
     } finally {
       isInviting.value = false
