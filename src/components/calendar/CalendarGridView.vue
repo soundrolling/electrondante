@@ -22,9 +22,9 @@
             <div v-for="evt in getEventsForDay(day.date)" :key="evt.category+'-'+evt.id" class="event-list-item" :class="{ 'multi-day-event': evt.end_date && evt.end_date !== evt.event_date }" @click="$emit('event-click', evt)">
               <div class="event-flex">
                 <div class="event-times-col">
-                  <div class="event-time event-time-start">{{ formatTime12(evt.start_time) }}</div>
+                  <div class="event-time event-time-start">{{ formatTime12(getDisplayStartTime(evt, day.date)) }}</div>
                   <div class="event-arrow">↓</div>
-                  <div class="event-time event-time-end">{{ formatTime12(evt.end_time) }}</div>
+                  <div class="event-time event-time-end">{{ formatTime12(getDisplayEndTime(evt, day.date)) }}</div>
                 </div>
                 <div class="event-info-col">
                   <div class="event-title" v-html="evt.title"></div>
@@ -116,6 +116,28 @@ methods: {
     if (hour === 0) hour = 12;
     // Show minutes only if not :00
     return min === 0 ? `${hour}${ampm}` : `${hour}:${m}${ampm}`;
+  },
+  getDisplayStartTime(evt, dayDate) {
+    // If event starts on this day, use the original start time
+    if (evt.event_date === dayDate) {
+      return evt.start_time;
+    }
+    // If event started on previous day but ends on this day, show midnight
+    if (evt.end_date === dayDate && evt.event_date !== dayDate) {
+      return '00:00';
+    }
+    return evt.start_time;
+  },
+  getDisplayEndTime(evt, dayDate) {
+    // If event ends on this day, use the original end time
+    if (evt.end_date === dayDate) {
+      return evt.end_time;
+    }
+    // If event starts on this day but ends on next day, show midnight
+    if (evt.event_date === dayDate && evt.end_date !== dayDate) {
+      return '00:00';
+    }
+    return evt.end_time;
   },
   // Keep only event-click
 }

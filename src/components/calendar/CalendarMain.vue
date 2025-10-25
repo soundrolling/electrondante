@@ -76,6 +76,7 @@
       :stage-hours="getStageHoursForDay(currentDateString)"
       :get-event-color="getEventColor"
       :contacts="contacts"
+      :current-date-string="currentDateString"
       @event-click="openDetailsModal"
       @previous-day="previousDay"
       @next-day="nextDay"

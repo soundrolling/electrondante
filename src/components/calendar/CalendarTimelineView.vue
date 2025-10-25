@@ -48,7 +48,7 @@
             >
               <div class="event-content">
                 <strong v-html="evt.title"></strong><br>
-                <small>{{ formatTime(evt.start_time) }} – {{ formatTime(evt.end_time) }}</small>
+                <small>{{ formatTime(getDisplayStartTime(evt)) }} – {{ formatTime(getDisplayEndTime(evt)) }}</small>
               </div>
               <div v-if="isContactAssignable(evt) && evt.assigned_contacts && evt.assigned_contacts.length > 0" class="assigned-contacts-mini">
                 <span class="contacts-count-mini">{{ evt.assigned_contacts.length }}</span>
@@ -90,6 +90,10 @@ props: {
   contacts: {
     type: Array,
     default: () => []
+  },
+  currentDateString: {
+    type: String,
+    required: true
   }
 },
 emits: ['event-click', 'previous-day', 'next-day'],
@@ -157,6 +161,28 @@ methods: {
   },
   isContactAssignable(evt) {
     return evt && (evt.category === 'calltimes' || evt.category === 'wraptimes');
+  },
+  getDisplayStartTime(evt) {
+    // If event starts on this day, use the original start time
+    if (evt.event_date === this.currentDateString) {
+      return evt.start_time;
+    }
+    // If event started on previous day but ends on this day, show midnight
+    if (evt.end_date === this.currentDateString && evt.event_date !== this.currentDateString) {
+      return '00:00';
+    }
+    return evt.start_time;
+  },
+  getDisplayEndTime(evt) {
+    // If event ends on this day, use the original end time
+    if (evt.end_date === this.currentDateString) {
+      return evt.end_time;
+    }
+    // If event starts on this day but ends on next day, show midnight
+    if (evt.event_date === this.currentDateString && evt.end_date !== this.currentDateString) {
+      return '00:00';
+    }
+    return evt.end_time;
   }
 }
 }
