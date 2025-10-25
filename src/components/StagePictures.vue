@@ -1007,21 +1007,22 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .btn-outline:hover:not(:disabled) {
   background: #3b82f6;
-  color: white;
+  color: #ffffff;
 }
 
 .btn-outline--active {
   background: #3b82f6;
-  color: white;
+  color: #ffffff;
 }
 
 .btn-danger {
   background: #dc2626;
-  color: white;
+  color: #ffffff;
 }
 
 .btn-danger:hover:not(:disabled) {
   background: #b91c1c;
+  color: #ffffff;
 }
 
 .btn-icon {
@@ -1202,7 +1203,7 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .btn-primary {
   background: #2563eb;
-  color: #fff;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -1219,6 +1220,7 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .btn-primary:hover:not(:disabled) {
   background: #1e40af;
+  color: #ffffff;
 }
 
 /* Loading Section */
@@ -1404,12 +1406,13 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 .card-action-btn--delete {
   background: #dc2626;
-  color: #fff;
+  color: #ffffff;
   border-color: #dc2626;
 }
 .card-action-btn--delete:hover {
   background: #b91c1c;
   border-color: #b91c1c;
+  color: #ffffff;
 }
 .card-action-icon {
   font-size: 22px;
