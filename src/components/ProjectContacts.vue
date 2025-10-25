@@ -1199,67 +1199,57 @@ line-height: 1.5;
   box-shadow: 0 4px 8px rgba(30, 64, 175, 0.3);
 }
 
-/* Contacts List (Flex Layout) */
+/* Contacts List (Grid Layout) */
 .contacts-list-container {
-  max-width: 300px;
   width: 100%;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px; /* Add gap between contact rows */
+  display: grid;
+  grid-template-columns: 1fr; /* Single column on mobile */
+  gap: 12px;
   padding: 16px;
 }
 
-/* Desktop layout with more space */
+/* Desktop layout - 3 columns */
 @media (min-width: 769px) {
   .contacts-list-container {
-    max-width: 800px; /* Much wider on desktop */
-    width: 100%;
-  }
-  
-  .contact-list-row {
-    padding: 20px; /* More padding on desktop */
-    margin-bottom: 12px; /* More space between rows */
-  }
-  
-  .contact-list-details {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px; /* Better spacing between details */
+    grid-template-columns: repeat(3, 1fr); /* 3 columns on desktop */
+    max-width: 1200px;
+    gap: 16px;
   }
 }
 
 .contact-list-row {
   display: flex;
-  align-items: center;
-  padding: 16px 0;
-  border-bottom: 1px solid #374151;
-  border: 2px solid #000000; /* Black border around contact */
-  min-width: 0;
-  border-radius: 8px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  align-items: stretch;
   padding: 16px;
+  border: 2px solid #000000; /* Complete black border around contact */
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
-.contact-list-row:last-child {
-  border-bottom: none;
+.contact-list-row:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
+
+/* Remove the last-child border rule since we're using grid now */
 
 .contact-avatar {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: #3b82f6;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
   flex-shrink: 0;
-  margin-right: 12px;
+  margin: 0 auto 12px auto; /* Center avatar and add bottom margin */
 }
 
 .contact-list-details {
@@ -1267,7 +1257,8 @@ line-height: 1.5;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  text-align: center; /* Center the text content */
 }
 
 .contact-name {
@@ -1298,8 +1289,11 @@ line-height: 1.5;
 .contact-actions-group {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .action-btn {
@@ -1314,18 +1308,18 @@ line-height: 1.5;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
-/* Edit button styling - white background with pencil icon */
+/* Edit button styling - dark background with white text */
 .edit-btn {
-  background-color: #ffffff !important;
-  color: #374151 !important; /* Dark gray for pencil icon */
-  border: 1px solid #d1d5db !important; /* Light gray border */
+  background-color: #374151 !important; /* Dark gray background */
+  color: #ffffff !important; /* White text for contrast */
+  border: 1px solid #374151 !important;
   transition: all 0.2s ease;
 }
 
 .edit-btn:hover {
-  background-color: #f9fafb !important; /* Light gray on hover */
-  color: #1f2937 !important; /* Darker gray on hover */
-  border-color: #9ca3af !important;
+  background-color: #1f2937 !important; /* Darker on hover */
+  color: #ffffff !important; /* Keep white text */
+  border-color: #1f2937 !important;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -1686,16 +1680,18 @@ color: currentColor;
 
 .contacts-list-container {
   max-width: 98vw;
+  grid-template-columns: 1fr; /* Single column on mobile */
+  gap: 8px;
 }
 
 .contact-list-row {
-  padding: 12px 0;
+  padding: 12px;
 }
 
 .contact-avatar {
-  width: 32px;
-  height: 32px;
-  font-size: 0.9rem;
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
 }
 
 .contact-name {
@@ -1775,16 +1771,18 @@ color: currentColor;
 
 .contacts-list-container {
   max-width: 98vw;
+  grid-template-columns: 1fr; /* Single column on small mobile */
+  gap: 6px;
 }
 
 .contact-list-row {
-  padding: 8px 0;
+  padding: 8px;
 }
 
 .contact-avatar {
-  width: 28px;
-  height: 28px;
-  font-size: 0.8rem;
+  width: 36px;
+  height: 36px;
+  font-size: 0.9rem;
 }
 
 .contact-name {
