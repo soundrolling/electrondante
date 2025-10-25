@@ -289,6 +289,12 @@ try {
 
 watch(locationQuery, () => fetchWeatherAll(), { immediate: true })
 
+function retryWeather() {
+  if (locationQuery.value) {
+    fetchWeatherAll()
+  }
+}
+
 onUnmounted(() => {
 clearTimeout(suggestTimer)
 clearInterval(clockTimer)
@@ -454,7 +460,7 @@ clearInterval(clockTimer)
 
 .save-button {
   background: #f59e0b;
-  color: #ffffff;
+  color: #111827;
   flex: 1;
 }
 

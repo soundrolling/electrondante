@@ -320,7 +320,7 @@ setup() {
     start_date: '',
     end_date: '',
     description: '',
-    project_id: userStore.currentProject.id
+    project_id: userStore.currentProject?.id || null
   })
 
   const editTrip = ref({})
@@ -335,7 +335,12 @@ setup() {
   async function fetchTrips() {
     isLoading.value = true
     try {
-      const projectId = userStore.currentProject.id
+      const projectId = userStore.currentProject?.id
+      if (!projectId) {
+        console.error('No current project found')
+        toast.error('No project selected')
+        return
+      }
       const { data, error } = await supabase
         .from('travel_trips')
         .select('*')
@@ -411,6 +416,10 @@ setup() {
 
   // CRUD
   function createNewTrip() {
+    if (!userStore.currentProject?.id) {
+      toast.error('No project selected')
+      return
+    }
     newTrip.value = {
       name: '',
       destination: '',
@@ -495,11 +504,22 @@ setup() {
   }
 
   onMounted(async () => {
-    await fetchTrips()
-    // auto‐select first future or first
-    if (trips.value.length) {
-      const next = trips.value.find(t => ['Upcoming','In Progress'].includes(getTripStatus(t))) || trips.value[0]
-      selectedDestination.value = next.destination
+    // Wait for userStore to be initialized
+    if (!userStore.isInitialized) {
+      // Wait a bit for initialization
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    if (userStore.currentProject?.id) {
+      await fetchTrips()
+      // auto‐select first future or first
+      if (trips.value.length) {
+        const next = trips.value.find(t => ['Upcoming','In Progress'].includes(getTripStatus(t))) || trips.value[0]
+        selectedDestination.value = next.destination
+      }
+    } else {
+      console.warn('No current project available for travel dashboard')
+      isLoading.value = false
     }
   })
 
@@ -883,36 +903,36 @@ setup() {
 }
 
 .action-button.edit-button {
-  background: var(--color-primary-50);
-  color: var(--color-primary-700);
-  border-color: var(--color-primary-200);
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
+  border-color: var(--color-primary-600);
 }
 
 .action-button.edit-button:hover {
-  background: var(--color-primary-100);
-  border-color: var(--color-primary-300);
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-700);
 }
 
 .action-button.delete-button {
-  background: var(--color-error-50);
-  color: var(--color-error-700);
-  border-color: var(--color-error-200);
+  background: var(--color-error-500);
+  color: var(--text-inverse);
+  border-color: var(--color-error-600);
 }
 
 .action-button.delete-button:hover {
-  background: var(--color-error-100);
-  border-color: var(--color-error-300);
+  background: var(--color-error-600);
+  border-color: var(--color-error-700);
 }
 
 .action-button.view-button {
-  background: var(--color-primary-50);
-  color: var(--color-primary-700);
-  border-color: var(--color-primary-200);
+  background: var(--color-success-500);
+  color: var(--text-inverse);
+  border-color: var(--color-success-600);
 }
 
 .action-button.view-button:hover {
-  background: var(--color-primary-100);
-  border-color: var(--color-primary-300);
+  background: var(--color-success-600);
+  border-color: var(--color-success-700);
 }
 
 .action-icon {

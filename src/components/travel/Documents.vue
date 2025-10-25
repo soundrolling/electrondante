@@ -1154,47 +1154,47 @@ export default {
 }
 
 .action-button.edit-button {
-  background: #f0f9ff;
-  color: #1d4ed8;
-  border-color: #bae6fd;
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #2563eb;
 }
 
 .action-button.edit-button:hover {
-  background: #e0f2fe;
-  border-color: #7dd3fc;
+  background: #2563eb;
+  border-color: #1d4ed8;
 }
 
 .action-button.delete-button {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
 }
 
 .action-button.delete-button:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
+  background: #b91c1c;
+  border-color: #991b1b;
 }
 
 .action-button.view-button {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background: #059669;
+  color: #ffffff;
+  border-color: #047857;
 }
 
 .action-button.view-button:hover {
-  background: #dbeafe;
-  border-color: #93c5fd;
+  background: #047857;
+  border-color: #065f46;
 }
 
 .action-button.download-button {
-  background: #fef3c7;
-  color: #d97706;
-  border-color: #fed7aa;
+  background: #7c3aed;
+  color: #ffffff;
+  border-color: #6d28d9;
 }
 
 .action-button.download-button:hover {
-  background: #fde68a;
-  border-color: #fbbf24;
+  background: #6d28d9;
+  border-color: #5b21b6;
 }
 
 .action-icon {

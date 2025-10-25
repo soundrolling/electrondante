@@ -720,25 +720,25 @@ setup(props) {
 }
 
 .action-button.edit-button {
-  background: #f0f9ff;
-  color: #1d4ed8;
-  border-color: #bae6fd;
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #2563eb;
 }
 
 .action-button.edit-button:hover {
-  background: #e0f2fe;
-  border-color: #7dd3fc;
+  background: #2563eb;
+  border-color: #1d4ed8;
 }
 
 .action-button.delete-button {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
 }
 
 .action-button.delete-button:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
+  background: #b91c1c;
+  border-color: #991b1b;
 }
 
 .action-icon {
