@@ -10,112 +10,115 @@
 
   <!-- Project header removed per design (covered elsewhere) -->
 
-  <!-- Header Section -->
-  <header class="header-section ui-page-header">
-    <div class="header-content">
-      <h1 class="header-title">{{ stageName }} Documents</h1>
-      <p class="header-subtitle">Venue: {{ venueName }}</p>
-    </div>
-    <div class="header-actions">
-      <button 
-        class="btn btn-secondary" 
-        @click="exportPdf"
-        :disabled="!filteredDocs.length"
-      >
-        <span class="btn-icon">📄</span>
-        Export PDF
-      </button>
-    </div>
-  </header>
+  <!-- Desktop Layout: 3 Columns -->
+  <div class="desktop-layout">
+    <!-- Header Section -->
+    <header class="header-section ui-page-header">
+      <div class="header-content">
+        <h1 class="header-title">{{ stageName }} Documents</h1>
+        <p class="header-subtitle">Venue: {{ venueName }}</p>
+      </div>
+      <div class="header-actions">
+        <button 
+          class="btn btn-secondary" 
+          @click="exportPdf"
+          :disabled="!filteredDocs.length"
+        >
+          <span class="btn-icon">📄</span>
+          Export PDF
+        </button>
+      </div>
+    </header>
 
-  <!-- Upload Section -->
-  <div class="upload-section">
-    <div 
-      class="upload-area"
-      :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
-      @drop="onDrop"
-      @dragover.prevent="isDragOver = true"
-      @dragleave.prevent="isDragOver = false"
-      @click="triggerFileInput"
-    >
-      <input
-        ref="fileInput"
-        type="file"
-        :accept="allowedMimes.join(',')"
-        multiple
-        @change="onFileChange"
-        class="upload-input"
-        :disabled="isUploading"
-      />
-      
-      <div class="upload-content">
-        <div class="upload-icon">📁</div>
-        <h3 class="upload-title">
-          {{ isUploading ? 'Uploading Documents...' : 'Upload Stage Documents' }}
-        </h3>
-        <p class="upload-subtitle">
-          {{ isUploading ? 'Please wait while we process your documents' : 'Drag & drop files here or click to browse' }}
-        </p>
-        <p class="upload-info">15 MB max (PDF, Word, Excel, CSV, Text)</p>
+    <!-- Upload Section -->
+    <div class="upload-section">
+      <div 
+        class="upload-area"
+        :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
+        @drop="onDrop"
+        @dragover.prevent="isDragOver = true"
+        @dragleave.prevent="isDragOver = false"
+        @click="triggerFileInput"
+      >
+        <input
+          ref="fileInput"
+          type="file"
+          :accept="allowedMimes.join(',')"
+          multiple
+          @change="onFileChange"
+          class="upload-input"
+          :disabled="isUploading"
+        />
         
-        <!-- Upload Progress -->
-        <div v-if="isUploading" class="upload-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+        <div class="upload-content">
+          <div class="upload-icon">📁</div>
+          <h3 class="upload-title">
+            {{ isUploading ? 'Uploading Documents...' : 'Upload Stage Documents' }}
+          </h3>
+          <p class="upload-subtitle">
+            {{ isUploading ? 'Please wait while we process your documents' : 'Drag & drop files here or click to browse' }}
+          </p>
+          <p class="upload-info">15 MB max (PDF, Word, Excel, CSV, Text)</p>
+          
+          <!-- Upload Progress -->
+          <div v-if="isUploading" class="upload-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+            </div>
+            <p class="progress-text">{{ uploadProgress }}% Complete</p>
           </div>
-          <p class="progress-text">{{ uploadProgress }}% Complete</p>
         </div>
       </div>
-    </div>
 
-    <!-- Selected Files Preview -->
-    <div v-if="selectedFiles.length" class="selected-files">
-      <h4 class="selected-files-title">Selected Files ({{ selectedFiles.length }})</h4>
-      <div class="file-list">
-        <div 
-          v-for="(file, index) in selectedFiles" 
-          :key="index"
-          class="file-item"
-        >
-          <div class="file-icon">
-            {{ getFileIcon(file.type) }}
-          </div>
-          <div class="file-info">
-            <p class="file-name">{{ file.name }}</p>
-            <p class="file-size">{{ formatFileSize(file.size) }}</p>
-          </div>
-          <button 
-            class="file-remove"
-            @click="removeSelectedFile(index)"
-            :disabled="isUploading"
+      <!-- Selected Files Preview -->
+      <div v-if="selectedFiles.length" class="selected-files">
+        <h4 class="selected-files-title">Selected Files ({{ selectedFiles.length }})</h4>
+        <div class="file-list">
+          <div 
+            v-for="(file, index) in selectedFiles" 
+            :key="index"
+            class="file-item"
           >
-            ×
+            <div class="file-icon">
+              {{ getFileIcon(file.type) }}
+            </div>
+            <div class="file-info">
+              <p class="file-name">{{ file.name }}</p>
+              <p class="file-size">{{ formatFileSize(file.size) }}</p>
+            </div>
+            <button 
+              class="file-remove"
+              @click="removeSelectedFile(index)"
+              :disabled="isUploading"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <!-- Upload Button -->
+        <div class="selected-files-upload-btn">
+          <button
+            class="btn btn-primary"
+            :disabled="isUploading || !selectedFiles.length"
+            @click="uploadDocs"
+          >
+            {{ isUploading ? 'Uploading…' : 'Upload Selected Files' }}
           </button>
         </div>
       </div>
-      <!-- Upload Button -->
-      <div class="selected-files-upload-btn">
-        <button
-          class="btn btn-primary"
-          :disabled="isUploading || !selectedFiles.length"
-          @click="uploadDocs"
-        >
-          {{ isUploading ? 'Uploading…' : 'Upload Selected Files' }}
-        </button>
-      </div>
     </div>
-  </div>
 
-  <!-- Search Section -->
-  <section v-if="!isLoading" class="search-section">
-    <div class="search-container">
-      <input
-        v-model="searchTerm"
-        placeholder="Search documents…"
-        class="search-input"
-      />
-    </div>
-  </section>
+    <!-- Search Section -->
+    <section v-if="!isLoading" class="search-section">
+      <div class="search-container">
+        <input
+          v-model="searchTerm"
+          placeholder="Search documents…"
+          class="search-input"
+        />
+      </div>
+    </section>
+  </div>
 
   <!-- Loading State -->
   <div v-if="isLoading" class="loading-section">
@@ -659,6 +662,34 @@ function printPreview() {
   padding: 24px;
   background: #f8fafc;
   min-height: 100vh;
+}
+
+/* Desktop Layout: 3 Columns */
+.desktop-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .desktop-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  
+  .header-section {
+    margin-bottom: 0;
+  }
+  
+  .upload-section {
+    margin-bottom: 0;
+  }
+  
+  .search-section {
+    margin-bottom: 0;
+  }
 }
 
 /* Breadcrumb */
@@ -1245,7 +1276,7 @@ function printPreview() {
 
 .order-btn {
   background: #f3f4f6;
-  color: #1f2937 !important;
+  color: #000000 !important;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   width: 28px;
@@ -1256,11 +1287,12 @@ function printPreview() {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  font-weight: 600;
 }
 
 .order-btn:hover:not(:disabled) {
   background: #d1d5db;
-  color: #111827 !important;
+  color: #000000 !important;
   border-color: #9ca3af;
 }
 
@@ -1372,6 +1404,14 @@ function printPreview() {
 }
 
 /* Responsive Design */
+@media (max-width: 1023px) {
+  .desktop-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 16px;
