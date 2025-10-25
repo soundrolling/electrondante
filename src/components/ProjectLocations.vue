@@ -1460,7 +1460,7 @@ setup() {
 
 .venue-stages-count {
   background: #0066cc;
-  color: #ffffff;
+  color: #ffffff !important;
   padding: 6px 12px;
   border-radius: 16px;
   font-size: 12px;
