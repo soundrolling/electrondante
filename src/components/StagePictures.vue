@@ -134,6 +134,15 @@
         </button>
         <button 
           v-if="bulkMode"
+          class="btn btn-secondary"
+          @click="exportSelectedPdf"
+          :disabled="!selectedImages.length"
+        >
+          <span class="btn-icon">📄</span>
+          Export Selected ({{ selectedImages.length }})
+        </button>
+        <button 
+          v-if="bulkMode"
           class="btn btn-danger"
           @click="deleteSelectedImages"
           :disabled="!selectedImages.length"
@@ -152,11 +161,22 @@
       >
         <!-- Image Container -->
         <div class="image-container">
+          <!-- Bulk Selection Checkbox -->
+          <div v-if="bulkMode" class="image-overlay">
+            <input
+              type="checkbox"
+              :checked="selectedImages.includes(img.id)"
+              @change="toggleImageSelection(img.id)"
+              class="image-checkbox"
+            />
+          </div>
+          
           <img 
             :src="img.url" 
             :alt="img.name || 'Stage picture'"
             class="image-preview"
-            @click="viewImage(img.file_path)"
+            :class="{ 'image-preview--selectable': bulkMode }"
+            @click="bulkMode ? toggleImageSelection(img.id) : viewImage(img.file_path)"
             @load="onImageLoad"
           />
           <!-- Tiles Row: Date, Size, and Uploader -->
@@ -737,6 +757,77 @@ async function exportPdf() {
   }
 }
 
+// Bulk PDF Export for selected images
+async function exportSelectedPdf() {
+  if (!selectedImages.value.length) {
+    toast.warning('No images selected for export');
+    return;
+  }
+
+  try {
+    const doc = new jsPDF('p', 'pt', 'a4');
+    const margin = 40;
+    let y = margin;
+
+    doc.setFontSize(18);
+    doc.text(`${stageName.value} Pictures (Selected)`, margin, y);
+    y += 24;
+    doc.setFontSize(12);
+    doc.text(`Venue: ${venueName.value}`, margin, y);
+    doc.text(`Selected: ${selectedImages.value.length} image${selectedImages.value.length === 1 ? '' : 's'}`, margin, y + 16);
+    y += 32;
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Get only selected images
+    const selectedImagesData = images.value.filter(img => selectedImages.value.includes(img.id));
+
+    for (const img of selectedImagesData) {
+      if (y + 420 > pageHeight) {
+        doc.addPage();
+        y = margin;
+      }
+
+      const blob = await (await fetch(img.url)).blob();
+      const dataUrl = await new Promise(r => {
+        const fr = new FileReader();
+        fr.onload = () => r(fr.result);
+        fr.readAsDataURL(blob);
+      });
+      
+      const htmlImg = new Image();
+      await new Promise(r => {
+        htmlImg.onload = r;
+        htmlImg.src = dataUrl;
+      });
+
+      const maxH = 400;
+      const scale = Math.min(1, maxH / htmlImg.height);
+      const imgW = htmlImg.width * scale;
+      const imgH = htmlImg.height * scale;
+
+      doc.addImage(dataUrl, 'PNG', margin, y, imgW, imgH);
+
+      const textX = margin + imgW + 20;
+      doc.setFontSize(12);
+      doc.text(`Name: ${img.name}`, textX, y + 14);
+      const descLines = doc.splitTextToSize(
+        `Description: ${img.description}`,
+        doc.internal.pageSize.getWidth() - textX - margin
+      );
+      doc.text(descLines, textX, y + 30);
+
+      y += Math.max(imgH, descLines.length * 14 + 30) + 20;
+    }
+
+    doc.save(`${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`);
+    toast.success(`PDF exported successfully with ${selectedImages.value.length} selected image${selectedImages.value.length === 1 ? '' : 's'}`);
+  } catch (error) {
+    console.error('PDF export error:', error);
+    toast.error('Failed to export selected images as PDF');
+  }
+}
+
 function confirmRemoveImage(img) {
   if (!window.confirm('Are you sure you want to delete this photo? This cannot be undone.')) return;
   removeImage(img);
@@ -1255,9 +1346,25 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .image-checkbox {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   cursor: pointer;
+  accent-color: #3b82f6;
+  transform: scale(1.2);
+}
+
+.image-preview--selectable {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.image-preview--selectable:hover {
+  opacity: 0.8;
+}
+
+.image-card--selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .card-action-row {
