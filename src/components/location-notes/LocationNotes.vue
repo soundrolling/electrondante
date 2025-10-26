@@ -15,9 +15,17 @@
         <strong class="tc">{{ liveTimecode }}</strong>
         <small class="tc-label">{{ currentTimeSourceLabel }}</small>
       </div>
-      <div class="sync-status" :class="{ pending: hasPendingSync }" :title="syncStatusText">
-        <span class="sync-dot">●</span>
-        <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+      <div class="sync-status" :class="{ pending: hasPendingSync, offline: !isOnline }" :title="syncStatusText">
+        <span class="sync-dot" :class="{ online: isOnline && !hasPendingSync, offline: !isOnline, pending: hasPendingSync }">●</span>
+        <span class="sync-text">{{ syncStatusText }}</span>
+        <button 
+          v-if="hasPendingSync && isOnline" 
+          class="btn btn-warning mini sync-btn" 
+          @click="manualSync"
+          :disabled="isSyncing"
+        >
+          {{ isSyncing ? 'Syncing...' : 'Sync' }}
+        </button>
       </div>
       <button class="btn btn-positive mini primary" @click="createNote">New note</button>
     </div>
@@ -125,12 +133,17 @@ const recordingDate = ref(new Date().toISOString().slice(0, 10));
 const selectedStageHourId = ref('');
 const isSubmitting = ref(false);
 const hasPendingSync = ref(false);
+const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
+const isSyncing = ref(false);
 
 const syncStatusText = computed(() => {
-  if (hasPendingSync.value) {
-    return 'Notes have pending changes that need to sync';
+  if (!isOnline.value) {
+    return 'Offline - changes will sync when online';
   }
-  return 'All notes are synced';
+  if (hasPendingSync.value) {
+    return 'Pending sync - changes will be uploaded';
+  }
+  return 'Synced';
 });
 
 async function fetchLocation() {
@@ -155,6 +168,33 @@ try {
 onMounted(async () => {
   await fetchLocation();
   await checkPendingSync();
+  
+  // Listen for online/offline events
+  const handleOnline = () => {
+    isOnline.value = true;
+    checkPendingSync();
+    // Auto-sync when coming back online if there are pending changes
+    if (hasPendingSync.value) {
+      setTimeout(() => {
+        if (isOnline.value && hasPendingSync.value && !isSyncing.value) {
+          manualSync();
+        }
+      }, 1000);
+    }
+  };
+  
+  const handleOffline = () => {
+    isOnline.value = false;
+  };
+  
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+  
+  // Cleanup
+  return () => {
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+  };
 });
 
 function createNote() {
@@ -205,10 +245,40 @@ try {
 
 async function checkPendingSync() {
   try {
+    isOnline.value = navigator.onLine;
     const { hasPendingChanges } = await import('@/services/dataService');
     hasPendingSync.value = await hasPendingChanges();
   } catch (error) {
     console.error('Error checking pending sync:', error);
+  }
+}
+
+async function manualSync() {
+  if (!isOnline.value) {
+    toast.warning('Cannot sync while offline');
+    return;
+  }
+
+  if (isSyncing.value) {
+    toast.info('Sync already in progress');
+    return;
+  }
+
+  isSyncing.value = true;
+  try {
+    const { syncOfflineChanges } = await import('@/services/dataService');
+    await syncOfflineChanges();
+    await checkPendingSync();
+    // Refresh the notes tab if it's active
+    if (activeTab.value === 'notes') {
+      tabRef.value?.refresh?.();
+    }
+    toast.success('Sync complete');
+  } catch (error) {
+    console.error('Sync error:', error);
+    toast.error('Sync failed');
+  } finally {
+    isSyncing.value = false;
   }
 }
 
@@ -361,23 +431,75 @@ line-height: 1;
 .sync-status {
 display: flex;
 align-items: center;
-gap: 4px;
-font-size: 0.75rem;
-color: #10b981;
+gap: 6px;
+padding: 6px 12px;
+border-radius: 6px;
+background: rgba(255, 255, 255, 0.8);
+border: 1px solid rgba(255, 255, 255, 0.3);
+font-size: 0.85rem;
 font-weight: 500;
 flex-shrink: 0;
 }
 
 .sync-status.pending {
-color: #f59e0b;
+background: rgba(255, 243, 205, 0.9);
+border-color: rgba(251, 191, 36, 0.3);
+color: #92400e;
+}
+
+.sync-status.offline {
+background: rgba(254, 226, 226, 0.9);
+border-color: rgba(239, 68, 68, 0.3);
+color: #dc2626;
 }
 
 .sync-dot {
-font-size: 8px;
+font-size: 12px;
+font-weight: bold;
+}
+
+.sync-dot.online {
+color: #10b981; /* green-500 */
+}
+
+.sync-dot.offline {
+color: #ef4444; /* red-500 */
+}
+
+.sync-dot.pending {
+color: #f59e0b; /* amber-500 */
+animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.5; }
 }
 
 .sync-text {
-font-size: 0.7rem;
+font-size: 0.8rem;
+font-weight: 500;
+}
+
+.sync-btn {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sync-btn:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.sync-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
 }
 
 /* Responsive design */

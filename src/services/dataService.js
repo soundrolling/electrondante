@@ -154,11 +154,15 @@ export async function mutateTableData(tableName, operation, data) {
           break;
         }
         case 'update': {
-          const existing = (await getData(tableName)).find(i => i.id === data.id);
+          const existingData = await getData(tableName);
+          const existing = existingData.find(i => i.id === data.id);
           const updated = existing && existing._isTemp
             ? { ...existing, ...data, _isTemp: true }
             : { ...existing, ...data };
-          await saveData(tableName, updated);
+          const updatedData = existingData.map(item => 
+            item.id === data.id ? updated : item
+          );
+          await saveData(tableName, updatedData);
           await addOfflineChange({ table: tableName, operation, data: updated });
           toast.info('Offline update queued');
           localResult = updated;
