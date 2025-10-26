@@ -80,7 +80,13 @@
           >
             {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
           </option>
+          <option v-if="stageHours.length === 0" value="" disabled>
+            No recording days created yet
+          </option>
         </select>
+        <div v-if="stageHours.length === 0" class="help-text">
+          <small>To create recording days, go to <router-link :to="{ name: 'ProjectLocations', params: { id: store.getCurrentProject?.id } }">Project Locations</router-link> and add stage hours for this location.</small>
+        </div>
         <label>Note</label>
         <textarea v-model="newNote" rows="4" required />
         <div class="modal-actions">
@@ -174,6 +180,8 @@ try {
 async function loadStageHours() {
   try {
     const projectId = await getSetting('current-project-id');
+    console.log('Loading stage hours for project:', projectId, 'location:', props.locationId);
+    
     if (isOnline.value) {
       stageHours.value = await fetchTableData('stage_hours', {
         eq: { 
@@ -192,6 +200,8 @@ async function loadStageHours() {
       });
       toast.info('Offline mode: using cached stage hours');
     }
+    
+    console.log('Loaded stage hours:', stageHours.value);
   } catch (error) {
     console.error('Error loading stage hours:', error);
     stageHours.value = await fetchTableData('stage_hours', {
@@ -245,20 +255,36 @@ showNoteInput.value = true;
 }
 // Auto-detect current stage hour based on timestamp and date
 function getCurrentStageHour(timestamp, recordingDate) {
-  if (!stageHours.value.length || !timestamp || !recordingDate) return null;
+  console.log('getCurrentStageHour called with:', { timestamp, recordingDate, stageHoursCount: stageHours.value.length });
+  
+  if (!stageHours.value.length || !timestamp || !recordingDate) {
+    console.log('No stage hours or missing timestamp/date');
+    return null;
+  }
   
   const noteDateTime = new Date(`${recordingDate}T${timestamp}`);
+  console.log('Note datetime:', noteDateTime);
   
   for (const stageHour of stageHours.value) {
     const startDateTime = new Date(stageHour.start_datetime);
     const endDateTime = new Date(stageHour.end_datetime);
     
+    console.log('Checking stage hour:', {
+      id: stageHour.id,
+      notes: stageHour.notes,
+      start: startDateTime,
+      end: endDateTime,
+      noteTime: noteDateTime
+    });
+    
     // Check if note falls within this stage hour's time range
     if (noteDateTime >= startDateTime && noteDateTime <= endDateTime) {
+      console.log('Found matching stage hour:', stageHour.id);
       return stageHour.id;
     }
   }
   
+  console.log('No matching stage hour found');
   return null;
 }
 
@@ -800,6 +826,25 @@ font-size: 0.9rem;
 
 .recording-day-select {
   background: #ffffff;
+}
+
+.help-text {
+  margin-top: 4px;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.help-text a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.help-text a:hover {
+  text-decoration: underline;
 }
 .modal-actions {
 text-align: right;
