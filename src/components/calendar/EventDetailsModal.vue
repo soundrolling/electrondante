@@ -426,6 +426,9 @@ justify-content: flex-end;
 gap: 0.5rem;
 margin-top: 1rem;
 }
+.modal-actions button {
+color: #fff !important;
+}
 .button {
 background: #27ae60;
 color: #fff;
@@ -440,31 +443,42 @@ background: #219150;
 }
 .edit-button {
 background: #3498db;
-color: #fff;
+color: #fff !important;
 }
 .edit-button:hover {
 background: #2980b9;
+color: #fff !important;
 }
 .delete-button {
 background: #e74c3c;
-color: #fff;
+color: #fff !important;
 }
 .delete-button:hover {
 background: #c0392b;
+color: #fff !important;
 }
 .save-button {
 background: #27ae60;
-color: #fff;
+color: #fff !important;
+}
+.save-button:hover {
+background: #219150;
+color: #fff !important;
 }
 .cancel-button {
 background: #bdc3c7;
-color: #fff;
+color: #fff !important;
+}
+.cancel-button:hover {
+background: #a6a6a6;
+color: #fff !important;
 }
 .close-button {
 background: #27ae60;
-color: #fff;
+color: #fff !important;
 }
 .close-button:hover {
 background: #219150;
+color: #fff !important;
 }
 </style> 
