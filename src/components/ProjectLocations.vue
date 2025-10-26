@@ -5,7 +5,6 @@
   <!-- ────────── loading / error ────────── -->
   <div v-if="loading" class="loading-skeleton">
     <div class="skeleton-header"></div>
-    <div class="skeleton-quick-access"></div>
     <div class="skeleton-stages">
       <div class="skeleton-stage"></div>
       <div class="skeleton-stage"></div>
@@ -19,29 +18,6 @@
       <strong>Error:</strong> <span>{{ error }}</span>
     </div>
   </div>
-
-  <!-- ────────── project-level quick-access ────────── -->
-  <section v-if="!loading && !error" class="quick-access-section">
-    <h2 class="section-title">Quick Access</h2>
-    <div class="quick-access-grid">
-      <button class="qa-tile" @click="goToProjectArtistSchedule">
-        <span class="qa-icon">📗</span>
-        <span class="qa-label">Artist Schedule</span>
-      </button>
-      <button class="qa-tile" @click="goToProjectDocs">
-        <span class="qa-icon">📂</span>
-        <span class="qa-label">All Documents</span>
-      </button>
-      <button class="qa-tile" @click="goToProjectGear">
-        <span class="qa-icon">🎸</span>
-        <span class="qa-label">Project Gear</span>
-      </button>
-      <button class="qa-tile" @click="goToProjectCalendar">
-        <span class="qa-icon">📅</span>
-        <span class="qa-label">Calendar</span>
-      </button>
-    </div>
-  </section>
 
   <!-- ────────── venues & stages management ────────── -->
   <section v-if="!loading && !error" class="venues-stages-section">
@@ -1040,13 +1016,6 @@ setup() {
       name: 'ProjectQuickfire',
       params: { id: route.params.id },
     });
-  const goToProjectArtistSchedule = () =>
-    router.push({
-      name: 'ProjectSchedule',
-      params: { id: route.params.id },
-    });
-  const goToProjectDocs = () =>
-    router.push({ name: 'ProjectDocs', params: { id: route.params.id } });
 
   const goToLocationNotes = (s) =>
     router.push({
@@ -1081,11 +1050,6 @@ setup() {
       params: { id: route.params.id },
       query: { venueId: s.venue_id, stageId: s.id },
     });
-
-  const goToProjectGear = () =>
-    router.push({ name: 'ProjectGear', params: { id: route.params.id } });
-  const goToProjectCalendar = () =>
-    router.push({ name: 'Calendar', params: { id: route.params.id } });
 
   // Helper functions for converting between local and UTC
   function toLocalInputValue(utcString) {
@@ -1146,15 +1110,11 @@ setup() {
     closeLocationsModal,
     handleVenueChange,
     goToProjectQuickfire,
-    goToProjectArtistSchedule,
-    goToProjectDocs,
     goToLocationNotes,
     goToSignalMapper,
     goToGear,
     goToStagePictures,
     goToStageDocs,
-    goToProjectGear,
-    goToProjectCalendar,
     // Per-day hours
     getTodaySlot,
     isStageOpenNow,
@@ -1276,7 +1236,6 @@ setup() {
 }
 
 .skeleton-header,
-.skeleton-quick-access,
 .skeleton-stages {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
@@ -1287,10 +1246,6 @@ setup() {
 
 .skeleton-header {
   height: 80px;
-}
-
-.skeleton-quick-access {
-  height: 120px;
 }
 
 .skeleton-stages {
@@ -1379,51 +1334,6 @@ setup() {
 
 .manage-btn:active {
   transform: scale(0.98);
-}
-
-
-.quick-access-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.qa-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 16px;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 88px;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 500;
-  color: #1a1a1a;
-}
-
-.qa-tile:hover {
-  border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
-}
-
-.qa-tile:active {
-  transform: scale(0.98);
-}
-
-.qa-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.qa-label {
-  font-size: 14px;
-  line-height: 1.3;
 }
 
 /* Stages Section */
@@ -2351,11 +2261,6 @@ setup() {
 
   .page-title {
     font-size: 28px;
-  }
-
-  .quick-access-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
   }
 
   .stage-actions {
