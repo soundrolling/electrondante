@@ -57,6 +57,21 @@
           </div>
           
           <div class="trip-card-footer">
+            <div class="trip-weather-section">
+              <div class="weather-info">
+                <span class="weather-label">Weather:</span>
+                <span class="weather-destination">{{ trip.destination }}</span>
+              </div>
+              <button 
+                @click.stop="searchGoogleWeatherForTrip(trip)" 
+                class="weather-button-small"
+                aria-label="Check weather for this trip"
+              >
+                <span class="weather-icon">🌤️</span>
+                <span class="weather-text">Check Weather</span>
+              </button>
+            </div>
+            
             <div class="trip-card-actions">
               <button 
                 @click.stop="openEditTripModal(trip)" 
@@ -98,36 +113,6 @@
       </div>
     </div>
 
-    <!-- Venue Location Section -->
-    <div class="dashboard-card venue-location">
-      <div class="card-header">
-        <h2>Venue Location</h2>
-      </div>
-      
-      <div v-if="!selectedDestination" class="empty-state">
-        <div class="empty-icon">📍</div>
-        <h3>No destination selected</h3>
-        <p>Select a trip to view venue location information</p>
-      </div>
-      
-      <div v-else class="venue-content">
-        <div class="venue-info">
-          <h3>{{ selectedDestination }}</h3>
-          <p>Current trip destination</p>
-        </div>
-        
-        <div class="venue-actions">
-          <button 
-            @click="searchGoogleWeather" 
-            class="btn btn-positive weather-button"
-            aria-label="Search Google Weather"
-          >
-            <span class="action-icon">🌤️</span>
-            <span class="button-text">Check Weather</span>
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- New Trip Modal -->
@@ -530,15 +515,15 @@ setup() {
     })
   }
 
-  // Google Weather Search
-  function searchGoogleWeather() {
-    if (!selectedDestination.value) {
-      toast.error('No destination selected')
+  // Google Weather Search for specific trip
+  function searchGoogleWeatherForTrip(trip) {
+    if (!trip.destination) {
+      toast.error('No destination for this trip')
       return
     }
     
     // Clean up the destination string for URL
-    const cleanDestination = selectedDestination.value
+    const cleanDestination = trip.destination
       .replace(/[^\w\s,]/g, '') // Remove special characters except spaces and commas
       .replace(/\s+/g, '+') // Replace spaces with +
       .replace(/,/g, '+') // Replace commas with +
@@ -592,7 +577,7 @@ setup() {
     getTripStatus,
     getTripStatusClass,
     selectTrip,
-    searchGoogleWeather
+    searchGoogleWeatherForTrip
   }
 }
 }
@@ -817,86 +802,6 @@ setup() {
   box-shadow: none;
 }
 
-/* Venue Location Section */
-.venue-location {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6) var(--space-5);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-light);
-  transition: all var(--transition-normal);
-}
-
-.venue-location:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-1px);
-}
-
-.venue-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.venue-info h3 {
-  font-size: var(--text-lg);
-  color: var(--text-primary);
-  font-weight: var(--font-semibold);
-  margin: 0 0 var(--space-2) 0;
-}
-
-.venue-info p {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  margin: 0;
-}
-
-.venue-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: var(--space-3);
-}
-
-.weather-button {
-  background: var(--color-primary-500);
-  color: white;
-  border: none;
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-6);
-  cursor: pointer;
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  transition: all var(--transition-normal);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 44px;
-  box-shadow: var(--shadow-sm);
-}
-
-.weather-button:hover {
-  background: var(--color-primary-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.weather-button:active {
-  transform: translateY(0);
-}
-
-.weather-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
-}
-
-.weather-button .action-icon {
-  font-size: var(--text-lg);
-}
-
-.weather-button .button-text {
-  display: none;
-}
-
 /* Trip List */
 .trip-list {
   display: flex;
@@ -987,6 +892,75 @@ setup() {
 .trip-card-footer {
   border-top: 1px solid var(--border-light);
   padding-top: var(--space-4);
+}
+
+.trip-weather-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.weather-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.weather-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.weather-destination {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+}
+
+.weather-button-small {
+  background: var(--color-primary-500);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 36px;
+  box-shadow: var(--shadow-sm);
+}
+
+.weather-button-small:hover {
+  background: var(--color-primary-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.weather-button-small:active {
+  transform: translateY(0);
+}
+
+.weather-button-small:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+}
+
+.weather-icon {
+  font-size: var(--text-sm);
+}
+
+.weather-text {
+  display: none;
 }
 
 .trip-card-actions {
@@ -1097,7 +1071,7 @@ setup() {
   position: relative;
   background: var(--bg-primary);
   border-radius: var(--radius-2xl);
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-7) var(--space-6);
   width: 100%;
   max-width: 450px;
   max-height: 90vh;
@@ -1304,6 +1278,10 @@ setup() {
     display: inline;
   }
   
+  .weather-text {
+    display: inline;
+  }
+  
   .form-row {
     flex-direction: row;
   }
@@ -1391,7 +1369,7 @@ setup() {
   }
   
   .modal-container {
-    padding: var(--space-5) var(--space-4);
+    padding: var(--space-6) var(--space-5);
     margin: var(--space-3);
     max-height: calc(100vh - 24px);
     max-width: calc(100vw - 24px);
