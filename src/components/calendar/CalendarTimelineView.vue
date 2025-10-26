@@ -165,6 +165,14 @@ methods: {
     const startTime = this.getDisplayStartTime(e);
     const endTime = this.getDisplayEndTime(e);
     
+    // Debug logging
+    if (e.title === 'Day 1' || e.title === 'Day 2') {
+      console.log(`Event: ${e.title}, Current Date: ${this.currentDateString}`);
+      console.log(`Event Date: ${e.event_date}, End Date: ${e.end_date}`);
+      console.log(`Display Start: ${startTime}, Display End: ${endTime}`);
+      console.log(`Slot: ${slot}, Slot Time: ${this.formatTimeSlot(slot)}`);
+    }
+    
     let s = this.timeToMinutes(startTime),
         end = this.timeToMinutes(endTime);
     if (end < s) end += 1440;
