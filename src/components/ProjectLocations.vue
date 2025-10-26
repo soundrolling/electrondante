@@ -95,6 +95,16 @@
           <div class="venue-info">
             <span class="meta-icon">🏢</span>
             <span class="venue-name">{{ stage.venue_name }}</span>
+            <a 
+              v-if="getVenueForStage(stage)?.maps_link" 
+              :href="getVenueForStage(stage).maps_link" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="maps-link"
+              title="Open in Google Maps"
+            >
+              <span class="maps-icon">🗺️</span>
+            </a>
           </div>
         </div>
         
@@ -204,6 +214,16 @@
                   placeholder="Enter Country" 
                   class="form-input"
                   required
+                />
+              </div>
+              <div class="form-group">
+                <label for="newVenueMapsLink" class="form-label">Google Maps Link</label>
+                <input 
+                  id="newVenueMapsLink"
+                  v-model="newVenueMapsLink" 
+                  placeholder="https://maps.google.com/..." 
+                  class="form-input"
+                  type="url"
                 />
               </div>
               <div class="form-group">
@@ -336,6 +356,16 @@
                     v-model="editVenueCountryValue" 
                     placeholder="New Country" 
                     class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editVenueMapsLink" class="form-label">Google Maps Link</label>
+                  <input 
+                    id="editVenueMapsLink"
+                    v-model="editVenueMapsLinkValue" 
+                    placeholder="https://maps.google.com/..." 
+                    class="form-input"
+                    type="url"
                   />
                 </div>
               </div>
@@ -495,9 +525,11 @@ setup() {
   const newVenueName = ref('');
   const newVenueCity = ref('');
   const newVenueCountry = ref('');
+  const newVenueMapsLink = ref('');
   const editVenueNameValue = ref('');
   const editVenueCityValue = ref('');
   const editVenueCountryValue = ref('');
+  const editVenueMapsLinkValue = ref('');
 
   const showStageModal = ref(false);
   const activeStage = ref(null);
@@ -593,9 +625,9 @@ setup() {
     return list.sort((a, b) => a.order - b.order);
   });
 
-  // Helper function to get stages for a specific venue
-  const getStagesForVenue = (venueId) => {
-    return stages.value.filter(stage => stage.venue_id === venueId);
+  // Helper function to get venue info for a stage
+  const getVenueForStage = (stage) => {
+    return venues.value.find(venue => venue.id === stage.venue_id);
   };
 
   async function createVenueWithStage() {
@@ -609,6 +641,7 @@ setup() {
         venue_name: newVenueName.value,
         city: newVenueCity.value,
         country: newVenueCountry.value,
+        maps_link: newVenueMapsLink.value,
         project_id: route.params.id,
       });
       if (newStageName.value.trim()) {
@@ -624,6 +657,7 @@ setup() {
       newVenueName.value = '';
       newVenueCity.value = '';
       newVenueCountry.value = '';
+      newVenueMapsLink.value = '';
       newStageName.value = '';
       await fetchData();
       modalTab.value = 'edit';
@@ -646,6 +680,7 @@ setup() {
         venue_name: editVenueNameValue.value,
         city: editVenueCityValue.value,
         country: editVenueCountryValue.value,
+        maps_link: editVenueMapsLinkValue.value,
       });
       toast.success('Venue updated!');
       await fetchData();
@@ -810,6 +845,7 @@ setup() {
       newVenueName.value = '';
       newVenueCity.value = '';
       newVenueCountry.value = '';
+      newVenueMapsLink.value = '';
       return;
     }
     const ven = venues.value.find(
@@ -819,6 +855,7 @@ setup() {
       editVenueNameValue.value = ven.venue_name;
       editVenueCityValue.value = ven.city || '';
       editVenueCountryValue.value = ven.country || '';
+      editVenueMapsLinkValue.value = ven.maps_link || '';
     }
   }
 
@@ -1082,9 +1119,11 @@ setup() {
     newVenueName,
     newVenueCity,
     newVenueCountry,
+    newVenueMapsLink,
     editVenueNameValue,
     editVenueCityValue,
     editVenueCountryValue,
+    editVenueMapsLinkValue,
     showStageModal,
     activeStage,
     editStageNameValue,
@@ -1137,7 +1176,8 @@ setup() {
     deleteSlot,
     modalTab,
     openLocationsModal,
-    getStagesForVenue
+    getStagesForVenue,
+    getVenueForStage,
   };
 },
 };
@@ -1501,6 +1541,25 @@ setup() {
 .venue-name {
   color: #495057;
   font-size: 16px;
+}
+
+.maps-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 4px 6px;
+  background: #e3f2fd;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
+}
+
+.maps-link:hover {
+  background: #bbdefb;
+}
+
+.maps-icon {
+  font-size: 14px;
 }
 
 /* Stage Availability */
