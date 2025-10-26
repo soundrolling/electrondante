@@ -521,46 +521,42 @@ setup() {
       date.getDate() === today.getDate();
   }
 
-  // Show events for the current day, including events that cross midnight
+  // Show events for the current day, using the same logic as grid view
   const timelineDayEvents = computed(() => {
     const currentDate = currentDateString.value;
+    
+    // Use the same filtering logic as getEventsForDay for consistency
     let events = sortedEvents.value.filter(e => {
-      // Include events that start on the current day
-      if (e.event_date === currentDate && e.start_time && e.end_time) {
-        return true;
-      }
-      
-      // Include events that start on the previous day but end on the current day
-      const prevDate = new Date(currentDate);
-      prevDate.setDate(prevDate.getDate() - 1);
-      const prevDateStr = prevDate.toISOString().split('T')[0];
-      
-      if (e.event_date === prevDateStr && e.end_date === currentDate && e.start_time && e.end_time) {
-        return true;
-      }
-      
-      // Include events that start on the current day but end on the next day
-      const nextDate = new Date(currentDate);
-      nextDate.setDate(nextDate.getDate() + 1);
-      const nextDateStr = nextDate.toISOString().split('T')[0];
-      
-      if (e.event_date === currentDate && e.end_date === nextDateStr && e.start_time && e.end_time) {
-        return true;
-      }
-      
-      return false;
+      const eventStart = e.event_date;
+      const eventEnd = e.end_date || e.event_date;
+      return currentDate >= eventStart && currentDate <= eventEnd;
     });
     
+    // Filter out events without start/end times for timeline view (since we need times for positioning)
+    events = events.filter(e => e.start_time && e.end_time);
+    
+    // Sort by start time within the day
+    events = events.sort((a, b) => {
+      // If events start on different days, sort by start date first
+      const dateCompare = a.event_date.localeCompare(b.event_date);
+      if (dateCompare !== 0) return dateCompare;
+      
+      // Then sort by start time
+      return a.start_time.localeCompare(b.start_time);
+    });
+    
+    // Apply today-specific filtering if viewing today and no date filters are active
     if (isToday(new Date(currentDate)) && !filters.value.dateStart && !filters.value.dateEnd) {
       events = events.filter(e => {
         // For events starting today, only show if start_time >= 03:00
         if (e.event_date === currentDate) {
           return e.start_time >= '03:00';
         }
-        // For events starting yesterday but ending today, always show
+        // For events starting on previous days but ending today, always show
         return true;
       });
     }
+    
     return events;
   });
   const timeSlots = computed(() => {

@@ -42,13 +42,20 @@
               v-for="evt in timelineDayEvents.filter(e => overlapsSlot(e,slot))"
               :key="evt.category+'-'+evt.id"
               class="timeline-event"
-              :class="{ 'stage-hour-event': evt.isStageHour, 'red-accent': !evt.isStageHour }"
+              :class="{ 
+                'stage-hour-event': evt.isStageHour, 
+                'red-accent': !evt.isStageHour,
+                'multi-day-event': isMultiDayEvent(evt)
+              }"
               :style="evt.isStageHour ? {} : { borderLeft: '5px solid #ef4444' }"
               @click="$emit('event-click', evt)"
             >
               <div class="event-content">
                 <strong v-html="evt.title"></strong><br>
                 <small>{{ formatTime(getDisplayStartTime(evt)) }} – {{ formatTime(getDisplayEndTime(evt)) }}</small>
+                <div v-if="isMultiDayEvent(evt)" class="multi-day-indicator">
+                  <span class="multi-day-text">Multi-day event</span>
+                </div>
               </div>
               <div v-if="isContactAssignable(evt) && evt.assigned_contacts && evt.assigned_contacts.length > 0" class="assigned-contacts-mini">
                 <span class="contacts-count-mini">{{ evt.assigned_contacts.length }}</span>
@@ -154,8 +161,12 @@ methods: {
     return h*60 + m;
   },
   overlapsSlot(e, slot) {
-    let s = this.timeToMinutes(e.start_time),
-        end = this.timeToMinutes(e.end_time);
+    // Use display times to properly handle multi-day events
+    const startTime = this.getDisplayStartTime(e);
+    const endTime = this.getDisplayEndTime(e);
+    
+    let s = this.timeToMinutes(startTime),
+        end = this.timeToMinutes(endTime);
     if (end < s) end += 1440;
     return s < slot + 15 && end > slot;
   },
@@ -183,6 +194,9 @@ methods: {
       return '00:00';
     }
     return evt.end_time;
+  },
+  isMultiDayEvent(evt) {
+    return evt.end_date && evt.end_date !== evt.event_date;
   }
 }
 }
@@ -363,5 +377,23 @@ font-size: 0.7rem;
 }
 .timeline-event.red-accent {
   border-left: 5px solid #ef4444 !important;
+}
+
+.timeline-event.multi-day-event {
+  border-left: 5px solid #ff6b35 !important;
+  background: #fff5f0 !important;
+}
+
+.multi-day-indicator {
+  margin-top: 0.2rem;
+}
+
+.multi-day-text {
+  font-size: 0.7em;
+  color: #ff6b35;
+  font-weight: 600;
+  background: rgba(255, 107, 53, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
 }
 </style> 
