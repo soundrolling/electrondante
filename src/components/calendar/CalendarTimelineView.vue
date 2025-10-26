@@ -182,25 +182,35 @@ methods: {
     return evt && (evt.category === 'calltimes' || evt.category === 'wraptimes');
   },
   getDisplayStartTime(evt) {
+    console.log(`[getDisplayStartTime] Event: ${evt.title}, Current Date: ${this.currentDateString}, Event Date: ${evt.event_date}, End Date: ${evt.end_date}`);
+    
     // If event starts on this day, use the original start time
     if (evt.event_date === this.currentDateString) {
+      console.log(`[getDisplayStartTime] Event starts today, using original start time: ${evt.start_time}`);
       return evt.start_time;
     }
     // If event started on previous day but ends on this day, show midnight
     if (evt.end_date === this.currentDateString && evt.event_date !== this.currentDateString) {
+      console.log(`[getDisplayStartTime] Event started previous day, using 00:00`);
       return '00:00';
     }
+    console.log(`[getDisplayStartTime] Default case, using original start time: ${evt.start_time}`);
     return evt.start_time;
   },
   getDisplayEndTime(evt) {
+    console.log(`[getDisplayEndTime] Event: ${evt.title}, Current Date: ${this.currentDateString}, Event Date: ${evt.event_date}, End Date: ${evt.end_date}`);
+    
     // If event ends on this day, use the original end time
     if (evt.end_date === this.currentDateString) {
+      console.log(`[getDisplayEndTime] Event ends today, using original end time: ${evt.end_time}`);
       return evt.end_time;
     }
     // If event starts on this day but ends on next day, show midnight
     if (evt.event_date === this.currentDateString && evt.end_date !== this.currentDateString) {
+      console.log(`[getDisplayEndTime] Event ends next day, using 00:00`);
       return '00:00';
     }
+    console.log(`[getDisplayEndTime] Default case, using original end time: ${evt.end_time}`);
     return evt.end_time;
   },
   isMultiDayEvent(evt) {
