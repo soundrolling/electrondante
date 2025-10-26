@@ -31,89 +31,16 @@
         <button @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
       </div>
       
-      <!-- Trip List -->
-      <div v-else class="trip-list">
-        <div
-          v-for="trip in trips"
-          :key="trip.id"
-          class="trip-card"
-          role="button"
-          tabindex="0"
-        >
-          <div class="trip-card-header">
-            <h3>{{ trip.destination }}</h3>
-            <span class="trip-dates">
-              {{ formatDateRange(trip.start_date, trip.end_date) }}
-            </span>
-          </div>
-          
-          <div class="trip-card-status">
-            <span class="status-badge" :class="getTripStatusClass(trip)">
-              {{ getTripStatus(trip) }}
-            </span>
-          </div>
-          
-          <div class="trip-card-footer">
-            <div class="trip-card-actions">
-              <button 
-                @click.stop="openEditTripModal(trip)" 
-                class="action-button edit-button"
-                aria-label="Edit trip"
-              >
-                <span class="action-icon">✏️</span>
-                <span class="action-text">Edit</span>
-              </button>
-              
-              <button 
-                @click.stop="deleteTrip(trip)" 
-                class="action-button delete-button"
-                aria-label="Delete trip"
-              >
-                <span class="action-icon">🗑️</span>
-                <span class="action-text">Delete</span>
-              </button>
-              
-              <router-link
-                :to="{
-                  path: `/projects/${userStore.currentProject.id}/trips/${trip.id}/detail`,
-                  params: {
-                    tripName: trip.name,
-                    tripDates: formatDateRange(trip.start_date, trip.end_date),
-                    tripDestination: trip.destination
-                  }
-                }"
-                class="action-button view-button"
-                @click.stop
-                aria-label="View trip details"
-              >
-                <span class="action-icon">👁️</span>
-                <span class="action-text">View</span>
-              </router-link>
-            </div>
-          </div>
+      <!-- New Trip Inline Form -->
+      <div v-if="showNewTripModal" class="inline-form new-trip-form">
+        <div class="form-header">
+          <h3>Create New Trip</h3>
+          <button @click="showNewTripModal = false" class="close-button" aria-label="Close form">
+            ×
+          </button>
         </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- New Trip Modal -->
-  <div v-if="showNewTripModal" class="modal" role="dialog" aria-labelledby="modal-title">
-    <div class="modal-overlay" @click="showNewTripModal = false"></div>
-    <div class="modal-container">
-      <div class="modal-header">
-        <h2 id="modal-title">Create New Trip</h2>
-        <button 
-          @click="showNewTripModal = false" 
-          class="close-button"
-          aria-label="Close modal"
-        >
-          ×
-        </button>
-      </div>
-      
-      <div class="modal-body">
-        <form @submit.prevent="saveNewTrip">
+        
+        <form @submit.prevent="saveNewTrip" class="trip-form">
           <div class="form-group">
             <label for="tripName">Trip Name</label>
             <input
@@ -191,98 +118,152 @@
           </div>
         </form>
       </div>
+      <div v-else class="trip-list">
+        <div
+          v-for="trip in trips"
+          :key="trip.id"
+          class="trip-card"
+          role="button"
+          tabindex="0"
+        >
+          <div class="trip-card-header">
+            <h3>{{ trip.destination }}</h3>
+            <span class="trip-dates">
+              {{ formatDateRange(trip.start_date, trip.end_date) }}
+            </span>
+          </div>
+          
+          <div class="trip-card-status">
+            <span class="status-badge" :class="getTripStatusClass(trip)">
+              {{ getTripStatus(trip) }}
+            </span>
+          </div>
+          
+          <div class="trip-card-footer">
+            <div class="trip-card-actions">
+              <button 
+                @click.stop="openEditTripModal(trip)" 
+                class="action-button edit-button"
+                aria-label="Edit trip"
+              >
+                <span class="action-icon">✏️</span>
+                <span class="action-text">Edit</span>
+              </button>
+              
+              <button 
+                @click.stop="deleteTrip(trip)" 
+                class="action-button delete-button"
+                aria-label="Delete trip"
+              >
+                <span class="action-icon">🗑️</span>
+                <span class="action-text">Delete</span>
+              </button>
+              
+              <router-link
+                :to="{
+                  path: `/projects/${userStore.currentProject.id}/trips/${trip.id}/detail`,
+                  params: {
+                    tripName: trip.name,
+                    tripDates: formatDateRange(trip.start_date, trip.end_date),
+                    tripDestination: trip.destination
+                  }
+                }"
+                class="action-button view-button"
+                @click.stop
+                aria-label="View trip details"
+              >
+                <span class="action-icon">👁️</span>
+                <span class="action-text">View</span>
+              </router-link>
+            </div>
+          </div>
+          
+          <!-- Edit Trip Inline Form -->
+          <div v-if="showEditTripModal && editTrip.id === trip.id" class="inline-form edit-trip-form">
+            <div class="form-header">
+              <h4>Edit Trip</h4>
+              <button @click="showEditTripModal = false" class="close-button" aria-label="Close form">
+                ×
+              </button>
+            </div>
+            
+            <form @submit.prevent="updateTrip" class="trip-form">
+              <div class="form-group">
+                <label for="editTripName">Trip Name</label>
+                <input
+                  type="text"
+                  id="editTripName"
+                  v-model="editTrip.name"
+                  required
+                  class="form-input"
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="editDestination">Destination</label>
+                <input
+                  type="text"
+                  id="editDestination"
+                  v-model="editTrip.destination"
+                  required
+                  class="form-input"
+                />
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editStartDate">Start Date</label>
+                  <input
+                    type="date"
+                    id="editStartDate"
+                    v-model="editTrip.start_date"
+                    required
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editEndDate">End Date</label>
+                  <input
+                    type="date"
+                    id="editEndDate"
+                    v-model="editTrip.end_date"
+                    required
+                    class="form-input"
+                  />
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="editDescription">Description (Optional)</label>
+                <textarea
+                  id="editDescription"
+                  v-model="editTrip.description"
+                  rows="3"
+                  placeholder="Brief description of your trip"
+                  class="form-textarea"
+                ></textarea>
+              </div>
+              
+              <div class="form-actions">
+                <button
+                  type="button"
+                  @click="showEditTripModal = false"
+                  class="secondary-button"
+                >
+                  Cancel
+                </button>
+                <button type="submit" class="primary-button">
+                  Update Trip
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
+
   </div>
 
-  <!-- Edit Trip Modal -->
-  <div v-if="showEditTripModal" class="modal" role="dialog" aria-labelledby="edit-modal-title">
-    <div class="modal-overlay" @click="showEditTripModal = false"></div>
-    <div class="modal-container">
-      <div class="modal-header">
-        <h2 id="edit-modal-title">Edit Trip</h2>
-        <button 
-          @click="showEditTripModal = false" 
-          class="close-button"
-          aria-label="Close modal"
-        >
-          ×
-        </button>
-      </div>
-      
-      <div class="modal-body">
-        <form @submit.prevent="updateTrip">
-          <div class="form-group">
-            <label for="editTripName">Trip Name</label>
-            <input
-              type="text"
-              id="editTripName"
-              v-model="editTrip.name"
-              required
-              class="form-input"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="editDestination">Destination</label>
-            <input
-              type="text"
-              id="editDestination"
-              v-model="editTrip.destination"
-              required
-              class="form-input"
-            />
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label for="editStartDate">Start Date</label>
-              <input
-                type="date"
-                id="editStartDate"
-                v-model="editTrip.start_date"
-                required
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label for="editEndDate">End Date</label>
-              <input
-                type="date"
-                id="editEndDate"
-                v-model="editTrip.end_date"
-                required
-                class="form-input"
-              />
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="editDescription">Description (Optional)</label>
-            <textarea
-              id="editDescription"
-              v-model="editTrip.description"
-              rows="3"
-              placeholder="Brief description of your trip"
-              class="form-textarea"
-            ></textarea>
-          </div>
-          
-          <div class="form-actions">
-            <button
-              type="button"
-              @click="showEditTripModal = false"
-              class="secondary-button"
-            >
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-positive primary-button">
-              Update Trip
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
 </div>
 </template>
 
@@ -931,6 +912,68 @@ setup() {
 
 .action-text {
   display: none;
+}
+
+/* Inline Form Styles */
+.inline-form {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-top: var(--space-4);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.new-trip-form {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-200);
+}
+
+.edit-trip-form {
+  background: var(--color-warning-50);
+  border-color: var(--color-warning-200);
+  margin-top: var(--space-4);
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.form-header h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-snug);
+}
+
+.form-header h4 {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  line-height: var(--leading-snug);
+}
+
+.trip-form {
+  width: 100%;
 }
 
 /* Modal Styles */
