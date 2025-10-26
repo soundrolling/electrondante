@@ -1468,7 +1468,7 @@ setup() {
   margin-left: 12px;
   padding: 6px 10px;
   background: #0066cc;
-  color: white;
+  color: white !important;
   border-radius: 6px;
   text-decoration: none;
   font-size: 13px;
@@ -1486,12 +1486,13 @@ setup() {
 
 .maps-icon {
   font-size: 14px;
+  color: white !important;
 }
 
 .maps-text {
   font-size: 13px;
   font-weight: 500;
-  color: white;
+  color: white !important;
 }
 
 /* Stage Availability */
