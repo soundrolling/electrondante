@@ -76,10 +76,11 @@
               :href="getVenueForStage(stage).maps_link" 
               target="_blank" 
               rel="noopener noreferrer"
-              class="maps-link"
+              class="maps-button"
               title="Open in Google Maps"
             >
               <span class="maps-icon">🗺️</span>
+              <span class="maps-text">Open in Maps</span>
             </a>
           </div>
         </div>
@@ -1460,23 +1461,36 @@ setup() {
   font-size: 16px;
 }
 
-.maps-link {
+.maps-button {
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
-  padding: 4px 6px;
-  background: #e3f2fd;
-  border-radius: 4px;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 6px 10px;
+  background: #0066cc;
+  color: white;
+  border-radius: 6px;
   text-decoration: none;
-  transition: background-color 0.2s ease;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
 }
 
-.maps-link:hover {
-  background: #bbdefb;
+.maps-button:hover {
+  background: #0052a3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
 }
 
 .maps-icon {
   font-size: 14px;
+}
+
+.maps-text {
+  font-size: 13px;
+  font-weight: 500;
 }
 
 /* Stage Availability */
