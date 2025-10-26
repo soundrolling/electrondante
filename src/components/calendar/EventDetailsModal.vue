@@ -36,7 +36,7 @@
       <div class="modal-actions">
         <button v-if="!isStageHourEvent" class="btn btn-warning edit-button" @click="$emit('edit')">Edit</button>
         <button v-if="!isStageHourEvent" class="btn btn-danger delete-button" @click="$emit('delete')">Delete</button>
-        <button class="btn btn-warning close-button" @click="$emit('close')">Close</button>
+        <button class="btn btn-warning close-button" @click="$emit('save', localEvent)">Save</button>
       </div>
     </template>
     <template v-else>
@@ -440,23 +440,31 @@ background: #219150;
 }
 .edit-button {
 background: #3498db;
+color: #fff;
 }
 .edit-button:hover {
 background: #2980b9;
 }
 .delete-button {
 background: #e74c3c;
+color: #fff;
 }
 .delete-button:hover {
 background: #c0392b;
 }
 .save-button {
 background: #27ae60;
+color: #fff;
 }
 .cancel-button {
 background: #bdc3c7;
+color: #fff;
 }
 .close-button {
-background: #6c757d;
+background: #27ae60;
+color: #fff;
+}
+.close-button:hover {
+background: #219150;
 }
 </style> 

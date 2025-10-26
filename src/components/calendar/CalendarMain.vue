@@ -706,6 +706,7 @@ setup() {
       toast.error("Failed to save event changes");
     } else { 
       detailsMode.value = "view"; 
+      closeDetailsModal();
       fetchAll();
       toast.success("Event changes saved successfully");
     }
