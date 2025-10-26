@@ -532,16 +532,6 @@ setup() {
       return currentDate >= eventStart && currentDate <= eventEnd;
     });
     
-    // Debug logging
-    console.log(`[Timeline] Current Date: ${currentDate}`);
-    console.log(`[Timeline] Filtered events:`, events.map(e => ({
-      title: e.title,
-      event_date: e.event_date,
-      end_date: e.end_date,
-      start_time: e.start_time,
-      end_time: e.end_time
-    })));
-    
     // Filter out events without start/end times for timeline view (since we need times for positioning)
     events = events.filter(e => e.start_time && e.end_time);
     
@@ -566,14 +556,6 @@ setup() {
         return true;
       });
     }
-    
-    console.log(`[Timeline] Final events for timeline:`, events.map(e => ({
-      title: e.title,
-      event_date: e.event_date,
-      end_date: e.end_date,
-      start_time: e.start_time,
-      end_time: e.end_time
-    })));
     
     return events;
   });
@@ -860,7 +842,7 @@ setup() {
 
   return {
     loading, error, calendarError, locationsError, stageHoursError, toastMsg,
-    currentView, currentDate,
+    currentView, currentDate, currentDateString,
     filters, updateFilters,
     locations, events, sortedEvents, stageHours, contacts,
     eventCategories, categoryColorMap, locationColorMap, getEventColor,
