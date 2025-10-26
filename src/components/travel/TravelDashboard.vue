@@ -37,11 +37,8 @@
           v-for="trip in trips"
           :key="trip.id"
           class="trip-card"
-          @click="selectTrip(trip)"
           role="button"
           tabindex="0"
-          @keydown.enter="selectTrip(trip)"
-          @keydown.space="selectTrip(trip)"
         >
           <div class="trip-card-header">
             <h3>{{ trip.destination }}</h3>
@@ -57,21 +54,6 @@
           </div>
           
           <div class="trip-card-footer">
-            <div class="trip-weather-section">
-              <div class="weather-info">
-                <span class="weather-label">Weather:</span>
-                <span class="weather-destination">{{ trip.destination }}</span>
-              </div>
-              <button 
-                @click.stop="searchGoogleWeatherForTrip(trip)" 
-                class="weather-button-small"
-                aria-label="Check weather for this trip"
-              >
-                <span class="weather-icon">🌤️</span>
-                <span class="weather-text">Check Weather</span>
-              </button>
-            </div>
-            
             <div class="trip-card-actions">
               <button 
                 @click.stop="openEditTripModal(trip)" 
@@ -116,9 +98,9 @@
   </div>
 
   <!-- New Trip Modal -->
-  <div v-if="showNewTripModal" class="modal slide-in-modal" role="dialog" aria-labelledby="modal-title">
+  <div v-if="showNewTripModal" class="modal" role="dialog" aria-labelledby="modal-title">
     <div class="modal-overlay" @click="showNewTripModal = false"></div>
-    <div class="modal-container slide-in-container">
+    <div class="modal-container">
       <div class="modal-header">
         <h2 id="modal-title">Create New Trip</h2>
         <button 
@@ -213,9 +195,9 @@
   </div>
 
   <!-- Edit Trip Modal -->
-  <div v-if="showEditTripModal" class="modal slide-in-modal" role="dialog" aria-labelledby="edit-modal-title">
+  <div v-if="showEditTripModal" class="modal" role="dialog" aria-labelledby="edit-modal-title">
     <div class="modal-overlay" @click="showEditTripModal = false"></div>
-    <div class="modal-container slide-in-container">
+    <div class="modal-container">
       <div class="modal-header">
         <h2 id="edit-modal-title">Edit Trip</h2>
         <button 
@@ -341,8 +323,6 @@ setup() {
     trips.value.length ? trips.value[0].id : null
   )
 
-  // selectedDestination drives Weather.vue
-  const selectedDestination = ref('')
 
   async function fetchTrips() {
     isLoading.value = true
@@ -394,9 +374,6 @@ setup() {
     }
   }
 
-  function selectTrip(trip) {
-    selectedDestination.value = trip.destination
-  }
 
   // date/status helpers
   function formatDateRange(s, e) {
@@ -515,22 +492,6 @@ setup() {
     })
   }
 
-  // Google Weather Search for specific trip
-  function searchGoogleWeatherForTrip(trip) {
-    if (!trip.destination) {
-      toast.error('No destination for this trip')
-      return
-    }
-    
-    // Clean up the destination string for URL
-    const cleanDestination = trip.destination
-      .replace(/[^\w\s,]/g, '') // Remove special characters except spaces and commas
-      .replace(/\s+/g, '+') // Replace spaces with +
-      .replace(/,/g, '+') // Replace commas with +
-    
-    const googleWeatherUrl = `https://www.google.com/search?q=google+weather%3A+${cleanDestination}`
-    window.open(googleWeatherUrl, '_blank')
-  }
 
   onMounted(async () => {
     // Wait for userStore to be initialized
@@ -541,11 +502,6 @@ setup() {
     
     if (userStore.currentProject?.id) {
       await fetchTrips()
-      // auto‐select first future or first
-      if (trips.value.length) {
-        const next = trips.value.find(t => ['Upcoming','In Progress'].includes(getTripStatus(t))) || trips.value[0]
-        selectedDestination.value = next.destination
-      }
     } else {
       console.warn('No current project available for travel dashboard')
       isLoading.value = false
@@ -562,7 +518,6 @@ setup() {
     newTrip,
     editTrip,
     defaultTripId,
-    selectedDestination,
     createNewTrip,
     saveNewTrip,
     openEditTripModal,
@@ -577,7 +532,6 @@ setup() {
     getTripStatus,
     getTripStatusClass,
     selectTrip,
-    searchGoogleWeatherForTrip
   }
 }
 }
@@ -898,74 +852,6 @@ setup() {
   padding-top: var(--space-4);
 }
 
-.trip-weather-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-3);
-  padding: var(--space-3);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-}
-
-.weather-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.weather-label {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  font-weight: var(--font-medium);
-}
-
-.weather-destination {
-  font-size: var(--text-base);
-  color: var(--text-primary);
-  font-weight: var(--font-semibold);
-}
-
-.weather-button-small {
-  background: var(--color-primary-500);
-  color: white;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  transition: all var(--transition-normal);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: 36px;
-  box-shadow: var(--shadow-sm);
-}
-
-.weather-button-small:hover {
-  background: var(--color-primary-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.weather-button-small:active {
-  transform: translateY(0);
-}
-
-.weather-button-small:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
-}
-
-.weather-icon {
-  font-size: var(--text-sm);
-}
-
-.weather-text {
-  display: none;
-}
 
 .trip-card-actions {
   display: flex;
@@ -1063,53 +949,6 @@ setup() {
   box-sizing: border-box;
 }
 
-.slide-in-modal {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-  z-index: var(--z-modal);
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
-  padding: 0;
-}
-
-.slide-in-modal .modal-overlay {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
-.slide-in-container {
-  position: relative;
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-  padding: var(--space-6);
-  width: 100%;
-  max-width: 500px;
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: var(--z-modal);
-  box-shadow: var(--shadow-xl);
-  box-sizing: border-box;
-  margin: 0;
-  transform: translateX(100%);
-  animation: slideIn 0.3s ease-out forwards;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
 
 .modal-overlay {
   position: absolute;
@@ -1332,9 +1171,6 @@ setup() {
     display: inline;
   }
   
-  .weather-text {
-    display: inline;
-  }
   
   .form-row {
     flex-direction: row;
@@ -1421,11 +1257,6 @@ setup() {
     width: 100%;
   }
   
-  .slide-in-container {
-    max-width: 100%;
-    border-radius: 0;
-    padding: var(--space-5);
-  }
   
   .modal-container {
     padding: var(--space-6) var(--space-5);
