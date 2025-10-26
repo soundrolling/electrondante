@@ -102,7 +102,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/userStore';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
-import { getData } from '@/utils/indexedDB';
+import { getData, getSetting } from '@/utils/indexedDB';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -135,6 +135,7 @@ const newNote = ref('');
 const copiedTimecode = ref('');
 const recordingDate = ref(new Date().toISOString().slice(0, 10));
 const selectedStageHourId = ref('');
+const stageHours = ref([]);
 const isSubmitting = ref(false);
 const hasPendingSync = ref(false);
 const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -169,8 +170,42 @@ try {
   isLoading.value = false;
 }
 }
+
+async function loadStageHours() {
+  try {
+    const projectId = await getSetting('current-project-id');
+    if (isOnline.value) {
+      stageHours.value = await fetchTableData('stage_hours', {
+        eq: { 
+          project_id: projectId,
+          stage_id: props.locationId 
+        },
+        order: { column: 'start_datetime', ascending: true }
+      });
+    } else {
+      stageHours.value = await fetchTableData('stage_hours', {
+        eq: { 
+          project_id: projectId,
+          stage_id: props.locationId 
+        },
+        order: { column: 'start_datetime', ascending: true }
+      });
+      toast.info('Offline mode: using cached stage hours');
+    }
+  } catch (error) {
+    console.error('Error loading stage hours:', error);
+    stageHours.value = await fetchTableData('stage_hours', {
+      eq: { 
+        project_id: await getSetting('current-project-id'),
+        stage_id: props.locationId 
+      },
+      order: { column: 'start_datetime', ascending: true }
+    });
+  }
+}
 onMounted(async () => {
   await fetchLocation();
+  await loadStageHours();
   await checkPendingSync();
   
   // Listen for online/offline events
@@ -203,14 +238,37 @@ onMounted(async () => {
 
 function createNote() {
 copiedTimecode.value = liveTimecode.value;
-selectedStageHourId.value = '';
+// Auto-detect the appropriate stage hour based on current time and date
+const autoDetectedStageHour = getCurrentStageHour(copiedTimecode.value, recordingDate.value);
+selectedStageHourId.value = autoDetectedStageHour || '';
 showNoteInput.value = true;
 }
+// Auto-detect current stage hour based on timestamp and date
+function getCurrentStageHour(timestamp, recordingDate) {
+  if (!stageHours.value.length || !timestamp || !recordingDate) return null;
+  
+  const noteDateTime = new Date(`${recordingDate}T${timestamp}`);
+  
+  for (const stageHour of stageHours.value) {
+    const startDateTime = new Date(stageHour.start_datetime);
+    const endDateTime = new Date(stageHour.end_datetime);
+    
+    // Check if note falls within this stage hour's time range
+    if (noteDateTime >= startDateTime && noteDateTime <= endDateTime) {
+      return stageHour.id;
+    }
+  }
+  
+  return null;
+}
+
 function openQuickfireNote(preset) {
 newNote.value = preset;
 copiedTimecode.value = liveTimecode.value;
 recordingDate.value = new Date().toISOString().slice(0, 10);
-selectedStageHourId.value = '';
+// Auto-detect the appropriate stage hour based on current time and date
+const autoDetectedStageHour = getCurrentStageHour(copiedTimecode.value, recordingDate.value);
+selectedStageHourId.value = autoDetectedStageHour || '';
 showNoteInput.value = true;
 activeTab.value = 'notes';
 }
