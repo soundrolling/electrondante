@@ -1998,17 +1998,18 @@ setup() {
 
 /* Save Button - Green Background */
 .primary-button.save-button {
-  background: #10b981;
+  background: #10b981 !important;
   color: #ffffff !important;
 }
 
 .primary-button.save-button:hover {
-  background: #059669;
+  background: #059669 !important;
   color: #ffffff !important;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
 }
 
 .primary-button.save-button:active {
+  background: #059669 !important;
   color: #ffffff !important;
 }
 
