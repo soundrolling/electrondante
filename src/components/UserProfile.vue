@@ -1723,4 +1723,32 @@ async function saveSecurity() {
   font-size: 1rem;
 }
 .sec-msg { color: #ef4444; }
+
+/* Preferences save button - white styling */
+.pref-form .btn-positive {
+  background: white !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  font-weight: 600 !important;
+}
+
+.pref-form .btn-positive:hover {
+  background: #f8f9fa !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+}
+
+/* Security save button - white styling */
+.security-form .btn-positive {
+  background: white !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  font-weight: 600 !important;
+}
+
+.security-form .btn-positive:hover {
+  background: #f8f9fa !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+}
 </style>
