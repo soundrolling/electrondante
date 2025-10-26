@@ -1,38 +1,44 @@
 <template>
 <div class="trip-detail-container">
-  <!-- Back Navigation -->
-  <router-link
-    :to="{ name: 'TravelDashboard', params: { id: projectId } }"
-    class="back-link"
-    aria-label="Back to trips dashboard"
-  >
-    <span class="arrow">←</span>
-    <span class="back-text">Back to Trips</span>
-  </router-link>
-
-  <!-- Trip Header -->
-  <div class="trip-header">
-    <h1>{{ tripName || 'Trip Details' }}</h1>
-    <p class="trip-dates">{{ tripDates }}</p>
-    <p v-if="tripDestination" class="trip-destination">
-      <span class="destination-label">Destination:</span> {{ tripDestination }}
-    </p>
-  </div>
-
-  <!-- Tab Navigation -->
-  <div class="tabs" role="tablist">
-    <button
-      v-for="tab in tabs"
-      :key="tab.key"
-      :class="['tab-btn', { active: activeTab === tab.key }]"
-      @click="activeTab = tab.key"
-      :aria-selected="activeTab === tab.key"
-      :aria-controls="`${tab.key}-panel`"
-      role="tab"
-    >
-      <span class="tab-icon">{{ getTabIcon(tab.key) }}</span>
-      <span class="tab-label">{{ tab.label }}</span>
-    </button>
+  <!-- Consolidated Header Section -->
+  <div class="consolidated-header">
+    <!-- Row 1: Back Button and Title -->
+    <div class="header-row-1">
+      <router-link
+        :to="{ name: 'TravelDashboard', params: { id: projectId } }"
+        class="back-link"
+        aria-label="Back to trips dashboard"
+      >
+        <span class="arrow">←</span>
+        <span class="back-text">Back to Trips</span>
+      </router-link>
+      
+      <div class="trip-title">
+        <h1>{{ tripName || 'Trip Details' }}</h1>
+        <p class="trip-dates">{{ tripDates }}</p>
+        <p v-if="tripDestination" class="trip-destination">
+          <span class="destination-label">Destination:</span> {{ tripDestination }}
+        </p>
+      </div>
+    </div>
+    
+    <!-- Row 2: Tab Navigation -->
+    <div class="header-row-2">
+      <div class="tabs" role="tablist">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="['tab-btn', { active: activeTab === tab.key }]"
+          @click="activeTab = tab.key"
+          :aria-selected="activeTab === tab.key"
+          :aria-controls="`${tab.key}-panel`"
+          role="tab"
+        >
+          <span class="tab-icon">{{ getTabIcon(tab.key) }}</span>
+          <span class="tab-label">{{ tab.label }}</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Tab Content -->
@@ -126,6 +132,60 @@ methods: {
   }
 }
 
+/* Consolidated Header Section */
+.consolidated-header {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.header-row-1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.header-row-2 {
+  width: 100%;
+}
+
+.trip-title {
+  flex: 1;
+  text-align: center;
+}
+
+.trip-title h1 {
+  font-size: 24px;
+  color: #111827;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.trip-title .trip-dates {
+  color: #6b7280;
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.trip-title .trip-destination {
+  font-size: 16px;
+  color: #3b82f6;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.trip-title .destination-label {
+  font-weight: 500;
+  color: #6b7280;
+}
+
 /* Back Link */
 .back-link {
   display: inline-flex;
@@ -135,12 +195,12 @@ methods: {
   color: #3b82f6;
   text-decoration: none;
   font-weight: 500;
-  margin-bottom: 20px;
   padding: 8px 12px;
   border-radius: 8px;
   transition: all 0.2s ease;
   background: #eff6ff;
   border: 1px solid #dbeafe;
+  flex-shrink: 0;
 }
 
 .back-link:hover {
@@ -164,50 +224,11 @@ methods: {
   display: none;
 }
 
-/* Trip Header */
-.trip-header {
-  text-align: center;
-  margin-bottom: 24px;
-  background: #ffffff;
-  padding: 24px 16px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
-}
-
-.trip-header h1 {
-  font-size: 24px;
-  color: #111827;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  line-height: 1.4;
-}
-
-.trip-dates {
-  color: #6b7280;
-  margin: 0 0 8px 0;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.trip-destination {
-  font-size: 16px;
-  color: #3b82f6;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.destination-label {
-  font-weight: 500;
-  color: #6b7280;
-}
-
 /* Tab Navigation */
 .tabs {
   display: flex;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 24px;
   flex-wrap: wrap;
   background: #f1f5f9;
   border-radius: 12px;
@@ -352,19 +373,25 @@ methods: {
     padding: 12px;
   }
   
-  .trip-header {
-    padding: 20px 16px;
+  .consolidated-header {
+    padding: 16px;
     margin-bottom: 20px;
   }
   
-  .trip-header h1 {
+  .header-row-1 {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .trip-title h1 {
     font-size: 22px;
   }
   
   .tabs {
     gap: 4px;
     padding: 6px;
-    margin-bottom: 20px;
   }
   
   .tab-btn {
@@ -387,7 +414,6 @@ methods: {
   .back-link {
     width: 100%;
     justify-content: center;
-    margin-bottom: 16px;
   }
 }
 </style> 
