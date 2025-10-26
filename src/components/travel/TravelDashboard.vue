@@ -529,7 +529,7 @@ setup() {
   line-height: var(--leading-normal);
   background: var(--bg-secondary);
   min-height: 100vh;
-  max-width: none;
+  max-width: 100%;
 }
 
 /* Safe area margins for mobile devices */
@@ -573,8 +573,9 @@ setup() {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-5);
-  max-width: none;
+  max-width: 100%;
   width: 100%;
+  margin: 0 auto;
 }
 
 /* Dashboard Cards */
@@ -1227,11 +1228,11 @@ setup() {
 @media (min-width: 1025px) {
   .travel-dashboard {
     padding: var(--space-9);
+    max-width: 1200px;
   }
   
   .dashboard-grid {
-    grid-template-columns: 2fr 1fr;
-    gap: var(--space-9);
+    max-width: 100%;
   }
   
   .header-section {
