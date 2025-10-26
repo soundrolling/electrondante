@@ -5,15 +5,18 @@
       <h3>Notes</h3>
       <div class="status-indicators">
         <span 
-          class="status-dot" 
-          :class="isOnline ? 'online' : 'offline'"
-          :title="isOnline ? 'Online' : 'Offline'"
-        >●</span>
-        <span 
-          v-if="hasPendingSync" 
-          class="pending-sync"
-          title="Pending sync"
-        >⏳</span>
+          class="sync-icon" 
+          :class="{ 
+            online: isOnline && !hasPendingSync, 
+            offline: !isOnline, 
+            pending: hasPendingSync 
+          }"
+          :title="isOnline ? (hasPendingSync ? 'Pending sync' : 'Online') : 'Offline'"
+        >
+          <span v-if="isOnline && !hasPendingSync">✓</span>
+          <span v-else-if="!isOnline">⚠</span>
+          <span v-else-if="hasPendingSync">⏳</span>
+        </span>
       </div>
     </div>
     <div class="header-actions">
@@ -1210,22 +1213,30 @@ align-items: center;
 gap: 8px;
 }
 
-.status-dot {
-font-size: 12px;
-font-weight: bold;
-}
-
-.status-dot.online {
-color: #10b981;
-}
-
-.status-dot.offline {
-color: #f59e0b;
-}
-
-.pending-sync {
-color: #8b5cf6;
+.sync-icon {
 font-size: 14px;
+font-weight: bold;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 16px;
+height: 16px;
+border-radius: 50%;
+}
+
+.sync-icon.online {
+color: #ffffff !important;
+background-color: #10b981 !important; /* green-500 */
+}
+
+.sync-icon.offline {
+color: #ffffff !important;
+background-color: #ef4444 !important; /* red-500 */
+}
+
+.sync-icon.pending {
+color: #ffffff !important;
+background-color: #f59e0b !important; /* amber-500 */
 animation: pulse 2s infinite;
 }
 

@@ -16,7 +16,11 @@
         <small class="tc-label">{{ currentTimeSourceLabel }}</small>
       </div>
       <div class="sync-status" :class="{ pending: hasPendingSync, offline: !isOnline }" :title="syncStatusText">
-        <span class="sync-dot" :class="{ online: isOnline && !hasPendingSync, offline: !isOnline, pending: hasPendingSync }">●</span>
+        <span class="sync-icon" :class="{ online: isOnline && !hasPendingSync, offline: !isOnline, pending: hasPendingSync }">
+          <span v-if="isOnline && !hasPendingSync">✓</span>
+          <span v-else-if="!isOnline">⚠</span>
+          <span v-else-if="hasPendingSync">⏳</span>
+        </span>
         <span class="sync-text">{{ syncStatusText }}</span>
         <button 
           v-if="hasPendingSync && isOnline" 
@@ -453,21 +457,30 @@ border-color: rgba(239, 68, 68, 0.3);
 color: #dc2626;
 }
 
-.sync-dot {
-font-size: 12px;
+.sync-icon {
+font-size: 14px;
 font-weight: bold;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 16px;
+height: 16px;
+border-radius: 50%;
 }
 
-.sync-dot.online {
-color: #10b981; /* green-500 */
+.sync-icon.online {
+color: #ffffff !important;
+background-color: #10b981 !important; /* green-500 */
 }
 
-.sync-dot.offline {
-color: #ef4444; /* red-500 */
+.sync-icon.offline {
+color: #ffffff !important;
+background-color: #ef4444 !important; /* red-500 */
 }
 
-.sync-dot.pending {
-color: #f59e0b; /* amber-500 */
+.sync-icon.pending {
+color: #ffffff !important;
+background-color: #f59e0b !important; /* amber-500 */
 animation: pulse 2s infinite;
 }
 
