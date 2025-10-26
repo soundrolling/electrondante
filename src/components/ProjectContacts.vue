@@ -221,11 +221,19 @@
 
         <div class="form-group">
           <label class="form-label">Stage Assignments</label>
-          <select v-model="editingFields.stage_ids" class="form-select" multiple>
-            <option v-for="loc in projectStageLocations" :key="loc.id" :value="loc.id">
-              {{ loc.stage_name }}
-            </option>
-          </select>
+          <div class="stage-assignment-buttons">
+            <button
+              v-for="loc in projectStageLocations"
+              :key="loc.id"
+              type="button"
+              class="stage-assignment-btn"
+              :class="{ 'assigned': editingFields.stage_ids.includes(loc.id) }"
+              @click="toggleStageAssignment(loc.id, 'edit')"
+            >
+              <span class="stage-name">{{ loc.stage_name }}</span>
+              <span v-if="editingFields.stage_ids.includes(loc.id)" class="checkmark">✓</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -333,21 +341,18 @@
 
         <div class="form-group">
           <label class="form-label">Stage Locations</label>
-          <div class="checkbox-list">
-            <label
+          <div class="stage-assignment-buttons">
+            <button
               v-for="loc in projectStageLocations"
               :key="loc.id"
-              class="checkbox-item"
-              style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"
+              type="button"
+              class="stage-assignment-btn"
+              :class="{ 'assigned': newContactStageIds.includes(loc.id) }"
+              @click="toggleStageAssignment(loc.id, 'add')"
             >
-              <input
-                type="checkbox"
-                :value="loc.id"
-                v-model="newContactStageIds"
-                style="accent-color: #3b82f6;"
-              />
-              <span>{{ loc.stage_name }}</span>
-            </label>
+              <span class="stage-name">{{ loc.stage_name }}</span>
+              <span v-if="newContactStageIds.includes(loc.id)" class="checkmark">✓</span>
+            </button>
           </div>
         </div>
 
@@ -766,6 +771,25 @@ async function copyToClipboard(text, type) {
   }
 }
 
+// Toggle stage assignment for contacts
+function toggleStageAssignment(stageId, mode) {
+  if (mode === 'add') {
+    const index = newContactStageIds.value.indexOf(stageId);
+    if (index > -1) {
+      newContactStageIds.value.splice(index, 1);
+    } else {
+      newContactStageIds.value.push(stageId);
+    }
+  } else if (mode === 'edit') {
+    const index = editingFields.value.stage_ids.indexOf(stageId);
+    if (index > -1) {
+      editingFields.value.stage_ids.splice(index, 1);
+    } else {
+      editingFields.value.stage_ids.push(stageId);
+    }
+  }
+}
+
 async function fetchProjectStageLocations() {
   if (!currentProject.value?.id) return;
   const { data } = await supabase
@@ -855,6 +879,7 @@ return {
   openContactInfo,
   closeContactInfo,
   copyToClipboard,
+  toggleStageAssignment,
 
   projectStageLocations,
 };
@@ -2056,5 +2081,96 @@ color: currentColor;
 .copy-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* Stage Assignment Buttons */
+.stage-assignment-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.stage-assignment-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.stage-assignment-btn:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stage-assignment-btn.assigned {
+  background: #10b981;
+  border-color: #059669;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.stage-assignment-btn.assigned:hover {
+  background: #059669;
+  border-color: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.stage-name {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkmark {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+/* Mobile responsive adjustments for stage assignment buttons */
+@media (max-width: 768px) {
+  .stage-assignment-buttons {
+    gap: 6px;
+  }
+  
+  .stage-assignment-btn {
+    min-width: 100px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stage-assignment-buttons {
+    gap: 4px;
+  }
+  
+  .stage-assignment-btn {
+    min-width: 80px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .checkmark {
+    font-size: 0.9rem;
+  }
 }
 </style>
