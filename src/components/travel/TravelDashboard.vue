@@ -736,7 +736,7 @@ setup() {
 
 .primary-button {
   background: var(--color-success-500);
-  color: var(--text-inverse);
+  color: white;
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-6);
