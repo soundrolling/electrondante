@@ -15,7 +15,7 @@ WHERE category = 'recording'
     WHERE sh.project_id = calendar_events.project_id
       AND sh.stage_id = calendar_events.location_id
       AND DATE(sh.start_datetime) = calendar_events.event_date
-      AND TIME(sh.start_datetime) = calendar_events.start_time
+      AND TO_CHAR(sh.start_datetime, 'HH24:MI') = calendar_events.start_time::text
   );
 
 -- Optional: Show remaining stage hour events (if any) for verification
