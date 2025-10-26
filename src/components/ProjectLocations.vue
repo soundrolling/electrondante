@@ -1888,13 +1888,15 @@ setup() {
 }
 
 .btn-secondary {
-  background: #6c757d;
-  color: #ffffff !important;
+  background: #f8f9fa;
+  color: #1a1a1a !important;
+  border: 2px solid #e9ecef;
 }
 
 .btn-secondary:hover {
-  background: #5a6268;
-  color: #ffffff !important;
+  background: #e9ecef;
+  color: #1a1a1a !important;
+  border-color: #0066cc;
 }
 
 .btn-danger {
@@ -2006,9 +2008,9 @@ setup() {
   justify-content: center;
   gap: 8px;
   padding: 12px 20px;
-  background: #6c757d;
-  color: #ffffff !important;
-  border: none;
+  background: #f8f9fa;
+  color: #1a1a1a !important;
+  border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
@@ -2020,13 +2022,14 @@ setup() {
 }
 
 .secondary-button:hover {
-  background: #5a6268;
-  color: #ffffff !important;
+  background: #e9ecef;
+  color: #1a1a1a !important;
+  border-color: #0066cc;
   transform: translateY(-1px);
 }
 
 .secondary-button:active {
-  color: #ffffff !important;
+  color: #1a1a1a !important;
   transform: scale(0.98);
 }
 
