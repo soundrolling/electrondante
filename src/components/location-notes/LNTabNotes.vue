@@ -205,7 +205,13 @@
         <div><strong>Time:</strong> {{ infoNote?.timestamp }}</div>
         <div><strong>Date:</strong> {{ fmtDate(infoNote?.recording_date) }}</div>
         <div><strong>Recording Day:</strong> {{ getRecordingDayDisplay(infoNote) }}</div>
-        <div><strong>Status:</strong> <span :class="infoNote?._isTemp ? 'status-red' : 'status-green'">●</span> {{ infoNote?._isTemp ? 'Pending Sync' : 'Synced' }}</div>
+        <div><strong>Status:</strong> 
+          <span class="sync-icon" :class="infoNote?._isTemp ? 'offline' : 'online'">
+            <span v-if="infoNote?._isTemp">⚠</span>
+            <span v-else>✓</span>
+          </span>
+          {{ infoNote?._isTemp ? 'Pending Sync' : 'Synced' }}
+        </div>
         <div><strong>Author:</strong> {{ infoNote?.creator_email || 'unknown' }}</div>
       </div>
       <div style="margin-top: 12px;"><strong>Note:</strong><br>{{ infoNote?.note }}</div>
@@ -1193,8 +1199,6 @@ function setPrevDayRange() {
 </script>
 
 <style scoped>
-.status-green { color: #10b981; }
-.status-red { color: #ef4444; }
 .note-status-dot {
 font-size: 16px;
 margin-left: 6px;
