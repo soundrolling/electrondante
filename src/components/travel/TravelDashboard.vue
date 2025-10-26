@@ -530,8 +530,7 @@ setup() {
     viewParking,
     formatDateRange,
     getTripStatus,
-    getTripStatusClass,
-    selectTrip,
+    getTripStatusClass
   }
 }
 }
