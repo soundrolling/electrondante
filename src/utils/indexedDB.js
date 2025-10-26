@@ -2,7 +2,7 @@ import { useToast } from 'vue-toastification';
 const toast = useToast();
 
 const DB_NAME = 'ProjectManagementDB';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 let db = null;
 
@@ -20,7 +20,7 @@ export async function openDB() {
         'venues', 'pois', 'call_sheets', 'callsheet_schedules', 'callsheet_poi',
         'calendar_events', 'project_members', 'project_details',
         'patch_bay_layouts', 'patch_bay_nodes', 'patch_bay_connections',
-        'offlineChanges',
+        'offlineChanges', 'stage_hours',
       ];
 
       existingStores.forEach(storeName => {

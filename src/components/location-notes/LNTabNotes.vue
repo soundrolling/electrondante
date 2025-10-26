@@ -66,6 +66,20 @@
         <input type="datetime-local" v-model="rangeEnd" class="date-range-input" />
         <button class="btn btn-danger reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
       </div>
+      <div class="recording-day-filter-row">
+        <label class="label">Recording Day:</label>
+        <select v-model="recordingDayFilter" class="recording-day-filter-select">
+          <option value="">All</option>
+          <option value="unassigned">Unassigned</option>
+          <option 
+            v-for="stageHour in stageHours" 
+            :key="stageHour.id" 
+            :value="stageHour.id"
+          >
+            {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+          </option>
+        </select>
+      </div>
       <div class="quick-range-btns">
         <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
         <button class="btn btn-primary prevday-btn" @click="setPrevDayRange" title="Set range to previous day">Previous Day</button>
@@ -81,6 +95,7 @@
         <tr>
           <th class="note-datetime-header">Time / Date</th>
           <th class="note-text-header">Note</th>
+          <th class="note-recording-day-header">Recording Day</th>
           <th class="note-actions-header">Actions</th>
         </tr>
       </thead>
@@ -94,6 +109,7 @@
             </div>
           </td>
           <td class="note-text">{{ n.note }}</td>
+          <td class="note-recording-day">{{ getRecordingDayDisplay(n) }}</td>
           <td class="note-actions">
             <button
               class="btn btn-primary icon-btn info"
@@ -140,6 +156,19 @@
           type="date"
           class="date-input"
         />
+        <div class="recording-day-row">
+          <label class="label">Recording Day:</label>
+          <select v-model="draft.stage_hour_id" class="recording-day-select">
+            <option value="">None/Unassigned</option>
+            <option 
+              v-for="stageHour in stageHours" 
+              :key="stageHour.id" 
+              :value="stageHour.id"
+            >
+              {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+            </option>
+          </select>
+        </div>
       </div>
       <textarea
         v-model="draft.note"
@@ -167,6 +196,7 @@
       <div class="modal-grid">
         <div><strong>Time:</strong> {{ infoNote?.timestamp }}</div>
         <div><strong>Date:</strong> {{ fmtDate(infoNote?.recording_date) }}</div>
+        <div><strong>Recording Day:</strong> {{ getRecordingDayDisplay(infoNote) }}</div>
         <div><strong>Status:</strong> <span :class="infoNote?._isTemp ? 'status-red' : 'status-green'">●</span> {{ infoNote?._isTemp ? 'Pending Sync' : 'Synced' }}</div>
         <div><strong>Author:</strong> {{ infoNote?.creator_email || 'unknown' }}</div>
       </div>
@@ -244,6 +274,7 @@ watch(() => props.locationId, async (newLocationId, oldLocationId) => {
     hasLoaded.value = false;
     await ensureDataPersistence();
     await loadPills();
+    await loadStageHours();
     await checkPendingChanges();
     hasLoaded.value = true;
   }
@@ -253,9 +284,10 @@ const userStore = useUserStore();
 
 const notes = ref([]);
 const pills = ref([]);
+const stageHours = ref([]);
 const sortKey = ref('desc');
 const editingId = ref(null);
-const draft = ref({ timestamp: '', recording_date: '', note: '' });
+const draft = ref({ timestamp: '', recording_date: '', note: '', stage_hour_id: null });
 const showForm = ref(false);
 const hasLoaded = ref(false);
 const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -319,6 +351,35 @@ const [r, g, b] = hex
   .map(h => parseInt(h, 16));
 return (r * 299 + g * 587 + b * 114) / 1000 < 140 ? '#fff' : '#000';
 };
+
+// Auto-detect current stage hour based on timestamp and date
+function getCurrentStageHour(timestamp, recordingDate) {
+  if (!stageHours.value.length || !timestamp || !recordingDate) return null;
+  
+  const noteDateTime = new Date(`${recordingDate}T${timestamp}`);
+  
+  for (const stageHour of stageHours.value) {
+    const startDateTime = new Date(stageHour.start_datetime);
+    const endDateTime = new Date(stageHour.end_datetime);
+    
+    // Check if note falls within this stage hour's time range
+    if (noteDateTime >= startDateTime && noteDateTime <= endDateTime) {
+      return stageHour.id;
+    }
+  }
+  
+  return null;
+}
+
+// Get recording day display name for a note
+function getRecordingDayDisplay(note) {
+  if (!note.stage_hour_id) return '—';
+  
+  const stageHour = stageHours.value.find(sh => sh.id === note.stage_hour_id);
+  if (!stageHour) return '—';
+  
+  return stageHour.notes || `Day ${stageHour.id.slice(-4)}`;
+}
 
 // Update: sort filtered notes, not all notes
 const sortedNotes = computed(() => {
@@ -421,12 +482,50 @@ async function loadPills() {
   }
 }
 
+async function loadStageHours() {
+  try {
+    const projectId = await getSetting('current-project-id');
+    if (isOnline.value) {
+      stageHours.value = await fetchTableData('stage_hours', {
+        eq: { 
+          project_id: projectId,
+          stage_id: props.locationId 
+        },
+        order: { column: 'start_datetime', ascending: true }
+      });
+    } else {
+      stageHours.value = await fetchTableData('stage_hours', {
+        eq: { 
+          project_id: projectId,
+          stage_id: props.locationId 
+        },
+        order: { column: 'start_datetime', ascending: true }
+      });
+      toast.info('Offline mode: using cached stage hours');
+    }
+  } catch (error) {
+    console.error('Error loading stage hours:', error);
+    stageHours.value = await fetchTableData('stage_hours', {
+      eq: { 
+        project_id: await getSetting('current-project-id'),
+        stage_id: props.locationId 
+      },
+      order: { column: 'start_datetime', ascending: true }
+    });
+  }
+}
+
 function startEdit(n) {
 editingId.value = n.id || null;
+const timestamp = n.timestamp || nowTime();
+const recordingDate = n.recording_date || todayISO();
+const autoDetectedStageHour = getCurrentStageHour(timestamp, recordingDate);
+
 draft.value = {
-  timestamp: n.timestamp || nowTime(),
-  recording_date: n.recording_date || todayISO(),
-  note: n.note || ''
+  timestamp: timestamp,
+  recording_date: recordingDate,
+  note: n.note || '',
+  stage_hour_id: n.stage_hour_id || autoDetectedStageHour
 };
 showForm.value = true;
 }
@@ -503,6 +602,7 @@ startEdit({
 
 const rangeStart = ref('');
 const rangeEnd = ref('');
+const recordingDayFilter = ref('');
 const showFilters = ref(false);
 function toggleFilters(){ showFilters.value = !showFilters.value }
 function clearRange() {
@@ -516,6 +616,7 @@ function toDateTime(date, time) {
 
 const filteredAndSortedNotes = computed(() => {
   let arr = [...notes.value];
+  
   // Filter by date-time range if set
   if (rangeStart.value) {
     const start = new Date(rangeStart.value);
@@ -525,6 +626,16 @@ const filteredAndSortedNotes = computed(() => {
     const end = new Date(rangeEnd.value);
     arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
   }
+  
+  // Filter by recording day if set
+  if (recordingDayFilter.value) {
+    if (recordingDayFilter.value === 'unassigned') {
+      arr = arr.filter(n => !n.stage_hour_id);
+    } else {
+      arr = arr.filter(n => n.stage_hour_id === recordingDayFilter.value);
+    }
+  }
+  
   // Sort
   return arr.sort((a, b) => {
     const aDate = new Date(`${a.recording_date}T${a.timestamp}`);
@@ -623,10 +734,11 @@ async function doExportPdf() {
     const exportedNotes = getExportedNotes();
     if (exportedNotes.length > 0) {
       autoTable(doc, {
-        head: [['Time', 'Date', 'Note']],
+        head: [['Time', 'Date', 'Recording Day', 'Note']],
         body: exportedNotes.map(n => [
           n.timestamp,
           fmtDate(n.recording_date),
+          getRecordingDayDisplay(n),
           n.note
         ]),
         startY: y,
@@ -738,9 +850,9 @@ async function doExportCsv() {
     if (dateRange) csv += `Date Range:,${dateRange}\n`;
     csv += '\n';
     // Notes table
-    csv += 'Time,Date,Note\n';
+    csv += 'Time,Date,Recording Day,Note\n';
     exportedNotes.forEach(n => {
-      csv += `"${n.timestamp}","${fmtDate(n.recording_date)}","${(n.note || '').replace(/"/g, '""')}"\n`;
+      csv += `"${n.timestamp}","${fmtDate(n.recording_date)}","${getRecordingDayDisplay(n)}","${(n.note || '').replace(/"/g, '""')}"\n`;
     });
     // Get schedule data for the same location
     let schedules = await fetchTableData('schedules', {
@@ -852,6 +964,7 @@ onMounted(async () => {
   if (!hasLoaded.value) {
     await ensureDataPersistence();
     await loadPills();
+    await loadStageHours();
     await checkPendingChanges();
     hasLoaded.value = true;
   }
@@ -1100,6 +1213,33 @@ opacity: 0.6;
   gap: 6px;
   margin-bottom: 2px;
 }
+
+.recording-day-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.recording-day-filter-select {
+  max-width: 200px;
+  min-width: 140px;
+  width: 100%;
+  border: 2px solid #d1d5db !important;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.recording-day-filter-select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+  outline: none;
+}
+
 .label {
   min-width: 38px;
   margin-right: 4px;
@@ -1141,12 +1281,17 @@ opacity: 0.6;
   }
   .note-text-header,
   .note-text {
-    width: 48%;
+    width: 40%;
+  }
+  .note-recording-day-header,
+  .note-recording-day {
+    width: 18%;
+    min-width: 80px;
   }
   .note-actions-header,
   .note-actions {
-    width: 30%;
-    min-width: 140px;
+    width: 20%;
+    min-width: 120px;
   }
 }
 
@@ -1286,10 +1431,20 @@ opacity: 0.6;
 .note-text {
   white-space: pre-line;
   word-break: break-word;
-  width: 55%;
+  width: 45%;
   font-size: 0.9rem;
   line-height: 1.4;
 }
+
+.note-recording-day-header,
+.note-recording-day {
+  width: 15%;
+  min-width: 100px;
+  font-size: 0.85rem;
+  text-align: center;
+  color: #64748b;
+}
+
 .note-actions-header,
 .note-actions {
   display: flex;
@@ -1306,6 +1461,10 @@ opacity: 0.6;
 
 .note-text-header {
   text-align: left;
+}
+
+.note-recording-day-header {
+  text-align: center;
 }
 
 .note-actions-header {
@@ -1425,6 +1584,21 @@ opacity: 0.6;
   border-radius: 6px;
   padding: 8px;
   font-size: 0.95rem;
+}
+
+.recording-day-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recording-day-select {
+  width: 100%;
+  border: 1px solid #cad8f3;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 0.95rem;
+  background: #ffffff;
 }
 
 .note-input {

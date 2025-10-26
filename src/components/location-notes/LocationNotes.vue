@@ -58,6 +58,17 @@
         </div>
         <label>Date</label>
         <input type="date" v-model="recordingDate" required />
+        <label>Recording Day:</label>
+        <select v-model="selectedStageHourId" class="recording-day-select">
+          <option value="">None/Unassigned</option>
+          <option 
+            v-for="stageHour in stageHours" 
+            :key="stageHour.id" 
+            :value="stageHour.id"
+          >
+            {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+          </option>
+        </select>
         <label>Note</label>
         <textarea v-model="newNote" rows="4" required />
         <div class="modal-actions">
@@ -110,8 +121,10 @@ const showNoteInput = ref(false);
 const newNote = ref('');
 const copiedTimecode = ref('');
 const recordingDate = ref(new Date().toISOString().slice(0, 10));
+const selectedStageHourId = ref('');
 const isSubmitting = ref(false);
 const hasPendingSync = ref(false);
+const stageHours = ref([]);
 
 const syncStatusText = computed(() => {
   if (hasPendingSync.value) {
@@ -141,22 +154,63 @@ try {
 }
 onMounted(async () => {
   await fetchLocation();
+  await loadStageHours();
   await checkPendingSync();
 });
 
+async function loadStageHours() {
+  try {
+    const projectId = store.getCurrentProject?.id;
+    stageHours.value = await fetchTableData('stage_hours', {
+      eq: { 
+        project_id: projectId,
+        stage_id: props.locationId 
+      },
+      order: { column: 'start_datetime', ascending: true }
+    });
+  } catch (error) {
+    console.error('Error loading stage hours:', error);
+    stageHours.value = [];
+  }
+}
+
+// Auto-detect current stage hour based on timestamp and date
+function getCurrentStageHour(timestamp, recordingDate) {
+  if (!stageHours.value.length || !timestamp || !recordingDate) return null;
+  
+  const noteDateTime = new Date(`${recordingDate}T${timestamp}`);
+  
+  for (const stageHour of stageHours.value) {
+    const startDateTime = new Date(stageHour.start_datetime);
+    const endDateTime = new Date(stageHour.end_datetime);
+    
+    // Check if note falls within this stage hour's time range
+    if (noteDateTime >= startDateTime && noteDateTime <= endDateTime) {
+      return stageHour.id;
+    }
+  }
+  
+  return null;
+}
+
 function createNote() {
 copiedTimecode.value = liveTimecode.value;
+const autoDetectedStageHour = getCurrentStageHour(liveTimecode.value, recordingDate.value);
+selectedStageHourId.value = autoDetectedStageHour || '';
 showNoteInput.value = true;
 }
 function openQuickfireNote(preset) {
 newNote.value = preset;
 copiedTimecode.value = liveTimecode.value;
 recordingDate.value = new Date().toISOString().slice(0, 10);
+const autoDetectedStageHour = getCurrentStageHour(liveTimecode.value, recordingDate.value);
+selectedStageHourId.value = autoDetectedStageHour || '';
 showNoteInput.value = true;
 activeTab.value = 'notes';
 }
 function resetNoteForm() {
 newNote.value = '';
+selectedStageHourId.value = '';
 showNoteInput.value = false;
 }
 
@@ -169,6 +223,7 @@ const payload = {
   note: newNote.value.trim(),
   timestamp: copiedTimecode.value,
   recording_date: recordingDate.value,
+  stage_hour_id: selectedStageHourId.value || null,
   creator_email: store.getUserEmail
 };
 try {
@@ -509,12 +564,17 @@ font-weight: 600;
 margin-top: 8px;
 }
 .modal-card input,
-.modal-card textarea {
+.modal-card textarea,
+.modal-card select {
 width: 100%;
 border: 1px solid #ccd1da;
 border-radius: 6px;
 padding: 8px;
 font-size: 0.9rem;
+}
+
+.recording-day-select {
+  background: #ffffff;
 }
 .modal-actions {
 text-align: right;
