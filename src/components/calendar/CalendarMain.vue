@@ -32,7 +32,7 @@
   <!-- LEGEND -->
   <CalendarLegend 
     :categories="eventCategories"
-    :stage-hours="getStageHoursForDay(currentDateString)"
+    :stage-hours="getFilteredStageHoursForDay(currentDateString)"
   />
 
   <!-- ERRORS / LOADING -->
@@ -58,6 +58,7 @@
       :has-events="hasEvents"
       :get-event-color="getEventColor"
       :get-stage-hours-for-day="getStageHoursForDay"
+      :stage-hours="getFilteredStageHoursForDay(currentDateString)"
       :contacts="contacts"
       :is-current-week="isCurrentWeek"
       :jump-to-today="jumpToToday"
@@ -65,6 +66,7 @@
       @event-click="openDetailsModal"
       @previous-period="previousPeriod"
       @next-period="nextPeriod"
+      @edit-stage-hours="openStageHoursModal"
     />
 
     <!-- TIMELINE VIEW -->
@@ -73,7 +75,7 @@
       :timeline-day-events="timelineDayEvents"
       :time-slots="timeSlots"
       :formatted-timeline-date="formattedTimelineDate"
-      :stage-hours="getStageHoursForDay(currentDateString)"
+      :stage-hours="getFilteredStageHoursForDay(currentDateString)"
       :get-event-color="getEventColor"
       :contacts="contacts"
       :current-date-string="currentDateString"
@@ -89,7 +91,7 @@
       v-else
       :sorted-events="sortedEvents"
       :locations="locations"
-      :stage-hours="getStageHoursForDay(currentDateString)"
+      :stage-hours="getFilteredStageHoursForDay(currentDateString)"
       :categories="eventCategories"
       :get-event-color="getEventColor"
       :contacts="contacts"
@@ -138,7 +140,7 @@
             <div class="hours-list">
               <div v-for="hour in getStageHoursForStage(stage.id)" :key="hour.id" class="hour-item">
                 <span class="time-range">{{ formatDateTime(hour.start_datetime) }} - {{ formatDateTime(hour.end_datetime) }}</span>
-                <span v-if="hour.notes" class="day-id">Day {{ hour.notes }}</span>
+                <span v-if="hour.notes" class="day-id">{{ hour.notes.startsWith('Day') ? hour.notes : 'Day ' + hour.notes }}</span>
                 <div class="hour-actions">
                   <button class="btn btn-warning btn-sm" @click="editStageHour(hour, stage)">✏️</button>
                   <button class="btn btn-danger btn-sm" @click="deleteStageHour(hour)">🗑️</button>
@@ -458,6 +460,58 @@ setup() {
     return hoursByStage;
   }
 
+  // Filtered version of getStageHoursForDay that respects current filters
+  function getFilteredStageHoursForDay(date) {
+    const hours = filteredStageHours.value.filter(hour => {
+      const startDate = hour.start_datetime.slice(0, 10);
+      const endDate = hour.end_datetime.slice(0, 10);
+      
+      // Include stage hours that:
+      // 1. Start on the current date, OR
+      // 2. End on the current date, OR  
+      // 3. Span across the current date (start before and end after)
+      return startDate === date || endDate === date || (startDate < date && endDate > date);
+    });
+    
+    const hoursByStage = {};
+    
+    hours.forEach(hour => {
+      const stage = locations.value.find(l => l.id === hour.stage_id);
+      if (stage) {
+        const stageKey = `${stage.venue_name} - ${stage.stage_name}`;
+        if (!hoursByStage[stageKey]) {
+          hoursByStage[stageKey] = [];
+        }
+        
+        // Calculate display times for the current day
+        const startDate = hour.start_datetime.slice(0, 10);
+        const endDate = hour.end_datetime.slice(0, 10);
+        
+        let displayStartTime = extractTimeFromISO(hour.start_datetime);
+        let displayEndTime = extractTimeFromISO(hour.end_datetime);
+        
+        // If stage hours start on a previous day, show from 00:00
+        if (startDate < date) {
+          displayStartTime = '00:00';
+        }
+        
+        // If stage hours end on a future day, show until 00:00 (next day)
+        if (endDate > date) {
+          displayEndTime = '00:00';
+        }
+        
+        hoursByStage[stageKey].push({
+          start_time: displayStartTime,
+          end_time: displayEndTime,
+          notes: hour.notes,
+          isMultiDay: startDate !== endDate
+        });
+      }
+    });
+    
+    return hoursByStage;
+  }
+
   // Helper to extract time in HH:mm from ISO string
   function extractTimeFromISO(isoString) {
     if (!isoString) return '';
@@ -543,6 +597,31 @@ setup() {
       return d !== 0 ? d : a.start_time.localeCompare(b.start_time);
     })
   );
+
+  // Filtered stage hours based on current filters
+  const filteredStageHours = computed(() => {
+    let hours = stageHours.value.slice();
+    
+    // Filter by location if specified
+    if (filters.value.location) {
+      hours = hours.filter(hour => hour.stage_id === parseInt(filters.value.location));
+    }
+    
+    // Filter by date range if specified
+    if (filters.value.dateStart || filters.value.dateEnd) {
+      hours = hours.filter(hour => {
+        const hourStart = hour.start_datetime.slice(0, 10);
+        const hourEnd = hour.end_datetime.slice(0, 10);
+        
+        const filterStart = filters.value.dateStart || '1900-01-01';
+        const filterEnd = filters.value.dateEnd || '2100-12-31';
+        
+        return hourStart <= filterEnd && hourEnd >= filterStart;
+      });
+    }
+    
+    return hours;
+  });
 
   // TIMELINE
   const daysWithEvents = computed(() => {
@@ -966,9 +1045,9 @@ setup() {
     loading, error, calendarError, locationsError, stageHoursError, toastMsg,
     currentView, currentDate, currentDateString,
     filters, updateFilters,
-    locations, events, sortedEvents, stageHours, contacts,
+    locations, events, sortedEvents, stageHours, filteredStageHours, contacts,
     eventCategories, categoryColorMap, locationColorMap, getEventColor,
-    getStageHoursForDay,
+    getStageHoursForDay, getFilteredStageHoursForDay,
     timeSlots, timelineDayEvents, formattedTimelineDate,
     displayCalendarDays, hasEvents, getEventsForDay,
     showDetailsModal, detailsMode, detailsEvent,

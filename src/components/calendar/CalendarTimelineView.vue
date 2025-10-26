@@ -25,7 +25,7 @@
           <div v-for="(hour, index) in hours" :key="index" class="hour-slot" :class="{ 'multi-day-stage-hour': hour.isMultiDay }">
             <span class="time-range">{{ hour.start_time }}–{{ hour.end_time }}</span>
             <span v-if="hour.isMultiDay" class="multi-day-stage-indicator">Multi-day</span>
-            <span v-if="hour.notes" class="notes">(Day {{ hour.notes }})</span>
+            <span v-if="hour.notes" class="notes">({{ hour.notes.startsWith('Day') ? hour.notes : 'Day ' + hour.notes }})</span>
           </div>
         </div>
       </div>

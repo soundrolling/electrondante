@@ -11,6 +11,28 @@
     <button class="btn btn-primary jump-today-btn" @click="jumpToToday">Today</button>
   </div>
 
+  <!-- Stage Hours Section -->
+  <div v-if="stageHours && Object.keys(stageHours).length" class="stage-hours-section">
+    <div class="stage-hours-header">
+      <h3>Stage Hours</h3>
+      <button class="btn btn-warning edit-stage-hours-btn" @click="editStageHours">
+        ✏️ Edit Hours
+      </button>
+    </div>
+    <div class="stage-hours-list">
+      <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-item">
+        <div class="stage-name">{{ stageName }}</div>
+        <div class="hours-list">
+          <div v-for="(hour, index) in hours" :key="index" class="hour-slot" :class="{ 'multi-day-stage-hour': hour.isMultiDay }">
+            <span class="time-range">{{ hour.start_time }}–{{ hour.end_time }}</span>
+            <span v-if="hour.isMultiDay" class="multi-day-stage-indicator">Multi-day</span>
+            <span v-if="hour.notes" class="notes">({{ hour.notes.startsWith('Day') ? hour.notes : 'Day ' + hour.notes }})</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- SCROLL CONTAINER: synchronizes header & grid -->
   <div class="calendar-scroll">
     <div class="vertical-week-view" :class="{ 'highlight-week': isCurrentWeek }">
@@ -87,6 +109,10 @@ props: {
     type: Function,
     required: true
   },
+  stageHours: {
+    type: Object,
+    default: () => ({})
+  },
   contacts: {
     type: Array,
     default: () => []
@@ -96,7 +122,7 @@ props: {
     default: null
   }
 },
-emits: ['previous-period', 'next-period', 'update:calendarMode', 'event-click'],
+emits: ['previous-period', 'next-period', 'update:calendarMode', 'event-click', 'edit-stage-hours'],
 data() {
   return {
     calendarWeekDayHeaders: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
@@ -139,7 +165,9 @@ methods: {
     }
     return evt.end_time;
   },
-  // Keep only event-click
+  editStageHours() {
+    this.$emit('edit-stage-hours');
+  }
 }
 }
 </script>
@@ -148,6 +176,88 @@ methods: {
 .calendar-grid-view {
 padding: 10px;
 box-sizing: border-box;
+}
+
+.stage-hours-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.stage-hours-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stage-hours-header h3 {
+  margin: 0;
+  color: #495057;
+}
+
+.edit-stage-hours-btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.stage-hours-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stage-hour-item {
+  background: #fff;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.stage-name {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #495057;
+}
+
+.hours-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hour-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.time-range {
+  font-weight: 500;
+  color: #28a745;
+}
+
+.notes {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.multi-day-stage-hour {
+  background: rgba(255, 107, 53, 0.1) !important;
+  border-left: 3px solid #ff6b35 !important;
+}
+
+.multi-day-stage-indicator {
+  font-size: 0.7em;
+  color: #ff6b35;
+  font-weight: 600;
+  background: rgba(255, 107, 53, 0.2);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
 }
 .calendar-header {
 display: flex;
