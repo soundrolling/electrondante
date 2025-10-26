@@ -11,11 +11,6 @@
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
       </div>
-      <div class="stage-hours-btn">
-        <button class="btn btn-primary stage-hours-button" @click="openStageHoursModal" title="View Stage Hours">
-          📅 Stage Hours
-        </button>
-      </div>
       <div class="timecode-display">
         <strong class="tc">{{ liveTimecode }}</strong>
         <small class="tc-label">{{ currentTimeSourceLabel }}</small>
@@ -86,37 +81,6 @@
     </div>
   </div>
 
-  <!-- Stage Hours Modal -->
-  <div v-if="showStageHoursModal" class="modal-overlay" @click="closeStageHoursModal">
-    <div class="modal-content stage-hours-modal">
-      <div class="modal-header">
-        <h3>Stage Hours - {{ location?.venue_name }} – {{ location?.stage_name }}</h3>
-        <button class="btn btn-warning modal-close" @click="closeStageHoursModal">×</button>
-      </div>
-      <div class="modal-body">
-        <div v-if="stageHours.length === 0" class="empty-state">
-          <p>No stage hours configured for this stage.</p>
-        </div>
-        <div v-else class="stage-hours-list">
-          <div 
-            v-for="stageHour in stageHours" 
-            :key="stageHour.id"
-            class="stage-hour-item"
-          >
-            <div class="stage-hour-header">
-              <span class="stage-hour-label">{{ stageHour.notes || `Day ${stageHour.id}` }}</span>
-              <span class="stage-hour-dates">{{ formatStageHourDates(stageHour) }}</span>
-            </div>
-            <div class="stage-hour-times">
-              <span class="start-time">{{ formatDateTime(stageHour.start_datetime) }}</span>
-              <span class="time-separator">→</span>
-              <span class="end-time">{{ formatDateTime(stageHour.end_datetime) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 </template>
 
@@ -161,8 +125,6 @@ const recordingDate = ref(new Date().toISOString().slice(0, 10));
 const selectedStageHourId = ref('');
 const isSubmitting = ref(false);
 const hasPendingSync = ref(false);
-const stageHours = ref([]);
-const showStageHoursModal = ref(false);
 
 const syncStatusText = computed(() => {
   if (hasPendingSync.value) {
@@ -192,57 +154,19 @@ try {
 }
 onMounted(async () => {
   await fetchLocation();
-  await loadStageHours();
   await checkPendingSync();
 });
 
-async function loadStageHours() {
-  try {
-    const projectId = store.getCurrentProject?.id;
-    stageHours.value = await fetchTableData('stage_hours', {
-      eq: { 
-        project_id: projectId,
-        stage_id: props.locationId 
-      },
-      order: { column: 'start_datetime', ascending: true }
-    });
-  } catch (error) {
-    console.error('Error loading stage hours:', error);
-    stageHours.value = [];
-  }
-}
-
-// Auto-detect current stage hour based on timestamp and date
-function getCurrentStageHour(timestamp, recordingDate) {
-  if (!stageHours.value.length || !timestamp || !recordingDate) return null;
-  
-  const noteDateTime = new Date(`${recordingDate}T${timestamp}`);
-  
-  for (const stageHour of stageHours.value) {
-    const startDateTime = new Date(stageHour.start_datetime);
-    const endDateTime = new Date(stageHour.end_datetime);
-    
-    // Check if note falls within this stage hour's time range
-    if (noteDateTime >= startDateTime && noteDateTime <= endDateTime) {
-      return stageHour.id;
-    }
-  }
-  
-  return null;
-}
-
 function createNote() {
 copiedTimecode.value = liveTimecode.value;
-const autoDetectedStageHour = getCurrentStageHour(liveTimecode.value, recordingDate.value);
-selectedStageHourId.value = autoDetectedStageHour || '';
+selectedStageHourId.value = '';
 showNoteInput.value = true;
 }
 function openQuickfireNote(preset) {
 newNote.value = preset;
 copiedTimecode.value = liveTimecode.value;
 recordingDate.value = new Date().toISOString().slice(0, 10);
-const autoDetectedStageHour = getCurrentStageHour(liveTimecode.value, recordingDate.value);
-selectedStageHourId.value = autoDetectedStageHour || '';
+selectedStageHourId.value = '';
 showNoteInput.value = true;
 activeTab.value = 'notes';
 }
@@ -306,36 +230,6 @@ function handleChangeoverNote(note) {
 
 function refreshTimestamp() {
   copiedTimecode.value = new Date().toTimeString().slice(0, 8);
-}
-
-// Stage Hours Modal Functions
-function openStageHoursModal() {
-  console.log('Opening stage hours modal, stageHours data:', stageHours.value);
-  showStageHoursModal.value = true;
-}
-
-function closeStageHoursModal() {
-  showStageHoursModal.value = false;
-}
-
-function formatDateTime(dt) {
-  if (!dt) return '';
-  const d = new Date(dt);
-  return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
-}
-
-function formatStageHourDates(stageHour) {
-  const startDate = new Date(stageHour.start_datetime);
-  const endDate = new Date(stageHour.end_datetime);
-  
-  const startDateStr = startDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  const endDateStr = endDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  
-  if (startDateStr === endDateStr) {
-    return startDateStr;
-  } else {
-    return `${startDateStr} - ${endDateStr}`;
-  }
 }
 </script>
 
@@ -411,101 +305,6 @@ text-align: center;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 12px;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-}
-
-.modal-content {
-  background: #fff;
-  padding: 24px;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #111827;
-}
-
-.modal-close {
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.modal-close:hover {
-  background: #dc2626;
-}
-
-.modal-body {
-  padding: 0;
-}
-
-.stage-hour-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.stage-hour-label {
-  font-weight: 600;
-  color: #1e293b;
-  font-size: 1rem;
-}
-
-.stage-hour-dates {
-  color: #64748b;
-  font-size: 0.9rem;
-}
-
-.stage-hour-times {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #475569;
-}
-
-.start-time, .end-time {
-  font-family: monospace;
-  font-weight: 500;
-}
-
-.time-separator {
-  color: #94a3b8;
-  font-weight: bold;
 }
 
 .btn.back {

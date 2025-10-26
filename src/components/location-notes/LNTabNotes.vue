@@ -66,6 +66,11 @@
           </option>
         </select>
       </div>
+      <div class="stage-hours-btn">
+        <button class="btn btn-primary stage-hours-button" @click="openStageHoursModal" title="View & Edit Stage Hours">
+          📅 Stage Hours
+        </button>
+      </div>
       <div class="spacer"></div>
       <button class="btn btn-warning filter-toggle" @click="toggleFilters" :aria-expanded="showFilters">{{ showFilters ? 'Hide Filters' : 'Filters' }}</button>
     </div>
@@ -237,6 +242,67 @@
       </div>
     </div>
   </div>
+
+  <!-- Stage Hours Modal -->
+  <div v-if="showStageHoursModal" class="modal-overlay" @click="closeStageHoursModal">
+    <div class="modal-content stage-hours-modal">
+      <div class="modal-header">
+        <h3>Stage Hours - {{ location?.venue_name }} – {{ location?.stage_name }}</h3>
+        <button class="btn btn-warning modal-close" @click="closeStageHoursModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div v-if="stageHours.length === 0" class="empty-state">
+          <p>No stage hours configured for this stage.</p>
+          <button class="btn btn-primary" @click="addNewStageHour">Add First Stage Hour</button>
+        </div>
+        <div v-else class="stage-hours-list">
+          <div 
+            v-for="stageHour in stageHours" 
+            :key="stageHour.id"
+            class="stage-hour-item"
+          >
+            <div v-if="!editingStageHour || editingStageHour.id !== stageHour.id" class="stage-hour-display">
+              <div class="stage-hour-header">
+                <span class="stage-hour-label">{{ stageHour.notes || `Day ${stageHour.id}` }}</span>
+                <span class="stage-hour-dates">{{ formatStageHourDates(stageHour) }}</span>
+                <button class="btn btn-warning mini edit-stage-hour-btn" @click="editStageHour(stageHour)">Edit</button>
+              </div>
+              <div class="stage-hour-times">
+                <span class="start-time">{{ formatDateTime(stageHour.start_datetime) }}</span>
+                <span class="time-separator">→</span>
+                <span class="end-time">{{ formatDateTime(stageHour.end_datetime) }}</span>
+              </div>
+            </div>
+            <div v-else class="stage-hour-edit">
+              <div class="edit-form">
+                <div class="form-row">
+                  <label>Label/Notes:</label>
+                  <input v-model="editingStageHour.notes" type="text" placeholder="e.g., Day 1, Setup Day, etc." />
+                </div>
+                <div class="form-row">
+                  <label>Start Date & Time:</label>
+                  <input v-model="editingStageHour.start_datetime" type="datetime-local" />
+                </div>
+                <div class="form-row">
+                  <label>End Date & Time:</label>
+                  <input v-model="editingStageHour.end_datetime" type="datetime-local" />
+                </div>
+                <div class="form-actions">
+                  <button class="btn btn-warning mini" @click="cancelEditStageHour">Cancel</button>
+                  <button class="btn btn-positive mini" @click="saveStageHour" :disabled="isSavingStageHour">
+                    {{ isSavingStageHour ? 'Saving...' : 'Save' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="add-stage-hour-section">
+            <button class="btn btn-primary" @click="addNewStageHour">+ Add Stage Hour</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -302,6 +368,12 @@ const exportRangeEnd = ref('');
 const exportWholeDay = ref(false);
 const exportWholeDayDate = ref('');
 const EXPORT_PREF_KEY = 'ln_notes_export_prefs';
+
+// Stage Hours Modal
+const showStageHoursModal = ref(false);
+const editingStageHour = ref(null);
+const isSavingStageHour = ref(false);
+const location = ref(null);
 
 function saveExportPrefs() {
   try {
@@ -660,6 +732,95 @@ function closeExportModal() {
   showExportModal.value = false;
 }
 
+// Stage Hours Modal Functions
+function openStageHoursModal() {
+  console.log('Opening stage hours modal, stageHours data:', stageHours.value);
+  showStageHoursModal.value = true;
+}
+
+function closeStageHoursModal() {
+  showStageHoursModal.value = false;
+  editingStageHour.value = null;
+}
+
+function editStageHour(stageHour) {
+  editingStageHour.value = { ...stageHour };
+}
+
+function cancelEditStageHour() {
+  editingStageHour.value = null;
+}
+
+async function saveStageHour() {
+  if (!editingStageHour.value) return;
+  
+  isSavingStageHour.value = true;
+  try {
+    const projectId = await getSetting('current-project-id');
+    
+    if (editingStageHour.value.id) {
+      // Update existing stage hour
+      await mutateTableData('stage_hours', 'update', {
+        id: editingStageHour.value.id,
+        notes: editingStageHour.value.notes,
+        start_datetime: editingStageHour.value.start_datetime,
+        end_datetime: editingStageHour.value.end_datetime
+      });
+    } else {
+      // Create new stage hour
+      await mutateTableData('stage_hours', 'insert', {
+        project_id: projectId,
+        stage_id: props.locationId,
+        notes: editingStageHour.value.notes,
+        start_datetime: editingStageHour.value.start_datetime,
+        end_datetime: editingStageHour.value.end_datetime
+      });
+    }
+    
+    // Reload stage hours
+    await loadStageHours();
+    editingStageHour.value = null;
+    toast.success('Stage hour saved successfully');
+  } catch (error) {
+    console.error('Error saving stage hour:', error);
+    toast.error('Failed to save stage hour');
+  } finally {
+    isSavingStageHour.value = false;
+  }
+}
+
+function addNewStageHour() {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  
+  editingStageHour.value = {
+    id: null,
+    notes: '',
+    start_datetime: now.toISOString().slice(0, 16),
+    end_datetime: tomorrow.toISOString().slice(0, 16)
+  };
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '';
+  const d = new Date(dt);
+  return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatStageHourDates(stageHour) {
+  const startDate = new Date(stageHour.start_datetime);
+  const endDate = new Date(stageHour.end_datetime);
+  
+  const startDateStr = startDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const endDateStr = endDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  
+  if (startDateStr === endDateStr) {
+    return startDateStr;
+  } else {
+    return `${startDateStr} - ${endDateStr}`;
+  }
+}
+
 // Only use date range for export, not for table filtering
 function getExportedNotes() {
   let arr = [...notes.value];
@@ -940,6 +1101,21 @@ async function checkPendingChanges() {
 }
 
 // Ensure data persistence across navigation and refreshes
+async function loadLocation() {
+  try {
+    const res = await fetchTableData('locations', { eq: { id: props.locationId } });
+    if (res.length) {
+      location.value = res[0];
+    } else {
+      // Try to get from cache
+      const all = await getData('locations');
+      location.value = all.find(x => String(x.id) === props.locationId);
+    }
+  } catch (error) {
+    console.error('Error loading location:', error);
+  }
+}
+
 async function ensureDataPersistence() {
   try {
     // Always load from local storage first for immediate display
@@ -965,6 +1141,7 @@ onMounted(async () => {
     await ensureDataPersistence();
     await loadPills();
     await loadStageHours();
+    await loadLocation();
     await checkPendingChanges();
     hasLoaded.value = true;
   }
@@ -1772,4 +1949,155 @@ opacity: 0.6;
 }
 .btn.btn-warning:hover { background-color: #b45309 !important; }
 .btn.btn-warning:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
+
+/* Stage Hours Button */
+.stage-hours-btn {
+  flex-shrink: 0;
+}
+
+.stage-hours-button {
+  background: #2563eb;
+  color: #ffffff !important;
+  border: 2px solid #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.stage-hours-button:hover {
+  background: #1d4ed8;
+  border-color: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+/* Stage Hours Modal */
+.stage-hours-modal {
+  max-width: 700px;
+  max-height: 80vh;
+}
+
+.stage-hours-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.stage-hour-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.stage-hour-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.stage-hour-label {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.stage-hour-dates {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.edit-stage-hour-btn {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.edit-stage-hour-btn:hover {
+  background: #d97706;
+}
+
+.stage-hour-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+}
+
+.time-separator {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.stage-hour-edit {
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-row label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.form-row input {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.form-row input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.add-stage-hour-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.empty-state p {
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+}
 </style> 
