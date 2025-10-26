@@ -990,8 +990,8 @@ setup() {
         if (error) throw error;
         slotId = data.id;
       }
-      // Upsert calendar event
-      await upsertCalendarEventForStageHour(payload, modalStage.value, pid);
+      // Note: Stage hours are now only stored in stage_hours table for reference display
+      // No longer creating duplicate calendar events
       await fetchData();
       closeAddEditSlotModal();
       closeViewAllHoursModal();
@@ -1009,8 +1009,8 @@ setup() {
         .delete()
         .eq('id', slot.id);
       if (error) throw error;
-      // Delete calendar event
-      await deleteCalendarEventForStageHour(slot, stage, pid);
+      // Note: Stage hours are now only stored in stage_hours table for reference display
+      // No longer deleting duplicate calendar events
       await fetchData();
       closeViewAllHoursModal();
     } catch (e) {

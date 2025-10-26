@@ -401,8 +401,8 @@ setup() {
         const startDate = hour.start_datetime.slice(0, 10);
         const endDate = hour.end_datetime.slice(0, 10);
         
-        let displayStartTime = formatTime(hour.start_datetime);
-        let displayEndTime = formatTime(hour.end_datetime);
+        let displayStartTime = extractTimeFromISO(hour.start_datetime);
+        let displayEndTime = extractTimeFromISO(hour.end_datetime);
         
         // If stage hours start on a previous day, show from 00:00
         if (startDate < date) {
