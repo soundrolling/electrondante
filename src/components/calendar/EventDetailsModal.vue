@@ -111,7 +111,7 @@
       </div>
       <div class="modal-actions">
         <button class="btn btn-positive save-button" @click="$emit('save', localEvent)">Save</button>
-        <button class="btn btn-warning cancel-button" @click="$emit('cancel-edit')">Cancel</button>
+        <button class="btn btn-warning close-button" @click="$emit('save', localEvent)">Close</button>
       </div>
     </template>
   </div>
