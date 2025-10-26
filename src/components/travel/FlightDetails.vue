@@ -1739,7 +1739,7 @@ setup(props) {
   align-items: center;
   gap: 0.5rem;
   background: #10b981;
-  color: #fff;
+  color: white;
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 8px;
@@ -1960,7 +1960,7 @@ setup(props) {
 
 .delete-button {
   background: #ef4444;
-  color: #fff;
+  color: white;
   border-radius: 8px;
   padding: 0.5rem 1.2rem;
   font-size: 1rem;
@@ -2138,7 +2138,7 @@ setup(props) {
 }
 .secondary-button {
   background-color: #6c757d;
-  color: #fff;
+  color: white;
   border-radius: 8px;
   padding: 0.5rem 1.25rem;
   font-weight: 500;
@@ -2150,7 +2150,7 @@ setup(props) {
 }
 .primary-button {
   background-color: #10b981;
-  color: #fff;
+  color: white;
   border-radius: 8px;
   padding: 0.5rem 1.25rem;
   font-weight: 500;

@@ -1025,11 +1025,15 @@ setup() {
 .modal-body {
   max-height: calc(90vh - 120px);
   overflow-y: auto;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 /* Form Styles */
 .form-group {
   margin-bottom: var(--space-6);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .form-group label {
@@ -1054,6 +1058,7 @@ setup() {
   color: var(--text-primary);
   transition: all var(--transition-normal);
   min-height: 48px;
+  max-width: 100%;
 }
 
 .form-textarea {
@@ -1072,6 +1077,8 @@ setup() {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .form-actions {
