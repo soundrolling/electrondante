@@ -52,6 +52,20 @@
           <option value="asc">Earliest first</option>
         </select>
       </div>
+      <div class="recording-day-filter-row">
+        <label class="label">Recording Day:</label>
+        <select v-model="recordingDayFilter" class="recording-day-filter-select">
+          <option value="all">All</option>
+          <option value="unassigned">Unassigned</option>
+          <option 
+            v-for="stageHour in stageHours" 
+            :key="stageHour.id" 
+            :value="stageHour.id"
+          >
+            {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+          </option>
+        </select>
+      </div>
       <div class="spacer"></div>
       <button class="btn btn-warning filter-toggle" @click="toggleFilters" :aria-expanded="showFilters">{{ showFilters ? 'Hide Filters' : 'Filters' }}</button>
     </div>
@@ -65,20 +79,6 @@
         <label class="label">To:</label>
         <input type="datetime-local" v-model="rangeEnd" class="date-range-input" />
         <button class="btn btn-danger reset-btn" @click="rangeEnd = ''" title="Clear to date">✕</button>
-      </div>
-      <div class="recording-day-filter-row">
-        <label class="label">Recording Day:</label>
-        <select v-model="recordingDayFilter" class="recording-day-filter-select">
-          <option value="">All</option>
-          <option value="unassigned">Unassigned</option>
-          <option 
-            v-for="stageHour in stageHours" 
-            :key="stageHour.id" 
-            :value="stageHour.id"
-          >
-            {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
-          </option>
-        </select>
       </div>
       <div class="quick-range-btns">
         <button class="btn btn-primary today-btn" @click="setTodayRange" title="Set range to today">Today</button>
@@ -602,7 +602,7 @@ startEdit({
 
 const rangeStart = ref('');
 const rangeEnd = ref('');
-const recordingDayFilter = ref('');
+const recordingDayFilter = ref('all');
 const showFilters = ref(false);
 function toggleFilters(){ showFilters.value = !showFilters.value }
 function clearRange() {
@@ -628,7 +628,7 @@ const filteredAndSortedNotes = computed(() => {
   }
   
   // Filter by recording day if set
-  if (recordingDayFilter.value) {
+  if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
     if (recordingDayFilter.value === 'unassigned') {
       arr = arr.filter(n => !n.stage_hour_id);
     } else {
@@ -1218,25 +1218,25 @@ opacity: 0.6;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 2px;
+  margin-right: 16px;
 }
 
 .recording-day-filter-select {
-  max-width: 200px;
-  min-width: 140px;
+  max-width: 180px;
+  min-width: 120px;
   width: 100%;
-  border: 2px solid #d1d5db !important;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border: 1px solid #cad8f3;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 0.95rem;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: none;
+  transition: border-color 0.2s;
 }
 
 .recording-day-filter-select:focus {
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
   outline: none;
 }
 
@@ -1276,22 +1276,25 @@ opacity: 0.6;
   }
   .note-datetime-header,
   .note-datetime {
-    width: 22%;
-    min-width: 130px;
+    width: 25%;
+    min-width: 100px;
+    word-break: break-word;
   }
   .note-text-header,
   .note-text {
-    width: 40%;
+    width: 35%;
+    word-break: break-word;
   }
   .note-recording-day-header,
   .note-recording-day {
-    width: 18%;
+    width: 20%;
     min-width: 80px;
+    word-break: break-word;
   }
   .note-actions-header,
   .note-actions {
     width: 20%;
-    min-width: 120px;
+    min-width: 100px;
   }
 }
 
@@ -1405,9 +1408,10 @@ opacity: 0.6;
 .note-datetime-header,
 .note-datetime {
   font-size: 0.9rem;
-  width: 18%;
+  width: 20%;
   min-width: 140px;
   white-space: nowrap;
+  word-break: break-word;
 }
 .datetime-combined {
   display: flex;
@@ -1431,26 +1435,27 @@ opacity: 0.6;
 .note-text {
   white-space: pre-line;
   word-break: break-word;
-  width: 45%;
+  width: 40%;
   font-size: 0.9rem;
   line-height: 1.4;
 }
 
 .note-recording-day-header,
 .note-recording-day {
-  width: 15%;
-  min-width: 100px;
+  width: 20%;
+  min-width: 120px;
   font-size: 0.85rem;
   text-align: center;
   color: #64748b;
+  word-break: break-word;
 }
 
 .note-actions-header,
 .note-actions {
   display: flex;
   gap: 12px;
-  width: 27%;
-  min-width: 160px;
+  width: 20%;
+  min-width: 120px;
   justify-content: center;
 }
 
