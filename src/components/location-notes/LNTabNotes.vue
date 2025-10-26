@@ -1468,7 +1468,7 @@ opacity: 0.6;
 }
 
 .note-actions-header {
-  text-align: center;
+  text-align: center !important;
 }
 .icon-btn {
   width: 44px;

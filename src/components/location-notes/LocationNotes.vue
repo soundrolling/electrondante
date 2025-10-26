@@ -376,7 +376,7 @@ text-align: center;
 
 .stage-hours-button {
   background: #2563eb;
-  color: #ffffff;
+  color: #ffffff !important;
   border: 2px solid #1d4ed8;
   border-radius: 8px;
   padding: 8px 16px;
