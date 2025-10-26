@@ -746,6 +746,7 @@ setup() {
   transition: all var(--transition-normal);
   min-height: 44px;
   box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
 }
 
 .primary-button:hover {
@@ -977,6 +978,7 @@ setup() {
   overflow-y: auto;
   z-index: var(--z-modal);
   box-shadow: var(--shadow-xl);
+  box-sizing: border-box;
 }
 
 .modal-header {
@@ -1078,6 +1080,8 @@ setup() {
   gap: var(--space-3);
   margin-top: var(--space-6);
   flex-wrap: wrap;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .secondary-button {
@@ -1092,6 +1096,7 @@ setup() {
   transition: all var(--transition-normal);
   min-height: 44px;
   box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
 }
 
 .secondary-button:hover {
@@ -1246,9 +1251,10 @@ setup() {
   }
   
   .modal-container {
-    padding: var(--space-5) var(--space-4);
+    padding: var(--space-6) var(--space-5);
     margin: var(--space-4);
     max-height: calc(100vh - 32px);
+    box-sizing: border-box;
   }
   
   .form-actions {
