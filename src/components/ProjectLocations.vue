@@ -418,7 +418,7 @@
               <tr>
                 <th>Start</th>
                 <th>End</th>
-                <th>Notes</th>
+                <th>Recording Day ID</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -458,8 +458,8 @@
             <input type="datetime-local" v-model="slotForm.end_datetime" />
           </div>
           <div class="form-field">
-            <label>Notes</label>
-            <input type="text" v-model="slotForm.notes" placeholder="Optional" />
+            <label>Recording Day ID</label>
+            <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" />
           </div>
           <div class="form-actions">
             <button class="primary-button save-button" @click="saveSlot">Save</button>
@@ -566,7 +566,17 @@ setup() {
     }
   }
 
-  onMounted(fetchData);
+  onMounted(async () => {
+    await fetchData();
+    // Check for stageId query parameter to auto-open modal
+    if (route.query.stageId) {
+      const stageId = parseInt(route.query.stageId);
+      const stage = stages.value.find(s => s.id === stageId);
+      if (stage) {
+        openViewAllHoursModal(stage);
+      }
+    }
+  });
 
   const filteredStagesMain = computed(() => {
     if (!stages.value || !Array.isArray(stages.value)) return [];

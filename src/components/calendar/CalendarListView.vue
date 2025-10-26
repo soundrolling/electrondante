@@ -4,14 +4,19 @@
   
   <!-- Stage Hours Section -->
   <div v-if="stageHours && Object.keys(stageHours).length" class="stage-hours-section">
-    <h3>Stage Hours Today</h3>
+    <div class="stage-hours-header">
+      <h3>Stage Hours Today</h3>
+      <button class="btn btn-warning edit-stage-hours-btn" @click="editStageHours">
+        ✏️ Edit Hours
+      </button>
+    </div>
     <div class="stage-hours-list">
       <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-card">
         <div class="stage-name">{{ stageName }}</div>
         <div class="hours-list">
           <div v-for="(hour, index) in hours" :key="index" class="hour-item">
             <span class="time-range">{{ hour.start_time }}–{{ hour.end_time }}</span>
-            <span v-if="hour.notes" class="notes">{{ hour.notes }}</span>
+            <span v-if="hour.notes" class="notes">Day {{ hour.notes }}</span>
           </div>
         </div>
       </div>
@@ -177,7 +182,7 @@ props: {
     default: () => []
   }
 },
-emits: ['event-click', 'edit', 'delete', 'edit-save'],
+emits: ['event-click', 'edit', 'delete', 'edit-save', 'edit-stage-hours'],
 data() {
   return {
     showInfoModal: false,
@@ -264,6 +269,9 @@ methods: {
   getContactName(contactId) {
     const contact = this.contacts.find(c => c.id === contactId);
     return contact ? (contact.name || 'Unnamed Contact') : 'Unknown Contact';
+  },
+  editStageHours() {
+    this.$emit('edit-stage-hours');
   }
 }
 }
@@ -283,9 +291,21 @@ border-radius: 8px;
 border: 1px solid #e9ecef;
 }
 
-.stage-hours-section h3 {
-margin: 0 0 1rem 0;
+.stage-hours-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stage-hours-header h3 {
+margin: 0;
 color: #495057;
+}
+
+.edit-stage-hours-btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
 }
 
 .stage-hours-list {

@@ -12,7 +12,12 @@
 
   <!-- Stage Hours Section -->
   <div v-if="stageHours && Object.keys(stageHours).length" class="stage-hours-section">
-    <h3>Stage Hours</h3>
+    <div class="stage-hours-header">
+      <h3>Stage Hours</h3>
+      <button class="btn btn-warning edit-stage-hours-btn" @click="editStageHours">
+        ✏️ Edit Hours
+      </button>
+    </div>
     <div class="stage-hours-list">
       <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-item">
         <div class="stage-name">{{ stageName }}</div>
@@ -20,7 +25,7 @@
           <div v-for="(hour, index) in hours" :key="index" class="hour-slot" :class="{ 'multi-day-stage-hour': hour.isMultiDay }">
             <span class="time-range">{{ hour.start_time }}–{{ hour.end_time }}</span>
             <span v-if="hour.isMultiDay" class="multi-day-stage-indicator">Multi-day</span>
-            <span v-if="hour.notes" class="notes">({{ hour.notes }})</span>
+            <span v-if="hour.notes" class="notes">(Day {{ hour.notes }})</span>
           </div>
         </div>
       </div>
@@ -111,7 +116,7 @@ props: {
     default: () => []
   }
 },
-emits: ['event-click', 'previous-day', 'next-day'],
+emits: ['event-click', 'previous-day', 'next-day', 'edit-stage-hours'],
 data() {
   return {
     now: new Date(),
@@ -211,6 +216,9 @@ methods: {
     const location = this.locations.find(l => l.id === evt.location_id);
     if (!location) return null;
     return `${location.venue_name} - ${location.stage_name}`;
+  },
+  editStageHours() {
+    this.$emit('edit-stage-hours');
   }
 }
 }
@@ -240,11 +248,28 @@ background: #eaeef2;
 }
 
 .stage-hours-section {
-margin-bottom: 1rem;
-padding: 1rem;
-background: #f8f9fa;
-border-radius: 8px;
-border: 1px solid #e9ecef;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.stage-hours-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stage-hours-header h3 {
+  margin: 0;
+  color: #495057;
+}
+
+.edit-stage-hours-btn {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.8rem;
 }
 
 .stage-hours-section h3 {

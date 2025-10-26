@@ -81,6 +81,7 @@
       @event-click="openDetailsModal"
       @previous-day="previousDay"
       @next-day="nextDay"
+      @edit-stage-hours="openStageHoursModal"
     />
 
     <!-- LIST VIEW -->
@@ -95,6 +96,7 @@
       @event-click="openDetailsModal"
       @edit="onEditEvent"
       @delete="onDeleteEvent"
+      @edit-stage-hours="openStageHoursModal"
     />
   </section>
 
@@ -121,6 +123,34 @@
     @close="closeNewEventModal"
     @create="createNewEvent"
   />
+
+  <!-- Stage Hours Modal -->
+  <div v-if="showStageHoursModal" class="modal-overlay" @click.self="closeStageHoursModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Stage Hours</h2>
+        <button class="close-button" @click="closeStageHoursModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="stage-hours-list">
+          <div v-for="stage in locations" :key="stage.id" class="stage-hours-item">
+            <div class="stage-name">{{ stage.venue_name }} - {{ stage.stage_name }}</div>
+            <div class="hours-list">
+              <div v-for="hour in getStageHoursForStage(stage.id)" :key="hour.id" class="hour-item">
+                <span class="time-range">{{ formatDateTime(hour.start_datetime) }} - {{ formatDateTime(hour.end_datetime) }}</span>
+                <span v-if="hour.notes" class="day-id">Day {{ hour.notes }}</span>
+                <div class="hour-actions">
+                  <button class="btn btn-warning btn-sm" @click="editStageHour(hour, stage)">✏️</button>
+                  <button class="btn btn-danger btn-sm" @click="deleteStageHour(hour)">🗑️</button>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" @click="addStageHour(stage)">+ Add Hours</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -129,7 +159,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useUserStore } from "../../stores/userStore";
 import { fetchTableData } from "../../services/dataService";
 import { supabase } from "../../supabase";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
 
 // Import subcomponents
@@ -158,6 +188,7 @@ components: {
 setup() {
   const userStore = useUserStore();
   const route = useRoute();
+  const router = useRouter();
   const toast = useToast();
   const loading = ref(true);
   const error = ref("");
@@ -214,6 +245,7 @@ setup() {
 
   // NEW EVENT MODAL STATE
   const showNewModal = ref(false);
+  const showStageHoursModal = ref(false);
 
   // FETCH ALL DATA FROM SUPABASE
   async function fetchAll() {
@@ -741,6 +773,69 @@ setup() {
   function closeNewEventModal() {
     showNewModal.value = false;
   }
+
+  // Stage Hours Modal Functions
+  function openStageHoursModal() {
+    showStageHoursModal.value = true;
+  }
+
+  function closeStageHoursModal() {
+    showStageHoursModal.value = false;
+  }
+
+  function getStageHoursForStage(stageId) {
+    return stageHours.value.filter(hour => hour.stage_id === stageId);
+  }
+
+  function formatDateTime(dt) {
+    if (!dt) return '';
+    const d = new Date(dt);
+    return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+  function editStageHour(hour, stage) {
+    // Navigate to ProjectLocations with the specific stage
+    const projectId = userStore.getCurrentProject?.id;
+    router.push({
+      name: 'ProjectLocations',
+      params: { id: projectId },
+      query: { stageId: stage.id }
+    });
+  }
+
+  function addStageHour(stage) {
+    // Navigate to ProjectLocations with the specific stage
+    const projectId = userStore.getCurrentProject?.id;
+    router.push({
+      name: 'ProjectLocations',
+      params: { id: projectId },
+      query: { stageId: stage.id }
+    });
+  }
+
+  async function deleteStageHour(hour) {
+    if (confirm('Are you sure you want to delete this stage hour?')) {
+      try {
+        const { error } = await supabase
+          .from('stage_hours')
+          .delete()
+          .eq('id', hour.id);
+        
+        if (error) throw error;
+        
+        // Remove from local state
+        const index = stageHours.value.findIndex(h => h.id === hour.id);
+        if (index > -1) {
+          stageHours.value.splice(index, 1);
+        }
+        
+        toast.success('Stage hour deleted successfully');
+      } catch (error) {
+        console.error('Error deleting stage hour:', error);
+        toast.error('Failed to delete stage hour');
+      }
+    }
+  }
   
   // Force refresh function for debugging
   async function forceRefresh() {
@@ -1006,5 +1101,106 @@ box-sizing: border-box;
 .controls-section {
   flex-direction: column;
 }
+}
+
+/* Stage Hours Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #495057;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.close-button:hover {
+  color: #495057;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.stage-hours-item {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: #f8f9fa;
+}
+
+.stage-name {
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #495057;
+}
+
+.hours-list {
+  margin-bottom: 1rem;
+}
+
+.hour-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.time-range {
+  font-weight: 500;
+  color: #28a745;
+}
+
+.day-id {
+  color: #6c757d;
+  font-style: italic;
+  margin-left: 1rem;
+}
+
+.hour-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
 }
 </style> 

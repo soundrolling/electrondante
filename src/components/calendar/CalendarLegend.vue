@@ -21,9 +21,9 @@
               <div class="stage-hours-legend">
                 <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-item-legend">
                   <strong>{{ stageName }}:</strong>
-                  <span v-for="(hour, index) in hours" :key="index" class="hour-slot-legend">
+                    <span v-for="(hour, index) in hours" :key="index" class="hour-slot-legend">
                     {{ hour.start_time }}–{{ hour.end_time }}
-                    <span v-if="hour.notes" class="hour-notes">({{ hour.notes }})</span>
+                    <span v-if="hour.notes" class="hour-notes">(Day {{ hour.notes }})</span>
                   </span>
                 </div>
               </div>
