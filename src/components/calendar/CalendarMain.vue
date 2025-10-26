@@ -77,6 +77,7 @@
       :get-event-color="getEventColor"
       :contacts="contacts"
       :current-date-string="currentDateString"
+      :locations="locations"
       @event-click="openDetailsModal"
       @previous-day="previousDay"
       @next-day="nextDay"
@@ -372,9 +373,16 @@ setup() {
 
   // STAGE HOURS HELPERS
   function getStageHoursForDate(date) {
-    return stageHours.value.filter(hour => 
-      hour.start_datetime.slice(0, 10) === date
-    );
+    return stageHours.value.filter(hour => {
+      const startDate = hour.start_datetime.slice(0, 10);
+      const endDate = hour.end_datetime.slice(0, 10);
+      
+      // Include stage hours that:
+      // 1. Start on the current date, OR
+      // 2. End on the current date, OR  
+      // 3. Span across the current date (start before and end after)
+      return startDate === date || endDate === date || (startDate < date && endDate > date);
+    });
   }
 
   function getStageHoursForDay(date) {
@@ -388,10 +396,29 @@ setup() {
         if (!hoursByStage[stageKey]) {
           hoursByStage[stageKey] = [];
         }
+        
+        // Calculate display times for the current day
+        const startDate = hour.start_datetime.slice(0, 10);
+        const endDate = hour.end_datetime.slice(0, 10);
+        
+        let displayStartTime = formatTime(hour.start_datetime);
+        let displayEndTime = formatTime(hour.end_datetime);
+        
+        // If stage hours start on a previous day, show from 00:00
+        if (startDate < date) {
+          displayStartTime = '00:00';
+        }
+        
+        // If stage hours end on a future day, show until 00:00 (next day)
+        if (endDate > date) {
+          displayEndTime = '00:00';
+        }
+        
         hoursByStage[stageKey].push({
-          start_time: formatTime(hour.start_datetime),
-          end_time: formatTime(hour.end_datetime),
-          notes: hour.notes
+          start_time: displayStartTime,
+          end_time: displayEndTime,
+          notes: hour.notes,
+          isMultiDay: startDate !== endDate
         });
       }
     });

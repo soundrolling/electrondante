@@ -17,8 +17,9 @@
       <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-item">
         <div class="stage-name">{{ stageName }}</div>
         <div class="hours-list">
-          <div v-for="(hour, index) in hours" :key="index" class="hour-slot">
+          <div v-for="(hour, index) in hours" :key="index" class="hour-slot" :class="{ 'multi-day-stage-hour': hour.isMultiDay }">
             <span class="time-range">{{ hour.start_time }}–{{ hour.end_time }}</span>
+            <span v-if="hour.isMultiDay" class="multi-day-stage-indicator">Multi-day</span>
             <span v-if="hour.notes" class="notes">({{ hour.notes }})</span>
           </div>
         </div>
@@ -53,6 +54,9 @@
               <div class="event-content">
                 <strong v-html="evt.title"></strong><br>
                 <small>{{ formatTime(getDisplayStartTime(evt)) }} – {{ formatTime(getDisplayEndTime(evt)) }}</small>
+                <div v-if="getEventLocation(evt)" class="event-location">
+                  <span class="location-text">📍 {{ getEventLocation(evt) }}</span>
+                </div>
                 <div v-if="isMultiDayEvent(evt)" class="multi-day-indicator">
                   <span class="multi-day-text">Multi-day event</span>
                 </div>
@@ -101,6 +105,10 @@ props: {
   currentDateString: {
     type: String,
     required: true
+  },
+  locations: {
+    type: Array,
+    default: () => []
   }
 },
 emits: ['event-click', 'previous-day', 'next-day'],
@@ -197,6 +205,12 @@ methods: {
   },
   isMultiDayEvent(evt) {
     return evt.end_date && evt.end_date !== evt.event_date;
+  },
+  getEventLocation(evt) {
+    if (!evt.location_id || !this.locations) return null;
+    const location = this.locations.find(l => l.id === evt.location_id);
+    if (!location) return null;
+    return `${location.venue_name} - ${location.stage_name}`;
   }
 }
 }
@@ -395,5 +409,33 @@ font-size: 0.7rem;
   background: rgba(255, 107, 53, 0.1);
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
+}
+
+.event-location {
+  margin-top: 0.2rem;
+}
+
+.location-text {
+  font-size: 0.7em;
+  color: #6b7280;
+  font-weight: 500;
+  background: rgba(107, 114, 128, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+.multi-day-stage-hour {
+  background: rgba(255, 107, 53, 0.1) !important;
+  border-left: 3px solid #ff6b35 !important;
+}
+
+.multi-day-stage-indicator {
+  font-size: 0.7em;
+  color: #ff6b35;
+  font-weight: 600;
+  background: rgba(255, 107, 53, 0.2);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
 }
 </style> 
