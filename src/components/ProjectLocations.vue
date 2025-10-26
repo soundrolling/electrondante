@@ -568,6 +568,7 @@ setup() {
   onMounted(fetchData);
 
   const filteredStagesMain = computed(() => {
+    if (!stages.value || !Array.isArray(stages.value)) return [];
     if (!mainSearch.value.trim()) return stages.value;
     const t = mainSearch.value.toLowerCase();
     return stages.value.filter(
@@ -578,6 +579,7 @@ setup() {
   });
 
   const filteredVenues = computed(() => {
+    if (!venues.value || !Array.isArray(venues.value)) return [];
     if (!venueSearch.value.trim()) return venues.value;
     const t = venueSearch.value.toLowerCase();
     return venues.value.filter(
@@ -590,7 +592,7 @@ setup() {
 
   const filteredStagesForSelectedVenue = computed(() => {
     const vid = Number(selectedVenue.value);
-    if (!vid) return [];
+    if (!vid || !stages.value || !Array.isArray(stages.value)) return [];
     let list = stages.value.filter((s) => s.venue_id === vid);
     if (stageSearch.value.trim()) {
       const t = stageSearch.value.toLowerCase();
@@ -604,6 +606,11 @@ setup() {
   // Helper function to get venue info for a stage
   const getVenueForStage = (stage) => {
     return venues.value.find(venue => venue.id === stage.venue_id);
+  };
+
+  // Helper function to get stages for a venue
+  const getStagesForVenue = (venueId) => {
+    return stages.value.filter(stage => stage.venue_id === venueId);
   };
 
   async function createVenueWithStage() {
