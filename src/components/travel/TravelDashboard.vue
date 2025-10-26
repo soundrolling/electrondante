@@ -116,9 +116,9 @@
   </div>
 
   <!-- New Trip Modal -->
-  <div v-if="showNewTripModal" class="modal" role="dialog" aria-labelledby="modal-title">
+  <div v-if="showNewTripModal" class="modal slide-in-modal" role="dialog" aria-labelledby="modal-title">
     <div class="modal-overlay" @click="showNewTripModal = false"></div>
-    <div class="modal-container">
+    <div class="modal-container slide-in-container">
       <div class="modal-header">
         <h2 id="modal-title">Create New Trip</h2>
         <button 
@@ -213,9 +213,9 @@
   </div>
 
   <!-- Edit Trip Modal -->
-  <div v-if="showEditTripModal" class="modal" role="dialog" aria-labelledby="edit-modal-title">
+  <div v-if="showEditTripModal" class="modal slide-in-modal" role="dialog" aria-labelledby="edit-modal-title">
     <div class="modal-overlay" @click="showEditTripModal = false"></div>
-    <div class="modal-container">
+    <div class="modal-container slide-in-container">
       <div class="modal-header">
         <h2 id="edit-modal-title">Edit Trip</h2>
         <button 
@@ -595,6 +595,7 @@ setup() {
   line-height: var(--leading-normal);
   background: var(--bg-secondary);
   min-height: 100vh;
+  max-width: none;
 }
 
 /* Safe area margins for mobile devices */
@@ -638,6 +639,8 @@ setup() {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-5);
+  max-width: none;
+  width: 100%;
 }
 
 /* Dashboard Cards */
@@ -1060,6 +1063,54 @@ setup() {
   box-sizing: border-box;
 }
 
+.slide-in-modal {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.slide-in-modal .modal-overlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.slide-in-container {
+  position: relative;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  padding: var(--space-6);
+  width: 100%;
+  max-width: 500px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: var(--z-modal);
+  box-shadow: var(--shadow-xl);
+  box-sizing: border-box;
+  margin: 0;
+  transform: translateX(100%);
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 .modal-overlay {
   position: absolute;
   width: 100%;
@@ -1297,7 +1348,6 @@ setup() {
 /* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .travel-dashboard {
-    max-width: 1200px;
     padding: var(--space-9);
   }
   
@@ -1369,6 +1419,12 @@ setup() {
   
   .action-button {
     width: 100%;
+  }
+  
+  .slide-in-container {
+    max-width: 100%;
+    border-radius: 0;
+    padding: var(--space-5);
   }
   
   .modal-container {
