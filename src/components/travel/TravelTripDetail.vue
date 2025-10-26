@@ -249,8 +249,8 @@ methods: {
 }
 
 .tab-btn.active {
-  background: #ffffff;
-  color: #3b82f6;
+  background: #3b82f6;
+  color: white;
   border-color: #3b82f6;
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);

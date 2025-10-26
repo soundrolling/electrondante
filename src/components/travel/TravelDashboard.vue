@@ -784,7 +784,7 @@ setup() {
   color: white;
   border: none;
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-5);
   cursor: pointer;
   font-size: var(--text-base);
   font-weight: var(--font-medium);
@@ -792,6 +792,7 @@ setup() {
   min-height: 44px;
   box-shadow: var(--shadow-sm);
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .primary-button:hover {
@@ -1096,14 +1097,15 @@ setup() {
   position: relative;
   background: var(--bg-primary);
   border-radius: var(--radius-2xl);
-  padding: var(--space-7) var(--space-6);
+  padding: var(--space-6) var(--space-5);
   width: 100%;
-  max-width: 480px;
+  max-width: 450px;
   max-height: 90vh;
   overflow-y: auto;
   z-index: var(--z-modal);
   box-shadow: var(--shadow-xl);
   box-sizing: border-box;
+  margin: var(--space-4);
 }
 
 .modal-header {
@@ -1214,14 +1216,15 @@ setup() {
   flex-wrap: wrap;
   padding: 0;
   box-sizing: border-box;
+  width: 100%;
 }
 
 .secondary-button {
   background: var(--color-secondary-500);
-  color: var(--text-inverse);
+  color: white;
   border: none;
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-5);
   cursor: pointer;
   font-size: var(--text-base);
   font-weight: var(--font-medium);
@@ -1229,6 +1232,7 @@ setup() {
   min-height: 44px;
   box-shadow: var(--shadow-sm);
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .secondary-button:hover {
@@ -1387,9 +1391,10 @@ setup() {
   }
   
   .modal-container {
-    padding: var(--space-6) var(--space-5);
-    margin: var(--space-4);
-    max-height: calc(100vh - 32px);
+    padding: var(--space-5) var(--space-4);
+    margin: var(--space-3);
+    max-height: calc(100vh - 24px);
+    max-width: calc(100vw - 24px);
     box-sizing: border-box;
   }
   
