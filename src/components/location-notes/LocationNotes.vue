@@ -11,6 +11,11 @@
         <h2>{{ location.venue_name }} – {{ location.stage_name }}</h2>
         <p class="subtitle">Notes, schedules & shortcuts for this stage</p>
       </div>
+      <div class="stage-hours-btn">
+        <button class="btn btn-primary stage-hours-button" @click="openStageHoursModal" title="View Stage Hours">
+          📅 Stage Hours
+        </button>
+      </div>
       <div class="timecode-display">
         <strong class="tc">{{ liveTimecode }}</strong>
         <small class="tc-label">{{ currentTimeSourceLabel }}</small>
@@ -80,6 +85,38 @@
       </form>
     </div>
   </div>
+
+  <!-- Stage Hours Modal -->
+  <div v-if="showStageHoursModal" class="modal-overlay" @click="closeStageHoursModal">
+    <div class="modal-content stage-hours-modal">
+      <div class="modal-header">
+        <h3>Stage Hours - {{ location?.venue_name }} – {{ location?.stage_name }}</h3>
+        <button class="btn btn-warning modal-close" @click="closeStageHoursModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div v-if="stageHours.length === 0" class="empty-state">
+          <p>No stage hours configured for this stage.</p>
+        </div>
+        <div v-else class="stage-hours-list">
+          <div 
+            v-for="stageHour in stageHours" 
+            :key="stageHour.id"
+            class="stage-hour-item"
+          >
+            <div class="stage-hour-header">
+              <span class="stage-hour-label">{{ stageHour.notes || `Day ${stageHour.id}` }}</span>
+              <span class="stage-hour-dates">{{ formatStageHourDates(stageHour) }}</span>
+            </div>
+            <div class="stage-hour-times">
+              <span class="start-time">{{ formatDateTime(stageHour.start_datetime) }}</span>
+              <span class="time-separator">→</span>
+              <span class="end-time">{{ formatDateTime(stageHour.end_datetime) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -125,6 +162,7 @@ const selectedStageHourId = ref('');
 const isSubmitting = ref(false);
 const hasPendingSync = ref(false);
 const stageHours = ref([]);
+const showStageHoursModal = ref(false);
 
 const syncStatusText = computed(() => {
   if (hasPendingSync.value) {
@@ -269,6 +307,35 @@ function handleChangeoverNote(note) {
 function refreshTimestamp() {
   copiedTimecode.value = new Date().toTimeString().slice(0, 8);
 }
+
+// Stage Hours Modal Functions
+function openStageHoursModal() {
+  showStageHoursModal.value = true;
+}
+
+function closeStageHoursModal() {
+  showStageHoursModal.value = false;
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '';
+  const d = new Date(dt);
+  return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatStageHourDates(stageHour) {
+  const startDate = new Date(stageHour.start_datetime);
+  const endDate = new Date(stageHour.end_datetime);
+  
+  const startDateStr = startDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const endDateStr = endDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  
+  if (startDateStr === endDateStr) {
+    return startDateStr;
+  } else {
+    return `${startDateStr} - ${endDateStr}`;
+  }
+}
 </script>
 
 <style scoped>
@@ -300,6 +367,84 @@ flex-wrap: wrap;
 flex: 1;
 min-width: 300px;
 text-align: center;
+}
+
+.stage-hours-btn {
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+.stage-hours-button {
+  background: #2563eb;
+  color: #ffffff;
+  border: 2px solid #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.stage-hours-button:hover {
+  background: #1d4ed8;
+  border-color: #1e40af;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.stage-hours-modal {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+.stage-hours-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.stage-hour-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.stage-hour-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.stage-hour-label {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.stage-hour-dates {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.stage-hour-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+}
+
+.start-time, .end-time {
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.time-separator {
+  color: #94a3b8;
+  font-weight: bold;
 }
 
 .btn.back {
@@ -389,6 +534,33 @@ font-size: 0.7rem;
   text-align: left;
   order: 1;
   min-width: auto;
+}
+
+.stage-hours-btn {
+  order: 2;
+  align-self: flex-start;
+  margin-right: 0;
+  margin-bottom: 8px;
+}
+
+.btn.back {
+  order: 3;
+  align-self: flex-start;
+}
+
+.timecode-display {
+  align-items: flex-start;
+  order: 4;
+}
+
+.sync-status {
+  order: 5;
+  align-self: flex-start;
+}
+
+.single-row-header .btn.mini.primary {
+  order: 6;
+  align-self: flex-start;
 }
 
 .btn.back {
