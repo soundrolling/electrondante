@@ -1464,7 +1464,7 @@ opacity: 0.6;
 }
 
 .note-recording-day-header {
-  text-align: center;
+  text-align: center !important;
 }
 
 .note-actions-header {
