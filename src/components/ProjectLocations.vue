@@ -1491,6 +1491,7 @@ setup() {
 .maps-text {
   font-size: 13px;
   font-weight: 500;
+  color: white;
 }
 
 /* Stage Availability */
