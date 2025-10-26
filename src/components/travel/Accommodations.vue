@@ -1,30 +1,38 @@
 <template>
 <div class="accommodations">
-  <!-- Header Section -->
-  <div class="header-section ui-page-header">
-    <h1>Accommodations</h1>
-    <p>Manage your hotel and lodging information</p>
-    <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
-      <span class="back-icon">←</span>
-      <span class="back-text">Back to Dashboard</span>
-    </button>
-  </div>
-
-  <!-- Trip Selector -->
-  <div class="trip-selector ui-filter-bar">
-    <label for="trip-select">Select Trip:</label>
-    <select
-      id="trip-select"
-      v-model="selectedTripId"
-      @change="loadAccommodations"
-      class="trip-select-input"
-      aria-label="Select a trip to view accommodations"
-    >
-      <option value="">-- Select a Trip --</option>
-      <option v-for="trip in trips" :key="trip.id" :value="trip.id">
-        {{ trip.name }} ({{ formatDateRange(trip.start_date, trip.end_date) }})
-      </option>
-    </select>
+  <!-- Consolidated Header Section -->
+  <div class="consolidated-header">
+    <!-- Row 1: Back Button, Title, and Subtitle -->
+    <div class="header-row-1">
+      <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
+        <span class="back-icon">←</span>
+        <span class="back-text">Back to Dashboard</span>
+      </button>
+      
+      <div class="title-section">
+        <h1>Accommodations</h1>
+        <p>Manage your hotel and lodging information</p>
+      </div>
+    </div>
+    
+    <!-- Row 2: Trip Selector -->
+    <div class="header-row-2">
+      <div class="trip-selector">
+        <label for="trip-select">Select Trip:</label>
+        <select
+          id="trip-select"
+          v-model="selectedTripId"
+          @change="loadAccommodations"
+          class="trip-select-input"
+          aria-label="Select a trip to view accommodations"
+        >
+          <option value="">-- Select a Trip --</option>
+          <option v-for="trip in trips" :key="trip.id" :value="trip.id">
+            {{ trip.name }} ({{ formatDateRange(trip.start_date, trip.end_date) }})
+          </option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <!-- Loading State -->
@@ -534,18 +542,34 @@ setup(props) {
   }
 }
 
-/* Header Section */
-.header-section {
-  text-align: center;
-  margin-bottom: 24px;
+/* Consolidated Header Section */
+.consolidated-header {
   background: #ffffff;
-  padding: 24px 16px;
+  padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
 }
 
-.header-section h1 {
+.header-row-1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.header-row-2 {
+  width: 100%;
+}
+
+.title-section {
+  flex: 1;
+  text-align: center;
+}
+
+.title-section h1 {
   font-size: 24px;
   margin: 0 0 8px 0;
   color: #111827;
@@ -553,12 +577,45 @@ setup(props) {
   line-height: 1.4;
 }
 
-.header-section p {
-  margin: 0 0 20px 0;
+.title-section p {
+  margin: 0;
   color: #6b7280;
   font-size: 16px;
   line-height: 1.5;
 }
+
+.trip-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.trip-selector label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.trip-select-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1f2937;
+  min-width: 0;
+}
+
+.trip-select-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Header Section */
 
 .back-button {
   background: #f3f4f6;
@@ -604,42 +661,6 @@ setup(props) {
 }
 
 /* Trip Selector */
-.trip-selector {
-  margin-bottom: 24px;
-  background: #ffffff;
-  padding: 20px 16px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
-}
-
-.trip-selector label {
-  display: block;
-  margin-bottom: 12px;
-  font-weight: 600;
-  color: #374151;
-  font-size: 16px;
-  line-height: 1.4;
-}
-
-.trip-select-input {
-  width: 100%;
-  padding: 12px 16px;
-  font-size: 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #111827;
-  transition: all 0.2s ease;
-  min-height: 48px;
-  box-sizing: border-box;
-}
-
-.trip-select-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
 
 /* Loading State */
 .loading-state {
@@ -1195,18 +1216,34 @@ setup(props) {
     padding: 12px;
   }
   
-  .header-section {
-    padding: 20px 16px;
+  .consolidated-header {
+    padding: 16px;
     margin-bottom: 20px;
   }
   
-  .header-section h1 {
+  .header-row-1 {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .title-section h1 {
     font-size: 22px;
   }
   
   .trip-selector {
-    padding: 16px 12px;
-    margin-bottom: 20px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .trip-selector label {
+    text-align: center;
+  }
+  
+  .back-text {
+    display: inline;
   }
   
   .content-container {

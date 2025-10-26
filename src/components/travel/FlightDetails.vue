@@ -1,38 +1,42 @@
 <template>
 <div class="flight-details">
-  <!-- Header Section -->
-  <div class="header-section ui-page-header">
-    <h1>Flights & Transportation</h1>
-    <p>Manage your flight and transportation details</p>
-  </div>
-
-  <!-- Back to Dashboard Button -->
-  <div class="back-button-container">
-    <button class="btn btn-warning back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
-      <span class="back-icon">←</span>
-      <span class="back-text">Back to Dashboard</span>
-    </button>
-  </div>
-
-  <!-- Trip Selector -->
-  <div class="trip-selector ui-filter-bar">
-    <label for="trip-select">Select Trip:</label>
-    <select 
-      id="trip-select" 
-      v-model="selectedTripId" 
-      @change="loadAllTransportData"
-      class="trip-select-input"
-      aria-label="Select a trip to view transportation details"
-    >
-      <option value="">-- Select a Trip --</option>
-      <option 
-        v-for="trip in trips" 
-        :key="trip.id" 
-        :value="trip.id"
-      >
-        {{ trip.name }} ({{ formatDateRange(trip.start_date, trip.end_date) }})
-      </option>
-    </select>
+  <!-- Consolidated Header Section -->
+  <div class="consolidated-header">
+    <!-- Row 1: Back Button, Title, and Subtitle -->
+    <div class="header-row-1">
+      <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
+        <span class="back-icon">←</span>
+        <span class="back-text">Back to Dashboard</span>
+      </button>
+      
+      <div class="title-section">
+        <h1>Flights & Transportation</h1>
+        <p>Manage your flight and transportation details</p>
+      </div>
+    </div>
+    
+    <!-- Row 2: Trip Selector -->
+    <div class="header-row-2">
+      <div class="trip-selector">
+        <label for="trip-select">Select Trip:</label>
+        <select 
+          id="trip-select" 
+          v-model="selectedTripId" 
+          @change="loadAllTransportData"
+          class="trip-select-input"
+          aria-label="Select a trip to view transportation details"
+        >
+          <option value="">-- Select a Trip --</option>
+          <option 
+            v-for="trip in trips" 
+            :key="trip.id" 
+            :value="trip.id"
+          >
+            {{ trip.name }} ({{ formatDateRange(trip.start_date, trip.end_date) }})
+          </option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <!-- Loading & Empty States -->
@@ -1483,6 +1487,79 @@ setup(props) {
   }
 }
 
+/* Consolidated Header Section */
+.consolidated-header {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.header-row-1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.header-row-2 {
+  width: 100%;
+}
+
+.title-section {
+  flex: 1;
+  text-align: center;
+}
+
+.title-section h1 {
+  font-size: 24px;
+  margin: 0 0 8px 0;
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.title-section p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.trip-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.trip-selector label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.trip-select-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  background: #ffffff;
+  color: #1f2937;
+  min-width: 0;
+}
+
+.trip-select-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .header-section {
   background: #fff;
   padding: 2rem 1rem 1.5rem 1rem;
@@ -1492,12 +1569,14 @@ setup(props) {
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   border: 1.5px solid #e5e7eb;
 }
+
 .header-section h1 {
   font-size: 2rem;
   color: #1f2937;
   margin-bottom: 0.25rem;
   font-weight: 700;
 }
+
 .header-section p {
   font-size: 1.1rem;
   color: #64748b;
