@@ -52,67 +52,6 @@
         <span class="btn-text">Manage</span>
       </button>
     </div>
-    
-    <div class="venues-stages-content">
-      <div class="venues-overview">
-        <h3 class="subsection-title">Venues ({{ venues.length }})</h3>
-        <div v-if="venues.length" class="venues-list">
-          <div 
-            v-for="venue in venues.slice(0, 3)" 
-            :key="venue.id" 
-            class="venue-item"
-          >
-            <div class="venue-info">
-              <span class="venue-name">{{ venue.venue_name }}</span>
-              <span class="venue-location">{{ venue.city }}, {{ venue.country }}</span>
-            </div>
-            <div class="venue-stages-count">
-              {{ getStagesForVenue(venue.id).length }} stage{{ getStagesForVenue(venue.id).length !== 1 ? 's' : '' }}
-            </div>
-          </div>
-          <div v-if="venues.length > 3" class="more-venues">
-            <span class="more-text">+{{ venues.length - 3 }} more venues</span>
-          </div>
-        </div>
-        <div v-else class="no-venues">
-          <span class="no-venues-text">No venues yet</span>
-          <button class="add-venue-btn" @click="openLocationsModal">
-            <span class="btn-icon">➕</span>
-            <span class="btn-text">Add Venue</span>
-          </button>
-        </div>
-      </div>
-      
-      <div class="stages-overview">
-        <h3 class="subsection-title">Stages ({{ stages.length }})</h3>
-        <div v-if="stages.length" class="stages-list">
-          <div 
-            v-for="stage in stages.slice(0, 4)" 
-            :key="stage.id" 
-            class="stage-item"
-          >
-            <div class="stage-info">
-              <span class="stage-name">{{ stage.stage_name }}</span>
-              <span class="stage-venue">{{ stage.venue_name }}</span>
-            </div>
-            <div class="stage-status">
-              <span v-if="isStageOpenNow(stage.id)" class="status-indicator open">🟢</span>
-              <span v-else class="status-indicator closed">🔴</span>
-            </div>
-          </div>
-          <div v-if="stages.length > 4" class="more-stages">
-            <span class="more-text">+{{ stages.length - 4 }} more stages</span>
-          </div>
-        </div>
-        <div v-else class="no-stages">
-          <span class="no-stages-text">No stages yet</span>
-          <button class="add-stage-btn" @click="openLocationsModal">
-            <span class="btn-icon">➕</span>
-            <span class="btn-text">Add Stage</span>
-          </button>
-        </div>
-      </div>
-    </div>
   </section>
 
   <!-- ────────── stage-level quick-access ────────── -->
@@ -1402,136 +1341,6 @@ setup() {
   transform: scale(0.98);
 }
 
-.venues-stages-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.venues-overview,
-.stages-overview {
-  flex: 1;
-}
-
-.venues-list,
-.stages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.venue-item,
-.stage-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.venue-item:hover,
-.stage-item:hover {
-  border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
-}
-
-.venue-info,
-.stage-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.venue-name,
-.stage-name {
-  font-weight: 600;
-  color: #1a1a1a;
-  font-size: 16px;
-}
-
-.venue-location,
-.stage-venue {
-  color: #6c757d;
-  font-size: 14px;
-}
-
-.venue-stages-count {
-  background: #0066cc;
-  color: #ffffff !important;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.stage-status {
-  display: flex;
-  align-items: center;
-}
-
-.status-indicator {
-  font-size: 16px;
-}
-
-.more-venues,
-.more-stages {
-  text-align: center;
-  padding: 12px;
-  color: #6c757d;
-  font-style: italic;
-  font-size: 14px;
-}
-
-.no-venues,
-.no-stages {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 24px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.no-venues-text,
-.no-stages-text {
-  color: #6c757d;
-  font-size: 16px;
-}
-
-.add-venue-btn,
-.add-stage-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: #0066cc;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 44px;
-}
-
-.add-venue-btn:hover,
-.add-stage-btn:hover {
-  background: #0052a3;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
-  transform: translateY(-1px);
-}
-
-.add-venue-btn:active,
-.add-stage-btn:active {
-  transform: scale(0.98);
-}
 
 .quick-access-grid {
   display: grid;
@@ -2467,8 +2276,6 @@ setup() {
 .action-btn:focus,
 .empty-state-button:focus,
 .manage-btn:focus,
-.add-venue-btn:focus,
-.add-stage-btn:focus,
 .link-btn:focus {
   outline: 2px solid #0066cc;
   outline-offset: 2px;
@@ -2505,16 +2312,6 @@ setup() {
   .add-stage-form {
     flex-direction: row;
     align-items: flex-end;
-  }
-
-  .venues-stages-content {
-    flex-direction: row;
-    gap: 32px;
-  }
-
-  .venues-overview,
-  .stages-overview {
-    flex: 1;
   }
 }
 
@@ -2566,7 +2363,8 @@ setup() {
   .btn,
   .order-btn,
   .action-btn,
-  .empty-state-button {
+  .empty-state-button,
+  .manage-btn {
     transition: none;
   }
   
@@ -2578,7 +2376,8 @@ setup() {
   .btn:hover,
   .order-btn:hover,
   .action-btn:hover,
-  .empty-state-button:hover {
+  .empty-state-button:hover,
+  .manage-btn:hover {
     transform: none;
   }
   
@@ -2590,7 +2389,8 @@ setup() {
   .btn:active,
   .order-btn:active,
   .action-btn:active,
-  .empty-state-button:active {
+  .empty-state-button:active,
+  .manage-btn:active {
     transform: none;
   }
 }
