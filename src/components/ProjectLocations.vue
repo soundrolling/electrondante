@@ -433,7 +433,7 @@
               </tr>
             </tbody>
           </table>
-          <button class="primary-button" @click="openAddEditSlotModal(modalStage)"><span class="icon">➕</span> Add New Slot</button>
+          <button class="primary-button add-slot-button" @click="openAddEditSlotModal(modalStage)"><span class="icon">➕</span> Add New Slot</button>
         </div>
       </div>
     </div>
@@ -461,7 +461,7 @@
             <input type="text" v-model="slotForm.notes" placeholder="Optional" />
           </div>
           <div class="form-actions">
-            <button class="primary-button" @click="saveSlot">Save</button>
+            <button class="primary-button save-button" @click="saveSlot">Save</button>
             <button class="secondary-button" @click="closeAddEditSlotModal">Cancel</button>
           </div>
         </div>
@@ -1969,6 +1969,40 @@ setup() {
 .primary-button:active {
   color: #ffffff !important;
   transform: scale(0.98);
+}
+
+/* Add New Slot Button - Dark Text */
+.primary-button.add-slot-button {
+  background: #f8f9fa;
+  color: #1a1a1a !important;
+  border: 2px solid #e9ecef;
+}
+
+.primary-button.add-slot-button:hover {
+  background: #e9ecef;
+  color: #1a1a1a !important;
+  border-color: #0066cc;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.primary-button.add-slot-button:active {
+  color: #1a1a1a !important;
+}
+
+/* Save Button - Green Background */
+.primary-button.save-button {
+  background: #10b981;
+  color: #ffffff !important;
+}
+
+.primary-button.save-button:hover {
+  background: #059669;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.primary-button.save-button:active {
+  color: #ffffff !important;
 }
 
 .secondary-button {
