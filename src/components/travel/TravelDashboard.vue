@@ -98,8 +98,36 @@
       </div>
     </div>
 
-    <!-- Weather Section -->
-    <Weather :destination="selectedDestination" />
+    <!-- Venue Location Section -->
+    <div class="dashboard-card venue-location">
+      <div class="card-header">
+        <h2>Venue Location</h2>
+      </div>
+      
+      <div v-if="!selectedDestination" class="empty-state">
+        <div class="empty-icon">📍</div>
+        <h3>No destination selected</h3>
+        <p>Select a trip to view venue location information</p>
+      </div>
+      
+      <div v-else class="venue-content">
+        <div class="venue-info">
+          <h3>{{ selectedDestination }}</h3>
+          <p>Current trip destination</p>
+        </div>
+        
+        <div class="venue-actions">
+          <button 
+            @click="searchGoogleWeather" 
+            class="btn btn-positive weather-button"
+            aria-label="Search Google Weather"
+          >
+            <span class="action-icon">🌤️</span>
+            <span class="button-text">Check Weather</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- New Trip Modal -->
@@ -298,11 +326,10 @@ import { useToast } from 'vue-toastification'
 import { format, parseISO, isAfter, isBefore, isToday } from 'date-fns'
 import { supabase } from '../../supabase'
 import { useUserStore } from '../../stores/userStore'
-import Weather from './Weather.vue'
 
 export default {
 name: 'TravelDashboard',
-components: { Weather },
+components: {},
 setup() {
   const router = useRouter()
   const toast = useToast()
@@ -503,6 +530,23 @@ setup() {
     })
   }
 
+  // Google Weather Search
+  function searchGoogleWeather() {
+    if (!selectedDestination.value) {
+      toast.error('No destination selected')
+      return
+    }
+    
+    // Clean up the destination string for URL
+    const cleanDestination = selectedDestination.value
+      .replace(/[^\w\s,]/g, '') // Remove special characters except spaces and commas
+      .replace(/\s+/g, '+') // Replace spaces with +
+      .replace(/,/g, '+') // Replace commas with +
+    
+    const googleWeatherUrl = `https://www.google.com/search?q=google+weather%3A+${cleanDestination}`
+    window.open(googleWeatherUrl, '_blank')
+  }
+
   onMounted(async () => {
     // Wait for userStore to be initialized
     if (!userStore.isInitialized) {
@@ -547,7 +591,8 @@ setup() {
     formatDateRange,
     getTripStatus,
     getTripStatusClass,
-    selectTrip
+    selectTrip,
+    searchGoogleWeather
   }
 }
 }
@@ -769,6 +814,86 @@ setup() {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* Venue Location Section */
+.venue-location {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-5);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  transition: all var(--transition-normal);
+}
+
+.venue-location:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.venue-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.venue-info h3 {
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.venue-info p {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.venue-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-3);
+}
+
+.weather-button {
+  background: var(--color-primary-500);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-6);
+  cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  box-shadow: var(--shadow-sm);
+}
+
+.weather-button:hover {
+  background: var(--color-primary-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.weather-button:active {
+  transform: translateY(0);
+}
+
+.weather-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+}
+
+.weather-button .action-icon {
+  font-size: var(--text-lg);
+}
+
+.weather-button .button-text {
+  display: none;
 }
 
 /* Trip List */
@@ -1168,6 +1293,10 @@ setup() {
   }
   
   .button-text {
+    display: inline;
+  }
+  
+  .weather-button .button-text {
     display: inline;
   }
   
