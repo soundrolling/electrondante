@@ -168,13 +168,17 @@ async function getBgPublicUrl() {
 
 async function uploadBgToStorage(file) {
   const path = storagePathForStage()
-  try { await supabase.storage.from('stage-pictures').remove([path]) } catch {}
+  let removed = false
+  try {
+    const { error: remErr } = await supabase.storage.from('stage-pictures').remove([path])
+    if (!remErr) removed = true
+  } catch {}
   const { error } = await supabase.storage
     .from('stage-pictures')
     .upload(path, file, { upsert: true, contentType: file.type })
   if (error) throw error
   const { data } = supabase.storage.from('stage-pictures').getPublicUrl(path)
-  return `${data.publicUrl}?v=${Date.now()}`
+  return { url: `${data.publicUrl}?v=${Date.now()}`, removed }
 }
 
 async function setBackgroundImage(src, state) {
@@ -334,9 +338,9 @@ async function onImageUpload(e) {
   const file = e.target.files[0]
   if (!file) return
   try {
-    const publicUrl = await uploadBgToStorage(file)
-    await setBackgroundImage(publicUrl)
-    toast.success('Background updated')
+    const { url, removed } = await uploadBgToStorage(file)
+    await setBackgroundImage(url)
+    toast.success(removed ? 'Previous background removed and new image uploaded' : 'Background uploaded')
   } catch (err) {
     toast.error(`Failed to upload background: ${err.message || err}`)
   }
