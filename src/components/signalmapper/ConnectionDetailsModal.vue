@@ -341,11 +341,37 @@ errorMsg.value = ''
   emit('confirm', connection)
 } catch (e) {
   if (e?.code === '23505') {
-    // Unique input constraint hit - refresh options and jump to first available
-    const opts = inputOptions.value || []
-    const firstAvail = opts.find(o => !o.disabled)?.value
-    if (typeof firstAvail !== 'undefined') inputNumber.value = firstAvail
-    errorMsg.value = `Input already in use. Switched to Input ${firstAvail ?? ''}.`
+    // Unique input constraint hit - refetch latest and retry once on first available
+    try {
+      const { data: latest } = await supabase
+        .from('connections')
+        .select('to_node_id,input_number')
+        .eq('project_id', props.projectId)
+        .eq('to_node_id', props.toNode.id)
+      const used = new Set((latest || []).map(c => c.input_number).filter(Boolean))
+      const opts = inputOptions.value || []
+      const firstAvail = opts.find(o => !o.disabled && !used.has(o.value))?.value
+      if (typeof firstAvail !== 'undefined') {
+        inputNumber.value = firstAvail
+        const retryConn = {
+          project_id: props.projectId,
+          from_node_id: props.fromNode.id,
+          to_node_id: props.toNode.id,
+          input_number: inputNumber.value,
+          output_number: undefined,
+          track_number: undefined,
+          pad: -Math.abs(Number(padValue.value) || 0),
+          phantom_power: phantomPowerEnabled.value,
+          connection_type: connectionType.value
+        }
+        const saved = await addConnection(retryConn)
+        emit('confirm', saved)
+        return
+      }
+      errorMsg.value = 'All inputs are occupied.'
+    } catch (err) {
+      errorMsg.value = err?.message || 'Failed to save connection.'
+    }
   } else {
     errorMsg.value = e.message || 'Failed to save connection.'
   }
