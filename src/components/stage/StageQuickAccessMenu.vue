@@ -80,14 +80,20 @@
                 <th>Start</th>
                 <th>End</th>
                 <th>Day ID</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="hour in stageHours" :key="hour.id">
+              <tr v-for="hour in sortedStageHours" :key="hour.id" :class="{ 'past-hour': isPastHour(hour) }">
                 <td>{{ formatDateTime(hour.start_datetime) }}</td>
                 <td>{{ formatDateTime(hour.end_datetime) }}</td>
                 <td>{{ hour.notes || '-' }}</td>
+                <td>
+                  <span class="hour-status" :class="{ 'past': isPastHour(hour), 'future': !isPastHour(hour) }">
+                    {{ isPastHour(hour) ? 'Past' : 'Scheduled' }}
+                  </span>
+                </td>
                 <td class="actions-cell">
                   <button class="icon-action" @click="openAddEditSlotModal(hour)" title="Edit">
                     <span class="icon">✏️</span>
@@ -102,7 +108,7 @@
         </div>
         
         <div v-else class="no-hours">
-          <p>No hours scheduled for this stage.</p>
+          <p>No hours recorded for this stage.</p>
         </div>
       </div>
       
@@ -141,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '../../supabase';
 
@@ -170,6 +176,20 @@ onMounted(async () => {
   checkLiveStatus();
   findNextTimeslot();
 });
+
+// Computed property for sorted stage hours
+const sortedStageHours = computed(() => {
+  return [...stageHours.value].sort((a, b) => 
+    new Date(a.start_datetime) - new Date(b.start_datetime)
+  );
+});
+
+// Helper function to check if an hour is in the past
+function isPastHour(hour) {
+  const now = new Date();
+  const endTime = new Date(hour.end_datetime);
+  return endTime < now;
+}
 
 async function loadStageHours() {
   try {
@@ -654,6 +674,37 @@ font-size: 0.8rem;
 
 .hours-table tr:hover {
 background: #f8fafc;
+}
+
+.hours-table tr.past-hour {
+background: #f9fafb;
+opacity: 0.8;
+}
+
+.hours-table tr.past-hour:hover {
+background: #f3f4f6;
+}
+
+.hour-status {
+display: inline-block;
+padding: 2px 8px;
+border-radius: 12px;
+font-size: 0.75rem;
+font-weight: 500;
+text-transform: uppercase;
+letter-spacing: 0.025em;
+}
+
+.hour-status.past {
+background: #fef3c7;
+color: #92400e;
+border: 1px solid #fde68a;
+}
+
+.hour-status.future {
+background: #dbeafe;
+color: #1e40af;
+border: 1px solid #93c5fd;
 }
 
 .actions-cell {
