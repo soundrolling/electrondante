@@ -802,7 +802,7 @@ onMounted(() => {
   top: 10px;
   left: 10px;
   background: rgba(0, 0, 0, 0.7);
-  color: white;
+  color: #ffffff;
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
