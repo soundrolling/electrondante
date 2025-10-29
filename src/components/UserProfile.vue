@@ -700,7 +700,7 @@ async function saveSecurity() {
             </div>
           </div>
 
-          <!-- IO fields (hidden for sources) -->
+          <!-- IO/Tracks in one row (Tracks only for recorders) -->
           <div class="form-row">
             <div class="form-group" v-if="gearForm.gear_type !== 'source'">
               <label class="form-label">Inputs</label>
@@ -720,11 +720,7 @@ async function saveSecurity() {
                 min="0"
               />
             </div>
-          </div>
-
-          <!-- Tracks for recorders -->
-          <div class="form-row" v-if="gearForm.gear_type === 'recorder'">
-            <div class="form-group">
+            <div class="form-group" v-if="gearForm.gear_type === 'recorder'">
               <label class="form-label">Tracks</label>
               <input 
                 v-model.number="gearForm.num_records" 
