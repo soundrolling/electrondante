@@ -536,7 +536,7 @@ export default {
 
     onMounted(fetchAll)
 
-    return {
+    const exposed = {
       schedules, stageHours, groupedDays, idx, sortOrder,
       showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
@@ -545,6 +545,7 @@ export default {
       createChangeoverNote, isActive,
       saveRange, clearFrom, clearTo, setToday, setPreviousDay
     }
+    return exposed
   }
 }
 
