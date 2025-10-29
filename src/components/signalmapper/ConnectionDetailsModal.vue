@@ -314,6 +314,27 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
   try {
+  // Refresh latest assignments for target to avoid stale duplicate selection
+  try {
+    const { data: latest, error } = await supabase
+      .from('connections')
+      .select('to_node_id,input_number,from_node_id')
+      .eq('project_id', props.projectId)
+      .eq('to_node_id', props.toNode.id)
+    if (!error && Array.isArray(latest)) {
+      const used = new Set(latest.map(c => c.input_number).filter(Boolean))
+      if (used.has(inputNumber.value)) {
+        const firstAvail = (inputOptions.value || []).find(o => !o.disabled && !used.has(o.value))?.value
+        if (typeof firstAvail !== 'undefined') {
+          inputNumber.value = firstAvail
+        } else {
+          errorMsg.value = 'All inputs are occupied.'
+          loading.value = false
+          return
+        }
+      }
+    }
+  } catch {}
   const connection = {
     project_id: props.projectId,
     from_node_id: props.fromNode.id,
