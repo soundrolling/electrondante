@@ -383,7 +383,8 @@ import { useUserStore }             from '@/stores/userStore';
 import { useToast }                 from 'vue-toastification';
 import { mutateTableData }          from '@/services/dataService';
 
-const LS_KEY = 'userProjects';
+// Cache key will be generated dynamically with user ID for security
+const getCacheKey = (userId) => `userProjects_${userId}`;
 
 export default {
 setup() {
@@ -448,19 +449,46 @@ setup() {
   ───────────────────────────────────────────── */
   const fetchUserProjects = async (force = false) => {
     try {
-      if (!force) {
-        const cached = localStorage.getItem(LS_KEY);
-        if (cached) {
-          projects.value = JSON.parse(cached);
-          sortProjects();
-          return;
-        }
-      }
-      loading.value = true;
-
       const { data: session } = await supabase.auth.getSession();
       const uid   = session?.session?.user?.id || '';
       const email = session?.session?.user?.email?.toLowerCase() || '';
+      
+      // Security check: ensure we have a valid user session
+      if (!uid) {
+        console.warn('No valid user session found, clearing projects');
+        projects.value = [];
+        return;
+      }
+
+      // Use user-specific cache key for security
+      const cacheKey = getCacheKey(uid);
+      
+      if (!force) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const cachedProjects = JSON.parse(cached);
+            // Additional security: validate cached projects belong to current user
+            const validProjects = cachedProjects.filter(p => 
+              p.user_id === uid || 
+              (p.role && ['owner', 'member', 'viewer'].includes(p.role))
+            );
+            if (validProjects.length === cachedProjects.length) {
+              projects.value = validProjects;
+              sortProjects();
+              return;
+            } else {
+              console.warn('Cached projects contain invalid data, fetching fresh data');
+              localStorage.removeItem(cacheKey);
+            }
+          } catch (e) {
+            console.warn('Invalid cached projects data, fetching fresh data');
+            localStorage.removeItem(cacheKey);
+          }
+        }
+      }
+      
+      loading.value = true;
 
       /* owned */
       const { data: owned } = await supabase
@@ -497,7 +525,7 @@ setup() {
       memberProjects.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
 
       projects.value = Array.from(map.values());
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
       sortProjects();
     } catch (e) {
       console.error('Error loading projects:', e.message);
@@ -518,12 +546,17 @@ setup() {
     localStorage.setItem('selectedSortOption', selectedSortOption.value);
   };
 
-  const refreshProjects = () => {
+  const refreshProjects = async () => {
     if (!navigator.onLine) {
       toast.error('Refresh is only available when online.');
       return;
     }
-    localStorage.removeItem(LS_KEY);
+    // Clear user-specific cache
+    const { data: session } = await supabase.auth.getSession();
+    const uid = session?.session?.user?.id;
+    if (uid) {
+      localStorage.removeItem(getCacheKey(uid));
+    }
     fetchUserProjects(true);
   };
 
@@ -575,7 +608,8 @@ setup() {
 
       projectRow.role='owner';
       projects.value.push(projectRow);
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const cacheKey = getCacheKey(uid);
+      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
       toast.success('Project created.');
       newProjectName.value='';
       newProjectLocation.value='';
@@ -594,7 +628,12 @@ setup() {
       await mutateTableData('projects','update',{ id, project_name:newName.trim() });
       const p = projects.value.find(p=>p.id===id);
       if (p) p.project_name = newName.trim();
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        const cacheKey = getCacheKey(uid);
+        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      }
       toast.success('Project renamed.');
     } catch(e){ toast.error(e.message); }
   };
@@ -605,7 +644,12 @@ setup() {
     try {
       await mutateTableData('projects','delete',{ id });
       projects.value = projects.value.filter(p=>p.id!==id);
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        const cacheKey = getCacheKey(uid);
+        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      }
       toast.success('Project deleted.');
     } catch(e){ toast.error(e.message); }
   };
@@ -634,7 +678,8 @@ setup() {
 
       dup.role='owner';
       projects.value.push(dup);
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const cacheKey = getCacheKey(uid);
+      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
       sortProjects();
       toast.success('Project duplicated.');
     } catch(e){ toast.error(e.message); }
@@ -651,7 +696,8 @@ setup() {
         project_id:p.id, user_id:uid
       });
       projects.value = projects.value.filter(x=>x.id!==p.id);
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const cacheKey = getCacheKey(uid);
+      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
       toast.success('Left project.');
     } catch(e){ toast.error(e.message); }
   };
@@ -745,7 +791,12 @@ setup() {
         p.main_show_days = showDaysArr.length ? showDaysArr : null;
         p.build_days = buildDaysArr.length ? buildDaysArr : null;
       }
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        const cacheKey = getCacheKey(uid);
+        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      }
       toast.success('Project updated.');
       closeEditModal();
     } catch (e) {
@@ -758,7 +809,12 @@ setup() {
     try {
       await mutateTableData('projects', 'update', { id: p.id, archived: true });
       p.archived = true;
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        const cacheKey = getCacheKey(uid);
+        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      }
       toast.success('Project archived.');
     } catch (e) {
       toast.error(e.message);
@@ -769,7 +825,12 @@ setup() {
     try {
       await mutateTableData('projects', 'update', { id: p.id, archived: false });
       p.archived = false;
-      localStorage.setItem(LS_KEY, JSON.stringify(projects.value));
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        const cacheKey = getCacheKey(uid);
+        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      }
       toast.success('Project unarchived.');
     } catch (e) {
       toast.error(e.message);
@@ -777,7 +838,28 @@ setup() {
   }
 
   /* ───────── LIFECYCLE ───────── */
-  onMounted(()=>fetchUserProjects(false));
+  onMounted(async () => {
+    // Security check: validate current user session before loading projects
+    const { data: session } = await supabase.auth.getSession();
+    const uid = session?.session?.user?.id;
+    
+    if (!uid) {
+      console.warn('No valid user session on mount, clearing all project caches');
+      // Clear any existing project caches for security
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('userProjects_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      projects.value = [];
+      return;
+    }
+    
+    fetchUserProjects(false);
+  });
 
   /* ───────── EXPOSE ───────── */
   return {

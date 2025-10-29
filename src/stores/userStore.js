@@ -463,9 +463,15 @@ export const useUserStore = defineStore('userStore', {
         _intervalId: null,
         onlineStatus: navigator.onLine
       });
+      
+      // Clear all localStorage items
       ['liveTimecode', 'currentTimeSource', 'userSession', 'currentProject'].forEach((k) =>
         localStorage.removeItem(k)
       );
+      
+      // Clear all user-specific project caches (security measure)
+      this.clearUserProjectCaches();
+      
       this.cleanupOnlineStatus();
       this.cleanupTimecode();
       if (this.db) {
@@ -478,6 +484,18 @@ export const useUserStore = defineStore('userStore', {
         }
       }
       await clearAllData();
+    },
+
+    // Clear all user-specific project caches for security
+    clearUserProjectCaches() {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('userProjects_')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
     },
 
     async signOut() {
