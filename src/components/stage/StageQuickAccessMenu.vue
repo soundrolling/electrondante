@@ -42,6 +42,22 @@
           <span class="emoji">📆</span> Calendar
         </button>
       </div>
+      
+      <!-- Stage Hours Management Row -->
+      <div class="stage-management-row">
+        <button class="management-button" @click="editStageHours">
+          <span class="management-icon">⏰</span>
+          <span class="management-label">Manage Hours</span>
+        </button>
+        <button class="management-button" @click="viewLiveStatus">
+          <span class="management-icon" :class="{ 'live-indicator': isStageLive }">🔴</span>
+          <span class="management-label">{{ isStageLive ? 'Live Now' : 'View Status' }}</span>
+        </button>
+        <button class="management-button" @click="addQuickSlot">
+          <span class="management-icon">➕</span>
+          <span class="management-label">Quick Slot</span>
+        </button>
+      </div>
     </div>
   </div>
 </transition>
@@ -61,9 +77,11 @@ const emit = defineEmits(['close']);
 const router = useRouter();
 
 const stageHours = ref([]);
+const isStageLive = ref(false);
 
 onMounted(async () => {
   await loadStageHours();
+  checkLiveStatus();
 });
 
 async function loadStageHours() {
@@ -89,6 +107,62 @@ function formatTime(datetime) {
   if (!datetime) return '';
   const d = new Date(datetime);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function checkLiveStatus() {
+  const now = new Date();
+  isStageLive.value = stageHours.value.some(hour => {
+    const startTime = new Date(hour.start_datetime);
+    const endTime = new Date(hour.end_datetime);
+    return startTime <= now && now < endTime;
+  });
+}
+
+function editStageHours() {
+  // Navigate to calendar with stage hours editing mode
+  const today = new Date().toISOString().slice(0, 10);
+  router.push({ 
+    name: 'Calendar', 
+    params: { id: props.projectId }, 
+    query: { 
+      locationId: props.stage.id, 
+      date: today, 
+      view: 'timeline',
+      editHours: 'true'
+    } 
+  });
+  emit('close');
+}
+
+function viewLiveStatus() {
+  // Navigate to calendar timeline view for this stage
+  const today = new Date().toISOString().slice(0, 10);
+  router.push({ 
+    name: 'Calendar', 
+    params: { id: props.projectId }, 
+    query: { 
+      locationId: props.stage.id, 
+      date: today, 
+      view: 'timeline'
+    } 
+  });
+  emit('close');
+}
+
+function addQuickSlot() {
+  // Navigate to calendar with new event modal for this stage
+  const today = new Date().toISOString().slice(0, 10);
+  router.push({ 
+    name: 'Calendar', 
+    params: { id: props.projectId }, 
+    query: { 
+      locationId: props.stage.id, 
+      date: today, 
+      view: 'timeline',
+      newEvent: 'true'
+    } 
+  });
+  emit('close');
 }
 
 function goTo(type) {
@@ -218,6 +292,64 @@ font-size: 0.8rem;
 color: #6b7280;
 text-align: center;
 }
+
+/* Stage Management Row */
+.stage-management-row {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 12px;
+margin-top: 16px;
+padding-top: 16px;
+border-top: 1px solid #e5e7eb;
+}
+
+.management-button {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 6px;
+padding: 12px 8px;
+background: #f0f9ff;
+border: 1px solid #7dd3fc;
+border-radius: 8px;
+cursor: pointer;
+transition: all 0.2s ease;
+font-size: 0.9rem;
+font-weight: 600;
+color: #0c4a6e;
+min-height: 60px;
+}
+
+.management-button:hover {
+background: #e0f2fe;
+border-color: #38bdf8;
+box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15);
+}
+
+.management-button:active {
+transform: scale(0.98);
+background: #bae6fd;
+}
+
+.management-icon {
+font-size: 1.4em;
+margin-bottom: 2px;
+}
+
+.management-icon.live-indicator {
+animation: pulse 2s infinite;
+}
+
+.management-label {
+font-size: 0.8rem;
+line-height: 1.2;
+text-align: center;
+}
+
+@keyframes pulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.5; }
+}
 .menu-list {
 display: grid;
 grid-template-columns: 1fr 1fr;
@@ -300,6 +432,23 @@ margin-bottom: 4px;
 }
 .emoji {
   font-size: 1.3em;
+}
+.stage-management-row {
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.management-button {
+  padding: 10px 8px;
+  min-height: 50px;
+  font-size: 0.85rem;
+}
+.management-icon {
+  font-size: 1.2em;
+}
+.management-label {
+  font-size: 0.75rem;
 }
 }
 .fade-enter-active,
