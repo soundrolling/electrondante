@@ -396,10 +396,12 @@ padding: 32px 40px 24px 40px;
 min-width: 260px;
 max-width: 95vw;
 width: 100%;
+max-height: 90vh;
 display: flex;
 flex-direction: column;
 align-items: stretch;
 position: relative;
+overflow-y: auto;
 }
 .close-button {
 position: absolute;
@@ -600,6 +602,8 @@ padding: 16px;
 background: #f8f9fa;
 border-radius: 8px;
 border: 1px solid #e2e8f0;
+max-height: 400px;
+overflow-y: auto;
 }
 
 .hours-header {
@@ -878,6 +882,7 @@ margin-bottom: 4px;
   min-width: 400px;
   max-width: 600px;
   padding: 32px 40px 24px 40px;
+  max-height: 85vh;
 }
 .menu-list {
   grid-template-columns: repeat(3, 1fr);
@@ -903,6 +908,9 @@ margin-bottom: 4px;
   flex: 0 0 auto;
   min-width: 120px;
 }
+.hours-management-section {
+  max-height: 350px;
+}
 }
 
 /* Mobile */
@@ -910,6 +918,7 @@ margin-bottom: 4px;
 .modal-content {
   min-width: 0;
   padding: 18px 8px 12px 8px;
+  max-height: 95vh;
 }
 .menu-list {
   grid-template-columns: 1fr 1fr;
@@ -955,6 +964,10 @@ margin-bottom: 4px;
 }
 .next-time {
   font-size: 0.75rem;
+}
+.hours-management-section {
+  max-height: 300px;
+  padding: 12px;
 }
 }
 .fade-enter-active,
