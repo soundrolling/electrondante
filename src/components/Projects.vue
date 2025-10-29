@@ -5,7 +5,6 @@
 <div class="projects">
   <!-- ─── PAGE‑TITLE & TOP‑BAR ─────────────────────────────── -->
   <header class="page-header ui-page-header">
-    <h1 class="page-title">All Projects</h1>
     <div class="page-actions">
       <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
         <span class="btn-icon">🔄</span>

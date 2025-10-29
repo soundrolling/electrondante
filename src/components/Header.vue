@@ -65,8 +65,10 @@
         </div>
       </div>
 
-      <!-- Center: Navigation -->
+      <!-- Center: Navigation / Page Title -->
       <nav class="navigation">
+        <!-- Page title for Projects route -->
+        <span v-if="isProjectsRoute" class="route-title">All Projects</span>
         <!-- Project Home Button -->
         <router-link
           v-if="showProjectHomeButton"
@@ -552,6 +554,14 @@ export default {
 .nav-text {
   font-size: var(--text-base);
   color: #000000 !important;
+}
+
+/* Route title shown in header center when on a top-level page like Projects */
+.route-title {
+  font-weight: var(--font-bold);
+  font-size: var(--text-xl);
+  color: #000000 !important;
+  padding: var(--space-3) var(--space-4);
 }
 
 /* Back button */
