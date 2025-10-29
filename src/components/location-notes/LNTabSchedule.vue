@@ -198,9 +198,7 @@ const mm   = String(d.getMonth()+1).padStart(2,'0')
 const dd   = String(d.getDate()).padStart(2,'0')
 return `${yyyy}-${mm}-${dd}`
 }
-const niceDate = d => d
-? new Date(d).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })
-: ''
+const niceDate = d => d ? new Date(d).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) : ''
 const t5 = t => t?.slice(0,5)
 
 function timeToMinutes(t) {
