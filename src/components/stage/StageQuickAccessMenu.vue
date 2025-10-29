@@ -45,15 +45,15 @@
       
       <!-- Stage Hours Management Row -->
       <div class="stage-management-row">
-        <button class="management-button manage-hours" @click="manageStageHours">
+        <button class="management-button manage-hours" @click="toggleHoursManagement">
           <span class="management-icon">⏰</span>
-          <span class="management-label">Manage Hours</span>
+          <span class="management-label">{{ showHoursManagement ? 'Hide Hours' : 'Manage Hours' }}</span>
         </button>
         
         <div class="status-section">
-          <div class="status-light" :class="{ 'live': isStageLive, 'offline': !isStageLive }">
+          <div class="status-light" :class="{ 'open': isStageLive, 'closed': !isStageLive }">
             <span class="status-dot"></span>
-            <span class="status-text">{{ isStageLive ? 'Live' : 'Offline' }}</span>
+            <span class="status-text">{{ isStageLive ? 'Open' : 'Closed' }}</span>
           </div>
           
           <div v-if="nextTimeslot" class="next-timeslot">
@@ -62,6 +62,79 @@
           </div>
         </div>
       </div>
+      
+      <!-- Hours Management Section -->
+      <div v-if="showHoursManagement" class="hours-management-section">
+        <div class="hours-header">
+          <h3 class="hours-title">Stage Hours & Timeslots</h3>
+          <button class="add-hours-btn" @click="openAddEditSlotModal">
+            <span class="btn-icon">➕</span>
+            <span class="btn-text">Add Slot</span>
+          </button>
+        </div>
+        
+        <div v-if="stageHours.length > 0" class="hours-table-container">
+          <table class="hours-table">
+            <thead>
+              <tr>
+                <th>Start</th>
+                <th>End</th>
+                <th>Day ID</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="hour in stageHours" :key="hour.id">
+                <td>{{ formatDateTime(hour.start_datetime) }}</td>
+                <td>{{ formatDateTime(hour.end_datetime) }}</td>
+                <td>{{ hour.notes || '-' }}</td>
+                <td class="actions-cell">
+                  <button class="icon-action" @click="openAddEditSlotModal(hour)" title="Edit">
+                    <span class="icon">✏️</span>
+                  </button>
+                  <button class="icon-action delete" @click="deleteSlot(hour)" title="Delete">
+                    <span class="icon">🗑️</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div v-else class="no-hours">
+          <p>No hours scheduled for this stage.</p>
+        </div>
+      </div>
+      
+      <!-- Add/Edit Slot Modal -->
+      <transition name="fade">
+        <div v-if="showAddEditSlotModal" class="modal-overlay">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>{{ editingSlot ? 'Edit' : 'Add' }} Hours for {{ stage.stage_name }}</h2>
+              <button class="close-button" @click="closeAddEditSlotModal">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-field">
+                <label>Start Date & Time</label>
+                <input type="datetime-local" v-model="slotForm.start_datetime" />
+              </div>
+              <div class="form-field">
+                <label>End Date & Time</label>
+                <input type="datetime-local" v-model="slotForm.end_datetime" />
+              </div>
+              <div class="form-field">
+                <label>Recording Day ID</label>
+                <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" />
+              </div>
+              <div class="form-actions">
+                <button class="primary-button save-button" @click="saveSlot">Save</button>
+                <button class="secondary-button" @click="closeAddEditSlotModal">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
   </div>
 </transition>
@@ -83,6 +156,14 @@ const router = useRouter();
 const stageHours = ref([]);
 const isStageLive = ref(false);
 const nextTimeslot = ref(null);
+const showHoursManagement = ref(false);
+const showAddEditSlotModal = ref(false);
+const editingSlot = ref(null);
+const slotForm = ref({
+  start_datetime: '',
+  end_datetime: '',
+  notes: ''
+});
 
 onMounted(async () => {
   await loadStageHours();
@@ -145,13 +226,102 @@ function formatNextTimeslot(timeslot) {
   return `${date} ${startTime}-${endTime}`;
 }
 
-function manageStageHours() {
-  // Navigate to locations page - the modal will be triggered there
-  router.push({ 
-    name: 'ProjectLocations', 
-    params: { id: props.projectId }
-  });
-  emit('close');
+function toggleHoursManagement() {
+  showHoursManagement.value = !showHoursManagement.value;
+}
+
+function openAddEditSlotModal(slot = null) {
+  editingSlot.value = slot;
+  showAddEditSlotModal.value = true;
+  if (slot) {
+    slotForm.value = {
+      start_datetime: toLocalInputValue(slot.start_datetime),
+      end_datetime: toLocalInputValue(slot.end_datetime),
+      notes: slot.notes || ''
+    };
+  } else {
+    slotForm.value = {
+      start_datetime: '',
+      end_datetime: '',
+      notes: ''
+    };
+  }
+}
+
+function closeAddEditSlotModal() {
+  showAddEditSlotModal.value = false;
+  editingSlot.value = null;
+  slotForm.value = { start_datetime: '', end_datetime: '', notes: '' };
+}
+
+async function saveSlot() {
+  if (!props.stage) return;
+  const payload = {
+    project_id: props.projectId,
+    stage_id: props.stage.id,
+    start_datetime: toUTCISOString(slotForm.value.start_datetime),
+    end_datetime: toUTCISOString(slotForm.value.end_datetime),
+    notes: slotForm.value.notes
+  };
+  try {
+    if (editingSlot.value) {
+      // Update
+      const { error } = await supabase
+        .from('stage_hour_events')
+        .update(payload)
+        .eq('id', editingSlot.value.id);
+      if (error) throw error;
+    } else {
+      // Insert
+      const { error } = await supabase
+        .from('stage_hour_events')
+        .insert([payload]);
+      if (error) throw error;
+    }
+    await loadStageHours();
+    checkLiveStatus();
+    findNextTimeslot();
+    closeAddEditSlotModal();
+  } catch (e) {
+    alert('Failed to save: ' + e.message);
+  }
+}
+
+async function deleteSlot(slot) {
+  if (!confirm('Delete this slot?')) return;
+  try {
+    const { error } = await supabase
+      .from('stage_hour_events')
+      .delete()
+      .eq('id', slot.id);
+    if (error) throw error;
+    await loadStageHours();
+    checkLiveStatus();
+    findNextTimeslot();
+  } catch (e) {
+    alert('Failed to delete: ' + e.message);
+  }
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '';
+  const d = new Date(dt);
+  return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
+// Helper functions for converting between local and UTC
+function toLocalInputValue(utcString) {
+  const d = new Date(utcString);
+  // Adjust for timezone offset
+  const offset = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - offset * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toUTCISOString(localString) {
+  // localString: 'YYYY-MM-DDTHH:mm'
+  const d = new Date(localString);
+  return d.toISOString();
 }
 
 function goTo(type) {
@@ -350,13 +520,13 @@ font-size: 0.85rem;
 font-weight: 600;
 }
 
-.status-light.live {
-background: #fef2f2;
-color: #dc2626;
-border: 1px solid #fecaca;
+.status-light.open {
+background: #f0fdf4;
+color: #059669;
+border: 1px solid #bbf7d0;
 }
 
-.status-light.offline {
+.status-light.closed {
 background: #f3f4f6;
 color: #6b7280;
 border: 1px solid #d1d5db;
@@ -369,12 +539,12 @@ border-radius: 50%;
 display: inline-block;
 }
 
-.status-light.live .status-dot {
-background: #dc2626;
+.status-light.open .status-dot {
+background: #059669;
 animation: pulse 2s infinite;
 }
 
-.status-light.offline .status-dot {
+.status-light.closed .status-dot {
 background: #6b7280;
 }
 
@@ -401,6 +571,222 @@ color: #374151;
 @keyframes pulse {
 0%, 100% { opacity: 1; }
 50% { opacity: 0.5; }
+}
+
+/* Hours Management Section */
+.hours-management-section {
+margin-top: 16px;
+padding: 16px;
+background: #f8f9fa;
+border-radius: 8px;
+border: 1px solid #e2e8f0;
+}
+
+.hours-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 16px;
+}
+
+.hours-title {
+font-size: 1rem;
+font-weight: 600;
+color: #374151;
+margin: 0;
+}
+
+.add-hours-btn {
+display: flex;
+align-items: center;
+gap: 6px;
+padding: 8px 12px;
+background: #0066cc;
+color: #ffffff;
+border: none;
+border-radius: 6px;
+font-size: 0.85rem;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s ease;
+}
+
+.add-hours-btn:hover {
+background: #0052a3;
+transform: translateY(-1px);
+}
+
+.add-hours-btn:active {
+transform: scale(0.98);
+}
+
+.hours-table-container {
+overflow-x: auto;
+margin-bottom: 16px;
+}
+
+.hours-table {
+width: 100%;
+border-collapse: collapse;
+background: #ffffff;
+border-radius: 6px;
+overflow: hidden;
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+font-size: 0.85rem;
+}
+
+.hours-table th {
+background: #f1f5f9;
+padding: 8px 12px;
+text-align: left;
+font-weight: 600;
+color: #374151;
+border-bottom: 1px solid #e2e8f0;
+font-size: 0.8rem;
+}
+
+.hours-table td {
+padding: 8px 12px;
+border-bottom: 1px solid #e2e8f0;
+color: #374151;
+font-size: 0.8rem;
+}
+
+.hours-table tr:hover {
+background: #f8fafc;
+}
+
+.actions-cell {
+display: flex;
+gap: 4px;
+align-items: center;
+}
+
+.icon-action {
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 4px;
+background: #f1f5f9;
+border: 1px solid #e2e8f0;
+border-radius: 4px;
+cursor: pointer;
+transition: all 0.2s ease;
+min-height: 28px;
+min-width: 28px;
+}
+
+.icon-action:hover {
+background: #e2e8f0;
+border-color: #0066cc;
+}
+
+.icon-action.delete:hover {
+background: #fef2f2;
+border-color: #dc3545;
+color: #dc3545;
+}
+
+.icon {
+font-size: 0.75rem;
+}
+
+.no-hours {
+text-align: center;
+color: #6b7280;
+font-style: italic;
+padding: 20px;
+background: #ffffff;
+border-radius: 6px;
+border: 1px solid #e2e8f0;
+}
+
+/* Form Elements */
+.form-field {
+margin-bottom: 16px;
+}
+
+.form-field label {
+display: block;
+font-weight: 600;
+color: #374151;
+margin-bottom: 6px;
+font-size: 0.9rem;
+}
+
+.form-field input {
+width: 100%;
+padding: 8px 12px;
+border: 1px solid #d1d5db;
+border-radius: 6px;
+font-size: 0.9rem;
+background: #ffffff;
+color: #374151;
+transition: all 0.2s ease;
+}
+
+.form-field input:focus {
+outline: none;
+border-color: #0066cc;
+box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.form-actions {
+display: flex;
+gap: 8px;
+justify-content: flex-end;
+margin-top: 16px;
+}
+
+.primary-button {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+padding: 8px 16px;
+background: #10b981;
+color: #ffffff;
+border: none;
+border-radius: 6px;
+font-size: 0.9rem;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s ease;
+}
+
+.primary-button:hover {
+background: #059669;
+transform: translateY(-1px);
+}
+
+.primary-button:active {
+transform: scale(0.98);
+}
+
+.secondary-button {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+padding: 8px 16px;
+background: #f3f4f6;
+color: #374151;
+border: 1px solid #d1d5db;
+border-radius: 6px;
+font-size: 0.9rem;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s ease;
+}
+
+.secondary-button:hover {
+background: #e5e7eb;
+border-color: #0066cc;
+transform: translateY(-1px);
+}
+
+.secondary-button:active {
+transform: scale(0.98);
 }
 .menu-list {
 display: grid;
