@@ -289,11 +289,28 @@ function drawMic(ctx, mic) {
 
   ctx.restore()
 
-  // Draw label
-  ctx.fillStyle = '#222'
+  // Draw label with white background for readability over dark images
   ctx.font = 'bold 12px sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText(mic.track_name || mic.label, x, y + 40)
+  ctx.textBaseline = 'top'
+  const labelText = mic.track_name || mic.label
+  const textMetrics = ctx.measureText(labelText)
+  const padX = 6
+  const padY = 4
+  const bgW = Math.ceil(textMetrics.width) + padX * 2
+  const bgH = 18 + padY * 2
+  const labelY = y + 40
+  // Background
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.rect(x - bgW / 2, labelY - padY, bgW, bgH)
+  ctx.fill()
+  ctx.stroke()
+  // Text
+  ctx.fillStyle = '#222'
+  ctx.fillText(labelText, x, labelY)
 }
 
 // Image handling
