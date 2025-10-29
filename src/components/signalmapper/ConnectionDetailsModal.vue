@@ -168,10 +168,11 @@ const connectionType = ref('Mic')
 const loading = ref(false)
 const errorMsg = ref('')
 
-// Disallow more than one outgoing connection from a source
-const sourceHasConnection = computed(() => {
+// Disallow duplicate connection from the same source to the same target
+const sourceHasConnectionToTarget = computed(() => {
   return (props.existingConnections || []).some(c =>
-    (c.from_node_id === props.fromNode.id || c.from === props.fromNode.id)
+    (c.from_node_id === props.fromNode.id || c.from === props.fromNode.id) &&
+    (c.to_node_id === props.toNode.id || c.to === props.toNode.id)
   )
 })
 
@@ -312,9 +313,9 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
   try {
-  // Block if source already connected (UI guard)
-  if (sourceHasConnection.value) {
-    errorMsg.value = 'This source already has a connection.'
+  // Block if a connection from this source to this target already exists
+  if (sourceHasConnectionToTarget.value) {
+    errorMsg.value = 'This source is already connected to this device.'
     loading.value = false
     return
   }
