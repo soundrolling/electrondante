@@ -60,10 +60,8 @@
       </template>
       <template v-else>
         <div class="detail-row">
-          <span class="label">Track:</span>
-          <select v-model.number="editTrack" class="inline-select">
-            <option v-for="n in trackOptionsForSelected" :key="n" :value="n">{{ n }}</option>
-          </select>
+          <span class="label">Input:</span>
+          <input type="number" min="1" v-model.number="editInput" class="inline-select" />
         </div>
       </template>
       <div class="detail-row">
@@ -254,8 +252,8 @@ async function saveSelectedConnection() {
   try {
     const payload = { id: c.id, pad: editPad.value, phantom_power: editPhantom.value, connection_type: editType.value }
     if (toNodeType.value === 'recorder') {
-      payload.track_number = editTrack.value || null
-      payload.input_number = null
+      payload.input_number = editInput.value || null
+      payload.track_number = null
     } else {
       payload.input_number = editInput.value || null
       // keep existing track_number if any
