@@ -32,6 +32,34 @@
           <span class="select-arrow">▼</span>
         </div>
       </div>
+
+      <!-- Tabs moved into header row -->
+      <div class="project-tabs">
+        <button
+          :class="['tab-btn', { active: activeTab === 'active' }]"
+          @click="activeTab = 'active'"
+        >
+          <span class="tab-icon">📁</span>
+          <span class="tab-text">Active</span>
+        </button>
+        <button
+          :class="['tab-btn', { active: activeTab === 'archived' }]"
+          @click="activeTab = 'archived'"
+        >
+          <span class="tab-icon">📦</span>
+          <span class="tab-text">Archived</span>
+        </button>
+      </div>
+
+      <!-- Search moved into header row -->
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          v-model="searchQuery"
+          placeholder="Search projects…"
+          class="search-input"
+        />
+      </div>
     </div>
   </header>
 
@@ -115,38 +143,7 @@
       </div>
     </form>
 
-    <!-- sorter + tabs + search (combined on desktop) -->
-    <div class="toolbar">
-      <div class="toolbar-left"></div>
-
-      <div class="toolbar-center project-tabs">
-        <button
-          :class="['tab-btn', { active: activeTab === 'active' }]"
-          @click="activeTab = 'active'"
-        >
-          <span class="tab-icon">📁</span>
-          <span class="tab-text">Active</span>
-        </button>
-        <button
-          :class="['tab-btn', { active: activeTab === 'archived' }]"
-          @click="activeTab = 'archived'"
-        >
-          <span class="tab-icon">📦</span>
-          <span class="tab-text">Archived</span>
-        </button>
-      </div>
-
-      <div class="toolbar-right">
-        <div class="search-wrapper">
-          <span class="search-icon">🔍</span>
-          <input
-            v-model="searchQuery"
-            placeholder="Search projects…"
-            class="search-input"
-          />
-        </div>
-      </div>
-    </div>
+    <!-- toolbar removed; controls are now in header -->
 
     <div v-if="activeTab === 'active'" class="projects-section">
       <div class="projects-grid">
