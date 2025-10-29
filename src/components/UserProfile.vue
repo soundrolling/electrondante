@@ -84,6 +84,11 @@ const gearForm = ref({
   gear_name: '',
   quantity: 1,
   gear_type: '',
+  // IO/Tracks for richer gear description
+  num_inputs: 0,
+  num_outputs: 1,
+  num_records: null,
+  is_rented: false,
   purchased_date: '',
   notes: '',
   condition: 'excellent',
@@ -154,7 +159,7 @@ async function fetchGear() {
     gearLoading.value = true;
   const { data, error } = await supabase
     .from('user_gear')
-      .select('id, gear_name, quantity, gear_type, purchased_date, notes, condition, availability')
+      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability')
     .eq('user_id', userId.value)
     .order('gear_name');
     
@@ -177,6 +182,10 @@ function openEditGear(gearItem) {
     gear_name: gearItem.gear_name,
     quantity: gearItem.quantity || 1,
     gear_type: gearItem.gear_type || '',
+    num_inputs: gearItem.num_inputs ?? 0,
+    num_outputs: gearItem.num_outputs ?? 1,
+    num_records: gearItem.num_records ?? null,
+    is_rented: !!gearItem.is_rented,
     purchased_date: gearItem.purchased_date || '',
     notes: gearItem.notes || '',
     condition: gearItem.condition || 'excellent',
@@ -192,6 +201,10 @@ function resetGearForm() {
     gear_name: '',
     quantity: 1,
     gear_type: '',
+    num_inputs: 0,
+    num_outputs: 1,
+    num_records: null,
+    is_rented: false,
     purchased_date: '',
     notes: '',
     condition: 'excellent',
@@ -210,6 +223,10 @@ async function saveGear() {
     gear_name: name,
     quantity: gearForm.value.quantity || 1,
     gear_type: gearForm.value.gear_type.trim() || null,
+    num_inputs: gearForm.value.gear_type === 'source' ? 0 : Number(gearForm.value.num_inputs || 0),
+    num_outputs: gearForm.value.gear_type === 'source' ? 1 : Number(gearForm.value.num_outputs || 0),
+    num_records: gearForm.value.gear_type === 'recorder' ? Number(gearForm.value.num_records || 0) : null,
+    is_rented: !!gearForm.value.is_rented,
     purchased_date: gearForm.value.purchased_date || null,
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
@@ -687,6 +704,41 @@ async function saveSecurity() {
             </div>
           </div>
 
+          <!-- IO fields (hidden for sources) -->
+          <div class="form-row">
+            <div class="form-group" v-if="gearForm.gear_type !== 'source'">
+              <label class="form-label">Inputs</label>
+              <input 
+                v-model.number="gearForm.num_inputs" 
+                class="form-input"
+                type="number"
+                min="0"
+              />
+            </div>
+            <div class="form-group" v-if="gearForm.gear_type !== 'source'">
+              <label class="form-label">Outputs</label>
+              <input 
+                v-model.number="gearForm.num_outputs" 
+                class="form-input"
+                type="number"
+                min="0"
+              />
+            </div>
+          </div>
+
+          <!-- Tracks for recorders -->
+          <div class="form-row" v-if="gearForm.gear_type === 'recorder'">
+            <div class="form-group">
+              <label class="form-label">Tracks</label>
+              <input 
+                v-model.number="gearForm.num_records" 
+                class="form-input"
+                type="number"
+                min="1"
+              />
+            </div>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Purchased Date</label>
@@ -715,6 +767,11 @@ async function saveSecurity() {
               </option>
             </select>
         </div>
+
+          <div class="form-group">
+            <label class="form-label">Rented?</label>
+            <input type="checkbox" v-model="gearForm.is_rented" style="width:auto; min-height:unset;" />
+          </div>
 
           <div class="form-group">
             <label class="form-label">Notes</label>
