@@ -115,7 +115,6 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
-import { useToast } from 'vue-toastification'
 import { addNode, updateNode, deleteNode } from '@/services/signalMapperService'
 
 const props = defineProps({
@@ -144,7 +143,6 @@ const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
-const toast = useToast()
 // no popover; show inline controls
 
 // Persistence helpers
