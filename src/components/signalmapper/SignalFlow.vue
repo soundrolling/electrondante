@@ -66,7 +66,7 @@
       </template>
       <div class="detail-row">
         <span class="label">Pad (dB):</span>
-        <input type="number" min="0" step="1" v-model.number="editPad" class="inline-select" />
+        <input type="number" min="-60" step="1" v-model.number="editPad" class="inline-select" />
       </div>
       <div class="detail-row">
         <span class="label">Phantom Power:</span>

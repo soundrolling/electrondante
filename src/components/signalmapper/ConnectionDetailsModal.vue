@@ -67,7 +67,7 @@
         <div class="form-group connection-properties">
           <label class="select-label">
             <span>Pad (dB)</span>
-            <input type="number" min="0" step="1" v-model.number="padValue" />
+            <input type="number" min="-60" step="1" v-model.number="padValue" />
           </label>
           <label class="checkbox-label">
             <input type="checkbox" v-model="phantomPowerEnabled" />
