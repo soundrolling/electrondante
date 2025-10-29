@@ -130,8 +130,8 @@
 </section>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted, defineExpose } from 'vue'
+<script>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useToast }                         from 'vue-toastification'
 import Swal                                 from 'sweetalert2'
 import jsPDF                                from 'jspdf'
@@ -140,394 +140,411 @@ import { useUserStore }                     from '@/stores/userStore'
 import { fetchTableData, mutateTableData }  from '@/services/dataService'
 import { getSetting }                       from '@/utils/indexedDB'
 
-const props = defineProps({ locationId: String })
-const emit = defineEmits(['changeover-note', 'quick'])
-const store = useUserStore()
-const toast = useToast()
+export default {
+  name: 'LNTabSchedule',
+  props: {
+    locationId: String
+  },
+  emits: ['changeover-note', 'quick'],
+  setup(props, { emit }) {
+    const store = useUserStore()
+    const toast = useToast()
 
-// Data & state
-const schedules   = ref([])
-const stageHours  = ref([])
-const groupedDays = ref([])
-const idx         = ref(0)
-const sortOrder   = ref('asc')
+    // Data & state
+    const schedules   = ref([])
+    const stageHours  = ref([])
+    const groupedDays = ref([])
+    const idx         = ref(0)
+    const sortOrder   = ref('asc')
 
-// Form state
-const showForm = ref(false)
-const isEdit   = ref(false)
-let   editId   = null
-const fArtist  = ref('')
-const fStart   = ref('')
-const fEnd     = ref('')
-const fDate    = ref(new Date().toISOString().slice(0,10))
-const fStageHourId = ref('')
-const busy     = ref(false)
-const err      = ref(null)
+    // Form state
+    const showForm = ref(false)
+    const isEdit   = ref(false)
+    let   editId   = null
+    const fArtist  = ref('')
+    const fStart   = ref('')
+    const fEnd     = ref('')
+    const fDate    = ref(new Date().toISOString().slice(0,10))
+    const fStageHourId = ref('')
+    const busy     = ref(false)
+    const err      = ref(null)
 
-// Highlighting
-const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
+    // Highlighting
+    const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
 
-const getTimecode = () => {
-  if (timecodeSource.value === 'live') {
-    return localStorage.getItem('liveTimecode') || '00:00:00'
-  }
-  // Add other sources as needed
-  if (timecodeSource.value === 'device') {
-    return new Date().toTimeString().slice(0,8)
-  }
-  // Add 'world' or other sources here
-  return '00:00:00'
-}
-
-const currentTimecode = ref(getTimecode())
-
-// Update every second (or as needed)
-let timerId
-onMounted(() => {
-  timerId = setInterval(() => {
-    currentTimecode.value = getTimecode()
-  }, 1000)
-})
-onUnmounted(() => clearInterval(timerId))
-
-// Helpers
-const todayISO = () => {
-const d    = new Date()
-const yyyy = d.getFullYear()
-const mm   = String(d.getMonth()+1).padStart(2,'0')
-const dd   = String(d.getDate()).padStart(2,'0')
-return `${yyyy}-${mm}-${dd}`
-}
-const niceDate = d => d ? new Date(d).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) : ''
-const t5 = t => t ? t.slice(0,5) : ''
-
-function timeToMinutes(t) {
-  if (!t) return 0
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
-}
-
-// Helpers for stage hour matching
-function toDateTime(dateStr, timeStr) {
-  if (!dateStr || !timeStr) return null
-  return new Date(`${dateStr}T${timeStr}`)
-}
-
-function formatStageHourFallback(sh) {
-  const start = new Date(sh.start_datetime)
-  const dayNum = sh.order_index || ''
-  const nice = start.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })
-  return `Day ${dayNum} (${nice})`
-}
-
-function findStageHourIdFor(dateStr, timeStr) {
-  const dt = toDateTime(dateStr, timeStr)
-  if (!dt) return null
-  for (const sh of stageHours.value) {
-    const s = new Date(sh.start_datetime)
-    const e = new Date(sh.end_datetime)
-    if (dt >= s && dt <= e) return sh.id
-  }
-  return null
-}
-
-// Recording day display helper
-function getRecordingDayDisplay(item){
-  if (!item || !item.stage_hour_id) return '—'
-  const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
-  return sh ? (sh.notes || formatStageHourFallback(sh)) : '—'
-}
-
-// Fetch & group by recording day (stage hour)
-async function fetchAll() {
-  const projectId = await getSetting('current-project-id')
-  // Load schedules and stage hours
-  schedules.value = await fetchTableData('schedules', { eq:{ location_id: props.locationId }})
-  stageHours.value = await fetchTableData('stage_hours', {
-    eq: { project_id: projectId, stage_id: props.locationId },
-    order: { column: 'start_datetime', ascending: true }
-  })
-
-  // Build groups keyed by stage_hour_id, plus Unassigned
-  const byStageHour = {}
-  const unassigned = []
-  schedules.value.forEach(s => {
-    const sid = s.stage_hour_id || findStageHourIdFor(s.recording_date, s.start_time)
-    if (sid) {
-      byStageHour[sid] = byStageHour[sid] || []
-      byStageHour[sid].push(s)
-    } else {
-      unassigned.push(s)
+    const getTimecode = () => {
+      if (timecodeSource.value === 'live') {
+        return localStorage.getItem('liveTimecode') || '00:00:00'
+      }
+      // Add other sources as needed
+      if (timecodeSource.value === 'device') {
+        return new Date().toTimeString().slice(0,8)
+      }
+      // Add 'world' or other sources here
+      return '00:00:00'
     }
-  })
 
-  const groups = stageHours.value.map(sh => ({
-    id: sh.id,
-    label: sh.notes || formatStageHourFallback(sh),
-    start: sh.start_datetime,
-    end: sh.end_datetime,
-    events: byStageHour[sh.id] || []
-  }))
-  if (unassigned.length) {
-    groups.push({ id: 'unassigned', label: 'Unassigned', events: unassigned })
-  }
-  groupedDays.value = groups
-  idx.value = Math.max(0, 0)
-}
+    const currentTimecode = ref(getTimecode())
 
-const day  = computed(() => groupedDays.value[idx.value] || { id:null, label:null, events:[] })
-const currentGroupLabel = computed(() => day.value.label || '')
-const rows = computed(() => {
-const list = [...day.value.events]
-if (sortOrder.value === 'artist')
-  return list.sort((a,b) => a.artist_name.localeCompare(b.artist_name))
-const dir = sortOrder.value === 'asc' ? 1 : -1
-return list.sort((a,b) => a.start_time.localeCompare(b.start_time) * dir)
-})
-
-// Find next artist for changeover
-const hasNextArtist = computed(() => {
-  const currentTime = getTimecode()
-  const currentDate = todayISO()
-  
-  // Find the next artist after current time
-  const nextArtist = schedules.value.find(s => {
-    const scheduleTime = s.start_time
-    const scheduleDate = s.recording_date
-    
-    // If it's today and the time is in the future, or it's a future date
-    if (scheduleDate > currentDate) return true
-    if (scheduleDate === currentDate && scheduleTime > currentTime) return true
-    return false
-  })
-  
-  return !!nextArtist
-})
-
-const nextArtist = computed(() => {
-  const currentTime = getTimecode()
-  const currentDate = todayISO()
-  
-  // Find the next artist after current time
-  return schedules.value.find(s => {
-    const scheduleTime = s.start_time
-    const scheduleDate = s.recording_date
-    
-    // If it's today and the time is in the future, or it's a future date
-    if (scheduleDate > currentDate) return true
-    if (scheduleDate === currentDate && scheduleTime > currentTime) return true
-    return false
-  })
-})
-
-function getTodayTime(timeStr) {
-  if (!timeStr) return null;
-  const [h, m, s] = timeStr.split(':').map(Number);
-  const d = new Date();
-  d.setHours(h || 0, m || 0, s || 0, 0);
-  return d;
-}
-
-const activeIndex = computed(() => {
-  const [h, m, s] = currentTimecode.value.split(':').map(Number)
-  const now = new Date()
-  now.setHours(h || 0, m || 0, s || 0, 0)
-  return rows.value.findIndex(item => {
-    const start = getTodayTime(item.start_time)
-    const end = getTodayTime(item.end_time)
-    return start <= now && now < end
-  })
-})
-
-function isActive(item, i) {
-  return i === activeIndex.value
-}
-
-async function createChangeoverNote() {
-  if (!hasNextArtist.value) {
-    toast.warning('No next artist scheduled')
-    return
-  }
-
-  const artist = nextArtist.value
-  const currentTime = getTimecode()
-  const currentDate = todayISO()
-  
-  const changeoverNote = `Changeover to ${artist.artist_name} - scheduled to start at ${artist.start_time}`
-  
-  try {
-    await mutateTableData('notes', 'insert', {
-      timestamp: currentTime,
-      recording_date: currentDate,
-      note: changeoverNote,
-      location_id: props.locationId,
-      creator_email: store.getUserEmail,
-      project_id: store.getCurrentProject ? store.getCurrentProject.id : null
+    // Update every second (or as needed)
+    let timerId
+    onMounted(() => {
+      timerId = setInterval(() => {
+        currentTimecode.value = getTimecode()
+      }, 1000)
     })
-    
-    toast.success(`Changeover note created for ${artist.artist_name}`)
-    
-    // Emit event to parent to refresh notes
-    emit('changeover-note', changeoverNote)
-  } catch (error) {
-    console.error('Error creating changeover note:', error)
-    toast.error('Failed to create changeover note')
+    onUnmounted(() => clearInterval(timerId))
+
+    // Helpers
+    const todayISO = () => {
+      const d    = new Date()
+      const yyyy = d.getFullYear()
+      const mm   = String(d.getMonth()+1).padStart(2,'0')
+      const dd   = String(d.getDate()).padStart(2,'0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+    const niceDate = d => d ? new Date(d).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) : ''
+    const t5 = t => t ? t.slice(0,5) : ''
+
+    function timeToMinutes(t) {
+      if (!t) return 0
+      const [h, m] = t.split(':').map(Number)
+      return h * 60 + m
+    }
+
+    // Helpers for stage hour matching
+    function toDateTime(dateStr, timeStr) {
+      if (!dateStr || !timeStr) return null
+      return new Date(`${dateStr}T${timeStr}`)
+    }
+
+    function formatStageHourFallback(sh) {
+      const start = new Date(sh.start_datetime)
+      const dayNum = sh.order_index || ''
+      const nice = start.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })
+      return `Day ${dayNum} (${nice})`
+    }
+
+    function findStageHourIdFor(dateStr, timeStr) {
+      const dt = toDateTime(dateStr, timeStr)
+      if (!dt) return null
+      for (const sh of stageHours.value) {
+        const s = new Date(sh.start_datetime)
+        const e = new Date(sh.end_datetime)
+        if (dt >= s && dt <= e) return sh.id
+      }
+      return null
+    }
+
+    // Recording day display helper
+    function getRecordingDayDisplay(item){
+      if (!item || !item.stage_hour_id) return '—'
+      const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
+      return sh ? (sh.notes || formatStageHourFallback(sh)) : '—'
+    }
+
+    // Fetch & group by recording day (stage hour)
+    async function fetchAll() {
+      const projectId = await getSetting('current-project-id')
+      // Load schedules and stage hours
+      schedules.value = await fetchTableData('schedules', { eq:{ location_id: props.locationId }})
+      stageHours.value = await fetchTableData('stage_hours', {
+        eq: { project_id: projectId, stage_id: props.locationId },
+        order: { column: 'start_datetime', ascending: true }
+      })
+
+      // Build groups keyed by stage_hour_id, plus Unassigned
+      const byStageHour = {}
+      const unassigned = []
+      schedules.value.forEach(s => {
+        const sid = s.stage_hour_id || findStageHourIdFor(s.recording_date, s.start_time)
+        if (sid) {
+          byStageHour[sid] = byStageHour[sid] || []
+          byStageHour[sid].push(s)
+        } else {
+          unassigned.push(s)
+        }
+      })
+
+      const groups = stageHours.value.map(sh => ({
+        id: sh.id,
+        label: sh.notes || formatStageHourFallback(sh),
+        start: sh.start_datetime,
+        end: sh.end_datetime,
+        events: byStageHour[sh.id] || []
+      }))
+      if (unassigned.length) {
+        groups.push({ id: 'unassigned', label: 'Unassigned', events: unassigned })
+      }
+      groupedDays.value = groups
+      idx.value = Math.max(0, 0)
+    }
+
+    const day  = computed(() => groupedDays.value[idx.value] || { id:null, label:null, events:[] })
+    const currentGroupLabel = computed(() => day.value.label || '')
+    const rows = computed(() => {
+      const list = [...day.value.events]
+      if (sortOrder.value === 'artist')
+        return list.sort((a,b) => a.artist_name.localeCompare(b.artist_name))
+      const dir = sortOrder.value === 'asc' ? 1 : -1
+      return list.sort((a,b) => a.start_time.localeCompare(b.start_time) * dir)
+    })
+
+    // Find next artist for changeover
+    const hasNextArtist = computed(() => {
+      const currentTime = getTimecode()
+      const currentDate = todayISO()
+      
+      // Find the next artist after current time
+      const nextArtist = schedules.value.find(s => {
+        const scheduleTime = s.start_time
+        const scheduleDate = s.recording_date
+        
+        // If it's today and the time is in the future, or it's a future date
+        if (scheduleDate > currentDate) return true
+        if (scheduleDate === currentDate && scheduleTime > currentTime) return true
+        return false
+      })
+      
+      return !!nextArtist
+    })
+
+    const nextArtist = computed(() => {
+      const currentTime = getTimecode()
+      const currentDate = todayISO()
+      
+      // Find the next artist after current time
+      return schedules.value.find(s => {
+        const scheduleTime = s.start_time
+        const scheduleDate = s.recording_date
+        
+        // If it's today and the time is in the future, or it's a future date
+        if (scheduleDate > currentDate) return true
+        if (scheduleDate === currentDate && scheduleTime > currentTime) return true
+        return false
+      })
+    })
+
+    function getTodayTime(timeStr) {
+      if (!timeStr) return null;
+      const [h, m, s] = timeStr.split(':').map(Number);
+      const d = new Date();
+      d.setHours(h || 0, m || 0, s || 0, 0);
+      return d;
+    }
+
+    const activeIndex = computed(() => {
+      const [h, m, s] = currentTimecode.value.split(':').map(Number)
+      const now = new Date()
+      now.setHours(h || 0, m || 0, s || 0, 0)
+      return rows.value.findIndex(item => {
+        const start = getTodayTime(item.start_time)
+        const end = getTodayTime(item.end_time)
+        return start <= now && now < end
+      })
+    })
+
+    function isActive(item, i) {
+      return i === activeIndex.value
+    }
+
+    async function createChangeoverNote() {
+      if (!hasNextArtist.value) {
+        toast.warning('No next artist scheduled')
+        return
+      }
+
+      const artist = nextArtist.value
+      const currentTime = getTimecode()
+      const currentDate = todayISO()
+      
+      const changeoverNote = `Changeover to ${artist.artist_name} - scheduled to start at ${artist.start_time}`
+      
+      try {
+        await mutateTableData('notes', 'insert', {
+          timestamp: currentTime,
+          recording_date: currentDate,
+          note: changeoverNote,
+          location_id: props.locationId,
+          creator_email: store.getUserEmail,
+          project_id: store.getCurrentProject ? store.getCurrentProject.id : null
+        })
+        
+        toast.success(`Changeover note created for ${artist.artist_name}`)
+        
+        // Emit event to parent to refresh notes
+        emit('changeover-note', changeoverNote)
+      } catch (error) {
+        console.error('Error creating changeover note:', error)
+        toast.error('Failed to create changeover note')
+      }
+    }
+
+    function openForm(item=null) {
+      showForm.value = true
+      if (item) {
+        isEdit.value = true; editId = item.id
+        fArtist.value = item.artist_name
+        fStart.value  = item.start_time
+        fEnd.value    = item.end_time
+        fDate.value   = item.recording_date
+        fStageHourId.value = item.stage_hour_id || (findStageHourIdFor(item.recording_date, item.start_time) || '')
+      } else {
+        isEdit.value = false; editId = null
+        fArtist.value = fStart.value = fEnd.value = ''
+        fDate.value = todayISO()
+        // auto-detect stage hour for the given date/start time if available
+        fStageHourId.value = findStageHourIdFor(fDate.value, fStart.value) || ''
+      }
+    }
+
+    function closeForm(){ showForm.value=false; err.value=null }
+
+    async function save(){
+      if(!fArtist.value||!fStart.value||!fEnd.value){
+        err.value='All fields are required'
+        return
+      }
+      busy.value=true
+      try{
+        if(isEdit.value){
+          await mutateTableData('schedules','update',{
+            id: editId,
+            artist_name:  fArtist.value,
+            start_time:   fStart.value,
+            end_time:     fEnd.value,
+            recording_date: fDate.value,
+            stage_hour_id: fStageHourId.value || null
+          })
+        } else {
+          await mutateTableData('schedules','insert',{
+            artist_name:    fArtist.value,
+            start_time:     fStart.value,
+            end_time:       fEnd.value,
+            recording_date: fDate.value,
+            location_id:    props.locationId,
+            project_id:     store.getCurrentProject ? store.getCurrentProject.id : null,
+            stage_hour_id:  fStageHourId.value || null
+          })
+        }
+        await fetchAll()
+        closeForm()
+        toast.success('Saved!')
+      } catch(e){
+        err.value=e.message
+      } finally {
+        busy.value=false
+      }
+    }
+
+    async function remove(id){
+      const { isConfirmed } = await Swal.fire({
+        title: 'Delete this slot?',
+        text: 'This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: 'var(--danger)'
+      })
+      if(!isConfirmed) return
+      await mutateTableData('schedules','delete',{ id })
+      await fetchAll()
+      toast.success('Deleted!')
+    }
+
+    // PDF export
+    function exportPdf(){
+      const doc = new jsPDF({ unit:'pt', format:'a4' })
+      doc.text('Stage Schedule',40,40)
+      autoTable(doc,{
+        head: [['Artist','Start','End','Date','Recording Day']],
+        body: schedules.value.map(s=>[
+          s.artist_name, t5(s.start_time), t5(s.end_time), s.recording_date, getRecordingDayDisplay(s)
+        ]),
+        startY: 60,
+        styles: { fontSize:9, cellPadding:4 }
+      })
+      doc.save('stage-schedule.pdf')
+    }
+
+    function emitChangeNote(artistName) {
+      emit('quick', `DJ Change - ${artistName}`);
+    }
+
+    // Date/time range filter state
+    const RANGE_KEY = 'ln_schedule_range'
+    const fromDateTime = ref(localStorage.getItem(RANGE_KEY + '_from') || '')
+    const toDateTime = ref(localStorage.getItem(RANGE_KEY + '_to') || '')
+
+    function saveRange() {
+      localStorage.setItem(RANGE_KEY + '_from', fromDateTime.value)
+      localStorage.setItem(RANGE_KEY + '_to', toDateTime.value)
+    }
+    function clearFrom() {
+      fromDateTime.value = ''
+      saveRange()
+    }
+    function clearTo() {
+      toDateTime.value = ''
+      saveRange()
+    }
+
+    // Filtering rows by date/time range
+    function getDateTimeISO(date, time) {
+      if (!date || !time) return ''
+      return date + 'T' + time
+    }
+    const filteredRows = computed(() => {
+      let list = [...rows.value]
+      if (fromDateTime.value) {
+        list = list.filter(r => {
+          const dt = getDateTimeISO(r.recording_date, r.start_time)
+          return dt >= fromDateTime.value
+        })
+      }
+      if (toDateTime.value) {
+        list = list.filter(r => {
+          const dt = getDateTimeISO(r.recording_date, r.end_time)
+          return dt <= toDateTime.value
+        })
+      }
+      return list
+    })
+
+    function pad2(n) { return n.toString().padStart(2, '0') }
+    function setToday() {
+      const now = new Date()
+      const yyyy = now.getFullYear()
+      const mm = pad2(now.getMonth() + 1)
+      const dd = pad2(now.getDate())
+      fromDateTime.value = `${yyyy}-${mm}-${dd}T00:00`
+      toDateTime.value = `${yyyy}-${mm}-${dd}T23:59`
+      saveRange()
+    }
+    function setPreviousDay() {
+      const now = new Date()
+      now.setDate(now.getDate() - 1)
+      const yyyy = now.getFullYear()
+      const mm = pad2(now.getMonth() + 1)
+      const dd = pad2(now.getDate())
+      fromDateTime.value = `${yyyy}-${mm}-${dd}T00:00`
+      toDateTime.value = `${yyyy}-${mm}-${dd}T23:59`
+      saveRange()
+    }
+
+    onMounted(fetchAll)
+
+    return {
+      schedules, stageHours, groupedDays, idx, sortOrder,
+      showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, busy, err,
+      currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
+      activeIndex, filteredRows, fromDateTime, toDateTime,
+      openForm, closeForm, save, remove, exportPdf, emitChangeNote,
+      createChangeoverNote, isActive,
+      saveRange, clearFrom, clearTo, setToday, setPreviousDay
+    }
   }
 }
 
-function openForm(item=null) {
-showForm.value = true
-if (item) {
-  isEdit.value = true; editId = item.id
-  fArtist.value = item.artist_name
-  fStart.value  = item.start_time
-  fEnd.value    = item.end_time
-  fDate.value   = item.recording_date
-  fStageHourId.value = item.stage_hour_id || (findStageHourIdFor(item.recording_date, item.start_time) || '')
-} else {
-  isEdit.value = false; editId = null
-  fArtist.value = fStart.value = fEnd.value = ''
-  fDate.value = todayISO()
-  // auto-detect stage hour for the given date/start time if available
-  fStageHourId.value = findStageHourIdFor(fDate.value, fStart.value) || ''
-}
-}
-
-function closeForm(){ showForm.value=false; err.value=null }
-
-async function save(){
-if(!fArtist.value||!fStart.value||!fEnd.value){
-  err.value='All fields are required'
-  return
-}
-busy.value=true
-try{
-  if(isEdit.value){
-    await mutateTableData('schedules','update',{
-      id: editId,
-      artist_name:  fArtist.value,
-      start_time:   fStart.value,
-      end_time:     fEnd.value,
-      recording_date: fDate.value,
-      stage_hour_id: fStageHourId.value || null
-    })
-  } else {
-    await mutateTableData('schedules','insert',{
-      artist_name:    fArtist.value,
-      start_time:     fStart.value,
-      end_time:       fEnd.value,
-      recording_date: fDate.value,
-      location_id:    props.locationId,
-      project_id:     store.getCurrentProject ? store.getCurrentProject.id : null,
-      stage_hour_id:  fStageHourId.value || null
-    })
-  }
-  await fetchAll()
-  closeForm()
-  toast.success('Saved!')
-} catch(e){
-  err.value=e.message
-} finally {
-  busy.value=false
-}
-}
-
-async function remove(id){
-const { isConfirmed } = await Swal.fire({
-  title: 'Delete this slot?',
-  text: 'This action cannot be undone.',
-  icon: 'warning',
-  showCancelButton: true,
-  confirmButtonColor: 'var(--danger)'
-})
-if(!isConfirmed) return
-await mutateTableData('schedules','delete',{ id })
-await fetchAll()
-toast.success('Deleted!')
-}
-
-// PDF export
-function exportPdf(){
-const doc = new jsPDF({ unit:'pt', format:'a4' })
-doc.text('Stage Schedule',40,40)
-autoTable(doc,{
-  head: [['Artist','Start','End','Date','Recording Day']],
-  body: schedules.value.map(s=>[
-    s.artist_name, t5(s.start_time), t5(s.end_time), s.recording_date, getRecordingDayDisplay(s)
-  ]),
-  startY: 60,
-  styles: { fontSize:9, cellPadding:4 }
-})
-doc.save('stage-schedule.pdf')
-}
-defineExpose({ exportPdf })
-
-function emitChangeNote(artistName) {
-  emit('quick', `DJ Change - ${artistName}`);
-}
-
-// Date/time range filter state
-const RANGE_KEY = 'ln_schedule_range'
-const fromDateTime = ref(localStorage.getItem(RANGE_KEY + '_from') || '')
-const toDateTime = ref(localStorage.getItem(RANGE_KEY + '_to') || '')
-
-function saveRange() {
-  localStorage.setItem(RANGE_KEY + '_from', fromDateTime.value)
-  localStorage.setItem(RANGE_KEY + '_to', toDateTime.value)
-}
-function clearFrom() {
-  fromDateTime.value = ''
-  saveRange()
-}
-function clearTo() {
-  toDateTime.value = ''
-  saveRange()
-}
-
-// Filtering rows by date/time range
-function getDateTimeISO(date, time) {
-  if (!date || !time) return ''
-  return date + 'T' + time
-}
-const filteredRows = computed(() => {
-  let list = [...rows.value]
-  if (fromDateTime.value) {
-    list = list.filter(r => {
-      const dt = getDateTimeISO(r.recording_date, r.start_time)
-      return dt >= fromDateTime.value
-    })
-  }
-  if (toDateTime.value) {
-    list = list.filter(r => {
-      const dt = getDateTimeISO(r.recording_date, r.end_time)
-      return dt <= toDateTime.value
-    })
-  }
-  return list
-})
-
-function pad2(n) { return n.toString().padStart(2, '0') }
-function setToday() {
-  const now = new Date()
-  const yyyy = now.getFullYear()
-  const mm = pad2(now.getMonth() + 1)
-  const dd = pad2(now.getDate())
-  fromDateTime.value = `${yyyy}-${mm}-${dd}T00:00`
-  toDateTime.value = `${yyyy}-${mm}-${dd}T23:59`
-  saveRange()
-}
-function setPreviousDay() {
-  const now = new Date()
-  now.setDate(now.getDate() - 1)
-  const yyyy = now.getFullYear()
-  const mm = pad2(now.getMonth() + 1)
-  const dd = pad2(now.getDate())
-  fromDateTime.value = `${yyyy}-${mm}-${dd}T00:00`
-  toDateTime.value = `${yyyy}-${mm}-${dd}T23:59`
-  saveRange()
-}
-
-onMounted(fetchAll)
 </script>
 
 <style scoped>
