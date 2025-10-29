@@ -38,16 +38,24 @@
       </div>
       <form @submit.prevent="submit" class="connection-form">
         <div v-if="isSource && isTransformerTo" class="form-group">
-          <label>Assign <b>{{ fromNode.label }}</b> to Transformer Input</label>
-          <input type="number" min="1" v-model.number="inputNumber" />
+          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Transformer Input</label>
+          <select v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              Input {{ opt.value }}
+            </option>
+          </select>
           <div class="help" v-if="usedInputsDetailed.length">
             <span class="help-title">Used inputs:</span>
             <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
           </div>
         </div>
         <div v-else-if="isSource && isRecorderTo" class="form-group">
-          <label>Assign <b>{{ fromNode.label }}</b> to Recorder Track</label>
-          <input type="number" min="1" v-model.number="inputNumber" />
+          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
+          <select v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              Track {{ opt.value }}
+            </option>
+          </select>
           <div class="help" v-if="usedInputsDetailed.length">
             <span class="help-title">Used inputs:</span>
             <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
@@ -56,7 +64,11 @@
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
           <label>Assign to Input/Track</label>
-          <input type="number" min="1" v-model.number="inputNumber" />
+          <select v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              Input {{ opt.value }}
+            </option>
+          </select>
           <div class="help" v-if="usedInputsDetailed.length">
             <span class="help-title">Used inputs:</span>
             <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
@@ -169,6 +181,16 @@ watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
 
+// Auto-select first available input when options change or current is taken
+watch([inputOptions, () => inputNumber.value], () => {
+  const opts = inputOptions.value || []
+  const current = opts.find(o => o.value === inputNumber.value)
+  const firstAvail = opts.find(o => !o.disabled)?.value
+  if (!current || current.disabled) {
+    if (typeof firstAvail !== 'undefined') inputNumber.value = firstAvail
+  }
+})
+
 // Helper to get label of node connected to a given input
 function getConnectedNodeLabel(inputNum) {
 const conn = props.existingConnections.find(c => 
@@ -191,7 +213,7 @@ return null
 
 function getNodeLabelById(id) {
 const node = props.elements.find(e => e.id === id)
-return node?.label || id
+return node?.track_name || node?.label || id
 }
 
 const inputOptions = computed(() => {
