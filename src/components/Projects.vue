@@ -15,6 +15,24 @@
         <span class="btn-icon">{{ showNewProjectForm ? '✕' : '➕' }}</span>
         <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
       </button>
+      <!-- Moved sorter into header to align with actions -->
+      <div class="sorter">
+        <label for="sort" class="sorter-label">Sort by:</label>
+        <div class="select-wrapper">
+          <select
+            id="sort"
+            v-model="selectedSortOption"
+            @change="sortProjects"
+            class="form-select"
+          >
+            <option value="newest">Newest → Oldest</option>
+            <option value="oldest">Oldest → Newest</option>
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+          </select>
+          <span class="select-arrow">▼</span>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -100,25 +118,7 @@
 
     <!-- sorter + tabs + search (combined on desktop) -->
     <div class="toolbar">
-      <div class="toolbar-left">
-        <div class="sorter">
-          <label for="sort" class="sorter-label">Sort by:</label>
-          <div class="select-wrapper">
-            <select
-              id="sort"
-              v-model="selectedSortOption"
-              @change="sortProjects"
-              class="form-select"
-            >
-              <option value="newest">Newest → Oldest</option>
-              <option value="oldest">Oldest → Newest</option>
-              <option value="az">A → Z</option>
-              <option value="za">Z → A</option>
-            </select>
-            <span class="select-arrow">▼</span>
-          </div>
-        </div>
-      </div>
+      <div class="toolbar-left"></div>
 
       <div class="toolbar-center project-tabs">
         <button
