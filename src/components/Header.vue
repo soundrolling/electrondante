@@ -139,12 +139,13 @@
           </svg>
         </button>
 
-        <!-- Mobile Sign Out Button -->
+        <!-- Mobile Sign Out Button (compact, red) -->
         <button
           v-if="isAuthenticated"
           @click="handleSignOut"
-          class="btn btn-danger-light sign-out-btn mobile-only"
+          class="btn sign-out-btn-mobile mobile-only"
           title="Sign out"
+          aria-label="Sign out"
         >
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
@@ -638,6 +639,18 @@ export default {
   background-color: var(--color-error-600);
   border-color: var(--color-error-600);
 }
+
+/* Compact mobile sign-out button */
+.sign-out-btn-mobile {
+  background-color: var(--color-error-500);
+  color: #ffffff !important;
+  border: 1px solid var(--color-error-500);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  min-height: 40px;
+  min-width: 40px;
+}
+.sign-out-btn-mobile:hover { background-color: var(--color-error-600); border-color: var(--color-error-600); }
 
 .sign-out-btn:active {
   transform: scale(0.98);
