@@ -345,7 +345,15 @@ try {
   await addConnection(connection)
   emit('confirm', connection)
 } catch (e) {
-  errorMsg.value = e.message || 'Failed to save connection.'
+  if (e?.code === '23505') {
+    // Unique input constraint hit - refresh options and jump to first available
+    const opts = inputOptions.value || []
+    const firstAvail = opts.find(o => !o.disabled)?.value
+    if (typeof firstAvail !== 'undefined') inputNumber.value = firstAvail
+    errorMsg.value = `Input already in use. Switched to Input ${firstAvail ?? ''}.`
+  } else {
+    errorMsg.value = e.message || 'Failed to save connection.'
+  }
 } finally {
   loading.value = false
 }
