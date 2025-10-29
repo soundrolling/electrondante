@@ -199,7 +199,7 @@ const dd   = String(d.getDate()).padStart(2,'0')
 return `${yyyy}-${mm}-${dd}`
 }
 const niceDate = d => d ? new Date(d).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) : ''
-const t5 = t => t?.slice(0,5)
+const t5 = t => t ? t.slice(0,5) : ''
 
 function timeToMinutes(t) {
   if (!t) return 0
@@ -229,6 +229,13 @@ function findStageHourIdFor(dateStr, timeStr) {
     if (dt >= s && dt <= e) return sh.id
   }
   return null
+}
+
+// Recording day display helper
+function getRecordingDayDisplay(item){
+  if (!item || !item.stage_hour_id) return '—'
+  const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
+  return sh ? (sh.notes || formatStageHourFallback(sh)) : '—'
 }
 
 // Fetch & group by recording day (stage hour)
@@ -521,13 +528,6 @@ function setPreviousDay() {
 }
 
 onMounted(fetchAll)
-
-// Recording day display helper
-function getRecordingDayDisplay(item){
-  if (!item || !item.stage_hour_id) return '—'
-  const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
-  return sh ? (sh.notes || formatStageHourFallback(sh)) : '—'
-}
 </script>
 
 <style scoped>
