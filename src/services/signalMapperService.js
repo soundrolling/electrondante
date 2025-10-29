@@ -127,6 +127,7 @@ export async function getCompleteSignalPath(projectId) {
   
   // Build signal paths for each recorder track
   const signalPaths = []
+  const seen = new Set()
   
   recorders.forEach(recorder => {
     // Get all connections to this recorder
@@ -151,6 +152,10 @@ export async function getCompleteSignalPath(projectId) {
         labels.push(inputLabel ? `${transformerNode.label} ${inputLabel}` : `${transformerNode.label}`)
       }
       if (sourceNode) labels.push(sourceNode.label)
+
+      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${sourceNode?.id || ''}`
+      if (seen.has(uniqueKey)) return
+      seen.add(uniqueKey)
 
       signalPaths.push({
         recorder_id: recorder.id,
