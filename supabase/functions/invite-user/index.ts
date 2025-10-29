@@ -58,24 +58,24 @@ Deno.serve(async (req) => {
 
     // 1) Try to find existing user by email (admin-only)
     console.log('🔍 Searching for existing user...');
-    const { data: userList, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
-      email: email
-    });
+    const { data: userList, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
     
     if (listErr) {
       console.error('❌ Error searching for user:', listErr);
       throw new Error(`Error searching for user: ${listErr.message}`);
     }
     
-    console.log('👥 Found users:', userList.users.length);
+    console.log('👥 Total users in system:', userList.users.length);
+    
+    // Filter users by email address
+    const existingUser = userList.users.find(user => user.email?.toLowerCase() === email.toLowerCase());
     
     let userId = null;
     let isExistingUser = false;
     let responseMessage = '';
     
-    if (userList.users.length > 0) {
+    if (existingUser) {
       // User already exists in Auth
-      const existingUser = userList.users[0];
       userId = existingUser.id;
       isExistingUser = true;
       console.log('✅ User exists, ID:', userId);

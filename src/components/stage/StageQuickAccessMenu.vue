@@ -7,10 +7,21 @@
       
       <!-- Show Times / Managing Hours Section -->
       <div v-if="stageHours.length > 0" class="stage-hours-section">
-        <h3 class="hours-title">Show Times / Managing Hours</h3>
+        <div class="hours-header-with-status">
+          <h3 class="hours-title">Show Times / Managing Hours</h3>
+          <div class="hours-controls">
+            <button class="gear-button" @click="toggleHoursManagement" :title="showHoursManagement ? 'Hide Hours Management' : 'Manage Hours'">
+              <span class="gear-icon">⚙️</span>
+            </button>
+            <div class="live-status-indicator" :class="{ 'live': isStageLive, 'scheduled': !isStageLive }">
+              <span class="status-dot"></span>
+              <span class="status-text">{{ isStageLive ? 'LIVE' : 'SCHEDULED' }}</span>
+            </div>
+          </div>
+        </div>
         <div class="hours-list">
           <div v-for="hour in stageHours" :key="hour.id" class="hour-item">
-            <div class="time-range">{{ formatTime(hour.start_datetime) }} - {{ formatTime(hour.end_datetime) }}</div>
+            <div class="time-range">{{ formatTimeWithDate(hour.start_datetime) }} > {{ formatTimeWithDate(hour.end_datetime) }}</div>
             <div v-if="hour.notes" class="hour-notes">{{ hour.notes }}</div>
           </div>
         </div>
@@ -41,26 +52,6 @@
         <button class="menu-item" @click="goTo('calendar')">
           <span class="emoji">📆</span> Calendar
         </button>
-      </div>
-      
-      <!-- Stage Hours Management Row -->
-      <div class="stage-management-row">
-        <button class="management-button manage-hours" @click="toggleHoursManagement">
-          <span class="management-icon">⏰</span>
-          <span class="management-label">{{ showHoursManagement ? 'Hide Hours' : 'Manage Hours' }}</span>
-        </button>
-        
-        <div class="status-section">
-          <div class="status-light" :class="{ 'open': isStageLive, 'closed': !isStageLive }">
-            <span class="status-dot"></span>
-            <span class="status-text">{{ isStageLive ? 'Open' : 'Closed' }}</span>
-          </div>
-          
-          <div v-if="nextTimeslot" class="next-timeslot">
-            <div class="next-label">Next:</div>
-            <div class="next-time">{{ formatNextTimeslot(nextTimeslot) }}</div>
-          </div>
-        </div>
       </div>
       
       <!-- Hours Management Section -->
@@ -214,6 +205,14 @@ function formatTime(datetime) {
   if (!datetime) return '';
   const d = new Date(datetime);
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function formatTimeWithDate(datetime) {
+  if (!datetime) return '';
+  const d = new Date(datetime);
+  const date = d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${date} ${time}`;
 }
 
 function checkLiveStatus() {
@@ -445,6 +444,90 @@ margin: 0 0 12px 0;
 text-align: center;
 }
 
+.hours-header-with-status {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 12px;
+gap: 12px;
+}
+
+.hours-controls {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.gear-button {
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 6px;
+background: #f8fafc;
+border: 1px solid #e2e8f0;
+border-radius: 6px;
+cursor: pointer;
+transition: all 0.2s ease;
+width: 32px;
+height: 32px;
+}
+
+.gear-button:hover {
+background: #e2e8f0;
+border-color: #0066cc;
+transform: scale(1.05);
+}
+
+.gear-button:active {
+transform: scale(0.95);
+background: #d1d5db;
+}
+
+.gear-icon {
+font-size: 1rem;
+color: #374151;
+}
+
+.live-status-indicator {
+display: flex;
+align-items: center;
+gap: 6px;
+padding: 4px 8px;
+border-radius: 12px;
+font-size: 0.75rem;
+font-weight: 600;
+text-transform: uppercase;
+letter-spacing: 0.025em;
+}
+
+.live-status-indicator.live {
+background: #fef3c7;
+color: #92400e;
+border: 1px solid #fde68a;
+}
+
+.live-status-indicator.scheduled {
+background: #dbeafe;
+color: #1e40af;
+border: 1px solid #93c5fd;
+}
+
+.live-status-indicator .status-dot {
+width: 6px;
+height: 6px;
+border-radius: 50%;
+display: inline-block;
+}
+
+.live-status-indicator.live .status-dot {
+background: #92400e;
+animation: pulse 2s infinite;
+}
+
+.live-status-indicator.scheduled .status-dot {
+background: #1e40af;
+}
+
 .hours-list {
 display: flex;
 flex-direction: column;
@@ -474,121 +557,6 @@ color: #6b7280;
 text-align: center;
 }
 
-/* Stage Management Row */
-.stage-management-row {
-display: flex;
-align-items: center;
-gap: 16px;
-margin-top: 16px;
-padding-top: 16px;
-border-top: 1px solid #e5e7eb;
-}
-
-.management-button {
-display: flex;
-flex-direction: column;
-align-items: center;
-gap: 6px;
-padding: 12px 16px;
-background: #f0f9ff;
-border: 1px solid #7dd3fc;
-border-radius: 8px;
-cursor: pointer;
-transition: all 0.2s ease;
-font-size: 0.9rem;
-font-weight: 600;
-color: #0c4a6e;
-min-height: 60px;
-min-width: 100px;
-}
-
-.management-button:hover {
-background: #e0f2fe;
-border-color: #38bdf8;
-box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15);
-}
-
-.management-button:active {
-transform: scale(0.98);
-background: #bae6fd;
-}
-
-.management-icon {
-font-size: 1.4em;
-margin-bottom: 2px;
-}
-
-.management-label {
-font-size: 0.8rem;
-line-height: 1.2;
-text-align: center;
-}
-
-.status-section {
-flex: 1;
-display: flex;
-flex-direction: column;
-gap: 8px;
-align-items: center;
-}
-
-.status-light {
-display: flex;
-align-items: center;
-gap: 8px;
-padding: 8px 12px;
-border-radius: 20px;
-font-size: 0.85rem;
-font-weight: 600;
-}
-
-.status-light.open {
-background: #f0fdf4;
-color: #059669;
-border: 1px solid #bbf7d0;
-}
-
-.status-light.closed {
-background: #f3f4f6;
-color: #6b7280;
-border: 1px solid #d1d5db;
-}
-
-.status-dot {
-width: 8px;
-height: 8px;
-border-radius: 50%;
-display: inline-block;
-}
-
-.status-light.open .status-dot {
-background: #059669;
-animation: pulse 2s infinite;
-}
-
-.status-light.closed .status-dot {
-background: #6b7280;
-}
-
-.next-timeslot {
-text-align: center;
-padding: 6px 12px;
-background: #f8fafc;
-border-radius: 6px;
-border: 1px solid #e2e8f0;
-}
-
-.next-label {
-font-size: 0.75rem;
-color: #6b7280;
-margin-bottom: 2px;
-}
-
-.next-time {
-font-size: 0.8rem;
-font-weight: 600;
-color: #374151;
-}
 
 @keyframes pulse {
 0%, 100% { opacity: 1; }
@@ -930,40 +898,6 @@ margin-bottom: 4px;
 }
 .emoji {
   font-size: 1.3em;
-}
-.stage-management-row {
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
-  padding-top: 12px;
-}
-.management-button {
-  padding: 10px 12px;
-  min-height: 50px;
-  min-width: 80px;
-  font-size: 0.85rem;
-}
-.management-icon {
-  font-size: 1.2em;
-}
-.management-label {
-  font-size: 0.75rem;
-}
-.status-section {
-  width: 100%;
-}
-.status-light {
-  font-size: 0.8rem;
-  padding: 6px 10px;
-}
-.next-timeslot {
-  padding: 4px 8px;
-}
-.next-label {
-  font-size: 0.7rem;
-}
-.next-time {
-  font-size: 0.75rem;
 }
 .hours-management-section {
   max-height: 300px;
