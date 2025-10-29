@@ -50,25 +50,42 @@
         <span class="label">To:</span>
         <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
       </div>
-      <div class="detail-row" v-if="selectedConn?.input_number">
-        <span class="label">Input:</span>
-        <span class="value">{{ selectedConn.input_number }}</span>
-      </div>
-      <div class="detail-row" v-if="selectedConn?.track_number">
-        <span class="label">Track:</span>
-        <span class="value">{{ selectedConn.track_number }}</span>
-      </div>
+      <template v-if="toNodeType !== 'recorder'">
+        <div class="detail-row">
+          <span class="label">Input:</span>
+          <select v-model.number="editInput" class="inline-select">
+            <option v-for="n in inputOptionsForSelected" :key="n" :value="n">{{ n }}</option>
+          </select>
+        </div>
+      </template>
+      <template v-else>
+        <div class="detail-row">
+          <span class="label">Track:</span>
+          <select v-model.number="editTrack" class="inline-select">
+            <option v-for="n in trackOptionsForSelected" :key="n" :value="n">{{ n }}</option>
+          </select>
+        </div>
+      </template>
       <div class="detail-row">
         <span class="label">Pad:</span>
-        <span class="value">{{ selectedConn?.pad ? 'Yes' : 'No' }}</span>
+        <input type="checkbox" v-model="editPad" />
       </div>
       <div class="detail-row">
         <span class="label">Phantom Power:</span>
-        <span class="value">{{ selectedConn?.phantom_power ? 'Yes' : 'No' }}</span>
+        <input type="checkbox" v-model="editPhantom" />
       </div>
       <div class="detail-row">
         <span class="label">Type:</span>
-        <span class="value">{{ selectedConn?.connection_type || '—' }}</span>
+        <select v-model="editType" class="inline-select">
+          <option>Mic</option>
+          <option>Line</option>
+          <option>Dante</option>
+          <option>Midi</option>
+          <option>Madi</option>
+        </select>
+      </div>
+      <div class="detail-actions">
+        <button class="btn-save" @click="saveSelectedConnection">Save</button>
       </div>
     </div>
   </div>
@@ -132,7 +149,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
-import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection } from '@/services/signalMapperService'
 import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
 const props = defineProps({
@@ -162,6 +179,12 @@ const tool = ref('select')
 const linkSource = ref(null)
 const selectedNode = ref(null)
 const selectedConnectionId = ref(null)
+// Edit models for selected connection
+const editPad = ref(false)
+const editPhantom = ref(false)
+const editType = ref('Mic')
+const editInput = ref(null)
+const editTrack = ref(null)
 const draggingNode = ref(null)
 let dragStart = null
 
@@ -194,6 +217,51 @@ const availableGear = computed(() => {
 const allNodesForModal = computed(() => props.nodes)
 
 const selectedConn = computed(() => props.connections.find(c => c.id === selectedConnectionId.value) || null)
+const toNodeOfSelected = computed(() => {
+  const c = selectedConn.value
+  if (!c) return null
+  return props.nodes.find(n => n.id === c.to_node_id) || null
+})
+const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOfSelected.value?.node_type || '').toLowerCase())
+const inputOptionsForSelected = computed(() => {
+  const to = toNodeOfSelected.value
+  const count = to?.num_inputs || to?.numinputs || to?.inputs || 0
+  return Array.from({ length: count }, (_, i) => i + 1)
+})
+const trackOptionsForSelected = computed(() => {
+  const to = toNodeOfSelected.value
+  const count = to?.num_tracks || to?.tracks || to?.num_records || to?.numrecord || 0
+  return Array.from({ length: count }, (_, i) => i + 1)
+})
+
+watch(selectedConn, (c) => {
+  if (!c) return
+  editPad.value = !!c.pad
+  editPhantom.value = !!c.phantom_power
+  editType.value = c.connection_type || 'Mic'
+  editInput.value = c.input_number || null
+  editTrack.value = c.track_number || null
+})
+
+async function saveSelectedConnection() {
+  const c = selectedConn.value
+  if (!c) return
+  try {
+    const payload = { id: c.id, pad: editPad.value, phantom_power: editPhantom.value, connection_type: editType.value }
+    if (toNodeType.value === 'recorder') {
+      payload.track_number = editTrack.value || null
+      payload.input_number = null
+    } else {
+      payload.input_number = editInput.value || null
+      // keep existing track_number if any
+    }
+    const updated = await updateConnection(payload)
+    emit('connection-updated', updated)
+  } catch (err) {
+    console.error('Failed to update connection:', err)
+    toast.error('Failed to update connection')
+  }
+}
 
 function getGearIcon(type) {
   const icons = {
@@ -720,6 +788,10 @@ onMounted(() => {
 }
 .detail-row .label { color: #6c757d; }
 .detail-row .value { color: #212529; font-weight: 600; }
+.inline-select { padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; }
+.detail-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
+.btn-save { background: #007bff; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.btn-save:hover { background: #0056b3; }
 
 .modal-overlay {
   position: fixed;
