@@ -438,6 +438,14 @@ function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
+// Helper: get node label by id (prefers track_name for sources)
+function getNodeLabelById(id) {
+  if (!id) return 'Unknown'
+  const node = props.nodes.find(n => n.id === id)
+  if (!node) return 'Unknown'
+  return node.track_name || node.label || 'Unknown'
+}
+
 function canConnect(from, to) {
   const fromType = from.gear_type || from.node_type
   const toType = to.gear_type || to.node_type
