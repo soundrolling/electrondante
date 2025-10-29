@@ -83,7 +83,7 @@ const editGearId = ref(null);
 const gearForm = ref({
   gear_name: '',
   quantity: 1,
-  gear_type: '',
+  gear_type: 'transformer',
   // IO/Tracks for richer gear description
   num_inputs: 0,
   num_outputs: 1,
@@ -200,7 +200,7 @@ function resetGearForm() {
   gearForm.value = {
     gear_name: '',
     quantity: 1,
-    gear_type: '',
+    gear_type: 'transformer',
     num_inputs: 0,
     num_outputs: 1,
     num_records: null,
@@ -692,15 +692,11 @@ async function saveSecurity() {
 
             <div class="form-group">
               <label class="form-label">Type</label>
-              <input 
-                v-model="gearForm.gear_type" 
-                class="form-input"
-                placeholder="e.g., Microphone, Cable, etc."
-                list="gear-types"
-              />
-              <datalist id="gear-types">
-                <option v-for="type in gearTypes" :key="type" :value="type" />
-              </datalist>
+              <select v-model="gearForm.gear_type" class="form-input">
+                <option value="source">Source (Microphones)</option>
+                <option value="transformer">Transformer</option>
+                <option value="recorder">Recorder</option>
+              </select>
             </div>
           </div>
 
