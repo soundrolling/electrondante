@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, defineExpose, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, defineExpose } from 'vue'
 import { useToast }                         from 'vue-toastification'
 import Swal                                 from 'sweetalert2'
 import jsPDF                                from 'jspdf'
@@ -362,7 +362,7 @@ async function createChangeoverNote() {
       note: changeoverNote,
       location_id: props.locationId,
       creator_email: store.getUserEmail,
-      project_id: store.getCurrentProject?.id
+      project_id: store.getCurrentProject ? store.getCurrentProject.id : null
     })
     
     toast.success(`Changeover note created for ${artist.artist_name}`)
