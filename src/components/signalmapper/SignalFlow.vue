@@ -411,7 +411,6 @@ async function addGearNode(gear) {
       x: canvasWidth.value / 2,
       y: canvasHeight.value / 2,
       gear_type: gear.gear_type,
-      node_type: gear.gear_type,
       num_inputs: gear.num_inputs || 0,
       num_outputs: gear.num_outputs || 0,
       num_tracks: gear.num_tracks || 0

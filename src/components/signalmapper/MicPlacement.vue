@@ -494,7 +494,6 @@ async function selectMic(mic) {
       y: imgCoords.imgY,
       rotation: 0,
       gear_type: 'source',
-      node_type: 'source',
       num_inputs: mic.num_inputs || 0,
       num_outputs: mic.num_outputs || 1,
       num_tracks: 0
