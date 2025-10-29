@@ -25,7 +25,7 @@
         <div class="connection-pair">
           <div class="node-info from-node">
             <div class="node-label">From:</div>
-            <div class="node-name">{{ fromNode.label }}</div>
+            <div class="node-name">{{ fromNode.track_name || fromNode.label }}</div>
           </div>
           <div class="connection-arrow">
             <span class="arrow-icon">→</span>
@@ -39,28 +39,28 @@
       <form @submit.prevent="submit" class="connection-form">
         <div v-if="isSource && isTransformerTo" class="form-group">
           <label>Assign <b>{{ fromNode.label }}</b> to Transformer Input</label>
-          <select v-model.number="inputNumber">
-            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              Input {{ opt.value }}
-            </option>
-          </select>
+          <input type="number" min="1" v-model.number="inputNumber" />
+          <div class="help" v-if="usedInputsDetailed.length">
+            <span class="help-title">Used inputs:</span>
+            <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
+          </div>
         </div>
         <div v-else-if="isSource && isRecorderTo" class="form-group">
           <label>Assign <b>{{ fromNode.label }}</b> to Recorder Track</label>
-          <select v-model.number="trackNumber">
-            <option v-for="opt in trackOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              Track {{ opt.value }}
-            </option>
-          </select>
+          <input type="number" min="1" v-model.number="inputNumber" />
+          <div class="help" v-if="usedInputsDetailed.length">
+            <span class="help-title">Used inputs:</span>
+            <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
+          </div>
         </div>
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
           <label>Assign to Input/Track</label>
-          <select v-model.number="inputNumber">
-            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              Input {{ opt.value }}
-            </option>
-          </select>
+          <input type="number" min="1" v-model.number="inputNumber" />
+          <div class="help" v-if="usedInputsDetailed.length">
+            <span class="help-title">Used inputs:</span>
+            <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
+          </div>
         </div>
         
         <!-- Connection Properties -->
@@ -86,6 +86,7 @@
         </div>
         
         <div class="form-actions">
+          <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
           <button type="submit" class="btn-confirm" :disabled="loading">
             Confirm Connection
           </button>
@@ -256,6 +257,14 @@ for (let n = 1; n <= numTracks.value; n++) {
 return arr
 })
 
+// Used inputs summary for this target
+const usedInputsDetailed = computed(() => {
+  return (props.existingConnections || [])
+    .filter(c => (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number)
+    .map(c => ({ num: c.input_number, label: getNodeLabelById(c.from_node_id || c.from) }))
+    .sort((a,b) => a.num - b.num)
+})
+
 const outputMatrix = computed(() => {
 // For each output, show if assigned and to whom
 const arr = []
@@ -288,13 +297,23 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
 try {
+  // prevent duplicate input_number on target
+  const conflict = (props.existingConnections || []).find(c =>
+    (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === inputNumber.value
+  )
+  if (conflict) {
+    errorMsg.value = `Input ${inputNumber.value} is already assigned to ${getNodeLabelById(conflict.from_node_id || conflict.from)}`
+    loading.value = false
+    return
+  }
+
   const connection = {
     project_id: props.projectId,
     from_node_id: props.fromNode.id,
     to_node_id: props.toNode.id,
-    input_number: (!isRecorder.value && (!isSource.value || isTransformer.value)) ? inputNumber.value : undefined,
+    input_number: inputNumber.value,
     output_number: undefined, // never set output_number
-    track_number: isRecorder.value ? trackNumber.value : undefined,
+    track_number: undefined,
     pad: -Math.abs(Number(padValue.value) || 0),
     phantom_power: phantomPowerEnabled.value,
     connection_type: connectionType.value
@@ -364,6 +383,11 @@ width: 90%;
 max-height: 80vh;
 overflow: hidden;
 }
+
+.help { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: #6b7280; }
+.help-title { font-weight: 600; margin-right: 6px; }
+.pill { background: #eef2f7; color: #374151; padding: 2px 8px; border-radius: 999px; }
+.error-msg { color: #b91c1c; font-size: 12px; margin-bottom: 8px; }
 
 .modal-header {
 display: flex;
