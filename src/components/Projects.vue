@@ -29,21 +29,20 @@
             <span class="select-arrow">▼</span>
           </div>
         </div>
-        <div class="project-tabs">
-          <button
-            :class="['tab-btn', { active: activeTab === 'active' }]"
-            @click="activeTab = 'active'"
-          >
-            <span class="tab-icon">📁</span>
-            <span class="tab-text">Active</span>
-          </button>
-          <button
-            :class="['tab-btn', { active: activeTab === 'archived' }]"
-            @click="activeTab = 'archived'"
-          >
-            <span class="tab-icon">📦</span>
-            <span class="tab-text">Archived</span>
-          </button>
+        <!-- Status filter dropdown (replaces tabs) -->
+        <div class="sorter">
+          <label for="status" class="sorter-label">Status:</label>
+          <div class="select-wrapper">
+            <select
+              id="status"
+              v-model="selectedStatus"
+              class="form-select"
+            >
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+            </select>
+            <span class="select-arrow">▼</span>
+          </div>
         </div>
         <div class="search-wrapper">
           <span class="search-icon">🔍</span>
@@ -93,21 +92,20 @@
           <span class="select-arrow">▼</span>
         </div>
       </div>
-      <div class="project-tabs">
-        <button
-          :class="['tab-btn', { active: activeTab === 'active' }]"
-          @click="activeTab = 'active'"
-        >
-          <span class="tab-icon">📁</span>
-          <span class="tab-text">Active</span>
-        </button>
-        <button
-          :class="['tab-btn', { active: activeTab === 'archived' }]"
-          @click="activeTab = 'archived'"
-        >
-          <span class="tab-icon">📦</span>
-          <span class="tab-text">Archived</span>
-        </button>
+      <!-- Status dropdown for mobile options -->
+      <div class="sorter">
+        <label for="status_m" class="sorter-label">Status:</label>
+        <div class="select-wrapper">
+          <select
+            id="status_m"
+            v-model="selectedStatus"
+            class="form-select"
+          >
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+          </select>
+          <span class="select-arrow">▼</span>
+        </div>
       </div>
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
@@ -202,9 +200,10 @@
 
     <!-- toolbar removed; controls are now in header -->
 
-    <div v-if="activeTab === 'active'" class="projects-section">
+    <div class="projects-section">
       <div class="projects-grid">
-        <div v-for="p in activeProjects" :key="p.id" class="project-card">
+        <div v-for="p in displayedProjects" :key="p.id" :class="['project-card', { archived: p.archived } ]">
+          <div v-if="p.archived" class="archived-badge">Archived</div>
           <div class="project-header">
             <h3 class="project-title">{{ p.project_name }}</h3>
             <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
@@ -250,91 +249,37 @@
               <span class="btn-text">Open Project</span>
             </button>
             
-            <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
-                <span class="btn-icon">✏️</span>
-              </button>
-              <button @click="duplicateProject(p)" class="btn btn-warning icon-only" title="Duplicate Project">
-                <span class="btn-icon">📋</span>
-              </button>
-              <button @click="archiveProject(p)" class="btn btn-danger icon-only" title="Archive Project">
-                <span class="btn-icon">📦</span>
-              </button>
-              <button @click="confirmDeleteProject(p.id)" class="btn btn-danger icon-only" title="Delete Project">
-                <span class="btn-icon">🗑️</span>
-              </button>
-            </div>
-            
-            <button
-              v-if="p.role !== 'owner'"
-              @click="leaveProject(p)"
-              class="btn btn-danger leave-btn"
-            >
-              <span class="btn-icon">👋</span>
-              <span class="btn-text">Leave Project</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="activeTab === 'archived'" class="projects-section">
-      <div class="projects-grid">
-        <div v-for="p in archivedProjects" :key="p.id" class="project-card archived">
-          <div class="archived-badge">Archived</div>
-          <div class="project-header">
-            <h3 class="project-title">{{ p.project_name }}</h3>
-            <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
-          </div>
-          
-          <div class="project-meta">
-            <div v-if="p.location" class="meta-item">
-              <span class="meta-icon">📍</span>
-              <span class="meta-text">{{ p.location }}</span>
-            </div>
-            <div v-if="p.official_website" class="meta-item">
-              <span class="meta-icon">🌐</span>
-              <a :href="p.official_website" target="_blank" rel="noopener" class="meta-link">
-                Official Website
-              </a>
-            </div>
-          </div>
-
-          <div v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="project-timeline">
-            <div v-if="p.build_days && p.build_days.length" class="timeline-item">
-              <div class="timeline-icon build">🔨</div>
-              <div class="timeline-content">
-                <div class="timeline-label">Build Period</div>
-                <div class="timeline-dates">
-                  {{ formatSingleDate(p.build_days[0]) }} - {{ formatSingleDate(p.build_days[p.build_days.length-1]) }}
-                </div>
+            <template v-if="!p.archived">
+              <div v-if="p.role === 'owner'" class="owner-actions">
+                <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
+                  <span class="btn-icon">✏️</span>
+                </button>
+                <button @click="duplicateProject(p)" class="btn btn-warning icon-only" title="Duplicate Project">
+                  <span class="btn-icon">📋</span>
+                </button>
+                <button @click="archiveProject(p)" class="btn btn-danger icon-only" title="Archive Project">
+                  <span class="btn-icon">📦</span>
+                </button>
+                <button @click="confirmDeleteProject(p.id)" class="btn btn-danger icon-only" title="Delete Project">
+                  <span class="btn-icon">🗑️</span>
+                </button>
               </div>
-            </div>
-            <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
-              <div class="timeline-icon show">🎭</div>
-              <div class="timeline-content">
-                <div class="timeline-label">Show Period</div>
-                <div class="timeline-dates">
-                  {{ formatSingleDate(p.main_show_days[0]) }} - {{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}
-                </div>
+              <button
+                v-if="p.role !== 'owner'"
+                @click="leaveProject(p)"
+                class="btn btn-danger leave-btn"
+              >
+                <span class="btn-icon">👋</span>
+                <span class="btn-text">Leave Project</span>
+              </button>
+            </template>
+            <template v-else>
+              <div v-if="p.role === 'owner'" class="owner-actions">
+                <button @click="unarchiveProject(p)" class="btn btn-positive icon-only" title="Unarchive Project">
+                  <span class="btn-icon">📤</span>
+                </button>
               </div>
-            </div>
-          </div>
-
-          <div class="project-actions">
-            <button @click="openProject(p)" class="btn btn-positive open-btn">
-              <span class="btn-icon">🚀</span>
-              <span class="btn-text">Open Project</span>
-            </button>
-            
-            <div v-if="p.role === 'owner'" class="owner-actions">
-              <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
-                <span class="btn-icon">✏️</span>
-              </button>
-              <button @click="unarchiveProject(p)" class="btn btn-positive icon-only" title="Unarchive Project">
-                <span class="btn-icon">📤</span>
-              </button>
-            </div>
+            </template>
           </div>
         </div>
       </div>
@@ -464,6 +409,7 @@ setup() {
   const editBuildTo        = ref('');
   const editProjectWebsite = ref('');
   const activeTab          = ref('active');
+  const selectedStatus     = ref('active');
   const showMobileOptions  = ref(false);
 
   /* ───────── HELPERS ───────── */
@@ -483,6 +429,10 @@ setup() {
   );
   const archivedProjects = computed(() =>
     filteredProjects.value.filter(p => p.archived)
+  );
+
+  const displayedProjects = computed(() =>
+    selectedStatus.value === 'archived' ? archivedProjects.value : activeProjects.value
   );
 
   /* ───────── UI ACTIONS ───────── */
@@ -948,6 +898,8 @@ setup() {
     archiveProject,
     unarchiveProject,
     activeTab,
+    selectedStatus,
+    displayedProjects,
     showMobileOptions,
   };
 },
