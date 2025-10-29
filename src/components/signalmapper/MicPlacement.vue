@@ -161,9 +161,16 @@ function storagePathForStage() {
 
 async function getBgPublicUrl() {
   try {
-    const { data } = supabase.storage.from('stage-pictures').getPublicUrl(storagePathForStage())
-    return data?.publicUrl || null
-  } catch { return null }
+    const path = storagePathForStage()
+    // Prefer a signed URL to avoid public-read requirements and 400s
+    const { data, error } = await supabase.storage
+      .from('stage-pictures')
+      .createSignedUrl(path, 60 * 60) // 1 hour
+    if (error) return null
+    return data?.signedUrl || null
+  } catch {
+    return null
+  }
 }
 
 async function uploadBgToStorage(file) {
@@ -177,8 +184,12 @@ async function uploadBgToStorage(file) {
     .from('stage-pictures')
     .upload(path, file, { upsert: true, contentType: file.type })
   if (error) throw error
-  const { data } = supabase.storage.from('stage-pictures').getPublicUrl(path)
-  return { url: `${data.publicUrl}?v=${Date.now()}`, removed }
+  // Return a signed URL so it renders even if the object isn't public
+  const { data: signed, error: signErr } = await supabase.storage
+    .from('stage-pictures')
+    .createSignedUrl(path, 60 * 60)
+  if (signErr) throw signErr
+  return { url: `${signed.signedUrl}&v=${Date.now()}`, removed }
 }
 
 async function setBackgroundImage(src, state) {
