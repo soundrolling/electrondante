@@ -524,7 +524,7 @@ onMounted(fetchAll)
 
 // Recording day display helper
 function getRecordingDayDisplay(item){
-  if (!item?.stage_hour_id) return '—'
+  if (!item || !item.stage_hour_id) return '—'
   const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
   return sh ? (sh.notes || formatStageHourFallback(sh)) : '—'
 }
