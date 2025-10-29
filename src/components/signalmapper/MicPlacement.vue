@@ -7,7 +7,11 @@
 
   <!-- Unified Toolbar Row -->
   <div class="placement-toolbar unified">
-    <div class="left-group">
+    <!-- Mobile: collapsible image settings trigger -->
+    <div class="mobile-controls">
+      <button class="btn-secondary" @click="showMobileSettings = !showMobileSettings">Image Settings</button>
+    </div>
+    <div class="left-group" :class="{ mobileHidden: !showMobileSettings }">
       <label class="inline-setting">
         <input type="checkbox" v-model="panImageMode" />
         <span>Pan</span>
@@ -23,7 +27,7 @@
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
       <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
     </div>
-    <div class="center-group">
+    <div class="center-group mobile-stack">
       <button @click="openGearModal" class="btn-primary">➕ Add Microphone</button>
       <button @click="deleteSelected" :disabled="!selectedMic" class="btn-danger">
         🗑️ Delete Selected
@@ -65,7 +69,7 @@
   </div>
 
   <!-- Canvas -->
-  <div class="canvas-wrapper">
+  <div class="canvas-wrapper" ref="canvasWrapper">
     <canvas 
       ref="canvas" 
       :width="canvasWidth * dpr" 
@@ -113,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
 import { addNode, updateNode, deleteNode } from '@/services/signalMapperService'
@@ -129,11 +133,12 @@ const emit = defineEmits(['node-updated', 'node-added', 'node-deleted'])
 
 const toast = useToast()
 const canvas = ref(null)
+const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(800)
 const canvasHeight = ref(600)
 const canvasStyle = computed(() => 
-  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; display: block; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e9ecef;`
+  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; display: block; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e9ecef; touch-action: none;`
 )
 
 // Image state
@@ -145,6 +150,7 @@ const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
 // no popover; show inline controls
+const showMobileSettings = ref(false)
 
 // No local persistence - background lives in Supabase storage
 
@@ -717,10 +723,30 @@ onMounted(() => {
     canvas.value.width = canvasWidth.value * dpr
     canvas.value.height = canvasHeight.value * dpr
   }
-  // Load persisted image (if any)
+  // Responsive canvas sizing
+  updateCanvasSize()
+  window.addEventListener('resize', updateCanvasSize)
+  // Load background image (if any)
   loadImageState()
   nextTick(drawCanvas)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateCanvasSize)
+})
+
+function updateCanvasSize() {
+  const el = canvasWrapper.value
+  const maxW = el ? el.clientWidth : window.innerWidth
+  const inner = Math.min(1200, Math.max(280, maxW - 24)) // 12px padding each side
+  canvasWidth.value = inner
+  canvasHeight.value = Math.round(inner * 0.75)
+  if (canvas.value) {
+    canvas.value.width = canvasWidth.value * dpr
+    canvas.value.height = canvasHeight.value * dpr
+  }
+  drawCanvas()
+}
 </script>
 
 <style scoped>
@@ -895,6 +921,9 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px; /* thin side padding so canvas never touches edges */
 }
 
 .modal-overlay {
@@ -1010,6 +1039,17 @@ onMounted(() => {
   text-align: center;
   padding: 40px;
   color: #6c757d;
+}
+
+/* Mobile layout tweaks */
+@media (max-width: 768px) {
+  .placement-toolbar.unified { display: block; }
+  .mobile-controls { display:flex; gap:8px; margin-bottom:8px; }
+  .left-group.mobileHidden { display:none; }
+  .left-group { display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px; }
+  .inline-setting { grid-column: span 2; }
+  .center-group.mobile-stack { display:grid; grid-template-columns: 1fr; gap:8px; }
+  .canvas-wrapper { padding: 8px 12px; }
 }
 </style>
 
