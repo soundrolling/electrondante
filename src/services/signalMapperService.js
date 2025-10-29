@@ -133,20 +133,34 @@ export async function getCompleteSignalPath(projectId) {
     const recorderConnections = connections.filter(c => c.to_node_id === recorder.id)
     
     recorderConnections.forEach(conn => {
-      // Build the path backwards from recorder to source
-      const path = buildPathToSource(conn.from_node_id, connections, nodeMap)
-      
-      // Find the source node at the start of the path
-      const sourceNode = path.length > 0 ? nodeMap[path[0]] : null
-      
+      // Build the path backwards from the recorder to source
+      const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
+
+      const sourceNode = pathIds.length > 0 ? nodeMap[pathIds[0]] : null
+      const transformerNode = nodeMap[conn.from_node_id]
+
+      // Find incoming connection to the transformer to get its input number
+      const transformerIncoming = connections.find(c => c.to_node_id === conn.from_node_id)
+
+      // Build human labels working backwards: Recorder Track -> Transformer Input -> Source
+      const labels = []
+      const trackLabel = conn.input_number ? `Track ${conn.input_number}` : undefined
+      labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
+      if (transformerNode) {
+        const inputLabel = transformerIncoming?.input_number ? `Input ${transformerIncoming.input_number}` : undefined
+        labels.push(inputLabel ? `${transformerNode.label} ${inputLabel}` : `${transformerNode.label}`)
+      }
+      if (sourceNode) labels.push(sourceNode.label)
+
       signalPaths.push({
         recorder_id: recorder.id,
         recorder_label: recorder.label,
-        track_number: conn.track_number,
+        // Use recorder connection input as the track number shown to the user
+        track_number: conn.input_number || conn.track_number,
         source_id: sourceNode?.id,
         source_label: sourceNode?.label,
         track_name: sourceNode?.track_name,
-        path: path.map(nodeId => nodeMap[nodeId]?.label || nodeId),
+        path: labels,
         pad: conn.pad || false,
         phantom_power: conn.phantom_power || false,
         connection_id: conn.id
