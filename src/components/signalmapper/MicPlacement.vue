@@ -151,6 +151,49 @@ const scaleFactor = ref(1)
 const panImageMode = ref(false)
 const showImageSettings = ref(false)
 
+// Persistence helpers
+function getStorageKey() {
+  return `micPlacementBgImage:${props.projectId}:${props.locationId}`
+}
+
+function saveImageState() {
+  try {
+    if (!bgImage.value) return
+    const state = {
+      src: bgImage.value,
+      opacity: bgOpacity.value,
+      offsetX: imageOffsetX.value,
+      offsetY: imageOffsetY.value,
+      scale: scaleFactor.value
+    }
+    localStorage.setItem(getStorageKey(), JSON.stringify(state))
+  } catch (_) {
+    // ignore storage errors
+  }
+}
+
+function loadImageState() {
+  try {
+    const raw = localStorage.getItem(getStorageKey())
+    if (!raw) return
+    const state = JSON.parse(raw)
+    if (!state?.src) return
+    bgImage.value = state.src
+    const img = new Image()
+    img.onload = () => {
+      bgImageObj.value = img
+      bgOpacity.value = state.opacity ?? 1.0
+      imageOffsetX.value = state.offsetX ?? 0
+      imageOffsetY.value = state.offsetY ?? 0
+      scaleFactor.value = state.scale ?? 1
+      drawCanvas()
+    }
+    img.src = state.src
+  } catch (_) {
+    // ignore parse errors
+  }
+}
+
 // Mic state
 const selectedMic = ref(null)
 const draggingMic = ref(null)
@@ -275,6 +318,7 @@ function onImageUpload(e) {
       imageOffsetX.value = fit.offsetX
       imageOffsetY.value = fit.offsetY
       drawCanvas()
+      saveImageState()
     }
     img.src = ev.target.result
   }
@@ -299,6 +343,7 @@ function resetImageView() {
     imageOffsetX.value = fit.offsetX
     imageOffsetY.value = fit.offsetY
     drawCanvas()
+    saveImageState()
   }
 }
 
@@ -427,6 +472,7 @@ async function onPointerUp(e) {
   if (panImageMode.value) {
     dragStart = null
     dragStartPos = null
+    saveImageState()
     return
   }
 
@@ -550,12 +596,19 @@ async function deleteSelected() {
 // Watchers
 watch([() => props.nodes, bgOpacity], () => nextTick(drawCanvas))
 
+// Persist opacity changes
+watch(bgOpacity, () => {
+  saveImageState()
+})
+
 // Lifecycle
 onMounted(() => {
   if (canvas.value) {
     canvas.value.width = canvasWidth.value * dpr
     canvas.value.height = canvasHeight.value * dpr
   }
+  // Load persisted image (if any)
+  loadImageState()
   nextTick(drawCanvas)
 })
 </script>
