@@ -325,7 +325,7 @@
           <button class="modal-close" @click="closeEditModal">✕</button>
         </div>
         <div class="modal-body">
-          <div v-if="selectedGear" class="edit-form">
+          <div v-if="currentEditGear" class="edit-form">
             <form @submit.prevent="saveEdit" class="edit-form-content">
               <div class="form-grid">
                 <div class="form-group">
@@ -356,12 +356,53 @@
                     class="form-input"
                   />
                 </div>
+                <!-- Inputs/Outputs (hidden for sources) -->
+                <div v-if="editGearType !== 'source'" class="form-group">
+                  <label for="editNumInputs" class="form-label">Inputs</label>
+                  <input 
+                    id="editNumInputs"
+                    v-model.number="editNumInputs"
+                    type="number"
+                    min="0"
+                    class="form-input"
+                  />
+                </div>
+                <div v-if="editGearType !== 'source'" class="form-group">
+                  <label for="editNumOutputs" class="form-label">Outputs</label>
+                  <input 
+                    id="editNumOutputs"
+                    v-model.number="editNumOutputs"
+                    type="number"
+                    min="0"
+                    class="form-input"
+                  />
+                </div>
+                <!-- Tracks (for recorders) -->
+                <div v-if="editGearType === 'recorder'" class="form-group">
+                  <label for="editNumRecords" class="form-label">Tracks</label>
+                  <input 
+                    id="editNumRecords"
+                    v-model.number="editNumRecords"
+                    type="number"
+                    min="1"
+                    class="form-input"
+                  />
+                </div>
                 <div class="form-group">
                   <label for="editGearVendor" class="form-label">Vendor</label>
                   <input 
                     id="editGearVendor"
                     v-model="editGearVendor" 
                     class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="editIsRented" class="form-label">Rented?</label>
+                  <input 
+                    id="editIsRented"
+                    v-model="editIsRented" 
+                    type="checkbox"
+                    style="width:auto; min-height:unset;"
                   />
                 </div>
               </div>
