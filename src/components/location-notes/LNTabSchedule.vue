@@ -28,9 +28,9 @@
 
   <!-- Date navigation -->
   <div class="controls-bottom">
-    <label class="label">Date:</label>
+    <label class="label">Recording Day:</label>
     <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
-    <div class="current-date">{{ niceDate(day.date) }}</div>
+    <div class="current-date">{{ currentGroupLabel }}</div>
     <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
   </div>
 
@@ -103,6 +103,19 @@
             <label>Date</label>
             <input v-model="fDate" type="date" />
           </div>
+          <div class="form-field">
+            <label>Recording Day</label>
+            <select v-model="fStageHourId">
+              <option value="">None/Unassigned</option>
+              <option 
+                v-for="sh in stageHours" 
+                :key="sh.id" 
+                :value="sh.id"
+              >
+                {{ sh.notes || formatStageHourFallback(sh) }}
+              </option>
+            </select>
+          </div>
         </div>
         <p v-if="err" class="error-text">{{ err }}</p>
       </div>
@@ -125,6 +138,7 @@ import jsPDF                                from 'jspdf'
 import autoTable                            from 'jspdf-autotable'
 import { useUserStore }                     from '@/stores/userStore'
 import { fetchTableData, mutateTableData }  from '@/services/dataService'
+import { getSetting }                       from '@/utils/indexedDB'
 
 const props = defineProps({ locationId: String })
 const emit = defineEmits(['changeover-note', 'quick'])
@@ -133,6 +147,7 @@ const toast = useToast()
 
 // Data & state
 const schedules   = ref([])
+const stageHours  = ref([])
 const groupedDays = ref([])
 const idx         = ref(0)
 const sortOrder   = ref('asc')
@@ -145,6 +160,7 @@ const fArtist  = ref('')
 const fStart   = ref('')
 const fEnd     = ref('')
 const fDate    = ref(new Date().toISOString().slice(0,10))
+const fStageHourId = ref('')
 const busy     = ref(false)
 const err      = ref(null)
 
@@ -193,21 +209,69 @@ function timeToMinutes(t) {
   return h * 60 + m
 }
 
-// Fetch & group
-async function fetchAll() {
-schedules.value = await fetchTableData('schedules', { eq:{ location_id: props.locationId }})
-const map = {}
-schedules.value.forEach(s => {
-  map[s.recording_date] = map[s.recording_date] || []
-  map[s.recording_date].push(s)
-})
-groupedDays.value = Object.keys(map)
-  .sort((a,b) => new Date(a) - new Date(b))
-  .map(date => ({ date, events: map[date] }))
-idx.value = Math.max(0, groupedDays.value.findIndex(g => g.date === todayISO()))
+// Helpers for stage hour matching
+function toDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null
+  return new Date(`${dateStr}T${timeStr}`)
 }
 
-const day  = computed(() => groupedDays.value[idx.value] || { date:null, events:[] })
+function formatStageHourFallback(sh) {
+  const start = new Date(sh.start_datetime)
+  const dayNum = sh.order_index || ''
+  const nice = start.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })
+  return `Day ${dayNum} (${nice})`
+}
+
+function findStageHourIdFor(dateStr, timeStr) {
+  const dt = toDateTime(dateStr, timeStr)
+  if (!dt) return null
+  for (const sh of stageHours.value) {
+    const s = new Date(sh.start_datetime)
+    const e = new Date(sh.end_datetime)
+    if (dt >= s && dt <= e) return sh.id
+  }
+  return null
+}
+
+// Fetch & group by recording day (stage hour)
+async function fetchAll() {
+  const projectId = await getSetting('current-project-id')
+  // Load schedules and stage hours
+  schedules.value = await fetchTableData('schedules', { eq:{ location_id: props.locationId }})
+  stageHours.value = await fetchTableData('stage_hours', {
+    eq: { project_id: projectId, stage_id: props.locationId },
+    order: { column: 'start_datetime', ascending: true }
+  })
+
+  // Build groups keyed by stage_hour_id, plus Unassigned
+  const byStageHour = {}
+  const unassigned = []
+  schedules.value.forEach(s => {
+    const sid = s.stage_hour_id || findStageHourIdFor(s.recording_date, s.start_time)
+    if (sid) {
+      byStageHour[sid] = byStageHour[sid] || []
+      byStageHour[sid].push(s)
+    } else {
+      unassigned.push(s)
+    }
+  })
+
+  const groups = stageHours.value.map(sh => ({
+    id: sh.id,
+    label: sh.notes || formatStageHourFallback(sh),
+    start: sh.start_datetime,
+    end: sh.end_datetime,
+    events: byStageHour[sh.id] || []
+  }))
+  if (unassigned.length) {
+    groups.push({ id: 'unassigned', label: 'Unassigned', events: unassigned })
+  }
+  groupedDays.value = groups
+  idx.value = Math.max(0, 0)
+}
+
+const day  = computed(() => groupedDays.value[idx.value] || { id:null, label:null, events:[] })
+const currentGroupLabel = computed(() => day.value.label || '')
 const rows = computed(() => {
 const list = [...day.value.events]
 if (sortOrder.value === 'artist')
@@ -314,10 +378,13 @@ if (item) {
   fStart.value  = item.start_time
   fEnd.value    = item.end_time
   fDate.value   = item.recording_date
+  fStageHourId.value = item.stage_hour_id || (findStageHourIdFor(item.recording_date, item.start_time) || '')
 } else {
   isEdit.value = false; editId = null
   fArtist.value = fStart.value = fEnd.value = ''
   fDate.value = todayISO()
+  // auto-detect stage hour for the given date/start time if available
+  fStageHourId.value = findStageHourIdFor(fDate.value, fStart.value) || ''
 }
 }
 
@@ -336,7 +403,8 @@ try{
       artist_name:  fArtist.value,
       start_time:   fStart.value,
       end_time:     fEnd.value,
-      recording_date: fDate.value
+      recording_date: fDate.value,
+      stage_hour_id: fStageHourId.value || null
     })
   } else {
     await mutateTableData('schedules','insert',{
@@ -345,7 +413,8 @@ try{
       end_time:       fEnd.value,
       recording_date: fDate.value,
       location_id:    props.locationId,
-      project_id:     store.getCurrentProject?.id
+      project_id:     store.getCurrentProject?.id,
+      stage_hour_id:  fStageHourId.value || null
     })
   }
   await fetchAll()
@@ -377,9 +446,9 @@ function exportPdf(){
 const doc = new jsPDF({ unit:'pt', format:'a4' })
 doc.text('Stage Schedule',40,40)
 autoTable(doc,{
-  head: [['Artist','Start','End','Date']],
+  head: [['Artist','Start','End','Date','Recording Day']],
   body: schedules.value.map(s=>[
-    s.artist_name, t5(s.start_time), t5(s.end_time), s.recording_date
+    s.artist_name, t5(s.start_time), t5(s.end_time), s.recording_date, getRecordingDayDisplay(s)
   ]),
   startY: 60,
   styles: { fontSize:9, cellPadding:4 }
@@ -454,6 +523,13 @@ function setPreviousDay() {
 }
 
 onMounted(fetchAll)
+
+// Recording day display helper
+function getRecordingDayDisplay(item){
+  if (!item?.stage_hour_id) return '—'
+  const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
+  return sh ? (sh.notes || formatStageHourFallback(sh)) : '—'
+}
 </script>
 
 <style scoped>
