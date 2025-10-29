@@ -32,40 +32,77 @@ setup() {
       
       // Get the access token and type from the URL
       const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
       const tokenType = params.get('type');
+      
+      console.log('🔍 Parsing URL tokens:', { 
+        hasAccessToken: !!accessToken, 
+        hasRefreshToken: !!refreshToken, 
+        tokenType 
+      });
       
       if (!accessToken) {
         // Try to get token from query parameters instead (for compatibility)
         const queryParams = new URLSearchParams(window.location.search);
         const queryToken = queryParams.get('token');
+        const queryCode = queryParams.get('code');
         
-        if (queryToken) {
+        if (queryToken || queryCode) {
           const { error } = await supabase.auth.verifyOtp({
-            token_hash: queryToken,
+            token_hash: queryToken || queryCode,
             type: 'email',
           });
           
           if (error) throw error;
+          
+          message.value = 'Email successfully confirmed! You can now log in.';
+          toast.success('Email confirmed successfully!');
+          
+          setTimeout(() => {
+            router.push('/');
+          }, 3000);
+          return;
         } else {
           throw new Error('No confirmation token found in URL.');
         }
+      }
+      
+      // Handle different token types
+      if (tokenType === 'invite') {
+        // This is an invitation flow - redirect to set password with tokens in hash
+        console.log('📧 Invite flow detected, redirecting to set-password');
+        const hashParams = new URLSearchParams();
+        hashParams.set('access_token', accessToken);
+        if (refreshToken) hashParams.set('refresh_token', refreshToken);
+        hashParams.set('type', 'invite');
+        
+        router.push({
+          path: '/auth/set-password',
+          hash: `#${hashParams.toString()}`
+        });
+        return;
+      } else if (tokenType === 'recovery') {
+        // This is a password reset flow
+        console.log('🔑 Recovery flow detected, redirecting to set-password');
+        const hashParams = new URLSearchParams();
+        hashParams.set('access_token', accessToken);
+        if (refreshToken) hashParams.set('refresh_token', refreshToken);
+        hashParams.set('type', 'recovery');
+        
+        router.push({
+          path: '/auth/set-password',
+          hash: `#${hashParams.toString()}`
+        });
+        return;
       } else {
-        // Handle the implicit flow with the access token
-        if (tokenType === 'recovery') {
-          // This is a password reset flow
-          router.push({
-            path: '/auth/set-password',
-            query: { access_token: accessToken, type: tokenType }
-          });
-          return;
-        } else {
-          // This is an email verification flow
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken
-          });
-          
-          if (error) throw error;
-        }
+        // This is an email verification flow (signup confirmation)
+        console.log('✅ Email verification flow');
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        
+        if (error) throw error;
       }
 
       message.value = 'Email successfully confirmed! You can now log in.';

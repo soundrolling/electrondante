@@ -383,7 +383,13 @@ export default {
       await fetchProjectMembers()
       inviteEmail.value = ''
       selectedRole.value = 'viewer'
-      toast.success(result.message || 'User invited/added successfully.')
+      
+      // Show different messages based on user status
+      if (result.userStatus === 'existing') {
+        toast.success('User successfully added to project. Please let them know they can now access it from their account.')
+      } else {
+        toast.success('Invitation sent! The user will receive an email to set their password and join the project.')
+      }
       console.log('✅ Invite process completed successfully')
     } catch (err) {
       console.error('💥 Invite process failed:', err)

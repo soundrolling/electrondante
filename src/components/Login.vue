@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.53">
-        <span class="version-text">v21.53</span>
-        <span class="version-date">October 25</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.54">
+        <span class="version-text">v21.54</span>
+        <span class="version-date">December 19</span>
       </button>
     </div>
 
@@ -19,29 +19,29 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.53</h2>
+          <h2 id="changelog-title">What's New in 21.54</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🎯 Streamlined Project Actions</h3>
-            <p>Project cards now feature icon-only action buttons (Edit, Duplicate, Archive, Delete) with a helpful legend below the project title. This creates a cleaner, more compact interface while maintaining full functionality.</p>
+            <h3>🔐 Improved User Invitation Flow</h3>
+            <p>Smart invitation system now detects existing users and adds them to projects instantly without sending unnecessary emails. New users receive proper invitation emails with working password setup links.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>📝 Improved Edit Project Modal</h3>
-            <p>Enhanced the project editing modal with better layout and spacing. Increased modal width and improved form grid responsiveness to ensure all elements fit comfortably within the container.</p>
+            <h3>📧 Fixed Email Confirmation</h3>
+            <p>Resolved issues with invitation email links not working properly. Users can now successfully set their passwords and join projects through the email invitation process.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>👥 Enhanced Project Visibility</h3>
-            <p>All project members can now view essential project details including show days, build days, and location information. This improves collaboration by ensuring everyone has access to key project information.</p>
+            <h3>🔑 Streamlined Login Experience</h3>
+            <p>Removed magic link login option and added a clean "Forgot Password?" link for better user experience. Login page is now more focused and user-friendly.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🎛️ More Comfortable Forms</h3>
-            <p>Increased padding and spacing around forms and modals across Travel (Accommodations, Documents, Expenses, Flights, Parking, Dashboard, Trip Detail, Weather) so elements aren't tight to the edges.</p>
+            <h3>💬 Better User Feedback</h3>
+            <p>Project admins now receive clear, contextual messages when inviting users - different messages for existing users vs new users to help manage expectations.</p>
           </div>
         </div>
         
@@ -113,19 +113,11 @@
       </button>
     </form>
 
-    <!-- Alternative Login Options -->
-    <div class="login-divider">
-      <span class="divider-text">or</span>
-    </div>
-
-    <router-link to="/magic-link" class="btn-secondary magic-link-btn">
-      <span class="btn-icon" aria-hidden="true">🔗</span>
-      <span>Magic Link Login</span>
-    </router-link>
-
-    <!-- Footer -->
-    <div class="login-footer">
-      <p class="footer-text">Powered by Supabase</p>
+    <!-- Forgot Password Link -->
+    <div class="forgot-password-container">
+      <router-link to="/auth/reset-password" class="forgot-password-link">
+        Forgot your password?
+      </router-link>
     </div>
   </div>
 </div>
@@ -528,82 +520,32 @@ setup() {
   to { transform: rotate(360deg); }
 }
 
-/* Divider */
-.login-divider {
+/* Forgot Password */
+.forgot-password-container {
   text-align: center;
-  margin: 32px 0; /* 8-point spacing */
-  position: relative;
+  margin-top: 24px; /* 8-point spacing */
 }
 
-.login-divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.divider-text {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  padding: 0 16px; /* 4-point spacing */
-  color: #86868b;
+.forgot-password-link {
+  color: #0066cc;
   font-size: 14px; /* Caption: 14px */
   font-weight: 500;
-  position: relative;
-  z-index: 1;
-}
-
-/* Secondary Button */
-.btn-secondary {
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-block;
+  padding: 8px 12px; /* 4-point spacing */
+  border-radius: 6px; /* 4-point spacing */
+  /* Minimum touch size: 44×44px */
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px; /* 4-point spacing */
-  width: 100%;
-  padding: 16px; /* 4-point spacing */
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(16px);
-  color: #1d1d1f;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px; /* 4-point spacing */
-  font-size: 16px; /* Body: 16px */
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  /* Minimum touch size: 44×52px */
-  min-height: 52px;
-  line-height: 1.4;
 }
 
-.btn-secondary:hover {
-  background: rgba(245, 245, 247, 0.9);
-  border-color: rgba(0, 0, 0, 0.12);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
-}
-
-.btn-icon {
-  font-size: 1.1rem;
-}
-
-/* Footer */
-.login-footer {
-  text-align: center;
-  margin-top: 32px; /* 8-point spacing */
-  padding-top: 24px; /* 8-point spacing */
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.footer-text {
-  color: #86868b;
-  font-size: 14px; /* Caption: 14px */
-  margin: 0;
-  font-weight: 400;
-  line-height: 1.4;
+.forgot-password-link:hover {
+  color: #0052a3;
+  background: rgba(0, 102, 204, 0.08);
+  text-decoration: underline;
 }
 
 /* Modal */
