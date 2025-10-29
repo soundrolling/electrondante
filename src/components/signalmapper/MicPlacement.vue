@@ -113,6 +113,8 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { supabase } from '@/supabase'
+import { useToast } from 'vue-toastification'
 import { useToast } from 'vue-toastification'
 import { addNode, updateNode, deleteNode } from '@/services/signalMapperService'
 
@@ -142,6 +144,7 @@ const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
+const toast = useToast()
 // no popover; show inline controls
 
 // Persistence helpers
@@ -165,26 +168,67 @@ function saveImageState() {
   }
 }
 
-function loadImageState() {
+async function loadImageState() {
   try {
+    // Prefer cloud-stored background image if present
+    const cloudUrl = await getBgPublicUrl()
+    if (cloudUrl) {
+      await setBackgroundImage(cloudUrl)
+      return
+    }
+    // Fallback to local storage legacy state
     const raw = localStorage.getItem(getStorageKey())
     if (!raw) return
     const state = JSON.parse(raw)
     if (!state?.src) return
-    bgImage.value = state.src
-    const img = new Image()
-    img.onload = () => {
-      bgImageObj.value = img
-      bgOpacity.value = state.opacity ?? 1.0
-      imageOffsetX.value = state.offsetX ?? 0
-      imageOffsetY.value = state.offsetY ?? 0
-      scaleFactor.value = state.scale ?? 1
-      drawCanvas()
-    }
-    img.src = state.src
+    await setBackgroundImage(state.src, state)
   } catch (_) {
     // ignore parse errors
   }
+}
+
+// Storage helpers: use a fixed path per stage so it persists for everyone
+function storagePathForStage() {
+  return `mic-placement/${props.projectId}/${props.locationId}/bg.png`
+}
+
+async function getBgPublicUrl() {
+  try {
+    const { data } = supabase.storage.from('stage-pictures').getPublicUrl(storagePathForStage())
+    // This always returns a URL; we can attempt a HEAD request to verify existence
+    const res = await fetch(data.publicUrl, { method: 'HEAD' })
+    if (res.ok) return data.publicUrl
+    return null
+  } catch { return null }
+}
+
+async function uploadBgToStorage(file) {
+  const path = storagePathForStage()
+  const { error } = await supabase.storage
+    .from('stage-pictures')
+    .upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw error
+  const { data } = supabase.storage.from('stage-pictures').getPublicUrl(path)
+  return data.publicUrl
+}
+
+async function setBackgroundImage(src, state) {
+  return new Promise((resolve) => {
+    bgImage.value = src
+    const img = new Image()
+    img.onload = () => {
+      bgImageObj.value = img
+      if (state) {
+        bgOpacity.value = state.opacity ?? 1.0
+        imageOffsetX.value = state.offsetX ?? 0
+        imageOffsetY.value = state.offsetY ?? 0
+        scaleFactor.value = state.scale ?? 1
+      }
+      drawCanvas()
+      resolve()
+    }
+    img.src = src
+  })
 }
 
 // Mic state
@@ -314,26 +358,18 @@ function drawMic(ctx, mic) {
 }
 
 // Image handling
-function onImageUpload(e) {
+async function onImageUpload(e) {
   const file = e.target.files[0]
   if (!file) return
-  
-  const reader = new FileReader()
-  reader.onload = (ev) => {
-    bgImage.value = ev.target.result
-    const img = new Image()
-    img.onload = () => {
-      bgImageObj.value = img
-      const fit = fitImageToCanvas(img)
-      scaleFactor.value = fit.scale
-      imageOffsetX.value = fit.offsetX
-      imageOffsetY.value = fit.offsetY
-      drawCanvas()
-      saveImageState()
-    }
-    img.src = ev.target.result
+  try {
+    const publicUrl = await uploadBgToStorage(file)
+    await setBackgroundImage(publicUrl)
+    // Persist only view state locally (image itself is in storage)
+    saveImageState()
+    toast.success('Background saved to cloud')
+  } catch (err) {
+    toast.error(`Failed to upload background: ${err.message || err}`)
   }
-  reader.readAsDataURL(file)
 }
 
 function fitImageToCanvas(img) {
