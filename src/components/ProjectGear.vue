@@ -182,13 +182,54 @@
                 class="form-input"
               />
             </div>
+            <!-- Optional IO fields (hidden for sources) -->
+            <div v-if="gearType !== 'source'" class="form-group">
+              <label for="gearNumInputs" class="form-label">Inputs</label>
+              <input 
+                id="gearNumInputs"
+                v-model.number="gearNumInputs" 
+                type="number" 
+                min="0" 
+                class="form-input"
+              />
+            </div>
+            <div v-if="gearType !== 'source'" class="form-group">
+              <label for="gearNumOutputs" class="form-label">Outputs</label>
+              <input 
+                id="gearNumOutputs"
+                v-model.number="gearNumOutputs" 
+                type="number" 
+                min="0" 
+                class="form-input"
+              />
+            </div>
+            <!-- Tracks for recorders -->
+            <div v-if="gearType === 'recorder'" class="form-group">
+              <label for="gearNumRecords" class="form-label">Tracks</label>
+              <input 
+                id="gearNumRecords"
+                v-model.number="gearNumRecords" 
+                type="number" 
+                min="1" 
+                class="form-input"
+              />
+            </div>
             <div class="form-group">
               <label for="gearVendor" class="form-label">Vendor</label>
               <input 
                 id="gearVendor"
-                v-model="gearVendor" 
+                v-model="vendor" 
                 placeholder="Vendor name (optional)" 
                 class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label for="gearIsRented" class="form-label">Rented?</label>
+              <input 
+                id="gearIsRented"
+                v-model="isRented" 
+                type="checkbox"
+                style="width:auto; min-height:unset;"
               />
             </div>
           </div>
