@@ -197,12 +197,13 @@ function drawCanvas() {
 function drawNode(ctx, node) {
   const isSource = (node.gear_type || node.node_type) === 'source'
   const isSelected = node === selectedNode.value
+  const pos = getCanvasPos(node)
   
   ctx.save()
   
   // Node circle
   ctx.beginPath()
-  ctx.arc(node.x, node.y, 35, 0, 2 * Math.PI)
+  ctx.arc(pos.x, pos.y, 35, 0, 2 * Math.PI)
   
   // Color based on type
   const colors = {
@@ -221,7 +222,7 @@ function drawNode(ctx, node) {
   // Selection indicator
   if (isSelected) {
     ctx.beginPath()
-    ctx.arc(node.x, node.y, 45, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 45, 0, 2 * Math.PI)
     ctx.strokeStyle = color
     ctx.lineWidth = 2
     ctx.setLineDash([5, 5])
@@ -237,14 +238,7 @@ function drawNode(ctx, node) {
   
   // For sources, show track name if available
   const label = isSource && node.track_name ? node.track_name : node.label
-  ctx.fillText(label, node.x, node.y + 40)
-
-  // Read-only indicator for sources
-  if (isSource) {
-    ctx.fillStyle = '#6c757d'
-    ctx.font = '10px sans-serif'
-    ctx.fillText('(from Mic Placement)', node.x, node.y + 55)
-  }
+  ctx.fillText(label, pos.x, pos.y + 40)
 
   ctx.restore()
 }
@@ -255,22 +249,25 @@ function drawConnection(ctx, conn) {
   
   if (!fromNode || !toNode) return
 
+  const fromPos = getCanvasPos(fromNode)
+  const toPos = getCanvasPos(toNode)
+
   ctx.save()
   ctx.strokeStyle = '#007bff'
   ctx.lineWidth = 3
   ctx.setLineDash([8, 4])
 
   ctx.beginPath()
-  ctx.moveTo(fromNode.x, fromNode.y)
-  ctx.lineTo(toNode.x, toNode.y)
+  ctx.moveTo(fromPos.x, fromPos.y)
+  ctx.lineTo(toPos.x, toPos.y)
   ctx.stroke()
 
   ctx.setLineDash([])
 
   // Arrow at midpoint
-  const mx = (fromNode.x + toNode.x) / 2
-  const my = (fromNode.y + toNode.y) / 2
-  const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x)
+  const mx = (fromPos.x + toPos.x) / 2
+  const my = (fromPos.y + toPos.y) / 2
+  const angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x)
 
   ctx.beginPath()
   ctx.moveTo(mx, my)
@@ -329,13 +326,9 @@ function onPointerMove(e) {
   if (!draggingNode.value || !dragStart) return
 
   const { x, y } = getCanvasCoords(e)
-  const isSource = (draggingNode.value.gear_type || draggingNode.value.node_type) === 'source'
-  
-  // Don't allow moving source nodes (they're from Tab 1)
-  if (isSource) return
-
-  draggingNode.value.x = x
-  draggingNode.value.y = y
+  // Update normalized position
+  draggingNode.value.x = x / canvasWidth.value
+  draggingNode.value.y = y / canvasHeight.value
   drawCanvas()
 }
 
@@ -343,11 +336,8 @@ async function onPointerUp(e) {
   e.preventDefault()
   
   if (draggingNode.value) {
-    const isSource = (draggingNode.value.gear_type || draggingNode.value.node_type) === 'source'
-    if (!isSource) {
-      // Save position
-      await saveNodePosition(draggingNode.value)
-    }
+    // Save normalized position
+    await saveNodePosition(draggingNode.value)
     draggingNode.value = null
   }
   
@@ -367,7 +357,8 @@ function getCanvasCoords(e) {
 function getNodeAt(x, y) {
   for (let i = props.nodes.length - 1; i >= 0; i--) {
     const node = props.nodes[i]
-    const dist = Math.sqrt((x - node.x) ** 2 + (y - node.y) ** 2)
+    const pos = getCanvasPos(node)
+    const dist = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
     if (dist < 35) return node
   }
   return null
@@ -408,8 +399,8 @@ async function addGearNode(gear) {
       type: 'gear',
       gear_id: gear.id,
       label,
-      x: canvasWidth.value / 2,
-      y: canvasHeight.value / 2,
+      x: 0.5,
+      y: 0.5,
       gear_type: gear.gear_type,
       num_inputs: gear.num_inputs || 0,
       num_outputs: gear.num_outputs || 0,
@@ -438,6 +429,17 @@ async function saveNodePosition(node) {
     console.error('Error updating node:', err)
     toast.error('Failed to update node position')
   }
+}
+
+// Coordinate helpers: nodes store normalized coords (0..1). Convert for canvas drawing.
+function getCanvasPos(node) {
+  const nx = node.x ?? 0
+  const ny = node.y ?? 0
+  // If values look already in pixels (legacy), use as-is
+  const isPixel = nx > 1.5 || ny > 1.5
+  return isPixel
+    ? { x: nx, y: ny }
+    : { x: nx * canvasWidth.value, y: ny * canvasHeight.value }
 }
 
 async function deleteSelected() {
