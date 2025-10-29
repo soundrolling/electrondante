@@ -29,6 +29,7 @@
     "idb": "^8.0.0",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
+    "pdfjs-dist": "^4.6.82",
     "konva": "^9.3.20",
     "leaflet": "^1.9.4",
     "lucide-vue-next": "^0.363.0",

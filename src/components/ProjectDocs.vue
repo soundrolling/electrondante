@@ -143,7 +143,7 @@
               <a @click.prevent="viewDoc(doc)" href="#" class="doc-link">
                 {{ doc.file_name }}
               </a>
-              <div class="doc-actions">
+            <div class="doc-actions">
                 <button 
                   @click="viewDoc(doc)" 
                   class="btn btn-primary action-btn view-btn"
@@ -158,6 +158,13 @@
                 >
                   📥
                 </button>
+              <button
+                @click="deleteDoc(doc)"
+                class="btn btn-warning action-btn"
+                title="Delete document"
+              >
+                🗑
+              </button>
               </div>
             </div>
             <div class="doc-meta">
@@ -190,7 +197,11 @@
           <button class="preview-modal-close" @click="closePreviewModal">×</button>
         </div>
         <div class="preview-modal-body">
-          <iframe v-if="isPdf(previewDoc?.mime_type)" :src="previewDoc?.url" class="preview-iframe"></iframe>
+          <div v-if="isPdf(previewDoc?.mime_type)" class="pdf-viewer">
+            <div v-if="pdfLoading" class="preview-unsupported"><p>Loading PDF…</p></div>
+            <div v-else-if="pdfError" class="preview-unsupported"><p>{{ pdfError }}</p></div>
+            <div v-else class="pdf-pages" ref="pdfPagesContainer"></div>
+          </div>
           <div v-else class="preview-unsupported">
             <p>Preview not available for this file type.</p>
             <a :href="previewDoc?.url" target="_blank">Open in new tab</a>
@@ -207,11 +218,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
+// pdf.js for streaming multi-page preview
+import * as pdfjsLib from 'pdfjs-dist/build/pdf'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url'
 
 // ─── ROUTER & STATE ────────────────────────────────────────────────────────────
 const route      = useRoute()
@@ -368,7 +382,8 @@ try {
         description: d.description,
         inserted_at: d.inserted_at,
         uploaded_by: d.uploaded_by || null,
-        url:         urlData.signedUrl
+        url:         urlData.signedUrl,
+        file_path:   d.file_path
       }
     })
   )
@@ -460,10 +475,14 @@ function isPdf(mime) { return mime && mime.includes('pdf') }
 function viewDoc(doc) {
   previewDoc.value = doc
   showPreviewModal.value = true
+  if (isPdf(doc.mime_type)) {
+    renderPdf(doc.url)
+  }
 }
 function closePreviewModal() {
   showPreviewModal.value = false
   previewDoc.value = null
+  cleanupPdf()
 }
 function printPreview() {
   const iframe = document.querySelector('.preview-iframe')
@@ -474,6 +493,54 @@ function printPreview() {
     toast.error('Print preview only available for PDFs')
   }
 }
+
+// ─── PDF.JS RENDERING ───────────────────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+const pdfLoading = ref(false)
+const pdfError = ref('')
+const pdfDocRef = ref(null)
+const pdfPagesContainer = ref(null)
+
+async function renderPdf(url) {
+  pdfLoading.value = true
+  pdfError.value = ''
+  await nextTick()
+  cleanupPdf()
+  try {
+    const loadingTask = pdfjsLib.getDocument({ url, withCredentials: false, rangeChunkSize: 65536 })
+    const pdf = await loadingTask.promise
+    pdfDocRef.value = pdf
+    const container = pdfPagesContainer.value
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum)
+      const viewport = page.getViewport({ scale: 1.25 })
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      canvas.style.width = viewport.width + 'px'
+      canvas.style.height = viewport.height + 'px'
+      container.appendChild(canvas)
+      await page.render({ canvasContext: context, viewport }).promise
+    }
+  } catch (e) {
+    console.error('PDF preview error', e)
+    pdfError.value = 'Failed to load PDF preview'
+  } finally {
+    pdfLoading.value = false
+  }
+}
+
+function cleanupPdf() {
+  const container = pdfPagesContainer.value
+  if (container) container.innerHTML = ''
+  if (pdfDocRef.value) {
+    try { pdfDocRef.value.destroy() } catch (_) {}
+    pdfDocRef.value = null
+  }
+}
+
+onBeforeUnmount(() => cleanupPdf())
 
 // ─── DOWNLOAD DOCUMENT ─────────────────────────────────────────────────────────
 async function downloadDoc(doc) {
@@ -488,6 +555,32 @@ async function downloadDoc(doc) {
     toast.success('Download started')
   } catch (e) {
     toast.error('Failed to download')
+  }
+}
+
+// ─── DELETE DOCUMENT ─────────────────────────────────────────────────────────────
+async function deleteDoc(doc) {
+  if (!confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return
+  try {
+    // Remove from storage first
+    const { error: rmErr } = await supabase.storage
+      .from('stage-docs')
+      .remove([doc.file_path])
+    if (rmErr) throw rmErr
+
+    // Remove row from project_docs
+    const { error: dbErr } = await supabase
+      .from('project_docs')
+      .delete()
+      .eq('id', doc.id)
+    if (dbErr) throw dbErr
+
+    // Update local list
+    docs.value = docs.value.filter((d) => d.id !== doc.id)
+    toast.success('Document deleted')
+  } catch (e) {
+    console.error('Delete failed', e)
+    toast.error('Failed to delete document')
   }
 }
 
@@ -1260,6 +1353,8 @@ await fetchProjectDocs()
   border: none;
   background: #fff;
 }
+.pdf-viewer { width: 100%; height: 70vh; overflow: auto; background: #fff; padding: 16px; }
+.pdf-pages { display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .preview-unsupported {
   padding: 32px;
   text-align: center;
