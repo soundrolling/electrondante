@@ -250,7 +250,7 @@ async function saveSelectedConnection() {
   const c = selectedConn.value
   if (!c) return
   try {
-    const payload = { id: c.id, pad: Number(editPad.value) || 0, phantom_power: editPhantom.value, connection_type: editType.value }
+    const payload = { id: c.id, pad: -Math.abs(Number(editPad.value) || 0), phantom_power: editPhantom.value, connection_type: editType.value }
     if (toNodeType.value === 'recorder') {
       payload.input_number = editInput.value || null
       payload.track_number = null

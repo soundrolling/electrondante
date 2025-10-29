@@ -295,7 +295,7 @@ try {
     input_number: (!isRecorder.value && (!isSource.value || isTransformer.value)) ? inputNumber.value : undefined,
     output_number: undefined, // never set output_number
     track_number: isRecorder.value ? trackNumber.value : undefined,
-    pad: Number(padValue.value) || 0,
+    pad: -Math.abs(Number(padValue.value) || 0),
     phantom_power: phantomPowerEnabled.value,
     connection_type: connectionType.value
   }
