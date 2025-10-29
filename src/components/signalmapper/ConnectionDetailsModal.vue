@@ -39,7 +39,11 @@
       <form @submit.prevent="submit" class="connection-form">
         <div v-if="isSource && isTransformerTo" class="form-group">
           <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Transformer Input</label>
-          <input type="number" min="1" v-model.number="inputNumber" />
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
           <div class="help" v-if="usedInputsDetailed.length">
             <span class="help-title">Used inputs:</span>
             <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
@@ -47,7 +51,11 @@
         </div>
         <div v-else-if="isSource && isRecorderTo" class="form-group">
           <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
-          <input type="number" min="1" v-model.number="inputNumber" />
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in trackOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
           <div class="help" v-if="usedInputsDetailed.length">
             <span class="help-title">Used inputs:</span>
             <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
@@ -56,7 +64,11 @@
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
           <label>Assign to Input/Track</label>
-          <input type="number" min="1" v-model.number="inputNumber" />
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
           <div class="help" v-if="usedInputsDetailed.length">
             <span class="help-title">Used inputs:</span>
             <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
