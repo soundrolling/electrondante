@@ -676,8 +676,15 @@ setup() {
         country: editVenueCountryValue.value,
         maps_link: editVenueMapsLinkValue.value,
       });
+      // Also propagate the new venue name to all stages (locations) that cache venue_name
+      await supabase
+        .from('locations')
+        .update({ venue_name: editVenueNameValue.value })
+        .eq('venue_id', Number(selectedVenue.value));
       toast.success('Venue updated!');
       await fetchData();
+      // Close the modal so the change is visible in the underlying list/cards
+      closeLocationsModal();
     } catch (e) {
       toast.error(e.message);
     } finally {
