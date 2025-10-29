@@ -55,8 +55,8 @@
             </div>
           </td>
           <td class="boolean-cell">
-            <span :class="['status-badge', { active: path.pad }]">
-              {{ path.pad ? 'Yes' : 'No' }}
+            <span class="status-badge">
+              {{ typeof path.pad === 'number' ? path.pad : (path.pad ? 1 : 0) }}
             </span>
           </td>
           <td class="boolean-cell">

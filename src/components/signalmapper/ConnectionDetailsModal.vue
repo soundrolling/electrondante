@@ -65,9 +65,9 @@
         
         <!-- Connection Properties -->
         <div class="form-group connection-properties">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="padEnabled" />
-            <span>Pad</span>
+          <label class="select-label">
+            <span>Pad (dB)</span>
+            <input type="number" min="0" step="1" v-model.number="padValue" />
           </label>
           <label class="checkbox-label">
             <input type="checkbox" v-model="phantomPowerEnabled" />
@@ -156,7 +156,7 @@ const numTracks = computed(() => props.toNode.num_tracks || props.toNode.tracks 
 const inputNumber = ref(props.defaultInput)
 const outputNumber = ref(props.defaultOutput)
 const trackNumber = ref(props.defaultTrack)
-const padEnabled = ref(false)
+const padValue = ref(0)
 const phantomPowerEnabled = ref(false)
 const connectionType = ref('Mic')
 
@@ -295,7 +295,7 @@ try {
     input_number: (!isRecorder.value && (!isSource.value || isTransformer.value)) ? inputNumber.value : undefined,
     output_number: undefined, // never set output_number
     track_number: isRecorder.value ? trackNumber.value : undefined,
-    pad: padEnabled.value,
+    pad: Number(padValue.value) || 0,
     phantom_power: phantomPowerEnabled.value,
     connection_type: connectionType.value
   }

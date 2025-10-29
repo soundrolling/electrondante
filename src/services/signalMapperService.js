@@ -166,7 +166,7 @@ export async function getCompleteSignalPath(projectId) {
         source_label: sourceNode?.label,
         track_name: sourceNode?.track_name,
         path: labels,
-        pad: conn.pad || false,
+        pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
         connection_id: conn.id
       })

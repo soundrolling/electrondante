@@ -65,8 +65,8 @@
         </div>
       </template>
       <div class="detail-row">
-        <span class="label">Pad:</span>
-        <input type="checkbox" v-model="editPad" />
+        <span class="label">Pad (dB):</span>
+        <input type="number" min="0" step="1" v-model.number="editPad" class="inline-select" />
       </div>
       <div class="detail-row">
         <span class="label">Phantom Power:</span>
@@ -182,7 +182,7 @@ const linkSource = ref(null)
 const selectedNode = ref(null)
 const selectedConnectionId = ref(null)
 // Edit models for selected connection
-const editPad = ref(false)
+const editPad = ref(0)
 const editPhantom = ref(false)
 const editType = ref('Mic')
 const editInput = ref(null)
@@ -239,7 +239,7 @@ const trackOptionsForSelected = computed(() => {
 
 watch(selectedConn, (c) => {
   if (!c) return
-  editPad.value = !!c.pad
+  editPad.value = Number(c.pad || 0)
   editPhantom.value = !!c.phantom_power
   editType.value = c.connection_type || 'Mic'
   editInput.value = c.input_number || null
@@ -250,7 +250,7 @@ async function saveSelectedConnection() {
   const c = selectedConn.value
   if (!c) return
   try {
-    const payload = { id: c.id, pad: editPad.value, phantom_power: editPhantom.value, connection_type: editType.value }
+    const payload = { id: c.id, pad: Number(editPad.value) || 0, phantom_power: editPhantom.value, connection_type: editType.value }
     if (toNodeType.value === 'recorder') {
       payload.input_number = editInput.value || null
       payload.track_number = null
