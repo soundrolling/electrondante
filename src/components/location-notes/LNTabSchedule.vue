@@ -238,7 +238,12 @@ export default {
       if (sortOrder.value === 'artist')
         return list.sort((a,b) => a.artist_name.localeCompare(b.artist_name))
       const dir = sortOrder.value === 'asc' ? 1 : -1
-      return list.sort((a,b) => a.start_time.localeCompare(b.start_time) * dir)
+      // Sort by date+time combination, not just time
+      return list.sort((a,b) => {
+        const aDateTime = `${a.recording_date}T${a.start_time || '00:00:00'}`
+        const bDateTime = `${b.recording_date}T${b.start_time || '00:00:00'}`
+        return aDateTime.localeCompare(bDateTime) * dir
+      })
     })
 
     // Find next artist for changeover
