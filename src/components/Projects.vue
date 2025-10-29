@@ -6,20 +6,81 @@
   <!-- ─── PAGE‑TITLE & TOP‑BAR ─────────────────────────────── -->
   <header class="page-header ui-page-header">
     <div class="page-actions">
+      <!-- Left group: filters and utilities -->
+      <div class="actions-left">
+        <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-text">Refresh</span>
+        </button>
+        <div class="sorter">
+          <label for="sort" class="sorter-label">Sort by:</label>
+          <div class="select-wrapper">
+            <select
+              id="sort"
+              v-model="selectedSortOption"
+              @change="sortProjects"
+              class="form-select"
+            >
+              <option value="newest">Newest → Oldest</option>
+              <option value="oldest">Oldest → Newest</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+            <span class="select-arrow">▼</span>
+          </div>
+        </div>
+        <div class="project-tabs">
+          <button
+            :class="['tab-btn', { active: activeTab === 'active' }]"
+            @click="activeTab = 'active'"
+          >
+            <span class="tab-icon">📁</span>
+            <span class="tab-text">Active</span>
+          </button>
+          <button
+            :class="['tab-btn', { active: activeTab === 'archived' }]"
+            @click="activeTab = 'archived'"
+          >
+            <span class="tab-icon">📦</span>
+            <span class="tab-text">Archived</span>
+          </button>
+        </div>
+        <div class="search-wrapper">
+          <span class="search-icon">🔍</span>
+          <input
+            v-model="searchQuery"
+            placeholder="Search projects…"
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <!-- Right group: primary action(s) -->
+      <div class="actions-right">
+        <button @click="toggleNewProjectForm" class="btn btn-positive action-btn new-project-btn">
+          <span class="btn-icon">{{ showNewProjectForm ? '✕' : '➕' }}</span>
+          <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
+        </button>
+        <button class="btn action-btn options-btn" @click="showMobileOptions = !showMobileOptions">
+          <span class="btn-icon">⋯</span>
+          <span class="btn-text">Options</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile collapsible options -->
+  <div class="mobile-options" :class="{ open: showMobileOptions }">
+    <div class="mobile-options-inner">
       <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
         <span class="btn-icon">🔄</span>
         <span class="btn-text">Refresh</span>
       </button>
-      <button @click="toggleNewProjectForm" class="btn btn-positive action-btn new-project-btn">
-        <span class="btn-icon">{{ showNewProjectForm ? '✕' : '➕' }}</span>
-        <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
-      </button>
-      <!-- Moved sorter into header to align with actions -->
       <div class="sorter">
-        <label for="sort" class="sorter-label">Sort by:</label>
+        <label for="sort_m" class="sorter-label">Sort by:</label>
         <div class="select-wrapper">
           <select
-            id="sort"
+            id="sort_m"
             v-model="selectedSortOption"
             @change="sortProjects"
             class="form-select"
@@ -32,8 +93,6 @@
           <span class="select-arrow">▼</span>
         </div>
       </div>
-
-      <!-- Tabs moved into header row -->
       <div class="project-tabs">
         <button
           :class="['tab-btn', { active: activeTab === 'active' }]"
@@ -50,8 +109,6 @@
           <span class="tab-text">Archived</span>
         </button>
       </div>
-
-      <!-- Search moved into header row -->
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
         <input
@@ -61,7 +118,7 @@
         />
       </div>
     </div>
-  </header>
+  </div>
 
   <!-- ─── LOADING ──────────────────────────────────────────── -->
   <div v-if="loading" class="loading-skeleton">
@@ -407,6 +464,7 @@ setup() {
   const editBuildTo        = ref('');
   const editProjectWebsite = ref('');
   const activeTab          = ref('active');
+  const showMobileOptions  = ref(false);
 
   /* ───────── HELPERS ───────── */
   const userStore = useUserStore();
@@ -890,6 +948,7 @@ setup() {
     archiveProject,
     unarchiveProject,
     activeTab,
+    showMobileOptions,
   };
 },
 };
@@ -974,9 +1033,10 @@ setup() {
 }
 
 .page-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  align-items: center;
 }
 
 .action-btn {
@@ -993,6 +1053,25 @@ setup() {
   min-height: 44px;
   background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+/* Header action groups */
+.actions-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.actions-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.options-btn {
+  display: none; /* hidden on desktop */
+  background: #e2e8f0 !important;
 }
 
 .action-btn:hover {
@@ -1144,6 +1223,23 @@ setup() {
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-light);
+}
+
+/* Mobile collapsible options */
+.mobile-options {
+  display: none;
+}
+.mobile-options.open {
+  display: block;
+}
+.mobile-options-inner {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  margin-top: var(--space-3);
 }
 
 .toolbar-left,
@@ -1681,6 +1777,8 @@ setup() {
     gap: var(--space-4);
   }
 
+  .page-actions { grid-template-columns: auto auto; }
+
   .toolbar {
     flex-direction: row;
     justify-content: space-between;
@@ -1775,6 +1873,12 @@ setup() {
     margin-bottom: 0;
     padding-bottom: 0;
   }
+}
+
+/* Mobile behaviors */
+@media (max-width: 768px) {
+  .actions-left { display: none; }
+  .options-btn { display: inline-flex; }
 }
 
 /* High Contrast Mode Support */
