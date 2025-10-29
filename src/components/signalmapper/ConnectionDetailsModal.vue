@@ -168,6 +168,13 @@ const connectionType = ref('Mic')
 const loading = ref(false)
 const errorMsg = ref('')
 
+// Disallow more than one outgoing connection from a source
+const sourceHasConnection = computed(() => {
+  return (props.existingConnections || []).some(c =>
+    (c.from_node_id === props.fromNode.id || c.from === props.fromNode.id)
+  )
+})
+
 // Watch for prop changes
 watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
@@ -305,6 +312,13 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
   try {
+  // Block if source already connected (UI guard)
+  if (sourceHasConnection.value) {
+    errorMsg.value = 'This source already has a connection.'
+    loading.value = false
+    return
+  }
+
   // Refresh latest assignments for target to avoid stale duplicate selection
   try {
     const { data: latest, error } = await supabase
