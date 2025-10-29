@@ -244,6 +244,8 @@ const activePointers = new Map()
 let lastPinchDistance = null
 const MIN_SCALE = 0.2
 const MAX_SCALE = 5
+// Desktop rotation via wheel while mouse is held down on selected mic
+const mouseDownOnSelected = ref(false)
 
 // Modal state
 const showGearModal = ref(false)
@@ -483,6 +485,7 @@ function onPointerDown(e) {
       rotatingMic.value = clickedMic
       selectedMic.value = clickedMic
       rotationMode.value = true
+      mouseDownOnSelected.value = true
     } else {
       // Start dragging
       draggingMic.value = clickedMic
@@ -490,6 +493,7 @@ function onPointerDown(e) {
       dragStart = { x: imgPt.imgX, y: imgPt.imgY }
       dragStartPos = { x: clickedMic.x, y: clickedMic.y }
       rotationMode.value = false
+      mouseDownOnSelected.value = true
     }
   } else {
     // If no mic center was clicked, allow grabbing the rotation handle of the
@@ -501,11 +505,13 @@ function onPointerDown(e) {
       if (dist < 14) {
         rotatingMic.value = selectedMic.value
         rotationMode.value = true
+        mouseDownOnSelected.value = true
         return
       }
     }
     selectedMic.value = null
     rotationMode.value = false
+    mouseDownOnSelected.value = false
   }
   
   drawCanvas()
@@ -583,6 +589,7 @@ async function onPointerUp(e) {
 
   dragStart = null
   dragStartPos = null
+  mouseDownOnSelected.value = false
 }
 
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
@@ -602,6 +609,14 @@ function applyZoom(zoomFactor, centerX, centerY) {
 
 function onWheel(e) {
   if (!bgImageObj.value) return
+  // If the user is holding the mouse down on the selected mic (or has the rotation handle engaged),
+  // rotate instead of zooming. Use wheel delta to control rotation speed.
+  if ((mouseDownOnSelected.value || rotatingMic.value) && selectedMic.value) {
+    const step = e.deltaY < 0 ? 3 : -3
+    selectedMic.value.rotation = ((selectedMic.value.rotation || 0) + step + 360) % 360
+    drawCanvas()
+    return
+  }
   const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
   const rect = canvas.value.getBoundingClientRect()
   const cx = (e.clientX - rect.left) * (canvas.value.width / rect.width) / dpr
