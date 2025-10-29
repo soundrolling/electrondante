@@ -429,10 +429,11 @@ onMounted(async () => {
 }
 
 .tab-btn.active {
-  background: #dbeafe; /* blue-100 */
-  color: #1e3a8a;      /* blue-900 */
-  border-color: #60a5fa; /* blue-400 */
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  background: #2563eb; /* blue-600 */
+  color: #ffffff;
+  border-color: #1d4ed8; /* blue-700 */
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35), 0 6px 14px rgba(37, 99, 235, 0.25);
+  font-weight: 700;
 }
 
 .tab-content {
