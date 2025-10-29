@@ -473,7 +473,17 @@ setup() {
         .from('project_members')
         .select(`
           role,
-          projects:project_id ( id, project_name, created_at, user_id )
+          projects:project_id ( 
+            id, 
+            project_name, 
+            created_at, 
+            user_id, 
+            location, 
+            official_website, 
+            main_show_days, 
+            build_days,
+            archived
+          )
         `)
         .or(`user_id.eq.${uid},user_email.eq.${email}`);
 
