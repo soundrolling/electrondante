@@ -55,6 +55,31 @@
           </select>
           
         </div>
+        <div v-else-if="needsPortMapping" class="form-group">
+          <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
+          <div class="port-mapping-container">
+            <div v-if="portMappings.length > 0" class="port-mappings-list">
+              <div v-for="(mapping, idx) in portMappings" :key="idx" class="port-mapping-row">
+                <span>{{ fromNode.label }} Output {{ mapping.from_port }}</span>
+                <span class="arrow">→</span>
+                <span>{{ toNode.label }} {{ isRecorderTo ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
+                <button type="button" class="btn-remove" @click="removePortMapping(idx)">×</button>
+              </div>
+            </div>
+            <div class="port-mapping-add">
+              <select class="form-select" v-model.number="newMappingFromPort" :disabled="availableFromPorts.length === 0">
+                <option :value="null">Select From Port</option>
+                <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <span class="arrow">→</span>
+              <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.length === 0">
+                <option :value="null">Select To Port</option>
+                <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <button type="button" class="btn-add" @click="addPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
+            </div>
+          </div>
+        </div>
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
           <label>Assign to Input/Track</label>
@@ -153,6 +178,10 @@ const isTransformer = computed(() => (props.fromNode.gearType || props.fromNode.
 const isRecorderFrom = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'recorder')
 const isRecorderTo = computed(() => (props.toNode.gearType || props.toNode.node_type) === 'recorder')
 const isTransformerTo = computed(() => (props.toNode.gearType || props.toNode.node_type) === 'transformer')
+const isTransformerFrom = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'transformer')
+
+// Check if this is a non-source to non-source connection (needs port mapping)
+const needsPortMapping = computed(() => !isSource.value && (isTransformerFrom.value || isRecorderFrom.value))
 
 const numInputs = computed(() => props.toNode.num_inputs || props.toNode.numinputs || props.toNode.inputs || 0)
 const numOutputs = computed(() => props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 0)
@@ -167,6 +196,61 @@ const connectionType = ref('Mic')
 
 const loading = ref(false)
 const errorMsg = ref('')
+
+// Port mapping state for non-source to non-source connections
+const portMappings = ref([])
+const newMappingFromPort = ref(null)
+const newMappingToPort = ref(null)
+
+// Get available ports for mapping
+const availableFromPorts = computed(() => {
+  const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
+  const opts = []
+  for (let n = 1; n <= numOutputs.value; n++) {
+    if (!used.has(n)) {
+      opts.push({ value: n, label: `Output ${n}` })
+    }
+  }
+  return opts
+})
+
+const availableToPorts = computed(() => {
+  const used = new Set(portMappings.value.map(m => m.to_port).filter(Boolean))
+  const opts = []
+  if (isRecorderTo.value) {
+    for (let n = 1; n <= numTracks.value; n++) {
+      if (!used.has(n)) {
+        opts.push({ value: n, label: `Track ${n}` })
+      }
+    }
+  } else {
+    for (let n = 1; n <= numInputs.value; n++) {
+      if (!used.has(n)) {
+        const taken = (props.existingConnections || []).find(c =>
+          (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
+        )
+        if (!taken) {
+          opts.push({ value: n, label: `Input ${n}` })
+        }
+      }
+    }
+  }
+  return opts
+})
+
+function addPortMapping() {
+  if (!newMappingFromPort.value || !newMappingToPort.value) return
+  portMappings.value.push({
+    from_port: newMappingFromPort.value,
+    to_port: newMappingToPort.value
+  })
+  newMappingFromPort.value = null
+  newMappingToPort.value = null
+}
+
+function removePortMapping(index) {
+  portMappings.value.splice(index, 1)
+}
 
 // Disallow duplicate connection from the same source to the same target
 const sourceHasConnectionToTarget = computed(() => {
@@ -313,6 +397,67 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
   try {
+  // Handle port mapping for non-source to non-source connections
+  if (needsPortMapping.value) {
+    if (portMappings.value.length === 0) {
+      errorMsg.value = 'Please add at least one port mapping.'
+      loading.value = false
+      return
+    }
+    
+    // Check if parent connection already exists (one per pair)
+    const { data: existingParent } = await supabase
+      .from('connections')
+      .select('id')
+      .eq('project_id', props.projectId)
+      .eq('from_node_id', props.fromNode.id)
+      .eq('to_node_id', props.toNode.id)
+      .maybeSingle()
+    
+    let parentConnId
+    if (existingParent) {
+      parentConnId = existingParent.id
+      // Delete existing port mappings
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .eq('connection_id', parentConnId)
+    } else {
+      // Create parent connection (no input_number for port-mapped connections)
+      const parentConn = {
+        project_id: props.projectId,
+        from_node_id: props.fromNode.id,
+        to_node_id: props.toNode.id,
+        pad: -Math.abs(Number(padValue.value) || 0),
+        phantom_power: phantomPowerEnabled.value,
+        connection_type: connectionType.value
+      }
+      const { data: savedParent, error: parentError } = await supabase
+        .from('connections')
+        .insert([parentConn])
+        .select()
+        .single()
+      if (parentError) throw parentError
+      parentConnId = savedParent.id
+    }
+    
+    // Save all port mappings
+    const portMapInserts = portMappings.value.map(m => ({
+      project_id: props.projectId,
+      connection_id: parentConnId,
+      from_port: m.from_port,
+      to_port: m.to_port
+    }))
+    
+    const { error: mapError } = await supabase
+      .from('connection_port_map')
+      .insert(portMapInserts)
+    if (mapError) throw mapError
+    
+    emit('confirm', { id: parentConnId, port_mappings: portMappings.value })
+    return
+  }
+  
   // Block if a connection from this source to this target already exists
   if (sourceHasConnectionToTarget.value) {
     errorMsg.value = 'This source is already connected to this device.'
@@ -723,6 +868,93 @@ gap: 6px;
 padding: 8px 10px;
 border: 1px solid #ced4da;
 border-radius: 6px;
+}
+
+.port-mapping-container {
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+
+.port-mappings-list {
+display: flex;
+flex-direction: column;
+gap: 8px;
+margin-bottom: 12px;
+}
+
+.port-mapping-row {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 10px;
+background: #f8f9fa;
+border-radius: 6px;
+border: 1px solid #e9ecef;
+}
+
+.port-mapping-row .arrow {
+color: #007bff;
+font-weight: bold;
+}
+
+.btn-remove {
+background: #dc3545;
+color: white;
+border: none;
+border-radius: 4px;
+width: 24px;
+height: 24px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 18px;
+line-height: 1;
+transition: background-color 0.2s;
+margin-left: auto;
+}
+
+.btn-remove:hover {
+background: #c82333;
+}
+
+.port-mapping-add {
+display: flex;
+align-items: center;
+gap: 8px;
+flex-wrap: wrap;
+}
+
+.port-mapping-add .form-select {
+flex: 1;
+min-width: 120px;
+}
+
+.port-mapping-add .arrow {
+color: #007bff;
+font-weight: bold;
+}
+
+.btn-add {
+padding: 8px 16px;
+background: #28a745;
+color: white;
+border: none;
+border-radius: 6px;
+font-size: 14px;
+font-weight: 500;
+cursor: pointer;
+transition: background-color 0.2s;
+}
+
+.btn-add:hover:not(:disabled) {
+background: #218838;
+}
+
+.btn-add:disabled {
+background: #6c757d;
+cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
