@@ -481,7 +481,8 @@ export default {
       activeIndex, filteredRows, fromDateTime, toDateTime,
       openForm, closeForm, save, remove, exportPdf, emitChangeNote,
       createChangeoverNote, isActive,
-      saveRange, clearFrom, clearTo, setToday, setPreviousDay
+      saveRange, clearFrom, clearTo, setToday, setPreviousDay,
+      t5, niceDate, formatStageHourFallback
     }
     return exposed
   }
