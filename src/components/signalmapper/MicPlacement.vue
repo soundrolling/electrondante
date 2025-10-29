@@ -185,6 +185,7 @@ async function setBackgroundImage(src, state) {
   return new Promise((resolve) => {
     bgImage.value = src
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = () => {
       bgImageObj.value = img
       if (state) {
@@ -192,6 +193,12 @@ async function setBackgroundImage(src, state) {
         imageOffsetX.value = state.offsetX ?? 0
         imageOffsetY.value = state.offsetY ?? 0
         scaleFactor.value = state.scale ?? 1
+      } else {
+        // Auto-fit when no prior state is provided
+        const fit = fitImageToCanvas(img)
+        scaleFactor.value = fit.scale
+        imageOffsetX.value = fit.offsetX
+        imageOffsetY.value = fit.offsetY
       }
       drawCanvas()
       resolve()
