@@ -34,6 +34,12 @@
     </button>
   </div>
 
+  <!-- Export Actions -->
+  <div class="export-actions">
+    <button class="btn-export" @click="exportCurrentTab">Export This Tab</button>
+    <button class="btn-export-all" @click="exportAllTabs">Export All Tabs (PDF)</button>
+  </div>
+
   <!-- Tab Content -->
   <div class="tab-content">
     <MicPlacement
@@ -213,6 +219,66 @@ async function loadSignalPaths() {
   }
 }
 
+// Export current tab via browser print
+function exportCurrentTab() {
+  window.print()
+}
+
+// Export all tabs to a single print document
+function exportAllTabs() {
+  const w = window.open('', '_blank')
+  if (!w) return
+  const style = `
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; color:#111; margin:20px; }
+      h1 { font-size:20px; margin:0 0 8px 0; }
+      h2 { font-size:18px; margin:18px 0 8px 0; }
+      table { width:100%; border-collapse: collapse; margin:8px 0 20px 0; }
+      th, td { border:1px solid #e5e7eb; padding:8px; text-align:left; font-size:12px; }
+      thead { background:#f8fafc; }
+      .section { page-break-inside: avoid; }
+      .page-break { page-break-after: always; }
+    </style>
+  `
+
+  const micRows = (sourceNodes.value || []).map(n => `<tr><td>${n.track_name || ''}</td><td>${n.label || ''}</td></tr>`).join('')
+  const micHtml = `
+    <div class="section">
+      <h1>Mic Placement</h1>
+      <table>
+        <thead><tr><th>Track</th><th>Source</th></tr></thead>
+        <tbody>${micRows || '<tr><td colspan=2>No sources</td></tr>'}</tbody>
+      </table>
+    </div>
+  `
+
+  const nodeLabel = id => (allNodes.value.find(n => n.id === id)?.label) || id
+  const flowRows = (allConnections.value || []).map(c => `<tr><td>${nodeLabel(c.from_node_id)}</td><td>→</td><td>${nodeLabel(c.to_node_id)}</td></tr>`).join('')
+  const flowHtml = `
+    <div class="section page-break">
+      <h1>Signal Flow (Connections)</h1>
+      <table>
+        <thead><tr><th>From</th><th></th><th>To</th></tr></thead>
+        <tbody>${flowRows || '<tr><td colspan=3>No connections</td></tr>'}</tbody>
+      </table>
+    </div>
+  `
+
+  const tlRows = (signalPaths.value || []).map(p => `<tr><td>${p.track_number || ''}</td><td>${p.recorder_label || ''}</td><td>${p.track_name || p.source_label || ''}</td><td>${(p.path || []).join(' → ')}</td></tr>`).join('')
+  const tlHtml = `
+    <div class="section">
+      <h1>Track List</h1>
+      <table>
+        <thead><tr><th>Track #</th><th>Recorder</th><th>Source</th><th>Signal Path</th></tr></thead>
+        <tbody>${tlRows || '<tr><td colspan=4>No tracks</td></tr>'}</tbody>
+      </table>
+    </div>
+  `
+
+  w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\">${style}</head><body>${micHtml}${flowHtml}${tlHtml}</body></html>`)
+  w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } finally { w.close(); } }, 250)
+}
+
 // Event handlers
 function handleNodeUpdated(node) {
   const index = allNodes.value.findIndex(n => n.id === node.id)
@@ -374,6 +440,12 @@ onMounted(async () => {
   border: 1px solid #e9ecef;
   min-height: 500px;
 }
+
+.export-actions { display:flex; gap:8px; margin: 6px 0 12px 0; }
+.btn-export, .btn-export-all { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; color:#fff; }
+.btn-export { background:#111827; }
+.btn-export-all { background:#0f766e; }
+.btn-export:hover, .btn-export-all:hover { opacity: 0.92; }
 
 @media (max-width: 768px) {
   .signal-mapper-parent {
