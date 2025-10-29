@@ -429,9 +429,10 @@ onMounted(async () => {
 }
 
 .tab-btn.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
+  background: #dbeafe; /* blue-100 */
+  color: #1e3a8a;      /* blue-900 */
+  border-color: #60a5fa; /* blue-400 */
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
 }
 
 .tab-content {
