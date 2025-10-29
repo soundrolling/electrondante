@@ -181,15 +181,7 @@ watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
 
-// Auto-select first available input when options change or current is taken
-watch([inputOptions, () => inputNumber.value], () => {
-  const opts = inputOptions.value || []
-  const current = opts.find(o => o.value === inputNumber.value)
-  const firstAvail = opts.find(o => !o.disabled)?.value
-  if (!current || current.disabled) {
-    if (typeof firstAvail !== 'undefined') inputNumber.value = firstAvail
-  }
-})
+// (moved below inputOptions definition)
 
 // Helper to get label of node connected to a given input
 function getConnectedNodeLabel(inputNum) {
@@ -277,6 +269,16 @@ for (let n = 1; n <= numTracks.value; n++) {
   arr.push({ value: n, label, disabled })
 }
 return arr
+})
+
+// Auto-select first available input when options change or current is taken
+watch(inputOptions, () => {
+  const opts = inputOptions.value || []
+  const current = opts.find(o => o.value === inputNumber.value)
+  const firstAvail = opts.find(o => !o.disabled)?.value
+  if (!current || current.disabled) {
+    if (typeof firstAvail !== 'undefined') inputNumber.value = firstAvail
+  }
 })
 
 // Used inputs summary for this target
