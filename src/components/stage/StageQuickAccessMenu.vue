@@ -4,6 +4,18 @@
     <div class="modal-content">
       <button class="close-button" @click="$emit('close')">×</button>
       <h2 class="modal-title">{{ stage.stage_name }}</h2>
+      
+      <!-- Show Times / Managing Hours Section -->
+      <div v-if="stageHours.length > 0" class="stage-hours-section">
+        <h3 class="hours-title">Show Times / Managing Hours</h3>
+        <div class="hours-list">
+          <div v-for="hour in stageHours" :key="hour.id" class="hour-item">
+            <div class="time-range">{{ formatTime(hour.start_datetime) }} - {{ formatTime(hour.end_datetime) }}</div>
+            <div v-if="hour.notes" class="hour-notes">{{ hour.notes }}</div>
+          </div>
+        </div>
+      </div>
+      
       <div class="menu-list">
         <button class="menu-item" @click="goTo('notes')">
           <span class="emoji">📝</span> Notes
@@ -36,7 +48,10 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { supabase } from '../../supabase';
+
 const props = defineProps({
 stage: { type: Object, required: true },
 projectId: { type: [String, Number], required: true },
@@ -44,6 +59,37 @@ visible: { type: Boolean, default: false },
 });
 const emit = defineEmits(['close']);
 const router = useRouter();
+
+const stageHours = ref([]);
+
+onMounted(async () => {
+  await loadStageHours();
+});
+
+async function loadStageHours() {
+  try {
+    const { data, error } = await supabase
+      .from('stage_hour_events')
+      .select('*')
+      .eq('stage_id', props.stage.id)
+      .order('start_datetime', { ascending: true });
+
+    if (error) {
+      console.error('Error loading stage hours:', error);
+      return;
+    }
+
+    stageHours.value = data || [];
+  } catch (err) {
+    console.error('Unexpected error loading stage hours:', err);
+  }
+}
+
+function formatTime(datetime) {
+  if (!datetime) return '';
+  const d = new Date(datetime);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
 
 function goTo(type) {
 const id = props.projectId;
@@ -126,6 +172,52 @@ color: #1f2937;
 font-weight: 600;
 margin-bottom: 18px;
 }
+
+/* Stage Hours Section */
+.stage-hours-section {
+margin-bottom: 20px;
+padding: 16px;
+background: #f8fafc;
+border-radius: 8px;
+border: 1px solid #e2e8f0;
+}
+
+.hours-title {
+font-size: 1rem;
+font-weight: 600;
+color: #374151;
+margin: 0 0 12px 0;
+text-align: center;
+}
+
+.hours-list {
+display: flex;
+flex-direction: column;
+gap: 8px;
+}
+
+.hour-item {
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 8px 12px;
+background: #ffffff;
+border-radius: 6px;
+border: 1px solid #e5e7eb;
+}
+
+.time-range {
+font-size: 0.9rem;
+font-weight: 600;
+color: #1f2937;
+margin-bottom: 2px;
+}
+
+.hour-notes {
+font-size: 0.8rem;
+color: #6b7280;
+text-align: center;
+}
 .menu-list {
 display: grid;
 grid-template-columns: 1fr 1fr;
@@ -159,7 +251,41 @@ box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 font-size: 1.6em;
 margin-bottom: 4px;
 }
-@media (max-width: 600px) {
+/* Tablet and Desktop - 3 columns */
+@media (min-width: 768px) {
+.modal-content {
+  min-width: 400px;
+  max-width: 600px;
+  padding: 32px 40px 24px 40px;
+}
+.menu-list {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.menu-item {
+  padding: 20px 0 14px 0;
+  font-size: 1rem;
+}
+.emoji {
+  font-size: 1.6em;
+}
+.stage-hours-section {
+  padding: 20px;
+}
+.hours-list {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+.hour-item {
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+}
+
+/* Mobile */
+@media (max-width: 767px) {
 .modal-content {
   min-width: 0;
   padding: 18px 8px 12px 8px;
