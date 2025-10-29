@@ -87,6 +87,7 @@
           <span v-if="saveTick">✓ Saved</span>
           <span v-else>Save</span>
         </button>
+        <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
       </div>
     </div>
   </div>
@@ -150,7 +151,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
-import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
 const props = defineProps({
@@ -265,6 +266,22 @@ async function saveSelectedConnection() {
   } catch (err) {
     console.error('Failed to update connection:', err)
     toast.error('Failed to update connection')
+  }
+}
+
+async function deleteSelectedConnection() {
+  const c = selectedConn.value
+  if (!c) return
+  if (!confirm('Delete this connection?')) return
+  try {
+    await deleteConnectionFromDB(c.id)
+    emit('connection-deleted', c.id)
+    selectedConnectionId.value = null
+    toast.success('Connection deleted')
+    nextTick(drawCanvas)
+  } catch (err) {
+    console.error('Failed to delete connection:', err)
+    toast.error('Failed to delete connection')
   }
 }
 
