@@ -370,6 +370,17 @@ if (fromType === 'transformer' && toType === 'recorder') {
     to_node_id: props.toNode.id
   })
 }
+// If default input is already taken in this session context, pick first free
+try {
+  const used = new Set((props.existingConnections || [])
+    .filter(c => (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number)
+    .map(c => c.input_number))
+  if (used.has(inputNumber.value)) {
+    for (let n = 1; n <= (numInputs.value || 64); n++) {
+      if (!used.has(n)) { inputNumber.value = n; break }
+    }
+  }
+} catch {}
 })
 </script>
 
