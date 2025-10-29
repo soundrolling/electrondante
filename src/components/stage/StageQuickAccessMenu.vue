@@ -45,18 +45,22 @@
       
       <!-- Stage Hours Management Row -->
       <div class="stage-management-row">
-        <button class="management-button" @click="editStageHours">
+        <button class="management-button manage-hours" @click="manageStageHours">
           <span class="management-icon">⏰</span>
           <span class="management-label">Manage Hours</span>
         </button>
-        <button class="management-button" @click="viewLiveStatus">
-          <span class="management-icon" :class="{ 'live-indicator': isStageLive }">🔴</span>
-          <span class="management-label">{{ isStageLive ? 'Live Now' : 'View Status' }}</span>
-        </button>
-        <button class="management-button" @click="addQuickSlot">
-          <span class="management-icon">➕</span>
-          <span class="management-label">Quick Slot</span>
-        </button>
+        
+        <div class="status-section">
+          <div class="status-light" :class="{ 'live': isStageLive, 'offline': !isStageLive }">
+            <span class="status-dot"></span>
+            <span class="status-text">{{ isStageLive ? 'Live' : 'Offline' }}</span>
+          </div>
+          
+          <div v-if="nextTimeslot" class="next-timeslot">
+            <div class="next-label">Next:</div>
+            <div class="next-time">{{ formatNextTimeslot(nextTimeslot) }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -78,10 +82,12 @@ const router = useRouter();
 
 const stageHours = ref([]);
 const isStageLive = ref(false);
+const nextTimeslot = ref(null);
 
 onMounted(async () => {
   await loadStageHours();
   checkLiveStatus();
+  findNextTimeslot();
 });
 
 async function loadStageHours() {
@@ -118,49 +124,32 @@ function checkLiveStatus() {
   });
 }
 
-function editStageHours() {
-  // Navigate to calendar with stage hours editing mode
-  const today = new Date().toISOString().slice(0, 10);
-  router.push({ 
-    name: 'Calendar', 
-    params: { id: props.projectId }, 
-    query: { 
-      locationId: props.stage.id, 
-      date: today, 
-      view: 'timeline',
-      editHours: 'true'
-    } 
-  });
-  emit('close');
+function findNextTimeslot() {
+  const now = new Date();
+  const futureHours = stageHours.value
+    .filter(hour => new Date(hour.start_datetime) > now)
+    .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+  
+  nextTimeslot.value = futureHours.length > 0 ? futureHours[0] : null;
 }
 
-function viewLiveStatus() {
-  // Navigate to calendar timeline view for this stage
-  const today = new Date().toISOString().slice(0, 10);
-  router.push({ 
-    name: 'Calendar', 
-    params: { id: props.projectId }, 
-    query: { 
-      locationId: props.stage.id, 
-      date: today, 
-      view: 'timeline'
-    } 
-  });
-  emit('close');
+function formatNextTimeslot(timeslot) {
+  if (!timeslot) return '';
+  const startDate = new Date(timeslot.start_datetime);
+  const endDate = new Date(timeslot.end_datetime);
+  
+  const startTime = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const endTime = endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const date = startDate.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  
+  return `${date} ${startTime}-${endTime}`;
 }
 
-function addQuickSlot() {
-  // Navigate to calendar with new event modal for this stage
-  const today = new Date().toISOString().slice(0, 10);
+function manageStageHours() {
+  // Navigate to locations page - the modal will be triggered there
   router.push({ 
-    name: 'Calendar', 
-    params: { id: props.projectId }, 
-    query: { 
-      locationId: props.stage.id, 
-      date: today, 
-      view: 'timeline',
-      newEvent: 'true'
-    } 
+    name: 'ProjectLocations', 
+    params: { id: props.projectId }
   });
   emit('close');
 }
@@ -295,9 +284,9 @@ text-align: center;
 
 /* Stage Management Row */
 .stage-management-row {
-display: grid;
-grid-template-columns: repeat(3, 1fr);
-gap: 12px;
+display: flex;
+align-items: center;
+gap: 16px;
 margin-top: 16px;
 padding-top: 16px;
 border-top: 1px solid #e5e7eb;
@@ -308,7 +297,7 @@ display: flex;
 flex-direction: column;
 align-items: center;
 gap: 6px;
-padding: 12px 8px;
+padding: 12px 16px;
 background: #f0f9ff;
 border: 1px solid #7dd3fc;
 border-radius: 8px;
@@ -318,6 +307,7 @@ font-size: 0.9rem;
 font-weight: 600;
 color: #0c4a6e;
 min-height: 60px;
+min-width: 100px;
 }
 
 .management-button:hover {
@@ -336,14 +326,76 @@ font-size: 1.4em;
 margin-bottom: 2px;
 }
 
-.management-icon.live-indicator {
-animation: pulse 2s infinite;
-}
-
 .management-label {
 font-size: 0.8rem;
 line-height: 1.2;
 text-align: center;
+}
+
+.status-section {
+flex: 1;
+display: flex;
+flex-direction: column;
+gap: 8px;
+align-items: center;
+}
+
+.status-light {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 8px 12px;
+border-radius: 20px;
+font-size: 0.85rem;
+font-weight: 600;
+}
+
+.status-light.live {
+background: #fef2f2;
+color: #dc2626;
+border: 1px solid #fecaca;
+}
+
+.status-light.offline {
+background: #f3f4f6;
+color: #6b7280;
+border: 1px solid #d1d5db;
+}
+
+.status-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+display: inline-block;
+}
+
+.status-light.live .status-dot {
+background: #dc2626;
+animation: pulse 2s infinite;
+}
+
+.status-light.offline .status-dot {
+background: #6b7280;
+}
+
+.next-timeslot {
+text-align: center;
+padding: 6px 12px;
+background: #f8fafc;
+border-radius: 6px;
+border: 1px solid #e2e8f0;
+}
+
+.next-label {
+font-size: 0.75rem;
+color: #6b7280;
+margin-bottom: 2px;
+}
+
+.next-time {
+font-size: 0.8rem;
+font-weight: 600;
+color: #374151;
 }
 
 @keyframes pulse {
@@ -434,20 +486,37 @@ margin-bottom: 4px;
   font-size: 1.3em;
 }
 .stage-management-row {
-  grid-template-columns: 1fr;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 12px;
   padding-top: 12px;
 }
 .management-button {
-  padding: 10px 8px;
+  padding: 10px 12px;
   min-height: 50px;
+  min-width: 80px;
   font-size: 0.85rem;
 }
 .management-icon {
   font-size: 1.2em;
 }
 .management-label {
+  font-size: 0.75rem;
+}
+.status-section {
+  width: 100%;
+}
+.status-light {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+}
+.next-timeslot {
+  padding: 4px 8px;
+}
+.next-label {
+  font-size: 0.7rem;
+}
+.next-time {
   font-size: 0.75rem;
 }
 }
