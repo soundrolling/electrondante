@@ -20,9 +20,55 @@
           </div>
         </div>
         <div class="hours-list">
-          <div v-for="hour in stageHours" :key="hour.id" class="hour-item">
+          <div v-for="hour in upcomingStageHours" :key="hour.id" class="hour-item">
             <div class="time-range">{{ formatTimeWithDate(hour.start_datetime) }} > {{ formatTimeWithDate(hour.end_datetime) }}</div>
             <div v-if="hour.notes" class="hour-notes">{{ hour.notes }}</div>
+          </div>
+        </div>
+        <!-- Inline Hours Management directly below the section -->
+        <div v-if="showHoursManagement" class="hours-management-section">
+          <div class="hours-header">
+            <h3 class="hours-title">Stage Hours & Timeslots</h3>
+            <button class="add-hours-btn" @click="openAddEditSlotModal">
+              <span class="btn-icon">➕</span>
+              <span class="btn-text">Add Slot</span>
+            </button>
+          </div>
+          <div v-if="stageHours.length > 0" class="hours-table-container">
+            <table class="hours-table">
+              <thead>
+                <tr>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Day ID</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="hour in sortedStageHours" :key="hour.id" :class="{ 'past-hour': isPastHour(hour) }">
+                  <td>{{ formatDateTime(hour.start_datetime) }}</td>
+                  <td>{{ formatDateTime(hour.end_datetime) }}</td>
+                  <td>{{ hour.notes || '-' }}</td>
+                  <td>
+                    <span class="hour-status" :class="{ 'past': isPastHour(hour), 'future': !isPastHour(hour) }">
+                      {{ isPastHour(hour) ? 'Past' : 'Scheduled' }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button class="icon-action" @click="openAddEditSlotModal(hour)" title="Edit">
+                      <span class="icon">✏️</span>
+                    </button>
+                    <button class="icon-action delete" @click="deleteSlot(hour)" title="Delete">
+                      <span class="icon">🗑️</span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="no-hours">
+            <p>No hours recorded for this stage.</p>
           </div>
         </div>
       </div>
@@ -54,54 +100,7 @@
         </button>
       </div>
       
-      <!-- Hours Management Section -->
-      <div v-if="showHoursManagement" class="hours-management-section">
-        <div class="hours-header">
-          <h3 class="hours-title">Stage Hours & Timeslots</h3>
-          <button class="add-hours-btn" @click="openAddEditSlotModal">
-            <span class="btn-icon">➕</span>
-            <span class="btn-text">Add Slot</span>
-          </button>
-        </div>
-        
-        <div v-if="stageHours.length > 0" class="hours-table-container">
-          <table class="hours-table">
-            <thead>
-              <tr>
-                <th>Start</th>
-                <th>End</th>
-                <th>Day ID</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="hour in sortedStageHours" :key="hour.id" :class="{ 'past-hour': isPastHour(hour) }">
-                <td>{{ formatDateTime(hour.start_datetime) }}</td>
-                <td>{{ formatDateTime(hour.end_datetime) }}</td>
-                <td>{{ hour.notes || '-' }}</td>
-                <td>
-                  <span class="hour-status" :class="{ 'past': isPastHour(hour), 'future': !isPastHour(hour) }">
-                    {{ isPastHour(hour) ? 'Past' : 'Scheduled' }}
-                  </span>
-                </td>
-                <td class="actions-cell">
-                  <button class="icon-action" @click="openAddEditSlotModal(hour)" title="Edit">
-                    <span class="icon">✏️</span>
-                  </button>
-                  <button class="icon-action delete" @click="deleteSlot(hour)" title="Delete">
-                    <span class="icon">🗑️</span>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <div v-else class="no-hours">
-          <p>No hours recorded for this stage.</p>
-        </div>
-      </div>
+      
       
       <!-- Add/Edit Slot Modal -->
       <transition name="fade">
@@ -173,6 +172,14 @@ const sortedStageHours = computed(() => {
   return [...stageHours.value].sort((a, b) => 
     new Date(a.start_datetime) - new Date(b.start_datetime)
   );
+});
+
+// Upcoming hours: anything that hasn't ended yet (includes current + future)
+const upcomingStageHours = computed(() => {
+  const now = new Date();
+  return [...stageHours.value]
+    .filter(h => new Date(h.end_datetime) > now)
+    .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
 });
 
 // Helper function to check if an hour is in the past
@@ -570,8 +577,9 @@ padding: 16px;
 background: #f8f9fa;
 border-radius: 8px;
 border: 1px solid #e2e8f0;
-max-height: 400px;
-overflow-y: auto;
+  /* Ensure it doesn't get clipped inside the modal */
+  max-height: none;
+  overflow: visible;
 }
 
 .hours-header {
@@ -876,9 +884,7 @@ margin-bottom: 4px;
   flex: 0 0 auto;
   min-width: 120px;
 }
-.hours-management-section {
-  max-height: 350px;
-}
+/* no max-height on desktop */
 }
 
 /* Mobile */
@@ -899,10 +905,8 @@ margin-bottom: 4px;
 .emoji {
   font-size: 1.3em;
 }
-.hours-management-section {
-  max-height: 300px;
-  padding: 12px;
-}
+/* keep natural height on mobile too */
+.hours-management-section { padding: 12px; }
 }
 .fade-enter-active,
 .fade-leave-active {
