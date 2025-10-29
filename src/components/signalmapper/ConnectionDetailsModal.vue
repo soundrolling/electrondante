@@ -62,6 +62,19 @@
             </option>
           </select>
         </div>
+        
+        <!-- Connection Properties -->
+        <div class="form-group connection-properties">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="padEnabled" />
+            <span>Pad</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="phantomPowerEnabled" />
+            <span>Phantom Power (+48V)</span>
+          </label>
+        </div>
+        
         <div class="form-actions">
           <button type="submit" class="btn-confirm" :disabled="loading">
             Confirm Connection
@@ -133,6 +146,8 @@ const numTracks = computed(() => props.toNode.num_tracks || props.toNode.tracks 
 const inputNumber = ref(props.defaultInput)
 const outputNumber = ref(props.defaultOutput)
 const trackNumber = ref(props.defaultTrack)
+const padEnabled = ref(false)
+const phantomPowerEnabled = ref(false)
 
 const loading = ref(false)
 const errorMsg = ref('')
@@ -268,7 +283,9 @@ try {
     to_node_id: props.toNode.id,
     input_number: (!isRecorder.value && (!isSource.value || isTransformer.value)) ? inputNumber.value : undefined,
     output_number: undefined, // never set output_number
-    track_number: isRecorder.value ? trackNumber.value : undefined
+    track_number: isRecorder.value ? trackNumber.value : undefined,
+    pad: padEnabled.value,
+    phantom_power: phantomPowerEnabled.value
   }
   await addConnection(connection)
   emit('confirm', connection)
@@ -549,6 +566,36 @@ color: #888;
 .cell-available {
 font-size: 0.95em;
 color: #28a745;
+}
+
+.connection-properties {
+display: flex;
+flex-direction: column;
+gap: 10px;
+padding: 10px;
+background: #f8f9fa;
+border-radius: 6px;
+border: 1px solid #e9ecef;
+}
+
+.checkbox-label {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 14px;
+cursor: pointer;
+user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+width: 18px;
+height: 18px;
+cursor: pointer;
+}
+
+.checkbox-label span {
+font-weight: 500;
+color: #495057;
 }
 
 @media (max-width: 768px) {

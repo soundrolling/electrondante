@@ -104,6 +104,8 @@
             <th>Input</th>
             <th>Output</th>
             <th>Track</th>
+            <th>Pad</th>
+            <th>Phantom Power</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -114,12 +116,23 @@
             <td>{{ connection.input_number || '\u2014' }}</td>
             <td v-if="connection.output_number && connection.input_number">{{ connection.output_number }}</td>
             <td v-else>\u2014</td>
+            <td>{{ connection.track_number || '\u2014' }}</td>
+            <td>
+              <span :class="['status-badge', { 'active': connection.pad }]">
+                {{ connection.pad ? 'Yes' : 'No' }}
+              </span>
+            </td>
+            <td>
+              <span :class="['status-badge', { 'active': connection.phantom_power }]">
+                {{ connection.phantom_power ? 'Yes' : 'No' }}
+              </span>
+            </td>
             <td>
               <span class="status-badge connected">Connected</span>
             </td>
           </tr>
           <tr v-if="!connections || connections.length === 0">
-            <td colspan="6" class="no-data">No connections found</td>
+            <td colspan="8" class="no-data">No connections found</td>
           </tr>
         </tbody>
       </table>
@@ -144,6 +157,10 @@
           <div class="path-tracks">
             <span class="tracks-label">Tracks:</span>
             <span class="tracks-list">{{ path.tracks && path.tracks.length ? path.tracks.join(', ') : 'None' }}</span>
+          </div>
+          <div class="path-properties">
+            <span v-if="path.pad" class="property-badge">Pad</span>
+            <span v-if="path.phantom_power" class="property-badge">+48V</span>
           </div>
         </div>
       </div>
@@ -402,7 +419,9 @@ return connections.value.map(conn => {
     source: fromNode?.label || 'Unknown',
     destination: toNode?.label || 'Unknown',
     route: `${fromNode?.label || 'Unknown'} → ${toNode?.label || 'Unknown'}`,
-    tracks: Array.isArray(conn.track_number) ? conn.track_number : (conn.track_number ? [conn.track_number] : [])
+    tracks: Array.isArray(conn.track_number) ? conn.track_number : (conn.track_number ? [conn.track_number] : []),
+    pad: conn.pad || false,
+    phantom_power: conn.phantom_power || false
   }
 }).filter(Boolean) // Remove null entries
 })
@@ -871,6 +890,26 @@ font-weight: 500;
 .status-badge.connected {
 background: #d4edda;
 color: #155724;
+}
+
+.status-badge.active {
+background: #d4edda;
+color: #155724;
+}
+
+.property-badge {
+display: inline-block;
+padding: 4px 8px;
+border-radius: 4px;
+font-size: 12px;
+font-weight: 600;
+background: #d4edda;
+color: #155724;
+margin-right: 5px;
+}
+
+.path-properties {
+margin-top: 8px;
 }
 
 .no-data {
