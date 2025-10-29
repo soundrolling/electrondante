@@ -380,7 +380,7 @@ export default {
       }
     }
 
-    function openForm(item=null) {
+    function openForm(item) {
       showForm.value = true
       if (item) {
         isEdit.value = true; editId = item.id
@@ -398,7 +398,10 @@ export default {
       }
     }
 
-    function closeForm(){ showForm.value=false; err.value=null }
+    function closeForm() {
+      showForm.value = false
+      err.value = null
+    }
 
     async function save(){
       if(!fArtist.value||!fStart.value||!fEnd.value){
