@@ -114,6 +114,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue'
+import { supabase } from '@/supabase'
 import { addConnection, updateConnection } from '@/services/signalMapperService'
 
 const props = defineProps({
@@ -321,6 +322,19 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
 try {
+    // Preflight: fetch used inputs from DB to avoid stale props
+    const { data: existing } = await supabase
+      .from('connections')
+      .select('from_node_id,to_node_id,input_number')
+      .eq('to_node_id', props.toNode.id)
+    const used = new Set((existing || []).map(c => c.input_number).filter(Boolean))
+    if (used.has(inputNumber.value)) {
+      // pick first available
+      for (let n = 1; n <= (numInputs.value || 64); n++) {
+        if (!used.has(n)) { inputNumber.value = n; break }
+      }
+    }
+
   // prevent duplicate input_number on target
   const conflict = (props.existingConnections || []).find(c =>
     (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === inputNumber.value
@@ -342,7 +356,29 @@ try {
     phantom_power: phantomPowerEnabled.value,
     connection_type: connectionType.value
   }
-  await addConnection(connection)
+    try {
+      await addConnection(connection)
+    } catch (e1) {
+      // Retry once after hard-refreshing used inputs
+      if (e1?.code === '23505') {
+        const { data: again } = await supabase
+          .from('connections')
+          .select('input_number')
+          .eq('to_node_id', props.toNode.id)
+        const used2 = new Set((again || []).map(c => c.input_number).filter(Boolean))
+        let picked
+        for (let n = 1; n <= (numInputs.value || 64); n++) {
+          if (!used2.has(n)) { picked = n; break }
+        }
+        if (picked) {
+          connection.input_number = picked
+          inputNumber.value = picked
+          await addConnection(connection)
+        } else {
+          throw e1
+        }
+      } else { throw e1 }
+    }
   emit('confirm', connection)
 } catch (e) {
   if (e?.code === '23505') {
