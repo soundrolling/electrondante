@@ -314,16 +314,6 @@ async function submit() {
 loading.value = true
 errorMsg.value = ''
   try {
-  // prevent duplicate input_number on target
-  const conflict = (props.existingConnections || []).find(c =>
-    (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === inputNumber.value
-  )
-  if (conflict) {
-    errorMsg.value = `Input ${inputNumber.value} is already assigned to ${getNodeLabelById(conflict.from_node_id || conflict.from)}`
-    loading.value = false
-    return
-  }
-
   const connection = {
     project_id: props.projectId,
     from_node_id: props.fromNode.id,
