@@ -162,10 +162,7 @@ function storagePathForStage() {
 async function getBgPublicUrl() {
   try {
     const { data } = supabase.storage.from('stage-pictures').getPublicUrl(storagePathForStage())
-    // This always returns a URL; we can attempt a HEAD request to verify existence
-    const res = await fetch(data.publicUrl, { method: 'HEAD' })
-    if (res.ok) return data.publicUrl
-    return null
+    return data?.publicUrl || null
   } catch { return null }
 }
 
@@ -192,6 +189,13 @@ async function setBackgroundImage(src, state) {
         imageOffsetY.value = state.offsetY ?? 0
         scaleFactor.value = state.scale ?? 1
       }
+      drawCanvas()
+      resolve()
+    }
+    img.onerror = () => {
+      // If fetch fails (e.g., permissions), clear background gracefully
+      bgImage.value = null
+      bgImageObj.value = null
       drawCanvas()
       resolve()
     }
