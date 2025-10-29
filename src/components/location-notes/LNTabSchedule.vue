@@ -138,7 +138,8 @@ import jsPDF                                from 'jspdf'
 import autoTable                            from 'jspdf-autotable'
 import { useUserStore }                     from '@/stores/userStore'
 import { fetchTableData, mutateTableData }  from '@/services/dataService'
-import { getSetting }                       from '@/utils/indexedDB'
+import { todayISO, niceDate, t5, getTodayTime, getDateTimeISO, pad2 } from '@/utils/scheduleHelpers'
+import { useStageHours }                    from '@/composables/useStageHours'
 
 export default {
   name: 'LNTabSchedule',
@@ -149,10 +150,12 @@ export default {
   setup(props, { emit }) {
     const store = useUserStore()
     const toast = useToast()
+    
+    // Stage hours composable
+    const { stageHours, loadStageHours, findStageHourIdFor, getRecordingDayDisplay, formatStageHourFallback } = useStageHours(props.locationId)
 
     // Data & state
     const schedules   = ref([])
-    const stageHours  = ref([])
     const groupedDays = ref([])
     const idx         = ref(0)
     const sortOrder   = ref('asc')
@@ -195,63 +198,11 @@ export default {
     })
     onUnmounted(() => clearInterval(timerId))
 
-    // Helpers
-    const todayISO = () => {
-      const d    = new Date()
-      const yyyy = d.getFullYear()
-      const mm   = String(d.getMonth()+1).padStart(2,'0')
-      const dd   = String(d.getDate()).padStart(2,'0')
-      return `${yyyy}-${mm}-${dd}`
-    }
-    const niceDate = d => d ? new Date(d).toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' }) : ''
-    const t5 = t => t ? t.slice(0,5) : ''
-
-    function timeToMinutes(t) {
-      if (!t) return 0
-      const [h, m] = t.split(':').map(Number)
-      return h * 60 + m
-    }
-
-    // Helpers for stage hour matching
-    function toDateTime(dateStr, timeStr) {
-      if (!dateStr || !timeStr) return null
-      return new Date(`${dateStr}T${timeStr}`)
-    }
-
-    function formatStageHourFallback(sh) {
-      const start = new Date(sh.start_datetime)
-      const dayNum = sh.order_index || ''
-      const nice = start.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' })
-      return `Day ${dayNum} (${nice})`
-    }
-
-    function findStageHourIdFor(dateStr, timeStr) {
-      const dt = toDateTime(dateStr, timeStr)
-      if (!dt) return null
-      for (const sh of stageHours.value) {
-        const s = new Date(sh.start_datetime)
-        const e = new Date(sh.end_datetime)
-        if (dt >= s && dt <= e) return sh.id
-      }
-      return null
-    }
-
-    // Recording day display helper
-    function getRecordingDayDisplay(item){
-      if (!item || !item.stage_hour_id) return '-'
-      const sh = stageHours.value.find(s => s.id === item.stage_hour_id)
-      return sh ? (sh.notes || formatStageHourFallback(sh)) : '-'
-    }
-
     // Fetch & group by recording day (stage hour)
     async function fetchAll() {
-      const projectId = await getSetting('current-project-id')
       // Load schedules and stage hours
       schedules.value = await fetchTableData('schedules', { eq:{ location_id: props.locationId }})
-      stageHours.value = await fetchTableData('stage_hours', {
-        eq: { project_id: projectId, stage_id: props.locationId },
-        order: { column: 'start_datetime', ascending: true }
-      })
+      await loadStageHours()
 
       // Build groups keyed by stage_hour_id, plus Unassigned
       const byStageHour = {}
@@ -324,14 +275,6 @@ export default {
         return false
       })
     })
-
-    function getTodayTime(timeStr) {
-      if (!timeStr) return null;
-      const [h, m, s] = timeStr.split(':').map(Number);
-      const d = new Date();
-      d.setHours(h || 0, m || 0, s || 0, 0);
-      return d;
-    }
 
     const activeIndex = computed(() => {
       const [h, m, s] = currentTimecode.value.split(':').map(Number)
@@ -492,10 +435,6 @@ export default {
     }
 
     // Filtering rows by date/time range
-    function getDateTimeISO(date, time) {
-      if (!date || !time) return ''
-      return date + 'T' + time
-    }
     const filteredRows = computed(() => {
       let list = [...rows.value]
       if (fromDateTime.value) {
@@ -513,7 +452,6 @@ export default {
       return list
     })
 
-    function pad2(n) { return n.toString().padStart(2, '0') }
     function setToday() {
       const now = new Date()
       const yyyy = now.getFullYear()
