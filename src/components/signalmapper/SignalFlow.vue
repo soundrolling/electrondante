@@ -367,9 +367,9 @@ function onPointerMove(e) {
   if (!draggingNode.value || !dragStart) return
 
   const { x, y } = getCanvasCoords(e)
-  // Update normalized position
-  draggingNode.value.x = x / canvasWidth.value
-  draggingNode.value.y = y / canvasHeight.value
+  // Update normalized flow position (separate from Mic Placement)
+  draggingNode.value.flow_x = x / canvasWidth.value
+  draggingNode.value.flow_y = y / canvasHeight.value
   drawCanvas()
 }
 
@@ -475,6 +475,8 @@ async function addGearNode(gear) {
       label,
       x: 0.5,
       y: 0.5,
+      flow_x: 0.5,
+      flow_y: 0.5,
       gear_type: gear.gear_type,
       num_inputs: gear.num_inputs || 0,
       num_outputs: gear.num_outputs || 0,
@@ -495,8 +497,8 @@ async function saveNodePosition(node) {
   try {
     await updateNode({
       id: node.id,
-      x: node.x,
-      y: node.y
+      flow_x: node.flow_x,
+      flow_y: node.flow_y
     })
     emit('node-updated', node)
   } catch (err) {
@@ -507,8 +509,8 @@ async function saveNodePosition(node) {
 
 // Coordinate helpers: nodes store normalized coords (0..1). Convert for canvas drawing.
 function getCanvasPos(node) {
-  const nx = node.x ?? 0
-  const ny = node.y ?? 0
+  const nx = (node.flow_x ?? node.x ?? 0)
+  const ny = (node.flow_y ?? node.y ?? 0)
   // If values look already in pixels (legacy), use as-is
   const isPixel = nx > 1.5 || ny > 1.5
   return isPixel
