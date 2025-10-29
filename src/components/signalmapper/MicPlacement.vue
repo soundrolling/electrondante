@@ -8,29 +8,20 @@
   <!-- Unified Toolbar Row -->
   <div class="placement-toolbar unified">
     <div class="left-group">
-      <button @click="showImageSettings = !showImageSettings" title="Image Settings" class="btn-secondary">
-        🖼️ Image Settings
-      </button>
-      <div v-if="showImageSettings" class="image-settings-popover" @click.stop>
-        <div class="settings-row">
-          <label><input type="checkbox" v-model="panImageMode" /> Pan Image</label>
-        </div>
-        <div class="settings-row">
-          <button @click="zoomIn" :disabled="!bgImage">Zoom In</button>
-          <button @click="zoomOut" :disabled="!bgImage">Zoom Out</button>
-          <button @click="resetImageView" :disabled="!bgImage">Reset</button>
-        </div>
-        <div class="settings-row">
-          <label>Opacity
-            <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
-            <span>{{ Math.round(bgOpacity * 100) }}%</span>
-          </label>
-        </div>
-        <div class="settings-row">
-          <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
-          <button @click="triggerImageUpload">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
-        </div>
+      <label class="inline-setting">
+        <input type="checkbox" v-model="panImageMode" />
+        <span>Pan</span>
+      </label>
+      <button @click="zoomIn" :disabled="!bgImage" class="btn-secondary">🔍+</button>
+      <button @click="zoomOut" :disabled="!bgImage" class="btn-secondary">🔍-</button>
+      <button @click="resetImageView" :disabled="!bgImage" class="btn-secondary">Reset</button>
+      <div class="inline-setting">
+        <label>Opacity</label>
+        <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
+        <span>{{ Math.round(bgOpacity * 100) }}%</span>
       </div>
+      <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
+      <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
     </div>
     <div class="center-group">
       <button @click="openGearModal" class="btn-primary">➕ Add Microphone</button>
@@ -151,7 +142,7 @@ const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
-const showImageSettings = ref(false)
+// no popover; show inline controls
 
 // Persistence helpers
 function getStorageKey() {
@@ -667,21 +658,7 @@ onMounted(() => {
   background: #e9ecef;
 }
 
-.image-settings-popover {
-  position: absolute;
-  top: 45px;
-  left: 0;
-  z-index: 10;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  padding: 15px;
-  min-width: 250px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.inline-setting { display: inline-flex; align-items: center; gap: 6px; }
 
 .settings-row {
   display: flex;
