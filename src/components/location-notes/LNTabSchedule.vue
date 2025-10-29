@@ -418,7 +418,7 @@ try{
       end_time:       fEnd.value,
       recording_date: fDate.value,
       location_id:    props.locationId,
-      project_id:     store.getCurrentProject?.id,
+      project_id:     store.getCurrentProject ? store.getCurrentProject.id : null,
       stage_hour_id:  fStageHourId.value || null
     })
   }
