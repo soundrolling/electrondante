@@ -5,41 +5,43 @@
     <p>Place microphones on the floor plan and assign track names</p>
   </div>
 
-  <!-- Image Controls -->
-  <div class="image-controls">
-    <button @click="showImageSettings = !showImageSettings" title="Image Settings">
-      🖼️ Image Settings
-    </button>
-    <div v-if="showImageSettings" class="image-settings-popover" @click.stop>
-      <div class="settings-row">
-        <label><input type="checkbox" v-model="panImageMode" /> Pan Image</label>
-      </div>
-      <div class="settings-row">
-        <button @click="zoomIn" :disabled="!bgImage">Zoom In</button>
-        <button @click="zoomOut" :disabled="!bgImage">Zoom Out</button>
-        <button @click="resetImageView" :disabled="!bgImage">Reset</button>
-      </div>
-      <div class="settings-row">
-        <label>Opacity
-          <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
-          <span>{{ Math.round(bgOpacity * 100) }}%</span>
-        </label>
-      </div>
-      <div class="settings-row">
-        <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
-        <button @click="triggerImageUpload">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
+  <!-- Unified Toolbar Row -->
+  <div class="placement-toolbar unified">
+    <div class="left-group">
+      <button @click="showImageSettings = !showImageSettings" title="Image Settings" class="btn-secondary">
+        🖼️ Image Settings
+      </button>
+      <div v-if="showImageSettings" class="image-settings-popover" @click.stop>
+        <div class="settings-row">
+          <label><input type="checkbox" v-model="panImageMode" /> Pan Image</label>
+        </div>
+        <div class="settings-row">
+          <button @click="zoomIn" :disabled="!bgImage">Zoom In</button>
+          <button @click="zoomOut" :disabled="!bgImage">Zoom Out</button>
+          <button @click="resetImageView" :disabled="!bgImage">Reset</button>
+        </div>
+        <div class="settings-row">
+          <label>Opacity
+            <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
+            <span>{{ Math.round(bgOpacity * 100) }}%</span>
+          </label>
+        </div>
+        <div class="settings-row">
+          <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
+          <button @click="triggerImageUpload">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
+        </div>
       </div>
     </div>
-  </div>
-
-  <!-- Toolbar -->
-  <div class="placement-toolbar">
-    <button @click="openGearModal" class="btn-primary">➕ Add Microphone</button>
-    <button @click="deleteSelected" :disabled="!selectedMic" class="btn-danger">
-      🗑️ Delete Selected
-    </button>
-    <div class="toolbar-divider"></div>
-    <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
+    <div class="center-group">
+      <button @click="openGearModal" class="btn-primary">➕ Add Microphone</button>
+      <button @click="deleteSelected" :disabled="!selectedMic" class="btn-danger">
+        🗑️ Delete Selected
+      </button>
+    </div>
+    <div class="right-group">
+      <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
+      <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
+    </div>
   </div>
 
   <!-- Properties Panel (when mic is selected) -->
@@ -198,6 +200,7 @@ function loadImageState() {
 const selectedMic = ref(null)
 const draggingMic = ref(null)
 const rotatingMic = ref(null)
+const rotationMode = ref(false) // stays enabled until user clicks off
 let dragStart = null
 let dragStartPos = null
 
@@ -412,7 +415,14 @@ function onPointerDown(e) {
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
 
   if (clickedMic) {
-    // Check if clicking rotation handle
+    // If rotation mode is latched on, start rotating regardless of pointer position
+    if (rotationMode.value && selectedMic.value && clickedMic.id === selectedMic.value.id) {
+      rotatingMic.value = clickedMic
+      selectedMic.value = clickedMic
+      return
+    }
+
+    // Check if clicking rotation handle (with generous hitbox)
     const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
     const handleY = micY - 35
     const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
@@ -421,15 +431,18 @@ function onPointerDown(e) {
       // Clicked rotation handle
       rotatingMic.value = clickedMic
       selectedMic.value = clickedMic
+      rotationMode.value = true
     } else {
       // Start dragging
       draggingMic.value = clickedMic
       selectedMic.value = clickedMic
       dragStart = { x: imgPt.imgX, y: imgPt.imgY }
       dragStartPos = { x: clickedMic.x, y: clickedMic.y }
+      rotationMode.value = false
     }
   } else {
     selectedMic.value = null
+    rotationMode.value = false
   }
   
   drawCanvas()
@@ -693,6 +706,16 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.placement-toolbar.unified {
+  justify-content: space-between;
+}
+
+.left-group, .center-group, .right-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .toolbar-divider {
   width: 1px;
   height: 30px;
@@ -703,6 +726,16 @@ onMounted(() => {
 .mic-count {
   color: #6c757d;
   font-size: 14px;
+}
+
+.mode-badge {
+  background: #e7f1ff;
+  color: #0b5ed7;
+  border: 1px solid #b6d4fe;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .btn-primary {
