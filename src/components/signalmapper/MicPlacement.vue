@@ -145,44 +145,13 @@ const scaleFactor = ref(1)
 const panImageMode = ref(false)
 // no popover; show inline controls
 
-// Persistence helpers
-function getStorageKey() {
-  return `micPlacementBgImage:${props.projectId}:${props.locationId}`
-}
-
-function saveImageState() {
-  try {
-    if (!bgImage.value) return
-    const state = {
-      src: bgImage.value,
-      opacity: bgOpacity.value,
-      offsetX: imageOffsetX.value,
-      offsetY: imageOffsetY.value,
-      scale: scaleFactor.value
-    }
-    localStorage.setItem(getStorageKey(), JSON.stringify(state))
-  } catch (_) {
-    // ignore storage errors
-  }
-}
+// No local persistence - background lives in Supabase storage
 
 async function loadImageState() {
   try {
-    // Prefer cloud-stored background image if present
     const cloudUrl = await getBgPublicUrl()
-    if (cloudUrl) {
-      await setBackgroundImage(cloudUrl)
-      return
-    }
-    // Fallback to local storage legacy state
-    const raw = localStorage.getItem(getStorageKey())
-    if (!raw) return
-    const state = JSON.parse(raw)
-    if (!state?.src) return
-    await setBackgroundImage(state.src, state)
-  } catch (_) {
-    // ignore parse errors
-  }
+    if (cloudUrl) await setBackgroundImage(cloudUrl)
+  } catch (_) {}
 }
 
 // Storage helpers: use a fixed path per stage so it persists for everyone
@@ -202,12 +171,13 @@ async function getBgPublicUrl() {
 
 async function uploadBgToStorage(file) {
   const path = storagePathForStage()
+  try { await supabase.storage.from('stage-pictures').remove([path]) } catch {}
   const { error } = await supabase.storage
     .from('stage-pictures')
     .upload(path, file, { upsert: true, contentType: file.type })
   if (error) throw error
   const { data } = supabase.storage.from('stage-pictures').getPublicUrl(path)
-  return data.publicUrl
+  return `${data.publicUrl}?v=${Date.now()}`
 }
 
 async function setBackgroundImage(src, state) {
@@ -362,9 +332,7 @@ async function onImageUpload(e) {
   try {
     const publicUrl = await uploadBgToStorage(file)
     await setBackgroundImage(publicUrl)
-    // Persist only view state locally (image itself is in storage)
-    saveImageState()
-    toast.success('Background saved to cloud')
+    toast.success('Background updated')
   } catch (err) {
     toast.error(`Failed to upload background: ${err.message || err}`)
   }
@@ -388,7 +356,6 @@ function resetImageView() {
     imageOffsetX.value = fit.offsetX
     imageOffsetY.value = fit.offsetY
     drawCanvas()
-    saveImageState()
   }
 }
 
@@ -652,9 +619,7 @@ async function deleteSelected() {
 watch([() => props.nodes, bgOpacity], () => nextTick(drawCanvas))
 
 // Persist opacity changes
-watch(bgOpacity, () => {
-  saveImageState()
-})
+// no-op: opacity changes are not persisted locally
 
 // Lifecycle
 onMounted(() => {
