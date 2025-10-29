@@ -320,9 +320,12 @@ function drawMic(ctx, mic) {
 
     // Rotation handle
     ctx.beginPath()
-    ctx.arc(0, -35, 5, 0, 2 * Math.PI)
-    ctx.fillStyle = '#28a745'
+    ctx.arc(0, -35, 8, 0, 2 * Math.PI) // bigger handle for easier hit
+    ctx.fillStyle = '#22c55e'
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 2
     ctx.fill()
+    ctx.stroke()
   }
 
   ctx.restore()
@@ -462,7 +465,7 @@ function onPointerDown(e) {
     const handleY = micY - 35
     const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
     
-    if (dist < 8) {
+    if (dist < 14) {
       // Clicked rotation handle
       rotatingMic.value = clickedMic
       selectedMic.value = clickedMic
@@ -476,6 +479,18 @@ function onPointerDown(e) {
       rotationMode.value = false
     }
   } else {
+    // If no mic center was clicked, allow grabbing the rotation handle of the
+    // currently selected mic so users can click the green dot to start rotation
+    if (selectedMic.value) {
+      const { x: micX, y: micY } = imageToCanvasCoords(selectedMic.value.x, selectedMic.value.y)
+      const handleY = micY - 35
+      const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
+      if (dist < 14) {
+        rotatingMic.value = selectedMic.value
+        rotationMode.value = true
+        return
+      }
+    }
     selectedMic.value = null
     rotationMode.value = false
   }
