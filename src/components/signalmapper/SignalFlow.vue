@@ -40,6 +40,37 @@
     <div v-if="tool === 'link' && linkSource" class="tool-indicator">
       Connecting from: {{ linkSource.track_name || linkSource.label }} (click target node)
     </div>
+    <div v-if="selectedConnectionId" class="connection-details">
+      <h4>Connection Details</h4>
+      <div class="detail-row">
+        <span class="label">From:</span>
+        <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">To:</span>
+        <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
+      </div>
+      <div class="detail-row" v-if="selectedConn?.input_number">
+        <span class="label">Input:</span>
+        <span class="value">{{ selectedConn.input_number }}</span>
+      </div>
+      <div class="detail-row" v-if="selectedConn?.track_number">
+        <span class="label">Track:</span>
+        <span class="value">{{ selectedConn.track_number }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Pad:</span>
+        <span class="value">{{ selectedConn?.pad ? 'Yes' : 'No' }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Phantom Power:</span>
+        <span class="value">{{ selectedConn?.phantom_power ? 'Yes' : 'No' }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="label">Type:</span>
+        <span class="value">{{ selectedConn?.connection_type || '—' }}</span>
+      </div>
+    </div>
   </div>
 
   <!-- Gear Selection Modal -->
@@ -130,6 +161,7 @@ const canvasStyle = computed(() =>
 const tool = ref('select')
 const linkSource = ref(null)
 const selectedNode = ref(null)
+const selectedConnectionId = ref(null)
 const draggingNode = ref(null)
 let dragStart = null
 
@@ -161,6 +193,8 @@ const availableGear = computed(() => {
 // Combined nodes for modal
 const allNodesForModal = computed(() => props.nodes)
 
+const selectedConn = computed(() => props.connections.find(c => c.id === selectedConnectionId.value) || null)
+
 function getGearIcon(type) {
   const icons = {
     source: '🎤',
@@ -185,7 +219,7 @@ function drawCanvas() {
 
   // Draw connections
   props.connections.forEach(conn => {
-    drawConnection(ctx, conn)
+    drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
   })
 
   // Draw nodes
@@ -243,7 +277,7 @@ function drawNode(ctx, node) {
   ctx.restore()
 }
 
-function drawConnection(ctx, conn) {
+function drawConnection(ctx, conn, isSelected = false) {
   const fromNode = props.nodes.find(n => n.id === conn.from_node_id)
   const toNode = props.nodes.find(n => n.id === conn.to_node_id)
   
@@ -253,9 +287,9 @@ function drawConnection(ctx, conn) {
   const toPos = getCanvasPos(toNode)
 
   ctx.save()
-  ctx.strokeStyle = '#007bff'
-  ctx.lineWidth = 3
-  ctx.setLineDash([8, 4])
+  ctx.strokeStyle = isSelected ? '#ff7a00' : '#007bff'
+  ctx.lineWidth = isSelected ? 4 : 3
+  ctx.setLineDash(isSelected ? [4, 4] : [8, 4])
 
   ctx.beginPath()
   ctx.moveTo(fromPos.x, fromPos.y)
@@ -274,7 +308,7 @@ function drawConnection(ctx, conn) {
   ctx.lineTo(mx - 12 * Math.cos(angle - Math.PI / 6), my - 12 * Math.sin(angle - Math.PI / 6))
   ctx.moveTo(mx, my)
   ctx.lineTo(mx - 12 * Math.cos(angle + Math.PI / 6), my - 12 * Math.sin(angle + Math.PI / 6))
-  ctx.strokeStyle = '#007bff'
+  ctx.strokeStyle = isSelected ? '#ff7a00' : '#007bff'
   ctx.lineWidth = 2
   ctx.stroke()
 
@@ -286,6 +320,13 @@ function onPointerDown(e) {
   e.preventDefault()
   const { x, y } = getCanvasCoords(e)
   const clickedNode = getNodeAt(x, y)
+  if (!clickedNode) {
+    const conn = getConnectionAt(x, y)
+    selectedConnectionId.value = conn?.id || null
+    selectedNode.value = null
+    drawCanvas()
+    return
+  }
 
   if (tool.value === 'select') {
     if (clickedNode) {
@@ -362,6 +403,39 @@ function getNodeAt(x, y) {
     if (dist < 35) return node
   }
   return null
+}
+
+function getConnectionAt(x, y) {
+  const threshold = 6
+  for (let i = props.connections.length - 1; i >= 0; i--) {
+    const conn = props.connections[i]
+    const fromNode = props.nodes.find(n => n.id === conn.from_node_id)
+    const toNode = props.nodes.find(n => n.id === conn.to_node_id)
+    if (!fromNode || !toNode) continue
+    const fromPos = getCanvasPos(fromNode)
+    const toPos = getCanvasPos(toNode)
+    const dist = pointToSegmentDistance(x, y, fromPos.x, fromPos.y, toPos.x, toPos.y)
+    if (dist <= threshold) return conn
+  }
+  return null
+}
+
+function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+  const A = px - x1
+  const B = py - y1
+  const C = x2 - x1
+  const D = y2 - y1
+  const dot = A * C + B * D
+  const lenSq = C * C + D * D
+  let param = -1
+  if (lenSq !== 0) param = dot / lenSq
+  let xx, yy
+  if (param < 0) { xx = x1; yy = y1 }
+  else if (param > 1) { xx = x2; yy = y2 }
+  else { xx = x1 + param * C; yy = y1 + param * D }
+  const dx = px - xx
+  const dy = py - yy
+  return Math.sqrt(dx * dx + dy * dy)
 }
 
 function canConnect(from, to) {
@@ -609,6 +683,33 @@ onMounted(() => {
   border-radius: 6px;
   font-size: 14px;
 }
+
+.connection-details {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px 14px;
+  min-width: 220px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.connection-details h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #212529;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.detail-row .label { color: #6c757d; }
+.detail-row .value { color: #212529; font-weight: 600; }
 
 .modal-overlay {
   position: fixed;

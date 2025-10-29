@@ -73,6 +73,16 @@
             <input type="checkbox" v-model="phantomPowerEnabled" />
             <span>Phantom Power (+48V)</span>
           </label>
+          <label class="select-label">
+            <span>Connection Type</span>
+            <select v-model="connectionType">
+              <option>Mic</option>
+              <option>Line</option>
+              <option>Dante</option>
+              <option>Midi</option>
+              <option>Madi</option>
+            </select>
+          </label>
         </div>
         
         <div class="form-actions">
@@ -148,6 +158,7 @@ const outputNumber = ref(props.defaultOutput)
 const trackNumber = ref(props.defaultTrack)
 const padEnabled = ref(false)
 const phantomPowerEnabled = ref(false)
+const connectionType = ref('Mic')
 
 const loading = ref(false)
 const errorMsg = ref('')
@@ -285,7 +296,8 @@ try {
     output_number: undefined, // never set output_number
     track_number: isRecorder.value ? trackNumber.value : undefined,
     pad: padEnabled.value,
-    phantom_power: phantomPowerEnabled.value
+    phantom_power: phantomPowerEnabled.value,
+    connection_type: connectionType.value
   }
   await addConnection(connection)
   emit('confirm', connection)
@@ -596,6 +608,18 @@ cursor: pointer;
 .checkbox-label span {
 font-weight: 500;
 color: #495057;
+}
+
+.select-label {
+display: flex;
+flex-direction: column;
+gap: 6px;
+}
+
+.select-label select {
+padding: 8px 10px;
+border: 1px solid #ced4da;
+border-radius: 6px;
 }
 
 @media (max-width: 768px) {
