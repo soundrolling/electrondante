@@ -1039,6 +1039,15 @@ setup() {
   align-items: center;
 }
 
+/* Normalize control sizing in header row */
+.page-actions .btn,
+.page-actions .form-select,
+.page-actions .search-input,
+.page-actions .tab-btn {
+  min-height: 44px;
+  height: 44px;
+}
+
 .action-btn {
   display: flex;
   align-items: center;
@@ -1060,7 +1069,7 @@ setup() {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .actions-right {
   margin-left: auto;
@@ -1879,6 +1888,12 @@ setup() {
 @media (max-width: 768px) {
   .actions-left { display: none; }
   .options-btn { display: inline-flex; }
+}
+
+/* Ensure options never show on desktop */
+@media (min-width: 769px) {
+  .options-btn { display: none !important; }
+  .mobile-options { display: none !important; }
 }
 
 /* High Contrast Mode Support */
