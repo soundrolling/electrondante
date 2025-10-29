@@ -75,6 +75,7 @@
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
+      @wheel.prevent="onWheel"
     />
   </div>
 
@@ -232,6 +233,11 @@ const rotatingMic = ref(null)
 const rotationMode = ref(false) // stays enabled until user clicks off
 let dragStart = null
 let dragStartPos = null
+// Pinch zoom helpers
+const activePointers = new Map()
+let lastPinchDistance = null
+const MIN_SCALE = 0.2
+const MAX_SCALE = 5
 
 // Modal state
 const showGearModal = ref(false)
@@ -441,6 +447,7 @@ function onPointerDown(e) {
   if (e.button !== 0) return
 
   const { x, y } = getCanvasCoords(e)
+  activePointers.set(e.pointerId, { x, y })
 
   // Pan mode
   if (panImageMode.value && bgImageObj.value) {
@@ -501,6 +508,22 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   e.preventDefault()
   const { x, y } = getCanvasCoords(e)
+  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x, y })
+
+  // Pinch to zoom
+  if (activePointers.size >= 2 && bgImageObj.value) {
+    const pts = Array.from(activePointers.values())
+    const dx = pts[0].x - pts[1].x
+    const dy = pts[0].y - pts[1].y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (lastPinchDistance != null) {
+      const centerX = (pts[0].x + pts[1].x) / 2
+      const centerY = (pts[0].y + pts[1].y) / 2
+      applyZoom(dist / lastPinchDistance, centerX, centerY)
+    }
+    lastPinchDistance = dist
+    return
+  }
 
   // Pan image mode
   if (panImageMode.value && dragStart && bgImageObj.value) {
@@ -531,6 +554,8 @@ function onPointerMove(e) {
 
 async function onPointerUp(e) {
   e.preventDefault()
+  activePointers.delete(e.pointerId)
+  if (activePointers.size < 2) lastPinchDistance = null
 
   if (panImageMode.value) {
     dragStart = null
@@ -552,6 +577,30 @@ async function onPointerUp(e) {
 
   dragStart = null
   dragStartPos = null
+}
+
+function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
+
+function applyZoom(zoomFactor, centerX, centerY) {
+  const prevScale = scaleFactor.value
+  const newScale = clamp(prevScale * zoomFactor, MIN_SCALE, MAX_SCALE)
+  if (newScale === prevScale) return
+  // Zoom towards the pointer center
+  const imgXBefore = (centerX - imageOffsetX.value) / prevScale
+  const imgYBefore = (centerY - imageOffsetY.value) / prevScale
+  scaleFactor.value = newScale
+  imageOffsetX.value = centerX - imgXBefore * newScale
+  imageOffsetY.value = centerY - imgYBefore * newScale
+  drawCanvas()
+}
+
+function onWheel(e) {
+  if (!bgImageObj.value) return
+  const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+  const rect = canvas.value.getBoundingClientRect()
+  const cx = (e.clientX - rect.left) * (canvas.value.width / rect.width) / dpr
+  const cy = (e.clientY - rect.top) * (canvas.value.height / rect.height) / dpr
+  applyZoom(zoomFactor, cx, cy)
 }
 
 // Mic detection
