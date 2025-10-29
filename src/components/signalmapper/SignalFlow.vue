@@ -816,7 +816,7 @@ onMounted(() => {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 12px 14px;
-  min-width: 220px;
+  width: 420px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 .connection-details h4 {
@@ -835,10 +835,12 @@ onMounted(() => {
 .detail-row .label { color: #6c757d; }
 .detail-row .value { color: #212529; font-weight: 600; }
 .inline-select { padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; }
-.detail-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
-.btn-save { background: #007bff; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-.btn-save:hover { background: #0056b3; }
+.detail-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px; }
+.btn-save { background: #16a34a; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.btn-save:hover { background: #15803d; }
 .btn-save.success { background: #22c55e; }
+.btn-delete { background: #dc2626; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.btn-delete:hover { background: #b91c1c; }
 
 .modal-overlay {
   position: fixed;
