@@ -26,7 +26,7 @@
   </div>
 
   <!-- Canvas -->
-  <div class="canvas-wrapper">
+  <div class="canvas-wrapper" ref="canvasWrapper">
     <canvas 
       ref="canvas" 
       :width="canvasWidth * dpr" 
@@ -40,7 +40,7 @@
     <div v-if="tool === 'link' && linkSource" class="tool-indicator">
       Connecting from: {{ linkSource.track_name || linkSource.label }} (click target node)
     </div>
-    <div v-if="selectedConnectionId" class="connection-details">
+    <div v-if="selectedConnectionId" class="connection-details" :style="detailsStyle">
       <h4>Connection Details</h4>
       <div class="detail-row">
         <span class="label">From:</span>
@@ -85,7 +85,10 @@
         </select>
       </div>
       <div class="detail-actions">
-        <button class="btn-save" @click="saveSelectedConnection">Save</button>
+        <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
+          <span v-if="saveTick">✓ Saved</span>
+          <span v-else>Save</span>
+        </button>
       </div>
     </div>
   </div>
@@ -167,6 +170,7 @@ const emit = defineEmits([
 
 const toast = useToast()
 const canvas = ref(null)
+const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(1000)
 const canvasHeight = ref(700)
@@ -185,6 +189,7 @@ const editPhantom = ref(false)
 const editType = ref('Mic')
 const editInput = ref(null)
 const editTrack = ref(null)
+const saveTick = ref(false)
 const draggingNode = ref(null)
 let dragStart = null
 
@@ -257,6 +262,8 @@ async function saveSelectedConnection() {
     }
     const updated = await updateConnection(payload)
     emit('connection-updated', updated)
+    saveTick.value = true
+    setTimeout(() => { saveTick.value = false }, 1000)
   } catch (err) {
     console.error('Failed to update connection:', err)
     toast.error('Failed to update connection')
@@ -513,6 +520,30 @@ function getNodeLabelById(id) {
   if (!node) return 'Unknown'
   return node.track_name || node.label || 'Unknown'
 }
+
+// Position details panel near the selected connection midpoint
+const selectedConnMid = computed(() => {
+  const c = selectedConn.value
+  if (!c) return null
+  const fromNode = props.nodes.find(n => n.id === c.from_node_id)
+  const toNode = props.nodes.find(n => n.id === c.to_node_id)
+  if (!fromNode || !toNode) return null
+  const fromPos = getCanvasPos(fromNode)
+  const toPos = getCanvasPos(toNode)
+  return { x: (fromPos.x + toPos.x) / 2, y: (fromPos.y + toPos.y) / 2 }
+})
+
+const detailsStyle = computed(() => {
+  const def = { left: '10px', top: '10px' }
+  if (!selectedConnMid.value || !canvas.value || !canvasWrapper.value) return def
+  const wrap = canvasWrapper.value.getBoundingClientRect()
+  const rect = canvas.value.getBoundingClientRect()
+  const offsetX = rect.left - wrap.left
+  const offsetY = rect.top - wrap.top
+  const left = offsetX + selectedConnMid.value.x + 12
+  const top = offsetY + selectedConnMid.value.y - 10
+  return { left: `${left}px`, top: `${top}px` }
+})
 
 function canConnect(from, to) {
   const fromType = from.gear_type || from.node_type
@@ -792,6 +823,7 @@ onMounted(() => {
 .detail-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
 .btn-save { background: #007bff; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 .btn-save:hover { background: #0056b3; }
+.btn-save.success { background: #22c55e; }
 
 .modal-overlay {
   position: fixed;
