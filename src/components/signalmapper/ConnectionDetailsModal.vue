@@ -44,10 +44,7 @@
               {{ opt.label }}
             </option>
           </select>
-          <div class="help" v-if="usedInputsDetailed.length">
-            <span class="help-title">Used inputs:</span>
-            <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
-          </div>
+          
         </div>
         <div v-else-if="isSource && isRecorderTo" class="form-group">
           <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
@@ -56,10 +53,7 @@
               {{ opt.label }}
             </option>
           </select>
-          <div class="help" v-if="usedInputsDetailed.length">
-            <span class="help-title">Used inputs:</span>
-            <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
-          </div>
+          
         </div>
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
@@ -69,10 +63,7 @@
               {{ opt.label }}
             </option>
           </select>
-          <div class="help" v-if="usedInputsDetailed.length">
-            <span class="help-title">Used inputs:</span>
-            <span class="pill" v-for="u in usedInputsDetailed" :key="u.num">{{ u.num }} ({{ u.label }})</span>
-          </div>
+          
         </div>
         
         <!-- Connection Properties -->
