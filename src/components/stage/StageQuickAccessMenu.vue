@@ -194,7 +194,7 @@ function isPastHour(hour) {
 async function loadStageHours() {
   try {
     const { data, error } = await supabase
-      .from('stage_hour_events')
+      .from('stage_hours')
       .select('*')
       .eq('stage_id', props.stage.id)
       .order('start_datetime', { ascending: true });
@@ -287,14 +287,14 @@ async function saveSlot() {
     if (editingSlot.value) {
       // Update
       const { error } = await supabase
-        .from('stage_hour_events')
+        .from('stage_hours')
         .update(payload)
         .eq('id', editingSlot.value.id);
       if (error) throw error;
     } else {
       // Insert
       const { error } = await supabase
-        .from('stage_hour_events')
+        .from('stage_hours')
         .insert([payload]);
       if (error) throw error;
     }
@@ -311,7 +311,7 @@ async function deleteSlot(slot) {
   if (!confirm('Delete this slot?')) return;
   try {
     const { error } = await supabase
-      .from('stage_hour_events')
+      .from('stage_hours')
       .delete()
       .eq('id', slot.id);
     if (error) throw error;
