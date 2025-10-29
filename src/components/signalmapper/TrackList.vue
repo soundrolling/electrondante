@@ -35,8 +35,6 @@
           <th>Recorder</th>
           <th>Source Name</th>
           <th>Signal Path</th>
-          <th>Pad</th>
-          <th>Phantom Power</th>
         </tr>
       </thead>
       <tbody>
@@ -54,16 +52,6 @@
               </span>
             </div>
           </td>
-          <td class="boolean-cell">
-            <span class="status-badge">
-              {{ typeof path.pad === 'number' ? path.pad : (path.pad ? 1 : 0) }}
-            </span>
-          </td>
-          <td class="boolean-cell">
-            <span :class="['status-badge', { active: path.phantom_power }]">
-              {{ path.phantom_power ? 'Yes' : 'No' }}
-            </span>
-          </td>
         </tr>
       </tbody>
     </table>
@@ -74,14 +62,6 @@
     <div class="summary-item">
       <span class="summary-label">Total Tracks:</span>
       <span class="summary-value">{{ signalPaths.length }}</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">With Pad:</span>
-      <span class="summary-value">{{ padsCount }}</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">With Phantom Power:</span>
-      <span class="summary-value">{{ phantomPowerCount }}</span>
     </div>
   </div>
 </div>
@@ -105,25 +85,16 @@ const sortedPaths = computed(() => {
   })
 })
 
-// Summary stats
-const padsCount = computed(() => 
-  props.signalPaths.filter(p => p.pad).length
-)
-
-const phantomPowerCount = computed(() => 
-  props.signalPaths.filter(p => p.phantom_power).length
-)
+// no additional summary columns
 
 // Export to CSV
 function exportCSV() {
-  const headers = ['Track #', 'Recorder', 'Source Name', 'Signal Path', 'Pad', 'Phantom Power']
+  const headers = ['Track #', 'Recorder', 'Source Name', 'Signal Path']
   const rows = sortedPaths.value.map(path => [
     path.track_number || '',
     path.recorder_label || '',
     path.track_name || path.source_label || '',
-    path.path.join(' → '),
-    path.pad ? 'Yes' : 'No',
-    path.phantom_power ? 'Yes' : 'No'
+    path.path.join(' → ')
   ])
 
   let csv = headers.join(',') + '\n'
