@@ -625,10 +625,7 @@ color: #111827;
 margin-top: 16px;
 }
 .list-scroll {
-max-height: 60vh;
-overflow-y: auto;
 padding-right: 4px;
--webkit-overflow-scrolling: touch;
 }
 .row-card {
 display: flex;
