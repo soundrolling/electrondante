@@ -58,9 +58,9 @@
         <div v-else-if="needsPortMapping" class="form-group">
           <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
           <div class="port-mapping-container">
-            <div v-if="portMappings.length > 0" class="port-mappings-list">
-            <div v-for="(mapping, idx) in portMappings" :key="idx" class="port-mapping-row">
-              <template v-if="editingIdx === idx">
+            <div v-if="displayedPortMappings.length > 0" class="port-mappings-list">
+            <div v-for="mapping in displayedPortMappings" :key="mapping._idx" class="port-mapping-row">
+              <template v-if="editingIdx === mapping._idx">
                 <!-- Edit mode -->
                 <select class="form-select-small" v-model.number="editFromPort">
                   <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
@@ -83,8 +83,8 @@
                 <span>{{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}</span>
                 <span class="arrow">→</span>
                 <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
-                <button type="button" class="btn-edit" @click="startEditMapping(idx)">✎</button>
-                <button type="button" class="btn-remove" @click="removePortMapping(idx)">×</button>
+                <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
+                <button type="button" class="btn-remove" @click="removePortMapping(mapping._idx)">×</button>
               </template>
               </div>
             </div>
@@ -237,6 +237,12 @@ const newMappingToPort = ref(null)
 const editingIdx = ref(null)
 const editFromPort = ref(null)
 const editToPort = ref(null)
+
+// Always show mappings sorted by destination (to_port)
+const displayedPortMappings = computed(() => portMappings.value
+  .map((m, i) => ({ ...m, _idx: i }))
+  .sort((a, b) => (Number(a.to_port) || 0) - (Number(b.to_port) || 0))
+)
 
 // Upstream labels for transformer's outputs keyed by to_port (input index on this transformer)
 const upstreamSourceLabels = ref({})

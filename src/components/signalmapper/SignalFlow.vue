@@ -54,11 +54,11 @@
         <div class="detail-row port-mapping-section">
           <span class="label">Port Mappings:</span>
           <div class="port-mappings-list-edit">
-            <div v-for="(mapping, idx) in editPortMappings" :key="idx" class="port-mapping-row-edit">
+            <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
               <span>{{ getFromPortDisplayForEdit(mapping.from_port) }}</span>
               <span class="arrow">→</span>
               <span>{{ toNodeOfSelected?.label }} {{ toNodeType === 'recorder' ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
-              <button type="button" class="btn-remove-small" @click="removeEditPortMapping(idx)">×</button>
+              <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
             </div>
             <div class="port-mapping-add-edit">
               <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
@@ -218,6 +218,10 @@ const saveTick = ref(false)
 
 // Port mapping state for transformer→transformer connections
 const editPortMappings = ref([])
+const displayedEditPortMappings = computed(() => editPortMappings.value
+  .map((m, i) => ({ ...m, _idx: i }))
+  .sort((a, b) => (Number(a.to_port) || 0) - (Number(b.to_port) || 0))
+)
 const newMappingFromPort = ref(null)
 const newMappingToPort = ref(null)
 // Upstream source labels for selected connection's FROM transformer
