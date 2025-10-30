@@ -848,8 +848,14 @@ function closeConnectionModal() {
 
 async function confirmConnection(connectionData) {
   try {
-    const newConn = await addConnectionToDB(connectionData)
-    emit('connection-added', newConn)
+    // If the modal already created the parent connection (port-mapped flow),
+    // it will pass back an object with an id. In that case, do not insert again.
+    if (connectionData && connectionData.id) {
+      emit('connection-added', connectionData)
+    } else {
+      const newConn = await addConnectionToDB(connectionData)
+      emit('connection-added', newConn)
+    }
     closeConnectionModal()
     toast.success('Connection created')
     nextTick(drawCanvas)
