@@ -189,8 +189,9 @@ export async function getCompleteSignalPath(projectId) {
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
         source_id: finalSourceNode?.id || null,
+        // Prefer showing the Stage name in the Source Name column, so use label here
         source_label: finalSourceNode?.label || null,
-        track_name: finalSourceNode?.track_name || null,
+        track_name: finalSourceNode?.label || null,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
