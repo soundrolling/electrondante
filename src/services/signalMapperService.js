@@ -206,13 +206,18 @@ export async function getCompleteSignalPath(projectId) {
           continue
         }
         // No port map: fall back to direct incoming connection to the parent from its own parent using matching input number when available
-        let incomingToParent = connections.find(c => c.to_node_id === parent.from_node_id && c.input_number === currentInput)
+        const exactIncoming = connections.filter(c => c.to_node_id === parent.from_node_id)
+          .filter(c => typeof c.input_number === 'number')
+          .filter(c => Number(c.input_number) === Number(currentInput))
+        let incomingToParent = exactIncoming[0]
         if (!incomingToParent) {
-          incomingToParent = connections.find(c => c.to_node_id === parent.from_node_id)
+          // If no exact input match found, do not guess incorrectly; stop traversal here
+          currentNodeId = parent.from_node_id
+          currentInput = undefined
+          continue
         }
-        if (!incomingToParent) { currentNodeId = parent.from_node_id; currentInput = undefined; continue }
         currentNodeId = parent.from_node_id
-        currentInput = incomingToParent.input_number || currentInput
+        currentInput = incomingToParent.input_number
       }
 
       // For uniqueness, key off recorder + track + first node id at end of traversal
