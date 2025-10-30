@@ -137,23 +137,35 @@ export async function getCompleteSignalPath(projectId) {
       // Build the path backwards from the recorder to source
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
-      const sourceNode = pathIds.length > 0 ? nodeMap[pathIds[0]] : null
-      const transformerNode = nodeMap[conn.from_node_id]
-
-      // Find incoming connection to the transformer to get its input number
-      const transformerIncoming = connections.find(c => c.to_node_id === conn.from_node_id)
-
-      // Build human labels working backwards: Recorder Track -> Transformer Input -> Source
+      // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
       const labels = []
       const trackLabel = conn.input_number ? `Track ${conn.input_number}` : undefined
       labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
-      if (transformerNode) {
-        const inputLabel = transformerIncoming?.input_number ? `Input ${transformerIncoming.input_number}` : undefined
-        labels.push(inputLabel ? `${transformerNode.label} ${inputLabel}` : `${transformerNode.label}`)
-      }
-      if (sourceNode) labels.push(sourceNode.label)
 
-      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${sourceNode?.id || ''}`
+      for (let i = 0; i < pathIds.length; i++) {
+        const nodeId = pathIds[i]
+        const node = nodeMap[nodeId]
+        if (!node) continue
+        // If this is a source, add its label and stop
+        if (node.gear_type === 'source' || node.node_type === 'source') {
+          labels.push(node.track_name || node.label)
+          break
+        }
+        // Find the incoming connection that links from the next node in the path to this node
+        const nextId = i + 1 < pathIds.length ? pathIds[i + 1] : null
+        let incoming = null
+        if (nextId) {
+          incoming = connections.find(c => c.to_node_id === nodeId && c.from_node_id === nextId)
+        }
+        if (!incoming) {
+          incoming = connections.find(c => c.to_node_id === nodeId)
+        }
+        const inputLabel = incoming?.input_number ? `Input ${incoming.input_number}` : undefined
+        labels.push(inputLabel ? `${node.label} ${inputLabel}` : `${node.label}`)
+      }
+
+      // For uniqueness, key off recorder + track + starting node of path
+      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${pathIds[pathIds.length-1] || ''}`
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
@@ -162,9 +174,9 @@ export async function getCompleteSignalPath(projectId) {
         recorder_label: recorder.label,
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
-        source_id: sourceNode?.id,
-        source_label: sourceNode?.label,
-        track_name: sourceNode?.track_name,
+        source_id: pathIds[pathIds.length-1] || null,
+        source_label: (pathIds[pathIds.length-1] && nodeMap[pathIds[pathIds.length-1]]?.label) || null,
+        track_name: (pathIds[pathIds.length-1] && nodeMap[pathIds[pathIds.length-1]]?.track_name) || null,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
