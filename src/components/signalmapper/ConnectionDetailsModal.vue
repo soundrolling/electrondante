@@ -172,13 +172,16 @@ console.log('[CONNECTION MODAL] Props received:', props)
 
 const emit = defineEmits(['confirm', 'cancel'])
 
-const isSource = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'source')
-const isRecorder = computed(() => (props.toNode.gearType || props.toNode.node_type) === 'recorder')
-const isTransformer = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'transformer' || (props.toNode.gearType || props.toNode.node_type) === 'transformer')
-const isRecorderFrom = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'recorder')
-const isRecorderTo = computed(() => (props.toNode.gearType || props.toNode.node_type) === 'recorder')
-const isTransformerTo = computed(() => (props.toNode.gearType || props.toNode.node_type) === 'transformer')
-const isTransformerFrom = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'transformer')
+function getType(node){
+  return (node?.gearType || node?.gear_type || node?.node_type || '').toLowerCase()
+}
+const isSource = computed(() => getType(props.fromNode) === 'source')
+const isRecorder = computed(() => getType(props.toNode) === 'recorder')
+const isTransformer = computed(() => getType(props.fromNode) === 'transformer' || getType(props.toNode) === 'transformer')
+const isRecorderFrom = computed(() => getType(props.fromNode) === 'recorder')
+const isRecorderTo = computed(() => getType(props.toNode) === 'recorder')
+const isTransformerTo = computed(() => getType(props.toNode) === 'transformer')
+const isTransformerFrom = computed(() => getType(props.fromNode) === 'transformer')
 
 // Use port mapping when neither side is a source, and at least one side is a transformer
 // (also supports recorder→recorder)
