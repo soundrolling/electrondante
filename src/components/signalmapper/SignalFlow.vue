@@ -527,6 +527,16 @@ async function deleteSelectedConnection() {
   if (!c) return
   if (!confirm('Delete this connection?')) return
   try {
+    // Check if this is a source→transformer connection
+    const fromNode = props.nodes.find(n => n.id === c.from_node_id)
+    const toNode = props.nodes.find(n => n.id === c.to_node_id)
+    const isSourceConn = (fromNode?.gear_type || fromNode?.node_type) === 'source'
+    
+    if (isSourceConn && c.input_number && toNode) {
+      // Cascade cleanup: remove downstream port mappings that depend on this input
+      await cascadeCleanupDownstream(toNode.id, c.input_number)
+    }
+    
     await deleteConnectionFromDB(c.id)
     emit('connection-deleted', c.id)
     selectedConnectionId.value = null
@@ -535,6 +545,52 @@ async function deleteSelectedConnection() {
   } catch (err) {
     console.error('Failed to delete connection:', err)
     toast.error('Failed to delete connection')
+  }
+}
+
+async function cascadeCleanupDownstream(transformerId, inputNum) {
+  try {
+    // Find all connections FROM this transformer
+    const downstreamConns = props.connections.filter(c => c.from_node_id === transformerId)
+    
+    for (const conn of downstreamConns) {
+      // Check if this connection has port mappings
+      const { data: maps } = await supabase
+        .from('connection_port_map')
+        .select('id, from_port, to_port')
+        .eq('connection_id', conn.id)
+      
+      if (maps && maps.length) {
+        // Find mappings that use the deleted input as the from_port (output from transformer)
+        const affectedMaps = maps.filter(m => Number(m.from_port) === Number(inputNum))
+        
+        if (affectedMaps.length) {
+          // Delete these port mappings
+          const mapIds = affectedMaps.map(m => m.id)
+          await supabase
+            .from('connection_port_map')
+            .delete()
+            .in('id', mapIds)
+          
+          // If this was the last mapping, optionally delete the parent connection
+          const remainingMaps = maps.filter(m => !mapIds.includes(m.id))
+          if (remainingMaps.length === 0) {
+            await deleteConnectionFromDB(conn.id)
+            emit('connection-deleted', conn.id)
+          } else {
+            // Recursively clean up further downstream for each affected to_port
+            const targetNode = props.nodes.find(n => n.id === conn.to_node_id)
+            if (targetNode) {
+              for (const map of affectedMaps) {
+                await cascadeCleanupDownstream(conn.to_node_id, map.to_port)
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Cascade cleanup error:', err)
   }
 }
 
