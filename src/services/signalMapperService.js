@@ -252,19 +252,17 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       continue
     }
     
-    // No port map: look for a direct connection with matching input_number
-    // This handles source → transformer connections
-    const parent = parents[0]
-    const directConnections = connections.filter(c => 
-      c.to_node_id === parent.from_node_id && 
-      typeof c.input_number === 'number'
+    // No port map: parents are already connections TO the current node (e.g., Stage L → Yamaha)
+    // Find the parent connection with matching input_number
+    const matchingConn = parents.find(c => 
+      typeof c.input_number === 'number' && 
+      Number(c.input_number) === Number(currentInput)
     )
     
-    const matchingConn = directConnections.find(c => Number(c.input_number) === Number(currentInput))
-    
     if (matchingConn) {
-      // Found a direct connection with the same input number
-      currentNodeId = parent.from_node_id
+      // Found the connection feeding this input; move to the source node
+      currentNodeId = matchingConn.from_node_id
+      // For the next iteration (though if it's a source, we'll exit immediately)
       currentInput = matchingConn.input_number
     } else {
       // No matching connection; stop traversal
