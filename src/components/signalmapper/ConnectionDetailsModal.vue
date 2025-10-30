@@ -1024,6 +1024,10 @@ border-radius: 6px;
 border: 1px solid #e9ecef;
 }
 
+.port-mapping-row > span:last-of-type {
+margin-right: auto;
+}
+
 .port-mapping-row .arrow {
 color: #007bff;
 font-weight: bold;
@@ -1043,7 +1047,6 @@ justify-content: center;
 font-size: 18px;
 line-height: 1;
 transition: background-color 0.2s;
-margin-left: auto;
 }
 
 .btn-remove:hover {
@@ -1102,7 +1105,6 @@ justify-content: center;
 font-size: 14px;
 line-height: 1;
 transition: background-color 0.2s;
-margin-left: 8px;
 }
 
 .btn-edit:hover {
@@ -1123,7 +1125,6 @@ justify-content: center;
 font-size: 16px;
 line-height: 1;
 transition: background-color 0.2s;
-margin-left: 8px;
 }
 
 .btn-save-small:hover {
