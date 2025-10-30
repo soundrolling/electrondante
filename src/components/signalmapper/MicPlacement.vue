@@ -1088,6 +1088,12 @@ function updateCanvasSize() {
   .inline-setting { grid-column: span 2; }
   .center-group.mobile-stack { display:grid; grid-template-columns: 1fr; gap:8px; }
   .canvas-wrapper { padding: 8px 12px; }
+  /* Stack mic properties on mobile */
+  .properties-panel { flex-direction: column; align-items: stretch; gap: 12px; }
+  .properties-panel h4 { margin-bottom: 4px; }
+  .property-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .property-row label { min-width: 0; }
+  .property-row input { width: 100%; }
 }
 </style>
 
