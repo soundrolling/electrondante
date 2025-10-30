@@ -7,10 +7,10 @@
 
   <!-- Toolbar -->
   <div class="flow-toolbar">
-    <button :class="{ active: tool === 'select' }" @click="tool = 'select'">
+    <button class="tool-btn select-btn" :class="{ active: tool === 'select' }" @click="tool = 'select'">
       👆 Select
     </button>
-    <button :class="{ active: tool === 'link' }" @click="tool = 'link'">
+    <button class="tool-btn link-btn" :class="{ active: tool === 'link' }" @click="tool = 'link'">
       🔗 Connect
     </button>
     <button @click="openGearModal" class="btn-add">
@@ -984,7 +984,7 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.flow-toolbar button {
+.flow-toolbar button, .flow-toolbar .tool-btn {
   padding: 10px 16px;
   background: white;
   border: 2px solid #dee2e6;
@@ -998,10 +998,16 @@ onMounted(() => {
   border-color: #007bff;
 }
 
-.flow-toolbar button.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
+.flow-toolbar .select-btn.active {
+  background: #e7f1ff; /* light blue */
+  color: #0b5ed7;
+  border-color: #0b5ed7;
+}
+
+.flow-toolbar .link-btn.active {
+  background: #efe7ff; /* light purple */
+  color: #6d28d9;
+  border-color: #6d28d9;
 }
 
 .btn-add {

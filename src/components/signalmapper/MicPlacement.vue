@@ -39,14 +39,15 @@
     </div>
   </div>
 
-  <!-- Properties Panel (when mic is selected) -->
-  <div v-if="selectedMic" class="properties-panel">
+  <!-- Properties Panel (always rendered; disabled when no selection) -->
+  <div class="properties-panel" :class="{ disabled: !selectedMic }">
     <h4>Mic Properties</h4>
     <div class="property-row">
       <label>Track Name:</label>
       <input 
-        v-model="selectedMic.track_name" 
+        v-model="trackNameProxy" 
         @change="updateSelectedMic"
+        :disabled="!selectedMic"
         type="text"
         placeholder="e.g. Stage L"
       />
@@ -54,8 +55,9 @@
     <div class="property-row">
       <label>Rotation (degrees):</label>
       <input 
-        v-model.number="selectedMic.rotation" 
+        v-model.number="rotationProxy" 
         @change="updateSelectedMic"
+        :disabled="!selectedMic"
         type="number"
         min="0"
         max="360"
@@ -64,7 +66,7 @@
     </div>
     <div class="property-row">
       <label>Label:</label>
-      <span>{{ selectedMic.label }}</span>
+      <span>{{ selectedMic ? selectedMic.label : '—' }}</span>
     </div>
   </div>
 
@@ -234,6 +236,17 @@ async function setBackgroundImage(src, state) {
 
 // Mic state
 const selectedMic = ref(null)
+
+// Safe two-way bindings so inputs remain mounted when nothing is selected
+const trackNameProxy = computed({
+  get() { return selectedMic.value?.track_name || '' },
+  set(val) { if (selectedMic.value) { selectedMic.value.track_name = val } }
+})
+
+const rotationProxy = computed({
+  get() { return selectedMic.value?.rotation ?? 0 },
+  set(val) { if (selectedMic.value) { selectedMic.value.rotation = Number(val) || 0 } }
+})
 const draggingMic = ref(null)
 const rotatingMic = ref(null)
 const rotationMode = ref(false) // stays enabled until user clicks off
@@ -899,15 +912,20 @@ function updateCanvasSize() {
 }
 
 .properties-panel {
-  padding: 15px;
+  padding: 12px 15px;
   background: #f8f9fa;
   border-radius: 8px;
   border: 1px solid #e9ecef;
   margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
+.properties-panel.disabled { opacity: 0.6; }
+
 .properties-panel h4 {
-  margin: 0 0 15px 0;
+  margin: 0;
   font-size: 16px;
   color: #495057;
 }
@@ -916,7 +934,6 @@ function updateCanvasSize() {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
 }
 
 .property-row label {
@@ -930,6 +947,12 @@ function updateCanvasSize() {
   padding: 8px 12px;
   border: 1px solid #ced4da;
   border-radius: 6px;
+}
+
+.property-row input:disabled {
+  background: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
 }
 
 .canvas-wrapper {
