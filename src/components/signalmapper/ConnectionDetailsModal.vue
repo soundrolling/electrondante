@@ -228,10 +228,16 @@ const availableFromPorts = computed(() => {
 const availableToPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.to_port).filter(Boolean))
   const opts = []
+  // Prefer recorder tracks; if none defined, fall back to inputs but still label as Track
   if (isRecorderTo.value) {
-    for (let n = 1; n <= numTracks.value; n++) {
+    const count = (numTracks.value && numTracks.value > 0) ? numTracks.value : (numInputs.value || 0)
+    for (let n = 1; n <= count; n++) {
       if (!used.has(n)) {
-        opts.push({ value: n, label: `Track ${n}` })
+        // When falling back to inputs, we still want unique mapping per port. Also avoid listing inputs already assigned by raw connections.
+        const taken = (props.existingConnections || []).find(c =>
+          (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
+        )
+        if (!taken) opts.push({ value: n, label: `Track ${n}` })
       }
     }
   } else {
@@ -240,9 +246,7 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
         )
-        if (!taken) {
-          opts.push({ value: n, label: `Input ${n}` })
-        }
+        if (!taken) opts.push({ value: n, label: `Input ${n}` })
       }
     }
   }
