@@ -213,23 +213,46 @@ const portMappings = ref([])
 const newMappingFromPort = ref(null)
 const newMappingToPort = ref(null)
 
+// Upstream labels for transformer's outputs keyed by to_port (input index on this transformer)
+const upstreamSourceLabels = ref({})
+
+async function buildUpstreamSourceLabels() {
+  try {
+    upstreamSourceLabels.value = {}
+    if (!isTransformerFrom.value) return
+    // Find parent connection feeding this transformer
+    const { data: parentConn } = await supabase
+      .from('connections')
+      .select('id, from_node_id, to_node_id')
+      .eq('project_id', props.projectId)
+      .eq('to_node_id', props.fromNode.id)
+      .maybeSingle()
+    if (!parentConn) return
+    const { data: maps } = await supabase
+      .from('connection_port_map')
+      .select('from_port, to_port')
+      .eq('connection_id', parentConn.id)
+    if (!maps) return
+    // For each mapping, resolve the upstream source label using existingConnections
+    maps.forEach(m => {
+      const incoming = (props.existingConnections || []).find(c =>
+        (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
+      )
+      if (incoming) {
+        const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+        if (srcLabel) upstreamSourceLabels.value[m.to_port] = srcLabel
+      }
+    })
+  } catch {}
+}
+
 // Get available ports for mapping
 const availableFromPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
   const opts = []
   for (let n = 1; n <= numOutputs.value; n++) {
     if (used.has(n)) continue
-    let label = `Output ${n}`
-    // If mapping from a transformer, try to label output N by the source feeding its input N
-    if (isTransformerFrom.value) {
-      const incoming = (props.existingConnections || []).find(c =>
-        (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
-      )
-      if (incoming) {
-        const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
-        if (srcLabel) label = `${label} – ${srcLabel}`
-      }
-    }
+    const label = upstreamSourceLabels.value[n] || getFromPortName(n)
     opts.push({ value: n, label })
   }
   return opts
@@ -289,6 +312,7 @@ const sourceHasConnectionToTarget = computed(() => {
 watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
+watch(() => props.existingConnections, () => buildUpstreamSourceLabels())
 
 // (moved below inputOptions definition)
 
@@ -620,6 +644,8 @@ try {
     }
   }
 } catch {}
+// Build upstream labels for transformer outputs
+buildUpstreamSourceLabels()
 })
 </script>
 

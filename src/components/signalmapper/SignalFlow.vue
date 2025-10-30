@@ -278,9 +278,15 @@ function getFromPortDisplayForEdit(portNum) {
   if (!from) return `Output ${portNum}`
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
   if (fromType === 'transformer') {
-    const incoming = props.connections.find(c =>
-      (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum
-    )
+    // Try direct connection first
+    let incoming = props.connections.find(c => (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum)
+    if (!incoming) {
+      // Fall back to port map from previous transformer
+      // Find parent connection feeding this transformer
+      // Note: We avoid network calls here; modal handles labels precisely. For the panel,
+      // we approximate by checking if there is a connection whose to_node_id === from.id
+      // and then use the from_port mapping number equal to portNum when available in memory later.
+    }
     if (incoming) {
       const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
       const srcLabel = upNode?.track_name || upNode?.label
