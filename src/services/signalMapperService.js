@@ -215,9 +215,11 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
   let currentInput = startInput
   const maxHops = 25
   let finalSourceNode = null
+  
   for (let hop = 0; hop < maxHops; hop++) {
     const node = nodeMap[currentNodeId]
     if (!node) break
+    
     if (node.gear_type === 'source' || node.node_type === 'source') {
       // For sources, track_name is the custom name set in mic placement (e.g., "Stage L")
       const sourceName = node.track_name || node.label
@@ -225,26 +227,51 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       finalSourceNode = node
       break
     }
+    
+    // Add this transformer/recorder with its input number
     labels.push(currentInput ? `${node.label} Input ${currentInput}` : `${node.label}`)
+    
+    // Find parent connections feeding this node
     const parents = parentConnsByToNode[currentNodeId] || []
     if (!parents.length) break
-    const parentWithMap = parents.find(p => (mapsByConnId[p.id] || []).length)
+    
+    // Check if any parent has a port map
+    const parentWithMap = parents.find(p => (mapsByConnId[p.id] || []).length > 0)
+    
     if (parentWithMap) {
+      // Use port map to trace back
       const maps = mapsByConnId[parentWithMap.id] || []
       const row = maps.find(m => Number(m.to_port) === Number(currentInput))
-      if (!row) break
+      if (!row) {
+        // No mapping for this input; stop here
+        break
+      }
+      // Move to the parent node's output (from_port)
       currentNodeId = parentWithMap.from_node_id
       currentInput = row.from_port
       continue
     }
-    // No map: choose incoming with matching input number
-    const exactIncoming = connections.filter(c => c.to_node_id === parents[0].from_node_id)
-      .filter(c => typeof c.input_number === 'number')
-      .find(c => Number(c.input_number) === Number(currentInput))
-    if (!exactIncoming) { currentNodeId = parents[0].from_node_id; currentInput = undefined; continue }
-    currentNodeId = parents[0].from_node_id
-    currentInput = exactIncoming.input_number
+    
+    // No port map: look for a direct connection with matching input_number
+    // This handles source → transformer connections
+    const parent = parents[0]
+    const directConnections = connections.filter(c => 
+      c.to_node_id === parent.from_node_id && 
+      typeof c.input_number === 'number'
+    )
+    
+    const matchingConn = directConnections.find(c => Number(c.input_number) === Number(currentInput))
+    
+    if (matchingConn) {
+      // Found a direct connection with the same input number
+      currentNodeId = parent.from_node_id
+      currentInput = matchingConn.input_number
+    } else {
+      // No matching connection; stop traversal
+      break
+    }
   }
+  
   return { labels, finalSourceNode }
 }
 
