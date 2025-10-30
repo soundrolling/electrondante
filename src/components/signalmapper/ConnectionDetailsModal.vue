@@ -60,10 +60,32 @@
           <div class="port-mapping-container">
             <div v-if="portMappings.length > 0" class="port-mappings-list">
             <div v-for="(mapping, idx) in portMappings" :key="idx" class="port-mapping-row">
-              <span>{{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}</span>
-              <span class="arrow">→</span>
-              <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
+              <template v-if="editingIdx === idx">
+                <!-- Edit mode -->
+                <select class="form-select-small" v-model.number="editFromPort">
+                  <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  <option :value="mapping.from_port" v-if="!availableFromPorts.find(o => o.value === mapping.from_port)">
+                    {{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}
+                  </option>
+                </select>
+                <span class="arrow">→</span>
+                <select class="form-select-small" v-model.number="editToPort">
+                  <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  <option :value="mapping.to_port" v-if="!availableToPorts.find(o => o.value === mapping.to_port)">
+                    {{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}
+                  </option>
+                </select>
+                <button type="button" class="btn-save-small" @click="saveEditMapping">✓</button>
+                <button type="button" class="btn-cancel-small" @click="cancelEditMapping">✕</button>
+              </template>
+              <template v-else>
+                <!-- Display mode -->
+                <span>{{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}</span>
+                <span class="arrow">→</span>
+                <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
+                <button type="button" class="btn-edit" @click="startEditMapping(idx)">✎</button>
                 <button type="button" class="btn-remove" @click="removePortMapping(idx)">×</button>
+              </template>
               </div>
             </div>
             <div class="port-mapping-add">
@@ -212,6 +234,9 @@ const errorMsg = ref('')
 const portMappings = ref([])
 const newMappingFromPort = ref(null)
 const newMappingToPort = ref(null)
+const editingIdx = ref(null)
+const editFromPort = ref(null)
+const editToPort = ref(null)
 
 // Upstream labels for transformer's outputs keyed by to_port (input index on this transformer)
 const upstreamSourceLabels = ref({})
@@ -298,6 +323,33 @@ function addPortMapping() {
 
 function removePortMapping(index) {
   portMappings.value.splice(index, 1)
+  if (editingIdx.value === index) {
+    editingIdx.value = null
+  }
+}
+
+function startEditMapping(index) {
+  editingIdx.value = index
+  editFromPort.value = portMappings.value[index].from_port
+  editToPort.value = portMappings.value[index].to_port
+}
+
+function saveEditMapping() {
+  if (editingIdx.value !== null && editFromPort.value && editToPort.value) {
+    portMappings.value[editingIdx.value] = {
+      from_port: editFromPort.value,
+      to_port: editToPort.value
+    }
+    editingIdx.value = null
+    editFromPort.value = null
+    editToPort.value = null
+  }
+}
+
+function cancelEditMapping() {
+  editingIdx.value = null
+  editFromPort.value = null
+  editToPort.value = null
 }
 
 // Disallow duplicate connection from the same source to the same target
@@ -1034,6 +1086,77 @@ background: #218838;
 .btn-add:disabled {
 background: #6c757d;
 cursor: not-allowed;
+}
+
+.btn-edit {
+background: #007bff;
+color: white;
+border: none;
+border-radius: 4px;
+width: 28px;
+height: 24px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 14px;
+line-height: 1;
+transition: background-color 0.2s;
+margin-left: 8px;
+}
+
+.btn-edit:hover {
+background: #0056b3;
+}
+
+.btn-save-small {
+background: #28a745;
+color: white;
+border: none;
+border-radius: 4px;
+width: 28px;
+height: 28px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 16px;
+line-height: 1;
+transition: background-color 0.2s;
+margin-left: 8px;
+}
+
+.btn-save-small:hover {
+background: #218838;
+}
+
+.btn-cancel-small {
+background: #6c757d;
+color: white;
+border: none;
+border-radius: 4px;
+width: 28px;
+height: 28px;
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 16px;
+line-height: 1;
+transition: background-color 0.2s;
+}
+
+.btn-cancel-small:hover {
+background: #5a6268;
+}
+
+.form-select-small {
+flex: 1;
+min-width: 100px;
+padding: 4px 8px;
+border: 1px solid #ced4da;
+border-radius: 4px;
+font-size: 14px;
 }
 
 @media (max-width: 768px) {
