@@ -341,6 +341,20 @@ const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
 }
 
+// Fallback port name for 'from' ports
+function getFromPortName(portNum) {
+  if (isTransformerFrom.value) {
+    const incoming = (props.existingConnections || []).find(c =>
+      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
+    )
+    if (incoming) {
+      const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+      if (srcLabel) return srcLabel
+    }
+  }
+  return `Output ${portNum}`
+}
+
 function getFromPortDisplay(portNum) {
   // Prefer upstream source name for transformer outputs
   if (isTransformerFrom.value) {
