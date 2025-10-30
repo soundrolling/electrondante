@@ -936,7 +936,14 @@ async function confirmConnection(connectionData) {
     nextTick(drawCanvas)
   } catch (err) {
     console.error('Error creating connection:', err)
-    toast.error('Failed to create connection')
+    if (err?.code === '23505') {
+      // Duplicate connection - the input is already connected (race condition or double-click)
+      // Since UI blocks occupied inputs, just close modal and show info message
+      closeConnectionModal()
+      toast.info('This input is already connected')
+    } else {
+      toast.error('Failed to create connection')
+    }
   }
 }
 
