@@ -230,6 +230,7 @@ const showGearModal = ref(false)
 const showConnectionModal = ref(false)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
+const submittingConnection = ref(false)
 
 // Node counts
 const sourceCount = computed(() => 
@@ -975,9 +976,14 @@ async function deleteSelected() {
 function closeConnectionModal() {
   showConnectionModal.value = false
   pendingConnection.value = null
+  submittingConnection.value = false
 }
 
 async function confirmConnection(connectionData) {
+  // Prevent double submission
+  if (submittingConnection.value) return
+  submittingConnection.value = true
+  
   try {
     // If the modal already created the parent connection (port-mapped flow),
     // it will pass back an object with an id. In that case, do not insert again.
@@ -1000,6 +1006,8 @@ async function confirmConnection(connectionData) {
     } else {
       toast.error('Failed to create connection')
     }
+  } finally {
+    submittingConnection.value = false
   }
 }
 
