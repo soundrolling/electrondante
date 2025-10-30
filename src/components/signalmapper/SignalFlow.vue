@@ -1006,9 +1006,17 @@ onMounted(() => {
 }
 
 .flow-toolbar .select-btn.active {
-  background: #e7f1ff; /* light blue */
-  color: #0b5ed7;
-  border-color: #0b5ed7;
+  background: #d1f4e0; /* light green */
+  color: #0f7b3e;
+  border-color: #0f7b3e;
+  font-weight: 600;
+}
+
+.flow-toolbar .connect-btn.active {
+  background: #d1f4e0; /* light green */
+  color: #0f7b3e;
+  border-color: #0f7b3e;
+  font-weight: 600;
 }
 
 .flow-toolbar .link-btn.active {
