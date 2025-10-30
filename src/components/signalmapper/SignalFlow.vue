@@ -55,7 +55,7 @@
           <span class="label">Port Mappings:</span>
           <div class="port-mappings-list-edit">
             <div v-for="(mapping, idx) in editPortMappings" :key="idx" class="port-mapping-row-edit">
-              <span>{{ fromNodeOfSelected?.label }} Output {{ mapping.from_port }}</span>
+              <span>{{ getFromPortDisplayForEdit(mapping.from_port) }}</span>
               <span class="arrow">→</span>
               <span>{{ toNodeOfSelected?.label }} {{ toNodeType === 'recorder' ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
               <button type="button" class="btn-remove-small" @click="removeEditPortMapping(idx)">×</button>
@@ -272,6 +272,23 @@ const needsPortMappingForSelected = computed(() => {
   return (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) ||
          (fromType === 'recorder' && toType === 'recorder')
 })
+
+function getFromPortDisplayForEdit(portNum) {
+  const from = fromNodeOfSelected.value
+  if (!from) return `Output ${portNum}`
+  const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  if (fromType === 'transformer') {
+    const incoming = props.connections.find(c =>
+      (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum
+    )
+    if (incoming) {
+      const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
+      const srcLabel = upNode?.track_name || upNode?.label
+      if (srcLabel) return srcLabel
+    }
+  }
+  return `Output ${portNum}`
+}
 const inputOptionsForSelected = computed(() => {
   const to = toNodeOfSelected.value
   const count = to?.num_inputs || to?.numinputs || to?.inputs || 0
