@@ -219,7 +219,8 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     const node = nodeMap[currentNodeId]
     if (!node) break
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      labels.push(node.track_name || node.label)
+      // Use the node's label (e.g., "Stage L") for the path, not the track_name
+      labels.push(node.label || node.track_name)
       finalSourceNode = node
       break
     }
