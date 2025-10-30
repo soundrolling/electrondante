@@ -50,7 +50,32 @@
         <span class="label">To:</span>
         <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
       </div>
-      <template v-if="toNodeType !== 'recorder'">
+      <template v-if="needsPortMappingForSelected">
+        <div class="detail-row port-mapping-section">
+          <span class="label">Port Mappings:</span>
+          <div class="port-mappings-list-edit">
+            <div v-for="(mapping, idx) in editPortMappings" :key="idx" class="port-mapping-row-edit">
+              <span>{{ fromNodeOfSelected?.label }} Output {{ mapping.from_port }}</span>
+              <span class="arrow">→</span>
+              <span>{{ toNodeOfSelected?.label }} {{ toNodeType === 'recorder' ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
+              <button type="button" class="btn-remove-small" @click="removeEditPortMapping(idx)">×</button>
+            </div>
+            <div class="port-mapping-add-edit">
+              <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
+                <option :value="null">From Port</option>
+                <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <span class="arrow">→</span>
+              <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
+                <option :value="null">To Port</option>
+                <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <button type="button" class="btn-add-small" @click="addEditPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template v-else-if="toNodeType !== 'recorder'">
         <div class="detail-row">
           <span class="label">Input:</span>
           <select v-model.number="editInput" class="inline-select">
@@ -151,6 +176,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
+import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
@@ -189,6 +215,11 @@ const editType = ref('Mic')
 const editInput = ref(null)
 const editTrack = ref(null)
 const saveTick = ref(false)
+
+// Port mapping state for transformer→transformer connections
+const editPortMappings = ref([])
+const newMappingFromPort = ref(null)
+const newMappingToPort = ref(null)
 const draggingNode = ref(null)
 let dragStart = null
 
@@ -221,12 +252,26 @@ const availableGear = computed(() => {
 const allNodesForModal = computed(() => props.nodes)
 
 const selectedConn = computed(() => props.connections.find(c => c.id === selectedConnectionId.value) || null)
+const fromNodeOfSelected = computed(() => {
+  const c = selectedConn.value
+  if (!c) return null
+  return props.nodes.find(n => n.id === c.from_node_id) || null
+})
 const toNodeOfSelected = computed(() => {
   const c = selectedConn.value
   if (!c) return null
   return props.nodes.find(n => n.id === c.to_node_id) || null
 })
+const fromNodeType = computed(() => (fromNodeOfSelected.value?.gear_type || fromNodeOfSelected.value?.node_type || '').toLowerCase())
 const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOfSelected.value?.node_type || '').toLowerCase())
+
+// Check if this connection needs port mapping UI
+const needsPortMappingForSelected = computed(() => {
+  const fromType = fromNodeType.value
+  const toType = toNodeType.value
+  return (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) ||
+         (fromType === 'recorder' && toType === 'recorder')
+})
 const inputOptionsForSelected = computed(() => {
   const to = toNodeOfSelected.value
   const count = to?.num_inputs || to?.numinputs || to?.inputs || 0
@@ -238,19 +283,152 @@ const trackOptionsForSelected = computed(() => {
   return Array.from({ length: count }, (_, i) => i + 1)
 })
 
-watch(selectedConn, (c) => {
-  if (!c) return
+const availableFromPortsForEdit = computed(() => {
+  const used = new Set(editPortMappings.value.map(m => m.from_port).filter(Boolean))
+  const from = fromNodeOfSelected.value
+  const count = from?.num_outputs || from?.numoutputs || from?.outputs || 0
+  const opts = []
+  for (let n = 1; n <= count; n++) {
+    if (!used.has(n)) {
+      opts.push({ value: n, label: `Output ${n}` })
+    }
+  }
+  return opts
+})
+
+const availableToPortsForEdit = computed(() => {
+  const used = new Set(editPortMappings.value.map(m => m.to_port).filter(Boolean))
+  const to = toNodeOfSelected.value
+  const opts = []
+  if (toNodeType.value === 'recorder') {
+    const count = to?.num_tracks || to?.tracks || to?.num_records || 0
+    for (let n = 1; n <= count; n++) {
+      if (!used.has(n)) {
+        opts.push({ value: n, label: `Track ${n}` })
+      }
+    }
+  } else {
+    const count = to?.num_inputs || to?.numinputs || to?.inputs || 0
+    for (let n = 1; n <= count; n++) {
+      if (!used.has(n)) {
+        // Check if this input is already used by other connections
+        const taken = props.connections.find(c =>
+          c.id !== selectedConnectionId.value &&
+          (c.to_node_id === to?.id || c.to === to?.id) &&
+          c.input_number === n
+        )
+        if (!taken) {
+          opts.push({ value: n, label: `Input ${n}` })
+        }
+      }
+    }
+  }
+  return opts
+})
+
+function addEditPortMapping() {
+  if (!newMappingFromPort.value || !newMappingToPort.value) return
+  editPortMappings.value.push({
+    from_port: newMappingFromPort.value,
+    to_port: newMappingToPort.value
+  })
+  newMappingFromPort.value = null
+  newMappingToPort.value = null
+}
+
+function removeEditPortMapping(index) {
+  editPortMappings.value.splice(index, 1)
+}
+
+async function loadPortMappingsForConnection(connId) {
+  if (!connId) {
+    editPortMappings.value = []
+    return
+  }
+  try {
+    const { data, error } = await supabase
+      .from('connection_port_map')
+      .select('from_port, to_port')
+      .eq('connection_id', connId)
+      .order('from_port')
+    if (!error && data) {
+      editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+    } else {
+      editPortMappings.value = []
+    }
+  } catch (err) {
+    console.error('Error loading port mappings:', err)
+    editPortMappings.value = []
+  }
+}
+
+watch(selectedConn, async (c) => {
+  if (!c) {
+    editPortMappings.value = []
+    return
+  }
   editPad.value = Number(c.pad || 0)
   editPhantom.value = !!c.phantom_power
   editType.value = c.connection_type || 'Mic'
   editInput.value = c.input_number || null
   editTrack.value = c.track_number || null
+  
+  // Load port mappings if this is a port-mapped connection
+  if (needsPortMappingForSelected.value) {
+    await loadPortMappingsForConnection(c.id)
+  } else {
+    editPortMappings.value = []
+  }
 })
 
 async function saveSelectedConnection() {
   const c = selectedConn.value
   if (!c) return
   try {
+    // Handle port mapping connections
+    if (needsPortMappingForSelected.value) {
+      if (editPortMappings.value.length === 0) {
+        toast.error('Please add at least one port mapping.')
+        return
+      }
+      
+      // Update parent connection properties
+      const payload = {
+        id: c.id,
+        pad: -Math.abs(Number(editPad.value) || 0),
+        phantom_power: editPhantom.value,
+        connection_type: editType.value
+      }
+      await updateConnection(payload)
+      
+      // Delete existing port mappings
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .eq('connection_id', c.id)
+      
+      // Insert new port mappings
+      const portMapInserts = editPortMappings.value.map(m => ({
+        project_id: props.projectId,
+        connection_id: c.id,
+        from_port: m.from_port,
+        to_port: m.to_port
+      }))
+      
+      if (portMapInserts.length > 0) {
+        const { error } = await supabase
+          .from('connection_port_map')
+          .insert(portMapInserts)
+        if (error) throw error
+      }
+      
+      emit('connection-updated', { ...c, ...payload })
+      saveTick.value = true
+      setTimeout(() => { saveTick.value = false }, 1000)
+      return
+    }
+    
+    // Handle regular source→transformer/recorder connections
     const payload = { id: c.id, pad: -Math.abs(Number(editPad.value) || 0), phantom_power: editPhantom.value, connection_type: editType.value }
     if (toNodeType.value === 'recorder') {
       payload.input_number = editInput.value || null
@@ -835,6 +1013,56 @@ onMounted(() => {
 .detail-row .label { color: #6c757d; }
 .detail-row .value { color: #212529; font-weight: 600; }
 .inline-select { padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; }
+.port-mapping-section { flex-direction: column; align-items: flex-start; }
+.port-mappings-list-edit { width: 100%; }
+.port-mapping-row-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.port-mapping-row-edit .arrow { color: #007bff; font-weight: bold; }
+.port-mapping-add-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.port-mapping-add-edit .inline-select { flex: 1; min-width: 100px; }
+.port-mapping-add-edit .arrow { color: #007bff; font-weight: bold; }
+.btn-remove-small {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: auto;
+}
+.btn-remove-small:hover { background: #c82333; }
+.btn-add-small {
+  padding: 4px 10px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-add-small:hover:not(:disabled) { background: #218838; }
+.btn-add-small:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
 .detail-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px; }
 .btn-save { background: #16a34a; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 .btn-save:hover { background: #15803d; }
