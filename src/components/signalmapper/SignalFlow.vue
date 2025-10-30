@@ -220,6 +220,8 @@ const saveTick = ref(false)
 const editPortMappings = ref([])
 const newMappingFromPort = ref(null)
 const newMappingToPort = ref(null)
+// Upstream source labels for selected connection's FROM transformer
+const upstreamLabelsForFromNode = ref({})
 const draggingNode = ref(null)
 let dragStart = null
 
@@ -276,6 +278,7 @@ const needsPortMappingForSelected = computed(() => {
 function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
+  if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
   if (fromType === 'transformer') {
     // Try direct connection first
@@ -314,19 +317,49 @@ const availableFromPortsForEdit = computed(() => {
   const fromType = (from?.gear_type || from?.node_type || '').toLowerCase()
   for (let n = 1; n <= count; n++) {
     if (used.has(n)) continue
-    let label = `Output ${n}`
+    let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
     if (fromType === 'transformer') {
       const incoming = props.connections.find(c =>
         (c.to_node_id === from?.id || c.to === from?.id) && c.input_number === n
       )
       const upNode = incoming ? props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from)) : null
       const srcLabel = upNode?.track_name || upNode?.label
-      if (srcLabel) label = srcLabel
+      if (!upstreamLabelsForFromNode.value[n] && srcLabel) label = srcLabel
     }
     opts.push({ value: n, label })
   }
   return opts
 })
+
+async function buildUpstreamLabelsForEdit() {
+  upstreamLabelsForFromNode.value = {}
+  const from = fromNodeOfSelected.value
+  if (!from) return
+  const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  if (fromType !== 'transformer') return
+  try {
+    // Find parent connection feeding this transformer
+    const parentCandidates = props.connections.filter(c => c.to_node_id === from.id)
+    if (!parentCandidates.length) return
+    const parent = parentCandidates.find(c => {
+      const n = props.nodes.find(nd => nd.id === c.from_node_id)
+      return (n?.gear_type || n?.node_type) === 'transformer'
+    }) || parentCandidates[0]
+    const { data: maps } = await supabase
+      .from('connection_port_map')
+      .select('from_port, to_port')
+      .eq('connection_id', parent.id)
+    if (!maps || !maps.length) return
+    maps.forEach(m => {
+      const incoming = props.connections.find(c => (c.to_node_id === parent.from_node_id) && c.input_number === m.from_port)
+      if (incoming) {
+        const node = props.nodes.find(nd => nd.id === incoming.from_node_id)
+        const name = node?.track_name || node?.label
+        if (name) upstreamLabelsForFromNode.value[m.to_port] = name
+      }
+    })
+  } catch {}
+}
 
 const availableToPortsForEdit = computed(() => {
   const used = new Set(editPortMappings.value.map(m => m.to_port).filter(Boolean))
@@ -404,6 +437,7 @@ async function loadPortMappingsForConnection(connId) {
 watch(selectedConn, async (c) => {
   if (!c) {
     editPortMappings.value = []
+    upstreamLabelsForFromNode.value = {}
     return
   }
   editPad.value = Number(c.pad || 0)
@@ -415,8 +449,10 @@ watch(selectedConn, async (c) => {
   // Load port mappings if this is a port-mapped connection
   if (needsPortMappingForSelected.value) {
     await loadPortMappingsForConnection(c.id)
+    await buildUpstreamLabelsForEdit()
   } else {
     editPortMappings.value = []
+    upstreamLabelsForFromNode.value = {}
   }
 })
 
