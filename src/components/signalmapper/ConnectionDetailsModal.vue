@@ -178,8 +178,12 @@ function getType(node){
 const isSource = computed(() => getType(props.fromNode) === 'source')
 const isRecorder = computed(() => getType(props.toNode) === 'recorder')
 const isTransformer = computed(() => getType(props.fromNode) === 'transformer' || getType(props.toNode) === 'transformer')
-const isRecorderFrom = computed(() => getType(props.fromNode) === 'recorder')
-const isRecorderTo = computed(() => getType(props.toNode) === 'recorder')
+// Recorder detection also falls back to presence of track fields
+function hasTracks(node){
+  return !!(node?.num_tracks || node?.tracks || node?.num_records || node?.numrecord)
+}
+const isRecorderFrom = computed(() => getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+const isRecorderTo   = computed(() => getType(props.toNode)   === 'recorder' || hasTracks(props.toNode))
 const isTransformerTo = computed(() => getType(props.toNode) === 'transformer')
 const isTransformerFrom = computed(() => getType(props.fromNode) === 'transformer')
 
