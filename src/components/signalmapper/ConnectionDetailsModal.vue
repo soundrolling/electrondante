@@ -60,7 +60,7 @@
           <div class="port-mapping-container">
             <div v-if="portMappings.length > 0" class="port-mappings-list">
             <div v-for="(mapping, idx) in portMappings" :key="idx" class="port-mapping-row">
-              <span>{{ isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}` }}</span>
+              <span>{{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}</span>
               <span class="arrow">→</span>
               <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-remove" @click="removePortMapping(idx)">×</button>
