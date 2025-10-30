@@ -59,16 +59,16 @@
           <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
           <div class="port-mapping-container">
             <div v-if="portMappings.length > 0" class="port-mappings-list">
-              <div v-for="(mapping, idx) in portMappings" :key="idx" class="port-mapping-row">
-                <span>{{ fromNode.label }} Output {{ mapping.from_port }}</span>
-                <span class="arrow">→</span>
-                <span>{{ toNode.label }} {{ isRecorderTo ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
+            <div v-for="(mapping, idx) in portMappings" :key="idx" class="port-mapping-row">
+              <span>{{ isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}` }}</span>
+              <span class="arrow">→</span>
+              <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-remove" @click="removePortMapping(idx)">×</button>
               </div>
             </div>
             <div class="port-mapping-add">
               <select class="form-select" v-model.number="newMappingFromPort" :disabled="availableFromPorts.length === 0">
-                <option :value="null">Select From Port</option>
+                <option :value="null">{{ isTransformerFrom ? 'From Source' : 'From Port' }}</option>
                 <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
               <span class="arrow">→</span>
@@ -315,6 +315,20 @@ return null
 function getNodeLabelById(id) {
 const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
+}
+
+function getFromPortDisplay(portNum) {
+  // Prefer upstream source name for transformer outputs
+  if (isTransformerFrom.value) {
+    const incoming = (props.existingConnections || []).find(c =>
+      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
+    )
+    if (incoming) {
+      const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+      if (srcLabel) return srcLabel
+    }
+  }
+  return `Output ${portNum}`
 }
 
 const inputOptions = computed(() => {

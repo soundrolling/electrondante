@@ -293,15 +293,12 @@ const availableFromPortsForEdit = computed(() => {
     if (used.has(n)) continue
     let label = `Output ${n}`
     if (fromType === 'transformer') {
-      // Label output n by upstream source feeding input n of the transformer
       const incoming = props.connections.find(c =>
         (c.to_node_id === from?.id || c.to === from?.id) && c.input_number === n
       )
-      if (incoming) {
-        const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
-        const srcLabel = upNode?.track_name || upNode?.label
-        if (srcLabel) label = `${label} – ${srcLabel}`
-      }
+      const upNode = incoming ? props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from)) : null
+      const srcLabel = upNode?.track_name || upNode?.label
+      if (srcLabel) label = srcLabel
     }
     opts.push({ value: n, label })
   }
