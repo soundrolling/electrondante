@@ -129,7 +129,7 @@ export async function getCompleteSignalPath(projectId) {
   const signalPaths = []
   const seen = new Set()
   
-  recorders.forEach(recorder => {
+  for (const recorder of recorders) {
     // Get all connections to this recorder
     const recorderConnections = connections.filter(c => c.to_node_id === recorder.id)
 
@@ -209,7 +209,7 @@ export async function getCompleteSignalPath(projectId) {
         connection_id: conn.id
       })
     })
-  })
+  }
   
   // Sort by track number
   signalPaths.sort((a, b) => (a.track_number || 0) - (b.track_number || 0))
