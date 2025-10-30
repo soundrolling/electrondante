@@ -127,6 +127,10 @@ export async function getCompleteSignalPath(projectId) {
     (acc[m.connection_id] = acc[m.connection_id] || []).push(m)
     return acc
   }, {})
+  const parentConnsByToNode = connections.reduce((acc, c)=>{
+    (acc[c.to_node_id] = acc[c.to_node_id] || []).push(c)
+    return acc
+  }, {})
   
   // Build a map of node id to node
   const nodeMap = {}
@@ -172,53 +176,7 @@ export async function getCompleteSignalPath(projectId) {
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const labels = []
-      const trackLabel = conn.input_number ? `Track ${conn.input_number}` : undefined
-      labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
-
-      // Walk from current transformer back to the source following port maps where present
-      let currentNodeId = conn.from_node_id
-      let currentInput = conn.input_number
-      const maxHops = 20
-      let finalSourceNode = null
-      for (let hop = 0; hop < maxHops; hop++) {
-        const node = nodeMap[currentNodeId]
-        if (!node) break
-        // If source, add and stop
-        if (node.gear_type === 'source' || node.node_type === 'source') {
-          labels.push(node.track_name || node.label)
-          finalSourceNode = node
-          break
-        }
-        // Label this node with its input number
-        labels.push(currentInput ? `${node.label} Input ${currentInput}` : `${node.label}`)
-        // Find parent connection(s)
-        const parents = connections.filter(c => c.to_node_id === currentNodeId)
-        if (!parents.length) break
-        // Prefer a parent that has a port map
-        let parent = parents.find(p => mapsByConnId[p.id] && mapsByConnId[p.id].length) || parents[0]
-        const maps = mapsByConnId[parent.id] || []
-        if (maps.length) {
-          const row = maps.find(m => m.to_port === currentInput)
-          if (!row) break
-          currentInput = row.from_port
-          currentNodeId = parent.from_node_id
-          continue
-        }
-        // No port map: fall back to direct incoming connection to the parent from its own parent using matching input number when available
-        const exactIncoming = connections.filter(c => c.to_node_id === parent.from_node_id)
-          .filter(c => typeof c.input_number === 'number')
-          .filter(c => Number(c.input_number) === Number(currentInput))
-        let incomingToParent = exactIncoming[0]
-        if (!incomingToParent) {
-          // If no exact input match found, do not guess incorrectly; stop traversal here
-          currentNodeId = parent.from_node_id
-          currentInput = undefined
-          continue
-        }
-        currentNodeId = parent.from_node_id
-        currentInput = incomingToParent.input_number
-      }
+      const { labels, finalSourceNode } = resolveUpstreamPath(conn.from_node_id, conn.input_number, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder)
 
       // For uniqueness, key off recorder + track + first node id at end of traversal
       const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}`
@@ -245,6 +203,46 @@ export async function getCompleteSignalPath(projectId) {
   signalPaths.sort((a, b) => (a.track_number || 0) - (b.track_number || 0))
   
   return signalPaths
+}
+
+function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder) {
+  const labels = []
+  const trackLabel = startInput ? `Track ${startInput}` : undefined
+  labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
+
+  let currentNodeId = startNodeId
+  let currentInput = startInput
+  const maxHops = 25
+  let finalSourceNode = null
+  for (let hop = 0; hop < maxHops; hop++) {
+    const node = nodeMap[currentNodeId]
+    if (!node) break
+    if (node.gear_type === 'source' || node.node_type === 'source') {
+      labels.push(node.track_name || node.label)
+      finalSourceNode = node
+      break
+    }
+    labels.push(currentInput ? `${node.label} Input ${currentInput}` : `${node.label}`)
+    const parents = parentConnsByToNode[currentNodeId] || []
+    if (!parents.length) break
+    const parentWithMap = parents.find(p => (mapsByConnId[p.id] || []).length)
+    if (parentWithMap) {
+      const maps = mapsByConnId[parentWithMap.id] || []
+      const row = maps.find(m => Number(m.to_port) === Number(currentInput))
+      if (!row) break
+      currentNodeId = parentWithMap.from_node_id
+      currentInput = row.from_port
+      continue
+    }
+    // No map: choose incoming with matching input number
+    const exactIncoming = connections.filter(c => c.to_node_id === parents[0].from_node_id)
+      .filter(c => typeof c.input_number === 'number')
+      .find(c => Number(c.input_number) === Number(currentInput))
+    if (!exactIncoming) { currentNodeId = parents[0].from_node_id; currentInput = undefined; continue }
+    currentNodeId = parents[0].from_node_id
+    currentInput = exactIncoming.input_number
+  }
+  return { labels, finalSourceNode }
 }
 
 function buildPathToSource(nodeId, connections, nodeMap) {
