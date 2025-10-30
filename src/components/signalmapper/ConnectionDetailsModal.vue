@@ -218,9 +218,19 @@ const availableFromPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
   const opts = []
   for (let n = 1; n <= numOutputs.value; n++) {
-    if (!used.has(n)) {
-      opts.push({ value: n, label: `Output ${n}` })
+    if (used.has(n)) continue
+    let label = `Output ${n}`
+    // If mapping from a transformer, try to label output N by the source feeding its input N
+    if (isTransformerFrom.value) {
+      const incoming = (props.existingConnections || []).find(c =>
+        (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
+      )
+      if (incoming) {
+        const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+        if (srcLabel) label = `${label} – ${srcLabel}`
+      }
     }
+    opts.push({ value: n, label })
   }
   return opts
 })
