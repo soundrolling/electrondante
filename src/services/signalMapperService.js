@@ -115,6 +115,18 @@ export async function getCompleteSignalPath(projectId) {
   // Get all nodes and connections
   const nodes = await getNodes(projectId)
   const connections = await getConnections(projectId)
+  // Preload all connection_port_map rows for this project to resolve transformer→transformer/recorder chains
+  let allPortMaps = []
+  try {
+    const { data } = await supabase
+      .from('connection_port_map')
+      .select('connection_id, from_port, to_port')
+    allPortMaps = data || []
+  } catch {}
+  const mapsByConnId = allPortMaps.reduce((acc, m)=>{
+    (acc[m.connection_id] = acc[m.connection_id] || []).push(m)
+    return acc
+  }, {})
   
   // Build a map of node id to node
   const nodeMap = {}
@@ -138,10 +150,7 @@ export async function getCompleteSignalPath(projectId) {
     const parentConnIds = recorderConnections.map(c => c.id)
     if (parentConnIds.length) {
       try {
-        const { data: mapRows } = await supabase
-          .from('connection_port_map')
-          .select('connection_id, to_port')
-          .in('connection_id', parentConnIds)
+        const mapRows = allPortMaps.filter(r => parentConnIds.includes(r.connection_id))
         if (mapRows && mapRows.length) {
           const parentById = Object.fromEntries(recorderConnections.map(p => [p.id, p]))
           const expanded = mapRows.map(row => ({
@@ -167,31 +176,42 @@ export async function getCompleteSignalPath(projectId) {
       const trackLabel = conn.input_number ? `Track ${conn.input_number}` : undefined
       labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
 
-      // Walk from the transformer back to the source so we include every hop
-      for (let i = pathIds.length - 1; i >= 0; i--) {
-        const nodeId = pathIds[i]
-        const node = nodeMap[nodeId]
-        if (!node) continue
-        // If this is a source, add its label and continue
+      // Walk from current transformer back to the source following port maps where present
+      let currentNodeId = conn.from_node_id
+      let currentInput = conn.input_number
+      const maxHops = 20
+      for (let hop = 0; hop < maxHops; hop++) {
+        const node = nodeMap[currentNodeId]
+        if (!node) break
+        // If source, add and stop
         if (node.gear_type === 'source' || node.node_type === 'source') {
           labels.push(node.track_name || node.label)
+          break
+        }
+        // Label this node with its input number
+        labels.push(currentInput ? `${node.label} Input ${currentInput}` : `${node.label}`)
+        // Find parent connection(s)
+        const parents = connections.filter(c => c.to_node_id === currentNodeId)
+        if (!parents.length) break
+        // Prefer a parent that has a port map
+        let parent = parents.find(p => mapsByConnId[p.id] && mapsByConnId[p.id].length) || parents[0]
+        const maps = mapsByConnId[parent.id] || []
+        if (maps.length) {
+          const row = maps.find(m => m.to_port === currentInput)
+          if (!row) break
+          currentInput = row.from_port
+          currentNodeId = parent.from_node_id
           continue
         }
-        // Find the incoming connection that links from the next upstream node in the path to this node
-        const nextId = i - 1 >= 0 ? pathIds[i - 1] : null
-        let incoming = null
-        if (nextId) {
-          incoming = connections.find(c => c.to_node_id === nodeId && c.from_node_id === nextId)
-        }
-        if (!incoming) {
-          incoming = connections.find(c => c.to_node_id === nodeId)
-        }
-        const inputLabel = incoming?.input_number ? `Input ${incoming.input_number}` : undefined
-        labels.push(inputLabel ? `${node.label} ${inputLabel}` : `${node.label}`)
+        // No port map: fall back to direct incoming connection to the parent from its own parent using its input number
+        const incomingToParent = connections.find(c => c.to_node_id === parent.from_node_id)
+        if (!incomingToParent) { currentNodeId = parent.from_node_id; currentInput = undefined; continue }
+        currentNodeId = parent.from_node_id
+        currentInput = incomingToParent.input_number || currentInput
       }
 
-      // For uniqueness, key off recorder + track + starting node of path
-      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${pathIds[0] || ''}`
+      // For uniqueness, key off recorder + track + first node id at end of traversal
+      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${labels[labels.length-1] || ''}`
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
