@@ -180,12 +180,14 @@ export async function getCompleteSignalPath(projectId) {
       let currentNodeId = conn.from_node_id
       let currentInput = conn.input_number
       const maxHops = 20
+      let finalSourceNode = null
       for (let hop = 0; hop < maxHops; hop++) {
         const node = nodeMap[currentNodeId]
         if (!node) break
         // If source, add and stop
         if (node.gear_type === 'source' || node.node_type === 'source') {
           labels.push(node.track_name || node.label)
+          finalSourceNode = node
           break
         }
         // Label this node with its input number
@@ -203,15 +205,18 @@ export async function getCompleteSignalPath(projectId) {
           currentNodeId = parent.from_node_id
           continue
         }
-        // No port map: fall back to direct incoming connection to the parent from its own parent using its input number
-        const incomingToParent = connections.find(c => c.to_node_id === parent.from_node_id)
+        // No port map: fall back to direct incoming connection to the parent from its own parent using matching input number when available
+        let incomingToParent = connections.find(c => c.to_node_id === parent.from_node_id && c.input_number === currentInput)
+        if (!incomingToParent) {
+          incomingToParent = connections.find(c => c.to_node_id === parent.from_node_id)
+        }
         if (!incomingToParent) { currentNodeId = parent.from_node_id; currentInput = undefined; continue }
         currentNodeId = parent.from_node_id
         currentInput = incomingToParent.input_number || currentInput
       }
 
       // For uniqueness, key off recorder + track + first node id at end of traversal
-      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${labels[labels.length-1] || ''}`
+      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}`
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
@@ -220,9 +225,9 @@ export async function getCompleteSignalPath(projectId) {
         recorder_label: recorder.label,
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
-        source_id: pathIds[0] || null,
-        source_label: (pathIds[0] && nodeMap[pathIds[0]]?.label) || null,
-        track_name: (pathIds[0] && nodeMap[pathIds[0]]?.track_name) || null,
+        source_id: finalSourceNode?.id || null,
+        source_label: finalSourceNode?.label || null,
+        track_name: finalSourceNode?.track_name || null,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
