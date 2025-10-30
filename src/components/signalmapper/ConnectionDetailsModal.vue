@@ -180,9 +180,10 @@ const isRecorderTo = computed(() => (props.toNode.gearType || props.toNode.node_
 const isTransformerTo = computed(() => (props.toNode.gearType || props.toNode.node_type) === 'transformer')
 const isTransformerFrom = computed(() => (props.fromNode.gearType || props.fromNode.node_type) === 'transformer')
 
-// Use port mapping for transformer→transformer and recorder→recorder
+// Use port mapping when neither side is a source, and at least one side is a transformer
+// (also supports recorder→recorder)
 const needsPortMapping = computed(() =>
-  (isTransformerFrom.value && isTransformerTo.value) ||
+  (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
   (isRecorderFrom.value && isRecorderTo.value)
 )
 
