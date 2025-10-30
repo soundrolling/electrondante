@@ -301,11 +301,18 @@ const availableToPortsForEdit = computed(() => {
   const to = toNodeOfSelected.value
   const opts = []
   if (toNodeType.value === 'recorder') {
-    const count = to?.num_tracks || to?.tracks || to?.num_records || 0
+    // Prefer recorder tracks; fall back to input count when tracks are not defined
+    const trackCount = to?.num_tracks || to?.tracks || to?.num_records || to?.numrecord || 0
+    const count = trackCount && trackCount > 0 ? trackCount : (to?.num_inputs || to?.numinputs || to?.inputs || 0)
     for (let n = 1; n <= count; n++) {
-      if (!used.has(n)) {
-        opts.push({ value: n, label: `Track ${n}` })
-      }
+      if (used.has(n)) continue
+      // Avoid listing ports already taken by raw connections on the target
+      const taken = props.connections.find(c =>
+        c.id !== selectedConnectionId.value &&
+        (c.to_node_id === to?.id || c.to === to?.id) &&
+        (c.track_number === n || c.input_number === n)
+      )
+      if (!taken) opts.push({ value: n, label: `Track ${n}` })
     }
   } else {
     const count = to?.num_inputs || to?.numinputs || to?.inputs || 0
