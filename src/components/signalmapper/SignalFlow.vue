@@ -174,7 +174,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
@@ -1021,6 +1021,25 @@ onMounted(() => {
     canvas.value.height = canvasHeight.value * dpr
   }
   nextTick(drawCanvas)
+
+  // Prevent browser zooming the canvas via Ctrl/⌘ + scroll or trackpad pinch
+  const wheelBlocker = (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault()
+    }
+  }
+  const gestureBlocker = (e) => {
+    e.preventDefault()
+  }
+  window.addEventListener('wheel', wheelBlocker, { passive: false })
+  window.addEventListener('gesturestart', gestureBlocker, { passive: false })
+  window.addEventListener('gesturechange', gestureBlocker, { passive: false })
+
+  onUnmounted(() => {
+    window.removeEventListener('wheel', wheelBlocker)
+    window.removeEventListener('gesturestart', gestureBlocker)
+    window.removeEventListener('gesturechange', gestureBlocker)
+  })
 })
 </script>
 
