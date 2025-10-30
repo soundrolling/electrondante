@@ -1024,21 +1024,34 @@ onMounted(() => {
 
   // Prevent browser zooming the canvas via Ctrl/⌘ + scroll or trackpad pinch
   const wheelBlocker = (e) => {
-    if (e.ctrlKey) {
+    // Block any wheel events that originate over the canvas wrapper
+    if (canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
+      e.preventDefault()
+    } else if (e.ctrlKey) {
+      // Fallback: block page zoom anywhere when ctrl/⌘ pressed
       e.preventDefault()
     }
   }
   const gestureBlocker = (e) => {
     e.preventDefault()
   }
+  const touchBlocker = (e) => {
+    // Block two-finger pinch/zoom on trackpads/touch screens
+    if (e.touches && e.touches.length > 1) {
+      e.preventDefault()
+    }
+  }
   window.addEventListener('wheel', wheelBlocker, { passive: false })
   window.addEventListener('gesturestart', gestureBlocker, { passive: false })
   window.addEventListener('gesturechange', gestureBlocker, { passive: false })
+  // iOS/Touch devices
+  document.addEventListener('touchmove', touchBlocker, { passive: false })
 
   onUnmounted(() => {
     window.removeEventListener('wheel', wheelBlocker)
     window.removeEventListener('gesturestart', gestureBlocker)
     window.removeEventListener('gesturechange', gestureBlocker)
+    document.removeEventListener('touchmove', touchBlocker)
   })
 })
 </script>
@@ -1152,6 +1165,8 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
+  /* Disable browser gesture zoom on supported browsers */
+  touch-action: none;
 }
 
 .canvas-wrapper canvas {
