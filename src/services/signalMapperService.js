@@ -189,9 +189,9 @@ export async function getCompleteSignalPath(projectId) {
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
         source_id: finalSourceNode?.id || null,
-        // Prefer showing the Stage name in the Source Name column, so use label here
-        source_label: finalSourceNode?.label || null,
-        track_name: finalSourceNode?.label || null,
+        // For sources, track_name is the custom mic placement name (e.g., "Stage L")
+        source_label: finalSourceNode?.track_name || finalSourceNode?.label || null,
+        track_name: finalSourceNode?.track_name || finalSourceNode?.label || null,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
@@ -219,8 +219,9 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     const node = nodeMap[currentNodeId]
     if (!node) break
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      // Use the node's label (e.g., "Stage L") for the path, not the track_name
-      labels.push(node.label || node.track_name)
+      // For sources, track_name is the custom name set in mic placement (e.g., "Stage L")
+      const sourceName = node.track_name || node.label
+      labels.push(sourceName)
       finalSourceNode = node
       break
     }
