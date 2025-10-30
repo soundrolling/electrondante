@@ -132,8 +132,33 @@ export async function getCompleteSignalPath(projectId) {
   recorders.forEach(recorder => {
     // Get all connections to this recorder
     const recorderConnections = connections.filter(c => c.to_node_id === recorder.id)
+
+    // Expand port-mapped parent connections (transformer→recorder with connection_port_map rows)
+    let trackConns = recorderConnections.filter(c => !!c.input_number)
+    const parentConnIds = recorderConnections.map(c => c.id)
+    if (parentConnIds.length) {
+      try {
+        const { data: mapRows } = await supabase
+          .from('connection_port_map')
+          .select('connection_id, to_port')
+          .in('connection_id', parentConnIds)
+        if (mapRows && mapRows.length) {
+          const parentById = Object.fromEntries(recorderConnections.map(p => [p.id, p]))
+          const expanded = mapRows.map(row => ({
+            from_node_id: parentById[row.connection_id]?.from_node_id,
+            to_node_id: recorder.id,
+            input_number: row.to_port,
+            pad: parentById[row.connection_id]?.pad,
+            phantom_power: parentById[row.connection_id]?.phantom_power,
+            connection_type: parentById[row.connection_id]?.connection_type,
+            id: `${row.connection_id}:${row.to_port}`
+          })).filter(v => v.from_node_id)
+          trackConns = trackConns.concat(expanded)
+        }
+      } catch {}
+    }
     
-    recorderConnections.forEach(conn => {
+    trackConns.forEach(conn => {
       // Build the path backwards from the recorder to source
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
@@ -142,17 +167,18 @@ export async function getCompleteSignalPath(projectId) {
       const trackLabel = conn.input_number ? `Track ${conn.input_number}` : undefined
       labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
 
-      for (let i = 0; i < pathIds.length; i++) {
+      // Walk from the transformer back to the source so we include every hop
+      for (let i = pathIds.length - 1; i >= 0; i--) {
         const nodeId = pathIds[i]
         const node = nodeMap[nodeId]
         if (!node) continue
-        // If this is a source, add its label and stop
+        // If this is a source, add its label and continue
         if (node.gear_type === 'source' || node.node_type === 'source') {
           labels.push(node.track_name || node.label)
-          break
+          continue
         }
-        // Find the incoming connection that links from the next node in the path to this node
-        const nextId = i + 1 < pathIds.length ? pathIds[i + 1] : null
+        // Find the incoming connection that links from the next upstream node in the path to this node
+        const nextId = i - 1 >= 0 ? pathIds[i - 1] : null
         let incoming = null
         if (nextId) {
           incoming = connections.find(c => c.to_node_id === nodeId && c.from_node_id === nextId)
@@ -165,7 +191,7 @@ export async function getCompleteSignalPath(projectId) {
       }
 
       // For uniqueness, key off recorder + track + starting node of path
-      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${pathIds[pathIds.length-1] || ''}`
+      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${pathIds[0] || ''}`
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
@@ -174,9 +200,9 @@ export async function getCompleteSignalPath(projectId) {
         recorder_label: recorder.label,
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
-        source_id: pathIds[pathIds.length-1] || null,
-        source_label: (pathIds[pathIds.length-1] && nodeMap[pathIds[pathIds.length-1]]?.label) || null,
-        track_name: (pathIds[pathIds.length-1] && nodeMap[pathIds[pathIds.length-1]]?.track_name) || null,
+        source_id: pathIds[0] || null,
+        source_label: (pathIds[0] && nodeMap[pathIds[0]]?.label) || null,
+        track_name: (pathIds[0] && nodeMap[pathIds[0]]?.track_name) || null,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
