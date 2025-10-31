@@ -224,10 +224,25 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (node.gear_type === 'source' || node.node_type === 'source') {
       // For sources, prefer custom track_name; if the source has two outputs and
       // we arrived carrying the source output index in currentInput, append L/R.
-      let sourceName = node.track_name || node.label
+      // Clean the base name to avoid duplicate numbers and LR suffix
+      const label = node.label || ''
+      const trackName = node.track_name || ''
+      const m = label.match(/^(.*) \((\d+)\)$/)
+      const num = m ? m[2] : ''
+      let base
+      if (trackName) {
+        base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      } else if (m) {
+        base = m[1].replace(/\s*LR$/i,'').trim()
+      } else {
+        base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      }
+      const numSuffix = num ? ` (${num})` : ''
+      
+      let sourceName = base + numSuffix
       if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
-        if (Number(currentInput) === 1) sourceName = `${sourceName} L`
-        else if (Number(currentInput) === 2) sourceName = `${sourceName} R`
+        if (Number(currentInput) === 1) sourceName = `${base} L${numSuffix}`
+        else if (Number(currentInput) === 2) sourceName = `${base} R${numSuffix}`
       }
       labels.push(sourceName)
       finalSourceNode = node
@@ -269,8 +284,29 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (matchingConn) {
       // Found the connection feeding this input; move to the source node
       currentNodeId = matchingConn.from_node_id
-      // For the next iteration (though if it's a source, we'll exit immediately)
-      currentInput = matchingConn.input_number
+      const fromNode = nodeMap[matchingConn.from_node_id]
+      if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
+        // For stereo sources connected directly, infer L/R by checking sibling connections
+        if ((fromNode.num_outputs === 2 || fromNode.outputs === 2)) {
+          // Find all connections from this source to this transformer
+          const siblings = parents.filter(c => 
+            c.from_node_id === matchingConn.from_node_id &&
+            typeof c.input_number === 'number'
+          ).map(c => c.input_number).sort((a,b) => a - b)
+          if (siblings.length >= 2) {
+            // Use input position to determine L/R (lower = L, higher = R)
+            currentInput = siblings.indexOf(Number(currentInput)) === 0 ? 1 : 2
+          } else {
+            // Single connection or can't determine, use parity heuristic
+            currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+          }
+        } else {
+          currentInput = 1 // Mono source
+        }
+      } else {
+        // Not a source yet, keep the input number for further traversal
+        currentInput = matchingConn.input_number
+      }
     } else {
       // No matching connection; stop traversal
       break

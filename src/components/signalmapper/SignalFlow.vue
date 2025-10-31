@@ -1159,7 +1159,12 @@ async function confirmConnection(connectionData) {
     }
     closeConnectionModal()
     toast.success('Connection created')
-    nextTick(drawCanvas)
+    // Redraw canvas immediately, then again after props update
+    nextTick(() => {
+      drawCanvas()
+      // Also redraw after a brief delay to catch any prop updates
+      setTimeout(() => drawCanvas(), 100)
+    })
   } catch (err) {
     console.error('Error creating connection:', err)
     if (err?.code === '23505') {
