@@ -161,10 +161,12 @@ export async function getCompleteSignalPath(projectId) {
             from_node_id: parentById[row.connection_id]?.from_node_id,
             to_node_id: recorder.id,
             input_number: row.to_port,
+            from_port: row.from_port, // Store the source output port for later use
             pad: parentById[row.connection_id]?.pad,
             phantom_power: parentById[row.connection_id]?.phantom_power,
             connection_type: parentById[row.connection_id]?.connection_type,
-            id: `${row.connection_id}:${row.to_port}`
+            id: `${row.connection_id}:${row.to_port}`,
+            connection_id: row.connection_id // Keep reference to original connection for port map lookup
           })).filter(v => v.from_node_id)
           trackConns = trackConns.concat(expanded)
         }
@@ -175,8 +177,22 @@ export async function getCompleteSignalPath(projectId) {
       // Build the path backwards from the recorder to source
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
+      // For port-mapped connections direct to recorder, use from_port to determine source output (L/R)
+      // Otherwise use input_number which will be resolved through port maps
+      let startInput = conn.input_number
+      let recorderTrackNum = conn.input_number // Default to input_number for label
+      if (conn.from_port && typeof conn.from_port === 'number') {
+        // This is an expanded port map connection - from_port tells us the source output (1=L, 2=R)
+        // Check if the from_node is a source - if so, we can use from_port directly for L/R determination
+        const fromNode = nodeMap[conn.from_node_id]
+        if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
+          startInput = conn.from_port // Use from_port (1 or 2) for source output detection
+          recorderTrackNum = conn.input_number // Keep original track number for label
+        }
+      }
+
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const { labels, finalSourceNode, finalSourceLabel } = resolveUpstreamPath(conn.from_node_id, conn.input_number, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder)
+      const { labels, finalSourceNode, finalSourceLabel } = resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum)
 
       // For uniqueness, key off recorder + track + first node id at end of traversal
       const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}`
@@ -206,9 +222,12 @@ export async function getCompleteSignalPath(projectId) {
   return signalPaths
 }
 
-function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder) {
+function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber) {
   const labels = []
-  const trackLabel = startInput ? `Track ${startInput}` : undefined
+  // Use recorderTrackNumber if provided (for direct port-mapped connections), otherwise use startInput
+  const trackLabel = (recorderTrackNumber !== undefined && recorderTrackNumber !== null) 
+    ? `Track ${recorderTrackNumber}` 
+    : (startInput ? `Track ${startInput}` : undefined)
   labels.push(trackLabel ? `${recorder.label} ${trackLabel}` : `${recorder.label}`)
 
   let currentNodeId = startNodeId
@@ -290,16 +309,44 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
         // Reached a source - determine L/R for stereo sources
         if ((fromNode.num_outputs === 2 || fromNode.outputs === 2)) {
-          // Find all connections from this source to the current transformer
-          const siblings = parents.filter(c => 
+          // Find all connections from this source to the transformer we just came from
+          // The transformer we were at is the one that has currentNodeId set before we moved to source
+          // We need to look back at the node we came from to find all its incoming connections
+          const transformerId = matchingConn.to_node_id
+          const transformerConnections = parentConnsByToNode[transformerId] || []
+          
+          // Find all connections from this source to that transformer
+          const siblings = transformerConnections.filter(c => 
             c.from_node_id === matchingConn.from_node_id &&
             typeof c.input_number === 'number'
-          ).map(c => c.input_number).sort((a,b) => a - b)
+          ).map(c => Number(c.input_number)).sort((a,b) => a - b)
+          
           if (siblings.length >= 2) {
-            // Use input position to determine L/R (lower = L, higher = R)
-            currentInput = siblings.indexOf(Number(currentInput)) === 0 ? 1 : 2
+            // Multiple connections from same stereo source
+            // The transformer inputs are in siblings array, find which position currentInput is at
+            const currentInputNum = Number(currentInput)
+            const index = siblings.indexOf(currentInputNum)
+            if (index >= 0) {
+              // Position 0 (lowest input number) = L (output 1), position 1 = R (output 2)
+              currentInput = index === 0 ? 1 : 2
+            } else {
+              // Current input not in siblings - use parity heuristic
+              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            }
+          } else if (siblings.length === 1) {
+            // Single connection - check if there's a port map to tell us which output
+            const connId = matchingConn.id
+            const portMaps = mapsByConnId[connId] || []
+            if (portMaps.length > 0) {
+              // Port map exists - use from_port to determine output (1=L, 2=R)
+              const portMap = portMaps.find(m => Number(m.to_port) === Number(currentInput)) || portMaps[0]
+              currentInput = Number(portMap.from_port) || 1
+            } else {
+              // No port map - use parity heuristic based on transformer input number
+              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            }
           } else {
-            // Single connection or can't determine, use parity heuristic
+            // No siblings found - use parity heuristic
             currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
           }
         } else {
