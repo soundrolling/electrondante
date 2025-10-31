@@ -91,15 +91,16 @@
         </div>
 
         <div class="form-group">
-          <label for="accommodationAddress">Address</label>
+          <label for="accommodationAddress">Google Maps Link</label>
           <input
-            type="text"
+            type="url"
             id="accommodationAddress"
             v-model="accommodationForm.address"
             required
-            placeholder="Full address"
+            placeholder="https://maps.google.com/..."
             class="form-input"
           />
+          <p class="form-help-text">Paste the Google Maps link for this location</p>
         </div>
 
         <div class="form-row">
@@ -159,6 +160,26 @@
           ></textarea>
         </div>
 
+        <div class="form-group">
+          <label for="accommodationMembers">Who is Staying Here?</label>
+          <p class="form-help-text">Select team members staying at this accommodation. You can select multiple members.</p>
+          <div class="member-selector">
+            <label 
+              v-for="member in projectMembers" 
+              :key="member.user_email"
+              class="member-checkbox-label"
+            >
+              <input
+                type="checkbox"
+                :value="member.user_email"
+                v-model="accommodationForm.member_emails"
+                class="member-checkbox"
+              />
+              <span>{{ member.display_name }}</span>
+            </label>
+          </div>
+        </div>
+
         <div class="form-actions">
           <button
             type="button"
@@ -195,9 +216,16 @@
         </div>
         
         <div class="accommodation-card-body">
-          <div class="accommodation-address">
+          <div class="accommodation-address" v-if="accommodation.address">
             <span class="address-icon">📍</span>
-            <span>{{ accommodation.address }}</span>
+            <a 
+              :href="accommodation.address" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="address-link"
+            >
+              View on Google Maps
+            </a>
           </div>
           
           <div class="accommodation-details">
@@ -212,6 +240,10 @@
             <div v-if="accommodation.phone_number" class="detail-item">
               <span class="detail-label">Phone:</span>
               <span>{{ accommodation.phone_number }}</span>
+            </div>
+            <div v-if="accommodation.member_names && accommodation.member_names.length > 0" class="detail-item">
+              <span class="detail-label">Staying:</span>
+              <span>{{ accommodation.member_names.join(', ') }}</span>
             </div>
           </div>
           
@@ -280,6 +312,51 @@ setup(props) {
   // Permission check
   const canManageProject = ref(false);
   
+  // Project members
+  const projectMembers = ref([]);
+  
+  // Fetch project members
+  async function fetchProjectMembers() {
+    if (!userStore.currentProject?.id) return;
+    try {
+      const { data: memberRows, error } = await supabase
+        .from('project_members')
+        .select('user_id, user_email, role')
+        .eq('project_id', userStore.currentProject.id)
+      
+      if (error) throw error
+      
+      const members = memberRows || []
+      const userIds = members.map(m => m.user_id).filter(Boolean)
+      
+      let profiles = []
+      if (userIds.length) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds)
+        profiles = profileData || []
+      }
+      
+      projectMembers.value = members.map(m => {
+        const profile = profiles.find(p => p.user_id === m.user_id) || {}
+        return {
+          ...m,
+          display_name: profile.full_name || m.user_email || 'Unknown'
+        }
+      })
+    } catch (err) {
+      console.error('Failed to fetch project members:', err)
+    }
+  }
+  
+  // Get member name by email
+  function getMemberName(email) {
+    if (!email || !projectMembers.value.length) return email || 'Unknown'
+    const member = projectMembers.value.find(m => m.user_email === email)
+    return member ? member.display_name : email
+  }
+  
   async function checkUserRole() {
     const { data: sess } = await supabase.auth.getSession();
     const email = sess?.session?.user?.email?.toLowerCase();
@@ -311,7 +388,8 @@ setup(props) {
     map_link: '',
     amenities: '',
     notes: '',
-    phone_number: '' // Added phone_number to form
+    phone_number: '',
+    member_emails: [] // Array for multiple members
   });
 
   const sortedAccommodations = computed(() => {
@@ -350,7 +428,27 @@ setup(props) {
         .eq('trip_id', selectedTripId.value)
         .order('check_in_date', { ascending: true });
       if (error) throw error;
-      accommodations.value = data || [];
+      
+      // Enrich with member information
+      const enriched = await Promise.all(
+        (data || []).map(async (acc) => {
+          const { data: accMembers } = await supabase
+            .from('travel_accommodation_members')
+            .select('user_email')
+            .eq('accommodation_id', acc.id)
+          
+          const memberEmails = (accMembers || []).map(am => am.user_email)
+          const memberNames = memberEmails.map(email => getMemberName(email))
+          
+          return {
+            ...acc,
+            member_emails: memberEmails,
+            member_names: memberNames
+          }
+        })
+      )
+      
+      accommodations.value = enriched;
     } catch (err) {
       console.error('Error loading accommodations:', err);
       toast.error('Failed to load accommodations');
@@ -376,9 +474,12 @@ setup(props) {
     showAccommodationForm.value = true;
   };
 
-  const editAccommodation = (acc) => {
+  const editAccommodation = async (acc) => {
     editingAccommodation.value = acc;
-    accommodationForm.value = { ...acc };
+    accommodationForm.value = { 
+      ...acc,
+      member_emails: acc.member_emails || []
+    };
     showAccommodationForm.value = true;
   };
 
@@ -411,44 +512,94 @@ setup(props) {
     }
     isSaving.value = true;
     try {
+      // Build payload and remove empty optional fields
+      const formData = { ...accommodationForm.value };
       const payload = {
-        ...accommodationForm.value,
+        name: formData.name,
+        type: formData.type,
+        address: formData.address,
+        check_in_date: formData.check_in_date,
+        check_out_date: formData.check_out_date,
+        check_in_time: formData.check_in_time || '15:00',
+        check_out_time: formData.check_out_time || '12:00',
+        room_type: formData.room_type || null,
+        map_link: formData.map_link || null,
+        amenities: formData.amenities || null,
+        notes: formData.notes || null,
+        // Only include optional fields if they have values
+        ...(formData.confirmation_number ? { confirmation_number: formData.confirmation_number } : {}),
+        ...(formData.phone_number ? { phone_number: formData.phone_number } : {}),
         trip_id: selectedTripId.value,
         project_id: projectId.value
       };
 
+      let accommodationId;
       if (editingAccommodation.value) {
         // update
-        const { error } = await supabase
+        const { data: updated, error } = await supabase
           .from('travel_accommodations')
           .update(payload)
           .eq('id', editingAccommodation.value.id)
-          .select();
+          .select()
+          .single();
         if (error) {
           console.error('Error updating accommodation:', error);
           toast.error(`Failed to update: ${error.message ?? ''}`);
-        } else {
-          toast.success('Accommodation updated');
-          await loadAccommodations();
-          showAccommodationForm.value = false;
-          editingAccommodation.value = null;
+          isSaving.value = false;
+          return;
         }
+        accommodationId = updated.id;
       } else {
         // insert
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('travel_accommodations')
           .insert(payload)
-          .select();
+          .select()
+          .single();
         if (error) {
           console.error('Error inserting accommodation:', error);
           toast.error(`Failed to add: ${error.message ?? ''}`);
-        } else {
-          toast.success('Accommodation added');
-          await loadAccommodations();
-          showAccommodationForm.value = false;
-          editingAccommodation.value = null;
+          isSaving.value = false;
+          return;
+        }
+        accommodationId = inserted.id;
+      }
+      
+      // Handle member associations
+      const memberEmails = formData.member_emails || [];
+      
+      // Delete existing members for this accommodation
+      await supabase
+        .from('travel_accommodation_members')
+        .delete()
+        .eq('accommodation_id', accommodationId);
+      
+      // Insert new members
+      if (memberEmails.length > 0) {
+        const memberRecords = memberEmails.map(email => ({
+          accommodation_id: accommodationId,
+          user_email: email
+        }));
+        
+        const { error: membersError } = await supabase
+          .from('travel_accommodation_members')
+          .insert(memberRecords);
+        
+        if (membersError) {
+          console.error('Error saving accommodation members:', membersError);
+          toast.error('Accommodation saved but failed to update members');
         }
       }
+      
+      if (editingAccommodation.value) {
+        toast.success('Accommodation updated');
+      } else {
+        toast.success('Accommodation added');
+      }
+      
+      await loadAccommodations();
+      showAccommodationForm.value = false;
+      editingAccommodation.value = null;
     } catch (err) {
       console.error('Exception while saving accommodation:', err);
       toast.error('Unexpected error while saving accommodation');
@@ -471,7 +622,8 @@ setup(props) {
       map_link: '',
       amenities: '',
       notes: '',
-      phone_number: '' // Reset phone_number
+      phone_number: '',
+      member_emails: []
     };
   };
 
@@ -508,6 +660,7 @@ setup(props) {
 
   onMounted(async () => {
     await checkUserRole();
+    await fetchProjectMembers();
     loadTrips();
     if (selectedTripId.value) {
       loadAccommodations();
@@ -525,6 +678,7 @@ setup(props) {
     isSaving,
     accommodationForm,
     sortedAccommodations,
+    projectMembers,
 
     loadAccommodations,
     openAddForm,
@@ -851,6 +1005,52 @@ setup(props) {
   line-height: 1.4;
 }
 
+.form-help-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.member-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.member-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.member-checkbox-label:hover {
+  background-color: #f3f4f6;
+}
+
+.member-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.member-checkbox-label span {
+  font-size: 14px;
+  color: #374151;
+  user-select: none;
+}
+
 .form-input,
 .form-select,
 .form-textarea {
@@ -1042,6 +1242,18 @@ setup(props) {
 .address-icon {
   font-size: 16px;
   color: #6b7280;
+}
+
+.address-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.address-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 .accommodation-details {

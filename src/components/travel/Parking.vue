@@ -92,6 +92,15 @@
             class="form-textarea"
           ></textarea>
         </div>
+        <div class="form-group">
+          <label for="parkingMember">Who is this parking for?</label>
+          <select id="parkingMember" v-model="parkingForm.member_email" class="form-select">
+            <option value="">-- Select Member --</option>
+            <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+              {{ member.display_name }}
+            </option>
+          </select>
+        </div>
         <div class="form-actions">
           <button type="button" @click="closeForm" class="secondary-button">
             Cancel
@@ -136,6 +145,10 @@
               <span class="detail-label">Notes:</span>
               <span class="detail-value">{{ entry.notes }}</span>
             </div>
+            <div v-if="entry.member_name" class="detail-item">
+              <span class="detail-label">For:</span>
+              <span class="detail-value">{{ entry.member_name }}</span>
+            </div>
           </div>
         </div>
         <div v-if="canManageProject" class="parking-card-footer">
@@ -159,6 +172,7 @@ import { ref, onMounted } from 'vue';
 import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '../../stores/userStore';
+import { format, parseISO } from 'date-fns';
 
 export default {
 name: 'Parking',
@@ -180,11 +194,16 @@ setup(props) {
     start_datetime: '',
     end_datetime: '',
     cost: '',
-    notes: ''
+    notes: '',
+    member_email: '' // Will be set to current user when opening form
   });
   
   // Permission check
   const canManageProject = ref(false);
+  
+  // Project members
+  const projectMembers = ref([]);
+  const currentUserEmail = ref('');
   
   async function checkUserRole() {
     const { data: sess } = await supabase.auth.getSession();
@@ -203,6 +222,51 @@ setup(props) {
       canManageProject.value = false;
     }
   }
+  
+  // Fetch project members
+  async function fetchProjectMembers() {
+    if (!userStore.currentProject?.id) return;
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      currentUserEmail.value = sess?.session?.user?.email?.toLowerCase() || '';
+      
+      const { data: memberRows, error } = await supabase
+        .from('project_members')
+        .select('user_id, user_email, role')
+        .eq('project_id', userStore.currentProject.id)
+      
+      if (error) throw error
+      
+      const members = memberRows || []
+      const userIds = members.map(m => m.user_id).filter(Boolean)
+      
+      let profiles = []
+      if (userIds.length) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds)
+        profiles = profileData || []
+      }
+      
+      projectMembers.value = members.map(m => {
+        const profile = profiles.find(p => p.user_id === m.user_id) || {}
+        return {
+          ...m,
+          display_name: profile.full_name || m.user_email || 'Unknown'
+        }
+      })
+    } catch (err) {
+      console.error('Failed to fetch project members:', err)
+    }
+  }
+  
+  // Get member name by email
+  function getMemberName(email) {
+    if (!email || !projectMembers.value.length) return email || 'Unknown'
+    const member = projectMembers.value.find(m => m.user_email === email)
+    return member ? member.display_name : email
+  }
 
   const loadParking = async () => {
     isLoading.value = true;
@@ -213,7 +277,11 @@ setup(props) {
         .eq('trip_id', props.tripId)
         .order('start_datetime', { ascending: true });
       if (error) throw error;
-      parkingEntries.value = data || [];
+      // Enrich with member names
+      parkingEntries.value = (data || []).map(entry => ({
+        ...entry,
+        member_name: entry.member_email ? getMemberName(entry.member_email) : null
+      }));
     } catch (err) {
       toast.error('Failed to load parking entries');
     } finally {
@@ -223,7 +291,15 @@ setup(props) {
 
   const openForm = () => {
     editingParking.value = null;
-    parkingForm.value = { airport: '', parking_provider: '', start_datetime: '', end_datetime: '', cost: '', notes: '' };
+    parkingForm.value = { 
+      airport: '', 
+      parking_provider: '', 
+      start_datetime: '', 
+      end_datetime: '', 
+      cost: '', 
+      notes: '',
+      member_email: currentUserEmail.value // Default to current user
+    };
     showForm.value = true;
   };
   const editParking = (entry) => {
@@ -234,7 +310,15 @@ setup(props) {
   const closeForm = () => {
     showForm.value = false;
     editingParking.value = null;
-    parkingForm.value = { airport: '', parking_provider: '', start_datetime: '', end_datetime: '', cost: '', notes: '' };
+    parkingForm.value = { 
+      airport: '', 
+      parking_provider: '', 
+      start_datetime: '', 
+      end_datetime: '', 
+      cost: '', 
+      notes: '',
+      member_email: ''
+    };
   };
   const saveParking = async () => {
     isSaving.value = true;
@@ -275,9 +359,20 @@ setup(props) {
       toast.error('Failed to delete parking');
     }
   };
+  
+  const formatDateTime = (dtString) => {
+    if (!dtString) return '';
+    try {
+      const dt = parseISO(dtString);
+      return format(dt, 'MMM d, yyyy – HH:mm');
+    } catch (err) {
+      return dtString;
+    }
+  };
 
   onMounted(async () => {
     await checkUserRole();
+    await fetchProjectMembers();
     loadParking();
   });
 
@@ -293,7 +388,9 @@ setup(props) {
     closeForm,
     saveParking,
     deleteParking,
-    canManageProject
+    canManageProject,
+    projectMembers,
+    formatDateTime
   };
 }
 };

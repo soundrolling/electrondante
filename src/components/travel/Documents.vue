@@ -97,6 +97,9 @@
           <p v-if="doc.type" class="document-type">
             <span class="type-label">Type:</span> {{ doc.type }}
           </p>
+          <p v-if="doc.member_name" class="document-member">
+            <span class="type-label">For:</span> {{ doc.member_name }}
+          </p>
         </div>
         
         <div class="document-actions">
@@ -229,6 +232,16 @@
             />
           </div>
 
+          <div class="form-group">
+            <label for="docMember">Who is this document for?</label>
+            <select id="docMember" v-model="documentForm.member_email" class="form-select">
+              <option value="">-- Select Member --</option>
+              <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+                {{ member.display_name }}
+              </option>
+            </select>
+          </div>
+
           <div class="form-actions">
             <button type="button" @click="closeModal" class="secondary-button">
               Cancel
@@ -279,6 +292,55 @@ export default {
     // Permission check
     const canManageProject = ref(false);
     
+    // Project members
+    const projectMembers = ref([]);
+    const currentUserEmail = ref('');
+    
+    // Fetch project members
+    async function fetchProjectMembers() {
+      if (!userStore.currentProject?.id) return;
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        currentUserEmail.value = sess?.session?.user?.email?.toLowerCase() || '';
+        
+        const { data: memberRows, error } = await supabase
+          .from('project_members')
+          .select('user_id, user_email, role')
+          .eq('project_id', userStore.currentProject.id)
+        
+        if (error) throw error
+        
+        const members = memberRows || []
+        const userIds = members.map(m => m.user_id).filter(Boolean)
+        
+        let profiles = []
+        if (userIds.length) {
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('user_id, full_name')
+            .in('user_id', userIds)
+          profiles = profileData || []
+        }
+        
+        projectMembers.value = members.map(m => {
+          const profile = profiles.find(p => p.user_id === m.user_id) || {}
+          return {
+            ...m,
+            display_name: profile.full_name || m.user_email || 'Unknown'
+          }
+        })
+      } catch (err) {
+        console.error('Failed to fetch project members:', err)
+      }
+    }
+    
+    // Get member name by email
+    function getMemberName(email) {
+      if (!email || !projectMembers.value.length) return email || 'Unknown'
+      const member = projectMembers.value.find(m => m.user_email === email)
+      return member ? member.display_name : email
+    }
+    
     async function checkUserRole() {
       const { data: sess } = await supabase.auth.getSession();
       const email = sess?.session?.user?.email?.toLowerCase();
@@ -303,7 +365,8 @@ export default {
       description: "",
       url: "",
       file_path: "",
-      date: ""
+      date: "",
+      member_email: "" // Will be set to current user when opening modal
     });
 
     const goBackToDashboard = () => {
@@ -409,7 +472,13 @@ export default {
           .eq("trip_id", selectedTripId.value)
           .order("date", { ascending: true });
         if (error) throw error;
-        documents.value = (data || []).map(doc => ({ ...doc, localUrl: null }));
+        
+        // Enrich with member names
+        documents.value = (data || []).map(doc => ({ 
+          ...doc, 
+          localUrl: null,
+          member_name: doc.member_email ? getMemberName(doc.member_email) : null
+        }));
       } catch (err) {
         console.error("Error loading documents:", err);
         toast.error("Failed to load documents");
@@ -421,6 +490,7 @@ export default {
     const openModal = () => {
       editingDocument.value = null;
       resetForm();
+      documentForm.value.member_email = currentUserEmail.value; // Default to current user
       showModal.value = true;
     };
     
@@ -710,7 +780,8 @@ export default {
         description: "",
         url: "",
         file_path: "",
-        date: ""
+        date: "",
+        member_email: ""
       };
     };
 
@@ -725,6 +796,7 @@ export default {
 
     onMounted(async () => {
       await checkUserRole();
+      await fetchProjectMembers();
       loadTrips();
       if (selectedTripId.value) {
         loadDocuments();
@@ -762,6 +834,7 @@ export default {
       isPdfFile,
       getPreviewUrl,
       canManageProject,
+      projectMembers,
     };
   }
 };

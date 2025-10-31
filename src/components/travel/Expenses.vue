@@ -84,6 +84,7 @@
           <p class="expense-category">{{ expense.category }}</p>
           <p class="expense-amount">${{ Number(expense.amount).toFixed(2) }}</p>
           <p class="expense-date">{{ formatDate(expense.date) }}</p>
+          <p v-if="expense.member_name" class="expense-member">For: {{ expense.member_name }}</p>
           <p v-if="expense.description" class="expense-description">{{ expense.description }}</p>
 
           <!-- Receipt preview if available -->
@@ -203,6 +204,16 @@
             ></textarea>
           </div>
 
+          <div class="form-group">
+            <label for="expenseMember">Who is this expense for?</label>
+            <select id="expenseMember" v-model="expenseForm.member_email" class="form-select">
+              <option value="">-- Select Member --</option>
+              <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+                {{ member.display_name }}
+              </option>
+            </select>
+          </div>
+
           <!-- File upload input for receipt or invoice -->
           <div class="form-group">
             <label for="expenseReceipt">Receipt (Optional, max 5MB)</label>
@@ -279,6 +290,55 @@ setup(props) {
   // Permission check
   const canManageProject = ref(false);
   
+  // Project members
+  const projectMembers = ref([]);
+  const currentUserEmail = ref('');
+  
+  // Fetch project members
+  async function fetchProjectMembers() {
+    if (!userStore.currentProject?.id) return;
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      currentUserEmail.value = sess?.session?.user?.email?.toLowerCase() || '';
+      
+      const { data: memberRows, error } = await supabase
+        .from('project_members')
+        .select('user_id, user_email, role')
+        .eq('project_id', userStore.currentProject.id)
+      
+      if (error) throw error
+      
+      const members = memberRows || []
+      const userIds = members.map(m => m.user_id).filter(Boolean)
+      
+      let profiles = []
+      if (userIds.length) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds)
+        profiles = profileData || []
+      }
+      
+      projectMembers.value = members.map(m => {
+        const profile = profiles.find(p => p.user_id === m.user_id) || {}
+        return {
+          ...m,
+          display_name: profile.full_name || m.user_email || 'Unknown'
+        }
+      })
+    } catch (err) {
+      console.error('Failed to fetch project members:', err)
+    }
+  }
+  
+  // Get member name by email
+  function getMemberName(email) {
+    if (!email || !projectMembers.value.length) return email || 'Unknown'
+    const member = projectMembers.value.find(m => m.user_email === email)
+    return member ? member.display_name : email
+  }
+  
   async function checkUserRole() {
     const { data: sess } = await supabase.auth.getSession();
     const email = sess?.session?.user?.email?.toLowerCase();
@@ -305,7 +365,8 @@ setup(props) {
     date: "",
     description: "",
     file_path: "",
-    url: ""
+    url: "",
+    member_email: "" // Will be set to current user when opening modal
   });
 
   // "Back to Dashboard" button
@@ -370,8 +431,12 @@ setup(props) {
         .order('date', { ascending: true });
       if (error) throw error;
 
-      // Initialize localUrl
-      expenses.value = (data || []).map(item => ({ ...item, localUrl: null }));
+      // Initialize localUrl and enrich with member names
+      expenses.value = (data || []).map(item => ({ 
+        ...item, 
+        localUrl: null,
+        member_name: item.member_email ? getMemberName(item.member_email) : null
+      }));
     } catch (err) {
       console.error("Error loading expenses:", err);
       toast.error("Failed to load expenses");
@@ -384,6 +449,7 @@ setup(props) {
   const openModal = () => {
     editingExpense.value = null;
     resetForm();
+    expenseForm.value.member_email = currentUserEmail.value; // Default to current user
     showModal.value = true;
   };
   const closeModal = () => {
@@ -637,12 +703,14 @@ setup(props) {
       date: "",
       description: "",
       file_path: "",
-      url: ""
+      url: "",
+      member_email: ""
     };
   };
 
   onMounted(async () => {
     await checkUserRole();
+    await fetchProjectMembers();
     loadTrips();
     if (selectedTripId.value) {
       loadExpenses();
@@ -686,7 +754,8 @@ setup(props) {
     removeStorageFile,
     viewStorageFile,
     downloadForOffline,
-    isImageFile
+    isImageFile,
+    projectMembers
   };
 }
 };

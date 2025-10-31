@@ -131,6 +131,10 @@
                 <span class="detail-label">Seat:</span>
                 <span class="detail-value">{{ flight.seat_assignment || 'N/A' }}</span>
               </div>
+              <div v-if="flight.member_name" class="detail-item">
+                <span class="detail-label">For:</span>
+                <span class="detail-value">{{ flight.member_name }}</span>
+              </div>
               <div class="detail-item">
                 <span class="detail-label">Status:</span>
                 <span class="detail-value" :class="getFlightStatusClass(flight)">
@@ -306,6 +310,7 @@
           </div>
           <div class="parking-card-body">
             <p class="parking-cost">Cost: £{{ parseFloat(slot.cost).toFixed(2) }}</p>
+            <p v-if="slot.member_name" class="parking-member">For: {{ slot.member_name }}</p>
             <p v-if="slot.notes" class="parking-notes">{{ slot.notes }}</p>
           </div>
           <div v-if="canManageProject" class="parking-card-footer">
@@ -466,6 +471,15 @@
               placeholder="e.g., 12A"
               class="form-input"
             />
+          </div>
+          <div class="form-group">
+            <label for="flightMember">Who is this flight for?</label>
+            <select id="flightMember" v-model="flightForm.member_email" class="form-input">
+              <option value="">-- Select Member --</option>
+              <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+                {{ member.display_name }}
+              </option>
+            </select>
           </div>
           <div class="form-group">
             <label for="flightNotes">Notes (Optional)</label>
@@ -802,6 +816,15 @@
               class="form-textarea"
             ></textarea>
           </div>
+          <div class="form-group">
+            <label for="parkingMember">Who is this parking for?</label>
+            <select id="parkingMember" v-model="newParking.member_email" class="form-input">
+              <option value="">-- Select Member --</option>
+              <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+                {{ member.display_name }}
+              </option>
+            </select>
+          </div>
           <div class="form-actions">
             <button
               type="button"
@@ -897,6 +920,15 @@
               class="form-textarea"
             ></textarea>
           </div>
+          <div class="form-group">
+            <label for="editParkingMember">Who is this parking for?</label>
+            <select id="editParkingMember" v-model="editParking.member_email" class="form-input">
+              <option value="">-- Select Member --</option>
+              <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+                {{ member.display_name }}
+              </option>
+            </select>
+          </div>
           <div class="form-actions">
             <button
               type="button"
@@ -950,6 +982,55 @@ setup(props) {
   // Permission check
   const canManageProject = ref(false);
   
+  // Project members
+  const projectMembers = ref([]);
+  const currentUserEmail = ref('');
+  
+  // Fetch project members
+  async function fetchProjectMembers() {
+    if (!userStore.currentProject?.id) return;
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      currentUserEmail.value = sess?.session?.user?.email?.toLowerCase() || '';
+      
+      const { data: memberRows, error } = await supabase
+        .from('project_members')
+        .select('user_id, user_email, role')
+        .eq('project_id', userStore.currentProject.id)
+      
+      if (error) throw error
+      
+      const members = memberRows || []
+      const userIds = members.map(m => m.user_id).filter(Boolean)
+      
+      let profiles = []
+      if (userIds.length) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds)
+        profiles = profileData || []
+      }
+      
+      projectMembers.value = members.map(m => {
+        const profile = profiles.find(p => p.user_id === m.user_id) || {}
+        return {
+          ...m,
+          display_name: profile.full_name || m.user_email || 'Unknown'
+        }
+      })
+    } catch (err) {
+      console.error('Failed to fetch project members:', err)
+    }
+  }
+  
+  // Get member name by email
+  function getMemberName(email) {
+    if (!email || !projectMembers.value.length) return email || 'Unknown'
+    const member = projectMembers.value.find(m => m.user_email === email)
+    return member ? member.display_name : email
+  }
+  
   async function checkUserRole() {
     const { data: sess } = await supabase.auth.getSession();
     const email = sess?.session?.user?.email?.toLowerCase();
@@ -984,7 +1065,8 @@ setup(props) {
     arrival_airport_code: '',
     arrival_time: '',
     seat_assignment: '',
-    notes: ''
+    notes: '',
+    member_email: '' // Default will be set when opening modal
   });
 
   // Rental Modal State
@@ -1024,7 +1106,8 @@ setup(props) {
     end_datetime: '',
     cost: 0,
     notes: '',
-    trip_id: selectedTripId.value
+    trip_id: selectedTripId.value,
+    member_email: '' // Will be set to current user when opening modal
   });
   const editParking = ref({});
 
@@ -1122,7 +1205,12 @@ setup(props) {
         .eq('trip_id', selectedTripId.value)
         .order('departure_date', { ascending: true });
       if (fe) throw fe;
-      flights.value = fd || [];
+      
+      // Enrich flights with member names
+      flights.value = (fd || []).map(flight => ({
+        ...flight,
+        member_name: flight.member_email ? getMemberName(flight.member_email) : null
+      }));
 
       // Rental Cars
       let { data: rd, error: re } = await supabase
@@ -1149,7 +1237,12 @@ setup(props) {
         .eq('trip_id', selectedTripId.value)
         .order('start_datetime', { ascending: true });
       if (pe) throw pe;
-      parkingSlots.value = pd || [];
+      
+      // Enrich parking with member names
+      parkingSlots.value = (pd || []).map(slot => ({
+        ...slot,
+        member_name: slot.member_email ? getMemberName(slot.member_email) : null
+      }));
     } catch (e) {
       console.error(e);
       toast.error('Error while loading transportation data');
@@ -1176,7 +1269,8 @@ setup(props) {
           arrival_airport_code: '',
           arrival_time: '',
           seat_assignment: '',
-          notes: ''
+          notes: '',
+          member_email: currentUserEmail.value // Default to current user
         };
     showFlightModal.value = true;
   };
@@ -1358,7 +1452,8 @@ setup(props) {
       end_datetime: '',
       cost: 0,
       notes: '',
-      trip_id: selectedTripId.value
+      trip_id: selectedTripId.value,
+      member_email: currentUserEmail.value // Default to current user
     };
     showNewParkingModal.value = true;
   };
@@ -1431,6 +1526,7 @@ setup(props) {
 
   onMounted(async () => {
     await checkUserRole();
+    await fetchProjectMembers();
     await fetchTrips();
     if (selectedTripId.value) loadAllTransportData();
   });
@@ -1486,7 +1582,8 @@ setup(props) {
     updateParking,
     deleteParking,
     goBackToDashboard,
-    canManageProject
+    canManageProject,
+    projectMembers
   };
 }
 };
