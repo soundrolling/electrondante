@@ -62,7 +62,7 @@
         </button>
         <button class="btn btn-purple" @click="openUserGearSelector">
           <span class="btn-icon">👤</span>
-          <span class="btn-text">Add My Gear</span>
+          <span class="btn-text">Add Team Gear</span>
         </button>
         <button class="btn btn-warning" @click="openReorderModal">
           <span class="btn-icon">↕️</span>
@@ -486,7 +486,7 @@
     <div v-if="showUserGearSelector" class="modal-overlay" @click="closeUserGearSelector">
       <div class="modal" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">Add User Gear</h3>
+          <h3 class="modal-title">Add Team Gear</h3>
           <button class="modal-close" @click="closeUserGearSelector">✕</button>
         </div>
         <div class="modal-body">

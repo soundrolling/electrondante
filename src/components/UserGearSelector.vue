@@ -2,8 +2,8 @@
 <div class="user-gear-selector">
   <!-- Header -->
   <div class="selector-header">
-    <h3 class="selector-title">Add User Gear</h3>
-    <p class="selector-subtitle">Select gear from the profiles of users on this project</p>
+    <h3 class="selector-title">Add Team Gear</h3>
+    <p class="selector-subtitle">Adding Team Gear shows a list of all gear associated with project members that have gear in their profiles as their own gear</p>
   </div>
 
   <!-- Search and Filters -->
