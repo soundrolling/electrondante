@@ -36,6 +36,7 @@
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
       <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
+      <button @click="exportCanvas" class="btn-secondary">Export</button>
     </div>
   </div>
 
@@ -775,6 +776,42 @@ function updateCanvasSize() {
   }
   drawCanvas()
 }
+
+// Export the current canvas (background + all mic placements) as a PNG
+function exportCanvas() {
+  if (!canvas.value) return
+  // Ensure latest state is rendered
+  drawCanvas()
+  try {
+    canvas.value.toBlob((blob) => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const date = new Date().toISOString().slice(0, 10)
+      a.href = url
+      a.download = `mic-placement-${props.projectId}-${props.locationId}-${date}.png`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    }, 'image/png')
+  } catch (_) {
+    // no-op: if the canvas is tainted, export will fail silently here
+  }
+}
+
+// Expose a method to retrieve the current canvas as a data URL for parent exports
+function getCanvasDataURL() {
+  if (!canvas.value) return null
+  drawCanvas()
+  try {
+    return canvas.value.toDataURL('image/png')
+  } catch (e) {
+    return null
+  }
+}
+
+defineExpose({ getCanvasDataURL })
 </script>
 
 <style scoped>

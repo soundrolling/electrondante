@@ -1058,6 +1058,19 @@ onMounted(() => {
     document.removeEventListener('touchmove', touchBlocker)
   })
 })
+
+// Expose a method to retrieve the current flow canvas as a data URL for parent exports
+function getCanvasDataURL() {
+  if (!canvas.value) return null
+  drawCanvas()
+  try {
+    return canvas.value.toDataURL('image/png')
+  } catch (e) {
+    return null
+  }
+}
+
+defineExpose({ getCanvasDataURL })
 </script>
 
 <style scoped>
