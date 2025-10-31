@@ -33,6 +33,13 @@
         <option value="fair">Fair</option>
         <option value="poor">Poor</option>
       </select>
+
+      <select v-model="selectedTeamMember" class="filter-select">
+        <option value="">All Team Members</option>
+        <option v-for="member in availableTeamMembers" :key="member.user_id" :value="member.user_id">
+          {{ member.full_name || member.email || 'Unknown' }}
+        </option>
+      </select>
     </div>
   </div>
 
@@ -75,10 +82,10 @@
           </div>
 
           <div class="gear-owner">
-            <div class="owner-label">Owner:</div>
-            <span class="owner-name">{{ item.owner_name || 'Unknown' }}</span>
-            <span v-if="item.owner_company" class="owner-company">
-              {{ item.owner_company }}
+            <div class="owner-label">Listed By:</div>
+            <span class="owner-name">{{ item.listed_by_name || item.owner_name || 'Unknown' }}</span>
+            <span v-if="item.listed_by_company" class="owner-company">
+              {{ item.listed_by_company }}
             </span>
           </div>
         </div>
@@ -121,7 +128,7 @@
         class="selected-item"
       >
         <span class="item-name">{{ item.gear_name }}</span>
-        <span class="item-owner">{{ item.owner_name }}</span>
+        <span class="item-owner">{{ item.listed_by_name || item.owner_name }}</span>
         <input
           type="number"
           class="quantity-input"
@@ -170,10 +177,12 @@ const loading = ref(false);
 const searchTerm = ref('');
 const selectedType = ref('');
 const selectedCondition = ref('');
+const selectedTeamMember = ref('');
 const allUserGear = ref([]); // Store all user gear
 const filteredGear = ref([]); // Filtered results to display
 const selectedItems = ref([]);
 const availableTypes = ref([]);
+const availableTeamMembers = ref([]); // Store team members for filtering
 
 // Add a map to track selected quantities by item id
 const selectedQuantities = ref({});
@@ -312,7 +321,67 @@ async function loadUserGear() {
         throw viewError;
       }
       
-      gear = gearData || [];
+      // If using view, we need to fetch profiles separately to get the listed_by_name
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name, company')
+        .in('user_id', userIdArray);
+
+      const profileMap = {};
+      if (profiles) {
+        profiles.forEach(p => {
+          profileMap[p.user_id] = {
+            name: p.full_name || null,
+            company: p.company || null
+          };
+        });
+      }
+
+      // Build email map from project members
+      const emailMap = {};
+      if (projectMembers) {
+        projectMembers.forEach(m => {
+          if (m.user_id) {
+            emailMap[m.user_id] = m.user_email;
+          }
+        });
+      }
+
+      // Build team members list for filter dropdown
+      const teamMembersList = [];
+      userIdArray.forEach(userId => {
+        const profile = profileMap[userId];
+        const email = emailMap[userId];
+        const memberEntry = projectMembers?.find(m => m.user_id === userId);
+        
+        if (profile || email || memberEntry) {
+          teamMembersList.push({
+            user_id: userId,
+            full_name: profile?.name || null,
+            email: email || memberEntry?.user_email || null
+          });
+        }
+      });
+      availableTeamMembers.value = teamMembersList.sort((a, b) => {
+        const nameA = (a.full_name || a.email || '').toLowerCase();
+        const nameB = (b.full_name || b.email || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      gear = (gearData || []).map(item => {
+        const profile = profileMap[item.user_id];
+        const email = emailMap[item.user_id];
+        
+        return {
+          ...item,
+          listed_by_name: profile?.name || email || item.owner_name || 'Unknown',
+          listed_by_company: profile?.company || item.owner_company || null,
+          // Keep owner_name from view for backwards compatibility
+          owner_name: profile?.name || email || item.owner_name || 'Unknown',
+          owner_company: profile?.company || item.owner_company || null
+        };
+      });
+      
       console.log('Loaded gear from view:', gear.length, 'items');
       
       if (gear.length === 0) {
@@ -343,7 +412,7 @@ async function loadUserGear() {
         console.warn('No gear found in user_gear table for user IDs:', userIdArray);
       }
 
-      // Fetch profiles to get owner names for all users
+      // Fetch profiles to get listed by names for all users
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name, company')
@@ -377,13 +446,37 @@ async function loadUserGear() {
         }
       }
 
-      // Add owner information to each gear item
+      // Build team members list for filter dropdown
+      const teamMembersList = [];
+      userIdArray.forEach(userId => {
+        const profile = profileMap[userId];
+        const email = emailMap[userId];
+        const memberEntry = projectMembers?.find(m => m.user_id === userId);
+        
+        if (profile || email || memberEntry) {
+          teamMembersList.push({
+            user_id: userId,
+            full_name: profile?.name || null,
+            email: email || memberEntry?.user_email || null
+          });
+        }
+      });
+      availableTeamMembers.value = teamMembersList.sort((a, b) => {
+        const nameA = (a.full_name || a.email || '').toLowerCase();
+        const nameB = (b.full_name || b.email || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      // Add "listed by" information to each gear item (the person who listed it in their profile)
       gear = (gearData || []).map(item => {
         const profile = profileMap[item.user_id];
         const email = emailMap[item.user_id];
         
         return {
           ...item,
+          listed_by_name: profile?.name || email || 'Unknown',
+          listed_by_company: profile?.company || null,
+          // Keep owner_name for backwards compatibility/search
           owner_name: profile?.name || email || 'Unknown',
           owner_company: profile?.company || null
         };
@@ -416,7 +509,9 @@ function filterGear() {
     filtered = filtered.filter(item => 
       item.gear_name?.toLowerCase().includes(search) ||
       item.gear_type?.toLowerCase().includes(search) ||
-      item.notes?.toLowerCase().includes(search)
+      item.notes?.toLowerCase().includes(search) ||
+      item.listed_by_name?.toLowerCase().includes(search) ||
+      item.owner_name?.toLowerCase().includes(search)
     );
   }
   
@@ -430,11 +525,16 @@ function filterGear() {
     filtered = filtered.filter(item => item.condition === selectedCondition.value);
   }
   
+  // Apply team member filter
+  if (selectedTeamMember.value) {
+    filtered = filtered.filter(item => item.user_id === selectedTeamMember.value);
+  }
+  
   filteredGear.value = filtered;
 }
 
 // Watch filters to update results
-watch([searchTerm, selectedType, selectedCondition], () => {
+watch([searchTerm, selectedType, selectedCondition, selectedTeamMember], () => {
   filterGear();
 });
 
