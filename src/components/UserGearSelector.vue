@@ -392,22 +392,33 @@ async function loadUserGear() {
     
     console.log('Loading gear for user IDs:', userIdArray);
 
-    // Try to use user_gear_view first (includes owner info)
+    // Query user_gear directly (not the view) to avoid any filtering based on assigned_quantity
+    // We want to show ALL gear regardless of assignments to other projects
     let gear = [];
     try {
-      console.log('Attempting to query user_gear_view with user IDs:', userIdArray);
-      const { data: gearData, error: viewError } = await supabase
-        .from('user_gear_view')
+      console.log('[UserGearSelector] Querying user_gear table directly (bypassing view to avoid filtering):', userIdArray);
+      const { data: gearData, error: gearError } = await supabase
+        .from('user_gear')
         .select('*')
         .in('user_id', userIdArray)
         .order('gear_name');
 
-      if (viewError) {
-        console.error('Error querying user_gear_view:', viewError);
-        throw viewError;
+      if (gearError) {
+        console.error('Error querying user_gear table:', gearError);
+        throw gearError;
       }
+
+      console.log('[UserGearSelector] Loaded gear from direct query:', gearData?.length || 0, 'items');
       
-      // If using view, we need to fetch profiles separately to get the listed_by_name
+      if (!gearData || gearData.length === 0) {
+        console.warn('[UserGearSelector] No gear found for user IDs:', userIdArray);
+        allUserGear.value = [];
+        filteredGear.value = [];
+        filterGear();
+        return;
+      }
+
+      // Fetch profiles to get listed by names for all users
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name, company')
@@ -554,6 +565,7 @@ async function loadUserGear() {
       });
 
       // Add "listed by" information to each gear item (the person who listed it in their profile)
+      // NOTE: We ignore assigned_quantity here - we show ALL gear regardless of assignments to other projects
       gear = (gearData || []).map(item => {
         const profile = profileMap[item.user_id];
         const email = emailMap[item.user_id];
@@ -562,11 +574,15 @@ async function loadUserGear() {
           ...item,
           listed_by_name: profile?.name || email || 'Unknown',
           listed_by_company: profile?.company || null,
-          // Keep owner_name for backwards compatibility/search
           owner_name: profile?.name || email || 'Unknown',
           owner_company: profile?.company || null
         };
       });
+      
+      console.log('[UserGearSelector] Processed gear items:', gear.length);
+    } catch (error) {
+      console.error('[UserGearSelector] Error loading gear:', error);
+      throw error;
     }
     
     allUserGear.value = gear;
@@ -631,7 +647,12 @@ watch([searchTerm, selectedType, selectedCondition, selectedTeamMember], () => {
 
 // Check conflicts for all loaded gear
 async function checkAllGearConflicts() {
-  if (!props.projectId || !navigator.onLine) return;
+  if (!props.projectId || !navigator.onLine) {
+    console.log('[UserGearSelector] Skipping conflict check - projectId:', props.projectId, 'online:', navigator.onLine);
+    return;
+  }
+  
+  console.log('[UserGearSelector] Starting conflict check for project:', props.projectId);
   
   try {
     // Get current project dates
@@ -642,18 +663,26 @@ async function checkAllGearConflicts() {
       .single();
     
     if (projectError || !currentProject) {
+      console.warn('[UserGearSelector] Could not fetch project for conflict check:', projectError);
       return;
     }
+    
+    console.log('[UserGearSelector] Project dates:', {
+      build_days: currentProject.build_days?.length || 0,
+      main_show_days: currentProject.main_show_days?.length || 0
+    });
     
     // Check if current project has dates
     const hasCurrentDates = (Array.isArray(currentProject.build_days) && currentProject.build_days.length > 0) ||
                             (Array.isArray(currentProject.main_show_days) && currentProject.main_show_days.length > 0);
     
     if (!hasCurrentDates) {
+      console.log('[UserGearSelector] Project has no dates, skipping conflict check');
       return; // No dates, no conflicts possible
     }
     
     const { checkGearAssignmentConflicts } = await import('../utils/gearConflictHelper');
+    console.log('[UserGearSelector] Checking conflicts for', allUserGear.value.length, 'gear items');
     
     // Check conflicts for all gear items
     const conflictPromises = allUserGear.value.map(async (item) => {
@@ -665,6 +694,7 @@ async function checkAllGearConflicts() {
       );
       
       if (conflicts.length > 0) {
+        console.log('[UserGearSelector] Found conflicts for gear:', item.gear_name, conflicts);
         gearConflicts.value[item.id] = conflicts;
       } else {
         delete gearConflicts.value[item.id];
@@ -672,8 +702,9 @@ async function checkAllGearConflicts() {
     });
     
     await Promise.all(conflictPromises);
+    console.log('[UserGearSelector] Conflict check complete. Items with conflicts:', Object.keys(gearConflicts.value).length);
   } catch (err) {
-    console.warn('Could not check gear conflicts:', err);
+    console.error('[UserGearSelector] Error checking gear conflicts:', err);
     // Don't block - just continue without conflict indicators
   }
 }
