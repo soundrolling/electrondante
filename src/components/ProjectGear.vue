@@ -1387,15 +1387,23 @@ setup() {
     try {
       for (const { userGear, quantity, locationId, assignedAmount } of gearToAdd) {
         if (!userGear || !quantity || quantity < 1) continue;
+        
+        // Get gear type from user gear
+        const gearType = userGear.gear_type || 'user_gear'
+        
         // Convert user gear to project gear format
+        // Use the same logic as addGear() function
         const projectGearPayload = {
           gear_name: userGear.gear_name,
-          gear_type: userGear.gear_type || 'user_gear',
-          num_inputs: 0,
-          num_outputs: 1,
-          num_records: null,
+          gear_type: gearType,
+          // For source gear: inputs = 0, outputs = 1 (as per addGear logic)
+          // For other gear: use values from user_gear table
+          num_inputs: gearType === 'source' ? 0 : (userGear.num_inputs ?? 1),
+          num_outputs: gearType === 'source' ? 1 : (userGear.num_outputs ?? 1),
+          // For recorder gear: use num_records from user gear
+          num_records: gearType === 'recorder' ? (userGear.num_records ? Number(userGear.num_records) : null) : null,
           gear_amount: quantity,
-          is_rented: false,
+          is_rented: userGear.is_rented ?? false,
           vendor: `${userGear.owner_name || 'Unknown'} (Personal Gear)`,
           project_id: currentProject.value.id,
           sort_order: gearList.value.length + 1,
