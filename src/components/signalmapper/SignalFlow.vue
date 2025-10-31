@@ -358,11 +358,21 @@ function getFromPortDisplayForEdit(portNum) {
   if (fromType === 'source') {
     const outCount = from?.num_outputs || from?.outputs || 0
     if (outCount === 2) {
-      const label = from.track_name || from.label || ''
-      const m = (from.label || '').match(/^(.*) \((\d+)\)$/)
-      const baseNoNum = (m ? (from.track_name || m[1]) : (label.replace(/ \((\d+)\)$/,'')))
-      const numSuffix = m ? ` (${m[2]})` : ''
-      return portNum === 1 ? `${baseNoNum.replace(/\s*LR$/i,'')} L${numSuffix}` : (portNum === 2 ? `${baseNoNum.replace(/\s*LR$/i,'')} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
+      const label = from.label || ''
+      const trackName = from.track_name || ''
+      const m = label.match(/^(.*) \((\d+)\)$/)
+      const num = m ? m[2] : ''
+      // Get clean base: prefer track_name (cleaned), fall back to label base
+      let baseNoNum
+      if (trackName) {
+        baseNoNum = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      } else if (m) {
+        baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
+      } else {
+        baseNoNum = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      }
+      const numSuffix = num ? ` (${num})` : ''
+      return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
     }
   }
   if (fromType === 'transformer') {
