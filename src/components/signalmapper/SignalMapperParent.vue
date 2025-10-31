@@ -119,8 +119,10 @@ const loadingPaths = ref(false)
 
 // Computed filtered data
 const sourceNodes = computed(() => {
+  // Show only gear-based sources (placed in Mic Placement). Exclude ad-hoc Signal Flow sources.
   return allNodes.value.filter(node => 
-    node.gear_type === 'source' || node.node_type === 'source'
+    (node.gear_type === 'source' || node.node_type === 'source') &&
+    (node.gear_id || node.type === 'gear')
   )
 })
 
