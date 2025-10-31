@@ -252,6 +252,8 @@ const upstreamSourceLabels = ref({})
 // Track ports already used elsewhere so we don't allow duplicates across connections
 const takenFromPorts = ref(new Set())
 const takenToPorts = ref(new Set())
+// Store source labels for port-mapped inputs (input number -> source label)
+const portMappedInputLabels = ref({})
 
 async function buildUpstreamSourceLabels() {
   try {
@@ -359,11 +361,34 @@ function getSourcePortLabel(portNum){
   return `${baseNoNum}${numSuffix}`
 }
 
+// Helper to get source port label for any node (not just props.fromNode)
+function getSourcePortLabelForNode(node, portNum) {
+  const label = node?.label || ''
+  const trackName = node?.track_name || ''
+  const m = label.match(/^(.*) \((\d+)\)$/)
+  const num = m ? m[2] : ''
+  let base
+  if (trackName) {
+    base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  } else if (m) {
+    base = m[1].replace(/\s*LR$/i,'').trim()
+  } else {
+    base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  }
+  const numSuffix = num ? ` (${num})` : ''
+  const outCount = node?.num_outputs || node?.outputs || 0
+  if (outCount === 2) {
+    return portNum === 1 ? `${base} L${numSuffix}` : (portNum === 2 ? `${base} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
+  }
+  return `${base}${numSuffix}`
+}
+
 async function loadTakenPorts() {
   try {
     // Reset
     takenFromPorts.value = new Set()
     takenToPorts.value = new Set()
+    portMappedInputLabels.value = {}
     // Gather connection ids for this source as FROM
     const { data: fromConns } = await supabase
       .from('connections')
@@ -379,19 +404,50 @@ async function loadTakenPorts() {
       ;(mapsFrom || []).forEach(r => takenFromPorts.value.add(Number(r.from_port)))
     }
 
-    // Gather connection ids for this target as TO
+    // Gather connection ids for this target as TO (with connection info to resolve sources)
     const { data: toConns } = await supabase
       .from('connections')
-      .select('id')
+      .select('id, from_node_id')
       .eq('project_id', props.projectId)
       .eq('to_node_id', props.toNode.id)
     const toIds = (toConns || []).map(c => c.id)
     if (toIds.length) {
       const { data: mapsTo } = await supabase
         .from('connection_port_map')
-        .select('to_port')
+        .select('connection_id, from_port, to_port')
         .in('connection_id', toIds)
-      ;(mapsTo || []).forEach(r => takenToPorts.value.add(Number(r.to_port)))
+      
+      // Build map of connection_id -> from_node_id
+      const connToFrom = Object.fromEntries(toConns.map(c => [c.id, c.from_node_id]))
+      
+      ;(mapsTo || []).forEach(r => {
+        const inputNum = Number(r.to_port)
+        takenToPorts.value.add(inputNum)
+        
+        // Resolve source label for this port-mapped input
+        const connId = r.connection_id
+        const fromNodeId = connToFrom[connId]
+        if (fromNodeId) {
+          const fromNode = props.elements.find(e => e.id === fromNodeId)
+          if (fromNode) {
+            const fromNodeType = (fromNode.gear_type || fromNode.node_type || '').toLowerCase()
+            if (fromNodeType === 'source') {
+              // Direct source connection via port map - use from_port to determine L/R
+              const label = getSourcePortLabelForNode(fromNode, Number(r.from_port))
+              if (label) portMappedInputLabels.value[inputNum] = label
+            } else {
+              // Transformer→Transformer: find incoming connection to this transformer
+              const incoming = (props.existingConnections || []).find(c =>
+                (c.to_node_id === fromNodeId || c.to === fromNodeId) && c.input_number === Number(r.from_port)
+              )
+              if (incoming) {
+                const label = getLRAwareSourceLabel(incoming)
+                if (label) portMappedInputLabels.value[inputNum] = label
+              }
+            }
+          }
+        }
+      })
     }
   } catch {}
 }
@@ -498,7 +554,11 @@ function cancelEditMapping() {
 watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
-watch(() => props.existingConnections, () => buildUpstreamSourceLabels())
+watch(() => props.existingConnections, () => {
+  buildUpstreamSourceLabels()
+  loadTakenPorts()
+})
+watch(() => props.toNode?.id, () => loadTakenPorts())
 
 // (moved below inputOptions definition)
 
@@ -601,18 +661,29 @@ function getFromPortDisplay(portNum) {
 const inputOptions = computed(() => {
 const arr = []
 for (let n = 1; n <= numInputs.value; n++) {
+  let label = `Input ${n}`
+  let disabled = false
+  
+  // Check if taken by direct connection
   const takenConn = props.existingConnections.find(c => 
     (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
   )
-  let label = `Input ${n}`
-  let disabled = false
-  if (takenConn) {
+  
+  // Check if taken by port mapping
+  const takenByPortMap = takenToPorts.value.has(n)
+  const portMapLabel = portMappedInputLabels.value[n]
+  
+  if (takenConn || takenByPortMap) {
+    disabled = true
     let nodeLabel = 'Taken'
-    if (takenConn.from_node_id || takenConn.from) {
-      nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+    if (takenConn) {
+      if (takenConn.from_node_id || takenConn.from) {
+        nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+      }
+    } else if (portMapLabel) {
+      nodeLabel = portMapLabel
     }
     label = `Input ${n} (Assigned to ${nodeLabel})`
-    disabled = true
   }
   arr.push({ value: n, label, disabled })
 }
@@ -667,18 +738,29 @@ const recorderAssignmentOptions = computed(() => {
   // Build from inputs
   const arr = []
   for (let n = 1; n <= numInputs.value; n++) {
+    let label = `Track ${n}`
+    let disabled = false
+    
+    // Check if taken by direct connection
     const takenConn = (props.existingConnections || []).find(c =>
       (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
     )
-    let label = `Track ${n}`
-    let disabled = false
-    if (takenConn) {
+    
+    // Check if taken by port mapping
+    const takenByPortMap = takenToPorts.value.has(n)
+    const portMapLabel = portMappedInputLabels.value[n]
+    
+    if (takenConn || takenByPortMap) {
+      disabled = true
       let nodeLabel = 'Taken'
-      if (takenConn.from_node_id || takenConn.from) {
-        nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+      if (takenConn) {
+        if (takenConn.from_node_id || takenConn.from) {
+          nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+        }
+      } else if (portMapLabel) {
+        nodeLabel = portMapLabel
       }
       label = `Track ${n} (Assigned to ${nodeLabel})`
-      disabled = true
     }
     arr.push({ value: n, label, disabled })
   }
