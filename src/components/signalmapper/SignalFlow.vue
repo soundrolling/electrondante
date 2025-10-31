@@ -1167,10 +1167,14 @@ onMounted(() => {
 
   // Prevent browser zooming the canvas via Ctrl/⌘ + scroll or trackpad pinch
   const wheelBlocker = (e) => {
-    // Block any wheel events that originate over the canvas wrapper
-    if (canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
+    // Allow scrolling inside scrollable UI (e.g., connection details panel)
+    const insideScrollablePanel = e.target && typeof e.target.closest === 'function' && (
+      e.target.closest('.connection-details')
+    )
+    // Block wheel events over the canvas wrapper except when over a scrollable panel
+    if (!insideScrollablePanel && canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
       e.preventDefault()
-    } else if (e.ctrlKey) {
+    } else if (!insideScrollablePanel && e.ctrlKey) {
       // Fallback: block page zoom anywhere when ctrl/⌘ pressed
       e.preventDefault()
     }
