@@ -163,7 +163,10 @@
         <div class="form-group">
           <label for="accommodationMembers">Who is Staying Here?</label>
           <p class="form-help-text">Select team members staying at this accommodation. You can select multiple members.</p>
-          <div class="member-selector">
+          <div v-if="projectMembers.length === 0" class="member-selector-empty">
+            <p class="form-help-text">No project members found. Please add members to the project first.</p>
+          </div>
+          <div v-else class="member-selector">
             <label 
               v-for="member in projectMembers" 
               :key="member.user_email"
@@ -468,7 +471,11 @@ setup(props) {
     });
   };
 
-  const openAddForm = () => {
+  const openAddForm = async () => {
+    // Ensure project members are loaded before showing form
+    if (projectMembers.value.length === 0) {
+      await fetchProjectMembers();
+    }
     resetAccommodationForm();
     editingAccommodation.value = null;
     showAccommodationForm.value = true;
@@ -1049,6 +1056,13 @@ setup(props) {
   font-size: 14px;
   color: #374151;
   user-select: none;
+}
+
+.member-selector-empty {
+  padding: 12px;
+  background: #fef3c7;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
 }
 
 .form-input,

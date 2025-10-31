@@ -611,8 +611,17 @@ setup() {
     try {
       // Extract member emails before saving trip
       const memberEmails = [...(newTrip.value.member_emails || [])]
-      // Create trip data without member_emails field
-      const { member_emails, ...tripData } = newTrip.value
+      
+      // Build trip data object with only valid database columns
+      const tripData = {
+        name: newTrip.value.name,
+        destination: newTrip.value.destination,
+        start_date: newTrip.value.start_date,
+        end_date: newTrip.value.end_date,
+        description: newTrip.value.description || null,
+        project_id: newTrip.value.project_id,
+        created_by: newTrip.value.created_by || null
+      }
       
       // Insert trip
       const { data: insertedTrip, error: tripError } = await supabase
@@ -666,18 +675,16 @@ setup() {
       // Extract member emails before updating trip
       const memberEmails = [...(editTrip.value.member_emails || [])]
       
-      // Create trip data, excluding computed fields and member_emails
-      const { 
-        member_emails, 
-        member_names,
-        created_by_name,
-        flights_count,
-        accommodations_count,
-        documents_count,
-        expenses_count,
-        parking_count,
-        ...tripData 
-      } = editTrip.value
+      // Build trip data object with only valid database columns
+      const tripData = {
+        name: editTrip.value.name,
+        destination: editTrip.value.destination,
+        start_date: editTrip.value.start_date,
+        end_date: editTrip.value.end_date,
+        description: editTrip.value.description || null,
+        project_id: editTrip.value.project_id,
+        created_by: editTrip.value.created_by || null
+      }
       
       // Update trip
       const { error: tripError } = await supabase
