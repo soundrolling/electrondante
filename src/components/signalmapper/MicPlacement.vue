@@ -136,8 +136,8 @@
               :style="{ transform: `rotate(${angle}deg)` }"
               :title="`${angle}°`"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2 L12 10 M12 2 L8 6 M12 2 L16 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3 L12 14 M12 3 L7 8 M12 3 L17 8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
           </div>
@@ -1506,8 +1506,8 @@ defineExpose({ getCanvasDataURL })
 
 .orientation-circle {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 240px;
+  height: 240px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1518,7 +1518,7 @@ defineExpose({ getCanvasDataURL })
   position: absolute;
   width: 40px;
   height: 40px;
-  border: 2px solid #6c757d;
+  border: 2px solid #000000;
   border-radius: 50%;
   background: #ffffff;
   display: flex;
@@ -1526,29 +1526,23 @@ defineExpose({ getCanvasDataURL })
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  color: #212529;
+  color: #000000;
   margin-left: -20px;
   margin-top: -20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .orientation-arrow:hover {
-  background: #007bff;
-  border-color: #0056b3;
-  color: white;
-  transform: scale(1.15);
+  transform: scale(1.1);
   z-index: 10;
-  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
 
 .orientation-arrow.selected {
-  background: #007bff;
-  border-color: #0056b3;
-  border-width: 3px;
-  color: white;
+  background: #22c55e;
+  border-color: #16a34a;
+  border-width: 2px;
+  color: #ffffff;
   transform: scale(1.1);
   z-index: 5;
-  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }
 
 .orientation-arrow.selected:hover {
@@ -1557,11 +1551,11 @@ defineExpose({ getCanvasDataURL })
 
 .orientation-arrow svg {
   display: block;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 /* Position arrows at 8 positions around the circle */
 /* Each arrow is positioned based on its angle, then rotated to point in the right direction */
+/* Using a radius of ~90px from center (120px radius - 20px button offset) */
 .orientation-arrow:nth-child(1) { 
   top: 0; 
   left: 50%; 
@@ -1572,7 +1566,7 @@ defineExpose({ getCanvasDataURL })
 } /* 45° - points up-right */
 .orientation-arrow:nth-child(3) { 
   top: 50%; 
-  left: 160px; 
+  left: 200px; 
   margin-top: -20px;
 } /* 90° - points right */
 .orientation-arrow:nth-child(4) { 
