@@ -138,6 +138,23 @@ export async function getCompleteSignalPath(projectId) {
     nodeMap[node.id] = node
   })
   
+  // Fetch gear data for nodes that have gear_id
+  const gearIds = nodes.filter(n => n.gear_id).map(n => n.gear_id)
+  const gearMap = {}
+  if (gearIds.length > 0) {
+    try {
+      const { data: gearData } = await supabase
+        .from('gear_table')
+        .select('id, gear_name')
+        .in('id', gearIds)
+      if (gearData) {
+        gearData.forEach(gear => {
+          gearMap[gear.id] = gear.gear_name
+        })
+      }
+    } catch {}
+  }
+  
   // Find all recorder nodes
   const recorders = nodes.filter(n => n.gear_type === 'recorder' || n.node_type === 'recorder')
   
@@ -199,6 +216,9 @@ export async function getCompleteSignalPath(projectId) {
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
+      // Get source gear name if the source node has a gear_id
+      const sourceGearName = finalSourceNode?.gear_id ? gearMap[finalSourceNode.gear_id] : null
+
       signalPaths.push({
         recorder_id: recorder.id,
         recorder_label: recorder.label,
@@ -208,6 +228,7 @@ export async function getCompleteSignalPath(projectId) {
         // Prefer computed source label (includes L/R for stereo ad-hoc sources)
         source_label: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
         track_name: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
+        source_gear_name: sourceGearName,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,

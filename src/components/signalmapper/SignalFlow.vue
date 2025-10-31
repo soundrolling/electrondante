@@ -29,6 +29,9 @@
     <button class="tool-btn" @click="exportFlowPng" title="Export canvas as PNG">
       📤 Export
     </button>
+    <button class="tool-btn" @click="printFlow" title="Print signal flow">
+      🖨️ Print
+    </button>
   </div>
 
   <!-- Canvas -->
@@ -1264,6 +1267,64 @@ function exportFlowPng() {
       URL.revokeObjectURL(url)
     }, 'image/png')
   } catch {}
+}
+
+// Print the current signal flow canvas
+function printFlow() {
+  if (!canvas.value) return
+  drawCanvas()
+  try {
+    // Convert canvas to data URL
+    const dataURL = canvas.value.toDataURL('image/png')
+    
+    // Create a print window with just the canvas image
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error('Please allow popups to print')
+      return
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Signal Flow</title>
+          <style>
+            @media print {
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              img {
+                width: 100%;
+                height: auto;
+                page-break-inside: avoid;
+              }
+            }
+            @page {
+              margin: 0;
+              size: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${dataURL}" alt="Signal Flow" />
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    // Wait for image to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print()
+        printWindow.close()
+      }, 250)
+    }
+  } catch (e) {
+    console.error('Error printing canvas:', e)
+    toast.error('Failed to print signal flow')
+  }
 }
 </script>
 

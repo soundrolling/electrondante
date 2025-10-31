@@ -46,13 +46,18 @@
           <td class="recorder-name">{{ path.recorder_label }}</td>
           <td class="source-name">
             <strong>{{ path.track_name || path.source_label || '—' }}</strong>
+            <div v-if="path.source_gear_name" class="source-gear-name">
+              ({{ path.source_gear_name }})
+            </div>
           </td>
           <td class="signal-path">
             <div class="path-flow">
-              <span v-for="(node, index) in path.path" :key="index" class="path-node">
-                {{ node }}
-                <span v-if="index < path.path.length - 1" class="path-arrow">→</span>
-              </span>
+              <template v-for="(node, index) in reversedPath(path.path)" :key="index">
+                <span class="path-node">
+                  {{ node }}
+                  <span v-if="index < reversedPath(path.path).length - 1" class="path-arrow">→</span>
+                </span>
+              </template>
             </div>
           </td>
         </tr>
@@ -88,6 +93,12 @@ const sortedPaths = computed(() => {
   })
 })
 
+// Reverse the path array (last transformer down to recorder)
+function reversedPath(path) {
+  if (!Array.isArray(path)) return []
+  return [...path].reverse()
+}
+
 // no additional summary columns
 
 // Export to CSV
@@ -97,7 +108,7 @@ function exportCSV() {
     path.track_number || '',
     path.recorder_label || '',
     path.track_name || path.source_label || '',
-    path.path.join(' → ')
+    reversedPath(path.path).join(' → ')
   ])
 
   let csv = headers.join(',') + '\n'
@@ -243,6 +254,13 @@ function printTrackList() {
   font-size: 15px;
 }
 
+.source-gear-name {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+  font-weight: normal;
+}
+
 .signal-path {
   font-family: 'Courier New', monospace;
 }
@@ -330,6 +348,25 @@ function printTrackList() {
 }
 
 @media print {
+  /* Hide everything on the page except this component */
+  body * {
+    visibility: hidden;
+  }
+  
+  .track-list-container,
+  .track-list-container * {
+    visibility: visible;
+  }
+  
+  .track-list-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
   .track-list-actions {
     display: none;
   }

@@ -41,6 +41,7 @@
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
       <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
       <button @click="exportCanvas" class="btn-secondary">Export</button>
+      <button @click="printCanvas" class="btn-secondary">🖨️ Print</button>
     </div>
   </div>
 
@@ -1034,6 +1035,64 @@ function exportCanvas() {
     }, 'image/png')
   } catch (_) {
     // no-op: if the canvas is tainted, export will fail silently here
+  }
+}
+
+// Print the current canvas (mic placement)
+function printCanvas() {
+  if (!canvas.value) return
+  drawCanvas()
+  try {
+    // Convert canvas to data URL
+    const dataURL = canvas.value.toDataURL('image/png')
+    
+    // Create a print window with just the canvas image
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error('Please allow popups to print')
+      return
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Mic Placement</title>
+          <style>
+            @media print {
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              img {
+                width: 100%;
+                height: auto;
+                page-break-inside: avoid;
+              }
+            }
+            @page {
+              margin: 0;
+              size: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${dataURL}" alt="Mic Placement" />
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    // Wait for image to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print()
+        printWindow.close()
+      }, 250)
+    }
+  } catch (e) {
+    console.error('Error printing canvas:', e)
+    toast.error('Failed to print mic placement')
   }
 }
 
