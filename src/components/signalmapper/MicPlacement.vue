@@ -136,8 +136,8 @@
               :style="{ transform: `rotate(${angle}deg)` }"
               :title="`${angle}°`"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2 L12 8 M12 2 L10 4 M12 2 L14 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2 L12 10 M12 2 L8 6 M12 2 L16 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
           </div>
@@ -1516,27 +1516,29 @@ defineExpose({ getCanvasDataURL })
 
 .orientation-arrow {
   position: absolute;
-  width: 32px;
-  height: 32px;
-  border: 2px solid #dee2e6;
+  width: 40px;
+  height: 40px;
+  border: 2px solid #6c757d;
   border-radius: 50%;
-  background: white;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  color: #495057;
-  margin-left: -16px;
-  margin-top: -16px;
+  color: #212529;
+  margin-left: -20px;
+  margin-top: -20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .orientation-arrow:hover {
   background: #007bff;
-  border-color: #007bff;
+  border-color: #0056b3;
   color: white;
   transform: scale(1.15);
   z-index: 10;
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
 }
 
 .orientation-arrow.selected {
@@ -1546,6 +1548,7 @@ defineExpose({ getCanvasDataURL })
   color: white;
   transform: scale(1.1);
   z-index: 5;
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
 }
 
 .orientation-arrow.selected:hover {
@@ -1554,43 +1557,44 @@ defineExpose({ getCanvasDataURL })
 
 .orientation-arrow svg {
   display: block;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 /* Position arrows at 8 positions around the circle */
 /* Each arrow is positioned based on its angle, then rotated to point in the right direction */
 .orientation-arrow:nth-child(1) { 
-  top: 10px; 
+  top: 0; 
   left: 50%; 
 } /* 0° - points up */
 .orientation-arrow:nth-child(2) { 
-  top: 39px; 
-  left: 84px; 
+  top: 35px; 
+  left: 85px; 
 } /* 45° - points up-right */
 .orientation-arrow:nth-child(3) { 
   top: 50%; 
-  left: 170px; 
-  margin-top: -16px;
+  left: 160px; 
+  margin-top: -20px;
 } /* 90° - points right */
 .orientation-arrow:nth-child(4) { 
-  bottom: 39px; 
-  left: 84px; 
+  bottom: 35px; 
+  left: 85px; 
 } /* 135° - points down-right */
 .orientation-arrow:nth-child(5) { 
-  bottom: 10px; 
+  bottom: 0; 
   left: 50%; 
 } /* 180° - points down */
 .orientation-arrow:nth-child(6) { 
-  bottom: 39px; 
-  right: 84px; 
+  bottom: 35px; 
+  right: 85px; 
 } /* 225° - points down-left */
 .orientation-arrow:nth-child(7) { 
   top: 50%; 
-  left: 10px; 
-  margin-top: -16px;
+  left: 0; 
+  margin-top: -20px;
 } /* 270° - points left */
 .orientation-arrow:nth-child(8) { 
-  top: 39px; 
-  right: 84px; 
+  top: 35px; 
+  right: 85px; 
 } /* 315° - points up-left */
 
 /* Hide mobile controls on larger screens */
