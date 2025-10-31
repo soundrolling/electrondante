@@ -1376,6 +1376,8 @@ function exportFlowPng() {
   border-radius: 8px;
   padding: 12px 14px;
   width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 .connection-details h4 {

@@ -176,7 +176,7 @@ export async function getCompleteSignalPath(projectId) {
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const { labels, finalSourceNode } = resolveUpstreamPath(conn.from_node_id, conn.input_number, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder)
+      const { labels, finalSourceNode, finalSourceLabel } = resolveUpstreamPath(conn.from_node_id, conn.input_number, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder)
 
       // For uniqueness, key off recorder + track + first node id at end of traversal
       const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}`
@@ -189,9 +189,9 @@ export async function getCompleteSignalPath(projectId) {
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
         source_id: finalSourceNode?.id || null,
-        // For sources, track_name is the custom mic placement name (e.g., "Stage L")
-        source_label: finalSourceNode?.track_name || finalSourceNode?.label || null,
-        track_name: finalSourceNode?.track_name || finalSourceNode?.label || null,
+        // Prefer computed source label (includes L/R for stereo ad-hoc sources)
+        source_label: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
+        track_name: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
@@ -215,6 +215,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
   let currentInput = startInput
   const maxHops = 25
   let finalSourceNode = null
+  let finalSourceLabel = null
   
   for (let hop = 0; hop < maxHops; hop++) {
     const node = nodeMap[currentNodeId]
@@ -230,6 +231,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       }
       labels.push(sourceName)
       finalSourceNode = node
+      finalSourceLabel = sourceName
       break
     }
     
@@ -275,7 +277,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     }
   }
   
-  return { labels, finalSourceNode }
+  return { labels, finalSourceNode, finalSourceLabel }
 }
 
 function buildPathToSource(nodeId, connections, nodeMap) {
