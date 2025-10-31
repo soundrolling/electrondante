@@ -507,12 +507,39 @@
           <button class="modal-close" @click="closeReorderModal">✕</button>
         </div>
         <div class="modal-body">
+          <div class="reorder-sort-options">
+            <span class="sort-label">Quick Sort:</span>
+            <div class="sort-buttons">
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('name-asc')">A-Z</button>
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('name-desc')">Z-A</button>
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('group-asc')">Group (A-Z)</button>
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('group-desc')">Group (Z-A)</button>
+            </div>
+          </div>
           <div class="reorder-list">
-            <div v-for="(g, i) in reorderList" :key="g.id" class="reorder-item">
+            <div 
+              v-for="(g, i) in reorderList" 
+              :key="g.id" 
+              class="reorder-item"
+              :class="{ 'dragging': draggedIndex === i, 'drag-over': dragOverIndex === i }"
+              draggable="true"
+              @dragstart="handleDragStart($event, i)"
+              @dragend="handleDragEnd"
+              @dragover.prevent="handleDragOver($event, i)"
+              @dragenter.prevent="handleDragEnter(i)"
+              @dragleave="handleDragLeave"
+              @drop.prevent="handleDrop($event, i)"
+              @touchstart="handleTouchStart($event, i)"
+              @touchmove="handleTouchMove"
+              @touchend="handleTouchEnd"
+            >
+              <div class="drag-handle" title="Drag to reorder">
+                <span class="drag-icon">☰</span>
+              </div>
               <span class="reorder-name">{{ g.gear_name }}</span>
               <div class="reorder-actions">
-                <button class="btn btn-secondary" @click="moveInReorder(i, -1)">↑</button>
-                <button class="btn btn-secondary" @click="moveInReorder(i, 1)">↓</button>
+                <button class="btn btn-secondary btn-arrow" @click="moveInReorder(i, -1)" title="Move up">↑</button>
+                <button class="btn btn-secondary btn-arrow" @click="moveInReorder(i, 1)" title="Move down">↓</button>
               </div>
             </div>
           </div>
@@ -615,6 +642,13 @@ setup() {
 
   const reorderModalVisible     = ref(false)
   const reorderList             = ref([])
+  
+  // Drag and drop state
+  const draggedIndex            = ref(null)
+  const dragOverIndex           = ref(null)
+  const touchStartY             = ref(null)
+  const touchStartIndex         = ref(null)
+  const touchCurrentIndex       = ref(null)
 
   // Gear Info Modal
   const gearInfoModalVisible    = ref(false)
@@ -1066,9 +1100,21 @@ setup() {
   function openReorderModal() {
     reorderList.value = gearList.value.slice()
     reorderModalVisible.value = true
+    // Reset drag state
+    draggedIndex.value = null
+    dragOverIndex.value = null
+    touchStartY.value = null
+    touchStartIndex.value = null
+    touchCurrentIndex.value = null
   }
   function closeReorderModal() {
     reorderModalVisible.value = false
+    // Reset drag state
+    draggedIndex.value = null
+    dragOverIndex.value = null
+    touchStartY.value = null
+    touchStartIndex.value = null
+    touchCurrentIndex.value = null
   }
 
   function moveInReorder(idx, dir) {
@@ -1076,6 +1122,185 @@ setup() {
     if (i < 0 || i >= reorderList.value.length) return
     ;[reorderList.value[idx], reorderList.value[i]] =
       [reorderList.value[i], reorderList.value[idx]]
+  }
+
+  function sortReorderList(sortType) {
+    const list = [...reorderList.value]
+    
+    if (sortType === 'name-asc') {
+      list.sort((a, b) => 
+        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortType === 'name-desc') {
+      list.sort((a, b) => 
+        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortType === 'group-asc') {
+      list.sort((a, b) => {
+        const typeA = (a.gear_type || '').toLowerCase()
+        const typeB = (b.gear_type || '').toLowerCase()
+        const nameA = (a.gear_name || '').toLowerCase()
+        const nameB = (b.gear_name || '').toLowerCase()
+        
+        if (typeA !== typeB) {
+          return typeA.localeCompare(typeB)
+        }
+        return nameA.localeCompare(nameB)
+      })
+    } else if (sortType === 'group-desc') {
+      list.sort((a, b) => {
+        const typeA = (a.gear_type || '').toLowerCase()
+        const typeB = (b.gear_type || '').toLowerCase()
+        const nameA = (a.gear_name || '').toLowerCase()
+        const nameB = (b.gear_name || '').toLowerCase()
+        
+        if (typeA !== typeB) {
+          return typeA.localeCompare(typeB)
+        }
+        return nameB.localeCompare(nameA)
+      })
+    }
+    
+    reorderList.value = list
+  }
+
+  // Drag and Drop Handlers (Desktop)
+  function handleDragStart(event, index) {
+    draggedIndex.value = index
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/html', event.target.outerHTML)
+    // Add visual feedback
+    event.target.style.opacity = '0.5'
+  }
+
+  function handleDragEnd(event) {
+    event.target.style.opacity = ''
+    draggedIndex.value = null
+    dragOverIndex.value = null
+  }
+
+  function handleDragOver(event, index) {
+    if (draggedIndex.value === null || draggedIndex.value === index) return
+    dragOverIndex.value = index
+  }
+
+  function handleDragEnter(index) {
+    if (draggedIndex.value === null || draggedIndex.value === index) return
+    dragOverIndex.value = index
+  }
+
+  function handleDragLeave(event) {
+    // Only clear if we're actually leaving the item (not entering a child)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX
+    const y = event.clientY
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      dragOverIndex.value = null
+    }
+  }
+
+  function handleDrop(event, dropIndex) {
+    if (draggedIndex.value === null || draggedIndex.value === dropIndex) {
+      dragOverIndex.value = null
+      return
+    }
+
+    const items = [...reorderList.value]
+    const draggedItem = items[draggedIndex.value]
+    items.splice(draggedIndex.value, 1)
+    items.splice(dropIndex, 0, draggedItem)
+    reorderList.value = items
+
+    draggedIndex.value = null
+    dragOverIndex.value = null
+  }
+
+  // Touch Handlers (Mobile)
+  function handleTouchStart(event, index) {
+    touchStartY.value = event.touches[0].clientY
+    touchStartIndex.value = index
+    touchCurrentIndex.value = index
+    draggedIndex.value = index
+    
+    // Get the element for visual feedback
+    const target = event.currentTarget
+    if (target) {
+      target.style.opacity = '0.7'
+      target.style.transform = 'scale(1.02)'
+    }
+  }
+
+  function handleTouchMove(event) {
+    if (touchStartIndex.value === null) return
+    
+    event.preventDefault()
+    const touchY = event.touches[0].clientY
+    
+    // Find the reorder list container to get all items
+    const targetElement = event.currentTarget
+    const listContainer = targetElement?.closest('.reorder-list')
+    if (!listContainer) return
+    
+    const reorderItems = Array.from(listContainer.children) || []
+    let newIndex = touchStartIndex.value
+    
+    // Find which item's center the touch is closest to
+    for (let i = 0; i < reorderItems.length; i++) {
+      const item = reorderItems[i]
+      const rect = item.getBoundingClientRect()
+      const itemTop = rect.top
+      const itemBottom = rect.bottom
+      const itemCenterY = itemTop + rect.height / 2
+      
+      // Check if touch is within this item's bounds
+      if (touchY >= itemTop && touchY <= itemBottom) {
+        // Determine if we should insert before or after based on touch position
+        if (touchY < itemCenterY) {
+          newIndex = Math.max(0, i)
+          break
+        } else {
+          newIndex = Math.min(reorderList.value.length - 1, i + 1)
+        }
+      } else if (i === 0 && touchY < itemTop) {
+        newIndex = 0
+        break
+      } else if (i === reorderItems.length - 1 && touchY > itemBottom) {
+        newIndex = reorderList.value.length - 1
+        break
+      }
+    }
+    
+    // Clamp the index
+    newIndex = Math.max(0, Math.min(newIndex, reorderList.value.length - 1))
+    
+    if (newIndex !== touchCurrentIndex.value && newIndex !== touchStartIndex.value) {
+      touchCurrentIndex.value = newIndex
+      dragOverIndex.value = newIndex
+      
+      // Reorder the array
+      const items = [...reorderList.value]
+      const draggedItem = items[touchStartIndex.value]
+      items.splice(touchStartIndex.value, 1)
+      items.splice(newIndex, 0, draggedItem)
+      reorderList.value = items
+      
+      // Update the start index since we've reordered
+      touchStartIndex.value = newIndex
+    }
+  }
+
+  function handleTouchEnd(event) {
+    const target = event.currentTarget
+    if (target) {
+      target.style.opacity = ''
+      target.style.transform = ''
+    }
+    
+    draggedIndex.value = null
+    dragOverIndex.value = null
+    touchStartY.value = null
+    touchStartIndex.value = null
+    touchCurrentIndex.value = null
   }
 
   async function saveReorder() {
@@ -1286,9 +1511,22 @@ setup() {
     openReorderModal,
     closeReorderModal,
     moveInReorder,
+    sortReorderList,
     saveReorder,
     reorderModalVisible,
     reorderList,
+    // Drag and drop
+    draggedIndex,
+    dragOverIndex,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragEnter,
+    handleDragLeave,
+    handleDrop,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     exportGearToPDF,
     calcMaxAssignment,
     // Gear Info Modal
@@ -2187,21 +2425,180 @@ setup() {
   }
 }
 
+/* Reorder Modal Styles */
+.reorder-sort-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.sort-label {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+
+.sort-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 14px;
+  min-height: 36px;
+}
+
+.reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.reorder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+}
+
+.reorder-item:active {
+  cursor: grabbing;
+}
+
+.reorder-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.reorder-item.drag-over {
+  border-color: #0066cc;
+  border-width: 2px;
+  background: #e3f2fd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 102, 204, 0.2);
+}
+
+.reorder-item:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.1);
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  margin-right: 12px;
+  color: #6c757d;
+  cursor: grab;
+  transition: color 0.2s ease;
+  touch-action: none;
+}
+
+.reorder-item:active .drag-handle {
+  cursor: grabbing;
+}
+
+.drag-handle:hover {
+  color: #0066cc;
+}
+
+.drag-icon {
+  font-size: 18px;
+  line-height: 1;
+  display: inline-block;
+}
+
+.reorder-name {
+  flex: 1;
+  font-size: 16px;
+  color: #1a1a1a;
+  font-weight: 500;
+  margin-right: 12px;
+}
+
+.reorder-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.reorder-actions .btn-arrow {
+  padding: 8px 12px;
+  min-height: 36px;
+  min-width: 40px;
+  font-size: 18px;
+  font-weight: 600;
+  background: #6c757d;
+  color: #ffffff;
+  border: 2px solid #5a6268;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.reorder-actions .btn-arrow:hover {
+  background: #5a6268;
+  border-color: #495057;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.reorder-actions .btn-arrow:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   .back-btn,
-  .btn {
+  .btn,
+  .reorder-item,
+  .drag-handle {
     transition: none;
   }
   
   .back-btn:hover,
-  .btn:hover {
+  .btn:hover,
+  .reorder-item:hover,
+  .reorder-item.drag-over {
     transform: none;
   }
   
   .back-btn:active,
-  .btn:active {
+  .btn:active,
+  .reorder-item.dragging {
     transform: none;
+  }
+}
+
+/* Tablet and Desktop adjustments for reorder modal */
+@media (min-width: 601px) {
+  .reorder-sort-options {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .sort-buttons {
+    flex-wrap: nowrap;
   }
 }
 </style>
