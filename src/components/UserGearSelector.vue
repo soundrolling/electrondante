@@ -629,6 +629,7 @@ async function addSelectedToProject() {
   }
   
   // Check for date conflicts (warn but don't block)
+  // Only check if both projects have dates set - if either project has no dates, no conflicts possible
   if (props.projectId && navigator.onLine) {
     try {
       // Get current project dates
@@ -639,25 +640,34 @@ async function addSelectedToProject() {
         .single();
       
       if (!projectError && currentProject) {
-        const { checkGearAssignmentConflicts, formatConflictMessage } = await import('../utils/gearConflictHelper');
+        // Check if current project has any dates - if not, skip conflict checking entirely
+        const hasCurrentDates = (Array.isArray(currentProject.build_days) && currentProject.build_days.length > 0) ||
+                                (Array.isArray(currentProject.main_show_days) && currentProject.main_show_days.length > 0);
         
-        for (const item of selectedItemsData.value) {
-          const conflicts = await checkGearAssignmentConflicts(
-            item.id,
-            props.projectId,
-            currentProject,
-            supabase
-          );
+        if (hasCurrentDates) {
+          const { checkGearAssignmentConflicts, formatConflictMessage } = await import('../utils/gearConflictHelper');
           
-          if (conflicts.length > 0) {
-            const conflictMsg = formatConflictMessage(conflicts, item.gear_name);
-            toast.warning(conflictMsg, { timeout: 8000 });
+          for (const item of selectedItemsData.value) {
+            const conflicts = await checkGearAssignmentConflicts(
+              item.id,
+              props.projectId,
+              currentProject,
+              supabase
+            );
+            
+            // Only show warning if there are actual conflicts
+            if (conflicts.length > 0) {
+              const conflictMsg = formatConflictMessage(conflicts, item.gear_name);
+              toast.warning(conflictMsg, { timeout: 8000 });
+            }
           }
+        } else {
+          console.log('[UserGearSelector] Current project has no dates, skipping conflict check');
         }
       }
     } catch (err) {
       console.warn('Could not check for date conflicts:', err);
-      // Don't block on conflict check errors
+      // Don't block on conflict check errors - allow assignment to proceed
     }
   }
   

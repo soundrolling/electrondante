@@ -30,17 +30,36 @@ export function datesOverlap(days1, days2) {
  * @returns {string[]} - Array of all date strings
  */
 export function getAllProjectDates(project) {
+  if (!project) {
+    return [];
+  }
+  
   const dates = [];
   
-  if (Array.isArray(project.build_days) && project.build_days.length > 0) {
-    dates.push(...project.build_days);
+  // Handle build_days - can be array, null, or undefined
+  if (project.build_days) {
+    if (Array.isArray(project.build_days) && project.build_days.length > 0) {
+      // Filter out null/undefined/empty strings and normalize dates
+      const validBuildDays = project.build_days
+        .filter(d => d && typeof d === 'string' && d.trim().length > 0)
+        .map(d => d.trim());
+      dates.push(...validBuildDays);
+    }
   }
   
-  if (Array.isArray(project.main_show_days) && project.main_show_days.length > 0) {
-    dates.push(...project.main_show_days);
+  // Handle main_show_days - can be array, null, or undefined
+  if (project.main_show_days) {
+    if (Array.isArray(project.main_show_days) && project.main_show_days.length > 0) {
+      // Filter out null/undefined/empty strings and normalize dates
+      const validShowDays = project.main_show_days
+        .filter(d => d && typeof d === 'string' && d.trim().length > 0)
+        .map(d => d.trim());
+      dates.push(...validShowDays);
+    }
   }
   
-  return [...new Set(dates)]; // Remove duplicates
+  // Remove duplicates and return
+  return [...new Set(dates)];
 }
 
 /**
@@ -104,14 +123,30 @@ export async function checkGearAssignmentConflicts(userGearId, currentProjectId,
     const conflicts = [];
     const currentDates = getAllProjectDates(currentProject);
     
+    // If current project has no dates, no conflicts are possible (gear can be used anytime)
     if (currentDates.length === 0) {
-      // Current project has no dates, so no conflicts possible
+      console.log('[gearConflictHelper] Current project has no dates, no conflicts possible');
       return [];
     }
     
+    console.log('[gearConflictHelper] Checking conflicts for project with dates:', currentDates);
+    
     for (const otherProject of otherProjects || []) {
       const otherDates = getAllProjectDates(otherProject);
-      if (otherDates.length > 0 && datesOverlap(currentDates, otherDates)) {
+      
+      // If other project has no dates, no conflict (it's not scheduled)
+      if (otherDates.length === 0) {
+        console.log(`[gearConflictHelper] Project "${otherProject.project_name}" has no dates, skipping conflict check`);
+        continue;
+      }
+      
+      console.log(`[gearConflictHelper] Comparing with project "${otherProject.project_name}" dates:`, otherDates);
+      
+      // Only create conflict if dates actually overlap
+      if (datesOverlap(currentDates, otherDates)) {
+        const overlappingDates = currentDates.filter(d => otherDates.includes(d));
+        console.log(`[gearConflictHelper] CONFLICT FOUND! Overlapping dates:`, overlappingDates);
+        
         conflicts.push({
           project_name: otherProject.project_name || 'Unknown Project',
           project_id: otherProject.id,
@@ -119,12 +154,15 @@ export async function checkGearAssignmentConflicts(userGearId, currentProjectId,
           conflict_dates: {
             current: currentDates,
             other: otherDates,
-            overlapping: currentDates.filter(d => otherDates.includes(d))
+            overlapping: overlappingDates
           }
         });
+      } else {
+        console.log(`[gearConflictHelper] No conflict - dates don't overlap`);
       }
     }
     
+    console.log(`[gearConflictHelper] Total conflicts found:`, conflicts.length);
     return conflicts;
   } catch (error) {
     console.error('Error in checkGearAssignmentConflicts:', error);
