@@ -340,9 +340,16 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       
       if (isTransformer && parents.length > 0) {
         // Try to use the first available connection to continue tracing
-        const fallbackConn = parents.find(c => typeof c.input_number === 'number')
+        // But try to find one that matches our input first
+        const fallbackConn = parents.find(c => 
+          typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
+        ) || parents.find(c => typeof c.input_number === 'number')
         if (fallbackConn) {
           currentNodeId = fallbackConn.from_node_id
+          // Keep currentInput as is, or use the connection's input_number if we're starting fresh
+          // Actually, if we're tracing input 1, we should look for what feeds input 1
+          // But the connection's input_number IS the input on the transformer we're at
+          // So we should keep it as is for further tracing
           currentInput = fallbackConn.input_number
           continue
         }
@@ -352,14 +359,60 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     }
   }
   
-  // If we didn't find a source but have a final node, use it as fallback
-  // BUT never use a transformer as the source - only use actual source nodes
+  // If we didn't find a source, try to find the source from the last transformer we visited
+  // Look at connections feeding the transformer to get the source name
   if (!finalSourceNode && currentNodeId) {
     const lastNode = nodeMap[currentNodeId]
     if (lastNode && (lastNode.gear_type === 'source' || lastNode.node_type === 'source')) {
+      // We actually did reach a source
       finalSourceNode = lastNode
       const trackName = lastNode.track_name || ''
       finalSourceLabel = trackName || lastNode.label || 'Unknown Source'
+    } else if (lastNode) {
+      // Last node is a transformer - look for what feeds it
+      const transformerParents = parentConnsByToNode[currentNodeId] || []
+      if (transformerParents.length > 0) {
+        // Try to find a connection that matches our input, or use the first one
+        const sourceConn = transformerParents.find(c => 
+          typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
+        ) || transformerParents[0]
+        
+        if (sourceConn) {
+          const sourceNode = nodeMap[sourceConn.from_node_id]
+          if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
+            finalSourceNode = sourceNode
+            // Build source label
+            const label = sourceNode.label || ''
+            const trackName = sourceNode.track_name || ''
+            const m = label.match(/^(.*) \((\d+)\)$/)
+            const num = m ? m[2] : ''
+            let base
+            if (trackName) {
+              base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+            } else if (m) {
+              base = m[1].replace(/\s*LR$/i,'').trim()
+            } else {
+              base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+            }
+            const numSuffix = num ? ` (${num})` : ''
+            
+            let sourceName = base + numSuffix
+            if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2) && typeof sourceConn.input_number === 'number') {
+              // Determine L/R from connection position
+              const siblings = transformerParents.filter(c => 
+                c.from_node_id === sourceConn.from_node_id &&
+                typeof c.input_number === 'number'
+              ).map(c => c.input_number).sort((a,b) => a - b)
+              if (siblings.length >= 2) {
+                sourceName = siblings.indexOf(Number(sourceConn.input_number)) === 0 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+              } else {
+                sourceName = Number(sourceConn.input_number) % 2 === 1 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+              }
+            }
+            finalSourceLabel = sourceName
+          }
+        }
+      }
     }
   }
   
