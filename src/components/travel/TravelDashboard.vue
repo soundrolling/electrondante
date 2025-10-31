@@ -665,8 +665,19 @@ setup() {
     try {
       // Extract member emails before updating trip
       const memberEmails = [...(editTrip.value.member_emails || [])]
-      // Create trip data without member_emails field
-      const { member_emails, ...tripData } = editTrip.value
+      
+      // Create trip data, excluding computed fields and member_emails
+      const { 
+        member_emails, 
+        member_names,
+        created_by_name,
+        flights_count,
+        accommodations_count,
+        documents_count,
+        expenses_count,
+        parking_count,
+        ...tripData 
+      } = editTrip.value
       
       // Update trip
       const { error: tripError } = await supabase
