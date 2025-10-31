@@ -611,10 +611,8 @@ setup() {
     try {
       // Extract member emails before saving trip
       const memberEmails = [...(newTrip.value.member_emails || [])]
-      const tripData = {
-        ...newTrip.value,
-        member_emails: undefined // Remove from trip data
-      }
+      // Create trip data without member_emails field
+      const { member_emails, ...tripData } = newTrip.value
       
       // Insert trip
       const { data: insertedTrip, error: tripError } = await supabase
@@ -667,10 +665,8 @@ setup() {
     try {
       // Extract member emails before updating trip
       const memberEmails = [...(editTrip.value.member_emails || [])]
-      const tripData = {
-        ...editTrip.value,
-        member_emails: undefined // Remove from trip data
-      }
+      // Create trip data without member_emails field
+      const { member_emails, ...tripData } = editTrip.value
       
       // Update trip
       const { error: tripError } = await supabase
