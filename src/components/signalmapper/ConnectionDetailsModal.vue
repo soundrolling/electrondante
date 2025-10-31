@@ -270,15 +270,28 @@ async function buildUpstreamSourceLabels() {
       .select('from_port, to_port')
       .eq('connection_id', parentConn.id)
     if (!maps) return
-    // For each mapping, resolve the upstream source label using existingConnections
+    // Resolve upstream labels per mapping
+    const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
     maps.forEach(m => {
-      const incoming = (props.existingConnections || []).find(c =>
-        (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
-      )
-      if (incoming) {
-        const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
-        if (srcLabel) upstreamSourceLabels.value[m.to_port] = srcLabel
+      let label = ''
+      const fromNodeType = (parentFromNode?.gear_type || parentFromNode?.node_type || '').toLowerCase()
+      if (fromNodeType === 'source') {
+        const base = parentFromNode?.track_name || parentFromNode?.label || 'Source'
+        if (Number(parentFromNode?.num_outputs || parentFromNode?.outputs || 0) === 2) {
+          label = Number(m.from_port) === 1 ? `${base} L` : (Number(m.from_port) === 2 ? `${base} R` : `${base} ${m.from_port}`)
+        } else {
+          label = base
+        }
+      } else {
+        // Upstream is transformer/other: try to find its incoming connection for the mapped from_port
+        const incoming = (props.existingConnections || []).find(c =>
+          (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
+        )
+        if (incoming) {
+          label = getLRAwareSourceLabel(incoming)
+        }
       }
+      if (label) upstreamSourceLabels.value[m.to_port] = label
     })
   } catch {}
 }

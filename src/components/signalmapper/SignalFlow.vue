@@ -714,6 +714,7 @@ function drawCanvas() {
 
 function drawNode(ctx, node) {
   const isSource = (node.gear_type || node.node_type) === 'source'
+  const isAdHocSource = isSource && ((node.type === 'source') || !node.gear_id)
   const isSelected = node === selectedNode.value
   const pos = getCanvasPos(node)
   
@@ -729,7 +730,8 @@ function drawNode(ctx, node) {
     transformer: '#007bff',
     recorder: '#dc3545'
   }
-  const color = colors[node.gear_type || node.node_type] || '#6c757d'
+  // Ad-hoc sources use purple for extra clarity
+  const color = isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.node_type] || '#6c757d')
   
   ctx.fillStyle = isSelected ? color : '#fff'
   ctx.strokeStyle = color
@@ -757,6 +759,15 @@ function drawNode(ctx, node) {
   // For sources, show track name if available
   const label = isSource && node.track_name ? node.track_name : node.label
   ctx.fillText(label, pos.x, pos.y + 40)
+
+  // Draw an icon inside for ad-hoc sources
+  if (isAdHocSource) {
+    ctx.fillStyle = '#6d28d9'
+    ctx.font = '20px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🎚️', pos.x, pos.y)
+  }
 
   ctx.restore()
 }
