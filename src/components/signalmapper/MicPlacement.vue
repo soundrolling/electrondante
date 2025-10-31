@@ -802,10 +802,107 @@ function exportCanvas() {
 
 // Expose a method to retrieve the current canvas as a data URL for parent exports
 function getCanvasDataURL() {
+  // Build an export canvas that fits the background image and all mic drawings with padding
+  const PADDING = 24
+  const dprLocal = window.devicePixelRatio || 1
+
+  // If nothing to draw, return current canvas data
   if (!canvas.value) return null
-  drawCanvas()
+
+  // Create a measurement context
+  const measure = document.createElement('canvas').getContext('2d')
+  if (!measure) return null
+  measure.font = 'bold 12px sans-serif'
+
+  // Compute bounds in current canvas coordinates
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+
+  // Include background image bounds if present
+  if (bgImageObj.value) {
+    const bx = imageOffsetX.value
+    const by = imageOffsetY.value
+    const bw = bgImageObj.value.width * scaleFactor.value
+    const bh = bgImageObj.value.height * scaleFactor.value
+    minX = Math.min(minX, bx)
+    minY = Math.min(minY, by)
+    maxX = Math.max(maxX, bx + bw)
+    maxY = Math.max(maxY, by + bh)
+  } else {
+    // Fall back to visible canvas
+    minX = Math.min(minX, 0)
+    minY = Math.min(minY, 0)
+    maxX = Math.max(maxX, canvasWidth.value)
+    maxY = Math.max(maxY, canvasHeight.value)
+  }
+
+  // Include all mic nodes (circle radius and label box)
+  const circleRadius = 30
+  props.nodes.forEach(mic => {
+    const { x, y } = imageToCanvasCoords(mic.x, mic.y)
+    // Circle extents
+    minX = Math.min(minX, x - circleRadius)
+    minY = Math.min(minY, y - circleRadius)
+    maxX = Math.max(maxX, x + circleRadius)
+    maxY = Math.max(maxY, y + circleRadius)
+
+    // Label extents
+    const labelText = mic.track_name || mic.label || ''
+    const textMetrics = measure.measureText(labelText)
+    const padX = 6
+    const padY = 4
+    const bgW = Math.ceil(textMetrics.width) + padX * 2
+    const bgH = 18 + padY * 2
+    const labelY = y + 40
+    const lx = x - bgW / 2
+    const ly = labelY - padY
+    minX = Math.min(minX, lx)
+    minY = Math.min(minY, ly)
+    maxX = Math.max(maxX, lx + bgW)
+    maxY = Math.max(maxY, ly + bgH)
+  })
+
+  // Apply padding
+  const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
+  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+
+  // Prepare offscreen canvas
+  const off = document.createElement('canvas')
+  off.width = exportW * dprLocal
+  off.height = exportH * dprLocal
+  const ctx = off.getContext('2d')
+  if (!ctx) return null
+  ctx.scale(dprLocal, dprLocal)
+
+  // Background
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, exportW, exportH)
+
+  // Shift drawing so that minX/minY are inside the frame with padding
+  ctx.save()
+  ctx.translate(-minX + PADDING, -minY + PADDING)
+
+  // Draw background image (with current opacity)
+  if (bgImageObj.value) {
+    ctx.globalAlpha = bgOpacity.value
+    ctx.drawImage(
+      bgImageObj.value,
+      imageOffsetX.value,
+      imageOffsetY.value,
+      bgImageObj.value.width * scaleFactor.value,
+      bgImageObj.value.height * scaleFactor.value
+    )
+    ctx.globalAlpha = 1.0
+  }
+
+  // Draw all mics using the same routine as screen draw
+  props.nodes.forEach(mic => {
+    drawMic(ctx, mic)
+  })
+
+  ctx.restore()
+
   try {
-    return canvas.value.toDataURL('image/png')
+    return off.toDataURL('image/png')
   } catch (e) {
     return null
   }
