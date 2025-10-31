@@ -86,7 +86,7 @@
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
-      @wheel.prevent="onWheel"
+      @wheel="onWheel"
       @dblclick="onDoubleClick"
     />
   </div>
@@ -95,27 +95,55 @@
   <div v-if="showGearModal" class="modal-overlay" @click="closeGearModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>Select Microphone</h3>
+        <h3>{{ selectedMicForOrientation ? 'Select Orientation' : 'Select Microphone' }}</h3>
         <button @click="closeGearModal" class="close-btn">×</button>
       </div>
       <div class="modal-body">
-        <div v-if="availableMics.length === 0" class="no-gear">
-          <p>No microphones (sources) available for this location.</p>
-        </div>
-        <div v-else class="gear-list">
-          <div 
-            v-for="mic in availableMics" 
-            :key="mic.id"
-            @click="selectMic(mic)"
-            class="gear-item"
-          >
-            <div class="gear-icon">🎤</div>
-            <div class="gear-info">
-              <div class="gear-name">{{ mic.gear_name }}</div>
-              <div class="gear-details">
-                Available: {{ getAvailableCount(mic) }}
+        <div v-if="!selectedMicForOrientation">
+          <div v-if="availableMics.length === 0" class="no-gear">
+            <p>No microphones (sources) available for this location.</p>
+          </div>
+          <div v-else class="gear-list">
+            <div 
+              v-for="mic in availableMics" 
+              :key="mic.id"
+              @click="selectMicForOrientation(mic)"
+              class="gear-item"
+            >
+              <div class="gear-icon">🎤</div>
+              <div class="gear-info">
+                <div class="gear-name">{{ mic.gear_name }}</div>
+                <div class="gear-details">
+                  Available: {{ getAvailableCount(mic) }}
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+        <div v-else class="orientation-picker">
+          <div class="orientation-mic-info">
+            <div class="gear-icon-large">🎤</div>
+            <div class="orientation-mic-name">{{ selectedMicForOrientation.gear_name }}</div>
+          </div>
+          <div class="orientation-picker-label">Choose initial orientation:</div>
+          <div class="orientation-circle">
+            <button
+              v-for="angle in [0, 45, 90, 135, 180, 225, 270, 315]"
+              :key="angle"
+              @click="selectedOrientation = angle"
+              class="orientation-arrow"
+              :class="{ selected: selectedOrientation === angle }"
+              :style="{ transform: `rotate(${angle}deg)` }"
+              :title="`${angle}°`"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2 L12 8 M12 2 L10 4 M12 2 L14 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="orientation-actions">
+            <button @click="placeMic" :disabled="selectedOrientation === null" class="btn-primary">Place Mic</button>
+            <button @click="cancelOrientation" class="btn-secondary">Cancel</button>
           </div>
         </div>
       </div>
@@ -169,8 +197,22 @@ const showMobileSettings = ref(false)
 
 async function loadImageState() {
   try {
+    // Load lock state first
+    const wasLocked = loadLockState()
+    if (wasLocked) {
+      imageLocked.value = true
+    }
+    
     const cloudUrl = await getBgPublicUrl()
-    if (cloudUrl) await setBackgroundImage(cloudUrl)
+    if (cloudUrl) {
+      await setBackgroundImage(cloudUrl)
+      // If image was locked, update locked values to current transform
+      if (wasLocked) {
+        lockedOffsetX.value = imageOffsetX.value
+        lockedOffsetY.value = imageOffsetY.value
+        lockedScale.value = scaleFactor.value
+      }
+    }
   } catch (_) {}
 }
 
@@ -180,6 +222,40 @@ function storagePathForStage() {
   if (!props.projectId) return null
   const scope = props.locationId ?? 'default'
   return `mic-placement/${props.projectId}/${scope}/bg.png`
+}
+
+// Lock state storage key
+function lockStateStorageKey() {
+  if (!props.projectId) return null
+  const scope = props.locationId ?? 'default'
+  return `mic-placement-lock-${props.projectId}-${scope}`
+}
+
+// Save lock state to localStorage
+function saveLockState() {
+  const key = lockStateStorageKey()
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify({ locked: imageLocked.value }))
+  } catch (err) {
+    console.error('Failed to save lock state:', err)
+  }
+}
+
+// Load lock state from localStorage
+function loadLockState() {
+  const key = lockStateStorageKey()
+  if (!key) return false
+  try {
+    const stored = localStorage.getItem(key)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      return parsed.locked === true
+    }
+  } catch (err) {
+    console.error('Failed to load lock state:', err)
+  }
+  return false
 }
 
 async function getBgPublicUrl() {
@@ -287,6 +363,8 @@ const AUTO_ROTATION_SPEED = 1 // degrees per frame
 
 // Modal state
 const showGearModal = ref(false)
+const selectedMicForOrientation = ref(null)
+const selectedOrientation = ref(null)
 
 // Available mics (sources only)
 const availableMics = computed(() => {
@@ -475,6 +553,8 @@ watch(imageLocked, (locked) => {
     lockedOffsetY.value = imageOffsetY.value
     lockedScale.value = scaleFactor.value
   }
+  // Persist lock state
+  saveLockState()
 })
 
 // Coordinate transforms
@@ -680,10 +760,18 @@ function applyZoom(zoomFactor, centerX, centerY) {
 
 function onWheel(e) {
   if (!bgImageObj.value) return
+  
   // Stop auto-rotation when user scrolls
   stopAutoRotation()
-  // Skip zoom if image is locked
-  if (imageLocked.value) return
+  
+  // If image is locked, allow page to scroll normally
+  if (imageLocked.value) {
+    // Don't prevent default - let the page scroll
+    return
+  }
+  
+  // Prevent default scroll and handle zoom
+  e.preventDefault()
   const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
   const rect = canvas.value.getBoundingClientRect()
   const cx = (e.clientX - rect.left) * (canvas.value.width / rect.width) / dpr
@@ -774,14 +862,29 @@ function openGearModal() {
 
 function closeGearModal() {
   showGearModal.value = false
+  selectedMicForOrientation.value = null
+  selectedOrientation.value = null
 }
 
-async function selectMic(mic) {
+function cancelOrientation() {
+  selectedMicForOrientation.value = null
+  selectedOrientation.value = null
+}
+
+function selectMicForOrientation(mic) {
   const available = getAvailableCount(mic)
   if (available <= 0) {
     toast.error('No more units of this microphone available')
     return
   }
+  selectedMicForOrientation.value = mic
+  selectedOrientation.value = 0 // Default to 0 degrees
+}
+
+async function placeMic() {
+  const mic = selectedMicForOrientation.value
+  const rotation = selectedOrientation.value
+  if (!mic || rotation === null) return
 
   const trackName = prompt('Enter track name for this mic:', mic.gear_name)
   if (!trackName) {
@@ -802,7 +905,7 @@ async function selectMic(mic) {
       track_name: trackName,
       x: imgCoords.imgX,
       y: imgCoords.imgY,
-      rotation: 0,
+      rotation: rotation,
       gear_type: 'source',
       num_inputs: mic.num_inputs || 0,
       num_outputs: mic.num_outputs || 1,
@@ -1148,6 +1251,27 @@ defineExpose({ getCanvasDataURL })
   background: #0056b3;
 }
 
+.btn-primary:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
 .btn-danger {
   padding: 10px 20px;
   background: #dc3545;
@@ -1336,6 +1460,138 @@ defineExpose({ getCanvasDataURL })
   padding: 40px;
   color: #6c757d;
 }
+
+.orientation-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+.orientation-mic-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.gear-icon-large {
+  font-size: 48px;
+}
+
+.orientation-mic-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.orientation-picker-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 10px;
+}
+
+.orientation-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.orientation-circle {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.orientation-arrow {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #dee2e6;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #495057;
+  margin-left: -16px;
+  margin-top: -16px;
+}
+
+.orientation-arrow:hover {
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
+  transform: scale(1.15);
+  z-index: 10;
+}
+
+.orientation-arrow.selected {
+  background: #007bff;
+  border-color: #0056b3;
+  border-width: 3px;
+  color: white;
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+.orientation-arrow.selected:hover {
+  transform: scale(1.15);
+}
+
+.orientation-arrow svg {
+  display: block;
+}
+
+/* Position arrows at 8 positions around the circle */
+/* Each arrow is positioned based on its angle, then rotated to point in the right direction */
+.orientation-arrow:nth-child(1) { 
+  top: 10px; 
+  left: 50%; 
+} /* 0° - points up */
+.orientation-arrow:nth-child(2) { 
+  top: 39px; 
+  left: 84px; 
+} /* 45° - points up-right */
+.orientation-arrow:nth-child(3) { 
+  top: 50%; 
+  left: 170px; 
+  margin-top: -16px;
+} /* 90° - points right */
+.orientation-arrow:nth-child(4) { 
+  bottom: 39px; 
+  left: 84px; 
+} /* 135° - points down-right */
+.orientation-arrow:nth-child(5) { 
+  bottom: 10px; 
+  left: 50%; 
+} /* 180° - points down */
+.orientation-arrow:nth-child(6) { 
+  bottom: 39px; 
+  right: 84px; 
+} /* 225° - points down-left */
+.orientation-arrow:nth-child(7) { 
+  top: 50%; 
+  left: 10px; 
+  margin-top: -16px;
+} /* 270° - points left */
+.orientation-arrow:nth-child(8) { 
+  top: 39px; 
+  right: 84px; 
+} /* 315° - points up-left */
 
 /* Hide mobile controls on larger screens */
 .mobile-controls {
