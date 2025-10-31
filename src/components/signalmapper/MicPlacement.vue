@@ -430,16 +430,6 @@ function fitImageToCanvas(img) {
   return { scale, offsetX, offsetY }
 }
 
-function resetImageView() {
-  if (bgImageObj.value) {
-    const fit = fitImageToCanvas(bgImageObj.value)
-    scaleFactor.value = fit.scale
-    imageOffsetX.value = fit.offsetX
-    imageOffsetY.value = fit.offsetY
-    drawCanvas()
-  }
-}
-
 function zoomIn() { 
   if (imageLocked.value) return
   scaleFactor.value *= 1.1
