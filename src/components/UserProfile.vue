@@ -165,7 +165,7 @@ async function fetchGear() {
     gearLoading.value = true;
   const { data, error } = await supabase
     .from('user_gear')
-      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability, assigned_quantity')
+      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability')
     .eq('user_id', userId.value)
     .order('gear_name');
     
@@ -737,17 +737,14 @@ async function saveSecurity() {
                 </div>
 
                 <div class="gear-inventory">
-                  <span class="badge badge-available">Available: {{ (item.quantity || 0) - (item.assigned_quantity || 0) }}</span>
+                  <span class="badge badge-inventory">Inventory: {{ item.quantity || 0 }}</span>
                   <button 
-                    v-if="(item.assigned_quantity || 0) > 0"
                     class="btn-assignments"
                     @click="openAssignmentsModal(item)"
-                    :title="`View ${item.assigned_quantity || 0} assignment${(item.assigned_quantity || 0) !== 1 ? 's' : ''}`"
+                    title="View assignments across projects"
                   >
-                    Assigned: {{ item.assigned_quantity || 0 }}
+                    View Assignments
                   </button>
-                  <span v-else class="badge badge-unassigned">Not Assigned</span>
-                  <span class="badge badge-total">Total: {{ item.quantity || 0 }}</span>
                 </div>
 
                 <p v-if="item.notes" class="gear-notes">{{ item.notes }}</p>
@@ -1434,10 +1431,10 @@ async function saveSecurity() {
   border: 1.5px solid #64748b;
 }
 
-.badge-available {
-  background: linear-gradient(90deg, #bbf7d0 0%, #4ade80 100%);
-  color: #166534;
-  border: 1.5px solid #22c55e;
+.badge-inventory {
+  background: linear-gradient(90deg, #dbeafe 0%, #60a5fa 100%);
+  color: #1e40af;
+  border: 1.5px solid #60a5fa;
 }
 
 .badge-assigned {
@@ -1446,33 +1443,27 @@ async function saveSecurity() {
   border: 1.5px solid #fbbf24;
 }
 
-.badge-unassigned {
-  background: linear-gradient(90deg, #e5e7eb 0%, #9ca3af 100%);
-  color: #4b5563;
-  border: 1.5px solid #9ca3af;
-}
-
 .btn-assignments {
   display: inline-block;
-  padding: 0.3em 0.9em;
-  border-radius: 1em;
-  font-size: 0.98em;
-  font-weight: 700;
-  background: linear-gradient(90deg, #fde68a 0%, #fbbf24 100%);
-  color: #92400e;
-  border: 1.5px solid #fbbf24;
+  padding: 0.4em 1em;
+  border-radius: 0.5rem;
+  font-size: 0.9em;
+  font-weight: 600;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border: 2px solid var(--primary);
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
   box-shadow: none;
-  margin-right: 0.1em;
+  margin-left: 0.5rem;
 }
 
 .btn-assignments:hover {
-  background: linear-gradient(90deg, #fcd34d 0%, #f59e0b 100%);
-  border-color: #f59e0b;
+  background: #2563eb;
+  border-color: #2563eb;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .assignments-modal {

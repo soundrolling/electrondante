@@ -60,16 +60,29 @@
         v-for="item in searchResults" 
         :key="item.id"
         class="gear-result-item"
-        :class="{ selected: selectedItems.includes(item.id) }"
+        :class="{ 
+          selected: selectedItems.includes(item.id),
+          'has-conflict': gearConflicts[item.id] && gearConflicts[item.id].length > 0
+        }"
       >
         <div class="gear-info">
           <div class="gear-main">
-            <h4 class="gear-name">{{ item.gear_name }}</h4>
+            <h4 class="gear-name">
+              {{ item.gear_name }}
+              <span v-if="gearConflicts[item.id] && gearConflicts[item.id].length > 0" class="conflict-indicator" title="Date conflict with other projects">
+                ⚠️
+              </span>
+            </h4>
             <div class="gear-meta">
               <span class="gear-type">{{ item.gear_type || 'No type' }}</span>
               <span class="gear-quantity">Qty: {{ item.quantity }}</span>
               <span class="gear-condition" :class="item.condition">
                 {{ item.condition }}
+              </span>
+            </div>
+            <div v-if="gearConflicts[item.id] && gearConflicts[item.id].length > 0" class="conflict-warning">
+              <span class="conflict-text">
+                Conflicts with: {{ gearConflicts[item.id].map(c => c.project_name).join(', ') }}
               </span>
             </div>
           </div>
@@ -225,6 +238,7 @@ const filteredGear = ref([]); // Filtered results to display
 const selectedItems = ref([]);
 const availableTypes = ref([]);
 const availableTeamMembers = ref([]); // Store team members for filtering
+const gearConflicts = ref({}); // Map of gear_id -> conflict info
 
 // Add a map to track selected quantities by item id
 const selectedQuantities = ref({});
@@ -562,6 +576,11 @@ async function loadUserGear() {
     
     // Load available types from all gear
     availableTypes.value = [...new Set(gear.map(g => g.gear_type).filter(Boolean))].sort();
+    
+    // Check for conflicts if we have a project with dates
+    if (props.projectId && navigator.onLine) {
+      checkAllGearConflicts();
+    }
   } catch (error) {
     console.error('Error loading user gear:', error);
     allUserGear.value = [];
@@ -609,6 +628,55 @@ function filterGear() {
 watch([searchTerm, selectedType, selectedCondition, selectedTeamMember], () => {
   filterGear();
 });
+
+// Check conflicts for all loaded gear
+async function checkAllGearConflicts() {
+  if (!props.projectId || !navigator.onLine) return;
+  
+  try {
+    // Get current project dates
+    const { data: currentProject, error: projectError } = await supabase
+      .from('projects')
+      .select('id, project_name, build_days, main_show_days')
+      .eq('id', props.projectId)
+      .single();
+    
+    if (projectError || !currentProject) {
+      return;
+    }
+    
+    // Check if current project has dates
+    const hasCurrentDates = (Array.isArray(currentProject.build_days) && currentProject.build_days.length > 0) ||
+                            (Array.isArray(currentProject.main_show_days) && currentProject.main_show_days.length > 0);
+    
+    if (!hasCurrentDates) {
+      return; // No dates, no conflicts possible
+    }
+    
+    const { checkGearAssignmentConflicts } = await import('../utils/gearConflictHelper');
+    
+    // Check conflicts for all gear items
+    const conflictPromises = allUserGear.value.map(async (item) => {
+      const conflicts = await checkGearAssignmentConflicts(
+        item.id,
+        props.projectId,
+        currentProject,
+        supabase
+      );
+      
+      if (conflicts.length > 0) {
+        gearConflicts.value[item.id] = conflicts;
+      } else {
+        delete gearConflicts.value[item.id];
+      }
+    });
+    
+    await Promise.all(conflictPromises);
+  } catch (err) {
+    console.warn('Could not check gear conflicts:', err);
+    // Don't block - just continue without conflict indicators
+  }
+}
 
 function updateSelection() {
   emit('gear-selected', selectedItemsData.value.map(item => ({ ...item, selectedQuantity: selectedQuantities.value[item.id] || 1 })));
@@ -709,6 +777,7 @@ onMounted(async () => {
 // Watch for prop changes
 watch(() => props.projectId, async () => {
   clearSelection();
+  gearConflicts.value = {}; // Clear conflicts when project changes
   await loadUserGear();
 });
 </script>
@@ -865,6 +934,32 @@ gap: 0.75rem;
   border-color: var(--primary);
   background: var(--color-primary-50);
   box-shadow: var(--shadow-md);
+}
+
+.gear-result-item.has-conflict {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.conflict-indicator {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+.conflict-warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.conflict-text {
+  color: #991b1b;
+  font-weight: 500;
 }
 
 .gear-info {
