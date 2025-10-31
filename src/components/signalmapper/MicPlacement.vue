@@ -138,8 +138,8 @@
           <div class="orientation-picker-label">Choose initial orientation:</div>
           <div class="orientation-grid">
             <button
-              v-for="angle in [315, 0, 45, 270, null, 90, 225, 180, 135]"
-              :key="angle || 'center'"
+              v-for="(angle, index) in [315, 0, 45, 270, null, 90, 225, 180, 135]"
+              :key="index"
               v-if="angle !== null"
               @click="selectedOrientation = angle"
               class="orientation-arrow"
@@ -1575,17 +1575,21 @@ defineExpose({ getCanvasDataURL })
 
 .orientation-arrow:hover {
   transform: scale(1.05);
+  border-color: #333;
 }
 
 .orientation-arrow.selected {
-  background: #22c55e;
-  border-color: #16a34a;
-  color: #ffffff;
-  transform: scale(1.05);
+  background: #22c55e !important;
+  border-color: #16a34a !important;
+  border-width: 3px !important;
+  color: #ffffff !important;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .orientation-arrow.selected:hover {
-  transform: scale(1.1);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4), 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 
 .orientation-arrow svg {
@@ -1593,7 +1597,15 @@ defineExpose({ getCanvasDataURL })
 }
 
 .orientation-center {
-  /* Empty center cell in the 3x3 grid */
+  width: 48px;
+  height: 48px;
+  border: 2px solid #dee2e6;
+  border-radius: 50%;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 /* Hide mobile controls on larger screens */
