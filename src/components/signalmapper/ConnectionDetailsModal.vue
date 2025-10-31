@@ -249,6 +249,9 @@ const displayedPortMappings = computed(() => portMappings.value
 
 // Upstream labels for transformer's outputs keyed by to_port (input index on this transformer)
 const upstreamSourceLabels = ref({})
+// Track ports already used elsewhere so we don't allow duplicates across connections
+const takenFromPorts = ref(new Set())
+const takenToPorts = ref(new Set())
 
 async function buildUpstreamSourceLabels() {
   try {
@@ -280,13 +283,60 @@ async function buildUpstreamSourceLabels() {
   } catch {}
 }
 
+function getBaseSourceName(node){
+  // Prefer explicit track_name, else strip trailing " (n)" from label
+  const raw = node?.track_name || node?.label || ''
+  const m = raw.match(/^(.*) \((\d+)\)$/)
+  return m ? m[1] : raw
+}
+
+async function loadTakenPorts() {
+  try {
+    // Reset
+    takenFromPorts.value = new Set()
+    takenToPorts.value = new Set()
+    // Gather connection ids for this source as FROM
+    const { data: fromConns } = await supabase
+      .from('connections')
+      .select('id')
+      .eq('project_id', props.projectId)
+      .eq('from_node_id', props.fromNode.id)
+    const fromIds = (fromConns || []).map(c => c.id)
+    if (fromIds.length) {
+      const { data: mapsFrom } = await supabase
+        .from('connection_port_map')
+        .select('from_port')
+        .in('connection_id', fromIds)
+      ;(mapsFrom || []).forEach(r => takenFromPorts.value.add(Number(r.from_port)))
+    }
+
+    // Gather connection ids for this target as TO
+    const { data: toConns } = await supabase
+      .from('connections')
+      .select('id')
+      .eq('project_id', props.projectId)
+      .eq('to_node_id', props.toNode.id)
+    const toIds = (toConns || []).map(c => c.id)
+    if (toIds.length) {
+      const { data: mapsTo } = await supabase
+        .from('connection_port_map')
+        .select('to_port')
+        .in('connection_id', toIds)
+      ;(mapsTo || []).forEach(r => takenToPorts.value.add(Number(r.to_port)))
+    }
+  } catch {}
+}
+
 // Get available ports for mapping
 const availableFromPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
   const opts = []
   for (let n = 1; n <= numOutputs.value; n++) {
     if (used.has(n)) continue
-    const label = upstreamSourceLabels.value[n] || getFromPortName(n)
+    if (takenFromPorts.value.has(n)) continue
+    const base = getBaseSourceName(props.fromNode)
+    const preferred = (numOutputs.value === 2) ? (n === 1 ? `${base} L` : (n === 2 ? `${base} R` : `Output ${n}`)) : null
+    const label = preferred || upstreamSourceLabels.value[n] || getFromPortName(n)
     opts.push({ value: n, label })
   }
   return opts
@@ -304,7 +354,7 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
         )
-        if (!taken) opts.push({ value: n, label: `Track ${n}` })
+        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Track ${n}` })
       }
     }
   } else {
@@ -313,7 +363,7 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
         )
-        if (!taken) opts.push({ value: n, label: `Input ${n}` })
+        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Input ${n}` })
       }
     }
   }
@@ -408,7 +458,8 @@ function getFromPortName(portNum) {
     }
   }
   if (isSource.value && (numOutputs.value === 2)) {
-    return portNum === 1 ? 'L' : (portNum === 2 ? 'R' : `Output ${portNum}`)
+    const base = getBaseSourceName(props.fromNode)
+    return portNum === 1 ? `${base} L` : (portNum === 2 ? `${base} R` : `Output ${portNum}`)
   }
   return `Output ${portNum}`
 }
@@ -425,7 +476,8 @@ function getFromPortDisplay(portNum) {
     }
   }
   if (isSource.value && (numOutputs.value === 2)) {
-    return portNum === 1 ? 'L' : (portNum === 2 ? 'R' : `Output ${portNum}`)
+    const base = getBaseSourceName(props.fromNode)
+    return portNum === 1 ? `${base} L` : (portNum === 2 ? `${base} R` : `Output ${portNum}`)
   }
   return `Output ${portNum}`
 }
@@ -718,6 +770,8 @@ try {
 } catch {}
 // Build upstream labels for transformer outputs
 buildUpstreamSourceLabels()
+// Load already-taken mapped ports for source and target across existing connections
+loadTakenPorts()
 })
 </script>
 

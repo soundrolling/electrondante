@@ -352,7 +352,10 @@ function getFromPortDisplayForEdit(portNum) {
   // Label stereo source ports as L/R
   if (fromType === 'source') {
     const outCount = from?.num_outputs || from?.outputs || 0
-    if (outCount === 2) return portNum === 1 ? 'L' : (portNum === 2 ? 'R' : `Output ${portNum}`)
+    if (outCount === 2) {
+      const base = (from.track_name || from.label || '').replace(/ \((\d+)\)$/,'')
+      return portNum === 1 ? `${base} L` : (portNum === 2 ? `${base} R` : `Output ${portNum}`)
+    }
   }
   if (fromType === 'transformer') {
     // Try direct connection first
