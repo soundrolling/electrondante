@@ -125,6 +125,16 @@
             <div class="gear-icon-large">🎤</div>
             <div class="orientation-mic-name">{{ selectedMicForOrientation.gear_name }}</div>
           </div>
+          <div class="orientation-track-name-input">
+            <label for="track-name-input">Track Name:</label>
+            <input 
+              id="track-name-input"
+              type="text" 
+              v-model="trackNameInput" 
+              :placeholder="selectedMicForOrientation.gear_name"
+              class="track-name-input-field"
+            />
+          </div>
           <div class="orientation-picker-label">Choose initial orientation:</div>
           <div class="orientation-grid">
             <button
@@ -144,7 +154,7 @@
             <div v-else class="orientation-center"></div>
           </div>
           <div class="orientation-actions">
-            <button @click="placeMic" :disabled="selectedOrientation === null" class="btn-primary">Place Mic</button>
+            <button @click="placeMic" :disabled="!trackNameInput.trim() || selectedOrientation === null" class="btn-primary">Place Mic</button>
             <button @click="cancelOrientation" class="btn-secondary">Cancel</button>
           </div>
         </div>
@@ -367,6 +377,7 @@ const AUTO_ROTATION_SPEED = 1 // degrees per frame
 const showGearModal = ref(false)
 const selectedMicForOrientation = ref(null)
 const selectedOrientation = ref(null)
+const trackNameInput = ref('')
 
 // Available mics (sources only)
 const availableMics = computed(() => {
@@ -866,11 +877,13 @@ function closeGearModal() {
   showGearModal.value = false
   selectedMicForOrientation.value = null
   selectedOrientation.value = null
+  trackNameInput.value = ''
 }
 
 function cancelOrientation() {
   selectedMicForOrientation.value = null
   selectedOrientation.value = null
+  trackNameInput.value = ''
 }
 
 function selectMicForOrientation(mic) {
@@ -881,14 +894,15 @@ function selectMicForOrientation(mic) {
   }
   selectedMicForOrientation.value = mic
   selectedOrientation.value = 0 // Default to 0 degrees
+  trackNameInput.value = mic.gear_name // Pre-fill with mic name
 }
 
 async function placeMic() {
   const mic = selectedMicForOrientation.value
   const rotation = selectedOrientation.value
+  const trackName = trackNameInput.value.trim()
+  
   if (!mic || rotation === null) return
-
-  const trackName = prompt('Enter track name for this mic:', mic.gear_name)
   if (!trackName) {
     toast.error('Track name is required')
     return
@@ -1490,6 +1504,34 @@ defineExpose({ getCanvasDataURL })
   font-size: 18px;
   font-weight: 600;
   color: #212529;
+}
+
+.orientation-track-name-input {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.orientation-track-name-input label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 14px;
+}
+
+.track-name-input-field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.track-name-input-field:focus {
+  outline: none;
+  border-color: #007bff;
 }
 
 .orientation-picker-label {
