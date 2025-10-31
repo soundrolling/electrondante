@@ -166,12 +166,14 @@ async function loadImageState() {
 
 // Storage helpers: use a fixed path per stage so it persists for everyone
 function storagePathForStage() {
+  if (!props.projectId || !props.locationId) return null
   return `mic-placement/${props.projectId}/${props.locationId}/bg.png`
 }
 
 async function getBgPublicUrl() {
   try {
     const path = storagePathForStage()
+    if (!path) return null
     // Prefer a signed URL to avoid public-read requirements and 400s
     const { data, error } = await supabase.storage
       .from('stage-pictures')
@@ -185,6 +187,7 @@ async function getBgPublicUrl() {
 
 async function uploadBgToStorage(file) {
   const path = storagePathForStage()
+  if (!path) throw new Error('Missing project/location id for background path')
   let removed = false
   try {
     const { error: remErr } = await supabase.storage.from('stage-pictures').remove([path])
@@ -233,6 +236,11 @@ async function setBackgroundImage(src, state) {
     }
     img.src = src
   })
+}
+
+// Persist background transform state (currently no-op; reserved for future use)
+function saveImageState() {
+  // Intentionally left blank; transforms are session-only for now
 }
 
 // Mic state

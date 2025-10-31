@@ -23,6 +23,9 @@
     <span class="node-count">
       Sources: {{ sourceCount }} | Transformers: {{ transformerCount }} | Recorders: {{ recorderCount }}
     </span>
+    <button class="tool-btn" @click="exportFlowPng" title="Export canvas as PNG">
+      📤 Export
+    </button>
   </div>
 
   <!-- Canvas -->
@@ -1071,6 +1074,25 @@ function getCanvasDataURL() {
 }
 
 defineExpose({ getCanvasDataURL })
+
+// Download the current canvas as a PNG file
+function exportFlowPng() {
+  if (!canvas.value) return
+  drawCanvas()
+  try {
+    canvas.value.toBlob((blob) => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `signal-flow-${props.projectId}-${props.locationId}-${new Date().toISOString().slice(0,10)}.png`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    }, 'image/png')
+  } catch {}
+}
 </script>
 
 <style scoped>

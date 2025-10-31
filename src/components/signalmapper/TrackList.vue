@@ -7,6 +7,9 @@
 
   <!-- Export Buttons -->
   <div class="track-list-actions">
+    <button @click="printTrackList" class="btn-export">
+      📤 Export
+    </button>
     <button @click="exportCSV" class="btn-export">
       📊 Export CSV
     </button>
