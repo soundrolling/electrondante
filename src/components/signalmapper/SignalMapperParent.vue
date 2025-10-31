@@ -32,6 +32,12 @@
     >
       📊 Track List
     </button>
+    <button 
+      :class="['tab-btn', { active: activeTab === 'export' }]"
+      @click="activeTab = 'export'"
+    >
+      📤 Export
+    </button>
   </div>
 
   <!-- Export Actions -->
@@ -74,12 +80,84 @@
       :signalPaths="signalPaths"
       :loading="loadingPaths"
     />
+
+    <!-- Export Tab: shows Mic Placement canvas, Signal Flow canvas, and Track List with totals -->
+    <div v-if="activeTab === 'export'" class="export-tab">
+      <!-- Hidden render of canvases to capture data URLs -->
+      <div class="offscreen" aria-hidden="true">
+        <MicPlacement
+          ref="micPlacementRef"
+          :projectId="projectId"
+          :locationId="locationId"
+          :nodes="sourceNodes"
+          :gearList="gearList"
+        />
+        <SignalFlow
+          ref="signalFlowRef"
+          :projectId="projectId"
+          :locationId="locationId"
+          :nodes="allNodes"
+          :connections="allConnections"
+          :gearList="gearList"
+        />
+      </div>
+
+      <div class="export-section">
+        <h3>Mic Placement</h3>
+        <div class="export-canvas-frame" v-if="exportMicDataUrl">
+          <img :src="exportMicDataUrl" alt="Mic Placement" />
+        </div>
+        <div v-else class="export-placeholder">Preparing mic placement…</div>
+      </div>
+
+      <div class="export-section">
+        <h3>Signal Flow</h3>
+        <div class="export-canvas-frame" v-if="exportFlowDataUrl">
+          <img :src="exportFlowDataUrl" alt="Signal Flow" />
+        </div>
+        <div v-else class="export-placeholder">Preparing signal flow…</div>
+      </div>
+
+      <div class="export-section">
+        <h3>Track List</h3>
+        <table class="export-table">
+          <thead>
+            <tr>
+              <th>Track #</th>
+              <th>Recorder</th>
+              <th>Source Name</th>
+              <th>Signal Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="path in signalPaths" :key="path.connection_id">
+              <td>{{ path.track_number || '—' }}</td>
+              <td>{{ path.recorder_label }}</td>
+              <td>{{ path.track_name || path.source_label || '—' }}</td>
+              <td>{{ (path.path || []).join(' → ') }}</td>
+            </tr>
+            <tr v-if="signalPaths.length === 0"><td colspan="4">No tracks</td></tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="tfoot-label">Total Tracks</td>
+              <td class="tfoot-value">{{ signalPaths.length }}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div class="export-actions-row">
+          <button class="btn-export" @click="printExport">Print / Save as PDF</button>
+          <button class="btn-export-all" @click="downloadImages">Download PNGs</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
@@ -118,6 +196,12 @@ const allConnections = ref([])
 const gearList = ref([])
 const signalPaths = ref([])
 const loadingPaths = ref(false)
+
+// Export tab refs/state
+const micPlacementRef = ref(null)
+const signalFlowRef = ref(null)
+const exportMicDataUrl = ref(null)
+const exportFlowDataUrl = ref(null)
 
 // Computed filtered data
 const sourceNodes = computed(() => {
@@ -277,6 +361,39 @@ function exportAllTabs() {
 
   w.document.write(`<!doctype html><html><head><meta charset=\"utf-8\">${style}</head><body>${micHtml}${flowHtml}${tlHtml}</body></html>`)
   w.document.close(); w.focus(); setTimeout(() => { try { w.print(); } finally { w.close(); } }, 250)
+}
+
+// Prepare export images when Export tab becomes active
+watch(activeTab, async (tab) => {
+  if (tab !== 'export') return
+  await nextTick()
+  // Give child components a tick to render
+  await nextTick()
+  try {
+    exportMicDataUrl.value = micPlacementRef.value?.getCanvasDataURL?.() || null
+  } catch {}
+  try {
+    exportFlowDataUrl.value = signalFlowRef.value?.getCanvasDataURL?.() || null
+  } catch {}
+})
+
+function printExport() {
+  window.print()
+}
+
+function downloadImages() {
+  const downloads = [
+    { url: exportMicDataUrl.value, name: `mic-placement-${props.projectId}-${props.locationId}.png` },
+    { url: exportFlowDataUrl.value, name: `signal-flow-${props.projectId}-${props.locationId}.png` }
+  ].filter(x => !!x.url)
+  downloads.forEach(d => {
+    const a = document.createElement('a')
+    a.href = d.url
+    a.download = d.name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  })
 }
 
 // Event handlers
@@ -442,6 +559,19 @@ onMounted(async () => {
   border: 1px solid #e9ecef;
   min-height: 500px;
 }
+
+.export-tab { padding: 16px; }
+.offscreen { position: absolute; left: -99999px; top: -99999px; visibility: hidden; width: 0; height: 0; overflow: hidden; }
+.export-section { margin-bottom: 24px; }
+.export-canvas-frame { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; background:#fff; }
+.export-canvas-frame img { max-width: 100%; height: auto; display: block; }
+.export-placeholder { color: #6b7280; font-size: 14px; }
+.export-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.export-table th, .export-table td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 14px; }
+.export-table thead { background: #f9fafb; }
+.tfoot-label { text-align: right; font-weight: 600; }
+.tfoot-value { font-weight: 700; }
+.export-actions-row { display:flex; gap:8px; margin-top: 12px; }
 
 .export-actions { display:flex; gap:8px; margin: 6px 0 12px 0; }
 .btn-export, .btn-export-all { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; color:#fff; }
