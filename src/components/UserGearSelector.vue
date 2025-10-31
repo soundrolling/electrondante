@@ -243,25 +243,38 @@ async function loadUserGear() {
       console.error('Error fetching project members:', membersError);
     }
 
-    // Collect all user IDs: project owner + project members
+    // Collect all user IDs: project owner + project members + current user
     const userIds = new Set();
+    const currentUserId = userStore.user?.id;
+    const currentUserEmail = userStore.userEmail || userStore.user?.email;
+    
+    console.log('Current user ID:', currentUserId);
+    console.log('Current user email:', currentUserEmail);
+    console.log('Project:', project);
+    console.log('Project members:', projectMembers);
+    
+    // Always add current user if they're logged in
+    if (currentUserId) {
+      userIds.add(currentUserId);
+      console.log('Added current user ID to list');
+    }
     
     // Add project owner if exists
     if (project?.user_id) {
       userIds.add(project.user_id);
-    }
-    
-    // Add current user if they have gear (even if not in members table yet)
-    const currentUserId = userStore.user?.id;
-    if (currentUserId) {
-      userIds.add(currentUserId);
+      console.log('Added project owner ID:', project.user_id);
     }
     
     // Add all project members with user_id
-    if (projectMembers) {
+    if (projectMembers && projectMembers.length > 0) {
       projectMembers.forEach(m => {
         if (m.user_id) {
           userIds.add(m.user_id);
+          console.log('Added project member ID:', m.user_id, 'email:', m.user_email);
+        } else if (m.user_email && m.user_email.toLowerCase() === currentUserEmail?.toLowerCase()) {
+          // If this member entry matches current user by email but has no user_id, 
+          // we've already added currentUserId above, so we can skip
+          console.log('Found matching project member by email:', m.user_email);
         }
       });
     }
@@ -269,7 +282,7 @@ async function loadUserGear() {
     const userIdArray = Array.from(userIds);
     
     if (userIdArray.length === 0) {
-      console.log('No valid user IDs found');
+      console.log('No valid user IDs found - showing empty state');
       allUserGear.value = [];
       filteredGear.value = [];
       filterGear();
@@ -281,22 +294,30 @@ async function loadUserGear() {
     // Try to use user_gear_view first (includes owner info)
     let gear = [];
     try {
+      console.log('Attempting to query user_gear_view with user IDs:', userIdArray);
       const { data: gearData, error: viewError } = await supabase
         .from('user_gear_view')
         .select('*')
         .in('user_id', userIdArray)
         .order('gear_name');
 
-      if (!viewError && gearData) {
-        gear = gearData || [];
-        console.log('Loaded gear from view:', gear.length);
-      } else {
-        throw viewError || new Error('View not available');
+      if (viewError) {
+        console.error('Error querying user_gear_view:', viewError);
+        throw viewError;
+      }
+      
+      gear = gearData || [];
+      console.log('Loaded gear from view:', gear.length, 'items');
+      
+      if (gear.length === 0) {
+        console.warn('No gear found in user_gear_view, trying direct query as fallback');
+        throw new Error('No results from view');
       }
     } catch (viewErr) {
-      console.warn('user_gear_view not available, using direct query:', viewErr);
+      console.warn('user_gear_view not available or returned no results, using direct query:', viewErr);
       
       // Fallback: Get gear directly and fetch owner info separately
+      console.log('Querying user_gear table directly for user IDs:', userIdArray);
       const { data: gearData, error: gearError } = await supabase
         .from('user_gear')
         .select('*')
@@ -304,11 +325,17 @@ async function loadUserGear() {
         .order('gear_name');
 
       if (gearError) {
-        console.error('Error fetching gear:', gearError);
+        console.error('Error fetching gear from user_gear table:', gearError);
         throw gearError;
       }
 
-      console.log('Loaded gear from direct query:', gearData?.length || 0);
+      console.log('Loaded gear from direct query:', gearData?.length || 0, 'items');
+      
+      if (gearData && gearData.length > 0) {
+        console.log('Sample gear item:', gearData[0]);
+      } else {
+        console.warn('No gear found in user_gear table for user IDs:', userIdArray);
+      }
 
       // Fetch profiles to get owner names for all users
       const { data: profiles } = await supabase
