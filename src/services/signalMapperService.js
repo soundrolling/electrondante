@@ -309,11 +309,12 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         continue
       } else {
         // Not a source yet - this is a transformer
-        // Find any connection feeding this transformer to continue tracing
-        // If we can't find a connection with matching input_number, try any connection
+        // Keep tracing through this transformer - find ANY connection feeding it
         if (!nodeMap[currentNodeId]) break
         
         const transformerParents = parentConnsByToNode[currentNodeId] || []
+        if (!transformerParents.length) break
+        
         // Try to find connection with matching input, otherwise use first available
         const nextConn = transformerParents.find(c => 
           typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
@@ -330,15 +331,32 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         break
       }
     } else {
-      // No matching connection; stop traversal
+      // No matching connection with exact input_number
+      // If this is a transformer, try to find ANY connection to continue tracing
+      const node = nodeMap[currentNodeId]
+      const isTransformer = node && 
+        (node.gear_type === 'transformer' || node.node_type === 'transformer' ||
+         (node.gear_type !== 'source' && node.node_type !== 'source' && node.gear_type !== 'recorder' && node.node_type !== 'recorder'))
+      
+      if (isTransformer && parents.length > 0) {
+        // Try to use the first available connection to continue tracing
+        const fallbackConn = parents.find(c => typeof c.input_number === 'number')
+        if (fallbackConn) {
+          currentNodeId = fallbackConn.from_node_id
+          currentInput = fallbackConn.input_number
+          continue
+        }
+      }
+      // No connection found; stop traversal
       break
     }
   }
   
   // If we didn't find a source but have a final node, use it as fallback
+  // BUT never use a transformer as the source - only use actual source nodes
   if (!finalSourceNode && currentNodeId) {
     const lastNode = nodeMap[currentNodeId]
-    if (lastNode) {
+    if (lastNode && (lastNode.gear_type === 'source' || lastNode.node_type === 'source')) {
       finalSourceNode = lastNode
       const trackName = lastNode.track_name || ''
       finalSourceLabel = trackName || lastNode.label || 'Unknown Source'
