@@ -457,6 +457,29 @@ const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
 }
 
+function getLRAwareSourceLabel(incoming) {
+  const srcId = incoming.from_node_id || incoming.from
+  const src = props.elements.find(e => e.id === srcId)
+  if (!src) return 'Connected'
+  const base = src.track_name || src.label
+  const outCount = src.num_outputs || src.outputs || 0
+  if (outCount === 2) {
+    // Look for sibling connection from same source to this transformer to decide L/R
+    const siblings = (props.existingConnections || []).filter(c =>
+      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
+      (c.from_node_id === srcId || c.from === srcId) &&
+      typeof c.input_number === 'number'
+    ).map(c => c.input_number).sort((a,b)=>a-b)
+    if (siblings.length >= 2) {
+      const first = siblings[0]
+      return incoming.input_number === first ? `${base} L` : `${base} R`
+    }
+    // Fallback heuristic by parity
+    return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}`
+  }
+  return base
+}
+
 // Fallback port name for 'from' ports
 function getFromPortName(portNum) {
   if (isTransformerFrom.value) {
@@ -464,7 +487,7 @@ function getFromPortName(portNum) {
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
     )
     if (incoming) {
-      const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+      const srcLabel = getLRAwareSourceLabel(incoming)
       if (srcLabel) return srcLabel
     }
   }
@@ -481,7 +504,7 @@ function getFromPortDisplay(portNum) {
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
     )
     if (incoming) {
-      const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+      const srcLabel = getLRAwareSourceLabel(incoming)
       if (srcLabel) return srcLabel
     }
   }
