@@ -2,8 +2,8 @@
 <div class="user-gear-selector">
   <!-- Header -->
   <div class="selector-header">
-    <h3 class="selector-title">Add My Gear to Project</h3>
-    <p class="selector-subtitle">Select gear from your profile to add to this project</p>
+    <h3 class="selector-title">Add User Gear</h3>
+    <p class="selector-subtitle">Select gear from the profiles of users on this project</p>
   </div>
 
   <!-- Search and Filters -->
@@ -12,7 +12,7 @@
       <input 
         v-model="searchTerm" 
         class="search-input"
-        placeholder="Search your gear by name, type, or notes..."
+        placeholder="Search gear by name, type, or notes..."
         @input="debouncedSearch"
       />
       <span class="search-icon">🔍</span>
@@ -39,7 +39,7 @@
   <!-- Loading State -->
   <div v-if="loading" class="loading-state">
     <div class="spinner"></div>
-    <p>Loading your gear...</p>
+    <p>Loading gear from project users...</p>
   </div>
 
   <!-- Results -->
@@ -75,7 +75,8 @@
           </div>
 
           <div class="gear-owner">
-            <span class="owner-name">{{ item.owner_name || 'Me' }}</span>
+            <div class="owner-label">Owner:</div>
+            <span class="owner-name">{{ item.owner_name || 'Unknown' }}</span>
             <span v-if="item.owner_company" class="owner-company">
               {{ item.owner_company }}
             </span>
@@ -100,8 +101,8 @@
   <!-- Empty State -->
   <div v-else class="empty-state">
     <div class="empty-icon">🎛️</div>
-    <h4>{{ allUserGear.length === 0 ? 'No gear in your profile' : 'No gear found' }}</h4>
-    <p>{{ allUserGear.length === 0 ? 'Add gear to your profile first' : 'Try adjusting your search terms or filters' }}</p>
+    <h4>{{ allUserGear.length === 0 ? 'No gear found' : 'No gear found' }}</h4>
+    <p>{{ allUserGear.length === 0 ? 'No users in this project have gear in their profiles' : 'Try adjusting your search terms or filters' }}</p>
   </div>
 
   <!-- Selected Items Summary -->
@@ -147,6 +148,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { UserGearService } from '../services/userGearService';
 import { useUserStore } from '../stores/userStore';
+import { supabase } from '../supabase';
 
 // Props
 const props = defineProps({
@@ -212,49 +214,121 @@ watch(selectedItems, (newVal, oldVal) => {
 async function loadUserGear() {
   try {
     loading.value = true;
-    const userId = userStore.user?.id;
     
-    if (!userId) {
-      console.error('User ID not found');
+    if (!props.projectId) {
+      console.error('Project ID not found');
       allUserGear.value = [];
       filteredGear.value = [];
       return;
     }
 
-    // Get user's gear
-    const gear = await UserGearService.getUserGear(userId);
+    // Get all project members
+    const { data: projectMembers, error: membersError } = await supabase
+      .from('project_members')
+      .select('user_id, user_email')
+      .eq('project_id', props.projectId);
     
-    // Get user profile to add owner info
-    let ownerName = 'Me';
-    let ownerCompany = null;
+    if (membersError) {
+      console.error('Error fetching project members:', membersError);
+      allUserGear.value = [];
+      filteredGear.value = [];
+      return;
+    }
+
+    if (!projectMembers || projectMembers.length === 0) {
+      console.log('No project members found');
+      allUserGear.value = [];
+      filteredGear.value = [];
+      filterGear();
+      return;
+    }
+
+    // Get user IDs from members (filter out nulls)
+    const userIds = projectMembers
+      .map(m => m.user_id)
+      .filter(id => id !== null && id !== undefined);
     
-    if (userStore.userProfile) {
-      ownerName = userStore.userProfile.full_name || userStore.userEmail || 'Me';
-      ownerCompany = userStore.userProfile.company || null;
-    } else {
-      // Try to fetch profile
-      try {
-        await userStore.fetchUserProfile();
-        if (userStore.userProfile) {
-          ownerName = userStore.userProfile.full_name || userStore.userEmail || 'Me';
-          ownerCompany = userStore.userProfile.company || null;
-        }
-      } catch (err) {
-        console.warn('Could not fetch user profile:', err);
+    if (userIds.length === 0) {
+      console.log('No valid user IDs found in project members');
+      allUserGear.value = [];
+      filteredGear.value = [];
+      filterGear();
+      return;
+    }
+
+    // Try to use user_gear_view first (includes owner info)
+    let gear = [];
+    try {
+      const { data: gearData, error: viewError } = await supabase
+        .from('user_gear_view')
+        .select('*')
+        .in('user_id', userIds)
+        .eq('availability', 'available')
+        .order('gear_name');
+
+      if (!viewError && gearData) {
+        gear = gearData;
+      } else {
+        throw viewError || new Error('View not available');
       }
+    } catch (viewErr) {
+      console.warn('user_gear_view not available, using direct query:', viewErr);
+      
+      // Fallback: Get gear directly and fetch owner info separately
+      const { data: gearData, error: gearError } = await supabase
+        .from('user_gear')
+        .select('*')
+        .in('user_id', userIds)
+        .eq('availability', 'available')
+        .order('gear_name');
+
+      if (gearError) {
+        throw gearError;
+      }
+
+      // Fetch profiles to get owner names
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, full_name, company')
+        .in('user_id', userIds);
+
+      const profileMap = {};
+      if (profiles) {
+        profiles.forEach(p => {
+          profileMap[p.user_id] = {
+            name: p.full_name || null,
+            company: p.company || null
+          };
+        });
+      }
+
+      // Map user emails as fallback
+      const emailMap = {};
+      projectMembers.forEach(m => {
+        if (m.user_id) {
+          emailMap[m.user_id] = m.user_email;
+        }
+      });
+
+      // Add owner information to each gear item
+      gear = (gearData || []).map(item => {
+        const profile = profileMap[item.user_id];
+        const email = emailMap[item.user_id];
+        
+        return {
+          ...item,
+          owner_name: profile?.name || email || 'Unknown',
+          owner_company: profile?.company || null
+        };
+      });
     }
     
-    // Add owner information to each gear item
-    allUserGear.value = gear.map(item => ({
-      ...item,
-      owner_name: ownerName,
-      owner_company: ownerCompany
-    }));
+    allUserGear.value = gear;
     
     // Initial filter (shows all gear)
     filterGear();
     
-    // Load available types from user's gear
+    // Load available types from all gear
     availableTypes.value = [...new Set(gear.map(g => g.gear_type).filter(Boolean))].sort();
   } catch (error) {
     console.error('Error loading user gear:', error);
@@ -327,8 +401,9 @@ onMounted(async () => {
 });
 
 // Watch for prop changes
-watch(() => props.projectId, () => {
+watch(() => props.projectId, async () => {
   clearSelection();
+  await loadUserGear();
 });
 </script>
 
@@ -552,12 +627,24 @@ color: #991b1b;
 .gear-owner {
 text-align: right;
 font-size: 0.875rem;
+display: flex;
+flex-direction: column;
+gap: 0.25rem;
+}
+
+.owner-label {
+font-size: 0.75rem;
+color: #64748b;
+font-weight: 500;
+text-transform: uppercase;
+letter-spacing: 0.5px;
 }
 
 .owner-name {
 display: block;
-font-weight: 500;
-color: #374151;
+font-weight: 600;
+color: #1e293b;
+font-size: 0.9rem;
 }
 
 .owner-company {
@@ -743,6 +830,19 @@ color: white;
 
 .btn-secondary:hover {
 background: #4b5563;
+}
+
+.btn-positive {
+background: #047857;
+color: white !important;
+border-color: #065f46;
+}
+
+.btn-positive:hover {
+background: #065f46;
+border-color: #047857;
+color: white !important;
+box-shadow: 0 2px 8px rgba(4, 120, 87, 0.3);
 }
 
 /* Animations */

@@ -1950,7 +1950,8 @@ setup() {
 
   .actions-group {
     flex-direction: row;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .gear-actions {
@@ -1981,6 +1982,12 @@ setup() {
 
   .page-title {
     font-size: 32px;
+  }
+
+  .actions-group {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 16px;
   }
 
   .gear-cards {
