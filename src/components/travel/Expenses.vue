@@ -59,7 +59,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Expenses</h2>
-      <button @click="openModal" class="add-button" aria-label="Add new expense">
+      <button v-if="canManageProject" @click="openModal" class="add-button" aria-label="Add new expense">
         <span class="icon">+</span>
         <span class="button-text">Add Expense</span>
       </button>
@@ -97,12 +97,12 @@
         </div>
 
         <div class="expense-actions">
-          <button @click="editExpense(expense)" class="action-button edit-button" aria-label="Edit expense">
+          <button v-if="canManageProject" @click="editExpense(expense)" class="action-button edit-button" aria-label="Edit expense">
             <span class="action-icon">✏️</span>
             <span class="action-text">Edit</span>
           </button>
           
-          <button @click="deleteExpense(expense)" class="action-button delete-button" aria-label="Delete expense">
+          <button v-if="canManageProject" @click="deleteExpense(expense)" class="action-button delete-button" aria-label="Delete expense">
             <span class="action-icon">🗑️</span>
             <span class="action-text">Delete</span>
           </button>
@@ -275,6 +275,27 @@ setup(props) {
   const fileInput = ref(null);
   const selectedFile = ref(null);
   const selectedFileName = ref("");
+  
+  // Permission check
+  const canManageProject = ref(false);
+  
+  async function checkUserRole() {
+    const { data: sess } = await supabase.auth.getSession();
+    const email = sess?.session?.user?.email?.toLowerCase();
+    if (!email || !userStore.currentProject?.id) return;
+    try {
+      const { data } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', userStore.currentProject.id)
+        .eq('user_email', email)
+        .single();
+      canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role);
+    } catch (err) {
+      console.error('Error checking user role:', err);
+      canManageProject.value = false;
+    }
+  }
 
   // Expense form
   const expenseForm = ref({
@@ -620,7 +641,8 @@ setup(props) {
     };
   };
 
-  onMounted(() => {
+  onMounted(async () => {
+    await checkUserRole();
     loadTrips();
     if (selectedTripId.value) {
       loadExpenses();
@@ -643,8 +665,11 @@ setup(props) {
 
     // The fixed back button
     goBackToDashboard,
+    
+    // Permissions
+    canManageProject,
 
-    // Computeds & Methods
+    // Computed & Methods
     sortedExpenses,
     formatDate,
     formatDateRange,

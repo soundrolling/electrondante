@@ -19,7 +19,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Parking Entries</h2>
-      <button @click="openForm" class="add-button" aria-label="Add new parking entry">
+      <button v-if="canManageProject" @click="openForm" class="add-button" aria-label="Add new parking entry">
         <span class="icon">+</span>
         <span class="button-text">Add Parking</span>
       </button>
@@ -138,7 +138,7 @@
             </div>
           </div>
         </div>
-        <div class="parking-card-footer">
+        <div v-if="canManageProject" class="parking-card-footer">
           <button @click="editParking(entry)" class="action-button edit-button" aria-label="Edit parking entry">
             <span class="action-icon">✏️</span>
             <span class="action-text">Edit</span>
@@ -158,6 +158,7 @@
 import { ref, onMounted } from 'vue';
 import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
+import { useUserStore } from '../../stores/userStore';
 
 export default {
 name: 'Parking',
@@ -167,6 +168,7 @@ props: {
 },
 setup(props) {
   const toast = useToast();
+  const userStore = useUserStore();
   const isLoading = ref(false);
   const isSaving = ref(false);
   const showForm = ref(false);
@@ -180,6 +182,27 @@ setup(props) {
     cost: '',
     notes: ''
   });
+  
+  // Permission check
+  const canManageProject = ref(false);
+  
+  async function checkUserRole() {
+    const { data: sess } = await supabase.auth.getSession();
+    const email = sess?.session?.user?.email?.toLowerCase();
+    if (!email || !userStore.currentProject?.id) return;
+    try {
+      const { data } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', userStore.currentProject.id)
+        .eq('user_email', email)
+        .single();
+      canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role);
+    } catch (err) {
+      console.error('Error checking user role:', err);
+      canManageProject.value = false;
+    }
+  }
 
   const loadParking = async () => {
     isLoading.value = true;
@@ -253,7 +276,10 @@ setup(props) {
     }
   };
 
-  onMounted(loadParking);
+  onMounted(async () => {
+    await checkUserRole();
+    loadParking();
+  });
 
   return {
     isLoading,
@@ -266,7 +292,8 @@ setup(props) {
     editParking,
     closeForm,
     saveParking,
-    deleteParking
+    deleteParking,
+    canManageProject
   };
 }
 };

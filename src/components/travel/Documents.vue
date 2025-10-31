@@ -55,7 +55,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Documents</h2>
-      <button @click="openModal" class="add-button" aria-label="Add new document">
+      <button v-if="canManageProject" @click="openModal" class="add-button" aria-label="Add new document">
         <span class="icon">+</span>
         <span class="button-text">Add Document</span>
       </button>
@@ -101,6 +101,7 @@
         
         <div class="document-actions">
           <button 
+            v-if="canManageProject"
             @click="editDocument(doc)" 
             class="action-button edit-button"
             aria-label="Edit document"
@@ -110,6 +111,7 @@
           </button>
           
           <button 
+            v-if="canManageProject"
             @click="deleteDocument(doc)" 
             class="action-button delete-button"
             aria-label="Delete document"
@@ -273,6 +275,27 @@ export default {
     const fileInput = ref(null);
     const selectedFile = ref(null);
     const selectedFileName = ref("");
+    
+    // Permission check
+    const canManageProject = ref(false);
+    
+    async function checkUserRole() {
+      const { data: sess } = await supabase.auth.getSession();
+      const email = sess?.session?.user?.email?.toLowerCase();
+      if (!email || !userStore.currentProject?.id) return;
+      try {
+        const { data } = await supabase
+          .from('project_members')
+          .select('role')
+          .eq('project_id', userStore.currentProject.id)
+          .eq('user_email', email)
+          .single();
+        canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role);
+      } catch (err) {
+        console.error('Error checking user role:', err);
+        canManageProject.value = false;
+      }
+    }
 
     const documentForm = ref({
       title: "",
@@ -700,7 +723,8 @@ export default {
       return '';
     };
 
-    onMounted(() => {
+    onMounted(async () => {
+      await checkUserRole();
       loadTrips();
       if (selectedTripId.value) {
         loadDocuments();
@@ -737,6 +761,7 @@ export default {
       isImageFile,
       isPdfFile,
       getPreviewUrl,
+      canManageProject,
     };
   }
 };

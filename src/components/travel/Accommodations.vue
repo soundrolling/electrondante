@@ -55,7 +55,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Accommodations</h2>
-      <button @click="openAddForm" class="add-button" aria-label="Add new accommodation">
+      <button v-if="canManageProject" @click="openAddForm" class="add-button" aria-label="Add new accommodation">
         <span class="icon">+</span>
         <span class="button-text">Add Accommodation</span>
       </button>
@@ -221,7 +221,7 @@
           </div>
         </div>
         
-        <div class="accommodation-card-footer">
+        <div v-if="canManageProject" class="accommodation-card-footer">
           <button
             @click="editAccommodation(accommodation)"
             class="action-button edit-button"
@@ -266,7 +266,7 @@ setup(props) {
   // We also get the userStore
   const userStore = useUserStore();
 
-  const projectId = ref(props.id || '');
+  const projectId = ref(userStore.currentProject?.id || props.id || '');
   const selectedTripId = ref(props.tripId || '');
   const isLoading = ref(false);
 
@@ -276,6 +276,27 @@ setup(props) {
   const showAccommodationForm = ref(false);
   const editingAccommodation = ref(null);
   const isSaving = ref(false);
+  
+  // Permission check
+  const canManageProject = ref(false);
+  
+  async function checkUserRole() {
+    const { data: sess } = await supabase.auth.getSession();
+    const email = sess?.session?.user?.email?.toLowerCase();
+    if (!email || !userStore.currentProject?.id) return;
+    try {
+      const { data } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', userStore.currentProject.id)
+        .eq('user_email', email)
+        .single();
+      canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role);
+    } catch (err) {
+      console.error('Error checking user role:', err);
+      canManageProject.value = false;
+    }
+  }
 
   const accommodationForm = ref({
     name: '',
@@ -301,9 +322,15 @@ setup(props) {
 
   const loadTrips = async () => {
     try {
+      const currentProjectId = userStore.currentProject?.id || projectId.value;
+      if (!currentProjectId) {
+        console.error('No project ID available');
+        return;
+      }
       const { data, error } = await supabase
         .from('travel_trips')
         .select('*')
+        .eq('project_id', currentProjectId)
         .order('start_date', { ascending: true });
       if (error) throw error;
       trips.value = data || [];
@@ -355,9 +382,10 @@ setup(props) {
     showAccommodationForm.value = true;
   };
 
-  const deleteAccommodation = async (accommodationId) => {
+  const deleteAccommodation = async (accommodation) => {
     if (!confirm('Are you sure you want to delete this accommodation?')) return;
     try {
+      const accommodationId = accommodation?.id || accommodation;
       const { error } = await supabase
         .from('travel_accommodations')
         .delete()
@@ -478,7 +506,8 @@ setup(props) {
     return amenities.split(',').map(item => item.trim());
   };
 
-  onMounted(() => {
+  onMounted(async () => {
+    await checkUserRole();
     loadTrips();
     if (selectedTripId.value) {
       loadAccommodations();
@@ -507,6 +536,9 @@ setup(props) {
 
     // The fixed method
     goBackToDashboard,
+    
+    // Permissions
+    canManageProject,
 
     // Helpers
     formatDateRange,

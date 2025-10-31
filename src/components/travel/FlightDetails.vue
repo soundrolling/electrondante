@@ -74,7 +74,7 @@
     <div v-if="activeTab === 'flights'" class="section-content" role="tabpanel" id="flights-panel">
       <div class="section-header">
         <h2>Flight Information</h2>
-        <button @click="openFlightModal()" class="btn btn-positive add-button" aria-label="Add new flight">
+        <button v-if="canManageProject" @click="openFlightModal()" class="btn btn-positive add-button" aria-label="Add new flight">
           <span class="icon">+</span>
           <span class="button-text">Add Flight</span>
         </button>
@@ -140,7 +140,7 @@
             </div>
           </div>
           
-          <div class="flight-card-footer">
+          <div v-if="canManageProject" class="flight-card-footer">
             <button @click="openFlightModal(flight)" class="btn btn-warning action-button edit-button" aria-label="Edit flight">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
@@ -158,7 +158,7 @@
     <div v-if="activeTab === 'rental'" class="section-content" role="tabpanel" id="rental-panel">
       <div class="section-header">
         <h2>Rental Car Information</h2>
-        <button @click="openRentalModal()" class="btn btn-positive add-button" aria-label="Add new rental car">
+        <button v-if="canManageProject" @click="openRentalModal()" class="btn btn-positive add-button" aria-label="Add new rental car">
           <span class="icon">+</span>
           <span class="button-text">Add Rental Car</span>
         </button>
@@ -202,7 +202,7 @@
               <p>{{ rental.notes }}</p>
             </div>
           </div>
-          <div class="rental-card-footer">
+          <div v-if="canManageProject" class="rental-card-footer">
             <button @click="openRentalModal(rental)" class="btn btn-warning action-button edit-button" aria-label="Edit rental car">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
@@ -220,7 +220,7 @@
     <div v-if="activeTab === 'local'" class="section-content" role="tabpanel" id="local-panel">
       <div class="section-header">
         <h2>Local Transportation</h2>
-        <button @click="openLocalTransportModal()" class="btn btn-positive add-button" aria-label="Add new local transport">
+        <button v-if="canManageProject" @click="openLocalTransportModal()" class="btn btn-positive add-button" aria-label="Add new local transport">
           <span class="icon">+</span>
           <span class="button-text">Add Local Transport</span>
         </button>
@@ -262,7 +262,7 @@
               <p>{{ transport.notes }}</p>
             </div>
           </div>
-          <div class="transport-card-footer">
+          <div v-if="canManageProject" class="transport-card-footer">
             <button @click="openLocalTransportModal(transport)" class="btn btn-warning action-button edit-button" aria-label="Edit local transport">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
@@ -280,7 +280,7 @@
     <div v-if="activeTab === 'parking'" class="section-content" role="tabpanel" id="parking-panel">
       <div class="section-header">
         <h2>Airport Car Parking</h2>
-        <button @click="openNewParkingModal()" class="btn btn-positive add-button" aria-label="Add new parking">
+        <button v-if="canManageProject" @click="openNewParkingModal()" class="btn btn-positive add-button" aria-label="Add new parking">
           <span class="icon">🚗</span>
           <span class="button-text">Add Parking</span>
         </button>
@@ -308,7 +308,7 @@
             <p class="parking-cost">Cost: £{{ parseFloat(slot.cost).toFixed(2) }}</p>
             <p v-if="slot.notes" class="parking-notes">{{ slot.notes }}</p>
           </div>
-          <div class="parking-card-footer">
+          <div v-if="canManageProject" class="parking-card-footer">
             <button @click="openEditParkingModal(slot)" class="btn btn-warning action-button edit-button" aria-label="Edit parking">
               <span class="action-icon">✏️</span>
               <span class="action-text">Edit</span>
@@ -946,6 +946,27 @@ setup(props) {
   const isLoading = ref(false);
   const isSaving = ref(false);
   const isSavingParking = ref(false);
+  
+  // Permission check
+  const canManageProject = ref(false);
+  
+  async function checkUserRole() {
+    const { data: sess } = await supabase.auth.getSession();
+    const email = sess?.session?.user?.email?.toLowerCase();
+    if (!email || !userStore.currentProject?.id) return;
+    try {
+      const { data } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', userStore.currentProject.id)
+        .eq('user_email', email)
+        .single();
+      canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role);
+    } catch (err) {
+      console.error('Error checking user role:', err);
+      canManageProject.value = false;
+    }
+  }
 
   // Flight Modal State
   const showFlightModal = ref(false);
@@ -1409,6 +1430,7 @@ setup(props) {
   );
 
   onMounted(async () => {
+    await checkUserRole();
     await fetchTrips();
     if (selectedTripId.value) loadAllTransportData();
   });
@@ -1463,7 +1485,8 @@ setup(props) {
     saveNewParking,
     updateParking,
     deleteParking,
-    goBackToDashboard
+    goBackToDashboard,
+    canManageProject
   };
 }
 };

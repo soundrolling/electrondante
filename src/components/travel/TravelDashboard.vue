@@ -8,7 +8,7 @@
     <div class="dashboard-card upcoming-trips">
       <div class="card-header">
         <h2>Upcoming Trips</h2>
-        <button @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
           <span class="icon">+</span>
           <span class="button-text">New Trip</span>
         </button>
@@ -53,7 +53,7 @@
         <div class="empty-icon">✈️</div>
         <h3>No upcoming trips</h3>
         <p>Create your first trip to get started!</p>
-        <button @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
       </div>
       
       <!-- No Results from Filters -->
@@ -206,6 +206,7 @@
           <div class="trip-card-footer">
             <div class="trip-card-actions">
               <button 
+                v-if="canManageProject"
                 @click.stop="openEditTripModal(trip)" 
                 class="action-button edit-button"
                 aria-label="Edit trip"
@@ -215,6 +216,7 @@
               </button>
               
               <button 
+                v-if="canManageProject"
                 @click.stop="deleteTrip(trip)" 
                 class="action-button delete-button"
                 aria-label="Delete trip"
@@ -379,6 +381,27 @@ setup() {
   
   // Project members
   const projectMembers = ref([])
+  
+  // Permission check
+  const canManageProject = ref(false)
+  
+  async function checkUserRole() {
+    const { data: sess } = await supabase.auth.getSession()
+    const email = sess?.session?.user?.email?.toLowerCase()
+    if (!email || !userStore.currentProject?.id) return
+    try {
+      const { data } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', userStore.currentProject.id)
+        .eq('user_email', email)
+        .single()
+      canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role)
+    } catch (err) {
+      console.error('Error checking user role:', err)
+      canManageProject.value = false
+    }
+  }
 
   const newTrip = ref({
     name: '',
@@ -733,6 +756,7 @@ setup() {
     }
     
     if (userStore.currentProject?.id) {
+      await checkUserRole()
       await fetchProjectMembers()
       await fetchTrips()
     } else {
@@ -755,6 +779,7 @@ setup() {
     projectMembers,
     creatorFilter,
     memberFilter,
+    canManageProject,
     createNewTrip,
     saveNewTrip,
     openEditTripModal,
