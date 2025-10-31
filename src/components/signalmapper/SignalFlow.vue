@@ -1095,8 +1095,11 @@ async function deleteSelected() {
 
   const isSource = (selectedNode.value.gear_type || selectedNode.value.node_type) === 'source'
   if (isSource) {
-    toast.error('Cannot delete source nodes from Signal Flow. Delete from Mic Placement tab.')
-    return
+    const isAdHoc = (selectedNode.value.type === 'source') || !selectedNode.value.gear_id
+    if (!isAdHoc) {
+      toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
+      return
+    }
   }
 
   if (!confirm(`Delete ${selectedNode.value.label}?`)) return

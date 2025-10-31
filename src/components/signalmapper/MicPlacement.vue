@@ -166,8 +166,10 @@ async function loadImageState() {
 
 // Storage helpers: use a fixed path per stage so it persists for everyone
 function storagePathForStage() {
-  if (!props.projectId || !props.locationId) return null
-  return `mic-placement/${props.projectId}/${props.locationId}/bg.png`
+  // Fallback to a project-level default scope when no location id is set
+  if (!props.projectId) return null
+  const scope = props.locationId ?? 'default'
+  return `mic-placement/${props.projectId}/${scope}/bg.png`
 }
 
 async function getBgPublicUrl() {
@@ -187,7 +189,7 @@ async function getBgPublicUrl() {
 
 async function uploadBgToStorage(file) {
   const path = storagePathForStage()
-  if (!path) throw new Error('Missing project/location id for background path')
+  if (!path) throw new Error('Missing project id for background path')
   let removed = false
   try {
     const { error: remErr } = await supabase.storage.from('stage-pictures').remove([path])
