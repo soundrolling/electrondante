@@ -37,7 +37,7 @@
         v-for="b in pills"
         :key="b.id || b._queuedKey"
         class="pill"
-        :style="{ background: b.color, color: contrast(b.color) }"
+        :style="{ '--pill-bg': b.color, '--pill-fg': contrast(b.color) }"
         @click="onPillClick(b)"
       >
         {{ b.name }}
@@ -1353,6 +1353,8 @@ opacity: 0.6;
 }
 
 .pill {
+  --pill-bg: #ccc; /* Default, overridden inline */
+  --pill-fg: #000; /* Default, overridden inline */
   padding: 4px 12px;
   border: none;
   border-radius: 14px;
@@ -1361,9 +1363,15 @@ opacity: 0.6;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
+  /* Use CSS variables set via inline styles to override global button:not(.btn) rule */
+  background-color: var(--pill-bg) !important;
+  color: var(--pill-fg) !important;
 }
 
 .pill:hover {
+  /* Maintain background and text color on hover */
+  background-color: var(--pill-bg) !important;
+  color: var(--pill-fg) !important;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

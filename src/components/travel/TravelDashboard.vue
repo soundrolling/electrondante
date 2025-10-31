@@ -8,9 +8,34 @@
     <div class="dashboard-card upcoming-trips">
       <div class="card-header">
         <h2>Upcoming Trips</h2>
-        <button @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
           <span class="icon">+</span>
           <span class="button-text">New Trip</span>
+        </button>
+      </div>
+      
+      <!-- Filters -->
+      <div v-if="!isLoading && trips.length > 0" class="filters-section">
+        <div class="filter-group">
+          <label for="creatorFilter" class="filter-label">Created By:</label>
+          <select id="creatorFilter" v-model="creatorFilter" class="filter-select">
+            <option value="all">All Creators</option>
+            <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+              {{ member.display_name }}
+            </option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="memberFilter" class="filter-label">Trip Member:</label>
+          <select id="memberFilter" v-model="memberFilter" class="filter-select">
+            <option value="all">All Members</option>
+            <option v-for="member in projectMembers" :key="member.user_email" :value="member.user_email">
+              {{ member.display_name }}
+            </option>
+          </select>
+        </div>
+        <button v-if="creatorFilter !== 'all' || memberFilter !== 'all'" @click="clearFilters" class="clear-filters-btn">
+          Clear Filters
         </button>
       </div>
       
@@ -28,7 +53,15 @@
         <div class="empty-icon">✈️</div>
         <h3>No upcoming trips</h3>
         <p>Create your first trip to get started!</p>
-        <button @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
+      </div>
+      
+      <!-- No Results from Filters -->
+      <div v-else-if="filteredTrips.length === 0 && trips.length > 0" class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <h3>No trips match your filters</h3>
+        <p>Try adjusting your filters or create a new trip.</p>
+        <button @click="clearFilters" class="btn btn-positive primary-button">Clear Filters</button>
       </div>
       
       <!-- New Trip Inline Form -->
@@ -99,6 +132,26 @@
             ></textarea>
           </div>
           
+          <div class="form-group">
+            <label for="tripMembers">Trip Members (Optional)</label>
+            <p class="form-help-text">Select project members traveling on this trip. You can select multiple members.</p>
+            <div class="member-selector">
+              <label 
+                v-for="member in projectMembers" 
+                :key="member.user_email"
+                class="member-checkbox-label"
+              >
+                <input
+                  type="checkbox"
+                  :value="member.user_email"
+                  v-model="newTrip.member_emails"
+                  class="member-checkbox"
+                />
+                <span>{{ member.display_name }}</span>
+              </label>
+            </div>
+          </div>
+          
           <div class="form-actions">
             <button
               type="button"
@@ -120,7 +173,7 @@
       </div>
       <div v-else class="trip-list">
         <div
-          v-for="trip in trips"
+          v-for="trip in filteredTrips"
           :key="trip.id"
           class="trip-card"
           role="button"
@@ -133,6 +186,17 @@
             </span>
           </div>
           
+          <div class="trip-card-meta">
+            <div v-if="trip.created_by_name" class="trip-creator">
+              <span class="meta-label">Created by:</span>
+              <span class="meta-value">{{ trip.created_by_name }}</span>
+            </div>
+            <div v-if="trip.member_names && trip.member_names.length > 0" class="trip-members">
+              <span class="meta-label">Members:</span>
+              <span class="meta-value">{{ trip.member_names.join(', ') }}</span>
+            </div>
+          </div>
+          
           <div class="trip-card-status">
             <span class="status-badge" :class="getTripStatusClass(trip)">
               {{ getTripStatus(trip) }}
@@ -142,6 +206,7 @@
           <div class="trip-card-footer">
             <div class="trip-card-actions">
               <button 
+                v-if="canManageProject"
                 @click.stop="openEditTripModal(trip)" 
                 class="action-button edit-button"
                 aria-label="Edit trip"
@@ -151,6 +216,7 @@
               </button>
               
               <button 
+                v-if="canManageProject"
                 @click.stop="deleteTrip(trip)" 
                 class="action-button delete-button"
                 aria-label="Delete trip"
@@ -244,6 +310,26 @@
                 ></textarea>
               </div>
               
+              <div class="form-group">
+                <label for="editTripMembers">Trip Members (Optional)</label>
+                <p class="form-help-text">Select project members traveling on this trip. You can select multiple members.</p>
+                <div class="member-selector">
+                  <label 
+                    v-for="member in projectMembers" 
+                    :key="member.user_email"
+                    class="member-checkbox-label"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="member.user_email"
+                      v-model="editTrip.member_emails"
+                      class="member-checkbox"
+                    />
+                    <span>{{ member.display_name }}</span>
+                  </label>
+                </div>
+              </div>
+              
               <div class="form-actions">
                 <button
                   type="button"
@@ -288,6 +374,34 @@ setup() {
   const showNewTripModal = ref(false)
   const showEditTripModal = ref(false)
   const isSaving = ref(false)
+  
+  // Filters
+  const creatorFilter = ref('all')
+  const memberFilter = ref('all')
+  
+  // Project members
+  const projectMembers = ref([])
+  
+  // Permission check
+  const canManageProject = ref(false)
+  
+  async function checkUserRole() {
+    const { data: sess } = await supabase.auth.getSession()
+    const email = sess?.session?.user?.email?.toLowerCase()
+    if (!email || !userStore.currentProject?.id) return
+    try {
+      const { data } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', userStore.currentProject.id)
+        .eq('user_email', email)
+        .single()
+      canManageProject.value = ['owner', 'admin', 'contributor'].includes(data?.role)
+    } catch (err) {
+      console.error('Error checking user role:', err)
+      canManageProject.value = false
+    }
+  }
 
   const newTrip = ref({
     name: '',
@@ -295,15 +409,77 @@ setup() {
     start_date: '',
     end_date: '',
     description: '',
-    project_id: userStore.currentProject?.id || null
+    project_id: userStore.currentProject?.id || null,
+    member_emails: []
   })
 
-  const editTrip = ref({})
+  const editTrip = ref({
+    member_emails: []
+  })
 
   const defaultTripId = computed(() =>
     trips.value.length ? trips.value[0].id : null
   )
+  
+  // Filtered trips based on creator and member filters
+  const filteredTrips = computed(() => {
+    let filtered = trips.value
+    
+    if (creatorFilter.value !== 'all') {
+      filtered = filtered.filter(trip => trip.created_by === creatorFilter.value)
+    }
+    
+    if (memberFilter.value !== 'all') {
+      filtered = filtered.filter(trip => 
+        trip.member_emails && trip.member_emails.includes(memberFilter.value)
+      )
+    }
+    
+    return filtered
+  })
 
+
+  // Fetch project members
+  async function fetchProjectMembers() {
+    if (!userStore.currentProject?.id) return
+    try {
+      const { data: memberRows, error } = await supabase
+        .from('project_members')
+        .select('user_id, user_email, role')
+        .eq('project_id', userStore.currentProject.id)
+      
+      if (error) throw error
+      
+      const members = memberRows || []
+      const userIds = members.map(m => m.user_id).filter(Boolean)
+      
+      let profiles = []
+      if (userIds.length) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds)
+        profiles = profileData || []
+      }
+      
+      projectMembers.value = members.map(m => {
+        const profile = profiles.find(p => p.user_id === m.user_id) || {}
+        return {
+          ...m,
+          display_name: profile.full_name || m.user_email || 'Unknown'
+        }
+      })
+    } catch (err) {
+      console.error('Failed to fetch project members:', err)
+    }
+  }
+  
+  // Get member name by email
+  function getMemberName(email) {
+    if (!email || !projectMembers.value.length) return email || 'Unknown'
+    const member = projectMembers.value.find(m => m.user_email === email)
+    return member ? member.display_name : email
+  }
 
   async function fetchTrips() {
     isLoading.value = true
@@ -323,6 +499,18 @@ setup() {
 
       const enriched = await Promise.all(
         data.map(async trip => {
+          // Fetch trip members
+          const { data: tripMembers } = await supabase
+            .from('travel_trip_members')
+            .select('user_email')
+            .eq('trip_id', trip.id)
+          
+          const memberEmails = (tripMembers || []).map(tm => tm.user_email)
+          const memberNames = memberEmails.map(email => getMemberName(email))
+          
+          // Get creator name
+          const createdByName = trip.created_by ? getMemberName(trip.created_by) : null
+          
           const [
             { data: flights },
             { data: accommodations },
@@ -342,7 +530,10 @@ setup() {
             accommodations_count: accommodations.length,
             documents_count: documents.length,
             expenses_count: expenses.length,
-            parking_count: parking.length
+            parking_count: parking.length,
+            member_emails: memberEmails,
+            member_names: memberNames,
+            created_by_name: createdByName
           }
         })
       )
@@ -384,19 +575,28 @@ setup() {
     }[getTripStatus(t)]
   }
 
+  // Get current user email
+  async function getCurrentUserEmail() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.user?.email?.toLowerCase() || null
+  }
+  
   // CRUD
-  function createNewTrip() {
+  async function createNewTrip() {
     if (!userStore.currentProject?.id) {
       toast.error('No project selected')
       return
     }
+    const userEmail = await getCurrentUserEmail()
     newTrip.value = {
       name: '',
       destination: '',
       start_date: '',
       end_date: '',
       description: '',
-      project_id: userStore.currentProject.id
+      project_id: userStore.currentProject.id,
+      created_by: userEmail,
+      member_emails: []
     }
     showNewTripModal.value = true
   }
@@ -409,18 +609,59 @@ setup() {
     }
     isSaving.value = true
     try {
-      await supabase.from('travel_trips').insert([newTrip.value])
+      // Extract member emails before saving trip
+      const memberEmails = [...(newTrip.value.member_emails || [])]
+      
+      // Build trip data object with only valid database columns
+      const tripData = {
+        name: newTrip.value.name,
+        destination: newTrip.value.destination,
+        start_date: newTrip.value.start_date,
+        end_date: newTrip.value.end_date,
+        description: newTrip.value.description || null,
+        project_id: newTrip.value.project_id,
+        created_by: newTrip.value.created_by || null
+      }
+      
+      // Insert trip
+      const { data: insertedTrip, error: tripError } = await supabase
+        .from('travel_trips')
+        .insert([tripData])
+        .select()
+        .single()
+      
+      if (tripError) throw tripError
+      
+      // Insert trip members if any
+      if (memberEmails.length > 0 && insertedTrip) {
+        const tripMembers = memberEmails.map(email => ({
+          trip_id: insertedTrip.id,
+          user_email: email,
+          user_id: projectMembers.value.find(m => m.user_email === email)?.user_id || null
+        }))
+        
+        const { error: membersError } = await supabase
+          .from('travel_trip_members')
+          .insert(tripMembers)
+        
+        if (membersError) throw membersError
+      }
+      
       toast.success('Trip created successfully')
       showNewTripModal.value = false
       await fetchTrips()
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error('Failed to create trip')
     } finally {
       isSaving.value = false
     }
   }
   function openEditTripModal(trip) {
-    editTrip.value = { ...trip }
+    editTrip.value = { 
+      ...trip,
+      member_emails: [...(trip.member_emails || [])]
+    }
     showEditTripModal.value = true
   }
   async function updateTrip() {
@@ -431,16 +672,63 @@ setup() {
       return
     }
     try {
-      await supabase
+      // Extract member emails before updating trip
+      const memberEmails = [...(editTrip.value.member_emails || [])]
+      
+      // Build trip data object with only valid database columns
+      const tripData = {
+        name: editTrip.value.name,
+        destination: editTrip.value.destination,
+        start_date: editTrip.value.start_date,
+        end_date: editTrip.value.end_date,
+        description: editTrip.value.description || null,
+        project_id: editTrip.value.project_id,
+        created_by: editTrip.value.created_by || null
+      }
+      
+      // Update trip
+      const { error: tripError } = await supabase
         .from('travel_trips')
-        .update(editTrip.value)
+        .update(tripData)
         .eq('id', editTrip.value.id)
+      
+      if (tripError) throw tripError
+      
+      // Delete existing trip members
+      const { error: deleteError } = await supabase
+        .from('travel_trip_members')
+        .delete()
+        .eq('trip_id', editTrip.value.id)
+      
+      if (deleteError) throw deleteError
+      
+      // Insert new trip members if any
+      if (memberEmails.length > 0) {
+        const tripMembers = memberEmails.map(email => ({
+          trip_id: editTrip.value.id,
+          user_email: email,
+          user_id: projectMembers.value.find(m => m.user_email === email)?.user_id || null
+        }))
+        
+        const { error: membersError } = await supabase
+          .from('travel_trip_members')
+          .insert(tripMembers)
+        
+        if (membersError) throw membersError
+      }
+      
       toast.success('Trip updated successfully')
       showEditTripModal.value = false
       await fetchTrips()
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error('Failed to update trip')
     }
+  }
+  
+  function clearFilters() {
+    creatorFilter.value = 'all'
+    memberFilter.value = 'all'
   }
   async function deleteTrip(t) {
     if (!confirm('Are you sure you want to delete this trip?')) return
@@ -482,6 +770,8 @@ setup() {
     }
     
     if (userStore.currentProject?.id) {
+      await checkUserRole()
+      await fetchProjectMembers()
       await fetchTrips()
     } else {
       console.warn('No current project available for travel dashboard')
@@ -492,6 +782,7 @@ setup() {
   return {
     userStore,
     trips,
+    filteredTrips,
     isLoading,
     showNewTripModal,
     showEditTripModal,
@@ -499,11 +790,16 @@ setup() {
     newTrip,
     editTrip,
     defaultTripId,
+    projectMembers,
+    creatorFilter,
+    memberFilter,
+    canManageProject,
     createNewTrip,
     saveNewTrip,
     openEditTripModal,
     updateTrip,
     deleteTrip,
+    clearFilters,
     viewAccommodations,
     viewFlightDetails,
     viewDocuments,
@@ -677,6 +973,69 @@ setup() {
   100% { background-position: -200% 0; }
 }
 
+/* Filters Section */
+.filters-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 150px;
+  flex: 1;
+}
+
+.filter-label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.filter-select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 44px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.clear-filters-btn {
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  min-height: 44px;
+  transition: all var(--transition-normal);
+}
+
+.clear-filters-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-dark);
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -702,9 +1061,13 @@ setup() {
   line-height: var(--leading-normal);
 }
 
+.empty-state .primary-button {
+  color: white !important;
+}
+
 .primary-button {
   background: var(--color-success-500);
-  color: white;
+  color: white !important;
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
@@ -795,6 +1158,33 @@ setup() {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: var(--leading-snug);
+}
+
+.trip-card-meta {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.trip-creator,
+.trip-members {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  align-items: baseline;
+}
+
+.meta-label {
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+}
+
+.meta-value {
+  color: var(--text-primary);
 }
 
 .trip-card-status {
@@ -1100,6 +1490,46 @@ setup() {
 .form-textarea {
   min-height: 80px;
   resize: vertical;
+}
+
+.form-help-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: var(--space-1) 0 var(--space-3) 0;
+  line-height: var(--leading-normal);
+}
+
+.member-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.member-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-normal);
+}
+
+.member-checkbox-label:hover {
+  background: var(--bg-tertiary);
+}
+
+.member-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary-500);
 }
 
 .form-input:focus,

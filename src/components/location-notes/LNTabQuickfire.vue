@@ -266,8 +266,8 @@ backdrop-filter: blur(10px);
 .qf {
 --bg: #ccc; /* overridden inline */
 --fg: #000;
-background: var(--bg);
-color: var(--fg);
+background: var(--bg) !important;
+color: var(--fg) !important;
   border: 2px solid rgba(0, 0, 0, 0.25);
 border-radius: 16px;
 padding: 24px 16px;
@@ -276,16 +276,21 @@ font-size: 1rem;
 text-align: center;
 cursor: pointer;
 box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 backdrop-filter: blur(10px);
 }
 .qf:hover {
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);
   filter: saturate(1.05);
 }
 .qf:active {
-transform: translateY(-2px) scale(0.98);
+  background: var(--bg) !important;
+  color: var(--fg) !important;
+  transform: translateY(-2px) scale(0.98);
 }
 /* add-toggle */
 .add {

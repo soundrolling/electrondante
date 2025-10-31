@@ -37,25 +37,7 @@
         </div>
       </div>
       <form @submit.prevent="submit" class="connection-form">
-        <div v-if="isSource && isTransformerTo" class="form-group">
-          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Transformer Input</label>
-          <select class="form-select" v-model.number="inputNumber">
-            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              {{ opt.label }}
-            </option>
-          </select>
-          
-        </div>
-        <div v-else-if="isSource && isRecorderTo" class="form-group">
-          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
-          <select class="form-select" v-model.number="inputNumber">
-            <option v-for="opt in trackOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              {{ opt.label }}
-            </option>
-          </select>
-          
-        </div>
-        <div v-else-if="needsPortMapping" class="form-group">
+        <div v-if="needsPortMapping" class="form-group">
           <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
           <div class="port-mapping-container">
             <div v-if="displayedPortMappings.length > 0" class="port-mappings-list">
@@ -65,7 +47,7 @@
                 <select class="form-select-small" v-model.number="editFromPort">
                   <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   <option :value="mapping.from_port" v-if="!availableFromPorts.find(o => o.value === mapping.from_port)">
-                    {{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}
+                    {{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}
                   </option>
                 </select>
                 <span class="arrow">→</span>
@@ -80,7 +62,7 @@
               </template>
               <template v-else>
                 <!-- Display mode -->
-                <span>{{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}</span>
+                <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
                 <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
@@ -101,6 +83,24 @@
               <button type="button" class="btn-add" @click="addPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
             </div>
           </div>
+        </div>
+        <div v-else-if="isSource && isTransformerTo" class="form-group">
+          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Transformer Input</label>
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
+          
+        </div>
+        <div v-else-if="isSource && isRecorderTo" class="form-group">
+          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in recorderAssignmentOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
+          
         </div>
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
@@ -209,12 +209,15 @@ const isRecorderTo   = computed(() => getType(props.toNode)   === 'recorder' || 
 const isTransformerTo = computed(() => getType(props.toNode) === 'transformer')
 const isTransformerFrom = computed(() => getType(props.fromNode) === 'transformer')
 
-// Use port mapping when neither side is a source, and at least one side is a transformer
-// (also supports recorder→recorder)
-const needsPortMapping = computed(() =>
-  (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
-  (isRecorderFrom.value && isRecorderTo.value)
-)
+// Use port mapping when neither side is a source and a transformer is involved,
+// or recorder→recorder, or when the from side is a multi-output source going to
+// a transformer/recorder (e.g., stereo source mapping L/R).
+const needsPortMapping = computed(() => {
+  const multiOutputSource = isSource.value && ((numOutputs.value || 0) > 1) && (isTransformerTo.value || isRecorderTo.value)
+  return (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
+         (isRecorderFrom.value && isRecorderTo.value) ||
+         multiOutputSource
+})
 
 const numInputs = computed(() => props.toNode.num_inputs || props.toNode.numinputs || props.toNode.inputs || 0)
 const numOutputs = computed(() => props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 0)
@@ -246,34 +249,206 @@ const displayedPortMappings = computed(() => portMappings.value
 
 // Upstream labels for transformer's outputs keyed by to_port (input index on this transformer)
 const upstreamSourceLabels = ref({})
+// Track ports already used elsewhere so we don't allow duplicates across connections
+const takenFromPorts = ref(new Set())
+const takenToPorts = ref(new Set())
+// Store source labels for port-mapped inputs (input number -> source label)
+const portMappedInputLabels = ref({})
 
 async function buildUpstreamSourceLabels() {
   try {
     upstreamSourceLabels.value = {}
     if (!isTransformerFrom.value) return
-    // Find parent connection feeding this transformer
-    const { data: parentConn } = await supabase
+    
+    // First check all incoming connections to this transformer for direct source connections
+    const directIncomings = (props.existingConnections || []).filter(c =>
+      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && typeof c.input_number === 'number'
+    )
+    
+    // Build labels from direct incoming connections
+    directIncomings.forEach(inc => {
+      const label = getLRAwareSourceLabel(inc)
+      if (label) upstreamSourceLabels.value[inc.input_number] = label
+    })
+    
+    // Also check for parent connections with port maps (transformer → transformer)
+    const { data: parentConns } = await supabase
       .from('connections')
       .select('id, from_node_id, to_node_id')
       .eq('project_id', props.projectId)
       .eq('to_node_id', props.fromNode.id)
-      .maybeSingle()
-    if (!parentConn) return
-    const { data: maps } = await supabase
-      .from('connection_port_map')
-      .select('from_port, to_port')
-      .eq('connection_id', parentConn.id)
-    if (!maps) return
-    // For each mapping, resolve the upstream source label using existingConnections
-    maps.forEach(m => {
-      const incoming = (props.existingConnections || []).find(c =>
-        (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
-      )
-      if (incoming) {
-        const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
-        if (srcLabel) upstreamSourceLabels.value[m.to_port] = srcLabel
-      }
-    })
+    
+    if (!parentConns || parentConns.length === 0) return
+    
+    // Check each parent for port maps and resolve labels
+    for (const parentConn of parentConns) {
+      const { data: maps } = await supabase
+        .from('connection_port_map')
+        .select('from_port, to_port')
+        .eq('connection_id', parentConn.id)
+      
+      if (!maps || maps.length === 0) continue
+      
+      // Resolve upstream labels per mapping
+      const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
+      maps.forEach(m => {
+        let label = ''
+        const fromNodeType = (parentFromNode?.gear_type || parentFromNode?.node_type || '').toLowerCase()
+        if (fromNodeType === 'source') {
+          // Clean base: extract number from label, strip LR suffix and number suffix
+          const pLabel = parentFromNode?.label || ''
+          const pTrackName = parentFromNode?.track_name || ''
+          const pm = pLabel.match(/^(.*) \((\d+)\)$/)
+          const pNum = pm ? pm[2] : ''
+          // Get clean base: prefer track_name (cleaned), fall back to label base
+          let base
+          if (pTrackName) {
+            base = pTrackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+          } else if (pm) {
+            base = pm[1].replace(/\s*LR$/i,'').trim()
+          } else {
+            base = (pLabel || 'Source').replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+          }
+          const pNumSuffix = pNum ? ` (${pNum})` : ''
+          if (Number(parentFromNode?.num_outputs || parentFromNode?.outputs || 0) === 2) {
+            label = Number(m.from_port) === 1 ? `${base} L${pNumSuffix}` : (Number(m.from_port) === 2 ? `${base} R${pNumSuffix}` : `${base} ${m.from_port}${pNumSuffix}`)
+          } else {
+            label = `${base}${pNumSuffix}`
+          }
+        } else {
+          // Upstream is transformer/other: try to find its incoming connection for the mapped from_port
+          const incoming = (props.existingConnections || []).find(c =>
+            (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
+          )
+          if (incoming) {
+            label = getLRAwareSourceLabel(incoming)
+          }
+        }
+        if (label) upstreamSourceLabels.value[m.to_port] = label
+      })
+    }
+  } catch {}
+}
+
+function getSourceLabelParts(node){
+  // Prefer track_name for base if present, but numbering comes from label suffix
+  const label = node?.label || ''
+  const trackName = node?.track_name || ''
+  // Extract number from label (e.g., "FOH Feed LR (2)" -> number is "2")
+  const m = (label || '').match(/^(.*) \((\d+)\)$/)
+  const num = m ? m[2] : ''
+  // Get base: prefer track_name (cleaned), fall back to label base (without number)
+  let baseNoNum
+  if (trackName) {
+    // Clean track_name: remove number suffix and LR
+    baseNoNum = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  } else if (m) {
+    // Use label base without number: already extracted in m[1]
+    baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
+  } else {
+    // No number in label, clean what we have
+    baseNoNum = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  }
+  const numSuffix = num ? ` (${num})` : ''
+  return { baseNoNum, numSuffix }
+}
+
+function getSourcePortLabel(portNum){
+  const { baseNoNum, numSuffix } = getSourceLabelParts(props.fromNode)
+  if (numOutputs.value === 2) {
+    return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
+  }
+  return `${baseNoNum}${numSuffix}`
+}
+
+// Helper to get source port label for any node (not just props.fromNode)
+function getSourcePortLabelForNode(node, portNum) {
+  const label = node?.label || ''
+  const trackName = node?.track_name || ''
+  const m = label.match(/^(.*) \((\d+)\)$/)
+  const num = m ? m[2] : ''
+  let base
+  if (trackName) {
+    base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  } else if (m) {
+    base = m[1].replace(/\s*LR$/i,'').trim()
+  } else {
+    base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  }
+  const numSuffix = num ? ` (${num})` : ''
+  const outCount = node?.num_outputs || node?.outputs || 0
+  if (outCount === 2) {
+    return portNum === 1 ? `${base} L${numSuffix}` : (portNum === 2 ? `${base} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
+  }
+  return `${base}${numSuffix}`
+}
+
+async function loadTakenPorts() {
+  try {
+    // Reset
+    takenFromPorts.value = new Set()
+    takenToPorts.value = new Set()
+    portMappedInputLabels.value = {}
+    // Gather connection ids for this source as FROM
+    const { data: fromConns } = await supabase
+      .from('connections')
+      .select('id')
+      .eq('project_id', props.projectId)
+      .eq('from_node_id', props.fromNode.id)
+    const fromIds = (fromConns || []).map(c => c.id)
+    if (fromIds.length) {
+      const { data: mapsFrom } = await supabase
+        .from('connection_port_map')
+        .select('from_port')
+        .in('connection_id', fromIds)
+      ;(mapsFrom || []).forEach(r => takenFromPorts.value.add(Number(r.from_port)))
+    }
+
+    // Gather connection ids for this target as TO (with connection info to resolve sources)
+    const { data: toConns } = await supabase
+      .from('connections')
+      .select('id, from_node_id')
+      .eq('project_id', props.projectId)
+      .eq('to_node_id', props.toNode.id)
+    const toIds = (toConns || []).map(c => c.id)
+    if (toIds.length) {
+      const { data: mapsTo } = await supabase
+        .from('connection_port_map')
+        .select('connection_id, from_port, to_port')
+        .in('connection_id', toIds)
+      
+      // Build map of connection_id -> from_node_id
+      const connToFrom = Object.fromEntries(toConns.map(c => [c.id, c.from_node_id]))
+      
+      ;(mapsTo || []).forEach(r => {
+        const inputNum = Number(r.to_port)
+        takenToPorts.value.add(inputNum)
+        
+        // Resolve source label for this port-mapped input
+        const connId = r.connection_id
+        const fromNodeId = connToFrom[connId]
+        if (fromNodeId) {
+          const fromNode = props.elements.find(e => e.id === fromNodeId)
+          if (fromNode) {
+            const fromNodeType = (fromNode.gear_type || fromNode.node_type || '').toLowerCase()
+            if (fromNodeType === 'source') {
+              // Direct source connection via port map - use from_port to determine L/R
+              const label = getSourcePortLabelForNode(fromNode, Number(r.from_port))
+              if (label) portMappedInputLabels.value[inputNum] = label
+            } else {
+              // Transformer→Transformer: find incoming connection to this transformer
+              const incoming = (props.existingConnections || []).find(c =>
+                (c.to_node_id === fromNodeId || c.to === fromNodeId) && c.input_number === Number(r.from_port)
+              )
+              if (incoming) {
+                const label = getLRAwareSourceLabel(incoming)
+                if (label) portMappedInputLabels.value[inputNum] = label
+              }
+            }
+          }
+        }
+      })
+    }
   } catch {}
 }
 
@@ -283,7 +458,22 @@ const availableFromPorts = computed(() => {
   const opts = []
   for (let n = 1; n <= numOutputs.value; n++) {
     if (used.has(n)) continue
-    const label = upstreamSourceLabels.value[n] || getFromPortName(n)
+    if (takenFromPorts.value.has(n)) continue
+    let label
+    if (isTransformerFrom.value) {
+      label = upstreamSourceLabels.value[n]
+      if (!label) {
+        const incoming = (props.existingConnections || []).find(c =>
+          (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
+        )
+        if (incoming) label = getLRAwareSourceLabel(incoming)
+      }
+      if (!label) label = `Output ${n}`
+    } else if (isSource.value) {
+      label = getSourcePortLabel(n)
+    } else {
+      label = getFromPortName(n)
+    }
     opts.push({ value: n, label })
   }
   return opts
@@ -301,7 +491,7 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
         )
-        if (!taken) opts.push({ value: n, label: `Track ${n}` })
+        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Track ${n}` })
       }
     }
   } else {
@@ -310,7 +500,7 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
         )
-        if (!taken) opts.push({ value: n, label: `Input ${n}` })
+        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Input ${n}` })
       }
     }
   }
@@ -358,19 +548,17 @@ function cancelEditMapping() {
   editToPort.value = null
 }
 
-// Disallow duplicate connection from the same source to the same target
-const sourceHasConnectionToTarget = computed(() => {
-  return (props.existingConnections || []).some(c =>
-    (c.from_node_id === props.fromNode.id || c.from === props.fromNode.id) &&
-    (c.to_node_id === props.toNode.id || c.to === props.toNode.id)
-  )
-})
+// Skip duplicate pre-checks; UI already filters to available inputs
 
 // Watch for prop changes
 watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
-watch(() => props.existingConnections, () => buildUpstreamSourceLabels())
+watch(() => props.existingConnections, () => {
+  buildUpstreamSourceLabels()
+  loadTakenPorts()
+})
+watch(() => props.toNode?.id, () => loadTakenPorts())
 
 // (moved below inputOptions definition)
 
@@ -399,6 +587,43 @@ const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
 }
 
+function getLRAwareSourceLabel(incoming) {
+  const srcId = incoming.from_node_id || incoming.from
+  const src = props.elements.find(e => e.id === srcId)
+  if (!src) return 'Connected'
+  // Clean base: extract number from label, strip LR suffix and number suffix
+  const label = src.label || ''
+  const trackName = src.track_name || ''
+  const m = label.match(/^(.*) \((\d+)\)$/)
+  const num = m ? m[2] : ''
+  // Get clean base: prefer track_name (cleaned), fall back to label base
+  let base
+  if (trackName) {
+    base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  } else if (m) {
+    base = m[1].replace(/\s*LR$/i,'').trim()
+  } else {
+    base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+  }
+  const numSuffix = num ? ` (${num})` : ''
+  const outCount = src.num_outputs || src.outputs || 0
+  if (outCount === 2) {
+    // Look for sibling connection from same source to this transformer to decide L/R
+    const siblings = (props.existingConnections || []).filter(c =>
+      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
+      (c.from_node_id === srcId || c.from === srcId) &&
+      typeof c.input_number === 'number'
+    ).map(c => c.input_number).sort((a,b)=>a-b)
+    if (siblings.length >= 2) {
+      const first = siblings[0]
+      return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+    }
+    // Fallback heuristic by parity
+    return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+  }
+  return `${base}${numSuffix}`
+}
+
 // Fallback port name for 'from' ports
 function getFromPortName(portNum) {
   if (isTransformerFrom.value) {
@@ -406,9 +631,12 @@ function getFromPortName(portNum) {
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
     )
     if (incoming) {
-      const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+      const srcLabel = getLRAwareSourceLabel(incoming)
       if (srcLabel) return srcLabel
     }
+  }
+  if (isSource.value) {
+    return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
 }
@@ -420,9 +648,12 @@ function getFromPortDisplay(portNum) {
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
     )
     if (incoming) {
-      const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
+      const srcLabel = getLRAwareSourceLabel(incoming)
       if (srcLabel) return srcLabel
     }
+  }
+  if (isSource.value) {
+    return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
 }
@@ -430,18 +661,29 @@ function getFromPortDisplay(portNum) {
 const inputOptions = computed(() => {
 const arr = []
 for (let n = 1; n <= numInputs.value; n++) {
+  let label = `Input ${n}`
+  let disabled = false
+  
+  // Check if taken by direct connection
   const takenConn = props.existingConnections.find(c => 
     (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
   )
-  let label = `Input ${n}`
-  let disabled = false
-  if (takenConn) {
+  
+  // Check if taken by port mapping
+  const takenByPortMap = takenToPorts.value.has(n)
+  const portMapLabel = portMappedInputLabels.value[n]
+  
+  if (takenConn || takenByPortMap) {
+    disabled = true
     let nodeLabel = 'Taken'
-    if (takenConn.from_node_id || takenConn.from) {
-      nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+    if (takenConn) {
+      if (takenConn.from_node_id || takenConn.from) {
+        nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+      }
+    } else if (portMapLabel) {
+      nodeLabel = portMapLabel
     }
     label = `Input ${n} (Assigned to ${nodeLabel})`
-    disabled = true
   }
   arr.push({ value: n, label, disabled })
 }
@@ -488,6 +730,41 @@ for (let n = 1; n <= numTracks.value; n++) {
   arr.push({ value: n, label, disabled })
 }
 return arr
+})
+
+// When recorder has no explicit track count, fall back to inputs but label them as Track
+const recorderAssignmentOptions = computed(() => {
+  if ((numTracks.value || 0) > 0) return trackOptions.value
+  // Build from inputs
+  const arr = []
+  for (let n = 1; n <= numInputs.value; n++) {
+    let label = `Track ${n}`
+    let disabled = false
+    
+    // Check if taken by direct connection
+    const takenConn = (props.existingConnections || []).find(c =>
+      (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
+    )
+    
+    // Check if taken by port mapping
+    const takenByPortMap = takenToPorts.value.has(n)
+    const portMapLabel = portMappedInputLabels.value[n]
+    
+    if (takenConn || takenByPortMap) {
+      disabled = true
+      let nodeLabel = 'Taken'
+      if (takenConn) {
+        if (takenConn.from_node_id || takenConn.from) {
+          nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+        }
+      } else if (portMapLabel) {
+        nodeLabel = portMapLabel
+      }
+      label = `Track ${n} (Assigned to ${nodeLabel})`
+    }
+    arr.push({ value: n, label, disabled })
+  }
+  return arr
 })
 
 // No auto-selection; user can type any number. Uniqueness enforced by DB.
@@ -593,34 +870,7 @@ errorMsg.value = ''
     return
   }
   
-  // Block if a connection from this source to this target already exists
-  if (sourceHasConnectionToTarget.value) {
-    errorMsg.value = 'This source is already connected to this device.'
-    loading.value = false
-    return
-  }
-
-  // Refresh latest assignments for target to avoid stale duplicate selection
-  try {
-    const { data: latest, error } = await supabase
-      .from('connections')
-      .select('to_node_id,input_number,from_node_id')
-      .eq('project_id', props.projectId)
-      .eq('to_node_id', props.toNode.id)
-    if (!error && Array.isArray(latest)) {
-      const used = new Set(latest.map(c => c.input_number).filter(Boolean))
-      if (used.has(inputNumber.value)) {
-        const firstAvail = (inputOptions.value || []).find(o => !o.disabled && !used.has(o.value))?.value
-        if (typeof firstAvail !== 'undefined') {
-          inputNumber.value = firstAvail
-        } else {
-          errorMsg.value = 'All inputs are occupied.'
-          loading.value = false
-          return
-        }
-      }
-    }
-  } catch {}
+  // No duplicate pre-checks; rely on UI filtering and DB constraint
   const connection = {
     project_id: props.projectId,
     from_node_id: props.fromNode.id,
@@ -718,6 +968,8 @@ try {
 } catch {}
 // Build upstream labels for transformer outputs
 buildUpstreamSourceLabels()
+// Load already-taken mapped ports for source and target across existing connections
+loadTakenPorts()
 })
 </script>
 

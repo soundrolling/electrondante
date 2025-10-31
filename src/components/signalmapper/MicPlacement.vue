@@ -13,12 +13,16 @@
     </div>
     <div class="left-group" :class="{ mobileHidden: !showMobileSettings }">
       <label class="inline-setting">
-        <input type="checkbox" v-model="panImageMode" />
+        <input type="checkbox" v-model="panImageMode" :disabled="imageLocked" />
         <span>Pan</span>
       </label>
-      <button @click="zoomIn" :disabled="!bgImage" class="btn-secondary">🔍+</button>
-      <button @click="zoomOut" :disabled="!bgImage" class="btn-secondary">🔍-</button>
-      <button @click="resetImageView" :disabled="!bgImage" class="btn-secondary">Reset</button>
+      <button @click="zoomIn" :disabled="!bgImage || imageLocked" class="btn-secondary">🔍+</button>
+      <button @click="zoomOut" :disabled="!bgImage || imageLocked" class="btn-secondary">🔍-</button>
+      <button @click="resetImageView" :disabled="!bgImage || imageLocked" class="btn-secondary">Reset</button>
+      <label class="inline-setting" v-if="bgImage">
+        <input type="checkbox" v-model="imageLocked" />
+        <span>🔒 Lock</span>
+      </label>
       <div class="inline-setting">
         <label>Opacity</label>
         <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
@@ -82,7 +86,8 @@
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
-      @wheel.prevent="onWheel"
+      @wheel="onWheel"
+      @dblclick="onDoubleClick"
     />
   </div>
 
@@ -90,27 +95,67 @@
   <div v-if="showGearModal" class="modal-overlay" @click="closeGearModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>Select Microphone</h3>
+        <h3>{{ selectedMicForOrientation ? 'Select Orientation' : 'Select Microphone' }}</h3>
         <button @click="closeGearModal" class="close-btn">×</button>
       </div>
       <div class="modal-body">
-        <div v-if="availableMics.length === 0" class="no-gear">
-          <p>No microphones (sources) available for this location.</p>
-        </div>
-        <div v-else class="gear-list">
-          <div 
-            v-for="mic in availableMics" 
-            :key="mic.id"
-            @click="selectMic(mic)"
-            class="gear-item"
-          >
-            <div class="gear-icon">🎤</div>
-            <div class="gear-info">
-              <div class="gear-name">{{ mic.gear_name }}</div>
-              <div class="gear-details">
-                Available: {{ getAvailableCount(mic) }}
+        <div v-if="!selectedMicForOrientation">
+          <div v-if="availableMics.length === 0" class="no-gear">
+            <p>No microphones (sources) available for this location.</p>
+          </div>
+          <div v-else class="gear-list">
+            <div 
+              v-for="mic in availableMics" 
+              :key="mic.id"
+              @click="selectMicForOrientation(mic)"
+              class="gear-item"
+            >
+              <div class="gear-icon">🎤</div>
+              <div class="gear-info">
+                <div class="gear-name">{{ mic.gear_name }}</div>
+                <div class="gear-details">
+                  Available: {{ getAvailableCount(mic) }}
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+        <div v-else class="orientation-picker">
+          <div class="orientation-mic-info">
+            <div class="gear-icon-large">🎤</div>
+            <div class="orientation-mic-name">{{ selectedMicForOrientation.gear_name }}</div>
+          </div>
+          <div class="orientation-track-name-input">
+            <label for="track-name-input">Track Name:</label>
+            <input 
+              id="track-name-input"
+              type="text" 
+              v-model="trackNameInput" 
+              :placeholder="selectedMicForOrientation.gear_name"
+              class="track-name-input-field"
+            />
+          </div>
+          <div class="orientation-picker-label">Choose initial orientation:</div>
+          <div class="orientation-grid">
+            <button
+              v-for="(angle, index) in [315, 0, 45, 270, null, 90, 225, 180, 135]"
+              :key="index"
+              v-if="angle !== null"
+              @click="selectedOrientation = angle"
+              class="orientation-arrow"
+              :class="{ selected: selectedOrientation === angle }"
+              :style="{ transform: `rotate(${angle}deg)` }"
+              :title="`${angle}°`"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3 L12 14 M12 3 L7 8 M12 3 L17 8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div v-else class="orientation-center"></div>
+          </div>
+          <div class="orientation-actions">
+            <button @click="placeMic" :disabled="!trackNameInput.trim() || selectedOrientation === null" class="btn-primary">Place Mic</button>
+            <button @click="cancelOrientation" class="btn-secondary">Cancel</button>
           </div>
         </div>
       </div>
@@ -152,6 +197,11 @@ const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
+const imageLocked = ref(false)
+// Locked values - used for coordinate transforms when image is locked
+const lockedOffsetX = ref(0)
+const lockedOffsetY = ref(0)
+const lockedScale = ref(1)
 // no popover; show inline controls
 const showMobileSettings = ref(false)
 
@@ -159,19 +209,71 @@ const showMobileSettings = ref(false)
 
 async function loadImageState() {
   try {
+    // Load lock state first
+    const wasLocked = loadLockState()
+    if (wasLocked) {
+      imageLocked.value = true
+    }
+    
     const cloudUrl = await getBgPublicUrl()
-    if (cloudUrl) await setBackgroundImage(cloudUrl)
+    if (cloudUrl) {
+      await setBackgroundImage(cloudUrl)
+      // If image was locked, update locked values to current transform
+      if (wasLocked) {
+        lockedOffsetX.value = imageOffsetX.value
+        lockedOffsetY.value = imageOffsetY.value
+        lockedScale.value = scaleFactor.value
+      }
+    }
   } catch (_) {}
 }
 
 // Storage helpers: use a fixed path per stage so it persists for everyone
 function storagePathForStage() {
-  return `mic-placement/${props.projectId}/${props.locationId}/bg.png`
+  // Fallback to a project-level default scope when no location id is set
+  if (!props.projectId) return null
+  const scope = props.locationId ?? 'default'
+  return `mic-placement/${props.projectId}/${scope}/bg.png`
+}
+
+// Lock state storage key
+function lockStateStorageKey() {
+  if (!props.projectId) return null
+  const scope = props.locationId ?? 'default'
+  return `mic-placement-lock-${props.projectId}-${scope}`
+}
+
+// Save lock state to localStorage
+function saveLockState() {
+  const key = lockStateStorageKey()
+  if (!key) return
+  try {
+    localStorage.setItem(key, JSON.stringify({ locked: imageLocked.value }))
+  } catch (err) {
+    console.error('Failed to save lock state:', err)
+  }
+}
+
+// Load lock state from localStorage
+function loadLockState() {
+  const key = lockStateStorageKey()
+  if (!key) return false
+  try {
+    const stored = localStorage.getItem(key)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      return parsed.locked === true
+    }
+  } catch (err) {
+    console.error('Failed to load lock state:', err)
+  }
+  return false
 }
 
 async function getBgPublicUrl() {
   try {
     const path = storagePathForStage()
+    if (!path) return null
     // Prefer a signed URL to avoid public-read requirements and 400s
     const { data, error } = await supabase.storage
       .from('stage-pictures')
@@ -185,6 +287,7 @@ async function getBgPublicUrl() {
 
 async function uploadBgToStorage(file) {
   const path = storagePathForStage()
+  if (!path) throw new Error('Missing project id for background path')
   let removed = false
   try {
     const { error: remErr } = await supabase.storage.from('stage-pictures').remove([path])
@@ -221,6 +324,8 @@ async function setBackgroundImage(src, state) {
         imageOffsetX.value = fit.offsetX
         imageOffsetY.value = fit.offsetY
       }
+      // Update locked values when image is set
+      updateLockedValues()
       drawCanvas()
       resolve()
     }
@@ -233,6 +338,11 @@ async function setBackgroundImage(src, state) {
     }
     img.src = src
   })
+}
+
+// Persist background transform state (currently no-op; reserved for future use)
+function saveImageState() {
+  // Intentionally left blank; transforms are session-only for now
 }
 
 // Mic state
@@ -258,11 +368,16 @@ const activePointers = new Map()
 let lastPinchDistance = null
 const MIN_SCALE = 0.2
 const MAX_SCALE = 5
-// Desktop rotation via wheel while mouse is held down on selected mic
-const mouseDownOnSelected = ref(false)
+// Auto-rotation state
+const autoRotatingMic = ref(null)
+let autoRotationInterval = null
+const AUTO_ROTATION_SPEED = 1 // degrees per frame
 
 // Modal state
 const showGearModal = ref(false)
+const selectedMicForOrientation = ref(null)
+const selectedOrientation = ref(null)
+const trackNameInput = ref('')
 
 // Available mics (sources only)
 const availableMics = computed(() => {
@@ -291,15 +406,18 @@ function drawCanvas() {
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw background image
+  // Draw background image (use locked values when locked)
   if (bgImageObj.value) {
     ctx.globalAlpha = bgOpacity.value
+    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
+    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
+    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
     ctx.drawImage(
       bgImageObj.value,
-      imageOffsetX.value,
-      imageOffsetY.value,
-      bgImageObj.value.width * scaleFactor.value,
-      bgImageObj.value.height * scaleFactor.value
+      offsetX,
+      offsetY,
+      bgImageObj.value.width * scale,
+      bgImageObj.value.height * scale
     )
     ctx.globalAlpha = 1.0
   }
@@ -406,32 +524,63 @@ function fitImageToCanvas(img) {
   return { scale, offsetX, offsetY }
 }
 
+function zoomIn() { 
+  if (imageLocked.value) return
+  scaleFactor.value *= 1.1
+  updateLockedValues()
+  drawCanvas() 
+}
+function zoomOut() { 
+  if (imageLocked.value) return
+  scaleFactor.value /= 1.1
+  updateLockedValues()
+  drawCanvas() 
+}
 function resetImageView() {
-  if (bgImageObj.value) {
+  if (bgImageObj.value && !imageLocked.value) {
     const fit = fitImageToCanvas(bgImageObj.value)
     scaleFactor.value = fit.scale
     imageOffsetX.value = fit.offsetX
     imageOffsetY.value = fit.offsetY
+    updateLockedValues()
     drawCanvas()
   }
 }
-
-function zoomIn() { scaleFactor.value *= 1.1; drawCanvas() }
-function zoomOut() { scaleFactor.value /= 1.1; drawCanvas() }
 function triggerImageUpload() {
   document.getElementById('image-upload').click()
 }
 
+// Update locked values when image transform changes (only when not locked)
+function updateLockedValues() {
+  if (imageLocked.value) return
+  lockedOffsetX.value = imageOffsetX.value
+  lockedOffsetY.value = imageOffsetY.value
+  lockedScale.value = scaleFactor.value
+}
+
+// Watch imageLocked to update locked values when toggled
+watch(imageLocked, (locked) => {
+  if (locked) {
+    // Save current state as locked
+    lockedOffsetX.value = imageOffsetX.value
+    lockedOffsetY.value = imageOffsetY.value
+    lockedScale.value = scaleFactor.value
+  }
+  // Persist lock state
+  saveLockState()
+})
+
 // Coordinate transforms
+// When image is locked, use locked values for transforms so mics still position correctly
 function canvasToImageCoords(canvasX, canvasY) {
   if (!bgImageObj.value) {
     return { imgX: canvasX / canvasWidth.value, imgY: canvasY / canvasHeight.value }
   }
   const imgW = bgImageObj.value.width
   const imgH = bgImageObj.value.height
-  const scale = scaleFactor.value
-  const offsetX = imageOffsetX.value
-  const offsetY = imageOffsetY.value
+  const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+  const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
+  const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
   return {
     imgX: (canvasX - offsetX) / (imgW * scale),
     imgY: (canvasY - offsetY) / (imgH * scale)
@@ -444,9 +593,9 @@ function imageToCanvasCoords(imgX, imgY) {
   }
   const imgW = bgImageObj.value.width
   const imgH = bgImageObj.value.height
-  const scale = scaleFactor.value
-  const offsetX = imageOffsetX.value
-  const offsetY = imageOffsetY.value
+  const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+  const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
+  const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
   return {
     x: imgX * (imgW * scale) + offsetX,
     y: imgY * (imgH * scale) + offsetY
@@ -471,8 +620,8 @@ function onPointerDown(e) {
   const { x, y } = getCanvasCoords(e)
   activePointers.set(e.pointerId, { x, y })
 
-  // Pan mode
-  if (panImageMode.value && bgImageObj.value) {
+  // Pan image mode (disabled when image is locked)
+  if (panImageMode.value && bgImageObj.value && !imageLocked.value) {
     dragStart = { x, y }
     dragStartPos = { x: imageOffsetX.value, y: imageOffsetY.value }
     return
@@ -480,6 +629,9 @@ function onPointerDown(e) {
 
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+
+  // Stop auto-rotation when user interacts
+  stopAutoRotation()
 
   if (clickedMic) {
     // If rotation mode is latched on, start rotating regardless of pointer position
@@ -499,7 +651,6 @@ function onPointerDown(e) {
       rotatingMic.value = clickedMic
       selectedMic.value = clickedMic
       rotationMode.value = true
-      mouseDownOnSelected.value = true
     } else {
       // Start dragging
       draggingMic.value = clickedMic
@@ -507,7 +658,6 @@ function onPointerDown(e) {
       dragStart = { x: imgPt.imgX, y: imgPt.imgY }
       dragStartPos = { x: clickedMic.x, y: clickedMic.y }
       rotationMode.value = false
-      mouseDownOnSelected.value = true
     }
   } else {
     // If no mic center was clicked, allow grabbing the rotation handle of the
@@ -519,13 +669,11 @@ function onPointerDown(e) {
       if (dist < 14) {
         rotatingMic.value = selectedMic.value
         rotationMode.value = true
-        mouseDownOnSelected.value = true
         return
       }
     }
     selectedMic.value = null
     rotationMode.value = false
-    mouseDownOnSelected.value = false
   }
   
   drawCanvas()
@@ -536,8 +684,8 @@ function onPointerMove(e) {
   const { x, y } = getCanvasCoords(e)
   if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x, y })
 
-  // Pinch to zoom
-  if (activePointers.size >= 2 && bgImageObj.value) {
+  // Pinch to zoom (disabled when image is locked)
+  if (activePointers.size >= 2 && bgImageObj.value && !imageLocked.value) {
     const pts = Array.from(activePointers.values())
     const dx = pts[0].x - pts[1].x
     const dy = pts[0].y - pts[1].y
@@ -551,12 +699,13 @@ function onPointerMove(e) {
     return
   }
 
-  // Pan image mode
-  if (panImageMode.value && dragStart && bgImageObj.value) {
+  // Pan image mode (disabled when image is locked)
+  if (panImageMode.value && dragStart && bgImageObj.value && !imageLocked.value) {
     const dx = x - dragStart.x
     const dy = y - dragStart.y
     imageOffsetX.value = dragStartPos.x + dx
     imageOffsetY.value = dragStartPos.y + dy
+    updateLockedValues()
     drawCanvas()
     return
   }
@@ -603,12 +752,12 @@ async function onPointerUp(e) {
 
   dragStart = null
   dragStartPos = null
-  mouseDownOnSelected.value = false
 }
 
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
 
 function applyZoom(zoomFactor, centerX, centerY) {
+  if (imageLocked.value) return
   const prevScale = scaleFactor.value
   const newScale = clamp(prevScale * zoomFactor, MIN_SCALE, MAX_SCALE)
   if (newScale === prevScale) return
@@ -618,19 +767,24 @@ function applyZoom(zoomFactor, centerX, centerY) {
   scaleFactor.value = newScale
   imageOffsetX.value = centerX - imgXBefore * newScale
   imageOffsetY.value = centerY - imgYBefore * newScale
+  updateLockedValues()
   drawCanvas()
 }
 
 function onWheel(e) {
   if (!bgImageObj.value) return
-  // If the user is holding the mouse down on the selected mic (or has the rotation handle engaged),
-  // rotate instead of zooming. Use wheel delta to control rotation speed.
-  if ((mouseDownOnSelected.value || rotatingMic.value) && selectedMic.value) {
-    const step = e.deltaY < 0 ? 3 : -3
-    selectedMic.value.rotation = ((selectedMic.value.rotation || 0) + step + 360) % 360
-    drawCanvas()
+  
+  // Stop auto-rotation when user scrolls
+  stopAutoRotation()
+  
+  // If image is locked, allow page to scroll normally
+  if (imageLocked.value) {
+    // Don't prevent default - let the page scroll
     return
   }
+  
+  // Prevent default scroll and handle zoom
+  e.preventDefault()
   const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
   const rect = canvas.value.getBoundingClientRect()
   const cx = (e.clientX - rect.left) * (canvas.value.width / rect.width) / dpr
@@ -650,6 +804,70 @@ function getMicAt(imgX, imgY) {
   return null
 }
 
+// Double-click handler for auto-rotation
+function onDoubleClick(e) {
+  const { x, y } = getCanvasCoords(e)
+  const imgPt = canvasToImageCoords(x, y)
+  const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+  
+  // Only start auto-rotation if double-clicking on the selected mic
+  if (clickedMic && selectedMic.value && clickedMic.id === selectedMic.value.id) {
+    // Check if not clicking on rotation handle
+    const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
+    const handleY = micY - 35
+    const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
+    
+    if (dist >= 14) {
+      // Toggle auto-rotation
+      if (autoRotatingMic.value && autoRotatingMic.value.id === clickedMic.id) {
+        stopAutoRotation()
+      } else {
+        startAutoRotation(clickedMic)
+      }
+    }
+  }
+}
+
+// Start auto-rotation
+function startAutoRotation(mic) {
+  stopAutoRotation() // Stop any existing rotation
+  autoRotatingMic.value = mic
+  
+  const rotate = () => {
+    if (autoRotatingMic.value) {
+      autoRotatingMic.value.rotation = ((autoRotatingMic.value.rotation || 0) + AUTO_ROTATION_SPEED) % 360
+      drawCanvas()
+    }
+  }
+  
+  // Use requestAnimationFrame for smooth rotation
+  let lastTime = performance.now()
+  const animate = (currentTime) => {
+    if (!autoRotatingMic.value) return
+    
+    const deltaTime = currentTime - lastTime
+    if (deltaTime >= 16) { // ~60fps
+      rotate()
+      lastTime = currentTime
+    }
+    autoRotationInterval = requestAnimationFrame(animate)
+  }
+  autoRotationInterval = requestAnimationFrame(animate)
+}
+
+// Stop auto-rotation
+function stopAutoRotation() {
+  if (autoRotationInterval !== null) {
+    cancelAnimationFrame(autoRotationInterval)
+    autoRotationInterval = null
+  }
+  if (autoRotatingMic.value) {
+    // Save the rotation state when stopping
+    saveMicUpdate(autoRotatingMic.value)
+    autoRotatingMic.value = null
+  }
+}
+
 // Gear modal
 function openGearModal() {
   showGearModal.value = true
@@ -657,16 +875,34 @@ function openGearModal() {
 
 function closeGearModal() {
   showGearModal.value = false
+  selectedMicForOrientation.value = null
+  selectedOrientation.value = null
+  trackNameInput.value = ''
 }
 
-async function selectMic(mic) {
+function cancelOrientation() {
+  selectedMicForOrientation.value = null
+  selectedOrientation.value = null
+  trackNameInput.value = ''
+}
+
+function selectMicForOrientation(mic) {
   const available = getAvailableCount(mic)
   if (available <= 0) {
     toast.error('No more units of this microphone available')
     return
   }
+  selectedMicForOrientation.value = mic
+  selectedOrientation.value = 0 // Default to 0 degrees
+  trackNameInput.value = mic.gear_name // Pre-fill with mic name
+}
 
-  const trackName = prompt('Enter track name for this mic:', mic.gear_name)
+async function placeMic() {
+  const mic = selectedMicForOrientation.value
+  const rotation = selectedOrientation.value
+  const trackName = trackNameInput.value.trim()
+  
+  if (!mic || rotation === null) return
   if (!trackName) {
     toast.error('Track name is required')
     return
@@ -685,7 +921,7 @@ async function selectMic(mic) {
       track_name: trackName,
       x: imgCoords.imgX,
       y: imgCoords.imgY,
-      rotation: 0,
+      rotation: rotation,
       gear_type: 'source',
       num_inputs: mic.num_inputs || 0,
       num_outputs: mic.num_outputs || 1,
@@ -762,6 +998,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateCanvasSize)
+  stopAutoRotation()
 })
 
 function updateCanvasSize() {
@@ -802,10 +1039,113 @@ function exportCanvas() {
 
 // Expose a method to retrieve the current canvas as a data URL for parent exports
 function getCanvasDataURL() {
+  // Build an export canvas that fits the background image and all mic drawings with padding
+  const PADDING = 24
+  const dprLocal = window.devicePixelRatio || 1
+
+  // If nothing to draw, return current canvas data
   if (!canvas.value) return null
-  drawCanvas()
+
+  // Create a measurement context
+  const measure = document.createElement('canvas').getContext('2d')
+  if (!measure) return null
+  measure.font = 'bold 12px sans-serif'
+
+  // Compute bounds in current canvas coordinates
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+
+  // Include background image bounds if present (use locked values when locked)
+  if (bgImageObj.value) {
+    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
+    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
+    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+    const bx = offsetX
+    const by = offsetY
+    const bw = bgImageObj.value.width * scale
+    const bh = bgImageObj.value.height * scale
+    minX = Math.min(minX, bx)
+    minY = Math.min(minY, by)
+    maxX = Math.max(maxX, bx + bw)
+    maxY = Math.max(maxY, by + bh)
+  } else {
+    // Fall back to visible canvas
+    minX = Math.min(minX, 0)
+    minY = Math.min(minY, 0)
+    maxX = Math.max(maxX, canvasWidth.value)
+    maxY = Math.max(maxY, canvasHeight.value)
+  }
+
+  // Include all mic nodes (circle radius and label box)
+  const circleRadius = 30
+  props.nodes.forEach(mic => {
+    const { x, y } = imageToCanvasCoords(mic.x, mic.y)
+    // Circle extents
+    minX = Math.min(minX, x - circleRadius)
+    minY = Math.min(minY, y - circleRadius)
+    maxX = Math.max(maxX, x + circleRadius)
+    maxY = Math.max(maxY, y + circleRadius)
+
+    // Label extents
+    const labelText = mic.track_name || mic.label || ''
+    const textMetrics = measure.measureText(labelText)
+    const padX = 6
+    const padY = 4
+    const bgW = Math.ceil(textMetrics.width) + padX * 2
+    const bgH = 18 + padY * 2
+    const labelY = y + 40
+    const lx = x - bgW / 2
+    const ly = labelY - padY
+    minX = Math.min(minX, lx)
+    minY = Math.min(minY, ly)
+    maxX = Math.max(maxX, lx + bgW)
+    maxY = Math.max(maxY, ly + bgH)
+  })
+
+  // Apply padding
+  const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
+  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+
+  // Prepare offscreen canvas
+  const off = document.createElement('canvas')
+  off.width = exportW * dprLocal
+  off.height = exportH * dprLocal
+  const ctx = off.getContext('2d')
+  if (!ctx) return null
+  ctx.scale(dprLocal, dprLocal)
+
+  // Background
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, exportW, exportH)
+
+  // Shift drawing so that minX/minY are inside the frame with padding
+  ctx.save()
+  ctx.translate(-minX + PADDING, -minY + PADDING)
+
+  // Draw background image (with current opacity, use locked values when locked)
+  if (bgImageObj.value) {
+    ctx.globalAlpha = bgOpacity.value
+    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
+    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
+    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+    ctx.drawImage(
+      bgImageObj.value,
+      offsetX,
+      offsetY,
+      bgImageObj.value.width * scale,
+      bgImageObj.value.height * scale
+    )
+    ctx.globalAlpha = 1.0
+  }
+
+  // Draw all mics using the same routine as screen draw
+  props.nodes.forEach(mic => {
+    drawMic(ctx, mic)
+  })
+
+  ctx.restore()
+
   try {
-    return canvas.value.toDataURL('image/png')
+    return off.toDataURL('image/png')
   } catch (e) {
     return null
   }
@@ -925,6 +1265,27 @@ defineExpose({ getCanvasDataURL })
 
 .btn-primary:hover {
   background: #0056b3;
+}
+
+.btn-primary:disabled {
+  background: #adb5bd;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
 }
 
 .btn-danger {
@@ -1114,6 +1475,142 @@ defineExpose({ getCanvasDataURL })
   text-align: center;
   padding: 40px;
   color: #6c757d;
+}
+
+.orientation-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+.orientation-mic-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.gear-icon-large {
+  font-size: 48px;
+}
+
+.orientation-mic-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #212529;
+}
+
+.orientation-track-name-input {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.orientation-track-name-input label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 14px;
+}
+
+.track-name-input-field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.track-name-input-field:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.orientation-picker-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 10px;
+}
+
+.orientation-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.orientation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 12px;
+  width: 180px;
+  height: 180px;
+  margin: 20px auto;
+}
+
+.orientation-arrow {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #000000;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #000000;
+  padding: 0;
+}
+
+.orientation-arrow:hover {
+  transform: scale(1.05);
+  border-color: #333;
+}
+
+.orientation-arrow.selected {
+  background: #22c55e !important;
+  border-color: #16a34a !important;
+  border-width: 3px !important;
+  color: #ffffff !important;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.orientation-arrow.selected:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4), 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.orientation-arrow svg {
+  display: block;
+}
+
+.orientation-center {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #dee2e6;
+  border-radius: 50%;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Hide mobile controls on larger screens */
+.mobile-controls {
+  display: none;
 }
 
 /* Mobile layout tweaks */

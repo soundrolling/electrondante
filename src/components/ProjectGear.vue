@@ -13,22 +13,36 @@
     <p class="page-subtitle">Manage and organize your project's gear efficiently.</p>
   </header>
 
-  <!-- FILTER -->
+  <!-- FILTER & SORT -->
   <section class="filter-section">
     <div class="filter-container ui-filter-bar">
-      <label for="filterAssignment" class="filter-label">Filter Gear:</label>
-      <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
-        <option value="all">All Gear</option>
-        <option value="unassigned">Unassigned</option>
-        <option value="assigned">Assigned</option>
-        <option
-          v-for="loc in locationsList"
-          :key="loc.id"
-          :value="String(loc.id)"
-        >
-          {{ loc.stage_name }} ({{ loc.venue_name }})
-        </option>
-      </select>
+      <div class="filter-row">
+        <div class="filter-group">
+          <label for="filterAssignment" class="filter-label">Filter Gear:</label>
+          <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
+            <option value="all">All Gear</option>
+            <option value="unassigned">Unassigned</option>
+            <option value="assigned">Assigned</option>
+            <option
+              v-for="loc in locationsList"
+              :key="loc.id"
+              :value="String(loc.id)"
+            >
+              {{ loc.stage_name }} ({{ loc.venue_name }})
+            </option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="sortGear" class="filter-label">Sort By:</label>
+          <select id="sortGear" v-model="sortBy" class="filter-select">
+            <option value="default">Default Order</option>
+            <option value="name-asc">Name (A-Z)</option>
+            <option value="name-desc">Name (Z-A)</option>
+            <option value="quantity-desc">Quantity (Most to Least)</option>
+            <option value="quantity-asc">Quantity (Least to Most)</option>
+          </select>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -60,9 +74,9 @@
           <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
           <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
         </button>
-        <button class="btn btn-positive" @click="openUserGearSelector">
+        <button class="btn btn-purple" @click="openUserGearSelector">
           <span class="btn-icon">👤</span>
-          <span class="btn-text">Add User Gear</span>
+          <span class="btn-text">Add Team Gear</span>
         </button>
         <button class="btn btn-warning" @click="openReorderModal">
           <span class="btn-icon">↕️</span>
@@ -231,6 +245,34 @@
                 type="checkbox"
                 style="width:auto; min-height:unset;"
               />
+            </div>
+            <div class="form-group">
+              <label for="addGearStage" class="form-label">Assign to Stage (Optional)</label>
+              <select id="addGearStage" v-model="selectedLocationId" class="form-select">
+                <option value="">None</option>
+                <option
+                  v-for="location in locationsList"
+                  :key="location.id"
+                  :value="String(location.id)"
+                >
+                  {{ location.stage_name }} ({{ location.venue_name }})
+                </option>
+              </select>
+            </div>
+            <div v-if="selectedLocationId" class="form-group">
+              <label for="addGearAmount" class="form-label">Amount to Assign</label>
+              <input 
+                id="addGearAmount"
+                v-model.number="immediateAssignedAmount" 
+                type="number" 
+                min="0" 
+                :max="gearAmount"
+                placeholder="0" 
+                class="form-input"
+              />
+              <small style="color: #6c757d; margin-top: 4px; display: block;">
+                Available: {{ gearAmount }} - Max assignable: {{ gearAmount }}
+              </small>
             </div>
           </div>
           <div class="form-actions">
@@ -486,12 +528,13 @@
     <div v-if="showUserGearSelector" class="modal-overlay" @click="closeUserGearSelector">
       <div class="modal" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">Add User Gear</h3>
+          <h3 class="modal-title">Add Team Gear</h3>
           <button class="modal-close" @click="closeUserGearSelector">✕</button>
         </div>
         <div class="modal-body">
           <UserGearSelector 
             :project-id="String(currentProject?.id || '')"
+            :locations-list="locationsList"
             @gear-selected="handleUserGearSelected"
             @gear-added="handleUserGearAdded"
           />
@@ -531,6 +574,7 @@ setup() {
   const userStore = useUserStore()
 
   const filterLocationId        = ref(route.query.locationId || 'all')
+  const sortBy                  = ref('default')
   const loading                 = ref(false)
   const error                   = ref(null)
   const formError               = ref(null)
@@ -583,10 +627,38 @@ setup() {
   const currentProject = computed(() => userStore.getCurrentProject)
 
   const filteredGearList = computed(() => {
-    if (filterLocationId.value === 'all')       return gearList.value
-    if (filterLocationId.value === 'unassigned') return gearList.value.filter(g => g.unassigned_amount > 0)
-    if (filterLocationId.value === 'assigned')   return gearList.value.filter(g => g.total_assigned > 0)
-    return gearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+    let filtered = []
+    
+    // Apply filter
+    if (filterLocationId.value === 'all') {
+      filtered = gearList.value
+    } else if (filterLocationId.value === 'unassigned') {
+      filtered = gearList.value.filter(g => g.unassigned_amount > 0)
+    } else if (filterLocationId.value === 'assigned') {
+      filtered = gearList.value.filter(g => g.total_assigned > 0)
+    } else {
+      filtered = gearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+    }
+    
+    // Apply sorting
+    if (sortBy.value === 'default') {
+      // Keep original order (by sort_order)
+      return filtered
+    } else if (sortBy.value === 'name-asc') {
+      return [...filtered].sort((a, b) => 
+        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortBy.value === 'name-desc') {
+      return [...filtered].sort((a, b) => 
+        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortBy.value === 'quantity-desc') {
+      return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
+    } else if (sortBy.value === 'quantity-asc') {
+      return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
+    }
+    
+    return filtered
   })
 
   const currentGearAssignmentsList = computed(() => {
@@ -735,6 +807,10 @@ setup() {
       formError.value = 'Please fill required fields.'
       return
     }
+    if (selectedLocationId.value && immediateAssignedAmount.value > gearAmount.value) {
+      formError.value = 'Assigned amount cannot exceed total gear amount.'
+      return
+    }
     loading.value = true
     try {
       console.log('addGear: gearNumRecords.value =', gearNumRecords.value)
@@ -752,13 +828,16 @@ setup() {
       }
       const inserted = await mutateTableData('gear_table','insert',payload)
       if (selectedLocationId.value && immediateAssignedAmount.value > 0) {
+        const assignAmount = Math.min(immediateAssignedAmount.value, gearAmount.value)
         await mutateTableData('gear_assignments','insert',{ 
           gear_id: inserted.id,
           location_id: +selectedLocationId.value,
-          assigned_amount: immediateAssignedAmount.value
+          assigned_amount: assignAmount
         })
+        toast.success(`Gear added and ${assignAmount} assigned to stage`)
+      } else {
+        toast.success('Gear added')
       }
-      toast.success('Gear added')
       toggleAddGear()
       await fetchGearList()
     } catch (err) {
@@ -796,17 +875,24 @@ setup() {
         // Try to use the database function to return user gear to owner
         if (navigator.onLine) {
           try {
-            // Decrement assigned_quantity by gear amount
+            // Decrement assigned_quantity by gear amount (quantity stays the same - it's total owned)
             const userGearId = gearToDelete.user_gear_id;
             const userGear = await fetchTableData('user_gear', { eq: { id: userGearId } });
+            if (!userGear || userGear.length === 0) {
+              console.warn('Could not find user gear to update:', userGearId)
+              return
+            }
+            
             const currentAssigned = userGear[0]?.assigned_quantity || 0;
-            const newAssigned = Math.max(0, currentAssigned - (gearToDelete.gear_amount || 1));
-            const newQty = (userGear[0]?.quantity || 0) + (gearToDelete.gear_amount || 1);
+            const currentQuantity = userGear[0]?.quantity || 0;
+            const gearAmount = gearToDelete.gear_amount || 1;
+            const newAssigned = Math.max(0, currentAssigned - gearAmount);
+            const availableQty = currentQuantity - newAssigned;
+            
             await mutateTableData('user_gear', 'update', {
               id: userGearId,
               assigned_quantity: newAssigned,
-              quantity: newQty,
-              availability: newQty > 0 ? 'available' : 'unavailable'
+              availability: availableQty > 0 ? 'available' : 'unavailable'
             });
           } catch (err) {
             console.warn('Could not update user gear assigned_quantity:', err)
@@ -1074,7 +1160,7 @@ setup() {
 
     loading.value = true
     try {
-      for (const { userGear, quantity } of gearToAdd) {
+      for (const { userGear, quantity, locationId, assignedAmount } of gearToAdd) {
         if (!userGear || !quantity || quantity < 1) continue;
         // Convert user gear to project gear format
         const projectGearPayload = {
@@ -1093,25 +1179,57 @@ setup() {
           is_user_gear: true
         }
 
-        await mutateTableData('gear_table', 'insert', projectGearPayload)
+        const inserted = await mutateTableData('gear_table', 'insert', projectGearPayload)
+        
+        // Create assignment if location and amount specified
+        if (locationId && assignedAmount && assignedAmount > 0) {
+          const assignAmount = Math.min(assignedAmount, quantity)
+          await mutateTableData('gear_assignments', 'insert', {
+            gear_id: inserted.id,
+            location_id: +locationId,
+            assigned_amount: assignAmount
+          })
+        }
         
         // Update user gear assigned_quantity and availability if online
         if (navigator.onLine) {
           try {
-            const newQty = (userGear.quantity || 0) - quantity;
-            const newAssigned = (userGear.assigned_quantity || 0) + quantity;
+            // Fetch current state to ensure we have latest values
+            const currentUserGear = await fetchTableData('user_gear', { eq: { id: userGear.id } })
+            if (!currentUserGear || currentUserGear.length === 0) {
+              console.warn('Could not find user gear to update:', userGear.id)
+              continue
+            }
+            
+            const currentGear = currentUserGear[0]
+            const currentQuantity = currentGear.quantity || 0
+            const currentAssigned = currentGear.assigned_quantity || 0
+            
+            // Calculate new assigned quantity
+            const newAssigned = currentAssigned + quantity
+            
+            // Ensure assigned_quantity doesn't exceed total quantity (constraint check)
+            if (newAssigned > currentQuantity) {
+              console.warn(`Cannot assign ${quantity} - would exceed total quantity of ${currentQuantity}. Available: ${currentQuantity - currentAssigned}`)
+              toast.warning(`Warning: Could not fully update inventory for ${userGear.gear_name}. Only ${currentQuantity - currentAssigned} available.`)
+              continue
+            }
+            
+            // Update only assigned_quantity - quantity stays the same (it's the total owned)
+            const availableQty = currentQuantity - newAssigned
             await mutateTableData('user_gear', 'update', {
               id: userGear.id,
-              quantity: newQty,
               assigned_quantity: newAssigned,
-              availability: newQty > 0 ? 'available' : 'unavailable'
+              availability: availableQty > 0 ? 'available' : 'unavailable'
             })
           } catch (err) {
             console.warn('Could not update user gear assigned_quantity:', err)
+            toast.error(`Failed to update inventory for ${userGear.gear_name}. Gear added to project but inventory not updated.`)
           }
         }
 
-        toast.success(`Added ${quantity} × ${userGear.gear_name} from ${userGear.owner_name || 'Unknown'}`)
+        const assignMsg = locationId && assignedAmount ? ` and ${Math.min(assignedAmount, quantity)} assigned to stage` : ''
+        toast.success(`Added ${quantity} × ${userGear.gear_name} from ${userGear.owner_name || 'Unknown'}${assignMsg}`)
       }
 
       closeUserGearSelector()
@@ -1136,6 +1254,7 @@ setup() {
   return {
     goBack,
     filterLocationId,
+    sortBy,
     loading,
     error,
     formError,
@@ -1308,6 +1427,18 @@ setup() {
   padding: var(--space-6);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px);
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .filter-label {
@@ -1948,9 +2079,19 @@ setup() {
     font-size: 28px;
   }
 
-  .actions-group {
+  .filter-row {
     flex-direction: row;
     gap: 16px;
+  }
+
+  .filter-group {
+    flex: 1;
+  }
+
+  .actions-group {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .gear-actions {
@@ -1981,6 +2122,12 @@ setup() {
 
   .page-title {
     font-size: 32px;
+  }
+
+  .actions-group {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 16px;
   }
 
   .gear-cards {
@@ -2029,6 +2176,20 @@ setup() {
   background-color: #dc2626 !important;
   color: #ffffff !important;
   border-color: #b91c1c !important;
+}
+
+.btn-purple,
+.btn-purple .btn-icon,
+.btn-purple .btn-text {
+  background-color: #8b5cf6 !important;
+  color: #ffffff !important;
+  border-color: #7c3aed !important;
+}
+
+.btn-purple:hover {
+  background-color: #7c3aed !important;
+  border-color: #6d28d9 !important;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 /* High Contrast Mode Support */

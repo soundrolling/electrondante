@@ -16,6 +16,9 @@
     <button @click="openGearModal" class="btn-add">
       ➕ Add Gear
     </button>
+    <button @click="openSourceModal" class="btn-add">
+      ➕ Add Source
+    </button>
     <button @click="deleteSelected" :disabled="!selectedNode" class="btn-danger">
       🗑️ Delete
     </button>
@@ -23,6 +26,9 @@
     <span class="node-count">
       Sources: {{ sourceCount }} | Transformers: {{ transformerCount }} | Recorders: {{ recorderCount }}
     </span>
+    <button class="tool-btn" @click="exportFlowPng" title="Export canvas as PNG">
+      📤 Export
+    </button>
   </div>
 
   <!-- Canvas -->
@@ -37,8 +43,13 @@
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
     />
-    <div v-if="tool === 'link' && linkSource" class="tool-indicator">
-      Connecting from: {{ linkSource.track_name || linkSource.label }} (click target node)
+    <div v-if="tool === 'link'" class="tool-indicator">
+      <template v-if="linkSource">
+        Connecting from: {{ linkSource.track_name || linkSource.label }} (click target node)
+      </template>
+      <template v-else>
+        Select your first connection node
+      </template>
     </div>
     <div v-if="selectedConnectionId" class="connection-details" :style="detailsStyle">
       <h4>Connection Details</h4>
@@ -159,6 +170,44 @@
     </div>
   </div>
 
+  <!-- Source Selection Modal -->
+  <div v-if="showSourceModal" class="modal-overlay" @click="closeSourceModal">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>Add Source</h3>
+        <button @click="closeSourceModal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="gear-categories">
+          <button 
+            v-for="cat in ['Stereo', 'Mono']" 
+            :key="cat"
+            @click="sourceFilter = cat"
+            :class="{ active: sourceFilter === cat }"
+          >
+            {{ cat }} Sources
+          </button>
+        </div>
+        <div class="gear-list">
+          <div 
+            v-for="src in filteredSourcePresets" 
+            :key="src.key"
+            @click="addSourceNode(src)"
+            class="gear-item"
+          >
+            <div class="gear-icon">🎚️</div>
+            <div class="gear-info">
+              <div class="gear-name">{{ src.name }}</div>
+              <div class="gear-details">
+                {{ src.outputs }} {{ src.outputs === 2 ? 'channels (L/R)' : 'channel' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Connection Details Modal -->
   <ConnectionDetailsModal
     v-if="showConnectionModal"
@@ -231,9 +280,11 @@ let dragStart = null
 
 // Modal state
 const showGearModal = ref(false)
+const showSourceModal = ref(false)
 const showConnectionModal = ref(false)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
+const sourceFilter = ref('Stereo')
 const submittingConnection = ref(false)
 
 // Node counts
@@ -254,6 +305,17 @@ const availableGear = computed(() => {
     g.gear_type === filterType && g.assignments?.[props.locationId] > 0
   )
 })
+
+// Source presets for ad-hoc sources not tied to gear
+const sourcePresets = [
+  { key: 'dj_lr', name: 'DJ LR', outputs: 2, category: 'Stereo' },
+  { key: 'foh_lr', name: 'FOH Feed LR', outputs: 2, category: 'Stereo' },
+  { key: 'stereo_stem', name: 'Stereo Stem', outputs: 2, category: 'Stereo' },
+  { key: 'handheld_mic', name: 'HandHeld Mic', outputs: 1, category: 'Mono' },
+  { key: 'handheld_group', name: 'HandHeld Mic Group', outputs: 1, category: 'Mono' },
+  { key: 'mono_stem', name: 'Mono Stem', outputs: 1, category: 'Mono' }
+]
+const filteredSourcePresets = computed(() => sourcePresets.filter(s => s.category === sourceFilter.value))
 
 // Combined nodes for modal
 const allNodesForModal = computed(() => props.nodes)
@@ -276,8 +338,15 @@ const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOf
 const needsPortMappingForSelected = computed(() => {
   const fromType = fromNodeType.value
   const toType = toNodeType.value
+  // Allow mapping when:
+  // - transformer → transformer/recorder
+  // - recorder → recorder
+  // - multi-output source (e.g., stereo) → transformer/recorder
+  const fromNode = fromNodeOfSelected.value
+  const isMultiOutputSource = (fromType === 'source') && ((fromNode?.num_outputs || fromNode?.outputs || 0) > 1)
   return (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) ||
-         (fromType === 'recorder' && toType === 'recorder')
+         (fromType === 'recorder' && toType === 'recorder') ||
+         (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder'))
 })
 
 function getFromPortDisplayForEdit(portNum) {
@@ -285,6 +354,27 @@ function getFromPortDisplayForEdit(portNum) {
   if (!from) return `Output ${portNum}`
   if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  // Label stereo source ports as L/R
+  if (fromType === 'source') {
+    const outCount = from?.num_outputs || from?.outputs || 0
+    if (outCount === 2) {
+      const label = from.label || ''
+      const trackName = from.track_name || ''
+      const m = label.match(/^(.*) \((\d+)\)$/)
+      const num = m ? m[2] : ''
+      // Get clean base: prefer track_name (cleaned), fall back to label base
+      let baseNoNum
+      if (trackName) {
+        baseNoNum = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      } else if (m) {
+        baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
+      } else {
+        baseNoNum = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      }
+      const numSuffix = num ? ` (${num})` : ''
+      return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
+    }
+  }
   if (fromType === 'transformer') {
     // Try direct connection first
     let incoming = props.connections.find(c => (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum)
@@ -634,6 +724,7 @@ function drawCanvas() {
 
 function drawNode(ctx, node) {
   const isSource = (node.gear_type || node.node_type) === 'source'
+  const isAdHocSource = isSource && ((node.type === 'source') || !node.gear_id)
   const isSelected = node === selectedNode.value
   const pos = getCanvasPos(node)
   
@@ -649,7 +740,8 @@ function drawNode(ctx, node) {
     transformer: '#007bff',
     recorder: '#dc3545'
   }
-  const color = colors[node.gear_type || node.node_type] || '#6c757d'
+  // Ad-hoc sources use purple for extra clarity
+  const color = isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.node_type] || '#6c757d')
   
   ctx.fillStyle = isSelected ? color : '#fff'
   ctx.strokeStyle = color
@@ -677,6 +769,15 @@ function drawNode(ctx, node) {
   // For sources, show track name if available
   const label = isSource && node.track_name ? node.track_name : node.label
   ctx.fillText(label, pos.x, pos.y + 40)
+
+  // Draw an icon inside for ad-hoc sources
+  if (isAdHocSource) {
+    ctx.fillStyle = '#6d28d9'
+    ctx.font = '20px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🎚️', pos.x, pos.y)
+  }
 
   ctx.restore()
 }
@@ -899,6 +1000,14 @@ function closeGearModal() {
   showGearModal.value = false
 }
 
+function openSourceModal() {
+  showSourceModal.value = true
+}
+
+function closeSourceModal() {
+  showSourceModal.value = false
+}
+
 async function addGearNode(gear) {
   try {
     const label = prompt('Enter label for this node:', gear.gear_name)
@@ -926,6 +1035,54 @@ async function addGearNode(gear) {
   } catch (err) {
     console.error('Error adding gear:', err)
     toast.error('Failed to add gear')
+  }
+}
+
+function nextNumberedLabel(baseName) {
+  // Find existing nodes with the same base prefix
+  const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
+  let max = 0
+  props.nodes.forEach(n => {
+    const m = (n.label || '').match(regex)
+    if (m) max = Math.max(max, Number(m[1]))
+  })
+  return `${baseName} (${max + 1})`
+}
+
+async function addSourceNode(preset) {
+  try {
+    let base = preset.name
+    if (preset.key === 'mono_stem' || preset.key === 'stereo_stem') {
+      const userName = prompt('Enter stem name (e.g., Violin, Drums, Keys):', '')
+      if (userName === null) return
+      const trimmed = (userName || '').trim()
+      if (!trimmed) return
+      base = `Stem - ${trimmed}`
+    }
+    const label = nextNumberedLabel(base)
+    const outCount = preset.outputs
+    const newNode = await addNode({
+      project_id: props.projectId,
+      type: 'source',
+      label,
+      // For stems, keep a clean base name as track_name; others can omit
+      track_name: (preset.key === 'mono_stem' || preset.key === 'stereo_stem') ? base : null,
+      x: 0.5,
+      y: 0.5,
+      flow_x: 0.5,
+      flow_y: 0.5,
+      gear_type: 'source',
+      num_inputs: 0,
+      num_outputs: outCount,
+      num_tracks: 0
+    })
+    emit('node-added', newNode)
+    closeSourceModal()
+    toast.success(`Added ${label}`)
+    nextTick(drawCanvas)
+  } catch (err) {
+    console.error('Error adding source:', err)
+    toast.error('Failed to add source')
   }
 }
 
@@ -959,8 +1116,11 @@ async function deleteSelected() {
 
   const isSource = (selectedNode.value.gear_type || selectedNode.value.node_type) === 'source'
   if (isSource) {
-    toast.error('Cannot delete source nodes from Signal Flow. Delete from Mic Placement tab.')
-    return
+    const isAdHoc = (selectedNode.value.type === 'source') || !selectedNode.value.gear_id
+    if (!isAdHoc) {
+      toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
+      return
+    }
   }
 
   if (!confirm(`Delete ${selectedNode.value.label}?`)) return
@@ -999,7 +1159,12 @@ async function confirmConnection(connectionData) {
     }
     closeConnectionModal()
     toast.success('Connection created')
-    nextTick(drawCanvas)
+    // Redraw canvas immediately, then again after props update
+    nextTick(() => {
+      drawCanvas()
+      // Also redraw after a brief delay to catch any prop updates
+      setTimeout(() => drawCanvas(), 100)
+    })
   } catch (err) {
     console.error('Error creating connection:', err)
     if (err?.code === '23505') {
@@ -1028,10 +1193,14 @@ onMounted(() => {
 
   // Prevent browser zooming the canvas via Ctrl/⌘ + scroll or trackpad pinch
   const wheelBlocker = (e) => {
-    // Block any wheel events that originate over the canvas wrapper
-    if (canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
+    // Allow scrolling inside scrollable UI (e.g., connection details panel)
+    const insideScrollablePanel = e.target && typeof e.target.closest === 'function' && (
+      e.target.closest('.connection-details')
+    )
+    // Block wheel events over the canvas wrapper except when over a scrollable panel
+    if (!insideScrollablePanel && canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
       e.preventDefault()
-    } else if (e.ctrlKey) {
+    } else if (!insideScrollablePanel && e.ctrlKey) {
       // Fallback: block page zoom anywhere when ctrl/⌘ pressed
       e.preventDefault()
     }
@@ -1058,6 +1227,12 @@ onMounted(() => {
     document.removeEventListener('touchmove', touchBlocker)
   })
 })
+// Prompt when entering Link mode
+watch(tool, (v, prev) => {
+  if (v === 'link' && !linkSource.value) {
+    toast.info('Select your first connection node')
+  }
+})
 
 // Expose a method to retrieve the current flow canvas as a data URL for parent exports
 function getCanvasDataURL() {
@@ -1071,6 +1246,25 @@ function getCanvasDataURL() {
 }
 
 defineExpose({ getCanvasDataURL })
+
+// Download the current canvas as a PNG file
+function exportFlowPng() {
+  if (!canvas.value) return
+  drawCanvas()
+  try {
+    canvas.value.toBlob((blob) => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `signal-flow-${props.projectId}-${props.locationId}-${new Date().toISOString().slice(0,10)}.png`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    }, 'image/png')
+  } catch {}
+}
 </script>
 
 <style scoped>
@@ -1133,9 +1327,9 @@ defineExpose({ getCanvasDataURL })
 }
 
 .flow-toolbar .link-btn.active {
-  background: #efe7ff; /* light purple */
-  color: #6d28d9;
-  border-color: #6d28d9;
+  background: #d1f4e0; /* light green */
+  color: #0f7b3e;
+  border-color: #0f7b3e;
 }
 
 .btn-add {
@@ -1197,7 +1391,7 @@ defineExpose({ getCanvasDataURL })
   top: 10px;
   left: 10px;
   background: rgba(0, 0, 0, 0.7);
-  color: #ffffff;
+  color: #ffffff !important;
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
@@ -1212,6 +1406,8 @@ defineExpose({ getCanvasDataURL })
   border-radius: 8px;
   padding: 12px 14px;
   width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 .connection-details h4 {
