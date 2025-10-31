@@ -80,6 +80,12 @@ const showGearModal = ref(false);
 const isEditGear = ref(false);
 const editGearId = ref(null);
 
+/* ---------- assignments modal state ---------- */
+const showAssignmentsModal = ref(false);
+const assignmentsLoading = ref(false);
+const gearAssignments = ref([]);
+const selectedGearForAssignments = ref(null);
+
 const gearForm = ref({
   gear_name: '',
   quantity: 1,
@@ -159,7 +165,7 @@ async function fetchGear() {
     gearLoading.value = true;
   const { data, error } = await supabase
     .from('user_gear')
-      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability')
+      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability, assigned_quantity')
     .eq('user_id', userId.value)
     .order('gear_name');
     
@@ -296,6 +302,104 @@ async function deleteGear(id) {
 function closeGearModal() {
   showGearModal.value = false;
   resetGearForm();
+}
+
+/* ---------- gear assignments ---------- */
+async function fetchGearAssignments(userGearId) {
+  try {
+    assignmentsLoading.value = true;
+    gearAssignments.value = [];
+    
+    // Find all project gear entries that reference this user gear
+    const { data: projectGear, error: gearError } = await supabase
+      .from('gear_table')
+      .select('id, gear_name, project_id')
+      .eq('user_gear_id', userGearId);
+    
+    if (gearError) throw gearError;
+    
+    if (!projectGear || projectGear.length === 0) {
+      gearAssignments.value = [];
+      return;
+    }
+    
+    const projectGearIds = projectGear.map(g => g.id);
+    const projectIds = [...new Set(projectGear.map(g => g.project_id))];
+    
+    // Get gear assignments
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('gear_assignments')
+      .select('gear_id, location_id, assigned_amount')
+      .in('gear_id', projectGearIds);
+    
+    if (assignmentsError) throw assignmentsError;
+    
+    // Get locations (stages)
+    const locationIds = [...new Set((assignments || []).map(a => a.location_id))];
+    let locations = [];
+    if (locationIds.length > 0) {
+      const { data: locs, error: locError } = await supabase
+        .from('locations')
+        .select('id, stage_name, venue_name, project_id')
+        .in('id', locationIds);
+      
+      if (locError) throw locError;
+      locations = locs || [];
+    }
+    
+    // Get project names
+    let projects = [];
+    if (projectIds.length > 0) {
+      const { data: projs, error: projError } = await supabase
+        .from('projects')
+        .select('id, project_name')
+        .in('id', projectIds);
+      
+      if (projError) throw projError;
+      projects = projs || [];
+    }
+    
+    // Combine data
+    const projectGearMap = {};
+    projectGear.forEach(g => {
+      projectGearMap[g.id] = g;
+    });
+    
+    const assignmentsList = (assignments || []).map(assignment => {
+      const gear = projectGearMap[assignment.gear_id];
+      const location = locations.find(l => l.id === assignment.location_id);
+      const project = projects.find(p => p.id === gear?.project_id);
+      
+      return {
+        project_name: project?.project_name || 'Unknown Project',
+        project_id: gear?.project_id,
+        stage_name: location?.stage_name || `Location ${assignment.location_id}`,
+        venue_name: location?.venue_name || '',
+        assigned_amount: assignment.assigned_amount || 0,
+        location_id: assignment.location_id
+      };
+    });
+    
+    gearAssignments.value = assignmentsList;
+  } catch (e) {
+    console.error('Error fetching gear assignments:', e);
+    errorMsg.value = e.message || 'Failed to load assignments';
+    gearAssignments.value = [];
+  } finally {
+    assignmentsLoading.value = false;
+  }
+}
+
+function openAssignmentsModal(gearItem) {
+  selectedGearForAssignments.value = gearItem;
+  showAssignmentsModal.value = true;
+  fetchGearAssignments(gearItem.id);
+}
+
+function closeAssignmentsModal() {
+  showAssignmentsModal.value = false;
+  selectedGearForAssignments.value = null;
+  gearAssignments.value = [];
 }
 
 // Clear messages when tab changes
@@ -584,7 +688,15 @@ async function saveSecurity() {
 
                 <div class="gear-inventory">
                   <span class="badge badge-available">Available: {{ (item.quantity || 0) - (item.assigned_quantity || 0) }}</span>
-                  <span class="badge badge-assigned">Assigned: {{ item.assigned_quantity || 0 }}</span>
+                  <button 
+                    v-if="(item.assigned_quantity || 0) > 0"
+                    class="btn-assignments"
+                    @click="openAssignmentsModal(item)"
+                    :title="`View ${item.assigned_quantity || 0} assignment${(item.assigned_quantity || 0) !== 1 ? 's' : ''}`"
+                  >
+                    Assigned: {{ item.assigned_quantity || 0 }}
+                  </button>
+                  <span v-else class="badge badge-unassigned">Not Assigned</span>
                   <span class="badge badge-total">Total: {{ item.quantity || 0 }}</span>
                 </div>
 
@@ -785,6 +897,61 @@ async function saveSecurity() {
             </button>
         </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Gear Assignments Modal -->
+    <div v-if="showAssignmentsModal" class="modal-overlay" @click="closeAssignmentsModal">
+      <div class="modal-content assignments-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Gear Assignments - {{ selectedGearForAssignments?.gear_name }}</h3>
+          <button class="modal-close" @click="closeAssignmentsModal">×</button>
+        </div>
+
+        <div class="modal-form">
+          <div v-if="assignmentsLoading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading assignments...</p>
+          </div>
+
+          <div v-else-if="gearAssignments.length === 0" class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h4>No Assignments</h4>
+            <p>This gear has not been assigned to any stages yet.</p>
+          </div>
+
+          <div v-else class="assignments-list">
+            <div 
+              v-for="(assignment, index) in gearAssignments" 
+              :key="index"
+              class="assignment-item"
+            >
+              <div class="assignment-header">
+                <div class="assignment-project">
+                  <strong>{{ assignment.project_name }}</strong>
+                </div>
+                <div class="assignment-amount">
+                  <span class="badge badge-assigned">{{ assignment.assigned_amount }}</span>
+                </div>
+              </div>
+              <div class="assignment-details">
+                <div class="assignment-stage">
+                  <span class="stage-icon">📍</span>
+                  <span>{{ assignment.stage_name }}</span>
+                  <span v-if="assignment.venue_name" class="venue-name">
+                    ({{ assignment.venue_name }})
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-warning" @click="closeAssignmentsModal">
+              Close
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1215,6 +1382,97 @@ async function saveSecurity() {
   background: linear-gradient(90deg, #fde68a 0%, #fbbf24 100%);
   color: #92400e;
   border: 1.5px solid #fbbf24;
+}
+
+.badge-unassigned {
+  background: linear-gradient(90deg, #e5e7eb 0%, #9ca3af 100%);
+  color: #4b5563;
+  border: 1.5px solid #9ca3af;
+}
+
+.btn-assignments {
+  display: inline-block;
+  padding: 0.3em 0.9em;
+  border-radius: 1em;
+  font-size: 0.98em;
+  font-weight: 700;
+  background: linear-gradient(90deg, #fde68a 0%, #fbbf24 100%);
+  color: #92400e;
+  border: 1.5px solid #fbbf24;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-shadow: none;
+  margin-right: 0.1em;
+}
+
+.btn-assignments:hover {
+  background: linear-gradient(90deg, #fcd34d 0%, #f59e0b 100%);
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+.assignments-modal {
+  max-width: 600px;
+}
+
+.assignments-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.assignment-item {
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.assignment-item:hover {
+  background: #f1f5f9;
+  border-color: var(--primary);
+}
+
+.assignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.assignment-project {
+  font-size: 1rem;
+  color: var(--text-heading);
+}
+
+.assignment-amount {
+  display: flex;
+  align-items: center;
+}
+
+.assignment-details {
+  margin-top: 0.5rem;
+}
+
+.assignment-stage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.stage-icon {
+  font-size: 1rem;
+}
+
+.venue-name {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .badge-total {
