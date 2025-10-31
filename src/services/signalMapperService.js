@@ -397,16 +397,42 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
             const numSuffix = num ? ` (${num})` : ''
             
             let sourceName = base + numSuffix
-            if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2) && typeof sourceConn.input_number === 'number') {
-              // Determine L/R from connection position
-              const siblings = transformerParents.filter(c => 
-                c.from_node_id === sourceConn.from_node_id &&
-                typeof c.input_number === 'number'
-              ).map(c => c.input_number).sort((a,b) => a - b)
-              if (siblings.length >= 2) {
-                sourceName = siblings.indexOf(Number(sourceConn.input_number)) === 0 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+            if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
+              // First check if there's a port map that tells us which source output (1=L, 2=R)
+              const sourcePortMaps = mapsByConnId[sourceConn.id] || []
+              if (sourcePortMaps.length > 0) {
+                // Port map exists - find which source output port (from_port) maps to currentInput
+                const portMapRow = sourcePortMaps.find(m => Number(m.to_port) === Number(currentInput))
+                if (portMapRow) {
+                  // from_port is the source output: 1 = L, 2 = R
+                  const sourceOutputPort = Number(portMapRow.from_port)
+                  sourceName = sourceOutputPort === 1 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+                } else {
+                  // No exact match, try first port map
+                  const firstMap = sourcePortMaps[0]
+                  if (firstMap) {
+                    const sourceOutputPort = Number(firstMap.from_port)
+                    sourceName = sourceOutputPort === 1 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+                  }
+                }
               } else {
-                sourceName = Number(sourceConn.input_number) % 2 === 1 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+                // No port map - determine L/R from connection position relative to siblings
+                // Get all connections from this source to the transformer, sorted by input number
+                const siblings = transformerParents.filter(c => 
+                  c.from_node_id === sourceConn.from_node_id &&
+                  typeof c.input_number === 'number'
+                ).map(c => Number(c.input_number)).sort((a,b) => a - b)
+                
+                if (siblings.length >= 2) {
+                  // Multiple connections from same source - use position to determine L/R
+                  const sourceConnInput = Number(sourceConn.input_number)
+                  const index = siblings.indexOf(sourceConnInput)
+                  sourceName = index === 0 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+                } else {
+                  // Single connection - use input_number parity
+                  const sourceConnInput = Number(sourceConn.input_number)
+                  sourceName = sourceConnInput % 2 === 1 ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+                }
               }
             }
             finalSourceLabel = sourceName
