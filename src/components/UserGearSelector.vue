@@ -147,9 +147,9 @@
               class="quantity-input"
               v-model.number="selectedQuantities[item.id]"
               :min="1"
-              :max="(item.quantity || 0) - (item.assigned_quantity || 0)"
+              :max="item.quantity || 0"
             />
-            <span class="quantity-max">/ {{ (item.quantity || 0) - (item.assigned_quantity || 0) }} available ({{ item.quantity }} total)</span>
+            <span class="quantity-max">/ {{ item.quantity || 0 }} total</span>
           </label>
           <label v-if="selectedStageId" class="assign-label">
             <span>Assign:</span>
@@ -158,7 +158,7 @@
               class="assign-input"
               v-model.number="selectedAssignedAmounts[item.id]"
               :min="0"
-              :max="selectedQuantities[item.id] || ((item.quantity || 0) - (item.assigned_quantity || 0))"
+              :max="selectedQuantities[item.id] || (item.quantity || 0)"
               placeholder="0"
             />
           </label>
@@ -258,8 +258,8 @@ watch(selectedItems, (newVal, oldVal) => {
     if (!selectedQuantities.value[id]) {
       const item = filteredGear.value.find(i => i.id === id);
       if (item) {
-        const availableQty = (item.quantity || 0) - (item.assigned_quantity || 0);
-        selectedQuantities.value[id] = Math.min(1, Math.max(0, availableQty));
+        const totalQty = item.quantity || 0;
+        selectedQuantities.value[id] = Math.min(1, Math.max(0, totalQty));
       } else {
         selectedQuantities.value[id] = 1;
       }
@@ -614,17 +614,50 @@ function updateSelection() {
   emit('gear-selected', selectedItemsData.value.map(item => ({ ...item, selectedQuantity: selectedQuantities.value[item.id] || 1 })));
 }
 
-function addSelectedToProject() {
+async function addSelectedToProject() {
   if (selectedItemsData.value.length === 0) return;
   
-  // Validate quantities don't exceed available
+  // Validate quantities don't exceed total quantity (but allow assignment to multiple projects)
   for (const item of selectedItemsData.value) {
     const selectedQty = selectedQuantities.value[item.id] || 1;
-    const availableQty = (item.quantity || 0) - (item.assigned_quantity || 0);
+    const totalQuantity = item.quantity || 0;
     
-    if (selectedQty > availableQty) {
-      toast.error(`Cannot add ${selectedQty} of ${item.gear_name}. Only ${availableQty} available (${item.quantity} total, ${item.assigned_quantity || 0} already assigned).`)
-      return; // Don't add if validation fails
+    if (selectedQty > totalQuantity) {
+      toast.error(`Cannot add ${selectedQty} of ${item.gear_name}. Total quantity is ${totalQuantity}.`)
+      return; // Don't add if exceeds total owned
+    }
+  }
+  
+  // Check for date conflicts (warn but don't block)
+  if (props.projectId && navigator.onLine) {
+    try {
+      // Get current project dates
+      const { data: currentProject, error: projectError } = await supabase
+        .from('projects')
+        .select('id, project_name, build_days, main_show_days')
+        .eq('id', props.projectId)
+        .single();
+      
+      if (!projectError && currentProject) {
+        const { checkGearAssignmentConflicts, formatConflictMessage } = await import('../utils/gearConflictHelper');
+        
+        for (const item of selectedItemsData.value) {
+          const conflicts = await checkGearAssignmentConflicts(
+            item.id,
+            props.projectId,
+            currentProject,
+            supabase
+          );
+          
+          if (conflicts.length > 0) {
+            const conflictMsg = formatConflictMessage(conflicts, item.gear_name);
+            toast.warning(conflictMsg, { timeout: 8000 });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Could not check for date conflicts:', err);
+      // Don't block on conflict check errors
     }
   }
   

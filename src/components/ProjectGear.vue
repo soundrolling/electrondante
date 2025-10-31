@@ -1191,40 +1191,24 @@ setup() {
           })
         }
         
-        // Update user gear assigned_quantity and availability if online
-        if (navigator.onLine) {
+        // Check for date conflicts with other projects (don't block, just warn)
+        if (navigator.onLine && currentProject.value) {
           try {
-            // Fetch current state to ensure we have latest values
-            const currentUserGear = await fetchTableData('user_gear', { eq: { id: userGear.id } })
-            if (!currentUserGear || currentUserGear.length === 0) {
-              console.warn('Could not find user gear to update:', userGear.id)
-              continue
+            const { checkGearAssignmentConflicts, formatConflictMessage } = await import('../utils/gearConflictHelper')
+            const conflicts = await checkGearAssignmentConflicts(
+              userGear.id,
+              currentProject.value.id,
+              currentProject.value,
+              supabase
+            )
+            
+            if (conflicts.length > 0) {
+              const conflictMsg = formatConflictMessage(conflicts, userGear.gear_name)
+              toast.warning(conflictMsg, { timeout: 8000 })
             }
-            
-            const currentGear = currentUserGear[0]
-            const currentQuantity = currentGear.quantity || 0
-            const currentAssigned = currentGear.assigned_quantity || 0
-            
-            // Calculate new assigned quantity
-            const newAssigned = currentAssigned + quantity
-            
-            // Ensure assigned_quantity doesn't exceed total quantity (constraint check)
-            if (newAssigned > currentQuantity) {
-              console.warn(`Cannot assign ${quantity} - would exceed total quantity of ${currentQuantity}. Available: ${currentQuantity - currentAssigned}`)
-              toast.warning(`Warning: Could not fully update inventory for ${userGear.gear_name}. Only ${currentQuantity - currentAssigned} available.`)
-              continue
-            }
-            
-            // Update only assigned_quantity - quantity stays the same (it's the total owned)
-            const availableQty = currentQuantity - newAssigned
-            await mutateTableData('user_gear', 'update', {
-              id: userGear.id,
-              assigned_quantity: newAssigned,
-              availability: availableQty > 0 ? 'available' : 'unavailable'
-            })
           } catch (err) {
-            console.warn('Could not update user gear assigned_quantity:', err)
-            toast.error(`Failed to update inventory for ${userGear.gear_name}. Gear added to project but inventory not updated.`)
+            console.warn('Could not check gear conflicts:', err)
+            // Don't block on conflict check errors
           }
         }
 

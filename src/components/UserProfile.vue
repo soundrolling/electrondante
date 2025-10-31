@@ -347,12 +347,12 @@ async function fetchGearAssignments(userGearId) {
       locations = locs || [];
     }
     
-    // Get project names
+    // Get project names and dates
     let projects = [];
     if (projectIds.length > 0) {
       const { data: projs, error: projError } = await supabase
         .from('projects')
-        .select('id, project_name')
+        .select('id, project_name, build_days, main_show_days')
         .in('id', projectIds);
       
       if (projError) throw projError;
@@ -365,10 +365,54 @@ async function fetchGearAssignments(userGearId) {
       projectGearMap[g.id] = g;
     });
     
+    // Get all project dates for conflict checking
+    const projectDatesMap = {};
+    projects.forEach(p => {
+      projectDatesMap[p.id] = {
+        build_days: p.build_days || [],
+        main_show_days: p.main_show_days || []
+      };
+    });
+    
     const assignmentsList = (assignments || []).map(assignment => {
       const gear = projectGearMap[assignment.gear_id];
       const location = locations.find(l => l.id === assignment.location_id);
       const project = projects.find(p => p.id === gear?.project_id);
+      const projectDates = projectDatesMap[gear?.project_id] || { build_days: [], main_show_days: [] };
+      
+      // Check for conflicts with other assignments
+      const otherAssignments = (assignments || []).filter(a => 
+        a.gear_id !== assignment.gear_id && 
+        a.location_id !== assignment.location_id
+      );
+      
+      const conflicts = [];
+      if (projectDates.build_days?.length > 0 || projectDates.main_show_days?.length > 0) {
+        const thisProjectDates = [
+          ...(projectDates.build_days || []),
+          ...(projectDates.main_show_days || [])
+        ];
+        
+        // Check against all other projects using this user gear
+        otherAssignments.forEach(otherAss => {
+          const otherGear = projectGearMap[otherAss.gear_id];
+          const otherProject = projects.find(p => p.id === otherGear?.project_id);
+          if (otherProject) {
+            const otherProjectDates = [
+              ...(otherProject.build_days || []),
+              ...(otherProject.main_show_days || [])
+            ];
+            
+            const overlap = thisProjectDates.some(d => otherProjectDates.includes(d));
+            if (overlap) {
+              conflicts.push({
+                project_name: otherProject.project_name,
+                project_id: otherProject.id
+              });
+            }
+          }
+        });
+      }
       
       return {
         project_name: project?.project_name || 'Unknown Project',
@@ -376,7 +420,13 @@ async function fetchGearAssignments(userGearId) {
         stage_name: location?.stage_name || `Location ${assignment.location_id}`,
         venue_name: location?.venue_name || '',
         assigned_amount: assignment.assigned_amount || 0,
-        location_id: assignment.location_id
+        location_id: assignment.location_id,
+        conflicts: conflicts,
+        has_conflicts: conflicts.length > 0,
+        project_dates: {
+          build_days: projectDates.build_days || [],
+          main_show_days: projectDates.main_show_days || []
+        }
       };
     });
     
@@ -925,10 +975,14 @@ async function saveSecurity() {
               v-for="(assignment, index) in gearAssignments" 
               :key="index"
               class="assignment-item"
+              :class="{ 'has-conflict': assignment.has_conflicts }"
             >
               <div class="assignment-header">
                 <div class="assignment-project">
                   <strong>{{ assignment.project_name }}</strong>
+                  <span v-if="assignment.has_conflicts" class="conflict-badge" title="Date conflicts with other projects">
+                    ⚠️ Conflict
+                  </span>
                 </div>
                 <div class="assignment-amount">
                   <span class="badge badge-assigned">{{ assignment.assigned_amount }}</span>
@@ -941,6 +995,14 @@ async function saveSecurity() {
                   <span v-if="assignment.venue_name" class="venue-name">
                     ({{ assignment.venue_name }})
                   </span>
+                </div>
+                <div v-if="assignment.has_conflicts" class="conflict-details">
+                  <div class="conflict-label">Conflicts with:</div>
+                  <div class="conflict-projects">
+                    <span v-for="conflict in assignment.conflicts" :key="conflict.project_id" class="conflict-project">
+                      {{ conflict.project_name }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1473,6 +1535,51 @@ async function saveSecurity() {
 .venue-name {
   color: var(--text-muted);
   font-style: italic;
+}
+
+.assignment-item.has-conflict {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.conflict-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.2em 0.6em;
+  background: #fbbf24;
+  color: #92400e;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.conflict-details {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #fbbf24;
+}
+
+.conflict-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 0.25rem;
+}
+
+.conflict-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conflict-project {
+  display: inline-block;
+  padding: 0.2em 0.5em;
+  background: #fde68a;
+  color: #78350f;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .badge-total {
