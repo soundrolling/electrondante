@@ -60,9 +60,9 @@
           <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
           <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
         </button>
-        <button class="btn btn-positive" @click="openUserGearSelector">
+        <button class="btn btn-purple" @click="openUserGearSelector">
           <span class="btn-icon">👤</span>
-          <span class="btn-text">Add User Gear</span>
+          <span class="btn-text">Add My Gear</span>
         </button>
         <button class="btn btn-warning" @click="openReorderModal">
           <span class="btn-icon">↕️</span>
@@ -2029,6 +2029,20 @@ setup() {
   background-color: #dc2626 !important;
   color: #ffffff !important;
   border-color: #b91c1c !important;
+}
+
+.btn-purple,
+.btn-purple .btn-icon,
+.btn-purple .btn-text {
+  background-color: #8b5cf6 !important;
+  color: #ffffff !important;
+  border-color: #7c3aed !important;
+}
+
+.btn-purple:hover {
+  background-color: #7c3aed !important;
+  border-color: #6d28d9 !important;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
 
 /* High Contrast Mode Support */
