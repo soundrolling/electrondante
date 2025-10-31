@@ -268,9 +268,10 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         // No mapping for this input; stop here
         break
       }
-      // Move to the parent node's output (from_port)
+      // Move to the parent node - from_port tells us which input/output on the parent
       currentNodeId = parentWithMap.from_node_id
       currentInput = row.from_port
+      // Continue loop to trace from the parent node's input/output
       continue
     }
     
@@ -282,13 +283,14 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     )
     
     if (matchingConn) {
-      // Found the connection feeding this input; move to the source node
+      // Found the connection feeding this input; move to the parent node
       currentNodeId = matchingConn.from_node_id
-      const fromNode = nodeMap[matchingConn.from_node_id]
+      const fromNode = nodeMap[currentNodeId]
+      
       if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
-        // For stereo sources connected directly, infer L/R by checking sibling connections
+        // Reached a source - determine L/R for stereo sources
         if ((fromNode.num_outputs === 2 || fromNode.outputs === 2)) {
-          // Find all connections from this source to this transformer
+          // Find all connections from this source to the current transformer
           const siblings = parents.filter(c => 
             c.from_node_id === matchingConn.from_node_id &&
             typeof c.input_number === 'number'
@@ -303,13 +305,43 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         } else {
           currentInput = 1 // Mono source
         }
+        // Continue loop to let source check at top handle it
+        continue
       } else {
-        // Not a source yet, keep the input number for further traversal
-        currentInput = matchingConn.input_number
+        // Not a source yet - this is a transformer
+        // Find any connection feeding this transformer to continue tracing
+        // If we can't find a connection with matching input_number, try any connection
+        if (!nodeMap[currentNodeId]) break
+        
+        const transformerParents = parentConnsByToNode[currentNodeId] || []
+        // Try to find connection with matching input, otherwise use first available
+        const nextConn = transformerParents.find(c => 
+          typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
+        ) || transformerParents.find(c => typeof c.input_number === 'number')
+        
+        if (nextConn) {
+          // Continue tracing from the source of this connection
+          currentNodeId = nextConn.from_node_id
+          // Use the input number from the connection for further tracing
+          currentInput = nextConn.input_number
+          continue
+        }
+        // No connection found - stop here
+        break
       }
     } else {
       // No matching connection; stop traversal
       break
+    }
+  }
+  
+  // If we didn't find a source but have a final node, use it as fallback
+  if (!finalSourceNode && currentNodeId) {
+    const lastNode = nodeMap[currentNodeId]
+    if (lastNode) {
+      finalSourceNode = lastNode
+      const trackName = lastNode.track_name || ''
+      finalSourceLabel = trackName || lastNode.label || 'Unknown Source'
     }
   }
   
