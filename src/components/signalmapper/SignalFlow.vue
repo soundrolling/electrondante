@@ -16,6 +16,9 @@
     <button @click="openGearModal" class="btn-add">
       ➕ Add Gear
     </button>
+    <button @click="openSourceModal" class="btn-add">
+      ➕ Add Source
+    </button>
     <button @click="deleteSelected" :disabled="!selectedNode" class="btn-danger">
       🗑️ Delete
     </button>
@@ -162,6 +165,44 @@
     </div>
   </div>
 
+  <!-- Source Selection Modal -->
+  <div v-if="showSourceModal" class="modal-overlay" @click="closeSourceModal">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>Add Source</h3>
+        <button @click="closeSourceModal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="gear-categories">
+          <button 
+            v-for="cat in ['Stereo', 'Mono']" 
+            :key="cat"
+            @click="sourceFilter = cat"
+            :class="{ active: sourceFilter === cat }"
+          >
+            {{ cat }} Sources
+          </button>
+        </div>
+        <div class="gear-list">
+          <div 
+            v-for="src in filteredSourcePresets" 
+            :key="src.key"
+            @click="addSourceNode(src)"
+            class="gear-item"
+          >
+            <div class="gear-icon">🎚️</div>
+            <div class="gear-info">
+              <div class="gear-name">{{ src.name }}</div>
+              <div class="gear-details">
+                {{ src.outputs }} {{ src.outputs === 2 ? 'channels (L/R)' : 'channel' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Connection Details Modal -->
   <ConnectionDetailsModal
     v-if="showConnectionModal"
@@ -234,9 +275,11 @@ let dragStart = null
 
 // Modal state
 const showGearModal = ref(false)
+const showSourceModal = ref(false)
 const showConnectionModal = ref(false)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
+const sourceFilter = ref('Stereo')
 const submittingConnection = ref(false)
 
 // Node counts
@@ -257,6 +300,17 @@ const availableGear = computed(() => {
     g.gear_type === filterType && g.assignments?.[props.locationId] > 0
   )
 })
+
+// Source presets for ad-hoc sources not tied to gear
+const sourcePresets = [
+  { key: 'dj_lr', name: 'DJ LR', outputs: 2, category: 'Stereo' },
+  { key: 'foh_lr', name: 'FOH Feed LR', outputs: 2, category: 'Stereo' },
+  { key: 'stereo_stem', name: 'Stereo Stem', outputs: 2, category: 'Stereo' },
+  { key: 'handheld_mic', name: 'HandHeld Mic', outputs: 1, category: 'Mono' },
+  { key: 'handheld_group', name: 'HandHeld Mic Group', outputs: 1, category: 'Mono' },
+  { key: 'mono_stem', name: 'Mono Stem', outputs: 1, category: 'Mono' }
+]
+const filteredSourcePresets = computed(() => sourcePresets.filter(s => s.category === sourceFilter.value))
 
 // Combined nodes for modal
 const allNodesForModal = computed(() => props.nodes)
@@ -279,8 +333,15 @@ const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOf
 const needsPortMappingForSelected = computed(() => {
   const fromType = fromNodeType.value
   const toType = toNodeType.value
+  // Allow mapping when:
+  // - transformer → transformer/recorder
+  // - recorder → recorder
+  // - multi-output source (e.g., stereo) → transformer/recorder
+  const fromNode = fromNodeOfSelected.value
+  const isMultiOutputSource = (fromType === 'source') && ((fromNode?.num_outputs || fromNode?.outputs || 0) > 1)
   return (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) ||
-         (fromType === 'recorder' && toType === 'recorder')
+         (fromType === 'recorder' && toType === 'recorder') ||
+         (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder'))
 })
 
 function getFromPortDisplayForEdit(portNum) {
@@ -288,6 +349,11 @@ function getFromPortDisplayForEdit(portNum) {
   if (!from) return `Output ${portNum}`
   if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  // Label stereo source ports as L/R
+  if (fromType === 'source') {
+    const outCount = from?.num_outputs || from?.outputs || 0
+    if (outCount === 2) return portNum === 1 ? 'L' : (portNum === 2 ? 'R' : `Output ${portNum}`)
+  }
   if (fromType === 'transformer') {
     // Try direct connection first
     let incoming = props.connections.find(c => (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum)
@@ -902,6 +968,14 @@ function closeGearModal() {
   showGearModal.value = false
 }
 
+function openSourceModal() {
+  showSourceModal.value = true
+}
+
+function closeSourceModal() {
+  showSourceModal.value = false
+}
+
 async function addGearNode(gear) {
   try {
     const label = prompt('Enter label for this node:', gear.gear_name)
@@ -929,6 +1003,54 @@ async function addGearNode(gear) {
   } catch (err) {
     console.error('Error adding gear:', err)
     toast.error('Failed to add gear')
+  }
+}
+
+function nextNumberedLabel(baseName) {
+  // Find existing nodes with the same base prefix
+  const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
+  let max = 0
+  props.nodes.forEach(n => {
+    const m = (n.label || '').match(regex)
+    if (m) max = Math.max(max, Number(m[1]))
+  })
+  return `${baseName} (${max + 1})`
+}
+
+async function addSourceNode(preset) {
+  try {
+    let base = preset.name
+    if (preset.key === 'mono_stem' || preset.key === 'stereo_stem') {
+      const userName = prompt('Enter stem name (e.g., Violin, Drums, Keys):', '')
+      if (userName === null) return
+      const trimmed = (userName || '').trim()
+      if (!trimmed) return
+      base = `Stem - ${trimmed}`
+    }
+    const label = nextNumberedLabel(base)
+    const outCount = preset.outputs
+    const newNode = await addNode({
+      project_id: props.projectId,
+      type: 'source',
+      label,
+      // For stems, keep a clean base name as track_name; others can omit
+      track_name: (preset.key === 'mono_stem' || preset.key === 'stereo_stem') ? base : null,
+      x: 0.5,
+      y: 0.5,
+      flow_x: 0.5,
+      flow_y: 0.5,
+      gear_type: 'source',
+      num_inputs: 0,
+      num_outputs: outCount,
+      num_tracks: 0
+    })
+    emit('node-added', newNode)
+    closeSourceModal()
+    toast.success(`Added ${label}`)
+    nextTick(drawCanvas)
+  } catch (err) {
+    console.error('Error adding source:', err)
+    toast.error('Failed to add source')
   }
 }
 

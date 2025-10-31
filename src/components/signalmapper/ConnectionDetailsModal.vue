@@ -209,12 +209,15 @@ const isRecorderTo   = computed(() => getType(props.toNode)   === 'recorder' || 
 const isTransformerTo = computed(() => getType(props.toNode) === 'transformer')
 const isTransformerFrom = computed(() => getType(props.fromNode) === 'transformer')
 
-// Use port mapping when neither side is a source, and at least one side is a transformer
-// (also supports recorder→recorder)
-const needsPortMapping = computed(() =>
-  (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
-  (isRecorderFrom.value && isRecorderTo.value)
-)
+// Use port mapping when neither side is a source and a transformer is involved,
+// or recorder→recorder, or when the from side is a multi-output source going to
+// a transformer/recorder (e.g., stereo source mapping L/R).
+const needsPortMapping = computed(() => {
+  const multiOutputSource = isSource.value && ((numOutputs.value || 0) > 1) && (isTransformerTo.value || isRecorderTo.value)
+  return (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
+         (isRecorderFrom.value && isRecorderTo.value) ||
+         multiOutputSource
+})
 
 const numInputs = computed(() => props.toNode.num_inputs || props.toNode.numinputs || props.toNode.inputs || 0)
 const numOutputs = computed(() => props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 0)
@@ -358,13 +361,7 @@ function cancelEditMapping() {
   editToPort.value = null
 }
 
-// Disallow duplicate connection from the same source to the same target
-const sourceHasConnectionToTarget = computed(() => {
-  return (props.existingConnections || []).some(c =>
-    (c.from_node_id === props.fromNode.id || c.from === props.fromNode.id) &&
-    (c.to_node_id === props.toNode.id || c.to === props.toNode.id)
-  )
-})
+// Skip duplicate pre-checks; UI already filters to available inputs
 
 // Watch for prop changes
 watch(() => props.defaultInput, v => { inputNumber.value = v })
@@ -410,6 +407,9 @@ function getFromPortName(portNum) {
       if (srcLabel) return srcLabel
     }
   }
+  if (isSource.value && (numOutputs.value === 2)) {
+    return portNum === 1 ? 'L' : (portNum === 2 ? 'R' : `Output ${portNum}`)
+  }
   return `Output ${portNum}`
 }
 
@@ -423,6 +423,9 @@ function getFromPortDisplay(portNum) {
       const srcLabel = getNodeLabelById(incoming.from_node_id || incoming.from)
       if (srcLabel) return srcLabel
     }
+  }
+  if (isSource.value && (numOutputs.value === 2)) {
+    return portNum === 1 ? 'L' : (portNum === 2 ? 'R' : `Output ${portNum}`)
   }
   return `Output ${portNum}`
 }
@@ -593,34 +596,7 @@ errorMsg.value = ''
     return
   }
   
-  // Block if a connection from this source to this target already exists
-  if (sourceHasConnectionToTarget.value) {
-    errorMsg.value = 'This source is already connected to this device.'
-    loading.value = false
-    return
-  }
-
-  // Refresh latest assignments for target to avoid stale duplicate selection
-  try {
-    const { data: latest, error } = await supabase
-      .from('connections')
-      .select('to_node_id,input_number,from_node_id')
-      .eq('project_id', props.projectId)
-      .eq('to_node_id', props.toNode.id)
-    if (!error && Array.isArray(latest)) {
-      const used = new Set(latest.map(c => c.input_number).filter(Boolean))
-      if (used.has(inputNumber.value)) {
-        const firstAvail = (inputOptions.value || []).find(o => !o.disabled && !used.has(o.value))?.value
-        if (typeof firstAvail !== 'undefined') {
-          inputNumber.value = firstAvail
-        } else {
-          errorMsg.value = 'All inputs are occupied.'
-          loading.value = false
-          return
-        }
-      }
-    }
-  } catch {}
+  // No duplicate pre-checks; rely on UI filtering and DB constraint
   const connection = {
     project_id: props.projectId,
     from_node_id: props.fromNode.id,

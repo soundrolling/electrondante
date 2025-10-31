@@ -41,7 +41,7 @@
     <MicPlacement
       v-if="activeTab === 'placement'"
       :projectId="projectId"
-      :locationId="locationId"
+      :locationId="effectiveLocationId"
       :nodes="sourceNodes"
       :gearList="gearList"
       @node-updated="handleNodeUpdated"
@@ -52,7 +52,7 @@
     <SignalFlow
       v-if="activeTab === 'flow'"
       :projectId="projectId"
-      :locationId="locationId"
+      :locationId="effectiveLocationId"
       :nodes="allNodes"
       :connections="allConnections"
       :gearList="gearList"
@@ -122,6 +122,11 @@ const sourceNodes = computed(() => {
   return allNodes.value.filter(node => 
     node.gear_type === 'source' || node.node_type === 'source'
   )
+})
+
+// Ensure children always receive a valid location id if present via route
+const effectiveLocationId = computed(() => {
+  return props.locationId || route.query.locationId || currentLocation.value?.id || null
 })
 
 // Navigation

@@ -221,8 +221,13 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (!node) break
     
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      // For sources, track_name is the custom name set in mic placement (e.g., "Stage L")
-      const sourceName = node.track_name || node.label
+      // For sources, prefer custom track_name; if the source has two outputs and
+      // we arrived carrying the source output index in currentInput, append L/R.
+      let sourceName = node.track_name || node.label
+      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
+        if (Number(currentInput) === 1) sourceName = `${sourceName} L`
+        else if (Number(currentInput) === 2) sourceName = `${sourceName} R`
+      }
       labels.push(sourceName)
       finalSourceNode = node
       break
