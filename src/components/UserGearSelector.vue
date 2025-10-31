@@ -222,6 +222,17 @@ async function loadUserGear() {
       return;
     }
 
+    // Get project owner
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('user_id')
+      .eq('id', props.projectId)
+      .single();
+    
+    if (projectError) {
+      console.error('Error fetching project:', projectError);
+    }
+
     // Get all project members
     const { data: projectMembers, error: membersError } = await supabase
       .from('project_members')
@@ -230,31 +241,42 @@ async function loadUserGear() {
     
     if (membersError) {
       console.error('Error fetching project members:', membersError);
-      allUserGear.value = [];
-      filteredGear.value = [];
-      return;
     }
 
-    if (!projectMembers || projectMembers.length === 0) {
-      console.log('No project members found');
-      allUserGear.value = [];
-      filteredGear.value = [];
-      filterGear();
-      return;
-    }
-
-    // Get user IDs from members (filter out nulls)
-    const userIds = projectMembers
-      .map(m => m.user_id)
-      .filter(id => id !== null && id !== undefined);
+    // Collect all user IDs: project owner + project members
+    const userIds = new Set();
     
-    if (userIds.length === 0) {
-      console.log('No valid user IDs found in project members');
+    // Add project owner if exists
+    if (project?.user_id) {
+      userIds.add(project.user_id);
+    }
+    
+    // Add current user if they have gear (even if not in members table yet)
+    const currentUserId = userStore.user?.id;
+    if (currentUserId) {
+      userIds.add(currentUserId);
+    }
+    
+    // Add all project members with user_id
+    if (projectMembers) {
+      projectMembers.forEach(m => {
+        if (m.user_id) {
+          userIds.add(m.user_id);
+        }
+      });
+    }
+    
+    const userIdArray = Array.from(userIds);
+    
+    if (userIdArray.length === 0) {
+      console.log('No valid user IDs found');
       allUserGear.value = [];
       filteredGear.value = [];
       filterGear();
       return;
     }
+    
+    console.log('Loading gear for user IDs:', userIdArray);
 
     // Try to use user_gear_view first (includes owner info)
     let gear = [];
@@ -262,12 +284,12 @@ async function loadUserGear() {
       const { data: gearData, error: viewError } = await supabase
         .from('user_gear_view')
         .select('*')
-        .in('user_id', userIds)
-        .eq('availability', 'available')
+        .in('user_id', userIdArray)
         .order('gear_name');
 
       if (!viewError && gearData) {
-        gear = gearData;
+        gear = gearData || [];
+        console.log('Loaded gear from view:', gear.length);
       } else {
         throw viewError || new Error('View not available');
       }
@@ -278,19 +300,21 @@ async function loadUserGear() {
       const { data: gearData, error: gearError } = await supabase
         .from('user_gear')
         .select('*')
-        .in('user_id', userIds)
-        .eq('availability', 'available')
+        .in('user_id', userIdArray)
         .order('gear_name');
 
       if (gearError) {
+        console.error('Error fetching gear:', gearError);
         throw gearError;
       }
 
-      // Fetch profiles to get owner names
+      console.log('Loaded gear from direct query:', gearData?.length || 0);
+
+      // Fetch profiles to get owner names for all users
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name, company')
-        .in('user_id', userIds);
+        .in('user_id', userIdArray);
 
       const profileMap = {};
       if (profiles) {
@@ -302,13 +326,23 @@ async function loadUserGear() {
         });
       }
 
-      // Map user emails as fallback
+      // Build email map from project members
       const emailMap = {};
-      projectMembers.forEach(m => {
-        if (m.user_id) {
-          emailMap[m.user_id] = m.user_email;
+      if (projectMembers) {
+        projectMembers.forEach(m => {
+          if (m.user_id) {
+            emailMap[m.user_id] = m.user_email;
+          }
+        });
+      }
+      
+      // Also try to get emails from auth.users for project owner
+      if (project?.user_id && !emailMap[project.user_id]) {
+        // If we have the current user and it matches project owner, use their email
+        if (currentUserId === project.user_id && userStore.userEmail) {
+          emailMap[project.user_id] = userStore.userEmail;
         }
-      });
+      }
 
       // Add owner information to each gear item
       gear = (gearData || []).map(item => {
