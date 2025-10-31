@@ -2,8 +2,8 @@
 <div class="user-gear-selector">
   <!-- Header -->
   <div class="selector-header">
-    <h3 class="selector-title">Add User Gear to Project</h3>
-    <p class="selector-subtitle">Search and add available gear from team members</p>
+    <h3 class="selector-title">Add My Gear to Project</h3>
+    <p class="selector-subtitle">Select gear from your profile to add to this project</p>
   </div>
 
   <!-- Search and Filters -->
@@ -12,21 +12,21 @@
       <input 
         v-model="searchTerm" 
         class="search-input"
-        placeholder="Search gear by name, type, or notes..."
+        placeholder="Search your gear by name, type, or notes..."
         @input="debouncedSearch"
       />
       <span class="search-icon">🔍</span>
     </div>
 
     <div class="filter-group">
-      <select v-model="selectedType" class="filter-select" @change="searchGear">
+      <select v-model="selectedType" class="filter-select">
         <option value="">All Types</option>
         <option v-for="type in availableTypes" :key="type" :value="type">
           {{ type }}
         </option>
       </select>
 
-      <select v-model="selectedCondition" class="filter-select" @change="searchGear">
+      <select v-model="selectedCondition" class="filter-select">
         <option value="">All Conditions</option>
         <option value="excellent">Excellent</option>
         <option value="good">Good</option>
@@ -39,13 +39,13 @@
   <!-- Loading State -->
   <div v-if="loading" class="loading-state">
     <div class="spinner"></div>
-    <p>Searching available gear...</p>
+    <p>Loading your gear...</p>
   </div>
 
   <!-- Results -->
   <div v-else-if="searchResults.length > 0" class="results-container">
     <div class="results-header">
-      <span class="results-count">{{ searchResults.length }} items found</span>
+      <span class="results-count">{{ searchResults.length }} {{ searchResults.length === 1 ? 'item' : 'items' }} found</span>
       <button 
         v-if="selectedItems.length > 0"
         class="btn btn-positive btn-sm"
@@ -75,7 +75,7 @@
           </div>
 
           <div class="gear-owner">
-            <span class="owner-name">{{ item.owner_name || 'Unknown' }}</span>
+            <span class="owner-name">{{ item.owner_name || 'Me' }}</span>
             <span v-if="item.owner_company" class="owner-company">
               {{ item.owner_company }}
             </span>
@@ -98,17 +98,10 @@
   </div>
 
   <!-- Empty State -->
-  <div v-else-if="hasSearched" class="empty-state">
+  <div v-else class="empty-state">
     <div class="empty-icon">🎛️</div>
-    <h4>No gear found</h4>
-    <p>Try adjusting your search terms or filters</p>
-  </div>
-
-  <!-- Initial State -->
-  <div v-else class="initial-state">
-    <div class="initial-icon">🔍</div>
-    <h4>Search for available gear</h4>
-    <p>Enter a search term to find gear from team members</p>
+    <h4>{{ allUserGear.length === 0 ? 'No gear in your profile' : 'No gear found' }}</h4>
+    <p>{{ allUserGear.length === 0 ? 'Add gear to your profile first' : 'Try adjusting your search terms or filters' }}</p>
   </div>
 
   <!-- Selected Items Summary -->
@@ -153,6 +146,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { UserGearService } from '../services/userGearService';
+import { useUserStore } from '../stores/userStore';
 
 // Props
 const props = defineProps({
@@ -165,116 +159,176 @@ projectId: {
 // Emits
 const emit = defineEmits(['gear-selected', 'gear-added']);
 
+// User Store
+const userStore = useUserStore();
+
 // State
 const loading = ref(false);
 const searchTerm = ref('');
 const selectedType = ref('');
 const selectedCondition = ref('');
-const searchResults = ref([]);
+const allUserGear = ref([]); // Store all user gear
+const filteredGear = ref([]); // Filtered results to display
 const selectedItems = ref([]);
 const availableTypes = ref([]);
-const hasSearched = ref(false);
 
 // Add a map to track selected quantities by item id
 const selectedQuantities = ref({});
 
-// Debounced search
+// Computed - Filter gear based on search and filters
+const searchResults = computed(() => {
+  return filteredGear.value;
+});
+
+// Debounced search - now filters locally instead of querying
 let searchTimeout = null;
 const debouncedSearch = () => {
-clearTimeout(searchTimeout);
-searchTimeout = setTimeout(() => {
-  searchGear();
-}, 300);
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    filterGear();
+  }, 300);
 };
 
 // Computed
 const selectedItemsData = computed(() => {
-return searchResults.value.filter(item => selectedItems.value.includes(item.id));
+  return filteredGear.value.filter(item => selectedItems.value.includes(item.id));
 });
 
 // When an item is selected, initialize its quantity to 1 if not set
 watch(selectedItems, (newVal, oldVal) => {
-for (const id of newVal) {
-  if (!selectedQuantities.value[id]) {
-    const item = searchResults.value.find(i => i.id === id);
-    selectedQuantities.value[id] = item ? Math.min(1, item.quantity) : 1;
+  for (const id of newVal) {
+    if (!selectedQuantities.value[id]) {
+      const item = filteredGear.value.find(i => i.id === id);
+      selectedQuantities.value[id] = item ? Math.min(1, item.quantity) : 1;
+    }
   }
-}
-// Remove deselected items from the map
-for (const id in selectedQuantities.value) {
-  if (!newVal.includes(id)) delete selectedQuantities.value[id];
-}
+  // Remove deselected items from the map
+  for (const id in selectedQuantities.value) {
+    if (!newVal.includes(id)) delete selectedQuantities.value[id];
+  }
 });
 
 // Methods
-async function searchGear() {
-if (!searchTerm.value && !selectedType.value && !selectedCondition.value) {
-  searchResults.value = [];
-  hasSearched.value = false;
-  return;
+async function loadUserGear() {
+  try {
+    loading.value = true;
+    const userId = userStore.user?.id;
+    
+    if (!userId) {
+      console.error('User ID not found');
+      allUserGear.value = [];
+      filteredGear.value = [];
+      return;
+    }
+
+    // Get user's gear
+    const gear = await UserGearService.getUserGear(userId);
+    
+    // Get user profile to add owner info
+    let ownerName = 'Me';
+    let ownerCompany = null;
+    
+    if (userStore.userProfile) {
+      ownerName = userStore.userProfile.full_name || userStore.userEmail || 'Me';
+      ownerCompany = userStore.userProfile.company || null;
+    } else {
+      // Try to fetch profile
+      try {
+        await userStore.fetchUserProfile();
+        if (userStore.userProfile) {
+          ownerName = userStore.userProfile.full_name || userStore.userEmail || 'Me';
+          ownerCompany = userStore.userProfile.company || null;
+        }
+      } catch (err) {
+        console.warn('Could not fetch user profile:', err);
+      }
+    }
+    
+    // Add owner information to each gear item
+    allUserGear.value = gear.map(item => ({
+      ...item,
+      owner_name: ownerName,
+      owner_company: ownerCompany
+    }));
+    
+    // Initial filter (shows all gear)
+    filterGear();
+    
+    // Load available types from user's gear
+    availableTypes.value = [...new Set(gear.map(g => g.gear_type).filter(Boolean))].sort();
+  } catch (error) {
+    console.error('Error loading user gear:', error);
+    allUserGear.value = [];
+    filteredGear.value = [];
+  } finally {
+    loading.value = false;
+  }
 }
 
-try {
-  loading.value = true;
-  hasSearched.value = true;
+// Filter gear locally based on search and filters
+function filterGear() {
+  let filtered = [...allUserGear.value];
   
-  const results = await UserGearService.searchAvailableGear(
-    searchTerm.value,
-    selectedType.value,
-    selectedCondition.value
-  );
+  // Apply search filter
+  if (searchTerm.value) {
+    const search = searchTerm.value.toLowerCase();
+    filtered = filtered.filter(item => 
+      item.gear_name?.toLowerCase().includes(search) ||
+      item.gear_type?.toLowerCase().includes(search) ||
+      item.notes?.toLowerCase().includes(search)
+    );
+  }
   
-  searchResults.value = results;
-} catch (error) {
-  console.error('Error searching gear:', error);
-  searchResults.value = [];
-} finally {
-  loading.value = false;
-}
+  // Apply type filter
+  if (selectedType.value) {
+    filtered = filtered.filter(item => item.gear_type === selectedType.value);
+  }
+  
+  // Apply condition filter
+  if (selectedCondition.value) {
+    filtered = filtered.filter(item => item.condition === selectedCondition.value);
+  }
+  
+  filteredGear.value = filtered;
 }
 
-async function loadAvailableTypes() {
-try {
-  availableTypes.value = await UserGearService.getAvailableGearTypes();
-} catch (error) {
-  console.error('Error loading gear types:', error);
-}
-}
+// Watch filters to update results
+watch([searchTerm, selectedType, selectedCondition], () => {
+  filterGear();
+});
 
 function updateSelection() {
-emit('gear-selected', selectedItemsData.value.map(item => ({ ...item, selectedQuantity: selectedQuantities.value[item.id] || 1 })));
+  emit('gear-selected', selectedItemsData.value.map(item => ({ ...item, selectedQuantity: selectedQuantities.value[item.id] || 1 })));
 }
 
 function addSelectedToProject() {
-if (selectedItemsData.value.length === 0) return;
-// Emit array of { userGear, quantity }
-const payload = selectedItemsData.value.map(item => ({ userGear: item, quantity: selectedQuantities.value[item.id] || 1 }));
-emit('gear-added', payload);
-clearSelection();
+  if (selectedItemsData.value.length === 0) return;
+  // Emit array of { userGear, quantity }
+  const payload = selectedItemsData.value.map(item => ({ userGear: item, quantity: selectedQuantities.value[item.id] || 1 }));
+  emit('gear-added', payload);
+  clearSelection();
 }
 
 function clearSelection() {
-selectedItems.value = [];
-selectedQuantities.value = {};
-updateSelection();
+  selectedItems.value = [];
+  selectedQuantities.value = {};
+  updateSelection();
 }
 
 function removeFromSelection(itemId) {
-selectedItems.value = selectedItems.value.filter(id => id !== itemId);
-delete selectedQuantities.value[itemId];
-updateSelection();
+  selectedItems.value = selectedItems.value.filter(id => id !== itemId);
+  delete selectedQuantities.value[itemId];
+  updateSelection();
 }
 
 // Lifecycle
-onMounted(() => {
-loadAvailableTypes();
+onMounted(async () => {
+  await loadUserGear();
 });
 
 // Watch for prop changes
 watch(() => props.projectId, () => {
-clearSelection();
-searchResults.value = [];
-hasSearched.value = false;
+  clearSelection();
 });
 </script>
 
