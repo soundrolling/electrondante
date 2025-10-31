@@ -283,11 +283,23 @@ async function buildUpstreamSourceLabels() {
   } catch {}
 }
 
-function getBaseSourceName(node){
-  // Prefer explicit track_name, else strip trailing " (n)" from label
-  const raw = node?.track_name || node?.label || ''
-  const m = raw.match(/^(.*) \((\d+)\)$/)
-  return m ? m[1] : raw
+function getSourceLabelParts(node){
+  // Prefer track_name for base if present, but numbering comes from label suffix
+  const label = node?.label || ''
+  const basePref = node?.track_name || label || ''
+  const m = (label || '').match(/^(.*) \((\d+)\)$/)
+  const num = m ? m[2] : ''
+  const baseNoNum = (m ? basePref : basePref.replace(/ \((\d+)\)$/,''))
+  const numSuffix = num ? ` (${num})` : ''
+  return { baseNoNum, numSuffix }
+}
+
+function getSourcePortLabel(portNum){
+  const { baseNoNum, numSuffix } = getSourceLabelParts(props.fromNode)
+  if (numOutputs.value === 2) {
+    return portNum === 1 ? `${baseNoNum.replace(/\s*LR$/i,'')} L${numSuffix}` : (portNum === 2 ? `${baseNoNum.replace(/\s*LR$/i,'')} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
+  }
+  return `${baseNoNum}${numSuffix}`
 }
 
 async function loadTakenPorts() {
@@ -334,8 +346,7 @@ const availableFromPorts = computed(() => {
   for (let n = 1; n <= numOutputs.value; n++) {
     if (used.has(n)) continue
     if (takenFromPorts.value.has(n)) continue
-    const base = getBaseSourceName(props.fromNode)
-    const preferred = (numOutputs.value === 2) ? (n === 1 ? `${base} L` : (n === 2 ? `${base} R` : `Output ${n}`)) : null
+    const preferred = getSourcePortLabel(n)
     const label = preferred || upstreamSourceLabels.value[n] || getFromPortName(n)
     opts.push({ value: n, label })
   }
@@ -458,8 +469,7 @@ function getFromPortName(portNum) {
     }
   }
   if (isSource.value && (numOutputs.value === 2)) {
-    const base = getBaseSourceName(props.fromNode)
-    return portNum === 1 ? `${base} L` : (portNum === 2 ? `${base} R` : `Output ${portNum}`)
+    return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
 }
@@ -476,8 +486,7 @@ function getFromPortDisplay(portNum) {
     }
   }
   if (isSource.value && (numOutputs.value === 2)) {
-    const base = getBaseSourceName(props.fromNode)
-    return portNum === 1 ? `${base} L` : (portNum === 2 ? `${base} R` : `Output ${portNum}`)
+    return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
 }

@@ -43,8 +43,13 @@
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
     />
-    <div v-if="tool === 'link' && linkSource" class="tool-indicator">
-      Connecting from: {{ linkSource.track_name || linkSource.label }} (click target node)
+    <div v-if="tool === 'link'" class="tool-indicator">
+      <template v-if="linkSource">
+        Connecting from: {{ linkSource.track_name || linkSource.label }} (click target node)
+      </template>
+      <template v-else>
+        Select your first connection node
+      </template>
     </div>
     <div v-if="selectedConnectionId" class="connection-details" :style="detailsStyle">
       <h4>Connection Details</h4>
@@ -353,8 +358,11 @@ function getFromPortDisplayForEdit(portNum) {
   if (fromType === 'source') {
     const outCount = from?.num_outputs || from?.outputs || 0
     if (outCount === 2) {
-      const base = (from.track_name || from.label || '').replace(/ \((\d+)\)$/,'')
-      return portNum === 1 ? `${base} L` : (portNum === 2 ? `${base} R` : `Output ${portNum}`)
+      const label = from.track_name || from.label || ''
+      const m = (from.label || '').match(/^(.*) \((\d+)\)$/)
+      const baseNoNum = (m ? (from.track_name || m[1]) : (label.replace(/ \((\d+)\)$/,'')))
+      const numSuffix = m ? ` (${m[2]})` : ''
+      return portNum === 1 ? `${baseNoNum.replace(/\s*LR$/i,'')} L${numSuffix}` : (portNum === 2 ? `${baseNoNum.replace(/\s*LR$/i,'')} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
     }
   }
   if (fromType === 'transformer') {
@@ -1186,6 +1194,12 @@ onMounted(() => {
     document.removeEventListener('touchmove', touchBlocker)
   })
 })
+// Prompt when entering Link mode
+watch(tool, (v, prev) => {
+  if (v === 'link' && !linkSource.value) {
+    toast.info('Select your first connection node')
+  }
+})
 
 // Expose a method to retrieve the current flow canvas as a data URL for parent exports
 function getCanvasDataURL() {
@@ -1280,9 +1294,9 @@ function exportFlowPng() {
 }
 
 .flow-toolbar .link-btn.active {
-  background: #efe7ff; /* light purple */
-  color: #6d28d9;
-  border-color: #6d28d9;
+  background: #d1f4e0; /* light green */
+  color: #0f7b3e;
+  border-color: #0f7b3e;
 }
 
 .btn-add {
@@ -1344,7 +1358,7 @@ function exportFlowPng() {
   top: 10px;
   left: 10px;
   background: rgba(0, 0, 0, 0.7);
-  color: #ffffff;
+  color: #ffffff !important;
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
