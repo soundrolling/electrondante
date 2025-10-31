@@ -37,25 +37,7 @@
         </div>
       </div>
       <form @submit.prevent="submit" class="connection-form">
-        <div v-if="isSource && isTransformerTo" class="form-group">
-          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Transformer Input</label>
-          <select class="form-select" v-model.number="inputNumber">
-            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              {{ opt.label }}
-            </option>
-          </select>
-          
-        </div>
-        <div v-else-if="isSource && isRecorderTo" class="form-group">
-          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
-          <select class="form-select" v-model.number="inputNumber">
-            <option v-for="opt in trackOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
-              {{ opt.label }}
-            </option>
-          </select>
-          
-        </div>
-        <div v-else-if="needsPortMapping" class="form-group">
+        <div v-if="needsPortMapping" class="form-group">
           <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
           <div class="port-mapping-container">
             <div v-if="displayedPortMappings.length > 0" class="port-mappings-list">
@@ -101,6 +83,24 @@
               <button type="button" class="btn-add" @click="addPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
             </div>
           </div>
+        </div>
+        <div v-else-if="isSource && isTransformerTo" class="form-group">
+          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Transformer Input</label>
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in inputOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
+          
+        </div>
+        <div v-else-if="isSource && isRecorderTo" class="form-group">
+          <label>Assign <b>{{ fromNode.track_name || fromNode.label }}</b> to Recorder Track</label>
+          <select class="form-select" v-model.number="inputNumber">
+            <option v-for="opt in recorderAssignmentOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
+              {{ opt.label }}
+            </option>
+          </select>
+          
         </div>
         <div v-else class="form-group">
           <!-- Fallback for other types, show input/track assignment if needed -->
@@ -491,6 +491,30 @@ for (let n = 1; n <= numTracks.value; n++) {
   arr.push({ value: n, label, disabled })
 }
 return arr
+})
+
+// When recorder has no explicit track count, fall back to inputs but label them as Track
+const recorderAssignmentOptions = computed(() => {
+  if ((numTracks.value || 0) > 0) return trackOptions.value
+  // Build from inputs
+  const arr = []
+  for (let n = 1; n <= numInputs.value; n++) {
+    const takenConn = (props.existingConnections || []).find(c =>
+      (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
+    )
+    let label = `Track ${n}`
+    let disabled = false
+    if (takenConn) {
+      let nodeLabel = 'Taken'
+      if (takenConn.from_node_id || takenConn.from) {
+        nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from)
+      }
+      label = `Track ${n} (Assigned to ${nodeLabel})`
+      disabled = true
+    }
+    arr.push({ value: n, label, disabled })
+  }
+  return arr
 })
 
 // No auto-selection; user can type any number. Uniqueness enforced by DB.
