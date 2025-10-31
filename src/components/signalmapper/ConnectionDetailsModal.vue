@@ -269,7 +269,17 @@ async function buildUpstreamSourceLabels() {
       .from('connection_port_map')
       .select('from_port, to_port')
       .eq('connection_id', parentConn.id)
-    if (!maps) return
+    if (!maps || maps.length === 0) {
+      // No explicit port map from parent → this transformer. Infer labels directly from incoming connections
+      const incomings = (props.existingConnections || []).filter(c =>
+        (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && typeof c.input_number === 'number'
+      )
+      incomings.forEach(inc => {
+        const label = getLRAwareSourceLabel(inc)
+        if (label) upstreamSourceLabels.value[inc.input_number] = label
+      })
+      return
+    }
     // Resolve upstream labels per mapping
     const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
     maps.forEach(m => {
