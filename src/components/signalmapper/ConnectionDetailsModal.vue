@@ -47,7 +47,7 @@
                 <select class="form-select-small" v-model.number="editFromPort">
                   <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   <option :value="mapping.from_port" v-if="!availableFromPorts.find(o => o.value === mapping.from_port)">
-                    {{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}
+                    {{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}
                   </option>
                 </select>
                 <span class="arrow">→</span>
@@ -62,7 +62,7 @@
               </template>
               <template v-else>
                 <!-- Display mode -->
-                <span>{{ upstreamSourceLabels[mapping.from_port] || (isTransformerFrom ? getFromPortDisplay(mapping.from_port) : `Output ${mapping.from_port}`) }}</span>
+                <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
                 <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
@@ -468,7 +468,7 @@ function getFromPortName(portNum) {
       if (srcLabel) return srcLabel
     }
   }
-  if (isSource.value && (numOutputs.value === 2)) {
+  if (isSource.value) {
     return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
@@ -485,7 +485,7 @@ function getFromPortDisplay(portNum) {
       if (srcLabel) return srcLabel
     }
   }
-  if (isSource.value && (numOutputs.value === 2)) {
+  if (isSource.value) {
     return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
