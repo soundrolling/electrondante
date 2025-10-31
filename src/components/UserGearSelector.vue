@@ -154,7 +154,8 @@ import { supabase } from '../supabase';
 const props = defineProps({
 projectId: {
   type: String,
-  required: true
+  required: false,
+  default: ''
 }
 });
 
@@ -215,18 +216,23 @@ async function loadUserGear() {
   try {
     loading.value = true;
     
-    if (!props.projectId) {
-      console.error('Project ID not found');
+    // Get project ID from props or store
+    const projectId = props.projectId || userStore.getCurrentProject?.id || null;
+    
+    if (!projectId) {
+      console.error('Project ID not found. Props:', props.projectId, 'Store:', userStore.getCurrentProject);
       allUserGear.value = [];
       filteredGear.value = [];
       return;
     }
+    
+    console.log('Using project ID:', projectId);
 
     // Get project owner
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('user_id')
-      .eq('id', props.projectId)
+      .eq('id', projectId)
       .single();
     
     if (projectError) {
@@ -237,7 +243,7 @@ async function loadUserGear() {
     const { data: projectMembers, error: membersError } = await supabase
       .from('project_members')
       .select('user_id, user_email')
-      .eq('project_id', props.projectId);
+      .eq('project_id', projectId);
     
     if (membersError) {
       console.error('Error fetching project members:', membersError);
