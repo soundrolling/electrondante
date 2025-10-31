@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.56">
-        <span class="version-text">v21.56</span>
-        <span class="version-date">October 29</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.57">
+        <span class="version-text">v21.57</span>
+        <span class="version-date">November 29</span>
       </button>
     </div>
 
@@ -19,29 +19,29 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.56</h2>
+          <h2 id="changelog-title">What's New in 21.57</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔐 Improved User Invitation Flow</h3>
-            <p>Smart invitation system now detects existing users and adds them to projects instantly without sending unnecessary emails. New users receive proper invitation emails with working password setup links.</p>
+            <h3>🎛️ Enhanced Gear Reordering</h3>
+            <p>New drag-and-drop functionality makes reordering gear items much easier. Simply click and drag any item to rearrange, with smooth visual feedback. Works seamlessly on both desktop and mobile devices.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>📧 Fixed Email Confirmation</h3>
-            <p>Resolved issues with invitation email links not working properly. Users can now successfully set their passwords and join projects through the email invitation process.</p>
+            <h3>🔤 Quick Sort Options for Gear</h3>
+            <p>Added convenient sorting shortcuts in the gear reorder modal: sort alphabetically (A-Z or Z-A) or by gear type with alphabetical sub-sorting. Perfect for organizing large gear lists quickly.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🔑 Streamlined Login Experience</h3>
-            <p>Removed magic link login option and added a clean "Forgot Password?" link for better user experience. Login page is now more focused and user-friendly.</p>
+            <h3>🎨 Improved Button Contrast</h3>
+            <p>Enhanced visibility of all grey buttons throughout the gear management interface. Arrow buttons and sort controls now feature white text and icons on grey backgrounds for better readability and accessibility.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>💬 Better User Feedback</h3>
-            <p>Project admins now receive clear, contextual messages when inviting users - different messages for existing users vs new users to help manage expectations.</p>
+            <h3>📱 Better Mobile Experience</h3>
+            <p>Gear reordering now fully supports touch interactions on mobile devices. Long press and drag to reorder items naturally, with the same smooth experience as desktop drag-and-drop.</p>
           </div>
         </div>
         

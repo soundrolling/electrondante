@@ -2099,11 +2099,18 @@ setup() {
 
 .btn-secondary {
   background: #6c757d;
-  color: #ffffff;
+  color: #ffffff !important;
+  border-color: #5a6268;
 }
 
 .btn-secondary:hover {
   background: #5a6268;
+  color: #ffffff !important;
+}
+
+.btn-secondary .btn-icon,
+.btn-secondary .btn-text {
+  color: #ffffff !important;
 }
 
 .btn-info {
@@ -2400,6 +2407,14 @@ setup() {
   border-color: #b91c1c !important;
 }
 
+.btn-secondary,
+.btn-secondary .btn-icon,
+.btn-secondary .btn-text {
+  background-color: #6c757d !important;
+  color: #ffffff !important;
+  border-color: #5a6268 !important;
+}
+
 .btn-purple,
 .btn-purple .btn-icon,
 .btn-purple .btn-text {
@@ -2453,6 +2468,16 @@ setup() {
   padding: 8px 16px;
   font-size: 14px;
   min-height: 36px;
+}
+
+/* Ensure sort buttons (btn-secondary btn-sm) have white text */
+.sort-buttons .btn-secondary {
+  color: #ffffff !important;
+}
+
+.sort-buttons .btn-secondary:hover {
+  color: #ffffff !important;
+  background: #5a6268 !important;
 }
 
 .reorder-list {
@@ -2548,20 +2573,23 @@ setup() {
   min-width: 40px;
   font-size: 18px;
   font-weight: 600;
-  background: #6c757d;
-  color: #ffffff;
+  background: #6c757d !important;
+  color: #ffffff !important;
   border: 2px solid #5a6268;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .reorder-actions .btn-arrow:hover {
-  background: #5a6268;
+  background: #5a6268 !important;
+  color: #ffffff !important;
   border-color: #495057;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
   transform: translateY(-1px);
 }
 
 .reorder-actions .btn-arrow:active {
+  background: #495057 !important;
+  color: #ffffff !important;
   transform: translateY(0);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
