@@ -87,6 +87,7 @@
       @pointerup="onPointerUp"
       @pointerleave="onPointerUp"
       @wheel.prevent="onWheel"
+      @dblclick="onDoubleClick"
     />
   </div>
 
@@ -279,8 +280,10 @@ const activePointers = new Map()
 let lastPinchDistance = null
 const MIN_SCALE = 0.2
 const MAX_SCALE = 5
-// Desktop rotation via wheel while mouse is held down on selected mic
-const mouseDownOnSelected = ref(false)
+// Auto-rotation state
+const autoRotatingMic = ref(null)
+let autoRotationInterval = null
+const AUTO_ROTATION_SPEED = 1 // degrees per frame
 
 // Modal state
 const showGearModal = ref(false)
@@ -534,6 +537,9 @@ function onPointerDown(e) {
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
 
+  // Stop auto-rotation when user interacts
+  stopAutoRotation()
+
   if (clickedMic) {
     // If rotation mode is latched on, start rotating regardless of pointer position
     if (rotationMode.value && selectedMic.value && clickedMic.id === selectedMic.value.id) {
@@ -552,7 +558,6 @@ function onPointerDown(e) {
       rotatingMic.value = clickedMic
       selectedMic.value = clickedMic
       rotationMode.value = true
-      mouseDownOnSelected.value = true
     } else {
       // Start dragging
       draggingMic.value = clickedMic
@@ -560,7 +565,6 @@ function onPointerDown(e) {
       dragStart = { x: imgPt.imgX, y: imgPt.imgY }
       dragStartPos = { x: clickedMic.x, y: clickedMic.y }
       rotationMode.value = false
-      mouseDownOnSelected.value = true
     }
   } else {
     // If no mic center was clicked, allow grabbing the rotation handle of the
@@ -572,13 +576,11 @@ function onPointerDown(e) {
       if (dist < 14) {
         rotatingMic.value = selectedMic.value
         rotationMode.value = true
-        mouseDownOnSelected.value = true
         return
       }
     }
     selectedMic.value = null
     rotationMode.value = false
-    mouseDownOnSelected.value = false
   }
   
   drawCanvas()
@@ -657,7 +659,6 @@ async function onPointerUp(e) {
 
   dragStart = null
   dragStartPos = null
-  mouseDownOnSelected.value = false
 }
 
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
@@ -679,14 +680,8 @@ function applyZoom(zoomFactor, centerX, centerY) {
 
 function onWheel(e) {
   if (!bgImageObj.value) return
-  // If the user is holding the mouse down on the selected mic (or has the rotation handle engaged),
-  // rotate instead of zooming. Use wheel delta to control rotation speed.
-  if ((mouseDownOnSelected.value || rotatingMic.value) && selectedMic.value) {
-    const step = e.deltaY < 0 ? 3 : -3
-    selectedMic.value.rotation = ((selectedMic.value.rotation || 0) + step + 360) % 360
-    drawCanvas()
-    return
-  }
+  // Stop auto-rotation when user scrolls
+  stopAutoRotation()
   // Skip zoom if image is locked
   if (imageLocked.value) return
   const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
@@ -706,6 +701,70 @@ function getMicAt(imgX, imgY) {
     if (dist < 0.05) return mic // 5% of image size
   }
   return null
+}
+
+// Double-click handler for auto-rotation
+function onDoubleClick(e) {
+  const { x, y } = getCanvasCoords(e)
+  const imgPt = canvasToImageCoords(x, y)
+  const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+  
+  // Only start auto-rotation if double-clicking on the selected mic
+  if (clickedMic && selectedMic.value && clickedMic.id === selectedMic.value.id) {
+    // Check if not clicking on rotation handle
+    const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
+    const handleY = micY - 35
+    const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
+    
+    if (dist >= 14) {
+      // Toggle auto-rotation
+      if (autoRotatingMic.value && autoRotatingMic.value.id === clickedMic.id) {
+        stopAutoRotation()
+      } else {
+        startAutoRotation(clickedMic)
+      }
+    }
+  }
+}
+
+// Start auto-rotation
+function startAutoRotation(mic) {
+  stopAutoRotation() // Stop any existing rotation
+  autoRotatingMic.value = mic
+  
+  const rotate = () => {
+    if (autoRotatingMic.value) {
+      autoRotatingMic.value.rotation = ((autoRotatingMic.value.rotation || 0) + AUTO_ROTATION_SPEED) % 360
+      drawCanvas()
+    }
+  }
+  
+  // Use requestAnimationFrame for smooth rotation
+  let lastTime = performance.now()
+  const animate = (currentTime) => {
+    if (!autoRotatingMic.value) return
+    
+    const deltaTime = currentTime - lastTime
+    if (deltaTime >= 16) { // ~60fps
+      rotate()
+      lastTime = currentTime
+    }
+    autoRotationInterval = requestAnimationFrame(animate)
+  }
+  autoRotationInterval = requestAnimationFrame(animate)
+}
+
+// Stop auto-rotation
+function stopAutoRotation() {
+  if (autoRotationInterval !== null) {
+    cancelAnimationFrame(autoRotationInterval)
+    autoRotationInterval = null
+  }
+  if (autoRotatingMic.value) {
+    // Save the rotation state when stopping
+    saveMicUpdate(autoRotatingMic.value)
+    autoRotatingMic.value = null
+  }
 }
 
 // Gear modal
@@ -820,6 +879,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateCanvasSize)
+  stopAutoRotation()
 })
 
 function updateCanvasSize() {
@@ -1275,6 +1335,11 @@ defineExpose({ getCanvasDataURL })
   text-align: center;
   padding: 40px;
   color: #6c757d;
+}
+
+/* Hide mobile controls on larger screens */
+.mobile-controls {
+  display: none;
 }
 
 /* Mobile layout tweaks */
