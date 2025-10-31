@@ -126,20 +126,22 @@
             <div class="orientation-mic-name">{{ selectedMicForOrientation.gear_name }}</div>
           </div>
           <div class="orientation-picker-label">Choose initial orientation:</div>
-          <div class="orientation-circle">
+          <div class="orientation-grid">
             <button
-              v-for="angle in [0, 45, 90, 135, 180, 225, 270, 315]"
-              :key="angle"
+              v-for="angle in [315, 0, 45, 270, null, 90, 225, 180, 135]"
+              :key="angle || 'center'"
+              v-if="angle !== null"
               @click="selectedOrientation = angle"
               class="orientation-arrow"
               :class="{ selected: selectedOrientation === angle }"
               :style="{ transform: `rotate(${angle}deg)` }"
               :title="`${angle}°`"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 3 L12 14 M12 3 L7 8 M12 3 L17 8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3 L12 14 M12 3 L7 8 M12 3 L17 8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
+            <div v-else class="orientation-center"></div>
           </div>
           <div class="orientation-actions">
             <button @click="placeMic" :disabled="selectedOrientation === null" class="btn-primary">Place Mic</button>
@@ -1504,20 +1506,19 @@ defineExpose({ getCanvasDataURL })
   justify-content: center;
 }
 
-.orientation-circle {
-  position: relative;
-  width: 240px;
-  height: 240px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 20px 0;
+.orientation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 12px;
+  width: 180px;
+  height: 180px;
+  margin: 20px auto;
 }
 
 .orientation-arrow {
-  position: absolute;
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border: 2px solid #000000;
   border-radius: 50%;
   background: #ffffff;
@@ -1527,69 +1528,31 @@ defineExpose({ getCanvasDataURL })
   cursor: pointer;
   transition: all 0.2s;
   color: #000000;
-  margin-left: -20px;
-  margin-top: -20px;
+  padding: 0;
 }
 
 .orientation-arrow:hover {
-  transform: scale(1.1);
-  z-index: 10;
+  transform: scale(1.05);
 }
 
 .orientation-arrow.selected {
   background: #22c55e;
   border-color: #16a34a;
-  border-width: 2px;
   color: #ffffff;
-  transform: scale(1.1);
-  z-index: 5;
+  transform: scale(1.05);
 }
 
 .orientation-arrow.selected:hover {
-  transform: scale(1.15);
+  transform: scale(1.1);
 }
 
 .orientation-arrow svg {
   display: block;
 }
 
-/* Position arrows at 8 positions around the circle */
-/* Each arrow is positioned based on its angle, then rotated to point in the right direction */
-/* Using a radius of ~90px from center (120px radius - 20px button offset) */
-.orientation-arrow:nth-child(1) { 
-  top: 0; 
-  left: 50%; 
-} /* 0° - points up */
-.orientation-arrow:nth-child(2) { 
-  top: 35px; 
-  left: 85px; 
-} /* 45° - points up-right */
-.orientation-arrow:nth-child(3) { 
-  top: 50%; 
-  left: 200px; 
-  margin-top: -20px;
-} /* 90° - points right */
-.orientation-arrow:nth-child(4) { 
-  bottom: 35px; 
-  left: 85px; 
-} /* 135° - points down-right */
-.orientation-arrow:nth-child(5) { 
-  bottom: 0; 
-  left: 50%; 
-} /* 180° - points down */
-.orientation-arrow:nth-child(6) { 
-  bottom: 35px; 
-  right: 85px; 
-} /* 225° - points down-left */
-.orientation-arrow:nth-child(7) { 
-  top: 50%; 
-  left: 0; 
-  margin-top: -20px;
-} /* 270° - points left */
-.orientation-arrow:nth-child(8) { 
-  top: 35px; 
-  right: 85px; 
-} /* 315° - points up-left */
+.orientation-center {
+  /* Empty center cell in the 3x3 grid */
+}
 
 /* Hide mobile controls on larger screens */
 .mobile-controls {
