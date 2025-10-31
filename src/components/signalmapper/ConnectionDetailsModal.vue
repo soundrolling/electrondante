@@ -359,8 +359,21 @@ const availableFromPorts = computed(() => {
   for (let n = 1; n <= numOutputs.value; n++) {
     if (used.has(n)) continue
     if (takenFromPorts.value.has(n)) continue
-    const preferred = getSourcePortLabel(n)
-    const label = preferred || upstreamSourceLabels.value[n] || getFromPortName(n)
+    let label
+    if (isTransformerFrom.value) {
+      label = upstreamSourceLabels.value[n]
+      if (!label) {
+        const incoming = (props.existingConnections || []).find(c =>
+          (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
+        )
+        if (incoming) label = getLRAwareSourceLabel(incoming)
+      }
+      if (!label) label = `Output ${n}`
+    } else if (isSource.value) {
+      label = getSourcePortLabel(n)
+    } else {
+      label = getFromPortName(n)
+    }
     opts.push({ value: n, label })
   }
   return opts
