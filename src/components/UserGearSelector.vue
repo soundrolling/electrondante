@@ -53,13 +53,6 @@
   <div v-else-if="searchResults.length > 0" class="results-container">
     <div class="results-header">
       <span class="results-count">{{ searchResults.length }} {{ searchResults.length === 1 ? 'item' : 'items' }} found</span>
-      <button 
-        v-if="selectedItems.length > 0"
-        class="btn btn-positive btn-sm"
-        @click="addSelectedToProject"
-      >
-        Add {{ selectedItems.length }} to Project
-      </button>
     </div>
 
     <div class="gear-results">
@@ -121,31 +114,73 @@
       </button>
     </div>
     
+    <!-- Stage Assignment (Optional) -->
+    <div v-if="locationsList && locationsList.length > 0" class="stage-assignment-section">
+      <label class="stage-assignment-label">Assign to Stage (Optional):</label>
+      <select v-model="selectedStageId" class="stage-select">
+        <option value="">None</option>
+        <option
+          v-for="location in locationsList"
+          :key="location.id"
+          :value="String(location.id)"
+        >
+          {{ location.stage_name }} ({{ location.venue_name }})
+        </option>
+      </select>
+    </div>
+    
     <div class="selected-items">
       <div 
         v-for="item in selectedItemsData" 
         :key="item.id"
         class="selected-item"
       >
-        <span class="item-name">{{ item.gear_name }}</span>
-        <span class="item-owner">{{ item.listed_by_name || item.owner_name }}</span>
-        <input
-          type="number"
-          class="quantity-input"
-          v-model.number="selectedQuantities[item.id]"
-          :min="1"
-          :max="item.quantity"
-          style="width: 60px; margin: 0 0.5rem;"
-        />
-        <span style="font-size:0.8em; color:#64748b;">/ {{ item.quantity }} available</span>
-        <button 
-          class="remove-btn"
-          @click="removeFromSelection(item.id)"
-          title="Remove"
-        >
-          ×
-        </button>
+        <div class="selected-item-content">
+          <span class="item-name">{{ item.gear_name }}</span>
+          <span class="item-owner">{{ item.listed_by_name || item.owner_name }}</span>
+        </div>
+        <div class="selected-item-controls">
+          <label class="quantity-label">
+            <span>Qty:</span>
+            <input
+              type="number"
+              class="quantity-input"
+              v-model.number="selectedQuantities[item.id]"
+              :min="1"
+              :max="(item.quantity || 0) - (item.assigned_quantity || 0)"
+            />
+            <span class="quantity-max">/ {{ (item.quantity || 0) - (item.assigned_quantity || 0) }} available ({{ item.quantity }} total)</span>
+          </label>
+          <label v-if="selectedStageId" class="assign-label">
+            <span>Assign:</span>
+            <input
+              type="number"
+              class="assign-input"
+              v-model.number="selectedAssignedAmounts[item.id]"
+              :min="0"
+              :max="selectedQuantities[item.id] || ((item.quantity || 0) - (item.assigned_quantity || 0))"
+              placeholder="0"
+            />
+          </label>
+          <button 
+            class="remove-btn"
+            @click="removeFromSelection(item.id)"
+            title="Remove"
+          >
+            ×
+          </button>
+        </div>
       </div>
+    </div>
+    
+    <!-- Add to Project Button at Bottom -->
+    <div class="add-to-project-actions">
+      <button 
+        class="btn btn-positive"
+        @click="addSelectedToProject"
+      >
+        Add {{ selectedItems.length }} {{ selectedItems.length === 1 ? 'Item' : 'Items' }} to Project
+      </button>
     </div>
   </div>
 </div>
@@ -155,6 +190,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { UserGearService } from '../services/userGearService';
 import { useUserStore } from '../stores/userStore';
+import { useToast } from 'vue-toastification';
 import { supabase } from '../supabase';
 
 // Props
@@ -163,6 +199,11 @@ projectId: {
   type: String,
   required: false,
   default: ''
+},
+locationsList: {
+  type: Array,
+  required: false,
+  default: () => []
 }
 });
 
@@ -171,6 +212,7 @@ const emit = defineEmits(['gear-selected', 'gear-added']);
 
 // User Store
 const userStore = useUserStore();
+const toast = useToast();
 
 // State
 const loading = ref(false);
@@ -186,6 +228,10 @@ const availableTeamMembers = ref([]); // Store team members for filtering
 
 // Add a map to track selected quantities by item id
 const selectedQuantities = ref({});
+// Track assigned amounts per item when stage is selected
+const selectedAssignedAmounts = ref({});
+// Selected stage for assignment
+const selectedStageId = ref('');
 
 // Computed - Filter gear based on search and filters
 const searchResults = computed(() => {
@@ -211,12 +257,38 @@ watch(selectedItems, (newVal, oldVal) => {
   for (const id of newVal) {
     if (!selectedQuantities.value[id]) {
       const item = filteredGear.value.find(i => i.id === id);
-      selectedQuantities.value[id] = item ? Math.min(1, item.quantity) : 1;
+      if (item) {
+        const availableQty = (item.quantity || 0) - (item.assigned_quantity || 0);
+        selectedQuantities.value[id] = Math.min(1, Math.max(0, availableQty));
+      } else {
+        selectedQuantities.value[id] = 1;
+      }
+    }
+    // Initialize assigned amount to 0 if stage is selected
+    if (selectedStageId.value && !selectedAssignedAmounts.value[id]) {
+      selectedAssignedAmounts.value[id] = 0;
     }
   }
-  // Remove deselected items from the map
+  // Remove deselected items from the maps
   for (const id in selectedQuantities.value) {
-    if (!newVal.includes(id)) delete selectedQuantities.value[id];
+    if (!newVal.includes(id)) {
+      delete selectedQuantities.value[id];
+      delete selectedAssignedAmounts.value[id];
+    }
+  }
+});
+
+// When stage is cleared, clear assigned amounts
+watch(selectedStageId, (newVal) => {
+  if (!newVal) {
+    selectedAssignedAmounts.value = {};
+  } else {
+    // Initialize assigned amounts for all selected items
+    selectedItems.value.forEach(id => {
+      if (!selectedAssignedAmounts.value[id]) {
+        selectedAssignedAmounts.value[id] = 0;
+      }
+    });
   }
 });
 
@@ -544,8 +616,29 @@ function updateSelection() {
 
 function addSelectedToProject() {
   if (selectedItemsData.value.length === 0) return;
-  // Emit array of { userGear, quantity }
-  const payload = selectedItemsData.value.map(item => ({ userGear: item, quantity: selectedQuantities.value[item.id] || 1 }));
+  
+  // Validate quantities don't exceed available
+  for (const item of selectedItemsData.value) {
+    const selectedQty = selectedQuantities.value[item.id] || 1;
+    const availableQty = (item.quantity || 0) - (item.assigned_quantity || 0);
+    
+    if (selectedQty > availableQty) {
+      toast.error(`Cannot add ${selectedQty} of ${item.gear_name}. Only ${availableQty} available (${item.quantity} total, ${item.assigned_quantity || 0} already assigned).`)
+      return; // Don't add if validation fails
+    }
+  }
+  
+  // Emit array of { userGear, quantity, locationId, assignedAmount }
+  const payload = selectedItemsData.value.map(item => {
+    const quantity = selectedQuantities.value[item.id] || 1;
+    const assignedAmount = selectedStageId.value ? (selectedAssignedAmounts.value[item.id] || 0) : 0;
+    return {
+      userGear: item,
+      quantity: quantity,
+      locationId: selectedStageId.value || null,
+      assignedAmount: assignedAmount
+    };
+  });
   emit('gear-added', payload);
   clearSelection();
 }
@@ -553,12 +646,15 @@ function addSelectedToProject() {
 function clearSelection() {
   selectedItems.value = [];
   selectedQuantities.value = {};
+  selectedAssignedAmounts.value = {};
+  selectedStageId.value = '';
   updateSelection();
 }
 
 function removeFromSelection(itemId) {
   selectedItems.value = selectedItems.value.filter(id => id !== itemId);
   delete selectedQuantities.value[itemId];
+  delete selectedAssignedAmounts.value[itemId];
   updateSelection();
 }
 
@@ -907,6 +1003,39 @@ padding-top: 1.5rem;
 border-top: 1px solid #e2e8f0;
 }
 
+.stage-assignment-section {
+margin-bottom: 1rem;
+padding: 0.75rem;
+background: #f8fafc;
+border-radius: 0.5rem;
+border: 1px solid #e2e8f0;
+}
+
+.stage-assignment-label {
+display: block;
+font-weight: 500;
+color: #1e293b;
+margin-bottom: 0.5rem;
+font-size: 0.875rem;
+}
+
+.stage-select {
+width: 100%;
+padding: 0.75rem 1rem;
+border: 1px solid #e2e8f0;
+border-radius: 0.5rem;
+font-size: 0.875rem;
+background: white;
+cursor: pointer;
+transition: all 0.2s ease;
+}
+
+.stage-select:focus {
+outline: none;
+border-color: #3b82f6;
+box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
 .summary-header {
 display: flex;
 justify-content: space-between;
@@ -928,12 +1057,26 @@ gap: 0.5rem;
 
 .selected-item {
 display: flex;
-align-items: center;
+flex-direction: column;
 gap: 0.75rem;
 padding: 0.75rem;
 background: #f8fafc;
 border-radius: 0.5rem;
 font-size: 0.875rem;
+}
+
+.selected-item-content {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+flex: 1;
+}
+
+.selected-item-controls {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+flex-wrap: wrap;
 }
 
 .item-name {
@@ -1048,6 +1191,13 @@ to {
 }
 }
 
+.quantity-label {
+display: flex;
+align-items: center;
+gap: 0.5rem;
+font-size: 0.875rem;
+}
+
 .quantity-input {
 border: 1px solid #e2e8f0;
 border-radius: 0.25rem;
@@ -1055,5 +1205,40 @@ padding: 0.25rem 0.5rem;
 font-size: 0.9em;
 width: 60px;
 text-align: center;
+}
+
+.quantity-max {
+font-size: 0.75rem;
+color: #64748b;
+}
+
+.assign-label {
+display: flex;
+align-items: center;
+gap: 0.5rem;
+font-size: 0.875rem;
+}
+
+.assign-input {
+border: 1px solid #e2e8f0;
+border-radius: 0.25rem;
+padding: 0.25rem 0.5rem;
+font-size: 0.9em;
+width: 60px;
+text-align: center;
+}
+
+.add-to-project-actions {
+margin-top: 1rem;
+padding-top: 1rem;
+border-top: 1px solid #e2e8f0;
+display: flex;
+justify-content: center;
+}
+
+.add-to-project-actions .btn {
+padding: 0.75rem 1.5rem;
+font-size: 1rem;
+min-width: 200px;
 }
 </style> 
