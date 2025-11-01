@@ -923,6 +923,29 @@ function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = 
   if (!trackConn) return null
   
   // Trace back from the source of this connection
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source node is another recorder by looking for connections TO it with track_number
+  // This indicates it's a recorder
+  const isSourceRecorder = (props.existingConnections || []).some(c =>
+    (c.to_node_id === sourceNodeId || c.to === sourceNodeId) && c.track_number
+  )
+  
+  // Also check if it's the fromNode or toNode in this modal (which we have direct access to)
+  const isFromNodeRecorder = props.fromNode && (props.fromNode.id === sourceNodeId) && 
+                              (getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+  const isToNodeRecorder = props.toNode && (props.toNode.id === sourceNodeId) && 
+                            (getType(props.toNode) === 'recorder' || hasTracks(props.toNode))
+  
+  if (isSourceRecorder || isFromNodeRecorder || isToNodeRecorder) {
+    // Source is another recorder - recursively trace from that recorder's output
+    // The output port number corresponds to the track number on the source recorder
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackNameForModal(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
   const sourceLabel = getLRAwareSourceLabel(trackConn, visitedNodes)
   return sourceLabel
 }

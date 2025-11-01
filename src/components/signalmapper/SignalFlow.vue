@@ -482,7 +482,18 @@ function traceRecorderTrackName(recorderId, trackNumber, visitedNodes = new Set(
   const sourceNodeId = trackConn.from_node_id || trackConn.from
   if (!sourceNodeId) return null
   
-  // Trace the source label recursively
+  // Check if the source is another recorder
+  const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
+  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase() : ''
+  
+  if (sourceType === 'recorder') {
+    // Source is another recorder - recursively trace from that recorder's output
+    // The output port number corresponds to the track number on the source recorder
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackName(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
   const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
   return sourceLabel
 }
