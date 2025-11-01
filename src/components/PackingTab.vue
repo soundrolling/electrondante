@@ -1351,7 +1351,7 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .loading-state,
@@ -1386,7 +1386,7 @@ onMounted(async () => {
 }
 
 .bag-card {
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid #e9ecef;
   border-radius: 12px;
   overflow: hidden;
@@ -1414,7 +1414,7 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .placeholder-icon {
@@ -1429,11 +1429,11 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 8px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .bag-description {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
   margin: 0 0 12px 0;
 }
@@ -1444,12 +1444,12 @@ onMounted(async () => {
 }
 
 .count-label {
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .count-value {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .bag-actions {
@@ -1491,7 +1491,7 @@ onMounted(async () => {
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 500px;
@@ -1530,14 +1530,14 @@ onMounted(async () => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .modal-close {
   background: transparent;
   border: none;
   font-size: 24px;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 8px;
@@ -1552,7 +1552,7 @@ onMounted(async () => {
 
 .modal-close:hover {
   background: #f8f9fa;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .modal-form {
@@ -1583,7 +1583,7 @@ onMounted(async () => {
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -1602,8 +1602,8 @@ onMounted(async () => {
   font-size: 16px;
   font-family: inherit;
   transition: all 0.2s ease;
-  background: #ffffff;
-  color: #1a1a1a;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   box-sizing: border-box;
 }
 
@@ -1631,7 +1631,7 @@ onMounted(async () => {
   background: #f8f9fa;
   border: 2px solid #e9ecef;
   border-radius: 6px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   cursor: pointer;
   font-weight: 500;
   margin-right: 12px;
@@ -1788,7 +1788,7 @@ onMounted(async () => {
 
 .image-note {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 
@@ -1830,14 +1830,14 @@ onMounted(async () => {
 .item-quantity,
 .item-notes {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin: 0;
 }
 
 .empty-items {
   text-align: center;
   padding: 24px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 @media (min-width: 768px) {
@@ -1873,7 +1873,7 @@ onMounted(async () => {
 
 .item-preview p {
   margin: 4px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .item-preview strong {
@@ -1891,12 +1891,12 @@ onMounted(async () => {
 }
 
 .weight-label {
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .weight-value {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .weight-custom {
@@ -1919,7 +1919,7 @@ onMounted(async () => {
 
 .form-hint {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin: 4px 0 0 0;
   font-style: italic;
 }
@@ -1941,7 +1941,7 @@ onMounted(async () => {
   padding: 8px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--bg-primary);
   font-size: 14px;
   color: #374151;
   cursor: pointer;
@@ -1970,7 +1970,7 @@ onMounted(async () => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #ffffff;
+  background: var(--bg-primary);
 }
 
 .radio-option:hover {

@@ -133,14 +133,14 @@ export default {
 }
 
 .changeover-modal {
-  background: #ffeb3b;
+  background: var(--color-warning-400);
   border: 3px solid #fbc02d;
   border-radius: 16px;
   padding: 32px;
   max-width: 500px;
   width: 90%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  color: #000000;
+  color: var(--text-primary);
 }
 
 .changeover-modal-header {
@@ -163,14 +163,14 @@ export default {
 .changeover-icon {
   width: 32px;
   height: 32px;
-  color: #000000;
+  color: var(--text-primary);
 }
 
 .changeover-title {
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #000000;
+  color: var(--text-primary);
 }
 
 .changeover-modal-body {
@@ -180,7 +180,7 @@ export default {
 .changeover-message {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #000000;
+  color: var(--text-primary);
   margin-bottom: 12px;
   line-height: 1.4;
 }
@@ -191,7 +191,7 @@ export default {
 
 .changeover-time {
   font-size: 1rem;
-  color: #333333;
+  color: var(--text-heading);
   margin: 0;
 }
 
@@ -212,21 +212,21 @@ export default {
 }
 
 .btn-secondary {
-  background-color: #e0e0e0;
-  color: #000000;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .btn-secondary:hover {
-  background-color: #d0d0d0;
+  background-color: var(--bg-tertiary);
 }
 
 .btn-primary {
-  background-color: #1d4ed8;
-  color: #ffffff;
+  background-color: var(--color-primary-600);
+  color: var(--text-inverse);
 }
 
 .btn-primary:hover {
-  background-color: #1e40af;
+  background-color: var(--color-primary-700);
 }
 
 /* Modal fade transition */

@@ -485,7 +485,7 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .loading-state,
@@ -502,7 +502,7 @@ onMounted(async () => {
 .repacking-table-container {
   overflow-x: auto;
   margin-bottom: 24px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -514,7 +514,7 @@ onMounted(async () => {
 }
 
 .repacking-table thead {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-bottom: 2px solid #dee2e6;
 }
 
@@ -533,11 +533,11 @@ onMounted(async () => {
 }
 
 .repacking-table tbody tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .repacking-table tbody tr.checked {
-  background: #e8f5e9;
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .repacking-table tbody tr.checked:hover {
@@ -547,7 +547,7 @@ onMounted(async () => {
 .repacking-table td {
   padding: 12px 16px;
   font-size: 14px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   vertical-align: middle;
 }
 
@@ -564,7 +564,7 @@ onMounted(async () => {
 
 .gear-name {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .gear-type {
@@ -646,7 +646,7 @@ onMounted(async () => {
 }
 
 .summary-card {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 20px;
@@ -656,7 +656,7 @@ onMounted(async () => {
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .summary-stats {
@@ -680,7 +680,7 @@ onMounted(async () => {
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .stat-value.checked {
