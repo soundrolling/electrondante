@@ -442,6 +442,23 @@ onMounted(() => {
   min-height: 36px;
 }
 
+/* Theme toggle button - smaller size */
+.theme-toggle-btn {
+  padding: var(--space-1-5) var(--space-3);
+  min-height: auto;
+  font-size: var(--text-xs);
+  margin-top: 0;
+}
+
+.theme-toggle-btn .btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.theme-toggle-btn .btn-text {
+  font-size: var(--text-xs);
+}
+
 .btn:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
