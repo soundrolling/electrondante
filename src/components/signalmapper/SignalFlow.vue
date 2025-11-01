@@ -254,7 +254,8 @@ const props = defineProps({
   locationId: { type: [String, Number], default: null },
   nodes: { type: Array, default: () => [] },
   connections: { type: Array, default: () => [] },
-  gearList: { type: Array, default: () => [] }
+  gearList: { type: Array, default: () => [] },
+  initialSelectedConnectionId: { type: [String, Number], default: null }
 })
 
 const emit = defineEmits([
@@ -1238,9 +1239,11 @@ function canConnect(from, to) {
   // source -> recorder
   // transformer -> transformer
   // transformer -> recorder
+  // recorder -> recorder
 
   if (fromType === 'source' && (toType === 'transformer' || toType === 'recorder')) return true
   if (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) return true
+  if (fromType === 'recorder' && toType === 'recorder') return true
   
   return false
 }
@@ -1533,7 +1536,35 @@ function getCanvasDataURL() {
   }
 }
 
-defineExpose({ getCanvasDataURL })
+// Watch for external connection selection
+watch(() => props.initialSelectedConnectionId, (newId) => {
+  if (newId && props.connections.find(c => c.id === newId)) {
+    selectedConnectionId.value = newId
+    selectedNode.value = null // Clear node selection
+    nextTick(() => {
+      drawCanvas()
+    })
+  } else if (!newId) {
+    // Clear selection when prop is null
+    selectedConnectionId.value = null
+    nextTick(() => {
+      drawCanvas()
+    })
+  }
+})
+
+// Expose method to select connection from parent
+function selectConnection(connectionId) {
+  if (props.connections.find(c => c.id === connectionId)) {
+    selectedConnectionId.value = connectionId
+    selectedNode.value = null // Clear node selection
+    nextTick(() => {
+      drawCanvas()
+    })
+  }
+}
+
+defineExpose({ getCanvasDataURL, selectConnection })
 
 // Export/Print the current signal flow canvas with print preview (PDF default)
 function exportToPDF() {

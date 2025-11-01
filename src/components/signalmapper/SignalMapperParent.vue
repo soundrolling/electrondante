@@ -51,11 +51,13 @@
     
     <SignalFlow
       v-if="activeTab === 'flow'"
+      ref="signalFlowRef"
       :projectId="projectId"
       :locationId="effectiveLocationId"
       :nodes="allNodes"
       :connections="allConnections"
       :gearList="gearList"
+      :initialSelectedConnectionId="selectedConnectionId"
       @node-updated="handleNodeUpdated"
       @node-added="handleNodeAdded"
       @node-deleted="handleNodeDeleted"
@@ -69,6 +71,7 @@
       :projectId="projectId"
       :signalPaths="signalPaths"
       :loading="loadingPaths"
+      @track-name-clicked="handleTrackNameClicked"
     />
 
   </div>
@@ -76,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
@@ -116,7 +119,8 @@ const allConnections = ref([])
 const gearList = ref([])
 const signalPaths = ref([])
 const loadingPaths = ref(false)
-
+const selectedConnectionId = ref(null)
+const signalFlowRef = ref(null)
 
 // Computed filtered data
 const sourceNodes = computed(() => {
@@ -138,6 +142,10 @@ const goBack = () => router.back()
 // Set active tab and update URL
 function setActiveTab(tab) {
   activeTab.value = tab
+  // Clear selected connection when switching away from flow tab
+  if (tab !== 'flow') {
+    selectedConnectionId.value = null
+  }
   // Update URL query parameter without navigating away
   router.replace({
     query: {
@@ -281,6 +289,20 @@ function handleConnectionUpdated(connection) {
 function handleConnectionDeleted(connectionId) {
   allConnections.value = allConnections.value.filter(c => c.id !== connectionId)
   loadSignalPaths()
+}
+
+function handleTrackNameClicked(connectionId) {
+  selectedConnectionId.value = connectionId
+  setActiveTab('flow')
+  // Wait for SignalFlow to mount and then select the connection
+  nextTick(() => {
+    // Use a small delay to ensure the component is fully rendered
+    setTimeout(() => {
+      if (signalFlowRef.value && signalFlowRef.value.selectConnection) {
+        signalFlowRef.value.selectConnection(connectionId)
+      }
+    }, 150)
+  })
 }
 
 // Setup realtime subscriptions

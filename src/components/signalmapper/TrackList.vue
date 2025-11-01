@@ -43,7 +43,15 @@
             <tr v-for="path in tracks" :key="path.connection_id" class="track-row">
               <td class="track-number">{{ path.track_number || '—' }}</td>
               <td class="source-name">
-                <strong>{{ path.track_name || path.source_label || '—' }}</strong>
+                <strong 
+                  v-if="path.connection_id"
+                  class="track-name-link"
+                  @click="handleTrackNameClick(path.connection_id)"
+                  :title="'Click to view connection in Signal Flow'"
+                >
+                  {{ path.track_name || path.source_label || '—' }}
+                </strong>
+                <strong v-else>{{ path.track_name || path.source_label || '—' }}</strong>
                 <div v-if="path.source_gear_name" class="source-gear-name">
                   ({{ path.source_gear_name }})
                 </div>
@@ -87,6 +95,12 @@ const props = defineProps({
   signalPaths: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }
 })
+
+const emit = defineEmits(['track-name-clicked'])
+
+function handleTrackNameClick(connectionId) {
+  emit('track-name-clicked', connectionId)
+}
 
 // Group paths by recorder, then sort by track number within each group
 const groupedByRecorder = computed(() => {
@@ -623,6 +637,19 @@ function exportToPDF() {
 .source-name strong {
   color: #28a745;
   font-size: 15px;
+}
+
+.track-name-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(40, 167, 69, 0.5);
+  transition: all 0.2s ease;
+}
+
+.track-name-link:hover {
+  color: #1e7e34;
+  text-decoration-color: #28a745;
+  text-decoration-thickness: 2px;
 }
 
 .source-gear-name {
