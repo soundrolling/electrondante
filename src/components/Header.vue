@@ -570,7 +570,7 @@ export default {
   align-items: center;
   gap: var(--space-2);
   text-decoration: none;
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
   font-weight: var(--font-medium);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
@@ -583,24 +583,72 @@ export default {
 
 .nav-link:hover {
   background-color: var(--bg-secondary);
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
 }
 
 .nav-link.active {
-  background-color: var(--color-primary-100);
-  color: var(--color-primary-700);
-  border-color: var(--color-primary-200);
+  background-color: rgba(59, 130, 246, 0.15);
+  color: var(--color-primary-600) !important;
+  border-color: var(--color-primary-300);
+}
+.nav-link.active .nav-icon {
+  color: var(--color-primary-600) !important;
+  stroke: var(--color-primary-600) !important;
+}
+.nav-link .nav-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
 }
 
 .nav-icon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
 }
 
 .nav-text {
   font-size: var(--text-base);
   color: var(--text-primary) !important;
+}
+
+/* Theme toggle button specific styling */
+.theme-toggle-btn {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium) !important;
+}
+
+.theme-toggle-btn:hover {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-dark) !important;
+}
+
+.theme-toggle-btn .btn-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
+}
+
+.theme-toggle-btn .btn-text {
+  color: var(--text-primary) !important;
+}
+
+/* Ensure btn-light class (used in mobile menu) has proper contrast */
+.btn-light {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium) !important;
+}
+
+.btn-light:hover {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-dark) !important;
+}
+
+.btn-light .btn-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
 }
 
 /* Route title shown in header center when on a top-level page like Projects */
@@ -617,7 +665,7 @@ export default {
   align-items: center;
   gap: var(--space-2);
   background-color: var(--bg-secondary);
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
   border: 1px solid var(--border-light);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
@@ -629,9 +677,16 @@ export default {
 }
 
 .back-btn:hover {
-  background-color: var(--color-secondary-200);
+  background-color: var(--bg-tertiary);
   border-color: var(--border-medium);
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
+}
+.back-btn .btn-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
+}
+.back-btn .btn-text {
+  color: var(--text-primary) !important;
 }
 
 .back-btn:active {
@@ -643,9 +698,9 @@ export default {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  background-color: var(--color-primary-50);
-  color: var(--color-primary-600);
-  border: 1px solid var(--color-primary-200);
+  background-color: var(--bg-primary);
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   font-weight: var(--font-medium);
@@ -656,8 +711,16 @@ export default {
 }
 
 .bug-report-btn:hover {
-  background-color: var(--color-primary-100);
-  border-color: var(--color-primary-300);
+  background-color: var(--bg-secondary);
+  border-color: var(--border-dark);
+  color: var(--text-primary) !important;
+}
+.bug-report-btn .btn-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
+}
+.bug-report-btn .btn-text {
+  color: var(--text-primary) !important;
 }
 
 .bug-report-btn:active {
@@ -706,6 +769,8 @@ export default {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
 }
 
 .btn-text {
@@ -739,20 +804,25 @@ export default {
   border: 1px solid #dc2626; /* red-600 */
 }
 
-/* Light pill buttons with DARK text for contrast */
+/* Light pill buttons with proper contrast for both themes */
 .light-btn {
-  background-color: #e0f2fe; /* sky-100 */
-  color: #0c4a6e !important; /* cyan-900 */
-  border: 1px solid #7dd3fc; /* sky-300 */
+  background-color: var(--bg-secondary);
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium);
 }
 .light-btn:hover {
-  background-color: #bae6fd; /* sky-200 */
-  color: #0c4a6e !important;
-  border-color: #38bdf8; /* sky-400 */
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary) !important;
+  border-color: var(--border-dark);
 }
 .light-btn .nav-text,
 .light-btn .btn-text {
-  color: #0c4a6e !important;
+  color: var(--text-primary) !important;
+}
+.light-btn .btn-icon,
+.light-btn .nav-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
 }
 
 /* Project home bar */
@@ -1039,8 +1109,16 @@ export default {
   justify-content: space-between;
   margin-bottom: var(--space-3);
 }
-.menu-title { font-weight: var(--font-semibold); }
-.close-btn { background: var(--bg-secondary); }
+.menu-title { font-weight: var(--font-semibold); color: var(--text-heading); }
+.close-btn { 
+  background: var(--bg-secondary); 
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium);
+}
+.close-btn .btn-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
+}
 .menu-section { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
 .menu-section.actions { justify-content: flex-end; }
 
