@@ -715,6 +715,40 @@ export default {
   color: #0c4a6e !important;
 }
 
+/* Dark mode styling for action buttons */
+.dark .action-button {
+  background: var(--color-primary-700);
+  border: 1px solid var(--color-primary-600);
+  color: var(--text-inverse) !important;
+}
+
+.dark .action-button:hover {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-500);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.dark .action-button:active {
+  background: var(--color-primary-800);
+}
+
+.dark .action-button.primary {
+  background: var(--color-primary-700);
+  color: var(--text-inverse) !important;
+  border-color: var(--color-primary-600);
+}
+
+.dark .action-button.primary:hover {
+  background: var(--color-primary-600);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Ensure icon/label use white text in dark mode */
+.dark .action-button .action-icon,
+.dark .action-button .action-label {
+  color: var(--text-inverse) !important;
+}
+
 .action-icon {
   font-size: 32px;
   margin-bottom: 8px;
