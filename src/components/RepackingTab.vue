@@ -39,44 +39,32 @@
             </th>
             <th>Gear Name</th>
             <th>Type</th>
+            <th>Bag</th>
             <th>Total Brought</th>
-            <th>In Bags</th>
+            <th>In This Bag</th>
             <th>Unpacked</th>
-            <th>Bags</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
           <tr 
             v-for="item in repackingList" 
-            :key="item.gear_id"
-            :class="{ 'checked': isChecked(item.gear_id) }"
+            :key="item.bag_id ? `${item.gear_id}-${item.bag_id}` : `${item.gear_id}-unpacked`"
+            :class="{ 'checked': isCheckedForItem(item) }"
           >
             <td class="check-column">
               <input 
                 type="checkbox" 
-                :checked="isChecked(item.gear_id)"
-                @change="toggleCheck(item.gear_id)"
+                :checked="isCheckedForItem(item)"
+                @change="toggleCheck(item)"
               />
             </td>
             <td class="gear-name">{{ item.gear_name }}</td>
             <td class="gear-type">{{ item.gear_type }}</td>
+            <td class="bag-name">{{ item.bag_name || 'Unpacked' }}</td>
             <td class="total-brought">{{ item.total_brought }}</td>
             <td class="in-bags">{{ item.in_bags }}</td>
             <td class="unpacked">{{ item.unpacked }}</td>
-            <td class="bags-list">
-              <div v-if="item.bag_distribution.length > 0" class="bag-tags">
-                <span 
-                  v-for="bagInfo in item.bag_distribution" 
-                  :key="bagInfo.bag_id"
-                  class="bag-tag"
-                  :title="`${bagInfo.bag_name}: ${bagInfo.quantity}`"
-                >
-                  {{ bagInfo.bag_name }} ({{ bagInfo.quantity }})
-                </span>
-              </div>
-              <span v-else class="no-bags">Not in bags</span>
-            </td>
             <td class="status">
               <span 
                 :class="['status-badge', getStatusClass(item)]"
@@ -172,49 +160,95 @@ const repackingList = computed(() => {
       gear_id: gear.id,
       gear_name: gear.gear_name,
       gear_type: gear.gear_type || 'N/A',
-      total_brought: gear.gear_amount || 0,
-      in_bags: 0,
-      unpacked: 0,
-      bag_distribution: []
+      total_brought: gear.gear_amount || 0
     })
   })
 
-  // Then, sum up items in bags
+  // Group bag items by gear_id and bag_id to create separate line items per bag
+  const bagItemsByGearAndBag = new Map()
+  
   bagItems.value.forEach(item => {
-    if (!item.gear_id) return
+    if (!item.gear_id || !item.bag_id) return
     
     const gearItem = gearMap.get(item.gear_id)
     if (!gearItem) return
 
     const quantity = item.quantity || 0
-    gearItem.in_bags += quantity
-
+    const key = `${item.gear_id}-${item.bag_id}`
+    
     // Find bag name
     const bag = bags.value.find(b => b.id === item.bag_id)
     const bagName = bag ? bag.name : 'Unknown'
 
-    // Add to bag distribution
-    const existingBagInfo = gearItem.bag_distribution.find(b => b.bag_id === item.bag_id)
-    if (existingBagInfo) {
-      existingBagInfo.quantity += quantity
+    if (bagItemsByGearAndBag.has(key)) {
+      // Update existing entry
+      const existing = bagItemsByGearAndBag.get(key)
+      existing.in_bags += quantity
+      existing.bag_distribution[0].quantity += quantity
     } else {
-      gearItem.bag_distribution.push({
+      // Create new entry for this gear-bag combination
+      bagItemsByGearAndBag.set(key, {
+        gear_id: item.gear_id,
+        gear_name: gearItem.gear_name,
+        gear_type: gearItem.gear_type,
+        total_brought: gearItem.total_brought,
+        in_bags: quantity,
         bag_id: item.bag_id,
         bag_name: bagName,
-        quantity: quantity
+        bag_distribution: [{
+          bag_id: item.bag_id,
+          bag_name: bagName,
+          quantity: quantity
+        }]
       })
     }
   })
 
-  // Calculate unpacked amounts
-  gearMap.forEach(gearItem => {
-    gearItem.unpacked = gearItem.total_brought - gearItem.in_bags
+  // Calculate unpacked amounts and create entries for unpacked gear
+  const processedGearIds = new Set(Array.from(bagItemsByGearAndBag.values()).map(item => item.gear_id))
+  
+  // Add unpacked gear items (gear that hasn't been added to any bag)
+  gearMap.forEach((gearItem, gearId) => {
+    const totalInBags = Array.from(bagItemsByGearAndBag.values())
+      .filter(item => item.gear_id === gearId)
+      .reduce((sum, item) => sum + item.in_bags, 0)
+    
+    const unpacked = gearItem.total_brought - totalInBags
+    
+    if (unpacked > 0) {
+      // Create an entry for unpacked gear
+      const unpackedKey = `${gearId}-unpacked`
+      bagItemsByGearAndBag.set(unpackedKey, {
+        gear_id: gearId,
+        gear_name: gearItem.gear_name,
+        gear_type: gearItem.gear_type,
+        total_brought: gearItem.total_brought,
+        in_bags: 0,
+        unpacked: unpacked,
+        bag_id: null,
+        bag_name: 'Unpacked',
+        bag_distribution: []
+      })
+    }
+  })
+
+  // Calculate unpacked for items in bags
+  bagItemsByGearAndBag.forEach(item => {
+    const totalInAllBags = Array.from(bagItemsByGearAndBag.values())
+      .filter(i => i.gear_id === item.gear_id)
+      .reduce((sum, i) => sum + i.in_bags, 0)
+    item.unpacked = item.total_brought - totalInAllBags
   })
 
   // Convert to array and sort
-  return Array.from(gearMap.values())
+  return Array.from(bagItemsByGearAndBag.values())
     .filter(item => item.total_brought > 0)
-    .sort((a, b) => a.gear_name.localeCompare(b.gear_name))
+    .sort((a, b) => {
+      // Sort by gear name first, then by bag name
+      const gearCompare = a.gear_name.localeCompare(b.gear_name)
+      if (gearCompare !== 0) return gearCompare
+      return (a.bag_name || '').localeCompare(b.bag_name || '')
+    })
 })
 
 const totalItems = computed(() => repackingList.value.length)
@@ -247,11 +281,18 @@ function isChecked(gearId) {
   return checkedItems.value.has(gearId)
 }
 
-function toggleCheck(gearId) {
-  if (checkedItems.value.has(gearId)) {
-    checkedItems.value.delete(gearId)
+function isCheckedForItem(item) {
+  const key = item.bag_id ? `${item.gear_id}-${item.bag_id}` : `${item.gear_id}-unpacked`
+  return checkedItems.value.has(key)
+}
+
+function toggleCheck(item) {
+  // Use a composite key of gear_id and bag_id (or 'unpacked') for unique identification
+  const key = item.bag_id ? `${item.gear_id}-${item.bag_id}` : `${item.gear_id}-unpacked`
+  if (checkedItems.value.has(key)) {
+    checkedItems.value.delete(key)
   } else {
-    checkedItems.value.add(gearId)
+    checkedItems.value.add(key)
   }
   saveCheckedItems()
 }
@@ -259,7 +300,8 @@ function toggleCheck(gearId) {
 function toggleAllChecks(event) {
   if (event.target.checked) {
     repackingList.value.forEach(item => {
-      checkedItems.value.add(item.gear_id)
+      const key = item.bag_id ? `${item.gear_id}-${item.bag_id}` : `${item.gear_id}-unpacked`
+      checkedItems.value.add(key)
     })
   } else {
     checkedItems.value.clear()
@@ -269,7 +311,8 @@ function toggleAllChecks(event) {
 
 function checkAll() {
   repackingList.value.forEach(item => {
-    checkedItems.value.add(item.gear_id)
+    const key = item.bag_id ? `${item.gear_id}-${item.bag_id}` : `${item.gear_id}-unpacked`
+    checkedItems.value.add(key)
   })
   saveCheckedItems()
   toast.success('All items checked')
@@ -651,19 +694,33 @@ onMounted(async () => {
 .btn-positive {
   background-color: #047857;
   color: #ffffff !important;
+  border-color: #065f46;
 }
 
 .btn-positive:hover {
   background-color: #065f46;
+  border-color: #047857;
 }
 
-.btn-info {
-  background-color: #17a2b8;
+.btn-positive .btn-text,
+.btn-positive .btn-icon {
   color: #ffffff !important;
 }
 
+.btn-info {
+  background-color: #1e40af;
+  color: #ffffff !important;
+  border-color: #1e3a8a;
+}
+
 .btn-info:hover {
-  background-color: #138496;
+  background-color: #1e3a8a;
+  border-color: #1e40af;
+}
+
+.btn-info .btn-text,
+.btn-info .btn-icon {
+  color: #ffffff !important;
 }
 
 @media (max-width: 768px) {
