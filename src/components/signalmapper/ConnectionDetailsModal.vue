@@ -352,6 +352,8 @@ const takenFromPorts = ref(new Set())
 const takenToPorts = ref(new Set())
 // Store source labels for port-mapped inputs (input number -> source label)
 const portMappedInputLabels = ref({})
+// Store recorder track names (track number -> source label) for the FROM recorder
+const recorderTrackNames = ref({})
 
 async function buildUpstreamSourceLabels() {
   try {
@@ -572,6 +574,32 @@ async function loadTakenPorts() {
   } catch {}
 }
 
+// Load recorder track names asynchronously
+async function loadRecorderTrackNames() {
+  if (!isRecorderFrom.value) {
+    recorderTrackNames.value = {}
+    return
+  }
+  
+  const trackNames = {}
+  const count = numOutputs.value || 0
+  
+  // Load all track names in parallel
+  const promises = []
+  for (let n = 1; n <= count; n++) {
+    promises.push(
+      traceRecorderTrackNameForModalAsync(props.fromNode.id, n)
+        .then(label => {
+          if (label) trackNames[n] = label
+        })
+        .catch(() => {})
+    )
+  }
+  
+  await Promise.all(promises)
+  recorderTrackNames.value = trackNames
+}
+
 // Get available ports for mapping
 const availableFromPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
@@ -582,7 +610,8 @@ const availableFromPorts = computed(() => {
     let label
     if (isRecorderFrom.value) {
       // For recorders, output port corresponds to track number - use track name
-      label = traceRecorderTrackNameForModal(props.fromNode.id, n)
+      // First try the preloaded async names, then fallback to sync version
+      label = recorderTrackNames.value[n] || traceRecorderTrackNameForModal(props.fromNode.id, n)
       if (!label) label = `Track ${n}`
     } else if (isTransformerFrom.value) {
       // For transformers, assume 1:1 mapping: output N corresponds to input N
@@ -741,13 +770,15 @@ function cancelEditMapping() {
 watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
-watch(() => props.existingConnections, () => {
-  buildUpstreamSourceLabels()
-  loadTakenPorts()
+watch(() => props.existingConnections, async () => {
+  await buildUpstreamSourceLabels()
+  await loadRecorderTrackNames()
+  await loadTakenPorts()
 })
-watch(() => props.fromNode?.id, () => {
-  buildUpstreamSourceLabels()
-  loadTakenPorts()
+watch(() => props.fromNode?.id, async () => {
+  await buildUpstreamSourceLabels()
+  await loadRecorderTrackNames()
+  await loadTakenPorts()
 })
 watch(() => props.toNode?.id, () => loadTakenPorts())
 
@@ -952,6 +983,89 @@ function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
 }
 
 // Trace track name from recorder output (track number)
+// This function needs to check both direct connections and port-mapped connections
+async function traceRecorderTrackNameForModalAsync(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // First, check direct connections TO this recorder
+  let trackConn = (props.existingConnections || []).find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  // If no direct connection found, check port mappings
+  if (!trackConn) {
+    // Find all connections TO this recorder
+    const recorderConns = (props.existingConnections || []).filter(c => 
+      (c.to_node_id === recorderId || c.to === recorderId)
+    )
+    
+    if (recorderConns.length > 0) {
+      // Query port mappings for these connections
+      const connIds = recorderConns.map(c => c.id)
+      try {
+        const { data: portMaps } = await supabase
+          .from('connection_port_map')
+          .select('connection_id, from_port, to_port')
+          .in('connection_id', connIds)
+          .eq('to_port', trackNumber)
+        
+        if (portMaps && portMaps.length > 0) {
+          // Found a port mapping - get the parent connection
+          const portMap = portMaps[0]
+          trackConn = recorderConns.find(c => c.id === portMap.connection_id)
+          if (trackConn) {
+            // Add the from_port info to trackConn for tracing
+            trackConn._mappedFromPort = portMap.from_port
+          }
+        }
+      } catch (err) {
+        console.error('Error querying port maps:', err)
+      }
+    }
+  }
+  
+  if (!trackConn) return null
+  
+  // Trace back from the source of this connection
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Determine which port on the source to trace from
+  let sourcePort = trackConn.output_number || trackConn.input_number || 1
+  if (trackConn._mappedFromPort !== undefined) {
+    sourcePort = trackConn._mappedFromPort
+  }
+  
+  // Check if the source node is another recorder by looking for connections TO it with track_number
+  // This indicates it's a recorder
+  const isSourceRecorder = (props.existingConnections || []).some(c =>
+    (c.to_node_id === sourceNodeId || c.to === sourceNodeId) && c.track_number
+  )
+  
+  // Also check if it's the fromNode or toNode in this modal (which we have direct access to)
+  const isFromNodeRecorder = props.fromNode && (props.fromNode.id === sourceNodeId) && 
+                              (getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+  const isToNodeRecorder = props.toNode && (props.toNode.id === sourceNodeId) && 
+                            (getType(props.toNode) === 'recorder' || hasTracks(props.toNode))
+  
+  if (isSourceRecorder || isFromNodeRecorder || isToNodeRecorder) {
+    // Source is another recorder - recursively trace from that recorder's output
+    return traceRecorderTrackNameForModalAsync(sourceNodeId, sourcePort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
+  // Create a connection-like object for tracing
+  const traceConn = {
+    from_node_id: sourceNodeId,
+    input_number: sourcePort
+  }
+  const sourceLabel = getLRAwareSourceLabel(traceConn, visitedNodes)
+  return sourceLabel
+}
+
+// Synchronous version for use in computed properties (will return null if port maps need to be checked)
 function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = new Set()) {
   if (visitedNodes.has(recorderId)) return null
   visitedNodes.add(recorderId)
@@ -963,7 +1077,10 @@ function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = 
     (c.track_number === trackNumber || c.input_number === trackNumber)
   )
   
-  if (!trackConn) return null
+  if (!trackConn) {
+    // Can't check port maps synchronously - return null and let async version handle it
+    return null
+  }
   
   // Trace back from the source of this connection
   const sourceNodeId = trackConn.from_node_id || trackConn.from
@@ -1422,6 +1539,8 @@ loadTakenPorts().then(() => {
   // Auto-add stereo DJ port mappings after ports are loaded
   autoAddStereoDJPortMappings()
 })
+// Load recorder track names if FROM node is a recorder
+loadRecorderTrackNames()
 
 // Center modal on mount and ensure it's in viewport
 centerModal()

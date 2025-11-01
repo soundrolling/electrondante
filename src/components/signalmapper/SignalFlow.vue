@@ -64,8 +64,18 @@
         Select your first connection node
       </template>
     </div>
-    <div v-if="selectedConnectionId" class="connection-details" :style="detailsStyle">
-      <h4>Connection Details</h4>
+    <div 
+      v-if="selectedConnectionId" 
+      ref="connectionDetailsRef"
+      class="connection-details" 
+      :style="detailsStyle"
+    >
+      <h4 
+        class="connection-details-header"
+        @mousedown="startDragDetails"
+      >
+        Connection Details
+      </h4>
       <div class="detail-row">
         <span class="label">From:</span>
         <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
@@ -285,6 +295,11 @@ const editType = ref('Mic')
 const editInput = ref(null)
 const editTrack = ref(null)
 const saveTick = ref(false)
+// Drag state for connection details panel
+const connectionDetailsPosition = ref(null) // { x, y } or null for auto-position
+const isDraggingDetails = ref(false)
+const dragStartDetails = ref({ x: 0, y: 0 })
+const connectionDetailsRef = ref(null)
 
 // Port mapping state for transformer→transformer connections
 const editPortMappings = ref([])
@@ -1256,7 +1271,17 @@ const selectedConnMid = computed(() => {
 })
 
 const detailsStyle = computed(() => {
-  const def = { left: '10px', top: '10px' }
+  // If user has manually positioned the panel, use that position
+  if (connectionDetailsPosition.value) {
+    return {
+      left: `${connectionDetailsPosition.value.x}px`,
+      top: `${connectionDetailsPosition.value.y}px`,
+      position: 'fixed'
+    }
+  }
+  
+  // Otherwise, auto-position near the connection midpoint
+  const def = { left: '10px', top: '10px', position: 'fixed' }
   if (!selectedConnMid.value || !canvas.value || !canvasWrapper.value) return def
   const wrap = canvasWrapper.value.getBoundingClientRect()
   const rect = canvas.value.getBoundingClientRect()
@@ -1264,7 +1289,71 @@ const detailsStyle = computed(() => {
   const offsetY = rect.top - wrap.top
   const left = offsetX + selectedConnMid.value.x + 12
   const top = offsetY + selectedConnMid.value.y - 10
-  return { left: `${left}px`, top: `${top}px` }
+  return { left: `${left}px`, top: `${top}px`, position: 'fixed' }
+})
+
+function startDragDetails(e) {
+  // Don't start drag on interactive elements
+  if (e.target.closest('button')) return
+  if (e.target.closest('input')) return
+  if (e.target.closest('select')) return
+  
+  e.preventDefault()
+  isDraggingDetails.value = true
+  
+  const rect = connectionDetailsRef.value?.getBoundingClientRect()
+  if (!rect) return
+  
+  // Initialize position if not already set
+  if (!connectionDetailsPosition.value) {
+    connectionDetailsPosition.value = {
+      x: rect.left,
+      y: rect.top
+    }
+  }
+  
+  dragStartDetails.value = {
+    x: e.clientX - connectionDetailsPosition.value.x,
+    y: e.clientY - connectionDetailsPosition.value.y
+  }
+  
+  document.addEventListener('mousemove', onDragDetails)
+  document.addEventListener('mouseup', stopDragDetails)
+}
+
+function onDragDetails(e) {
+  if (!isDraggingDetails.value) return
+  
+  const newX = e.clientX - dragStartDetails.value.x
+  const newY = e.clientY - dragStartDetails.value.y
+  
+  // Constrain to viewport
+  const rect = connectionDetailsRef.value?.getBoundingClientRect()
+  if (rect) {
+    const maxX = window.innerWidth - rect.width
+    const maxY = window.innerHeight - rect.height
+    
+    connectionDetailsPosition.value = {
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    }
+  } else {
+    connectionDetailsPosition.value = {
+      x: newX,
+      y: newY
+    }
+  }
+}
+
+function stopDragDetails() {
+  isDraggingDetails.value = false
+  document.removeEventListener('mousemove', onDragDetails)
+  document.removeEventListener('mouseup', stopDragDetails)
+}
+
+// Reset position when connection changes (user can drag again to reposition)
+watch(selectedConnectionId, () => {
+  connectionDetailsPosition.value = null
 })
 
 function canConnect(from, to) {
@@ -1991,9 +2080,7 @@ function exportToPDF() {
 }
 
 .connection-details {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  position: fixed;
   background: #fff;
   border: 1px solid #e9ecef;
   border-radius: 8px;
@@ -2002,12 +2089,19 @@ function exportToPDF() {
   max-height: 70vh;
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  z-index: 100;
 }
-.connection-details h4 {
+.connection-details-header {
   margin: 0 0 8px 0;
   font-size: 14px;
   font-weight: 700;
   color: #212529;
+  cursor: move;
+  user-select: none;
+  padding: 4px 0;
+}
+.connection-details-header:hover {
+  color: #007bff;
 }
 .detail-row {
   display: flex;
