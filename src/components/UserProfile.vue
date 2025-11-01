@@ -958,9 +958,9 @@ async function saveSecurity() {
                 </select>
               </div>
               <p v-if="gearForm.weightInput" class="form-hint">
-                {{ formatWeight(convertInputToKg(gearForm.weightInput, gearForm.weightInputUnit) || 0, gearForm.weightInputUnit) }}
+                {{ formatWeight(convertInputToKg(gearForm.weightInput, gearForm.weightInputUnit) || 0, gearForm.weightInputUnit) }} per unit
               </p>
-              <p v-else class="form-hint">Used for calculating bag weights</p>
+              <p v-else class="form-hint">Weight per unit (will be multiplied by quantity in bags)</p>
             </div>
           </div>
 
