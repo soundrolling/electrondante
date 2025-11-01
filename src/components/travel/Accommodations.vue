@@ -741,7 +741,7 @@ setup(props) {
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   margin-bottom: 24px;
 }
 
@@ -794,7 +794,7 @@ setup(props) {
 .trip-select-input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   background: var(--bg-primary);
@@ -811,9 +811,9 @@ setup(props) {
 /* Header Section */
 
 .back-button {
-  background: #f3f4f6;
-  color: var(--text-secondary);
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 12px 16px;
   cursor: pointer;
@@ -872,7 +872,7 @@ setup(props) {
 
 .skeleton-item {
   height: 80px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -891,7 +891,7 @@ setup(props) {
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .empty-icon {
@@ -918,7 +918,7 @@ setup(props) {
   border-radius: 12px;
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .section-header {
@@ -941,7 +941,7 @@ setup(props) {
 /* Add Button */
 .add-button {
   background: var(--color-primary-500);
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 16px;
@@ -983,11 +983,11 @@ setup(props) {
 
 /* Form Container */
 .accommodation-form-container {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 28px 24px;
   margin-bottom: 24px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .accommodation-form-container h3 {
@@ -1024,9 +1024,9 @@ setup(props) {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   max-height: 200px;
   overflow-y: auto;
 }
@@ -1042,7 +1042,7 @@ setup(props) {
 }
 
 .member-checkbox-label:hover {
-  background-color: #f3f4f6;
+  background-color: var(--bg-tertiary);
 }
 
 .member-checkbox {
@@ -1070,13 +1070,13 @@ setup(props) {
 .form-textarea {
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
   box-sizing: border-box;
   background: var(--bg-primary);
-  color: var(--text-heading);
+  color: var(--text-primary);
   transition: all 0.2s ease;
   min-height: 48px;
 }
@@ -1110,8 +1110,8 @@ setup(props) {
 
 /* Button Styles */
 .primary-button {
-  background: #10b981;
-  color: #ffffff;
+  background: var(--color-success-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -1146,8 +1146,8 @@ setup(props) {
 }
 
 .secondary-button {
-  background: #6b7280;
-  color: #ffffff;
+  background: var(--color-secondary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -1207,16 +1207,16 @@ setup(props) {
 }
 
 .accommodation-card {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .accommodation-card:hover {
-  background: #f3f4f6;
+  background: var(--bg-tertiary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
@@ -1293,9 +1293,9 @@ setup(props) {
   color: var(--text-secondary);
   line-height: 1.4;
   padding: 12px;
-  background: #f3f4f6;
+  background: var(--bg-tertiary);
   border-radius: 8px;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid var(--color-primary-500);
 }
 
 .accommodation-card-footer {
@@ -1313,9 +1313,9 @@ setup(props) {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
-  color: var(--text-secondary);
-  background: #f9fafb;
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
   min-height: 44px;
   min-width: 44px;
   flex: 1;
@@ -1338,8 +1338,8 @@ setup(props) {
 
 .action-button.edit-button {
   background: var(--color-primary-500);
-  color: #ffffff;
-  border-color: #2563eb;
+  color: var(--text-inverse);
+  border-color: var(--color-primary-600);
 }
 
 .action-button.edit-button:hover {
@@ -1348,9 +1348,9 @@ setup(props) {
 }
 
 .action-button.delete-button {
-  background: #dc2626;
-  color: #ffffff;
-  border-color: #b91c1c;
+  background: var(--color-error-600);
+  color: var(--text-inverse);
+  border-color: var(--color-error-700);
 }
 
 .action-button.delete-button:hover {

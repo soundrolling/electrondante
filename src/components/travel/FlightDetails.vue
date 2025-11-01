@@ -1613,7 +1613,7 @@ setup(props) {
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   margin-bottom: 24px;
 }
 
@@ -1666,7 +1666,7 @@ setup(props) {
 .trip-select-input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   background: var(--bg-primary);
@@ -1687,7 +1687,7 @@ setup(props) {
   text-align: center;
   margin-bottom: 2rem;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
 }
 
 .header-section h1 {
@@ -1699,7 +1699,7 @@ setup(props) {
 
 .header-section p {
   font-size: 1.1rem;
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -1708,9 +1708,9 @@ setup(props) {
   margin-bottom: 1rem;
 }
 .back-button {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: 1.5px solid #cbd5e1;
+  background: var(--bg-secondary);
+  color: var(--color-primary-500);
+  border: 1.5px solid var(--border-medium);
   border-radius: 8px;
   padding: 0.5rem 1.2rem;
   font-size: 1rem;
@@ -1722,8 +1722,8 @@ setup(props) {
   gap: 0.5rem;
 }
 .back-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
+  background: var(--bg-tertiary);
+  color: var(--color-primary-600);
   border-color: var(--color-primary-500);
 }
 .back-icon {
@@ -1750,7 +1750,7 @@ setup(props) {
   background: var(--bg-primary);
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   padding: 1.2rem 1rem 1rem 1rem;
 }
 .trip-selector label {
@@ -1759,10 +1759,10 @@ setup(props) {
 }
 .trip-select-input {
   padding: 0.6rem;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   border-radius: 8px;
   font-size: 1rem;
-  background: #f8fafc;
+  background: var(--bg-primary);
   color: var(--text-primary);
   width: 100%;
   box-sizing: border-box;
@@ -1783,7 +1783,7 @@ setup(props) {
   justify-content: center;
   align-items: center;
   padding: 2rem 0;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 .skeleton-loader {
   display: flex;
@@ -1793,7 +1793,7 @@ setup(props) {
   max-width: 600px;
 }
 .skeleton-item {
-  background-color: #e5e7eb;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   height: 20px;
   animation: pulse 1.5s infinite ease-in-out;
@@ -1804,22 +1804,22 @@ setup(props) {
 
 @keyframes pulse {
   0% {
-    background-color: #e5e7eb;
+    background-color: var(--bg-secondary);
   }
   50% {
-    background-color: #f3f4f6;
+    background-color: var(--bg-tertiary);
   }
   100% {
-    background-color: #e5e7eb;
+    background-color: var(--bg-secondary);
   }
 }
 
 .empty-state {
   text-align: center;
   padding: 1rem;
-  color: #64748b;
-  background-color: #fff;
-  border: 1.5px dashed #cbd5e1;
+  color: var(--text-secondary);
+  background-color: var(--bg-primary);
+  border: 1.5px dashed var(--border-medium);
   border-radius: 10px;
   font-style: italic;
   display: flex;
@@ -1833,9 +1833,9 @@ setup(props) {
 .empty-section {
   padding: 1rem;
   text-align: center;
-  color: #64748b;
-  background-color: #fff;
-  border: 1.5px dashed #cbd5e1;
+  color: var(--text-secondary);
+  background-color: var(--bg-primary);
+  border: 1.5px dashed var(--border-medium);
   border-radius: 10px;
   font-style: italic;
   display: flex;
@@ -1851,7 +1851,7 @@ setup(props) {
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   padding: 2rem 1.75rem;
   margin-top: 1.5rem;
 }
@@ -1862,15 +1862,15 @@ setup(props) {
   gap: 0.5rem;
   margin-bottom: 24px;
   flex-wrap: wrap;
-  background: #f1f5f9;
+  background: var(--bg-secondary);
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   padding: 0.5rem 0.5rem 0.5rem 0.5rem;
 }
 .tab-btn {
-  background: #f1f5f9;
-  border: 1.5px solid #e5e7eb;
+  background: var(--bg-secondary);
+  border: 1.5px solid var(--border-light);
   border-radius: 8px 8px 0 0;
   padding: 10px 22px;
   font-size: 1rem;
@@ -1885,14 +1885,14 @@ setup(props) {
 }
 .tab-btn.active {
   background: var(--bg-primary);
-  color: #2563eb;
-  border-bottom: 2.5px solid #2563eb;
+  color: var(--color-primary-500);
+  border-bottom: 2.5px solid var(--color-primary-500);
   font-weight: 700;
   z-index: 2;
 }
 .tab-btn:not(.active):hover {
-  background: #e0e7ef;
-  color: #2563eb;
+  background: var(--bg-tertiary);
+  color: var(--color-primary-500);
 }
 .tab-btn .icon {
   font-size: 1.1rem;
@@ -1937,8 +1937,8 @@ setup(props) {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: #10b981;
-  color: white;
+  background: var(--color-success-500);
+  color: var(--text-inverse);
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 8px;
@@ -1948,7 +1948,7 @@ setup(props) {
   transition: background 0.2s;
 }
 .add-button:hover {
-  background: #059669;
+  background: var(--color-success-600);
 }
 .add-button .icon {
   font-size: 1.1rem;
@@ -1987,10 +1987,10 @@ setup(props) {
 .rental-card,
 .transport-card,
 .parking-card {
-  background-color: #fff;
+  background-color: var(--bg-secondary);
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   transition: box-shadow 0.2s, transform 0.2s;
   display: flex;
   flex-direction: column;
@@ -2007,8 +2007,8 @@ setup(props) {
 .rental-card-header,
 .transport-card-header,
 .parking-card-header {
-  background-color: #f1f5f9;
-  border-bottom: 1.5px solid #e5e7eb;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1.5px solid var(--border-light);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2021,7 +2021,7 @@ setup(props) {
 }
 .parking-dates {
   font-size: 0.95rem;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .flight-card-body,
@@ -2049,7 +2049,7 @@ setup(props) {
 .duration-line {
   width: 80px;
   height: 2px;
-  background-color: #e5e7eb;
+  background-color: var(--border-medium);
   position: relative;
 }
 .duration-line::before,
@@ -2058,7 +2058,7 @@ setup(props) {
   position: absolute;
   width: 8px;
   height: 8px;
-  background-color: #e5e7eb;
+  background-color: var(--border-medium);
   border-radius: 50%;
   top: -3px;
 }
@@ -2072,7 +2072,7 @@ setup(props) {
 }
 .detail-label {
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 .detail-value {
   color: var(--text-primary);
@@ -2140,7 +2140,7 @@ setup(props) {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid var(--border-medium);
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 500;
@@ -2151,14 +2151,14 @@ setup(props) {
 .rental-card-footer button:hover,
 .transport-card-footer button:hover,
 .parking-card-footer button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
+  background: var(--bg-tertiary);
+  color: var(--color-primary-500);
   border-color: var(--color-primary-500);
 }
 .edit-button {
-  background: #f1f5f9;
-  color: #2563eb;
-  border: 1.5px solid #cbd5e1;
+  background: var(--bg-secondary);
+  color: var(--color-primary-500);
+  border: 1.5px solid var(--border-medium);
   border-radius: 8px;
   padding: 0.5rem 1.2rem;
   font-size: 1rem;
@@ -2167,8 +2167,8 @@ setup(props) {
   transition: background 0.2s, color 0.2s, border 0.2s;
 }
 .edit-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
+  background: var(--bg-tertiary);
+  color: var(--color-primary-600);
   border-color: var(--color-primary-500);
 }
 .edit-button .action-icon {
@@ -2188,8 +2188,8 @@ setup(props) {
 }
 
 .delete-button {
-  background: #ef4444;
-  color: white;
+  background: var(--color-error-600);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 0.5rem 1.2rem;
   font-size: 1rem;
@@ -2198,7 +2198,7 @@ setup(props) {
   transition: background 0.2s;
 }
 .delete-button:hover {
-  background: #dc2626;
+  background: var(--color-error-700);
 }
 .delete-button .action-icon {
   font-size: 1.1rem;
@@ -2229,8 +2229,8 @@ setup(props) {
   transition: background 0.2s, color 0.2s, border 0.2s;
 }
 .action-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
+  background: var(--bg-tertiary);
+  color: var(--color-primary-500);
   border-color: var(--color-primary-500);
 }
 .action-button .action-icon {
@@ -2290,13 +2290,13 @@ setup(props) {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  background: #f1f5f9;
+  background: var(--bg-secondary);
   border: none;
   border-radius: 50%;
   width: 32px;
   height: 32px;
   font-size: 1.2rem;
-  color: #64748b;
+  color: var(--text-secondary);
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   display: flex;
@@ -2306,8 +2306,8 @@ setup(props) {
   padding: 2px 8px;
 }
 .close-button:hover {
-  background: #e0e7ef;
-  color: #1d4ed8;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 .modal-container::-webkit-scrollbar {
   width: 6px;
@@ -2338,7 +2338,7 @@ setup(props) {
 .form-group textarea {
   width: 100%;
   padding: 0.6rem;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   border-radius: 8px;
   font-size: 1rem;
   box-sizing: border-box;
@@ -2347,7 +2347,7 @@ setup(props) {
 }
 .modal-container input:focus,
 .modal-container textarea:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--color-primary-500);
 }
 .form-row {
   display: flex;
@@ -2366,8 +2366,8 @@ setup(props) {
   margin-top: 1rem;
 }
 .secondary-button {
-  background-color: #6c757d;
-  color: white;
+  background-color: var(--color-secondary-500);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 0.5rem 1.25rem;
   font-weight: 500;
@@ -2375,11 +2375,11 @@ setup(props) {
   transition: background 0.2s;
 }
 .secondary-button:hover {
-  background-color: #5a6268;
+  background-color: var(--color-secondary-600);
 }
 .primary-button {
-  background-color: #10b981;
-  color: white;
+  background-color: var(--color-success-500);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 0.5rem 1.25rem;
   font-weight: 500;
@@ -2387,15 +2387,15 @@ setup(props) {
   transition: background 0.2s;
 }
 .primary-button:hover {
-  background-color: #059669;
+  background-color: var(--color-success-600);
 }
 .primary-button:disabled {
-  background-color: #a7f3d0;
+  background-color: var(--color-secondary-400);
   cursor: not-allowed;
 }
 .loading-spinner-small {
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #10b981;
+  border: 2px solid var(--bg-tertiary);
+  border-top: 2px solid var(--color-success-500);
   border-radius: 50%;
   width: 16px;
   height: 16px;

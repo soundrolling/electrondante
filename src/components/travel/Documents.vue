@@ -870,7 +870,7 @@ export default {
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   margin-bottom: 24px;
 }
 
@@ -923,7 +923,7 @@ export default {
 .trip-select-input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   background: var(--bg-primary);
@@ -955,9 +955,9 @@ export default {
 }
 
 .back-button {
-  background: #f3f4f6;
-  color: var(--text-secondary);
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 12px 16px;
   cursor: pointer;
@@ -1016,7 +1016,7 @@ export default {
 
 .skeleton-item {
   height: 100px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -1035,7 +1035,7 @@ export default {
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .empty-icon {
@@ -1063,7 +1063,7 @@ export default {
   border-radius: 12px;
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .section-header {
@@ -1085,8 +1085,8 @@ export default {
 
 /* Add Button */
 .add-button {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 16px;
@@ -1159,10 +1159,10 @@ export default {
 }
 
 .document-card {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   display: flex;
@@ -1171,7 +1171,7 @@ export default {
 }
 
 .document-card:hover {
-  background: #f3f4f6;
+  background: var(--bg-tertiary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
@@ -1182,9 +1182,9 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
+  background: var(--bg-tertiary);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   overflow: hidden;
   align-self: center;
 }
@@ -1265,9 +1265,9 @@ export default {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
-  color: var(--text-secondary);
-  background: #f9fafb;
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
   min-height: 44px;
   min-width: 44px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -1288,47 +1288,47 @@ export default {
 }
 
 .action-button.edit-button {
-  background: #3b82f6;
-  color: #ffffff;
-  border-color: #2563eb;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
+  border-color: var(--color-primary-600);
 }
 
 .action-button.edit-button:hover {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-700);
 }
 
 .action-button.delete-button {
-  background: #dc2626;
-  color: #ffffff;
-  border-color: #b91c1c;
+  background: var(--color-error-600);
+  color: var(--text-inverse);
+  border-color: var(--color-error-700);
 }
 
 .action-button.delete-button:hover {
-  background: #b91c1c;
-  border-color: #991b1b;
+  background: var(--color-error-700);
+  border-color: var(--color-error-800);
 }
 
 .action-button.view-button {
-  background: #059669;
-  color: #ffffff;
-  border-color: #047857;
+  background: var(--color-success-500);
+  color: var(--text-inverse);
+  border-color: var(--color-success-600);
 }
 
 .action-button.view-button:hover {
-  background: #047857;
-  border-color: #065f46;
+  background: var(--color-success-600);
+  border-color: var(--color-success-700);
 }
 
 .action-button.download-button {
-  background: #7c3aed;
-  color: #ffffff;
-  border-color: #6d28d9;
+  background: var(--color-purple-500);
+  color: var(--text-inverse);
+  border-color: var(--color-purple-600);
 }
 
 .action-button.download-button:hover {
-  background: #6d28d9;
-  border-color: #5b21b6;
+  background: var(--color-purple-600);
+  border-color: var(--color-purple-700);
 }
 
 .action-icon {
@@ -1409,8 +1409,8 @@ export default {
 }
 
 .close-button:hover {
-  background: #f3f4f6;
-  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .close-button:focus {
@@ -1443,13 +1443,13 @@ export default {
 .form-file-input {
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
   box-sizing: border-box;
   background: var(--bg-primary);
-  color: var(--text-heading);
+  color: var(--text-primary);
   transition: all 0.2s ease;
   min-height: 48px;
 }
@@ -1485,8 +1485,8 @@ export default {
 
 /* Button Styles */
 .primary-button {
-  background: #10b981;
-  color: #ffffff;
+  background: var(--color-success-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -1502,7 +1502,7 @@ export default {
 }
 
 .primary-button:hover {
-  background: #059669;
+  background: var(--color-success-600);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1517,15 +1517,15 @@ export default {
 }
 
 .primary-button:disabled {
-  background: #9ca3af;
+  background: var(--color-secondary-400);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
 .secondary-button {
-  background: #6b7280;
-  color: #ffffff;
+  background: var(--color-secondary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -1538,7 +1538,7 @@ export default {
 }
 
 .secondary-button:hover {
-  background: #4b5563;
+  background: var(--color-secondary-600);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1553,8 +1553,8 @@ export default {
 }
 
 .loading-spinner-small {
-  border: 2px solid #f3f4f6;
-  border-top: 2px solid #10b981;
+  border: 2px solid var(--bg-tertiary);
+  border-top: 2px solid var(--color-success-500);
   border-radius: 50%;
   width: 16px;
   height: 16px;
