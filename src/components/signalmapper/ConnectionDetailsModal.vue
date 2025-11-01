@@ -1575,15 +1575,21 @@ pointer-events: all;
 }
 
 .modal-content {
-  background: var(--bg-primary);
+  background: var(--bg-primary) !important;
+  color: var(--text-primary);
 border-radius: 12px;
-box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
 max-width: 500px;
 width: 90%;
 max-height: 80vh;
 overflow: hidden;
 position: fixed;
 z-index: 1001;
+}
+
+.dark .modal-content {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
 }
 
 .draggable-modal {
@@ -1658,10 +1664,14 @@ border-color: var(--color-primary-500);
 padding: 20px;
 overflow-y: auto;
 max-height: 70vh;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .connection-info {
 margin-bottom: 25px;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .connection-pair {
@@ -1716,12 +1726,20 @@ font-weight: bold;
 display: flex;
 flex-direction: column;
 gap: 20px;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .form-group {
 display: flex;
 flex-direction: column;
 gap: 8px;
+background: transparent;
+color: var(--text-primary);
+}
+
+.form-group label {
+color: var(--text-primary);
 }
 
 .form-label {
@@ -1902,6 +1920,8 @@ color: var(--text-primary);
 display: flex;
 flex-direction: column;
 gap: 12px;
+background: transparent;
+color: var(--text-primary);
 }
 
 .port-mappings-list {
