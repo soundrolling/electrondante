@@ -30,7 +30,7 @@
         </svg>
         Changeover Alerts
       </button>
-      <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
+      <button class="btn btn-positive btn-add" @click="openForm()">Add Artist Time</button>
     </div>
     <div class="right-stack wide-screen-only">
       <label class="label">Recording Day:</label>

@@ -37,7 +37,7 @@
     <!-- tab buttons -->
     <nav class="tabs">
       <button :class="{ active: activeTab==='notes' }"    @click="activeTab='notes'">Notes</button>
-      <button :class="{ active: activeTab==='schedule' }" @click="activeTab='schedule'">Schedule</button>
+      <button :class="{ active: activeTab==='schedule' }" @click="activeTab='schedule'">Artist Timetable</button>
       <button :class="{ active: activeTab==='quickfire' }" @click="activeTab='quickfire'">Shortcuts</button>
     </nav>
     
