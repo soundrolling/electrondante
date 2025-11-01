@@ -508,15 +508,28 @@ letter-spacing: 0.025em;
 }
 
 .live-status-indicator.live {
-background: #fef3c7;
-color: #92400e;
-border: 1px solid #fde68a;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--color-warning-700);
+  border: 1px solid var(--color-warning-300);
 }
 
 .live-status-indicator.scheduled {
-background: #dbeafe;
-color: #1e40af;
-border: 1px solid #93c5fd;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--color-primary-700);
+  border: 1px solid var(--color-primary-300);
+}
+
+/* Dark mode styling for status indicators */
+.dark .live-status-indicator.live {
+  background: var(--color-warning-700);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-warning-600);
+}
+
+.dark .live-status-indicator.scheduled {
+  background: var(--color-primary-700);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-primary-600);
 }
 
 .live-status-indicator .status-dot {
