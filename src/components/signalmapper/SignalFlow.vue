@@ -402,6 +402,14 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   // If it's a source, return the source label
   if (nodeType === 'source') {
     const outCount = node?.num_outputs || node?.outputs || 0
+    
+    // Check for stored output port labels first (most reliable for stereo sources)
+    if (outCount === 2 && typeof inputNum === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
+      const storedLabel = node.output_port_labels[String(inputNum)] || node.output_port_labels[inputNum]
+      if (storedLabel) return storedLabel
+    }
+    
+    // Fallback to computed labels if not stored
     const label = node.label || ''
     const trackName = node.track_name || ''
     const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
@@ -526,8 +534,15 @@ function getFromPortDisplayForEdit(portNum) {
     return `Track ${portNum}`
   }
   
-  // Label stereo source ports as L/R
+  // Label stereo source ports as L/R - check stored labels first
   if (fromType === 'source') {
+    // Check for stored output port labels first (most reliable)
+    if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+      const storedLabel = from.output_port_labels[String(portNum)] || from.output_port_labels[portNum]
+      if (storedLabel) return storedLabel
+    }
+    
+    // Fallback to computed labels if not stored
     const outCount = from?.num_outputs || from?.outputs || 0
     if (outCount === 2) {
       const label = from.label || ''
@@ -590,8 +605,20 @@ const availableFromPortsForEdit = computed(() => {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
     
-    // For recorders, output port corresponds to track number - use track name
-    if (fromType === 'recorder') {
+    // For sources, check stored output port labels first
+    if (fromType === 'source') {
+      if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+        const storedLabel = from.output_port_labels[String(n)] || from.output_port_labels[n]
+        if (storedLabel) {
+          label = storedLabel
+          opts.push({ value: n, label })
+          continue
+        }
+      }
+      // Fallback to computed label if not stored
+      label = getFromPortDisplayForEdit(n)
+    } else if (fromType === 'recorder') {
+      // For recorders, output port corresponds to track number - use track name
       const trackName = traceRecorderTrackName(from.id, n)
       if (trackName) {
         label = trackName
@@ -1418,6 +1445,29 @@ async function addSourceNode(preset) {
     }
     const label = nextNumberedLabel(base)
     const outCount = preset.outputs
+    
+    // Generate output port labels for stereo sources (2 outputs)
+    let outputPortLabels = null
+    if (outCount === 2) {
+      // Extract base name and numbering suffix from label
+      const labelMatch = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+      let baseName
+      let numSuffix = ''
+      
+      if (labelMatch) {
+        baseName = labelMatch[1].replace(/\s*LR$/i, '').trim()
+        numSuffix = ` (${labelMatch[2]})`
+      } else {
+        baseName = label.replace(/\s*LR$/i, '').trim()
+      }
+      
+      // Generate explicit port labels: Port 1 = L, Port 2 = R
+      outputPortLabels = {
+        "1": `${baseName} L${numSuffix}`,
+        "2": `${baseName} R${numSuffix}`
+      }
+    }
+    
     const newNode = await addNode({
       project_id: props.projectId,
       type: 'source',
@@ -1431,7 +1481,8 @@ async function addSourceNode(preset) {
       gear_type: 'source',
       num_inputs: 0,
       num_outputs: outCount,
-      num_tracks: 0
+      num_tracks: 0,
+      output_port_labels: outputPortLabels
     })
     emit('node-added', newNode)
     closeSourceModal()

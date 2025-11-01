@@ -268,36 +268,48 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (!node) break
     
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      // For sources, prefer custom track_name; if the source has two outputs and
-      // we arrived carrying the source output index in currentInput, append L/R.
-      // Clean the base name to avoid duplicate numbers and LR suffix
-      const label = node.label || ''
-      const trackName = node.track_name || ''
-      const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-      const num = m ? m[2] : ''
-      let base
-      if (trackName) {
-        base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-      } else if (m) {
-        base = m[1].replace(/\s*LR$/i,'').trim()
-      } else {
-        base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      // Check for stored output port labels first (most reliable for stereo sources)
+      let sourceName = null
+      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
+        const storedLabel = node.output_port_labels[String(currentInput)] || node.output_port_labels[currentInput]
+        if (storedLabel) {
+          sourceName = storedLabel
+        }
       }
-      const numSuffix = num ? ` (${num})` : ''
       
-      let sourceName = base + numSuffix
-      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
-        // currentInput should be 1 or 2 indicating source output (1=L, 2=R)
-        // Make sure we use the actual port number, not a transformer input number
-        const sourceOutput = Number(currentInput)
-        if (sourceOutput === 1) {
-          sourceName = `${base} L${numSuffix}`
-        } else if (sourceOutput === 2) {
-          sourceName = `${base} R${numSuffix}`
+      // Fallback to computed labels if not stored
+      if (!sourceName) {
+        // For sources, prefer custom track_name; if the source has two outputs and
+        // we arrived carrying the source output index in currentInput, append L/R.
+        // Clean the base name to avoid duplicate numbers and LR suffix
+        const label = node.label || ''
+        const trackName = node.track_name || ''
+        const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+        const num = m ? m[2] : ''
+        let base
+        if (trackName) {
+          base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        } else if (m) {
+          base = m[1].replace(/\s*LR$/i,'').trim()
         } else {
-          // Fallback: if currentInput is not 1 or 2, try to infer from context
-          // This should rarely happen if tracing is correct
-          sourceName = `${base}${sourceOutput % 2 === 1 ? ' L' : ' R'}${numSuffix}`
+          base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        }
+        const numSuffix = num ? ` (${num})` : ''
+        
+        sourceName = base + numSuffix
+        if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
+          // currentInput should be 1 or 2 indicating source output (1=L, 2=R)
+          // Make sure we use the actual port number, not a transformer input number
+          const sourceOutput = Number(currentInput)
+          if (sourceOutput === 1) {
+            sourceName = `${base} L${numSuffix}`
+          } else if (sourceOutput === 2) {
+            sourceName = `${base} R${numSuffix}`
+          } else {
+            // Fallback: if currentInput is not 1 or 2, try to infer from context
+            // This should rarely happen if tracing is correct
+            sourceName = `${base}${sourceOutput % 2 === 1 ? ' L' : ' R'}${numSuffix}`
+          }
         }
       }
       labels.push(sourceName)

@@ -485,6 +485,13 @@ function getSourcePortLabel(portNum){
 
 // Helper to get source port label for any node (not just props.fromNode)
 function getSourcePortLabelForNode(node, portNum) {
+  // Check for stored output port labels first (most reliable for stereo sources)
+  if (node?.output_port_labels && typeof node.output_port_labels === 'object') {
+    const storedLabel = node.output_port_labels[String(portNum)] || node.output_port_labels[portNum]
+    if (storedLabel) return storedLabel
+  }
+  
+  // Fallback to computed labels if not stored
   const label = node?.label || ''
   const trackName = node?.track_name || ''
   const m = label.match(/^(.*) \((\d+)\)$/)
