@@ -79,6 +79,7 @@ export class PackingService {
           name: bagData.name,
           description: bagData.description || null,
           weight_kg: bagData.weight_kg || null,
+          empty_bag_weight_kg: bagData.empty_bag_weight_kg || null,
           image_path: imagePath
         })
         .select()
@@ -121,6 +122,7 @@ export class PackingService {
       if (bagData.name !== undefined) updateData.name = bagData.name;
       if (bagData.description !== undefined) updateData.description = bagData.description || null;
       if (bagData.weight_kg !== undefined) updateData.weight_kg = bagData.weight_kg || null;
+      if (bagData.empty_bag_weight_kg !== undefined) updateData.empty_bag_weight_kg = bagData.empty_bag_weight_kg || null;
       
       // Handle image update
       if (bagData.imageFile) {

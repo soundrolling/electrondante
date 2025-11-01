@@ -55,9 +55,11 @@
           </div>
           
           <div class="bag-weight-info">
-            <span class="weight-label">Estimated Weight:</span>
+            <span class="weight-label">Total Weight:</span>
             <span class="weight-value">{{ formatBagWeight(bag.id) }}</span>
-            <span v-if="bag.weight_kg" class="weight-custom">(Custom weight)</span>
+            <div v-if="getBagWeightBreakdown(bag.id)" class="weight-breakdown">
+              {{ getBagWeightBreakdown(bag.id) }}
+            </div>
           </div>
 
           <div class="bag-actions">
@@ -111,28 +113,79 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Bag Weight</label>
-            <div class="weight-input-group">
-              <input 
-                v-model.number="bagForm.weightInput" 
-                type="number"
-                step="0.01"
-                min="0"
-                class="form-input weight-input"
-                placeholder="Enter bag weight (optional)"
-              />
-              <select 
-                v-model="bagForm.weightInputUnit"
-                class="weight-unit-select"
-              >
-                <option value="kg">kg</option>
-                <option value="lbs">lbs</option>
-              </select>
+            <label class="form-label">Bag Weight Option</label>
+            <div class="weight-option-selector">
+              <label class="radio-option">
+                <input 
+                  type="radio" 
+                  v-model="bagForm.weightMode" 
+                  value="override"
+                  class="radio-input"
+                />
+                <span class="radio-label">Override Total Weight</span>
+              </label>
+              <label class="radio-option">
+                <input 
+                  type="radio" 
+                  v-model="bagForm.weightMode" 
+                  value="empty_bag"
+                  class="radio-input"
+                />
+                <span class="radio-label">Empty Bag Weight + Items</span>
+              </label>
             </div>
-            <p v-if="bagForm.weightInput" class="form-hint">
-              {{ formatWeight(convertInputToKg(bagForm.weightInput, bagForm.weightInputUnit) || 0, bagForm.weightInputUnit) }}
-            </p>
-            <p v-else class="form-hint">Leave empty to auto-calculate from gear items</p>
+            
+            <div v-if="bagForm.weightMode === 'override'" class="weight-input-section">
+              <label class="form-label">Total Bag Weight (Override)</label>
+              <div class="weight-input-group">
+                <input 
+                  v-model.number="bagForm.weightInput" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="form-input weight-input"
+                  placeholder="Enter total bag weight"
+                />
+                <select 
+                  v-model="bagForm.weightInputUnit"
+                  class="weight-unit-select"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lbs">lbs</option>
+                </select>
+              </div>
+              <p v-if="bagForm.weightInput" class="form-hint">
+                {{ formatWeight(convertInputToKg(bagForm.weightInput, bagForm.weightInputUnit) || 0, bagForm.weightInputUnit) }} total
+              </p>
+              <p v-else class="form-hint">Override the total bag weight (ignores item weights)</p>
+            </div>
+            
+            <div v-if="bagForm.weightMode === 'empty_bag'" class="weight-input-section">
+              <label class="form-label">Empty Bag Weight</label>
+              <div class="weight-input-group">
+                <input 
+                  v-model.number="bagForm.emptyBagWeightInput" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="form-input weight-input"
+                  placeholder="Enter empty bag weight"
+                />
+                <select 
+                  v-model="bagForm.emptyBagWeightUnit"
+                  class="weight-unit-select"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lbs">lbs</option>
+                </select>
+              </div>
+              <p v-if="bagForm.emptyBagWeightInput" class="form-hint">
+                Empty bag: {{ formatWeight(convertInputToKg(bagForm.emptyBagWeightInput, bagForm.emptyBagWeightUnit) || 0, bagForm.emptyBagWeightUnit) }}
+                <br>
+                <span class="calculated-items-hint">+ Items weight (calculated from gear)</span>
+              </p>
+              <p v-else class="form-hint">Empty bag weight will be added to calculated items weight</p>
+            </div>
           </div>
 
           <div class="form-group">
@@ -384,29 +437,60 @@ function getBagTotalQuantity(bagId) {
 
 const weightUnit = ref(getWeightUnit())
 
-function getBagTotalWeight(bagId) {
-  const bag = bags.value.find(b => b.id === bagId)
-  
-  // If bag has a custom weight, use that
-  if (bag && bag.weight_kg) {
-    return Number(bag.weight_kg)
-  }
-  
-  // Otherwise calculate from gear items
+function getBagItemsWeight(bagId) {
   const itemsInBag = bagItems.value.filter(item => item.bag_id === bagId)
-  let totalWeight = 0
+  let itemsWeight = 0
   
   itemsInBag.forEach(item => {
     if (item.gear_id) {
       // Find gear in availableProjectGear to get its weight
       const gear = availableProjectGear.value.find(g => g.id === item.gear_id)
       if (gear && gear.weight_kg) {
-        totalWeight += (Number(gear.weight_kg) || 0) * (item.quantity || 0)
+        itemsWeight += (Number(gear.weight_kg) || 0) * (item.quantity || 0)
       }
     }
   })
   
-  return totalWeight > 0 ? totalWeight : 0
+  return itemsWeight
+}
+
+function getBagTotalWeight(bagId) {
+  const bag = bags.value.find(b => b.id === bagId)
+  if (!bag) return 0
+  
+  // Option 1: If override weight is set, use that
+  if (bag.weight_kg) {
+    return Number(bag.weight_kg)
+  }
+  
+  // Option 2: Empty bag weight + items weight
+  const emptyBagWeight = bag.empty_bag_weight_kg ? Number(bag.empty_bag_weight_kg) : 0
+  const itemsWeight = getBagItemsWeight(bagId)
+  
+  return emptyBagWeight + itemsWeight
+}
+
+function getBagWeightBreakdown(bagId) {
+  const bag = bags.value.find(b => b.id === bagId)
+  if (!bag) return null
+  
+  // If override weight, no breakdown needed
+  if (bag.weight_kg) {
+    return null
+  }
+  
+  const emptyBagWeight = bag.empty_bag_weight_kg ? Number(bag.empty_bag_weight_kg) : 0
+  const itemsWeight = getBagItemsWeight(bagId)
+  
+  if (emptyBagWeight > 0 && itemsWeight > 0) {
+    return `Bag: ${formatWeight(emptyBagWeight, weightUnit.value)} + Items: ${formatWeight(itemsWeight, weightUnit.value)}`
+  } else if (emptyBagWeight > 0) {
+    return `Bag: ${formatWeight(emptyBagWeight, weightUnit.value)} (no items yet)`
+  } else if (itemsWeight > 0) {
+    return `Items: ${formatWeight(itemsWeight, weightUnit.value)} (empty bag weight not set)`
+  }
+  
+  return null
 }
 
 function formatBagWeight(bagId) {
@@ -662,8 +746,12 @@ function openCreateBagModal() {
     name: '',
     description: '',
     weight_kg: null,
+    empty_bag_weight_kg: null,
+    weightMode: 'empty_bag',
     weightInput: null,
     weightInputUnit: weightUnit.value,
+    emptyBagWeightInput: null,
+    emptyBagWeightUnit: weightUnit.value,
     imageFile: null,
     imagePreview: null
   }
@@ -673,14 +761,23 @@ function openCreateBagModal() {
 function editBag(bag) {
   isEditingBag.value = true
   currentBag.value = bag
-  const weightKg = bag.weight_kg || null
   const currentUnit = weightUnit.value
+  
+  // Determine weight mode based on what's set
+  const weightMode = bag.weight_kg ? 'override' : 'empty_bag'
+  const weightKg = bag.weight_kg || null
+  const emptyBagWeightKg = bag.empty_bag_weight_kg || null
+  
   bagForm.value = {
     name: bag.name,
     description: bag.description || '',
     weight_kg: weightKg,
+    empty_bag_weight_kg: emptyBagWeightKg,
+    weightMode: weightMode,
     weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
     weightInputUnit: currentUnit,
+    emptyBagWeightInput: emptyBagWeightKg ? (currentUnit === 'lbs' ? kgToLbs(emptyBagWeightKg) : emptyBagWeightKg) : null,
+    emptyBagWeightUnit: currentUnit,
     imageFile: null,
     imagePreview: null
   }
@@ -693,8 +790,12 @@ function closeBagModal() {
     name: '',
     description: '',
     weight_kg: null,
+    empty_bag_weight_kg: null,
+    weightMode: 'empty_bag',
     weightInput: null,
     weightInputUnit: weightUnit.value,
+    emptyBagWeightInput: null,
+    emptyBagWeightUnit: weightUnit.value,
     imageFile: null,
     imagePreview: null
   }
@@ -735,12 +836,29 @@ async function saveBag() {
 
   saving.value = true
   try {
+    // Handle weight based on mode
+    let weight_kg = null
+    let empty_bag_weight_kg = null
+    
+    if (bagForm.value.weightMode === 'override') {
+      // Override mode: set total weight, clear empty bag weight
+      weight_kg = bagForm.value.weightInput 
+        ? convertInputToKg(bagForm.value.weightInput, bagForm.value.weightInputUnit)
+        : null
+      empty_bag_weight_kg = null
+    } else {
+      // Empty bag mode: set empty bag weight, clear override
+      empty_bag_weight_kg = bagForm.value.emptyBagWeightInput 
+        ? convertInputToKg(bagForm.value.emptyBagWeightInput, bagForm.value.emptyBagWeightUnit)
+        : null
+      weight_kg = null
+    }
+    
     const bagData = {
       name: bagForm.value.name.trim(),
       description: bagForm.value.description?.trim() || null,
-      weight_kg: bagForm.value.weightInput 
-        ? convertInputToKg(bagForm.value.weightInput, bagForm.value.weightInputUnit)
-        : null,
+      weight_kg: weight_kg,
+      empty_bag_weight_kg: empty_bag_weight_kg,
       imageFile: bagForm.value.imageFile
     }
 
@@ -1640,6 +1758,18 @@ onMounted(async () => {
   font-style: italic;
 }
 
+.weight-breakdown {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.calculated-items-hint {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
 .form-hint {
   font-size: 12px;
   color: #6c757d;
@@ -1674,6 +1804,58 @@ onMounted(async () => {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Weight Option Selector */
+.weight-option-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #ffffff;
+}
+
+.radio-option:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.radio-input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.radio-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+}
+
+.radio-option:has(.radio-input:checked) {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.weight-input-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 </style>
 
