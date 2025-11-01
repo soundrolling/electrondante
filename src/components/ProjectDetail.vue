@@ -481,14 +481,38 @@ export default {
   border: 1px solid var(--color-secondary-300);
 }
 
+/* Ensure icons and text have proper contrast in dark mode */
+.dark .timeline-chip.build {
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-primary-700);
+}
+
+.dark .timeline-chip.show {
+  background: var(--color-secondary-600);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-secondary-700);
+}
+
 .chip-icon {
   font-size: 14px;
   width: 16px;
   text-align: center;
+  color: inherit;
+}
+
+.dark .timeline-chip .chip-icon {
+  color: var(--text-inverse);
+  filter: none;
 }
 
 .chip-text {
   line-height: 1.3;
+  color: inherit;
+}
+
+.dark .timeline-chip .chip-text {
+  color: var(--text-inverse);
 }
 
 
