@@ -1,7 +1,7 @@
 <!-- src/components/location-notes/LNTabSchedule.vue -->
 <template>
 <section class="schedule-pane">
-  <!-- Combined top row: sort/add + filter -->
+  <!-- Combined top row: sort/add + filter + alerts + recording day (on wide screens) -->
   <div class="controls-top combined">
     <div class="left-stack">
       <label class="label">Sort by:</label>
@@ -20,7 +20,23 @@
         </svg>
         Filter
       </button>
+      <button 
+        class="btn btn-primary alert-toggle-btn" 
+        @click="showNotifications = !showNotifications"
+        :class="{ active: showNotifications }"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+        </svg>
+        Changeover Alerts
+      </button>
       <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
+    </div>
+    <div class="right-stack wide-screen-only">
+      <label class="label">Recording Day:</label>
+      <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
+      <div class="current-date">{{ currentGroupLabel }}</div>
+      <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
     </div>
   </div>
 
@@ -44,48 +60,50 @@
     </div>
   </transition>
 
-  <!-- Date navigation -->
-  <div class="controls-bottom">
+  <!-- Date navigation (for smaller screens) -->
+  <div class="controls-bottom mobile-only">
     <label class="label">Recording Day:</label>
     <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
     <div class="current-date">{{ currentGroupLabel }}</div>
     <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
   </div>
 
-  <!-- Notification Settings -->
-  <div class="notification-settings">
-    <h4 class="settings-title">Changeover Notifications</h4>
-    <div class="settings-grid">
-      <div class="setting-item">
-        <label class="setting-label">
+  <!-- Notification Settings (collapsible) -->
+  <transition name="fade-slide">
+    <div v-if="showNotifications" class="notification-settings">
+      <h4 class="settings-title">Changeover Notifications</h4>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label class="setting-label">
+            <input 
+              type="checkbox" 
+              v-model="notificationsEnabled"
+              @change="saveNotificationSettings"
+              class="setting-checkbox"
+            />
+            <span>Enable changeover notifications</span>
+          </label>
+          <small class="setting-hint">Receive alerts when artists are about to start</small>
+        </div>
+        <div class="setting-item" v-if="notificationsEnabled">
+          <label class="setting-label">
+            Default warning time (minutes):
+          </label>
           <input 
-            type="checkbox" 
-            v-model="notificationsEnabled"
+            type="number"
+            v-model.number="defaultWarningMinutes"
             @change="saveNotificationSettings"
-            class="setting-checkbox"
+            min="0"
+            max="60"
+            step="1"
+            class="setting-input"
+            placeholder="2"
           />
-          <span>Enable changeover notifications</span>
-        </label>
-        <small class="setting-hint">Receive alerts when artists are about to start</small>
-      </div>
-      <div class="setting-item" v-if="notificationsEnabled">
-        <label class="setting-label">
-          Default warning time (minutes):
-        </label>
-        <input 
-          type="number"
-          v-model.number="defaultWarningMinutes"
-          @change="saveNotificationSettings"
-          min="0"
-          max="60"
-          step="1"
-          class="setting-input"
-          placeholder="2"
-        />
-        <small class="setting-hint">Minutes before artist start time to show notification</small>
+          <small class="setting-hint">Minutes before artist start time to show notification</small>
+        </div>
       </div>
     </div>
-  </div>
+  </transition>
 
   <!-- Schedule list -->
   <div class="list-wrapper">
@@ -247,6 +265,7 @@ export default {
 
     // Filter panel state
     const showFilters = ref(false)
+    const showNotifications = ref(false)
 
     // Highlighting
     const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
@@ -592,7 +611,7 @@ export default {
       showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       activeIndex, filteredRows, fromDateTime, toDateTime,
-      notificationsEnabled, defaultWarningMinutes, showFilters,
+      notificationsEnabled, defaultWarningMinutes, showFilters, showNotifications,
       openForm, closeForm, save, remove, exportPdf, emitChangeNote,
       createChangeoverNote, isActive,
       saveRange, clearFrom, clearTo, setToday, setPreviousDay,
@@ -927,7 +946,31 @@ cursor: default;
 }
 }
 
-/* Mobile stacking for controls */
+/* Responsive controls */
+.wide-screen-only {
+  display: none;
+}
+.mobile-only {
+  display: flex;
+}
+
+@media (min-width: 1024px) {
+  .wide-screen-only {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mobile-only {
+    display: none;
+  }
+  .controls-top.combined {
+    justify-content: space-between;
+  }
+  .right-stack.wide-screen-only {
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 640px) {
   .controls-top.combined {
     flex-direction: column;
@@ -937,7 +980,7 @@ cursor: default;
   .left-stack, .right-stack {
     width: 100%;
   }
-  .controls-bottom {
+  .controls-bottom.mobile-only {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
@@ -1001,9 +1044,22 @@ cursor: default;
   background-color: #1e40af !important;
   box-shadow: 0 2px 4px rgba(29, 78, 216, 0.3);
 }
-.filter-icon {
+.filter-icon,
+.alert-icon {
   width: 16px;
   height: 16px;
+}
+
+/* Alert Toggle Button */
+.alert-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+}
+.alert-toggle-btn.active {
+  background-color: #1e40af !important;
+  box-shadow: 0 2px 4px rgba(29, 78, 216, 0.3);
 }
 
 /* Filters Panel */
