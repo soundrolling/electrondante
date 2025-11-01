@@ -302,28 +302,47 @@ async function loadAvailableGear() {
     // Load gear from the project that belongs to the current user - only if projectId is valid
     // Note: We use gear_amount (total) regardless of stage assignments since packing happens separately
     if (props.projectId && props.projectId.trim() !== '' && userId.value) {
+      console.log('[PackingTab] Loading gear for project:', props.projectId, 'user:', userId.value)
+      
       // First, get all project gear - we don't need to check assignments, just get gear_amount
       const allProjectGear = await fetchTableData('gear_table', {
         eq: { project_id: props.projectId },
         order: [{ column: 'gear_name', ascending: true }]
       })
       
+      console.log('[PackingTab] All project gear:', allProjectGear.length, allProjectGear)
+      
       // Filter to only user gear (is_user_gear = true) and ensure gear_amount exists
-      const userGearItems = allProjectGear.filter(g => 
-        g.is_user_gear === true && 
-        g.user_gear_id &&
-        g.gear_amount > 0 // Only show gear that has a quantity
-      )
+      // Note: Check for both boolean true and truthy values since database might return different formats
+      const userGearItems = allProjectGear.filter(g => {
+        const isUserGear = g.is_user_gear === true || g.is_user_gear === 1 || g.is_user_gear === 'true'
+        const hasUserGearId = !!g.user_gear_id
+        const hasAmount = (g.gear_amount || 0) > 0
+        console.log('[PackingTab] Gear filter check:', g.gear_name, {
+          isUserGear,
+          is_user_gear_value: g.is_user_gear,
+          hasUserGearId,
+          hasAmount,
+          gear_amount: g.gear_amount,
+          user_gear_id: g.user_gear_id
+        })
+        return isUserGear && hasUserGearId && hasAmount
+      })
+      
+      console.log('[PackingTab] User gear items after filter:', userGearItems.length, userGearItems)
       
       if (userGearItems.length > 0) {
         // Get the user_gear_ids
-        const userGearIds = userGearItems.map(g => g.user_gear_id)
+        const userGearIds = userGearItems.map(g => g.user_gear_id).filter(Boolean)
+        console.log('[PackingTab] User gear IDs:', userGearIds)
         
         // Fetch user_gear records to check ownership
         const { data: userGearData, error } = await supabase
           .from('user_gear')
           .select('id, user_id')
           .in('id', userGearIds)
+        
+        console.log('[PackingTab] User gear data:', userGearData, 'error:', error)
         
         if (!error && userGearData) {
           // Create a map of user_gear_id to user_id
@@ -332,20 +351,41 @@ async function loadAvailableGear() {
             userGearOwnershipMap[ug.id] = ug.user_id
           })
           
+          console.log('[PackingTab] Ownership map:', userGearOwnershipMap)
+          console.log('[PackingTab] Current user ID:', userId.value)
+          
           // Filter to only gear owned by the current user
           // Use gear_amount (total) - don't worry about assignments
-          availableProjectGear.value = userGearItems.filter(g => {
+          // Convert both IDs to strings to ensure proper comparison
+          const currentUserIdStr = String(userId.value)
+          const ownedGear = userGearItems.filter(g => {
             const gearUserId = userGearOwnershipMap[g.user_gear_id]
-            return gearUserId === userId.value
-          }).map(g => ({
+            const gearUserIdStr = gearUserId ? String(gearUserId) : null
+            const matches = gearUserIdStr === currentUserIdStr
+            console.log('[PackingTab] Ownership check:', g.gear_name, {
+              gearUserId,
+              gearUserIdStr,
+              currentUserId: userId.value,
+              currentUserIdStr,
+              matches,
+              user_gear_id: g.user_gear_id
+            })
+            return matches
+          })
+          
+          console.log('[PackingTab] Owned gear:', ownedGear.length, ownedGear)
+          
+          availableProjectGear.value = ownedGear.map(g => ({
             ...g,
             // Ensure gear_amount is always available, default to 0 if missing
             gear_amount: g.gear_amount || 0
           }))
         } else {
+          console.error('[PackingTab] Error fetching user_gear or no data:', error)
           availableProjectGear.value = []
         }
       } else {
+        console.log('[PackingTab] No user gear items found')
         availableProjectGear.value = []
       }
       
@@ -373,14 +413,17 @@ async function loadAvailableGear() {
           }
         }
       }
+      
+      console.log('[PackingTab] Final available gear:', availableProjectGear.value.length, availableProjectGear.value)
     } else {
+      console.log('[PackingTab] Missing projectId or userId:', { projectId: props.projectId, userId: userId.value })
       availableProjectGear.value = []
     }
     
     // Don't load user's personal gear - only show project gear
     availableUserGear.value = []
   } catch (err) {
-    console.error('Failed to load available gear:', err)
+    console.error('[PackingTab] Failed to load available gear:', err)
     availableProjectGear.value = []
     availableUserGear.value = []
   }
