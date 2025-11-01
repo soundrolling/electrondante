@@ -919,6 +919,7 @@ async function saveSecurity() {
               />
               <p class="form-hint">Used for calculating bag weights</p>
             </div>
+          </div>
 
           <!-- Tracks row (only for recorders) -->
           <div class="form-row" v-if="gearForm.gear_type === 'recorder'">
