@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.57">
-        <span class="version-text">v21.57</span>
-        <span class="version-date">November 29</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.58">
+        <span class="version-text">v21.58</span>
+        <span class="version-date">December 2024</span>
       </button>
     </div>
 
@@ -19,29 +19,29 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.57</h2>
+          <h2 id="changelog-title">What's New in 21.58</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🎛️ Enhanced Gear Reordering</h3>
-            <p>New drag-and-drop functionality makes reordering gear items much easier. Simply click and drag any item to rearrange, with smooth visual feedback. Works seamlessly on both desktop and mobile devices.</p>
+            <h3>🌙 Complete Dark Mode Support</h3>
+            <p>Added comprehensive dark mode theme throughout the entire application. Toggle between light and dark modes from the header or footer. All components now properly support dark backgrounds with white text for better visibility in low-light conditions.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🔤 Quick Sort Options for Gear</h3>
-            <p>Added convenient sorting shortcuts in the gear reorder modal: sort alphabetically (A-Z or Z-A) or by gear type with alphabetical sub-sorting. Perfect for organizing large gear lists quickly.</p>
+            <h3>🎨 Enhanced Component Styling</h3>
+            <p>Updated all components to use theme variables instead of hardcoded colors. Stage Pictures, Stage Documents, Project Tools, Location Notes, and all modals now properly adapt to dark mode with darker backgrounds and improved contrast.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🎨 Improved Button Contrast</h3>
-            <p>Enhanced visibility of all grey buttons throughout the gear management interface. Arrow buttons and sort controls now feature white text and icons on grey backgrounds for better readability and accessibility.</p>
+            <h3>🎯 Improved Status Indicators</h3>
+            <p>Status pills and indicators throughout the app now use dark backgrounds with white text in dark mode. Repacking tab status badges, managing hours LIVE indicators, and all button states have been updated for better visibility.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>📱 Better Mobile Experience</h3>
-            <p>Gear reordering now fully supports touch interactions on mobile devices. Long press and drag to reorder items naturally, with the same smooth experience as desktop drag-and-drop.</p>
+            <h3>📦 Enhanced Modals & Forms</h3>
+            <p>Create Bag modal, User Gear Selector, and all form elements now have proper dark mode styling. Input fields, dropdowns, and interactive elements use theme-aware colors for consistent appearance across both light and dark modes.</p>
           </div>
         </div>
         
@@ -216,7 +216,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 16px; /* 4-point spacing system */
-  background: linear-gradient(180deg, #fbfbfd 0%, #f5f5f7 100%);
+  background: #000000;
   position: relative;
   /* Safe area support */
   padding-top: max(16px, env(safe-area-inset-top));
