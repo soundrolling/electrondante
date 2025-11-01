@@ -1077,6 +1077,19 @@ function drawNode(ctx, node) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🎚️', pos.x, pos.y)
+  } else if (isSource && node.gear_id) {
+    // Draw gear name inside circle for source mics (first 6 characters)
+    const gear = props.gearList.find(g => g.id === node.gear_id)
+    if (gear && gear.gear_name) {
+      const gearNameText = gear.gear_name.length > 6 
+        ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
+        : gear.gear_name.toUpperCase()
+      ctx.font = 'bold 11px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = isSelected ? '#fff' : '#495057'
+      ctx.fillText(gearNameText, pos.x, pos.y)
+    }
   }
 
   ctx.restore()
