@@ -121,18 +121,18 @@
     <div class="gear-section">
       <h3 class="gear-section-title">Sources, Transformers & Recorders</h3>
       <div class="gear-cards">
-      <div v-if="!filteredGearList.length" class="empty-state">
-        <div class="empty-icon">🎸</div>
-        <h3 class="empty-title">No gear found</h3>
-        <p class="empty-message">Add some gear to get started!</p>
-      </div>
-      
-      <div 
-        v-for="(gear, idx) in filteredMainGearList" 
-        :key="gear.id"
-        class="gear-card"
-        :class="{ 'user-gear': gear.is_user_gear }"
-      >
+        <div v-if="!filteredMainGearList.length" class="empty-state">
+          <div class="empty-icon">🎸</div>
+          <h3 class="empty-title">No gear found</h3>
+          <p class="empty-message">Add some gear to get started!</p>
+        </div>
+        
+        <div 
+          v-for="(gear, idx) in filteredMainGearList" 
+          :key="gear.id"
+          class="gear-card"
+          :class="{ 'user-gear': gear.is_user_gear }"
+        >
         <div class="gear-header">
           <div class="gear-name-section">
             <h3 class="gear-name">{{ gear.gear_name }}</h3>
@@ -179,11 +179,7 @@
             <span class="btn-text">Delete</span>
           </button>
         </div>
-      </div>
-      <div v-if="!filteredMainGearList.length" class="empty-state">
-        <div class="empty-icon">🎸</div>
-        <h3 class="empty-title">No main gear found</h3>
-        <p class="empty-message">Add some gear to get started!</p>
+        </div>
       </div>
     </div>
 
@@ -286,6 +282,7 @@
         </div>
       </div>
     </div>
+  </section>
   </div>
 
   <!-- PACKING TAB CONTENT -->
@@ -293,8 +290,8 @@
     <PackingTab :project-id="String(currentProject?.id || '')" />
   </div>
 
-    <!-- ADD GEAR MODAL -->
-    <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
+  <!-- ADD GEAR MODAL -->
+  <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">Add New Gear</h3>
@@ -710,7 +707,6 @@
         </div>
       </div>
     </div>
-  </section>
 </div>
 </template>
 
