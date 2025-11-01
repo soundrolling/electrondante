@@ -32,6 +32,19 @@
     <button class="tool-btn" @click="printFlow" title="Print signal flow">
       🖨️ Print
     </button>
+    <div class="toolbar-divider"></div>
+    <div class="zoom-controls">
+      <button class="tool-btn zoom-btn" @click="zoomOut" title="Zoom out" :disabled="zoomLevel <= 0.25">
+        ➖
+      </button>
+      <span class="zoom-level">{{ Math.round(zoomLevel * 100) }}%</span>
+      <button class="tool-btn zoom-btn" @click="zoomIn" title="Zoom in" :disabled="zoomLevel >= 4">
+       ➕
+      </button>
+      <button class="tool-btn zoom-btn" @click="resetZoom" title="Reset zoom">
+        🔄
+      </button>
+    </div>
   </div>
 
   <!-- Canvas -->
@@ -252,7 +265,7 @@ const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(1000)
 const canvasHeight = ref(700)
 const canvasStyle = computed(() => 
-  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px;`
+  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; transform-origin: top left;`
 )
 
 // Tool state
@@ -280,6 +293,12 @@ const newMappingToPort = ref(null)
 const upstreamLabelsForFromNode = ref({})
 const draggingNode = ref(null)
 let dragStart = null
+
+// Zoom state
+const zoomLevel = ref(1.0)
+const minZoom = 0.25
+const maxZoom = 4.0
+const zoomStep = 0.25
 
 // Modal state
 const showGearModal = ref(false)
@@ -701,6 +720,26 @@ function getGearIcon(type) {
   return icons[type] || '🎵'
 }
 
+// Zoom functions - ONLY controlled via buttons, never via scroll/wheel events
+function zoomIn() {
+  if (zoomLevel.value < maxZoom) {
+    zoomLevel.value = Math.min(maxZoom, zoomLevel.value + zoomStep)
+    nextTick(drawCanvas)
+  }
+}
+
+function zoomOut() {
+  if (zoomLevel.value > minZoom) {
+    zoomLevel.value = Math.max(minZoom, zoomLevel.value - zoomStep)
+    nextTick(drawCanvas)
+  }
+}
+
+function resetZoom() {
+  zoomLevel.value = 1.0
+  nextTick(drawCanvas)
+}
+
 // Drawing
 function drawCanvas() {
   const ctx = canvas.value?.getContext('2d')
@@ -709,20 +748,26 @@ function drawCanvas() {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
   ctx.scale(dpr, dpr)
+  
+  // Apply zoom transformation
+  ctx.save()
+  ctx.scale(zoomLevel.value, zoomLevel.value)
 
-  // Background
+  // Background (scaled)
   ctx.fillStyle = '#f8f9fa'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw connections
+  // Draw connections (will be scaled by zoom)
   props.connections.forEach(conn => {
     drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
   })
 
-  // Draw nodes
+  // Draw nodes (will be scaled by zoom)
   props.nodes.forEach(node => {
     drawNode(ctx, node)
   })
+  
+  ctx.restore()
 }
 
 function drawNode(ctx, node) {
@@ -897,9 +942,10 @@ function getCanvasCoords(e) {
   const rect = canvas.value.getBoundingClientRect()
   const scaleX = canvas.value.width / rect.width
   const scaleY = canvas.value.height / rect.height
+  // Account for zoom level - pointer coordinates need to be divided by zoom
   return {
-    x: (e.clientX - rect.left) * scaleX / dpr,
-    y: (e.clientY - rect.top) * scaleY / dpr
+    x: (e.clientX - rect.left) * scaleX / dpr / zoomLevel.value,
+    y: (e.clientY - rect.top) * scaleY / dpr / zoomLevel.value
   }
 }
 
@@ -1104,6 +1150,7 @@ async function saveNodePosition(node) {
 }
 
 // Coordinate helpers: nodes store normalized coords (0..1). Convert for canvas drawing.
+// Note: zoom is applied at the canvas level, so positions are in unzoomed coordinates
 function getCanvasPos(node) {
   const nx = (node.flow_x ?? node.x ?? 0)
   const ny = (node.flow_y ?? node.y ?? 0)
@@ -1178,8 +1225,12 @@ async function confirmConnection(connectionData) {
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
       ctx.scale(dpr, dpr)
+      
+      // Apply zoom transformation
+      ctx.save()
+      ctx.scale(zoomLevel.value, zoomLevel.value)
 
-      // Background
+      // Background (scaled)
       ctx.fillStyle = '#f8f9fa'
       ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
@@ -1192,6 +1243,8 @@ async function confirmConnection(connectionData) {
       props.nodes.forEach(node => {
         drawNode(ctx, node)
       })
+      
+      ctx.restore()
       
       // Redraw again after props are updated (watcher will handle this, but ensure it happens)
       setTimeout(() => drawCanvas(), 50)
@@ -1212,7 +1265,7 @@ async function confirmConnection(connectionData) {
 }
 
 // Watchers
-watch([() => props.nodes, () => props.connections], () => {
+watch([() => props.nodes, () => props.connections, zoomLevel], () => {
   nextTick(() => {
     drawCanvas()
   })
@@ -1225,42 +1278,9 @@ onMounted(() => {
     canvas.value.height = canvasHeight.value * dpr
   }
   nextTick(drawCanvas)
-
-  // Prevent browser zooming the canvas via Ctrl/⌘ + scroll or trackpad pinch
-  const wheelBlocker = (e) => {
-    // Allow scrolling inside scrollable UI (e.g., connection details panel)
-    const insideScrollablePanel = e.target && typeof e.target.closest === 'function' && (
-      e.target.closest('.connection-details')
-    )
-    // Block wheel events over the canvas wrapper except when over a scrollable panel
-    if (!insideScrollablePanel && canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
-      e.preventDefault()
-    } else if (!insideScrollablePanel && e.ctrlKey) {
-      // Fallback: block page zoom anywhere when ctrl/⌘ pressed
-      e.preventDefault()
-    }
-  }
-  const gestureBlocker = (e) => {
-    e.preventDefault()
-  }
-  const touchBlocker = (e) => {
-    // Block two-finger pinch/zoom on trackpads/touch screens
-    if (e.touches && e.touches.length > 1) {
-      e.preventDefault()
-    }
-  }
-  window.addEventListener('wheel', wheelBlocker, { passive: false })
-  window.addEventListener('gesturestart', gestureBlocker, { passive: false })
-  window.addEventListener('gesturechange', gestureBlocker, { passive: false })
-  // iOS/Touch devices
-  document.addEventListener('touchmove', touchBlocker, { passive: false })
-
-  onUnmounted(() => {
-    window.removeEventListener('wheel', wheelBlocker)
-    window.removeEventListener('gesturestart', gestureBlocker)
-    window.removeEventListener('gesturechange', gestureBlocker)
-    document.removeEventListener('touchmove', touchBlocker)
-  })
+  // Note: All scroll/wheel blocking has been removed to allow normal page scrolling.
+  // Zoom is ONLY controlled via the +/- buttons with preset intervals (25% steps).
+  // Scrolling will NOT trigger zoom changes.
 })
 // Prompt when entering Link mode
 watch(tool, (v, prev) => {
@@ -1464,19 +1484,40 @@ function printFlow() {
   font-size: 14px;
 }
 
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.zoom-controls .zoom-btn {
+  padding: 8px 12px;
+  min-width: 36px;
+}
+
+.zoom-level {
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
+}
+
 .canvas-wrapper {
   position: relative;
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
-  /* Disable browser gesture zoom on supported browsers */
-  touch-action: none;
+  overflow: auto;
+  max-height: calc(100vh - 300px);
 }
 
 .canvas-wrapper canvas {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   cursor: crosshair;
+  flex-shrink: 0;
 }
 
 .tool-indicator {
