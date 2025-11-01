@@ -125,7 +125,6 @@
           <textarea
             v-model="formData.steps"
             id="steps"
-            placeholder="1. Go to the page where the issue occurs&#10;2. Click on the element that causes the problem&#10;3. Observe the error or unexpected behavior&#10;4. Note any error messages that appear"
             rows="4"
             maxlength="2000"
           ></textarea>
@@ -140,7 +139,6 @@
               <textarea
                 v-model="formData.expectedBehavior"
                 id="expectedBehavior"
-                placeholder="What should have happened?"
                 rows="3"
                 maxlength="1000"
               ></textarea>
@@ -151,7 +149,6 @@
               <textarea
                 v-model="formData.actualBehavior"
                 id="actualBehavior"
-                placeholder="What actually happened?"
                 rows="3"
                 maxlength="1000"
               ></textarea>

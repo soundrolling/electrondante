@@ -19,16 +19,12 @@
     </div>
     <div class="left-group" :class="{ mobileHidden: !showMobileSettings || isMobile }">
       <label class="inline-setting">
-        <input type="checkbox" v-model="panImageMode" :disabled="imageLocked" />
+        <input type="checkbox" v-model="panImageMode" />
         <span>Pan</span>
       </label>
-      <button @click="zoomIn" :disabled="!bgImage || imageLocked" class="btn-secondary">🔍+</button>
-      <button @click="zoomOut" :disabled="!bgImage || imageLocked" class="btn-secondary">🔍-</button>
-      <button @click="resetImageView" :disabled="!bgImage || imageLocked" class="btn-secondary">Reset</button>
-      <label class="inline-setting" v-if="bgImage">
-        <input type="checkbox" v-model="imageLocked" />
-        <span>🔒 Lock</span>
-      </label>
+      <button @click="zoomIn" :disabled="!bgImage" class="btn-secondary">🔍+</button>
+      <button @click="zoomOut" :disabled="!bgImage" class="btn-secondary">🔍-</button>
+      <button @click="resetImageView" :disabled="!bgImage" class="btn-secondary">Reset</button>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
       <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
     </div>
@@ -198,11 +194,6 @@ const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
-const imageLocked = ref(false)
-// Locked values - used for coordinate transforms when image is locked
-const lockedOffsetX = ref(0)
-const lockedOffsetY = ref(0)
-const lockedScale = ref(1)
 // no popover; show inline controls
 const showMobileSettings = ref(false)
 
@@ -216,21 +207,9 @@ function checkScreenSize() {
 
 async function loadImageState() {
   try {
-    // Load lock state first
-    const wasLocked = loadLockState()
-    if (wasLocked) {
-      imageLocked.value = true
-    }
-    
     const cloudUrl = await getBgPublicUrl()
     if (cloudUrl) {
       await setBackgroundImage(cloudUrl)
-      // If image was locked, update locked values to current transform
-      if (wasLocked) {
-        lockedOffsetX.value = imageOffsetX.value
-        lockedOffsetY.value = imageOffsetY.value
-        lockedScale.value = scaleFactor.value
-      }
     }
   } catch (_) {}
 }
@@ -243,39 +222,6 @@ function storagePathForStage() {
   return `mic-placement/${props.projectId}/${scope}/bg.png`
 }
 
-// Lock state storage key
-function lockStateStorageKey() {
-  if (!props.projectId) return null
-  const scope = props.locationId ?? 'default'
-  return `mic-placement-lock-${props.projectId}-${scope}`
-}
-
-// Save lock state to localStorage
-function saveLockState() {
-  const key = lockStateStorageKey()
-  if (!key) return
-  try {
-    localStorage.setItem(key, JSON.stringify({ locked: imageLocked.value }))
-  } catch (err) {
-    console.error('Failed to save lock state:', err)
-  }
-}
-
-// Load lock state from localStorage
-function loadLockState() {
-  const key = lockStateStorageKey()
-  if (!key) return false
-  try {
-    const stored = localStorage.getItem(key)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      return parsed.locked === true
-    }
-  } catch (err) {
-    console.error('Failed to load lock state:', err)
-  }
-  return false
-}
 
 async function getBgPublicUrl() {
   try {
@@ -331,8 +277,6 @@ async function setBackgroundImage(src, state) {
         imageOffsetX.value = fit.offsetX
         imageOffsetY.value = fit.offsetY
       }
-      // Update locked values when image is set
-      updateLockedValues()
       drawCanvas()
       resolve()
     }
@@ -413,18 +357,15 @@ function drawCanvas() {
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw background image (use locked values when locked)
+  // Draw background image
   if (bgImageObj.value) {
     ctx.globalAlpha = 1.0 // Fixed opacity - no longer using bgOpacity
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
     ctx.drawImage(
       bgImageObj.value,
-      offsetX,
-      offsetY,
-      bgImageObj.value.width * scale,
-      bgImageObj.value.height * scale
+      imageOffsetX.value,
+      imageOffsetY.value,
+      bgImageObj.value.width * scaleFactor.value,
+      bgImageObj.value.height * scaleFactor.value
     )
     ctx.globalAlpha = 1.0
   }
@@ -532,20 +473,14 @@ function fitImageToCanvas(img) {
 }
 
 function zoomIn() { 
-  if (imageLocked.value) return
   scaleFactor.value *= 1.1
-  updateLockedValues()
   drawCanvas() 
 }
 function zoomOut() { 
-  if (imageLocked.value) return
   scaleFactor.value /= 1.1
-  updateLockedValues()
   drawCanvas() 
 }
 function resetImageView() {
-  if (imageLocked.value) return
-  
   const PADDING = 20
   
   // Calculate bounding box of all elements
@@ -553,13 +488,10 @@ function resetImageView() {
   
   // Include background image bounds if present
   if (bgImageObj.value) {
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-    const bx = offsetX
-    const by = offsetY
-    const bw = bgImageObj.value.width * scale
-    const bh = bgImageObj.value.height * scale
+    const bx = imageOffsetX.value
+    const by = imageOffsetY.value
+    const bw = bgImageObj.value.width * scaleFactor.value
+    const bh = bgImageObj.value.height * scaleFactor.value
     minX = Math.min(minX, bx)
     minY = Math.min(minY, by)
     maxX = Math.max(maxX, bx + bw)
@@ -605,7 +537,6 @@ function resetImageView() {
       scaleFactor.value = fit.scale
       imageOffsetX.value = fit.offsetX
       imageOffsetY.value = fit.offsetY
-      updateLockedValues()
       drawCanvas()
     }
     return
@@ -670,47 +601,22 @@ function resetImageView() {
     imageOffsetY.value = newOffsetY
   }
   
-  updateLockedValues()
   drawCanvas()
 }
 function triggerImageUpload() {
   document.getElementById('image-upload').click()
 }
 
-// Update locked values when image transform changes (only when not locked)
-function updateLockedValues() {
-  if (imageLocked.value) return
-  lockedOffsetX.value = imageOffsetX.value
-  lockedOffsetY.value = imageOffsetY.value
-  lockedScale.value = scaleFactor.value
-}
-
-// Watch imageLocked to update locked values when toggled
-watch(imageLocked, (locked) => {
-  if (locked) {
-    // Save current state as locked
-    lockedOffsetX.value = imageOffsetX.value
-    lockedOffsetY.value = imageOffsetY.value
-    lockedScale.value = scaleFactor.value
-  }
-  // Persist lock state
-  saveLockState()
-})
-
 // Coordinate transforms
-// When image is locked, use locked values for transforms so mics still position correctly
 function canvasToImageCoords(canvasX, canvasY) {
   if (!bgImageObj.value) {
     return { imgX: canvasX / canvasWidth.value, imgY: canvasY / canvasHeight.value }
   }
   const imgW = bgImageObj.value.width
   const imgH = bgImageObj.value.height
-  const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-  const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-  const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
   return {
-    imgX: (canvasX - offsetX) / (imgW * scale),
-    imgY: (canvasY - offsetY) / (imgH * scale)
+    imgX: (canvasX - imageOffsetX.value) / (imgW * scaleFactor.value),
+    imgY: (canvasY - imageOffsetY.value) / (imgH * scaleFactor.value)
   }
 }
 
@@ -720,12 +626,9 @@ function imageToCanvasCoords(imgX, imgY) {
   }
   const imgW = bgImageObj.value.width
   const imgH = bgImageObj.value.height
-  const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-  const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-  const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
   return {
-    x: imgX * (imgW * scale) + offsetX,
-    y: imgY * (imgH * scale) + offsetY
+    x: imgX * (imgW * scaleFactor.value) + imageOffsetX.value,
+    y: imgY * (imgH * scaleFactor.value) + imageOffsetY.value
   }
 }
 
@@ -747,8 +650,8 @@ function onPointerDown(e) {
   const { x, y } = getCanvasCoords(e)
   activePointers.set(e.pointerId, { x, y })
 
-  // Pan image mode (disabled when image is locked)
-  if (panImageMode.value && bgImageObj.value && !imageLocked.value) {
+  // Pan image mode
+  if (panImageMode.value && bgImageObj.value) {
     dragStart = { x, y }
     dragStartPos = { x: imageOffsetX.value, y: imageOffsetY.value }
     return
@@ -811,8 +714,8 @@ function onPointerMove(e) {
   const { x, y } = getCanvasCoords(e)
   if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x, y })
 
-  // Pinch to zoom (disabled when image is locked)
-  if (activePointers.size >= 2 && bgImageObj.value && !imageLocked.value) {
+  // Pinch to zoom
+  if (activePointers.size >= 2 && bgImageObj.value) {
     const pts = Array.from(activePointers.values())
     const dx = pts[0].x - pts[1].x
     const dy = pts[0].y - pts[1].y
@@ -826,13 +729,12 @@ function onPointerMove(e) {
     return
   }
 
-  // Pan image mode (disabled when image is locked)
-  if (panImageMode.value && dragStart && bgImageObj.value && !imageLocked.value) {
+  // Pan image mode
+  if (panImageMode.value && dragStart && bgImageObj.value) {
     const dx = x - dragStart.x
     const dy = y - dragStart.y
     imageOffsetX.value = dragStartPos.x + dx
     imageOffsetY.value = dragStartPos.y + dy
-    updateLockedValues()
     drawCanvas()
     return
   }
@@ -884,7 +786,6 @@ async function onPointerUp(e) {
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
 
 function applyZoom(zoomFactor, centerX, centerY) {
-  if (imageLocked.value) return
   const prevScale = scaleFactor.value
   const newScale = clamp(prevScale * zoomFactor, MIN_SCALE, MAX_SCALE)
   if (newScale === prevScale) return
@@ -894,7 +795,6 @@ function applyZoom(zoomFactor, centerX, centerY) {
   scaleFactor.value = newScale
   imageOffsetX.value = centerX - imgXBefore * newScale
   imageOffsetY.value = centerY - imgYBefore * newScale
-  updateLockedValues()
   drawCanvas()
 }
 
@@ -903,12 +803,6 @@ function onWheel(e) {
   
   // Stop auto-rotation when user scrolls
   stopAutoRotation()
-  
-  // If image is locked, allow page to scroll normally
-  if (imageLocked.value) {
-    // Don't prevent default - let the page scroll
-    return
-  }
   
   // Prevent default scroll and handle zoom
   e.preventDefault()
@@ -1284,15 +1178,12 @@ function getCanvasDataURL() {
   // Compute bounds in current canvas coordinates
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
 
-  // Include background image bounds if present (use locked values when locked)
+  // Include background image bounds if present
   if (bgImageObj.value) {
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-    const bx = offsetX
-    const by = offsetY
-    const bw = bgImageObj.value.width * scale
-    const bh = bgImageObj.value.height * scale
+    const bx = imageOffsetX.value
+    const by = imageOffsetY.value
+    const bw = bgImageObj.value.width * scaleFactor.value
+    const bh = bgImageObj.value.height * scaleFactor.value
     minX = Math.min(minX, bx)
     minY = Math.min(minY, by)
     maxX = Math.max(maxX, bx + bw)
@@ -1351,18 +1242,15 @@ function getCanvasDataURL() {
   ctx.save()
   ctx.translate(-minX + PADDING, -minY + PADDING)
 
-  // Draw background image (with current opacity, use locked values when locked)
+  // Draw background image (with current opacity)
   if (bgImageObj.value) {
     ctx.globalAlpha = 1.0 // Fixed opacity
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
     ctx.drawImage(
       bgImageObj.value,
-      offsetX,
-      offsetY,
-      bgImageObj.value.width * scale,
-      bgImageObj.value.height * scale
+      imageOffsetX.value,
+      imageOffsetY.value,
+      bgImageObj.value.width * scaleFactor.value,
+      bgImageObj.value.height * scaleFactor.value
     )
     ctx.globalAlpha = 1.0
   }

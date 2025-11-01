@@ -1,6 +1,11 @@
 <template>
 <div v-if="isTransformerToRecorder" class="modal-overlay" @mousedown.self="$emit('cancel')">
-  <div class="modal-content">
+  <div 
+    ref="modalRef"
+    class="modal-content draggable-modal"
+    :style="modalStyle"
+    @mousedown="startDrag"
+  >
     <div class="modal-header">
       <h2 class="modal-title">Confirm Connection</h2>
       <button @click="$emit('cancel')" class="close-btn">×</button>
@@ -15,7 +20,12 @@
   </div>
 </div>
 <div v-else class="modal-overlay" @mousedown.self="$emit('cancel')">
-  <div class="modal-content">
+  <div 
+    ref="modalRef"
+    class="modal-content draggable-modal"
+    :style="modalStyle"
+    @mousedown="startDrag"
+  >
     <div class="modal-header">
       <h2 class="modal-title">Create Connection</h2>
       <button @click="$emit('cancel')" class="close-btn">×</button>
@@ -151,9 +161,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { supabase } from '@/supabase'
 import { addConnection, updateConnection } from '@/services/signalMapperService'
+import { useToast } from 'vue-toastification'
 
 const props = defineProps({
 fromNode: { 
@@ -193,6 +204,93 @@ projectId: {
 console.log('[CONNECTION MODAL] Props received:', props)
 
 const emit = defineEmits(['confirm', 'cancel'])
+const toast = useToast()
+
+// Dragging state
+const modalPosition = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const modalRef = ref(null)
+
+const modalStyle = computed(() => ({
+  left: modalPosition.value.x + 'px',
+  top: modalPosition.value.y + 'px',
+  transform: 'none',
+  margin: '0',
+  position: 'fixed'
+}))
+
+function startDrag(e) {
+  // Only start drag on header
+  if (!e.target.closest('.modal-header')) return
+  
+  // Don't start drag on buttons
+  if (e.target.closest('button')) return
+  
+  isDragging.value = true
+  dragStart.value = {
+    x: e.clientX - modalPosition.value.x,
+    y: e.clientY - modalPosition.value.y
+  }
+  
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+  e.preventDefault()
+}
+
+function onDrag(e) {
+  if (!isDragging.value) return
+  
+  const newX = e.clientX - dragStart.value.x
+  const newY = e.clientY - dragStart.value.y
+  
+  // Constrain to viewport
+  const rect = modalRef.value?.getBoundingClientRect()
+  if (rect) {
+    const maxX = window.innerWidth - rect.width
+    const maxY = window.innerHeight - rect.height
+    
+    modalPosition.value.x = Math.max(0, Math.min(newX, maxX))
+    modalPosition.value.y = Math.max(0, Math.min(newY, maxY))
+  } else {
+    modalPosition.value.x = newX
+    modalPosition.value.y = newY
+  }
+}
+
+function stopDrag() {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+function ensureModalInViewport() {
+  nextTick(() => {
+    if (!modalRef.value) return
+    
+    const rect = modalRef.value.getBoundingClientRect()
+    const maxX = window.innerWidth - rect.width
+    const maxY = window.innerHeight - rect.height
+    
+    // Adjust position if out of bounds
+    if (modalPosition.value.x < 0) modalPosition.value.x = 0
+    if (modalPosition.value.x > maxX) modalPosition.value.x = maxX
+    if (modalPosition.value.y < 0) modalPosition.value.y = 0
+    if (modalPosition.value.y > maxY) modalPosition.value.y = maxY
+  })
+}
+
+function centerModal() {
+  nextTick(() => {
+    if (!modalRef.value) return
+    const rect = modalRef.value.getBoundingClientRect()
+    modalPosition.value = {
+      x: (window.innerWidth - rect.width) / 2,
+      y: (window.innerHeight - rect.height) / 2
+    }
+    ensureModalInViewport()
+  })
+}
 
 function getType(node){
   return (node?.gearType || node?.gear_type || node?.node_type || '').toLowerCase()
@@ -875,6 +973,7 @@ errorMsg.value = ''
     
     if (fetchError) throw fetchError
     
+    toast.success('Connection saved successfully')
     emit('confirm', { ...fullConnection, port_mappings: portMappings.value })
     return
   }
@@ -892,6 +991,7 @@ errorMsg.value = ''
     connection_type: connectionType.value
   }
   const savedConnection = await addConnection(connection)
+  toast.success('Connection saved successfully')
   emit('confirm', savedConnection)
 } catch (e) {
   if (e?.code === '23505') {
@@ -945,6 +1045,7 @@ addConnection({
   from_node_id: props.fromNode.id,
   to_node_id: props.toNode.id
 }).then(conn => {
+  toast.success('Connection saved successfully')
   emit('confirm', conn)
 }).catch(e => {
   errorMsg.value = e.message || 'Failed to save connection.'
@@ -979,6 +1080,17 @@ try {
 buildUpstreamSourceLabels()
 // Load already-taken mapped ports for source and target across existing connections
 loadTakenPorts()
+
+// Center modal on mount and ensure it's in viewport
+centerModal()
+
+// Ensure modal stays in viewport on window resize
+window.addEventListener('resize', ensureModalInViewport)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', ensureModalInViewport)
+  stopDrag()
 })
 </script>
 
@@ -990,10 +1102,8 @@ left: 0;
 right: 0;
 bottom: 0;
 background: rgba(0, 0, 0, 0.5);
-display: flex;
-align-items: center;
-justify-content: center;
 z-index: 1000;
+pointer-events: all;
 }
 
 .modal-content {
@@ -1004,6 +1114,16 @@ max-width: 500px;
 width: 90%;
 max-height: 80vh;
 overflow: hidden;
+position: fixed;
+z-index: 1001;
+}
+
+.draggable-modal {
+  user-select: none;
+}
+
+.draggable-modal .modal-header {
+  user-select: none;
 }
 
 .help { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: #6b7280; }
@@ -1017,6 +1137,7 @@ justify-content: space-between;
 align-items: center;
 padding: 20px;
 border-bottom: 1px solid #e9ecef;
+cursor: move;
 }
 
 .modal-title {
@@ -1040,6 +1161,8 @@ align-items: center;
 justify-content: center;
 border-radius: 4px;
 transition: all 0.2s;
+position: relative;
+z-index: 10;
 }
 
 .close-btn:hover {

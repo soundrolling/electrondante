@@ -191,6 +191,13 @@
         <button @click="closeSourceModal" class="close-btn">×</button>
       </div>
       <div class="modal-body">
+        <div class="numbering-selector">
+          <label class="numbering-label">Numbering Style:</label>
+          <select v-model="sourceNumberingStyle" class="numbering-select">
+            <option value="numbers">Numbers (1, 2, 3...)</option>
+            <option value="letters">Letters (A, B, C...)</option>
+          </select>
+        </div>
         <div class="gear-categories">
           <button 
             v-for="cat in ['Stereo', 'Mono']" 
@@ -304,6 +311,7 @@ const showConnectionModal = ref(false)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
 const sourceFilter = ref('Stereo')
+const sourceNumberingStyle = ref('numbers')
 const submittingConnection = ref(false)
 
 // Node counts
@@ -1110,14 +1118,42 @@ async function addGearNode(gear) {
 }
 
 function nextNumberedLabel(baseName) {
-  // Find existing nodes with the same base prefix
-  const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
-  let max = 0
-  props.nodes.forEach(n => {
-    const m = (n.label || '').match(regex)
-    if (m) max = Math.max(max, Number(m[1]))
-  })
-  return `${baseName} (${max + 1})`
+  const useLetters = sourceNumberingStyle.value === 'letters'
+  
+  if (useLetters) {
+    // Find existing nodes with letter suffixes like "DJ LR (A)", "DJ LR (B)", etc.
+    const regex = new RegExp(`^${baseName} \\(([A-Z])\\)$`)
+    const usedLetters = new Set()
+    props.nodes.forEach(n => {
+      const m = (n.label || '').match(regex)
+      if (m) usedLetters.add(m[1])
+    })
+    
+    // Find next available letter
+    for (let i = 0; i < 26; i++) {
+      const letter = String.fromCharCode(65 + i) // A-Z
+      if (!usedLetters.has(letter)) {
+        return `${baseName} (${letter})`
+      }
+    }
+    // Fallback to numbers if we run out of letters
+    const numRegex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
+    let max = 0
+    props.nodes.forEach(n => {
+      const m = (n.label || '').match(numRegex)
+      if (m) max = Math.max(max, Number(m[1]))
+    })
+    return `${baseName} (${max + 1})`
+  } else {
+    // Find existing nodes with the same base prefix using numbers
+    const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
+    let max = 0
+    props.nodes.forEach(n => {
+      const m = (n.label || '').match(regex)
+      if (m) max = Math.max(max, Number(m[1]))
+    })
+    return `${baseName} (${max + 1})`
+  }
 }
 
 async function addSourceNode(preset) {
@@ -1853,6 +1889,40 @@ function exportToPDF() {
   padding: 20px;
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.numbering-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.numbering-label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 14px;
+}
+
+.numbering-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.numbering-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .gear-categories {
