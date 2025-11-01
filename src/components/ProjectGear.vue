@@ -17,14 +17,14 @@
   <div class="tab-navigation">
     <button
       :class="['tab-button', { active: activeTab === 'gear' }]"
-      @click="activeTab = 'gear'"
+      @click="switchTab('gear')"
     >
       <span class="tab-icon">🎛️</span>
       <span class="tab-label">Gear</span>
     </button>
     <button
       :class="['tab-button', { active: activeTab === 'packing' }]"
-      @click="activeTab = 'packing'"
+      @click="switchTab('packing')"
     >
       <span class="tab-icon">🎒</span>
       <span class="tab-label">Packing</span>
@@ -727,7 +727,17 @@ components: {
   ProjectBreadcrumbs,
   PackingTab
 },
-setup() {
+props: {
+  locationId: {
+    type: String,
+    default: null
+  },
+  tab: {
+    type: String,
+    default: null
+  }
+},
+setup(props) {
   const route     = useRoute()
   const router    = useRouter()
   const toast     = useToast()
@@ -797,8 +807,41 @@ setup() {
     return currentProject.value?.id || route.params.id || ''
   })
   
-  // Tab management
-  const activeTab = ref('gear')
+  // Tab management - check route query or props for initial tab
+  const activeTab = ref(props.tab || route.query.tab || 'gear')
+  
+  // Watch for route changes to update active tab
+  watch(() => route.query.tab, (newTab) => {
+    if (newTab === 'packing' || newTab === 'gear') {
+      activeTab.value = newTab
+    }
+  })
+  
+  // Watch props changes (when navigating to /packing route)
+  watch(() => props.tab, (newTab) => {
+    if (newTab === 'packing' || newTab === 'gear') {
+      activeTab.value = newTab
+    }
+  })
+  
+  // Function to handle tab click - update route
+  function switchTab(tab) {
+    activeTab.value = tab
+    // Update route to reflect tab change
+    if (tab === 'packing') {
+      router.push({ 
+        name: 'ProjectPacking', 
+        params: { id: route.params.id },
+        query: { ...route.query }
+      })
+    } else {
+      router.push({ 
+        name: 'ProjectGear', 
+        params: { id: route.params.id },
+        query: { ...route.query, tab: tab === 'gear' ? undefined : tab }
+      })
+    }
+  }
   
   // Separate filters for accessories
   const filterAccessoriesLocationId = ref(route.query.locationId || 'all')
@@ -1695,6 +1738,7 @@ setup() {
     filteredMainGearList,
     filteredAccessoriesList,
     activeTab,
+    switchTab,
     filterAccessoriesLocationId,
     sortAccessoriesBy,
     confirmDelete,

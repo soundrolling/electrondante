@@ -98,7 +98,8 @@ const routes = [
   { path: '/projects/:id/expenses/:tripId',          name: 'Expenses',        component: Expenses,        props: true },
 
   // Gear, Contacts, Settings
-  { path: '/projects/:id/gear',      name: 'ProjectGear',     component: ProjectGear,     props: r => ({ locationId: r.query.locationId }) },
+  { path: '/projects/:id/gear',      name: 'ProjectGear',     component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: r.query.tab }) },
+  { path: '/projects/:id/packing',    name: 'ProjectPacking',  component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: 'packing' }) },
   { path: '/projects/:id/contacts',  name: 'ProjectContacts', component: ProjectContacts, props: true },
   { path: '/projects/:id/settings',  name: 'ProjectSettings', component: ProjectSettings, props: true },
 
