@@ -153,8 +153,9 @@
                     v-for="gear in availableProjectGear" 
                     :key="'pg-' + gear.id"
                     :value="JSON.stringify({ type: 'gear', gear })"
+                    :disabled="getGearAvailable(gear.id) <= 0"
                   >
-                    {{ gear.gear_name }} ({{ gear.gear_type }}) - Total: {{ gear.gear_amount || 0 }}
+                    {{ gear.gear_name }} ({{ gear.gear_type }}) - Total: {{ gear.gear_amount || 0 }}, In Bags: {{ getGearInBags(gear.id) }}, Available: {{ getGearAvailable(gear.id) }}
                   </option>
                 </select>
                 <input 
@@ -191,13 +192,22 @@
                     <p class="item-quantity">Quantity: {{ item.quantity }}</p>
                     <p v-if="item.notes" class="item-notes">{{ item.notes }}</p>
                   </div>
-                  <button 
-                    class="btn btn-danger btn-sm" 
-                    @click="removeItemFromBag(item.id)"
-                    title="Remove"
-                  >
-                    🗑️
-                  </button>
+                  <div class="item-actions">
+                    <button 
+                      class="btn btn-info btn-sm" 
+                      @click="openChangeBagModal(item)"
+                      title="Change Bag"
+                    >
+                      <span class="btn-icon">🔄</span>
+                    </button>
+                    <button 
+                      class="btn btn-danger btn-sm remove-btn" 
+                      @click="removeItemFromBag(item.id)"
+                      title="Remove"
+                    >
+                      <span class="remove-icon">🗑️</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -205,6 +215,45 @@
         </div>
         <div class="modal-actions">
           <button class="btn btn-secondary" @click="closeBagItemsModal">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change Bag Modal -->
+    <div v-if="showChangeBagModal" class="modal-overlay" @click="closeChangeBagModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3>Move Item to Another Bag</h3>
+          <button class="modal-close" @click="closeChangeBagModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="itemToMove" class="item-preview">
+            <p><strong>{{ itemToMove.gear_name }}</strong></p>
+            <p>Current Quantity: {{ itemToMove.quantity }}</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Select Destination Bag</label>
+            <select v-model="selectedDestinationBag" class="form-select">
+              <option value="">Choose a bag...</option>
+              <option 
+                v-for="bag in availableBagsForMove" 
+                :key="bag.id"
+                :value="bag.id"
+              >
+                {{ bag.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="closeChangeBagModal">Cancel</button>
+          <button 
+            class="btn btn-positive" 
+            @click="moveItemToBag"
+            :disabled="!selectedDestinationBag"
+          >
+            Move Item
+          </button>
         </div>
       </div>
     </div>
@@ -257,6 +306,16 @@ const gearQuantityToAdd = ref(1)
 const availableProjectGear = ref([])
 const availableUserGear = ref([])
 const locationsList = ref([])
+const gearAssignedCounts = ref({}) // Map of gear_id -> total quantity assigned to bags
+const showChangeBagModal = ref(false)
+const itemToMove = ref(null)
+const selectedDestinationBag = ref('')
+
+const availableBagsForMove = computed(() => {
+  if (!itemToMove.value || !currentBag.value) return []
+  // Return all bags except the current one
+  return bags.value.filter(bag => bag.id !== currentBag.value.id)
+})
 
 const userId = computed(() => userStore.user?.id)
 const currentProject = computed(() => userStore.getCurrentProject)
@@ -312,9 +371,64 @@ async function loadBags() {
 async function loadBagItems(bagId) {
   try {
     bagItems.value = await PackingService.getBagItems(bagId)
+    // Reload assigned counts when viewing a bag
+    await updateGearAssignedCounts()
   } catch (err) {
     toast.error(err.message || 'Failed to load bag items')
   }
+}
+
+async function updateGearAssignedCounts() {
+  try {
+    if (!userId.value) return
+    
+    // Get all bag items for this user's bags
+    const allBagIds = bags.value.map(b => b.id)
+    if (allBagIds.length === 0) {
+      gearAssignedCounts.value = {}
+      return
+    }
+    
+    // Query all gear_bag_items for this user's bags
+    const { data: allItems, error } = await supabase
+      .from('gear_bag_items')
+      .select('gear_id, quantity')
+      .in('bag_id', allBagIds)
+      .not('gear_id', 'is', null)
+    
+    if (error) {
+      console.error('[PackingTab] Error loading assigned counts:', error)
+      gearAssignedCounts.value = {}
+      return
+    }
+    
+    // Sum quantities per gear_id
+    const counts = {}
+    if (allItems) {
+      allItems.forEach(item => {
+        if (item.gear_id) {
+          counts[item.gear_id] = (counts[item.gear_id] || 0) + (item.quantity || 0)
+        }
+      })
+    }
+    gearAssignedCounts.value = counts
+    console.log('[PackingTab] Gear assigned counts:', counts)
+  } catch (err) {
+    console.error('[PackingTab] Failed to update assigned counts:', err)
+    gearAssignedCounts.value = {}
+  }
+}
+
+function getGearInBags(gearId) {
+  return gearAssignedCounts.value[gearId] || 0
+}
+
+function getGearAvailable(gearId) {
+  const gear = availableProjectGear.value.find(g => g.id === gearId)
+  if (!gear) return 0
+  const total = gear.gear_amount || 0
+  const inBags = getGearInBags(gearId)
+  return Math.max(0, total - inBags)
 }
 
 async function loadAvailableGear() {
@@ -564,7 +678,62 @@ function viewBag(bag) {
   currentBag.value = bag
   loadBagItems(bag.id)
   loadAvailableGear()
+  updateGearAssignedCounts()
   showBagItemsModal.value = true
+}
+
+function openChangeBagModal(item) {
+  itemToMove.value = item
+  selectedDestinationBag.value = ''
+  showChangeBagModal.value = true
+}
+
+function closeChangeBagModal() {
+  showChangeBagModal.value = false
+  itemToMove.value = null
+  selectedDestinationBag.value = ''
+}
+
+async function moveItemToBag() {
+  if (!itemToMove.value || !selectedDestinationBag.value || !currentBag.value) return
+  
+  try {
+    // Get the destination bag
+    const destBag = bags.value.find(b => b.id === selectedDestinationBag.value)
+    if (!destBag) {
+      toast.error('Destination bag not found')
+      return
+    }
+    
+    // Check if item already exists in destination bag
+    const existingItems = await PackingService.getBagItems(selectedDestinationBag.value)
+    const existingItem = existingItems.find(item => item.gear_id === itemToMove.value.gear_id)
+    
+    if (existingItem) {
+      // Update quantity in destination bag
+      await PackingService.updateBagItem(existingItem.id, {
+        quantity: (existingItem.quantity || 0) + (itemToMove.value.quantity || 0)
+      })
+      // Remove from source bag
+      await PackingService.removeItemFromBag(itemToMove.value.id)
+      toast.success(`Item moved and merged with existing item in "${destBag.name}"`)
+    } else {
+      // Update the bag_id of the item
+      await PackingService.updateBagItem(itemToMove.value.id, {
+        bag_id: selectedDestinationBag.value
+      })
+      toast.success(`Item moved to "${destBag.name}"`)
+    }
+    
+    // Reload items for current bag
+    await loadBagItems(currentBag.value.id)
+    await updateGearAssignedCounts()
+    await loadAvailableGear()
+    closeChangeBagModal()
+  } catch (err) {
+    console.error('Failed to move item:', err)
+    toast.error(err.message || 'Failed to move item')
+  }
 }
 
 function closeBagItemsModal() {
@@ -590,23 +759,31 @@ async function addItemToBag() {
       quantity: gearQuantityToAdd.value
     })
 
-    toast.success(`Added ${gearQuantityToAdd.value} × ${gearName}`)
+    const quantity = gearQuantityToAdd.value
     selectedGearToAdd.value = ''
     gearQuantityToAdd.value = 1
     await loadBagItems(currentBag.value.id)
+    await updateGearAssignedCounts()
+    toast.success(`Added ${quantity} × ${gearName} to bag`)
   } catch (err) {
+    console.error('Failed to add item:', err)
     toast.error(err.message || 'Failed to add item')
   }
 }
 
 async function removeItemFromBag(itemId) {
+  if (!confirm('Remove this item from the bag?')) return
+  
   try {
     await PackingService.removeItemFromBag(itemId)
-    toast.success('Item removed')
     if (currentBag.value) {
       await loadBagItems(currentBag.value.id)
     }
+    await updateGearAssignedCounts()
+    await loadAvailableGear()
+    toast.success('Item removed')
   } catch (err) {
+    console.error('Failed to remove item:', err)
     toast.error(err.message || 'Failed to remove item')
   }
 }
@@ -759,6 +936,7 @@ watch(() => effectiveProjectId.value, async (newProjectId) => {
   if (newProjectId && newProjectId.trim() !== '') {
     console.log('[PackingTab] ProjectId changed, reloading gear:', newProjectId)
     await loadAvailableGear()
+    await updateGearAssignedCounts()
     await fetchLocations()
   }
 }, { immediate: true })
@@ -769,6 +947,7 @@ onMounted(async () => {
   if (projectId && projectId.trim() !== '') {
     console.log('[PackingTab] ProjectId available on mount:', projectId)
     await loadAvailableGear()
+    await updateGearAssignedCounts()
     await fetchLocations()
   } else {
     console.log('[PackingTab] No projectId on mount, will wait for prop/route update')
@@ -1305,6 +1484,34 @@ onMounted(async () => {
   .bags-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* Item Actions */
+.item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.remove-btn .remove-icon {
+  filter: brightness(0) invert(1);
+  font-size: 16px;
+}
+
+.item-preview {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.item-preview p {
+  margin: 4px 0;
+  color: #1a1a1a;
+}
+
+.item-preview strong {
+  font-size: 16px;
 }
 </style>
 

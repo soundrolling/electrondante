@@ -270,7 +270,7 @@ export class PackingService {
   /**
    * Update a bag item
    * @param {string} itemId - Item ID
-   * @param {Object} itemData - Updated item data { gear_name?, quantity?, notes? }
+   * @param {Object} itemData - Updated item data { gear_name?, quantity?, notes?, bag_id? }
    * @returns {Promise<Object>} Updated item
    */
   static async updateBagItem(itemId, itemData) {
@@ -279,6 +279,7 @@ export class PackingService {
       if (itemData.gear_name !== undefined) updateData.gear_name = itemData.gear_name;
       if (itemData.quantity !== undefined) updateData.quantity = itemData.quantity;
       if (itemData.notes !== undefined) updateData.notes = itemData.notes || null;
+      if (itemData.bag_id !== undefined) updateData.bag_id = itemData.bag_id;
       
       const { data, error } = await supabase
         .from('gear_bag_items')
