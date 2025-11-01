@@ -215,7 +215,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useToast }                         from 'vue-toastification'
 import Swal                                 from 'sweetalert2'
 import jsPDF                                from 'jspdf'
@@ -243,8 +243,53 @@ export default {
     // Data & state
     const schedules   = ref([])
     const groupedDays = ref([])
-    const idx         = ref(0)
-    const sortOrder   = ref('asc')
+    
+    // Persistence keys - function to get keys for current location
+    const getStorageKeys = (locationId) => {
+      const prefix = `ln_schedule_${locationId}_`
+      return {
+        prefix,
+        idx: prefix + 'idx',
+        sort: prefix + 'sortOrder'
+      }
+    }
+    
+    // Load persisted values or defaults
+    const loadPersistedValues = (locationId) => {
+      const keys = getStorageKeys(locationId)
+      try {
+        const savedIdx = localStorage.getItem(keys.idx)
+        if (savedIdx !== null) {
+          const parsed = parseInt(savedIdx, 10)
+          if (!isNaN(parsed)) {
+            return { 
+              idx: parsed, 
+              sortOrder: localStorage.getItem(keys.sort) || 'asc' 
+            }
+          }
+        }
+      } catch {}
+      return { idx: 0, sortOrder: 'asc' }
+    }
+    
+    const persisted = loadPersistedValues(props.locationId)
+    const idx = ref(persisted.idx)
+    const sortOrder = ref(persisted.sortOrder)
+    
+    // Watch and persist changes
+    watch(idx, (newIdx) => {
+      const keys = getStorageKeys(props.locationId)
+      try {
+        localStorage.setItem(keys.idx, String(newIdx))
+      } catch {}
+    })
+    
+    watch(sortOrder, (newSort) => {
+      const keys = getStorageKeys(props.locationId)
+      try {
+        localStorage.setItem(keys.sort, newSort)
+      } catch {}
+    })
 
     // Form state
     const showForm = ref(false)
@@ -323,7 +368,15 @@ export default {
         groups.push({ id: 'unassigned', label: 'Unassigned', events: unassigned })
       }
       groupedDays.value = groups
-      idx.value = Math.max(0, 0)
+      // Restore persisted index if valid, otherwise use 0
+      const keys = getStorageKeys(props.locationId)
+      const savedIdx = parseInt(localStorage.getItem(keys.idx) || '0', 10)
+      if (!isNaN(savedIdx) && savedIdx >= 0 && savedIdx < groups.length) {
+        idx.value = savedIdx
+      } else {
+        idx.value = 0
+        localStorage.setItem(keys.idx, '0')
+      }
     }
 
     const day  = computed(() => groupedDays.value[idx.value] || { id:null, label:null, events:[] })
@@ -601,9 +654,27 @@ export default {
       }
     }
 
+    // Watch for location changes to reload data and reset persisted index
+    watch(() => props.locationId, async (newLocationId, oldLocationId) => {
+      if (newLocationId && newLocationId !== oldLocationId) {
+        // Reload persisted values for the new location
+        const newPersisted = loadPersistedValues(newLocationId)
+        sortOrder.value = newPersisted.sortOrder
+        await fetchAll()
+        // fetchAll will restore the correct idx, but ensure it's valid
+        if (idx.value >= groupedDays.value.length) {
+          idx.value = Math.max(0, groupedDays.value.length - 1)
+        }
+      }
+    })
+
     onMounted(async () => {
       await fetchAll()
       await loadNotificationSettings()
+      // Ensure idx is within valid range after data loads
+      if (idx.value >= groupedDays.value.length) {
+        idx.value = Math.max(0, groupedDays.value.length - 1)
+      }
     })
 
     const exposed = {
@@ -717,6 +788,20 @@ background: var(--color-success-600);
 .btn.btn-warning:hover { background-color: var(--color-warning-600) !important; }
 .btn.btn-warning:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
 
+.btn.btn-danger {
+  background-color: var(--color-error-500) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-error-600) !important;
+  font-weight: 700;
+}
+.btn.btn-danger:hover { background-color: var(--color-error-600) !important; }
+.btn.btn-danger:focus { outline: 3px solid rgba(239,68,68,.35); outline-offset: 2px; }
+.btn.btn-danger svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
+
 /* date nav */
 .nav-btn {
   width: 40px; height: 40px;
@@ -811,7 +896,13 @@ transition: background .2s;
 .icon.edit:hover { background: var(--color-warning-600); }
 .icon.delete { background: var(--color-error-500); color: var(--text-inverse); }
 .icon.delete:hover { background: var(--color-error-600); }
-.icon-svg { width: 32px; height: 32px; color: var(--text-inverse); }
+.icon-svg { 
+  width: 32px; 
+  height: 32px; 
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 .empty-text {
 text-align: center;
@@ -1031,6 +1122,13 @@ cursor: default;
 }
 .btn.btn-primary:hover { background-color: var(--color-primary-700) !important; }
 .btn.btn-primary:focus { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
+.btn.btn-primary svg,
+.btn.btn-primary .filter-icon,
+.btn.btn-primary .alert-icon {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 /* Filter Toggle Button */
 .filter-toggle-btn {
@@ -1047,6 +1145,8 @@ cursor: default;
 .alert-icon {
   width: 16px;
   height: 16px;
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
 }
 
 /* Alert Toggle Button */

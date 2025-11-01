@@ -347,6 +347,10 @@ watch(() => props.locationId, async (newLocationId, oldLocationId) => {
   if (newLocationId && newLocationId !== oldLocationId) {
     console.log(`[LNTabNotes] Location changed from ${oldLocationId} to ${newLocationId}`);
     hasLoaded.value = false;
+    // Reload persisted values for the new location
+    const newPersisted = loadPersistedValues(newLocationId);
+    sortKey.value = newPersisted.sortKey;
+    recordingDayFilter.value = newPersisted.recordingDayFilter;
     await ensureDataPersistence();
     await loadPills();
     await loadStageHours();
@@ -360,7 +364,49 @@ const userStore = useUserStore();
 const notes = ref([]);
 const pills = ref([]);
 const stageHours = ref([]);
-const sortKey = ref('desc');
+
+// Persistence helper functions
+function getStorageKeys(locationId) {
+  const prefix = `ln_notes_${locationId}_`;
+  return {
+    prefix,
+    sort: prefix + 'sortKey',
+    recordingDay: prefix + 'recordingDayFilter'
+  };
+}
+
+// Load persisted values or defaults
+function loadPersistedValues(locationId) {
+  const keys = getStorageKeys(locationId);
+  try {
+    return {
+      sortKey: localStorage.getItem(keys.sort) || 'desc',
+      recordingDayFilter: localStorage.getItem(keys.recordingDay) || 'all'
+    };
+  } catch {
+    return { sortKey: 'desc', recordingDayFilter: 'all' };
+  }
+}
+
+const persisted = loadPersistedValues(props.locationId);
+const sortKey = ref(persisted.sortKey);
+const recordingDayFilter = ref(persisted.recordingDayFilter);
+
+// Watch and persist changes
+watch(sortKey, (newSort) => {
+  const keys = getStorageKeys(props.locationId);
+  try {
+    localStorage.setItem(keys.sort, newSort);
+  } catch {}
+});
+
+watch(recordingDayFilter, (newFilter) => {
+  const keys = getStorageKeys(props.locationId);
+  try {
+    localStorage.setItem(keys.recordingDay, newFilter);
+  } catch {}
+});
+
 const editingId = ref(null);
 const draft = ref({ timestamp: '', recording_date: '', note: '', stage_hour_id: null });
 const showForm = ref(false);
@@ -683,7 +729,7 @@ startEdit({
 
 const rangeStart = ref('');
 const rangeEnd = ref('');
-const recordingDayFilter = ref('all');
+// recordingDayFilter is now defined above with persistence
 const showFilters = ref(false);
 function toggleFilters(){ showFilters.value = !showFilters.value }
 function clearRange() {
@@ -1688,6 +1734,23 @@ opacity: 0.6;
   transition: all 0.2s;
   font-size: 18px;
   margin: 0 1px;
+  color: var(--text-inverse) !important;
+}
+.icon-btn.edit {
+  background: var(--color-warning-500) !important;
+  color: var(--text-inverse) !important;
+}
+.icon-btn.edit:hover {
+  background: var(--color-warning-600) !important;
+}
+.icon-btn.del,
+.icon-btn.delete {
+  background: var(--color-error-500) !important;
+  color: var(--text-inverse) !important;
+}
+.icon-btn.del:hover,
+.icon-btn.delete:hover {
+  background: var(--color-error-600) !important;
 }
 .icon-btn:hover {
   transform: translateY(-1px);
@@ -1903,6 +1966,14 @@ opacity: 0.6;
 .icon-btn.info:hover {
   background: var(--color-primary-700);
 }
+.icon-btn {
+  color: var(--text-inverse) !important;
+}
+.icon-btn svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 .export-filename-input {
   padding: 6px;
@@ -1958,6 +2029,11 @@ opacity: 0.6;
   outline: 3px solid rgba(29, 78, 216, 0.35);
   outline-offset: 2px;
 }
+.btn.btn-primary svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 /* High-contrast positive and warning buttons (New Note, Export, Save) */
 .btn.btn-positive {
@@ -1968,6 +2044,11 @@ opacity: 0.6;
 }
 .btn.btn-positive:hover { background-color: var(--color-success-700) !important; }
 .btn.btn-positive:focus { outline: 3px solid rgba(4,120,87,.35); outline-offset: 2px; }
+.btn.btn-positive svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 .btn.btn-warning {
   background-color: var(--color-warning-500) !important;
@@ -1977,6 +2058,25 @@ opacity: 0.6;
 }
 .btn.btn-warning:hover { background-color: var(--color-warning-600) !important; }
 .btn.btn-warning:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
+
+.btn.btn-danger {
+  background-color: var(--color-error-500) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-error-600) !important;
+  font-weight: 700;
+}
+.btn.btn-danger:hover { background-color: var(--color-error-600) !important; }
+.btn.btn-danger:focus { outline: 3px solid rgba(239,68,68,.35); outline-offset: 2px; }
+.btn.btn-danger svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
+.btn.btn-warning svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 /* Stage Hours Button */
 .stage-hours-btn {

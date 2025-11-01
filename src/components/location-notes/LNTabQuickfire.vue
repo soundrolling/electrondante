@@ -318,17 +318,35 @@ background: var(--color-success-600);
   border: 2px solid var(--color-success-700) !important;
   font-weight: 700;
 }
+.btn.btn-positive svg,
+.btn.btn-positive .icon-svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 .btn.btn-warning {
   background-color: var(--color-warning-500) !important;
   color: var(--text-inverse) !important;
   border: 2px solid var(--color-warning-600) !important;
   font-weight: 700;
 }
+.btn.btn-warning svg,
+.btn.btn-warning .icon-svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 .btn.btn-danger {
   background-color: var(--color-error-500) !important;
   color: var(--text-inverse) !important;
   border: 2px solid var(--color-error-600) !important;
   font-weight: 700;
+}
+.btn.btn-danger svg,
+.btn.btn-danger .icon-svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
 }
 /* modal */
 .modal-overlay {
