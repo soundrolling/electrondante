@@ -717,36 +717,64 @@ export default {
 
 /* Dark mode styling for action buttons */
 .dark .action-button {
-  background: var(--color-primary-700);
-  border: 1px solid var(--color-primary-600);
-  color: var(--text-inverse) !important;
+  background: var(--color-primary-700) !important;
+  border: 1px solid var(--color-primary-600) !important;
+  color: #ffffff !important;
 }
 
 .dark .action-button:hover {
-  background: var(--color-primary-600);
-  border-color: var(--color-primary-500);
+  background: var(--color-primary-600) !important;
+  border-color: var(--color-primary-500) !important;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  color: #ffffff !important;
 }
 
 .dark .action-button:active {
-  background: var(--color-primary-800);
+  background: var(--color-primary-800) !important;
+  color: #ffffff !important;
 }
 
-.dark .action-button.primary {
-  background: var(--color-primary-700);
-  color: var(--text-inverse) !important;
-  border-color: var(--color-primary-600);
+.dark .action-button.primary,
+.dark .btn-primary.action-button {
+  background: var(--color-primary-700) !important;
+  color: #ffffff !important;
+  border-color: var(--color-primary-600) !important;
 }
 
-.dark .action-button.primary:hover {
-  background: var(--color-primary-600);
+.dark .action-button.primary:hover,
+.dark .btn-primary.action-button:hover {
+  background: var(--color-primary-600) !important;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  color: #ffffff !important;
+}
+
+.dark .btn-positive.action-button {
+  background: var(--color-success-700) !important;
+  color: #ffffff !important;
+  border-color: var(--color-success-600) !important;
+}
+
+.dark .btn-positive.action-button:hover {
+  background: var(--color-success-600) !important;
+  color: #ffffff !important;
+}
+
+.dark .btn-warning.action-button {
+  background: var(--color-warning-700) !important;
+  color: #ffffff !important;
+  border-color: var(--color-warning-600) !important;
+}
+
+.dark .btn-warning.action-button:hover {
+  background: var(--color-warning-600) !important;
+  color: #ffffff !important;
 }
 
 /* Ensure icon/label use white text in dark mode */
 .dark .action-button .action-icon,
-.dark .action-button .action-label {
-  color: var(--text-inverse) !important;
+.dark .action-button .action-label,
+.dark .action-button * {
+  color: #ffffff !important;
 }
 
 .action-icon {
