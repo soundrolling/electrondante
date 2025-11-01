@@ -81,7 +81,7 @@
             <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
               <span>{{ getFromPortDisplayForEdit(mapping.from_port) }}</span>
               <span class="arrow">→</span>
-              <span>{{ toNodeOfSelected?.label }} {{ toNodeType === 'recorder' ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
+              <span>{{ toNodeType === 'recorder' ? (traceRecorderTrackInput(toNodeOfSelected?.id, mapping.to_port) || `${toNodeOfSelected?.label} Track ${mapping.to_port}`) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
               <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
             </div>
             <div class="port-mapping-add-edit">
@@ -659,6 +659,38 @@ async function buildUpstreamLabelsForEdit() {
   } catch {}
 }
 
+// Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
+function traceRecorderTrackInput(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  const trackConn = props.connections.find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back to get the source label
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source is another recorder
+  const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
+  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase() : ''
+  
+  if (sourceType === 'recorder') {
+    // Source is another recorder - recursively trace from that recorder's output
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackInput(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
+  const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
+  return sourceLabel
+}
+
 const availableToPortsForEdit = computed(() => {
   const used = new Set(editPortMappings.value.map(m => m.to_port).filter(Boolean))
   const to = toNodeOfSelected.value
@@ -675,7 +707,12 @@ const availableToPortsForEdit = computed(() => {
         (c.to_node_id === to?.id || c.to === to?.id) &&
         (c.track_number === n || c.input_number === n)
       )
-      if (!taken) opts.push({ value: n, label: `Track ${n}` })
+      if (!taken) {
+        // Trace what input is assigned to this track to show as the track name (like transformers)
+        const assignedInput = traceRecorderTrackInput(to?.id, n)
+        const label = assignedInput || `Track ${n}`
+        opts.push({ value: n, label })
+      }
     }
   } else {
     const count = to?.num_inputs || to?.numinputs || to?.inputs || 0

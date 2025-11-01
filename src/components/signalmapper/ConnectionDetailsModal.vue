@@ -72,7 +72,7 @@
                 <!-- Display mode -->
                 <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
-                <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
+                <span>{{ isRecorderTo ? (traceRecorderTrackInputForModal(props.toNode.id, mapping.to_port) || `Track ${mapping.to_port}`) : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
                 <button type="button" class="btn-remove" @click="removePortMapping(mapping._idx)">×</button>
               </template>
@@ -623,6 +623,44 @@ const availableFromPorts = computed(() => {
   return opts
 })
 
+// Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
+function traceRecorderTrackInputForModal(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  const trackConn = (props.existingConnections || []).find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back to get the source label (same logic as traceRecorderTrackNameForModal but for "To" side)
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source node is another recorder (similar logic to traceRecorderTrackNameForModal)
+  const isSourceRecorder = (props.existingConnections || []).some(c =>
+    (c.to_node_id === sourceNodeId || c.to === sourceNodeId) && c.track_number
+  )
+  
+  // Also check if it's the fromNode or toNode in this modal
+  const isFromNodeRecorder = props.fromNode && (props.fromNode.id === sourceNodeId) && 
+                              (getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+  const isToNodeRecorder = props.toNode && (props.toNode.id === sourceNodeId) && 
+                            (getType(props.toNode) === 'recorder' || hasTracks(props.toNode))
+  
+  if (isSourceRecorder || isFromNodeRecorder || isToNodeRecorder) {
+    // Source is another recorder - recursively trace from that recorder's output
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackInputForModal(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use getLRAwareSourceLabel
+  return getLRAwareSourceLabel(trackConn, visitedNodes)
+}
+
 const availableToPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.to_port).filter(Boolean))
   const opts = []
@@ -635,7 +673,12 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
         )
-        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Track ${n}` })
+        if (!taken && !takenToPorts.value.has(n)) {
+          // Trace what input is assigned to this track to show as the track name (like transformers)
+          const assignedInput = traceRecorderTrackInputForModal(props.toNode.id, n)
+          const label = assignedInput || `Track ${n}`
+          opts.push({ value: n, label })
+        }
       }
     }
   } else {
