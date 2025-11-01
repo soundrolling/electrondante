@@ -758,12 +758,17 @@ color: var(--text-secondary);
 }
 .btn-add {
 background: var(--color-success-500);
-color: var(--text-inverse);
+color: var(--text-inverse) !important;
 padding: 8px 16px;
 border: none;
 border-radius: 6px;
 cursor: pointer;
 transition: background .2s;
+font-weight: 700;
+}
+.btn-add,
+.btn-add * {
+  color: var(--text-inverse) !important;
 }
 .btn-add:hover {
 background: var(--color-success-600);
@@ -1129,6 +1134,10 @@ cursor: default;
   fill: var(--text-inverse) !important;
   stroke: var(--text-inverse) !important;
 }
+.btn.btn-primary,
+.btn.btn-primary * {
+  color: var(--text-inverse) !important;
+}
 
 /* Filter Toggle Button */
 .filter-toggle-btn {
@@ -1136,6 +1145,11 @@ cursor: default;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
+  color: var(--text-inverse) !important;
+}
+.filter-toggle-btn,
+.filter-toggle-btn * {
+  color: var(--text-inverse) !important;
 }
 .filter-toggle-btn.active {
   background-color: var(--color-primary-700) !important;
@@ -1147,6 +1161,7 @@ cursor: default;
   height: 16px;
   color: var(--text-inverse) !important;
   fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
 }
 
 /* Alert Toggle Button */
@@ -1155,6 +1170,11 @@ cursor: default;
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
+  color: var(--text-inverse) !important;
+}
+.alert-toggle-btn,
+.alert-toggle-btn * {
+  color: var(--text-inverse) !important;
 }
 .alert-toggle-btn.active {
   background-color: var(--color-primary-700) !important;
