@@ -2258,6 +2258,13 @@ setup(props) {
   font-weight: 600;
 }
 
+/* Dark mode styling for personal gear badge - dark dark orange */
+.dark .user-gear-badge {
+  background: #92400e;
+  color: var(--text-inverse);
+  border: 1px solid #b45309;
+}
+
 .owner-name {
   color: var(--text-secondary);
   font-size: 14px;
