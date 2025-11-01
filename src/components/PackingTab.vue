@@ -86,11 +86,8 @@
 
     <!-- Create/Edit Bag Modal -->
     <div v-if="showBagModal" class="modal-overlay" @click="closeBagModal">
-      <div class="modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ isEditingBag ? 'Edit Bag' : 'Create Bag' }}</h3>
-          <button class="modal-close" @click="closeBagModal">✕</button>
-        </div>
+      <div class="modal bag-modal" @click.stop>
+        <button class="modal-close-top-right" @click="closeBagModal" aria-label="Close">✕</button>
         <form @submit.prevent="saveBag" class="modal-form">
           <div class="form-group">
             <label class="form-label">Bag Name *</label>
@@ -1522,8 +1519,13 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 24px 24px 0 24px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
   margin-bottom: 0;
+}
+
+/* Hide header for bag modal */
+.bag-modal .modal-header {
+  display: none;
 }
 
 .modal-header h3 {
@@ -1557,6 +1559,41 @@ onMounted(async () => {
 
 .modal-form {
   padding: 24px;
+}
+
+/* Create Bag Modal - hide header, add padding */
+.bag-modal {
+  padding: 24px;
+}
+
+.bag-modal .modal-form {
+  padding: 0;
+}
+
+.modal-close-top-right {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.modal-close-top-right:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -1597,7 +1634,7 @@ onMounted(async () => {
 .form-select {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   font-family: inherit;
@@ -1629,7 +1666,7 @@ onMounted(async () => {
 .form-input[type="file"]::file-selector-button {
   padding: 8px 16px;
   background: var(--bg-secondary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-medium);
   border-radius: 6px;
   color: var(--text-primary);
   cursor: pointer;
@@ -1639,8 +1676,8 @@ onMounted(async () => {
 }
 
 .form-input[type="file"]::file-selector-button:hover {
-  background: #e9ecef;
-  border-color: #dee2e6;
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
 }
 
 /* Button Styles with Proper Contrast */
@@ -1966,43 +2003,59 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 2px solid var(--border-medium);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
 }
 
 .radio-option:hover {
-  border-color: #3b82f6;
-  background: #f8fafc;
+  border-color: var(--color-primary-500);
+  background: var(--bg-tertiary);
 }
 
 .radio-input {
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #3b82f6;
+  accent-color: var(--color-primary-500);
 }
 
 .radio-label {
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .radio-option:has(.radio-input:checked) {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--color-primary-500);
+  background: rgba(59, 130, 246, 0.15);
+}
+
+/* Dark mode styling for radio options */
+.dark .radio-option {
+  background: var(--bg-secondary);
+  border-color: var(--border-medium);
+}
+
+.dark .radio-option:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
+}
+
+.dark .radio-option:has(.radio-input:checked) {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--color-primary-500);
 }
 
 .weight-input-section {
   margin-top: 16px;
   padding: 16px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 </style>
 
