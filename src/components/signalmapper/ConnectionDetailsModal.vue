@@ -4,9 +4,8 @@
     ref="modalRef"
     class="modal-content draggable-modal"
     :style="modalStyle"
-    @mousedown="startDrag"
   >
-    <div class="modal-header">
+    <div class="modal-header" @mousedown="startDrag">
       <h2 class="modal-title">Confirm Connection</h2>
       <button @click="$emit('cancel')" class="close-btn">×</button>
     </div>
@@ -24,9 +23,8 @@
     ref="modalRef"
     class="modal-content draggable-modal"
     :style="modalStyle"
-    @mousedown="startDrag"
   >
-    <div class="modal-header">
+    <div class="modal-header" @mousedown="startDrag">
       <h2 class="modal-title">Create Connection</h2>
       <button @click="$emit('cancel')" class="close-btn">×</button>
     </div>
@@ -221,14 +219,14 @@ const modalStyle = computed(() => ({
 }))
 
 function startDrag(e) {
-  // Don't start drag on interactive elements
+  // Don't start drag on interactive elements (buttons, inputs, etc.)
   if (e.target.closest('button')) return
   if (e.target.closest('input')) return
   if (e.target.closest('select')) return
   if (e.target.closest('textarea')) return
   if (e.target.closest('a')) return
   
-  // Allow dragging from anywhere on the modal
+  // Allow dragging from the header area
   isDragging.value = true
   dragStart.value = {
     x: e.clientX - modalPosition.value.x,
@@ -582,7 +580,11 @@ const availableFromPorts = computed(() => {
     if (used.has(n)) continue
     if (takenFromPorts.value.has(n)) continue
     let label
-    if (isTransformerFrom.value) {
+    if (isRecorderFrom.value) {
+      // For recorders, output port corresponds to track number - use track name
+      label = traceRecorderTrackNameForModal(props.fromNode.id, n)
+      if (!label) label = `Track ${n}`
+    } else if (isTransformerFrom.value) {
       // For transformers, assume 1:1 mapping: output N corresponds to input N
       // Check upstreamSourceLabels which is keyed by input number
       label = upstreamSourceLabels.value[n]
@@ -906,8 +908,33 @@ function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   return src.track_name || src.label || 'Connected'
 }
 
+// Trace track name from recorder output (track number)
+function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  // For recorders, output port number corresponds to track number
+  const trackConn = (props.existingConnections || []).find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back from the source of this connection
+  const sourceLabel = getLRAwareSourceLabel(trackConn, visitedNodes)
+  return sourceLabel
+}
+
 // Fallback port name for 'from' ports
 function getFromPortName(portNum) {
+  if (isRecorderFrom.value) {
+    // For recorders, output port corresponds to track number - use track name
+    const trackName = traceRecorderTrackNameForModal(props.fromNode.id, portNum)
+    if (trackName) return trackName
+    return `Track ${portNum}`
+  }
   if (isTransformerFrom.value) {
     const incoming = (props.existingConnections || []).find(c =>
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
@@ -924,6 +951,12 @@ function getFromPortName(portNum) {
 }
 
 function getFromPortDisplay(portNum) {
+  // For recorders, output port corresponds to track number - use track name
+  if (isRecorderFrom.value) {
+    const trackName = traceRecorderTrackNameForModal(props.fromNode.id, portNum)
+    if (trackName) return trackName
+    return `Track ${portNum}`
+  }
   // Prefer upstream source name for transformer outputs
   if (isTransformerFrom.value) {
     const incoming = (props.existingConnections || []).find(c =>

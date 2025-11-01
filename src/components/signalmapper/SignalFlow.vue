@@ -464,12 +464,43 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   return null
 }
 
+// Trace track name from recorder output (track number)
+function traceRecorderTrackName(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  // For recorders, output port number corresponds to track number
+  const trackConn = props.connections.find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back from the source of this connection
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Trace the source label recursively
+  const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
+  return sourceLabel
+}
+
 function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
   
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  
+  // For recorders, output port corresponds to track number - use track name
+  if (fromType === 'recorder') {
+    const trackName = traceRecorderTrackName(from.id, portNum)
+    if (trackName) return trackName
+    // Fallback to track number if no source found
+    return `Track ${portNum}`
+  }
   
   // Label stereo source ports as L/R
   if (fromType === 'source') {
@@ -534,7 +565,16 @@ const availableFromPortsForEdit = computed(() => {
   for (let n = 1; n <= count; n++) {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
-    if (fromType === 'transformer') {
+    
+    // For recorders, output port corresponds to track number - use track name
+    if (fromType === 'recorder') {
+      const trackName = traceRecorderTrackName(from.id, n)
+      if (trackName) {
+        label = trackName
+      } else {
+        label = `Track ${n}`
+      }
+    } else if (fromType === 'transformer') {
       // Use recursive tracing to get source label
       const sourceLabel = traceSourceLabel(from.id, n)
       if (sourceLabel) {
