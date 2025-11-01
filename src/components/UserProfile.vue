@@ -1,9 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
 
 const store = useUserStore();
+const route = useRoute();
+const router = useRouter();
 
 /* ---------- page‑level state ---------- */
 const loading = ref(false);
@@ -31,13 +34,34 @@ const profile = ref({
 });
 
 /* tabs */
-const activeTab = ref('profile');
 const tabs = [
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'gear', label: 'My Gear', icon: '🎛️' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },
   { id: 'security', label: 'Security', icon: '🔒' }
 ];
+
+// Get active tab from route, default to 'profile'
+const activeTab = computed({
+  get: () => {
+    const tabFromRoute = route.params.tab || 'profile';
+    // Validate tab exists, fallback to 'profile'
+    return tabs.some(t => t.id === tabFromRoute) ? tabFromRoute : 'profile';
+  },
+  set: (newTab) => {
+    if (newTab !== route.params.tab) {
+      router.push(`/profile/${newTab}`);
+    }
+  }
+});
+
+// Watch route changes and redirect if invalid tab
+watch(() => route.params.tab, (newTab) => {
+  if (newTab && !tabs.some(t => t.id === newTab)) {
+    // Invalid tab, redirect to profile
+    router.replace('/profile/profile');
+  }
+});
 
 /* ---------- gear data ---------- */
 const gear = ref([]);
@@ -536,7 +560,7 @@ async function saveSecurity() {
         v-for="tab in tabs"
         :key="tab.id"
         :class="['tab-button', { active: activeTab === tab.id } ]"
-        @click="activeTab = tab.id"
+        @click="router.push(`/profile/${tab.id}`)"
       >
         <span class="tab-icon">{{ tab.icon }}</span>
         <span class="tab-label">{{ tab.label }}</span>
@@ -546,7 +570,7 @@ async function saveSecurity() {
     <!-- Content Area -->
     <div class="content-area">
       <!-- Profile Tab -->
-      <div v-if="activeTab === 'profile'" class="tab-content">
+      <div v-if="activeTab === 'profile'" class="tab-content" key="profile">
         <div class="content-card">
           <h2 class="section-title">Personal Information</h2>
           <form @submit.prevent="saveProfile" class="profile-form">
@@ -636,7 +660,7 @@ async function saveSecurity() {
       </div>
 
       <!-- Gear Tab -->
-      <div v-if="activeTab === 'gear'" class="tab-content">
+      <div v-if="activeTab === 'gear'" class="tab-content" key="gear">
         <div class="content-card">
           <div class="gear-header">
             <div class="gear-header-left">
@@ -755,7 +779,7 @@ async function saveSecurity() {
       </div>
 
       <!-- Preferences Tab -->
-      <div v-if="activeTab === 'preferences'" class="tab-content">
+      <div v-if="activeTab === 'preferences'" class="tab-content" key="preferences">
         <div class="content-card">
           <h2 class="section-title">Preferences</h2>
           <form class="pref-form" @submit.prevent="savePreferences">
@@ -778,7 +802,7 @@ async function saveSecurity() {
       </div>
 
       <!-- Security Tab -->
-      <div v-if="activeTab === 'security'" class="tab-content">
+      <div v-if="activeTab === 'security'" class="tab-content" key="security">
         <div class="content-card">
           <h2 class="section-title">Security</h2>
           <form class="security-form" @submit.prevent="saveSecurity">
@@ -1948,6 +1972,26 @@ async function saveSecurity() {
   border-color: #64748b !important;
 }
 
+.modal-actions .btn-warning {
+  color: #ffffff !important;
+}
+
+.modal-actions .btn-warning:hover,
+.modal-actions .btn-warning:focus {
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
+.modal-actions .btn-positive {
+  color: #ffffff !important;
+}
+
+.modal-actions .btn-positive:hover,
+.modal-actions .btn-positive:focus {
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -2155,5 +2199,18 @@ async function saveSecurity() {
   background: #f8f9fa !important;
   color: #000000 !important;
   border-color: #000000 !important;
+}
+
+/* Gear tab Add Gear button - white text for contrast */
+.gear-header .btn-positive,
+.empty-state .btn-positive {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.gear-header .btn-positive:hover,
+.empty-state .btn-positive:hover {
+  color: #ffffff !important;
+  opacity: 0.9;
 }
 </style>

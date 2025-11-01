@@ -55,7 +55,8 @@ const routes = [
 
   // Top-level
   { path: '/projects', name: 'Projects',    component: Projects },
-  { path: '/profile',  name: 'UserProfile', component: UserProfile },
+  { path: '/profile', redirect: '/profile/profile' },
+  { path: '/profile/:tab', name: 'UserProfile', component: UserProfile, props: true },
 
   // Project hierarchy
   { path: '/projects/:id',            name: 'ProjectDetail',    component: ProjectDetail,     props: true },
