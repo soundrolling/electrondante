@@ -488,6 +488,20 @@ onMounted(() => {
   border-color: var(--color-primary-500);
 }
 
+/* Sign Out and Clear Cache buttons - dark red styling */
+.footer .btn-danger-light {
+  background-color: var(--color-error-600) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-error-700) !important;
+  font-weight: var(--font-semibold);
+}
+
+.footer .btn-danger-light:hover {
+  background-color: var(--color-error-700) !important;
+  border-color: var(--color-error-800) !important;
+  color: var(--text-inverse) !important;
+}
+
 .btn:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
