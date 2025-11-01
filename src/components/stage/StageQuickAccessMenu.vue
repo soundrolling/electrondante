@@ -548,6 +548,15 @@ animation: pulse 2s infinite;
 background: var(--color-primary-700);
 }
 
+/* Dark mode status dot colors */
+.dark .live-status-indicator.live .status-dot {
+  background: var(--text-inverse);
+}
+
+.dark .live-status-indicator.scheduled .status-dot {
+  background: var(--text-inverse);
+}
+
 .hours-list {
 display: flex;
 flex-direction: column;
