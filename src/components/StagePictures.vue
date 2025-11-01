@@ -942,9 +942,10 @@ watch(() => route.query.stageId, async (newVal) => {
   align-items: flex-start;
   margin-bottom: 18px;
   padding: 12px 14px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 10px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+  border: 1px solid var(--border-light);
 }
 
 .header-content {
@@ -992,14 +993,14 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .btn-secondary {
-  background: #f3f4f6;
-  color: var(--text-secondary);
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-tertiary);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .btn-outline {
@@ -1039,13 +1040,13 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .upload-area {
   position: relative;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--border-medium);
   border-radius: 12px;
   padding: 48px 24px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--bg-primary);
 }
 
 .upload-area:hover {
@@ -1122,10 +1123,11 @@ watch(() => route.query.stageId, async (newVal) => {
 /* Selected Files */
 .selected-files {
   margin-top: 24px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .selected-files-title {
@@ -1146,9 +1148,9 @@ watch(() => route.query.stageId, async (newVal) => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
 }
 
 .file-preview {
@@ -1238,16 +1240,17 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .skeleton-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .skeleton-image {
   width: 100%;
   height: 200px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -1262,7 +1265,7 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .skeleton-line {
   height: 12px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 4px;
@@ -1288,9 +1291,10 @@ watch(() => route.query.stageId, async (newVal) => {
   align-items: center;
   margin-bottom: 14px;
   padding: 10px 12px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 10px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+  border: 1px solid var(--border-light);
 }
 
 .images-title {
@@ -1315,8 +1319,8 @@ watch(() => route.query.stageId, async (newVal) => {
 
 /* Image Card */
 .card {
-  background: #fff;
-  border: 2px solid #ddd;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-medium);
   border-radius: 16px;
   padding: 16px 16px 0 16px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.07);
@@ -1383,13 +1387,13 @@ watch(() => route.query.stageId, async (newVal) => {
   border-radius: 0 0 12px 12px;
   padding: 6px 8px 0 8px;
   margin: 0;
-  border-top: 1px solid #f1f1f1;
+  border-top: 1px solid var(--border-light);
 }
 .card-action-btn {
   flex: 1 1 0;
-  background: #f3f4f6;
-  color: var(--text-secondary);
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 7px;
   padding: 8px 0;
   font-size: 16px;
@@ -1405,7 +1409,7 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 .card-action-btn:hover {
   background: var(--bg-tertiary);
-  border-color: #b6bbc6;
+  border-color: var(--border-medium);
 }
 .card-action-btn--delete {
   background: #dc2626;
@@ -1431,8 +1435,8 @@ watch(() => route.query.stageId, async (newVal) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fff;
-  border: 1.5px solid #d1d5db;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border-medium);
   border-radius: 10px;
   padding: 10px 12px;
   position: absolute;
@@ -1444,9 +1448,11 @@ watch(() => route.query.stageId, async (newVal) => {
 .move-stage-dropdown {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--border-medium);
   font-size: 1rem;
   min-width: 120px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 .move-stage-cancel {
   background: none;
@@ -1472,9 +1478,9 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .order-btn {
-  background: #f3f4f6;
-  color: var(--text-secondary);
-  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 4px;
   width: 28px;
   height: 28px;
@@ -1488,6 +1494,7 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .order-btn:hover:not(:disabled) {
   background: var(--bg-tertiary);
+  border-color: var(--border-medium);
 }
 
 .order-btn:disabled {
@@ -1507,12 +1514,14 @@ watch(() => route.query.stageId, async (newVal) => {
 .textarea-field {
   width: 100%;
   padding: 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 14px;
   transition: border-color 0.2s ease;
   box-sizing: border-box;
   margin-bottom: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .input-field:focus,
@@ -1532,9 +1541,10 @@ watch(() => route.query.stageId, async (newVal) => {
 .empty-state {
   text-align: center;
   padding: 64px 24px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .empty-icon {
@@ -1683,7 +1693,8 @@ watch(() => route.query.stageId, async (newVal) => {
   transform: translateX(-50%);
   display: flex;
   gap: 10px;
-  background: rgba(255,255,255,0.95);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 8px 16px;
@@ -1702,14 +1713,14 @@ watch(() => route.query.stageId, async (newVal) => {
 .image-tile {
   display: inline-flex;
   align-items: center;
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   border-radius: 16px;
   padding: 2px 10px;
   font-size: 12px;
   font-weight: 500;
   box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   min-width: 0;
 }
 </style>

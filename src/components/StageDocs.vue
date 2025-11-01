@@ -669,7 +669,7 @@ function printPreview() {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -751,9 +751,10 @@ function printPreview() {
 .loading-indicator {
   text-align: center;
   padding: 24px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .project-header {
@@ -774,9 +775,10 @@ function printPreview() {
   align-items: flex-start;
   margin-bottom: 32px;
   padding: 24px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .header-content {
@@ -886,28 +888,28 @@ function printPreview() {
 
 .upload-area {
   position: relative;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--border-medium);
   border-radius: 12px;
   padding: 48px 24px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--bg-primary);
 }
 
 .upload-area:hover {
-  border-color: #3b82f6;
-  background: #f8fafc;
+  border-color: var(--color-primary-500);
+  background: var(--bg-secondary);
 }
 
 .upload-area--dragover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--color-primary-500);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .upload-area--uploading {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: var(--color-success-500);
+  background: rgba(34, 197, 94, 0.1);
   cursor: not-allowed;
 }
 
@@ -954,7 +956,7 @@ function printPreview() {
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -962,7 +964,7 @@ function printPreview() {
 
 .progress-fill {
   height: 100%;
-  background: #10b981;
+  background: var(--color-success-500);
   transition: width 0.3s ease;
 }
 
@@ -975,10 +977,11 @@ function printPreview() {
 /* Selected Files */
 .selected-files {
   margin-top: 24px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .selected-files-title {
@@ -999,9 +1002,9 @@ function printPreview() {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
 }
 
 .file-icon {
@@ -1064,10 +1067,11 @@ function printPreview() {
 }
 
 .docs-count-container {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .docs-count-title {
@@ -1083,10 +1087,11 @@ function printPreview() {
 }
 
 .search-container {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .search-input {
@@ -1096,6 +1101,8 @@ function printPreview() {
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 0.2s ease;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .search-input:focus {
@@ -1116,16 +1123,17 @@ function printPreview() {
 }
 
 .skeleton-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .skeleton-icon {
   width: 48px;
   height: 48px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -1140,7 +1148,7 @@ function printPreview() {
 
 .skeleton-line {
   height: 12px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 4px;
@@ -1175,8 +1183,8 @@ function printPreview() {
 
 /* Document Card */
 .doc-card {
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1221,7 +1229,7 @@ function printPreview() {
 }
 
 .doc-link {
-  color: #3b82f6;
+  color: var(--text-link);
   text-decoration: none;
   font-weight: 500;
   font-size: 16px;
@@ -1257,9 +1265,9 @@ function printPreview() {
 }
 
 .action-btn:hover {
-  background: #e5e7eb;
-  color: #111827 !important;
-  border-color: #9ca3af;
+  background: var(--bg-tertiary);
+  color: var(--text-primary) !important;
+  border-color: var(--border-medium);
   transform: scale(1.05);
 }
 
@@ -1293,19 +1301,20 @@ function printPreview() {
   gap: 8px;
   margin-bottom: 16px;
   padding: 12px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 8px;
+  border: 1px solid var(--border-light);
 }
 
 .reorder-title {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .order-btn {
-  background: #f3f4f6;
-  color: #000000 !important;
+  background: var(--bg-secondary);
+  color: var(--text-primary) !important;
   border: 1px solid var(--border-medium);
   border-radius: 4px;
   width: 28px;
@@ -1320,9 +1329,9 @@ function printPreview() {
 }
 
 .order-btn:hover:not(:disabled) {
-  background: #d1d5db;
-  color: #000000 !important;
-  border-color: #9ca3af;
+  background: var(--bg-tertiary);
+  color: var(--text-primary) !important;
+  border-color: var(--border-medium);
 }
 
 .order-btn:disabled {
@@ -1353,7 +1362,7 @@ function printPreview() {
 .description-text {
   flex: 1;
   margin: 0;
-  color: #374151;
+  color: var(--text-primary);
   line-height: 1.5;
   min-height: 20px;
 }
@@ -1367,10 +1376,11 @@ function printPreview() {
   border-radius: 4px;
   transition: background 0.2s ease;
   flex-shrink: 0;
+  color: var(--text-primary);
 }
 
 .icon-button:hover {
-  background: #f3f4f6;
+  background: var(--bg-secondary);
 }
 
 .description-edit {
@@ -1389,6 +1399,8 @@ function printPreview() {
   font-family: inherit;
   resize: vertical;
   transition: border-color 0.2s ease;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .textarea-edit:focus {
@@ -1407,9 +1419,10 @@ function printPreview() {
 .empty-state {
   text-align: center;
   padding: 64px 24px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 .empty-icon {
@@ -1506,7 +1519,7 @@ function printPreview() {
   justify-content: center;
 }
 .preview-modal {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 12px;
   max-width: 90vw;
   max-height: 90vh;
@@ -1515,13 +1528,20 @@ function printPreview() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid var(--border-medium);
 }
 .preview-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-light);
+}
+.preview-modal-header .preview-modal-title {
+  color: var(--text-primary);
+}
+.preview-modal-close {
+  color: var(--text-primary);
 }
 .preview-modal-title {
   font-size: 1.1rem;
@@ -1545,7 +1565,7 @@ function printPreview() {
 .preview-modal-body {
   flex: 1;
   padding: 0;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1554,7 +1574,7 @@ function printPreview() {
   width: 100%;
   height: 70vh;
   border: none;
-  background: #fff;
+  background: var(--bg-primary);
 }
 .preview-unsupported {
   padding: 32px;
@@ -1566,7 +1586,7 @@ function printPreview() {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-secondary);
 }
 </style>
