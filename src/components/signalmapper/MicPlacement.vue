@@ -165,7 +165,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
-import { addNode, updateNode, deleteNode } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -990,16 +990,58 @@ async function saveMicUpdate(mic) {
   }
 }
 
+async function cascadeDeleteNode(nodeId) {
+  // Fetch all connections for this project
+  const allConnections = await getConnections(props.projectId)
+  
+  // Find all connections FROM this node (outgoing)
+  const outgoingConns = allConnections.filter(c => c.from_node_id === nodeId)
+  
+  // Find all connections TO this node (incoming)
+  const incomingConns = allConnections.filter(c => c.to_node_id === nodeId)
+
+  // Delete all port mappings for these connections
+  const allConnIds = [...outgoingConns.map(c => c.id), ...incomingConns.map(c => c.id)]
+  if (allConnIds.length > 0) {
+    try {
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .in('connection_id', allConnIds)
+    } catch (err) {
+      console.error('Error deleting port mappings:', err)
+    }
+  }
+
+  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
+  for (const conn of [...outgoingConns, ...incomingConns]) {
+    try {
+      await deleteConnectionFromDB(conn.id)
+    } catch (err) {
+      console.error('Error deleting connection:', err)
+    }
+  }
+
+  // Finally, delete the node itself
+  try {
+    await deleteNode(nodeId)
+    emit('node-deleted', nodeId)
+  } catch (err) {
+    console.error('Error deleting node:', err)
+    throw err
+  }
+}
+
 async function deleteSelected() {
   if (!selectedMic.value) return
   
-  if (!confirm(`Delete ${selectedMic.value.track_name || selectedMic.value.label}?`)) return
+  const micLabel = selectedMic.value.track_name || selectedMic.value.label
+  if (!confirm(`Delete ${micLabel} and all its connections?`)) return
 
   try {
-    await deleteNode(selectedMic.value.id)
-    emit('node-deleted', selectedMic.value.id)
+    await cascadeDeleteNode(selectedMic.value.id)
     selectedMic.value = null
-    toast.success('Microphone deleted')
+    toast.success(`${micLabel} and connections deleted`)
     nextTick(drawCanvas)
   } catch (err) {
     console.error('Error deleting mic:', err)

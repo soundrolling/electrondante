@@ -64,18 +64,18 @@
         Select your first connection node
       </template>
     </div>
+    <!-- Connection Details Modal -->
     <div 
       v-if="selectedConnectionId" 
-      ref="connectionDetailsRef"
-      class="connection-details" 
-      :style="detailsStyle"
+      class="modal-overlay"
+      @click.self="selectedConnectionId = null"
     >
-      <h4 
-        class="connection-details-header"
-        @mousedown="startDragDetails"
-      >
-        Connection Details
-      </h4>
+      <div class="connection-details-modal" @click.stop>
+        <div class="connection-details-header">
+          <h4>Connection Details</h4>
+          <button @click="selectedConnectionId = null" class="close-btn">×</button>
+        </div>
+        <div class="connection-details-body">
       <div class="detail-row">
         <span class="label">From:</span>
         <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
@@ -141,12 +141,14 @@
           <option>Madi</option>
         </select>
       </div>
-      <div class="detail-actions">
-        <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
-          <span v-if="saveTick">✓ Saved</span>
-          <span v-else>Save</span>
-        </button>
-        <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
+          <div class="detail-actions">
+            <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
+              <span v-if="saveTick">✓ Saved</span>
+              <span v-else>Save</span>
+            </button>
+            <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -295,11 +297,6 @@ const editType = ref('Mic')
 const editInput = ref(null)
 const editTrack = ref(null)
 const saveTick = ref(false)
-// Drag state for connection details panel
-const connectionDetailsPosition = ref(null) // { x, y } or null for auto-position
-const isDraggingDetails = ref(false)
-const dragStartDetails = ref({ x: 0, y: 0 })
-const connectionDetailsRef = ref(null)
 
 // Port mapping state for transformer→transformer connections
 const editPortMappings = ref([])
@@ -1304,103 +1301,6 @@ function getNodeLabelById(id) {
   return node.track_name || node.label || 'Unknown'
 }
 
-// Position details panel near the selected connection midpoint
-const selectedConnMid = computed(() => {
-  const c = selectedConn.value
-  if (!c) return null
-  const fromNode = props.nodes.find(n => n.id === c.from_node_id)
-  const toNode = props.nodes.find(n => n.id === c.to_node_id)
-  if (!fromNode || !toNode) return null
-  const fromPos = getCanvasPos(fromNode)
-  const toPos = getCanvasPos(toNode)
-  return { x: (fromPos.x + toPos.x) / 2, y: (fromPos.y + toPos.y) / 2 }
-})
-
-const detailsStyle = computed(() => {
-  // If user has manually positioned the panel, use that position
-  if (connectionDetailsPosition.value) {
-    return {
-      left: `${connectionDetailsPosition.value.x}px`,
-      top: `${connectionDetailsPosition.value.y}px`,
-      position: 'fixed'
-    }
-  }
-  
-  // Otherwise, auto-position near the connection midpoint
-  const def = { left: '10px', top: '10px', position: 'fixed' }
-  if (!selectedConnMid.value || !canvas.value || !canvasWrapper.value) return def
-  const wrap = canvasWrapper.value.getBoundingClientRect()
-  const rect = canvas.value.getBoundingClientRect()
-  const offsetX = rect.left - wrap.left
-  const offsetY = rect.top - wrap.top
-  const left = offsetX + selectedConnMid.value.x + 12
-  const top = offsetY + selectedConnMid.value.y - 10
-  return { left: `${left}px`, top: `${top}px`, position: 'fixed' }
-})
-
-function startDragDetails(e) {
-  // Don't start drag on interactive elements
-  if (e.target.closest('button')) return
-  if (e.target.closest('input')) return
-  if (e.target.closest('select')) return
-  
-  e.preventDefault()
-  isDraggingDetails.value = true
-  
-  const rect = connectionDetailsRef.value?.getBoundingClientRect()
-  if (!rect) return
-  
-  // Initialize position if not already set
-  if (!connectionDetailsPosition.value) {
-    connectionDetailsPosition.value = {
-      x: rect.left,
-      y: rect.top
-    }
-  }
-  
-  dragStartDetails.value = {
-    x: e.clientX - connectionDetailsPosition.value.x,
-    y: e.clientY - connectionDetailsPosition.value.y
-  }
-  
-  document.addEventListener('mousemove', onDragDetails)
-  document.addEventListener('mouseup', stopDragDetails)
-}
-
-function onDragDetails(e) {
-  if (!isDraggingDetails.value) return
-  
-  const newX = e.clientX - dragStartDetails.value.x
-  const newY = e.clientY - dragStartDetails.value.y
-  
-  // Constrain to viewport
-  const rect = connectionDetailsRef.value?.getBoundingClientRect()
-  if (rect) {
-    const maxX = window.innerWidth - rect.width
-    const maxY = window.innerHeight - rect.height
-    
-    connectionDetailsPosition.value = {
-      x: Math.max(0, Math.min(newX, maxX)),
-      y: Math.max(0, Math.min(newY, maxY))
-    }
-  } else {
-    connectionDetailsPosition.value = {
-      x: newX,
-      y: newY
-    }
-  }
-}
-
-function stopDragDetails() {
-  isDraggingDetails.value = false
-  document.removeEventListener('mousemove', onDragDetails)
-  document.removeEventListener('mouseup', stopDragDetails)
-}
-
-// Reset position when connection changes (user can drag again to reposition)
-watch(selectedConnectionId, () => {
-  connectionDetailsPosition.value = null
-})
 
 function canConnect(from, to) {
   const fromType = from.gear_type || from.node_type
@@ -1569,6 +1469,46 @@ function getCanvasPos(node) {
     : { x: nx * canvasWidth.value, y: ny * canvasHeight.value }
 }
 
+async function cascadeDeleteNode(nodeId) {
+  // Find all connections FROM this node (outgoing)
+  const outgoingConns = props.connections.filter(c => c.from_node_id === nodeId)
+  
+  // Find all connections TO this node (incoming)
+  const incomingConns = props.connections.filter(c => c.to_node_id === nodeId)
+
+  // Delete all port mappings for these connections
+  const allConnIds = [...outgoingConns.map(c => c.id), ...incomingConns.map(c => c.id)]
+  if (allConnIds.length > 0) {
+    try {
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .in('connection_id', allConnIds)
+    } catch (err) {
+      console.error('Error deleting port mappings:', err)
+    }
+  }
+
+  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
+  for (const conn of [...outgoingConns, ...incomingConns]) {
+    try {
+      await deleteConnectionFromDB(conn.id)
+      emit('connection-deleted', conn.id)
+    } catch (err) {
+      console.error('Error deleting connection:', err)
+    }
+  }
+
+  // Finally, delete the node itself
+  try {
+    await deleteNode(nodeId)
+    emit('node-deleted', nodeId)
+  } catch (err) {
+    console.error('Error deleting node:', err)
+    throw err
+  }
+}
+
 async function deleteSelected() {
   if (!selectedNode.value) return
 
@@ -1581,13 +1521,13 @@ async function deleteSelected() {
     }
   }
 
-  if (!confirm(`Delete ${selectedNode.value.label}?`)) return
+  const nodeLabel = selectedNode.value.label
+  if (!confirm(`Delete ${nodeLabel} and all its connections?`)) return
 
   try {
-    await deleteNode(selectedNode.value.id)
-    emit('node-deleted', selectedNode.value.id)
+    await cascadeDeleteNode(selectedNode.value.id)
     selectedNode.value = null
-    toast.success('Node deleted')
+    toast.success(`${nodeLabel} and connections deleted`)
     nextTick(drawCanvas)
   } catch (err) {
     console.error('Error deleting node:', err)
@@ -2125,29 +2065,35 @@ function exportToPDF() {
   font-size: 14px;
 }
 
-.connection-details {
-  position: fixed;
+.connection-details-modal {
   background: #fff;
   border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 12px 14px;
-  width: 420px;
-  max-height: 70vh;
-  overflow-y: auto;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-  z-index: 100;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
 }
 .connection-details-header {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #212529;
-  cursor: move;
-  user-select: none;
-  padding: 4px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
 }
-.connection-details-header:hover {
-  color: #007bff;
+.connection-details-header h4 {
+  margin: 0;
+  font-size: 18px;
+  color: #212529;
+}
+.connection-details-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 .detail-row {
   display: flex;
