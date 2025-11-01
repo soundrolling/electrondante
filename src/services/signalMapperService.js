@@ -206,6 +206,10 @@ export async function getCompleteSignalPath(projectId) {
         if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
           startInput = conn.from_port // Use from_port (1 or 2) for source output detection
           recorderTrackNum = conn.input_number // Keep original track number for label
+        } else {
+          // Even if not directly a source, preserve from_port for tracing through transformers
+          // The from_port tells us which output from the upstream node (could be transformer or source)
+          startInput = conn.from_port
         }
       }
 
@@ -233,7 +237,8 @@ export async function getCompleteSignalPath(projectId) {
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
-        connection_id: conn.id
+        // For expanded port-mapped connections, use the real connection_id, otherwise use the connection id
+        connection_id: conn.connection_id || conn.id
       })
     })
   }

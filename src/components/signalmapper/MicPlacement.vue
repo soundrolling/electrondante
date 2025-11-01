@@ -424,6 +424,23 @@ function drawMic(ctx, mic) {
 
   ctx.restore()
 
+  // Draw gear name inside circle for source mics (first 6 characters)
+  if (mic.gear_id && (mic.gear_type === 'source' || mic.node_type === 'source')) {
+    const gear = props.gearList.find(g => g.id === mic.gear_id)
+    if (gear && gear.gear_name) {
+      const gearNameText = gear.gear_name.length > 6 
+        ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
+        : gear.gear_name.toUpperCase()
+      ctx.save()
+      ctx.font = 'bold 9px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = mic === selectedMic.value ? '#fff' : '#495057'
+      ctx.fillText(gearNameText, x, y)
+      ctx.restore()
+    }
+  }
+
   // Draw label with white background for readability over dark images
   ctx.font = 'bold 12px sans-serif'
   ctx.textAlign = 'center'
