@@ -1152,21 +1152,49 @@ async function confirmConnection(connectionData) {
   submittingConnection.value = true
   
   try {
+    let newConn
     // If the modal already created the parent connection (port-mapped flow),
     // it will pass back an object with an id. In that case, do not insert again.
     if (connectionData && connectionData.id) {
+      newConn = connectionData
       emit('connection-added', connectionData)
     } else {
-      const newConn = await addConnectionToDB(connectionData)
+      newConn = await addConnectionToDB(connectionData)
       emit('connection-added', newConn)
     }
     closeConnectionModal()
     toast.success('Connection created')
-    // Redraw canvas immediately, then again after props update
+    
+    // Optimistically add the connection to trigger immediate redraw
+    // The watcher will handle the final redraw when props update
+    const optimisticConnections = [...props.connections, newConn]
+    
+    // Force immediate redraw with optimistic connection
     nextTick(() => {
-      drawCanvas()
-      // Also redraw after a brief delay to catch any prop updates
-      setTimeout(() => drawCanvas(), 100)
+      // Temporarily use optimistic connections for drawing
+      const ctx = canvas.value?.getContext('2d')
+      if (!ctx) return
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
+      ctx.scale(dpr, dpr)
+
+      // Background
+      ctx.fillStyle = '#f8f9fa'
+      ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
+
+      // Draw connections (including the new one)
+      optimisticConnections.forEach(conn => {
+        drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
+      })
+
+      // Draw nodes
+      props.nodes.forEach(node => {
+        drawNode(ctx, node)
+      })
+      
+      // Redraw again after props are updated (watcher will handle this, but ensure it happens)
+      setTimeout(() => drawCanvas(), 50)
     })
   } catch (err) {
     console.error('Error creating connection:', err)
@@ -1184,7 +1212,11 @@ async function confirmConnection(connectionData) {
 }
 
 // Watchers
-watch([() => props.nodes, () => props.connections], () => nextTick(drawCanvas))
+watch([() => props.nodes, () => props.connections], () => {
+  nextTick(() => {
+    drawCanvas()
+  })
+}, { deep: true, immediate: false })
 
 // Lifecycle
 onMounted(() => {

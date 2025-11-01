@@ -866,7 +866,16 @@ errorMsg.value = ''
       .insert(portMapInserts)
     if (mapError) throw mapError
     
-    emit('confirm', { id: parentConnId, port_mappings: portMappings.value })
+    // Fetch the full connection object to include all fields needed for drawing
+    const { data: fullConnection, error: fetchError } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', parentConnId)
+      .single()
+    
+    if (fetchError) throw fetchError
+    
+    emit('confirm', { ...fullConnection, port_mappings: portMappings.value })
     return
   }
   
@@ -882,8 +891,8 @@ errorMsg.value = ''
     phantom_power: phantomPowerEnabled.value,
     connection_type: connectionType.value
   }
-    await addConnection(connection)
-  emit('confirm', connection)
+  const savedConnection = await addConnection(connection)
+  emit('confirm', savedConnection)
 } catch (e) {
   if (e?.code === '23505') {
     // Unique input constraint hit - refetch latest and retry once on first available
