@@ -1951,7 +1951,7 @@ onMounted(async () => {
 }
 
 .calculated-items-hint {
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-size: 11px;
 }
 
