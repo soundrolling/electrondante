@@ -123,6 +123,12 @@ async function checkSchedulesForNotifications() {
   
   const projectId = currentProjectId
   
+  // Check if notifications are enabled
+  const notificationsEnabled = await getSetting('schedule_notifications_enabled', true)
+  if (notificationsEnabled === false) {
+    return // Notifications disabled, don't check
+  }
+  
   // Clear old notifications if it's a new day
   checkAndClearNotificationsIfNewDay()
   

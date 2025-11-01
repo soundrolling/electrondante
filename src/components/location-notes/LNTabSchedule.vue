@@ -1,7 +1,7 @@
 <!-- src/components/location-notes/LNTabSchedule.vue -->
 <template>
 <section class="schedule-pane">
-  <!-- Combined top row: sort/add + date range -->
+  <!-- Combined top row: sort/add + filter -->
   <div class="controls-top combined">
     <div class="left-stack">
       <label class="label">Sort by:</label>
@@ -10,21 +10,39 @@
         <option value="desc">Latest</option>
         <option value="artist">Artist A–Z</option>
       </select>
+      <button 
+        class="btn btn-primary filter-toggle-btn" 
+        @click="showFilters = !showFilters"
+        :class="{ active: showFilters }"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="filter-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M5 4a1 1 0 011-1h8a1 1 0 011 1v1.586a1 1 0 01-.293.707l-4.414 4.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+        </svg>
+        Filter
+      </button>
       <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
     </div>
-    <div class="right-stack">
-      <label class="label">From:</label>
-      <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
-      <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
-      <label class="label">To:</label>
-      <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
-      <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
-      <div class="range-shortcuts">
-        <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
-        <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
+  </div>
+
+  <!-- Date range filters (collapsible) -->
+  <transition name="fade-slide">
+    <div v-if="showFilters" class="filters-panel">
+      <div class="filters-content">
+        <div class="filter-row">
+          <label class="label">From:</label>
+          <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
+          <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
+          <label class="label">To:</label>
+          <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
+          <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
+        </div>
+        <div class="range-shortcuts">
+          <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
+          <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
+        </div>
       </div>
     </div>
-  </div>
+  </transition>
 
   <!-- Date navigation -->
   <div class="controls-bottom">
@@ -32,6 +50,41 @@
     <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
     <div class="current-date">{{ currentGroupLabel }}</div>
     <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
+  </div>
+
+  <!-- Notification Settings -->
+  <div class="notification-settings">
+    <h4 class="settings-title">Changeover Notifications</h4>
+    <div class="settings-grid">
+      <div class="setting-item">
+        <label class="setting-label">
+          <input 
+            type="checkbox" 
+            v-model="notificationsEnabled"
+            @change="saveNotificationSettings"
+            class="setting-checkbox"
+          />
+          <span>Enable changeover notifications</span>
+        </label>
+        <small class="setting-hint">Receive alerts when artists are about to start</small>
+      </div>
+      <div class="setting-item" v-if="notificationsEnabled">
+        <label class="setting-label">
+          Default warning time (minutes):
+        </label>
+        <input 
+          type="number"
+          v-model.number="defaultWarningMinutes"
+          @change="saveNotificationSettings"
+          min="0"
+          max="60"
+          step="1"
+          class="setting-input"
+          placeholder="2"
+        />
+        <small class="setting-hint">Minutes before artist start time to show notification</small>
+      </div>
+    </div>
   </div>
 
   <!-- Schedule list -->
@@ -153,6 +206,8 @@ import { useUserStore }                     from '@/stores/userStore'
 import { fetchTableData, mutateTableData }  from '@/services/dataService'
 import { todayISO, niceDate, t5, getTodayTime, getDateTimeISO, pad2 } from '@/utils/scheduleHelpers'
 import { useStageHours }                    from '@/composables/useStageHours'
+import { getSetting, saveSetting }          from '@/utils/indexedDB'
+import { setDefaultWarningMinutes }         from '@/services/scheduleNotificationService'
 
 export default {
   name: 'LNTabSchedule',
@@ -185,6 +240,13 @@ export default {
     const fWarningMinutes = ref(null) // null means use default
     const busy     = ref(false)
     const err      = ref(null)
+
+    // Notification settings state
+    const notificationsEnabled = ref(true) // Default to enabled
+    const defaultWarningMinutes = ref(2) // Default 2 minutes
+
+    // Filter panel state
+    const showFilters = ref(false)
 
     // Highlighting
     const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
@@ -495,16 +557,46 @@ export default {
       saveRange()
     }
 
-    onMounted(fetchAll)
+    // Load notification settings
+    async function loadNotificationSettings() {
+      try {
+        const enabled = await getSetting('schedule_notifications_enabled', true)
+        const minutes = await getSetting('schedule_warning_minutes', 2)
+        notificationsEnabled.value = enabled !== false // Default to true
+        defaultWarningMinutes.value = parseInt(minutes, 10) || 2
+      } catch (error) {
+        console.error('Error loading notification settings:', error)
+      }
+    }
+
+    // Save notification settings
+    async function saveNotificationSettings() {
+      try {
+        await saveSetting('schedule_notifications_enabled', notificationsEnabled.value)
+        await saveSetting('schedule_warning_minutes', defaultWarningMinutes.value)
+        await setDefaultWarningMinutes(defaultWarningMinutes.value)
+        toast.success('Notification settings saved')
+      } catch (error) {
+        console.error('Error saving notification settings:', error)
+        toast.error('Failed to save notification settings')
+      }
+    }
+
+    onMounted(async () => {
+      await fetchAll()
+      await loadNotificationSettings()
+    })
 
     const exposed = {
       schedules, stageHours, groupedDays, idx, sortOrder,
       showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       activeIndex, filteredRows, fromDateTime, toDateTime,
+      notificationsEnabled, defaultWarningMinutes, showFilters,
       openForm, closeForm, save, remove, exportPdf, emitChangeNote,
       createChangeoverNote, isActive,
       saveRange, clearFrom, clearTo, setToday, setPreviousDay,
+      saveNotificationSettings,
       t5, niceDate, formatStageHourFallback
     }
     return exposed
@@ -897,4 +989,128 @@ cursor: default;
 }
 .btn.btn-primary:hover { background-color: #1e40af !important; }
 .btn.btn-primary:focus { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
+
+/* Filter Toggle Button */
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+}
+.filter-toggle-btn.active {
+  background-color: #1e40af !important;
+  box-shadow: 0 2px 4px rgba(29, 78, 216, 0.3);
+}
+.filter-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Filters Panel */
+.filters-panel {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.filters-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Fade slide transition */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.fade-slide-enter-to {
+  opacity: 1;
+  max-height: 200px;
+}
+.fade-slide-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Notification Settings */
+.notification-settings {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.settings-title {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+.setting-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #059669;
+}
+.setting-input {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  max-width: 120px;
+}
+.setting-input:focus {
+  border-color: var(--accent2);
+  outline: none;
+}
+.setting-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-left: 26px;
+  display: block;
+}
 </style>
