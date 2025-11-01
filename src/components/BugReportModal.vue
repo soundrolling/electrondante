@@ -356,11 +356,13 @@ export default {
       } else if (type === 'suggestion') {
         formData.value.title = 'Suggestion: '
         formData.value.priority = 'low'
-        formData.value.description = 'Describe the feature you\'d like to see and how it would help you.'
+        // Leave description empty - placeholder will show
+        formData.value.description = ''
       } else if (type === 'improvement') {
         formData.value.title = 'Improvement: '
         formData.value.priority = 'low'
-        formData.value.description = 'Describe what could be improved and how it would make things better.'
+        // Leave description empty - placeholder will show
+        formData.value.description = ''
       }
       
       // Focus on title field

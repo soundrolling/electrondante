@@ -8,10 +8,10 @@
   <!-- Export Buttons -->
   <div class="track-list-actions">
     <button @click="exportToPDF" class="btn-export">
-      📄 Export PDF
+      🖨️ Print / Export PDF
     </button>
     <button @click="exportCSV" class="btn-export">
-      📊 Export CSV
+      🖨️ Print / Export CSV
     </button>
   </div>
 
@@ -28,38 +28,41 @@
 
   <!-- Track List Table -->
   <div v-else class="track-list-table-wrapper">
-    <table class="track-list-table">
-      <thead>
-        <tr>
-          <th>Track #</th>
-          <th>Recorder</th>
-          <th>Source Name</th>
-          <th>Signal Path</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="path in sortedPaths" :key="path.connection_id" class="track-row">
-          <td class="track-number">{{ path.track_number || '—' }}</td>
-          <td class="recorder-name">{{ path.recorder_label }}</td>
-          <td class="source-name">
-            <strong>{{ path.track_name || path.source_label || '—' }}</strong>
-            <div v-if="path.source_gear_name" class="source-gear-name">
-              ({{ path.source_gear_name }})
-            </div>
-          </td>
-          <td class="signal-path">
-            <div class="path-flow">
-              <template v-for="(node, index) in reversedPath(path.path)" :key="index">
-                <span class="path-node">
-                  {{ node }}
-                  <span v-if="index < reversedPath(path.path).length - 1" class="path-arrow">→</span>
-                </span>
-              </template>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <template v-for="(tracks, recorderName) in groupedByRecorder" :key="recorderName">
+      <div class="recorder-group">
+        <h4 class="recorder-group-header">{{ recorderName }}</h4>
+        <table class="track-list-table">
+          <thead>
+            <tr>
+              <th>Track #</th>
+              <th>Source Name</th>
+              <th>Signal Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="path in tracks" :key="path.connection_id" class="track-row">
+              <td class="track-number">{{ path.track_number || '—' }}</td>
+              <td class="source-name">
+                <strong>{{ path.track_name || path.source_label || '—' }}</strong>
+                <div v-if="path.source_gear_name" class="source-gear-name">
+                  ({{ path.source_gear_name }})
+                </div>
+              </td>
+              <td class="signal-path">
+                <div class="path-flow">
+                  <template v-for="(node, index) in reversedPath(path.path)" :key="index">
+                    <span class="path-node">
+                      {{ node }}
+                      <span v-if="index < reversedPath(path.path).length - 1" class="path-arrow">→</span>
+                    </span>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </div>
 
   <!-- Summary Stats -->
@@ -67,6 +70,10 @@
     <div class="summary-item">
       <span class="summary-label">Total Tracks:</span>
       <span class="summary-value">{{ signalPaths.length }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Recorders:</span>
+      <span class="summary-value">{{ Object.keys(groupedByRecorder).length }}</span>
     </div>
   </div>
 </div>
@@ -81,9 +88,38 @@ const props = defineProps({
   loading: { type: Boolean, default: false }
 })
 
-// Sort paths by track number
+// Group paths by recorder, then sort by track number within each group
+const groupedByRecorder = computed(() => {
+  const groups = {}
+  
+  props.signalPaths.forEach(path => {
+    const recorderName = path.recorder_label || 'Unknown Recorder'
+    if (!groups[recorderName]) {
+      groups[recorderName] = []
+    }
+    groups[recorderName].push(path)
+  })
+  
+  // Sort each group by track number
+  Object.keys(groups).forEach(recorder => {
+    groups[recorder].sort((a, b) => {
+      const trackA = a.track_number || 0
+      const trackB = b.track_number || 0
+      return trackA - trackB
+    })
+  })
+  
+  return groups
+})
+
+// Sort paths by track number (for backward compatibility)
 const sortedPaths = computed(() => {
   return [...props.signalPaths].sort((a, b) => {
+    const recorderA = a.recorder_label || ''
+    const recorderB = b.recorder_label || ''
+    if (recorderA !== recorderB) {
+      return recorderA.localeCompare(recorderB)
+    }
     const trackA = a.track_number || 0
     const trackB = b.track_number || 0
     return trackA - trackB
@@ -98,90 +134,315 @@ function reversedPath(path) {
 
 // no additional summary columns
 
-// Export to CSV
+// Export to CSV (using print preview)
 function exportCSV() {
-  const headers = ['Track #', 'Recorder', 'Source Name', 'Signal Path']
-  const rows = sortedPaths.value.map(path => [
-    path.track_number || '',
-    path.recorder_label || '',
-    path.track_name || path.source_label || '',
-    reversedPath(path.path).join(' → ')
-  ])
-
-  let csv = headers.join(',') + '\n'
-  rows.forEach(row => {
-    csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n'
-  })
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', `track_list_${new Date().toISOString().slice(0, 10)}.csv`)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  if (props.signalPaths.length === 0) {
+    return
+  }
+  
+  try {
+    const printWindow = window.open('', '_blank', 'width=900,height=700')
+    if (!printWindow) {
+      return
+    }
+    
+    const buildCSVTableHTML = () => {
+      let html = ''
+      
+      Object.keys(groupedByRecorder.value).sort().forEach(recorderName => {
+        const tracks = groupedByRecorder.value[recorderName]
+        
+        html += `
+          <div class="recorder-group-section">
+            <h3 class="recorder-section-header">${recorderName}</h3>
+            <table class="track-list-table">
+              <thead>
+                <tr>
+                  <th>Track #</th>
+                  <th>Source Name</th>
+                  <th>Signal Path</th>
+                </tr>
+              </thead>
+              <tbody>
+        `
+        
+        tracks.forEach(path => {
+          const trackNum = path.track_number || '—'
+          const sourceName = path.track_name || path.source_label || '—'
+          const signalPath = reversedPath(path.path).join(' → ')
+          
+          html += `
+            <tr>
+              <td>${trackNum}</td>
+              <td><strong>${sourceName}</strong></td>
+              <td>${signalPath}</td>
+            </tr>
+          `
+        })
+        
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `
+      })
+      
+      return html
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Track List (CSV) - Print Preview</title>
+          <style>
+            ${getPrintStyles()}
+            .recorder-group-section {
+              margin-bottom: 40px;
+              page-break-inside: avoid;
+            }
+            .recorder-section-header {
+              margin: 0 0 15px 0;
+              padding: 10px;
+              background: #007bff;
+              color: white;
+              font-size: 18px;
+              border-radius: 6px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">
+            <div class="print-header">
+              <h3>Track List</h3>
+              <p>Complete signal routing from source to recorder tracks</p>
+            </div>
+            ${buildCSVTableHTML()}
+            <div class="track-list-summary">
+              <div class="summary-item">
+                <span class="summary-label">Total Tracks:</span>
+                <span class="summary-value">${props.signalPaths.length}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Recorders:</span>
+                <span class="summary-value">${Object.keys(groupedByRecorder.value).length}</span>
+              </div>
+            </div>
+          </div>
+          <div class="print-actions">
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    printWindow.onload = () => {
+      printWindow.focus()
+    }
+  } catch (e) {
+    console.error('Error exporting CSV:', e)
+  }
 }
 
-// Export/Print track list with print preview (PDF default)
+// Shared print styles function
+function getPrintStyles() {
+  return `
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .print-content {
+      background: white;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      max-width: 100%;
+    }
+    .print-header {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .print-header h3 {
+      margin: 0 0 5px 0;
+      font-size: 24px;
+      color: #212529;
+    }
+    .print-header p {
+      margin: 0;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    .recorder-group-section {
+      margin-bottom: 40px;
+      page-break-inside: avoid;
+    }
+    .recorder-section-header {
+      margin: 0 0 15px 0;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      font-size: 18px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .track-list-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .track-list-table th {
+      background: #f8f9fa;
+      padding: 12px;
+      text-align: left;
+      border-bottom: 2px solid #dee2e6;
+      font-weight: 600;
+      color: #212529;
+    }
+    .track-list-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e9ecef;
+      color: #495057;
+    }
+    .track-list-table tbody tr:hover {
+      background: #f8f9fa;
+    }
+    .track-list-summary {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .summary-item {
+      display: inline-block;
+      margin: 0 20px;
+    }
+    .summary-label {
+      color: #6c757d;
+      margin-right: 8px;
+    }
+    .summary-value {
+      font-weight: 600;
+      color: #212529;
+    }
+    .print-actions {
+      text-align: center;
+      margin-top: 20px;
+      padding: 15px;
+    }
+    .print-actions button {
+      padding: 10px 20px;
+      margin: 0 5px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .print-actions button:hover {
+      background: #0056b3;
+    }
+    .print-actions button.secondary {
+      background: #6c757d;
+    }
+    .print-actions button.secondary:hover {
+      background: #545b62;
+    }
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .print-content {
+        padding: 0;
+        box-shadow: none;
+      }
+      .print-header {
+        margin-bottom: 15px;
+      }
+      .print-actions {
+        display: none;
+      }
+      .track-list-table {
+        page-break-inside: auto;
+      }
+      .track-list-table tbody tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+      }
+      .recorder-group-section {
+        page-break-after: avoid;
+      }
+    }
+    @page {
+      margin: 1cm;
+    }
+  `
+}
+
+// Export/Print track list with print preview (grouped by recorder)
 function exportToPDF() {
   if (props.signalPaths.length === 0) {
     return
   }
   
   try {
-    // Create a clean print preview window with just the track list table
     const printWindow = window.open('', '_blank', 'width=900,height=700')
     if (!printWindow) {
       return
     }
     
-    // Build HTML table from signal paths
     const buildTableHTML = () => {
-      const sorted = [...props.signalPaths].sort((a, b) => {
-        const trackA = a.track_number || 0
-        const trackB = b.track_number || 0
-        return trackA - trackB
-      })
+      let html = ''
       
-      const reversedPath = (path) => {
-        if (!Array.isArray(path)) return []
-        return [...path].reverse()
-      }
-      
-      let rows = ''
-      sorted.forEach(path => {
-        const trackNum = path.track_number || '—'
-        const recorder = path.recorder_label || '—'
-        const sourceName = path.track_name || path.source_label || '—'
-        const signalPath = reversedPath(path.path).join(' → ')
+      Object.keys(groupedByRecorder.value).sort().forEach(recorderName => {
+        const tracks = groupedByRecorder.value[recorderName]
         
-        rows += `
-          <tr>
-            <td>${trackNum}</td>
-            <td>${recorder}</td>
-            <td><strong>${sourceName}</strong></td>
-            <td>${signalPath}</td>
-          </tr>
+        html += `
+          <div class="recorder-group-section">
+            <h3 class="recorder-section-header">${recorderName}</h3>
+            <table class="track-list-table">
+              <thead>
+                <tr>
+                  <th>Track #</th>
+                  <th>Source Name</th>
+                  <th>Signal Path</th>
+                </tr>
+              </thead>
+              <tbody>
+        `
+        
+        tracks.forEach(path => {
+          const trackNum = path.track_number || '—'
+          const sourceName = path.track_name || path.source_label || '—'
+          const signalPath = reversedPath(path.path).join(' → ')
+          
+          html += `
+            <tr>
+              <td>${trackNum}</td>
+              <td><strong>${sourceName}</strong></td>
+              <td>${signalPath}</td>
+            </tr>
+          `
+        })
+        
+        html += `
+              </tbody>
+            </table>
+          </div>
         `
       })
       
-      return `
-        <table class="track-list-table">
-          <thead>
-            <tr>
-              <th>Track #</th>
-              <th>Recorder</th>
-              <th>Source Name</th>
-              <th>Signal Path</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows}
-          </tbody>
-        </table>
-      `
+      return html
     }
     
     printWindow.document.write(`
@@ -190,127 +451,7 @@ function exportToPDF() {
         <head>
           <title>Track List - Print Preview</title>
           <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: system-ui, -apple-system, sans-serif;
-              background: #f5f5f5;
-              padding: 20px;
-            }
-            .print-content {
-              background: white;
-              padding: 20px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              max-width: 100%;
-            }
-            .print-header {
-              margin-bottom: 20px;
-              text-align: center;
-            }
-            .print-header h3 {
-              margin: 0 0 5px 0;
-              font-size: 24px;
-              color: #212529;
-            }
-            .print-header p {
-              margin: 0;
-              color: #6c757d;
-              font-size: 14px;
-            }
-            .track-list-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            .track-list-table th {
-              background: #f8f9fa;
-              padding: 12px;
-              text-align: left;
-              border-bottom: 2px solid #dee2e6;
-              font-weight: 600;
-              color: #212529;
-            }
-            .track-list-table td {
-              padding: 10px 12px;
-              border-bottom: 1px solid #e9ecef;
-              color: #495057;
-            }
-            .track-list-table tbody tr:hover {
-              background: #f8f9fa;
-            }
-            .track-list-summary {
-              margin-top: 20px;
-              padding: 15px;
-              background: #f8f9fa;
-              border-radius: 6px;
-              text-align: center;
-            }
-            .summary-item {
-              display: inline-block;
-              margin: 0 20px;
-            }
-            .summary-label {
-              color: #6c757d;
-              margin-right: 8px;
-            }
-            .summary-value {
-              font-weight: 600;
-              color: #212529;
-            }
-            .print-actions {
-              text-align: center;
-              margin-top: 20px;
-              padding: 15px;
-            }
-            .print-actions button {
-              padding: 10px 20px;
-              margin: 0 5px;
-              background: #007bff;
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .print-actions button:hover {
-              background: #0056b3;
-            }
-            .print-actions button.secondary {
-              background: #6c757d;
-            }
-            .print-actions button.secondary:hover {
-              background: #545b62;
-            }
-            @media print {
-              body {
-                background: white;
-                padding: 0;
-              }
-              .print-content {
-                padding: 0;
-                box-shadow: none;
-              }
-              .print-header {
-                margin-bottom: 15px;
-              }
-              .print-actions {
-                display: none;
-              }
-              .track-list-table {
-                page-break-inside: auto;
-              }
-              .track-list-table tbody tr {
-                page-break-inside: avoid;
-                page-break-after: auto;
-              }
-            }
-            @page {
-              margin: 1cm;
-            }
+            ${getPrintStyles()}
           </style>
         </head>
         <body>
@@ -325,6 +466,10 @@ function exportToPDF() {
                 <span class="summary-label">Total Tracks:</span>
                 <span class="summary-value">${props.signalPaths.length}</span>
               </div>
+              <div class="summary-item">
+                <span class="summary-label">Recorders:</span>
+                <span class="summary-value">${Object.keys(groupedByRecorder.value).length}</span>
+              </div>
             </div>
           </div>
           <div class="print-actions">
@@ -336,7 +481,6 @@ function exportToPDF() {
     `)
     printWindow.document.close()
     
-    // Wait for content to load
     printWindow.onload = () => {
       printWindow.focus()
     }
@@ -449,6 +593,20 @@ function exportToPDF() {
 
 .track-list-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.recorder-group {
+  margin-bottom: 30px;
+}
+
+.recorder-group-header {
+  margin: 0 0 15px 0;
+  padding: 12px 16px;
+  background: #007bff;
+  color: white;
+  font-size: 18px;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .track-number {

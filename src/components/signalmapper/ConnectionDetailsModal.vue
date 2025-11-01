@@ -221,12 +221,14 @@ const modalStyle = computed(() => ({
 }))
 
 function startDrag(e) {
-  // Only start drag on header
-  if (!e.target.closest('.modal-header')) return
-  
-  // Don't start drag on buttons
+  // Don't start drag on interactive elements
   if (e.target.closest('button')) return
+  if (e.target.closest('input')) return
+  if (e.target.closest('select')) return
+  if (e.target.closest('textarea')) return
+  if (e.target.closest('a')) return
   
+  // Allow dragging from anywhere on the modal
   isDragging.value = true
   dragStart.value = {
     x: e.clientX - modalPosition.value.x,
@@ -370,6 +372,7 @@ async function buildUpstreamSourceLabels() {
     })
     
     // Also check for parent connections with port maps (transformer → transformer)
+    // This handles the case where connections TO this transformer have port mappings
     const { data: parentConns } = await supabase
       .from('connections')
       .select('id, from_node_id, to_node_id')
@@ -389,27 +392,49 @@ async function buildUpstreamSourceLabels() {
       
       // Resolve upstream labels per mapping - recursively trace to source
       const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
-      maps.forEach(m => {
+      if (!parentFromNode) continue
+      
+      const fromNodeType = (parentFromNode.gear_type || parentFromNode.node_type || '').toLowerCase()
+      
+      for (const m of maps) {
         let label = ''
-        const fromNodeType = (parentFromNode?.gear_type || parentFromNode?.node_type || '').toLowerCase()
+        // m.from_port is the OUTPUT port on the parent transformer (or source output)
+        // m.to_port is the INPUT port on this transformer
+        // We need to trace what's on the parent's OUTPUT (m.from_port) back to the source
+        const parentOutputPort = m.from_port
+        const thisTransformerInput = m.to_port
+        
         if (fromNodeType === 'source') {
-          // Direct source connection - get source label with L/R
+          // Direct source connection - get source label with L/R based on output port
           const incoming = { 
             from_node_id: parentConn.from_node_id, 
-            input_number: m.from_port 
+            input_number: parentOutputPort 
           }
           label = getLRAwareSourceLabel(incoming)
-        } else {
-          // Upstream is transformer/other: recursively trace back to source
-          const incoming = (props.existingConnections || []).find(c =>
-            (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
-          )
-          if (incoming) {
-            label = getLRAwareSourceLabel(incoming)
+        } else if (fromNodeType === 'transformer') {
+          // Parent is a transformer - need to trace what's on its OUTPUT port
+          // For transformers, assume 1:1 mapping: output N corresponds to input N
+          // So if parent transformer has output 1, we need to trace what's feeding its input 1
+          
+          // Use the helper function to trace transformer output
+          const tracedLabel = await traceTransformerOutput(parentConn.from_node_id, parentOutputPort)
+          if (tracedLabel) {
+            label = tracedLabel
+          } else {
+            // Fallback: find any connection to parent and trace recursively
+            const anyParentInput = (props.existingConnections || []).find(c =>
+              (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id)
+            )
+            if (anyParentInput) {
+              label = getLRAwareSourceLabel(anyParentInput)
+            }
           }
+        } else {
+          // Other node type - fallback
+          label = parentFromNode.track_name || parentFromNode.label || ''
         }
         if (label) upstreamSourceLabels.value[m.to_port] = label
-      })
+      }
     }
   } catch {}
 }
@@ -545,13 +570,33 @@ const availableFromPorts = computed(() => {
     if (takenFromPorts.value.has(n)) continue
     let label
     if (isTransformerFrom.value) {
+      // For transformers, assume 1:1 mapping: output N corresponds to input N
+      // Check upstreamSourceLabels which is keyed by input number
       label = upstreamSourceLabels.value[n]
+      
+      // If not found in upstreamSourceLabels, try direct connection tracing
       if (!label) {
         const incoming = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
         )
-        if (incoming) label = getLRAwareSourceLabel(incoming)
+        if (incoming) {
+          label = getLRAwareSourceLabel(incoming)
+          // Cache it in upstreamSourceLabels for future use
+          if (label) upstreamSourceLabels.value[n] = label
+        }
       }
+      
+      // If still no label, try to trace through any connection to this transformer
+      if (!label) {
+        const anyIncoming = (props.existingConnections || []).find(c =>
+          (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id)
+        )
+        if (anyIncoming) {
+          label = getLRAwareSourceLabel(anyIncoming)
+          if (label) upstreamSourceLabels.value[n] = label
+        }
+      }
+      
       if (!label) label = `Output ${n}`
     } else if (isSource.value) {
       label = getSourcePortLabel(n)
@@ -642,6 +687,10 @@ watch(() => props.existingConnections, () => {
   buildUpstreamSourceLabels()
   loadTakenPorts()
 })
+watch(() => props.fromNode?.id, () => {
+  buildUpstreamSourceLabels()
+  loadTakenPorts()
+})
 watch(() => props.toNode?.id, () => loadTakenPorts())
 
 // (moved below inputOptions definition)
@@ -669,6 +718,63 @@ return null
 function getNodeLabelById(id) {
 const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
+}
+
+// Helper to trace what's on a transformer's output port, handling port mappings
+async function traceTransformerOutput(transformerId, outputPort) {
+  // For transformers, assume 1:1 mapping: output N corresponds to input N
+  // So if we want to know what's on output N, we trace what's feeding input N
+  
+  // First, check if connection TO this transformer has port mappings
+  // that might change the input/output relationship
+  const connsToTransformer = (props.existingConnections || []).filter(c =>
+    (c.to_node_id === transformerId || c.to === transformerId)
+  )
+  
+  // Check each connection for port mappings
+  for (const conn of connsToTransformer) {
+    try {
+      const { data: portMaps } = await supabase
+        .from('connection_port_map')
+        .select('from_port, to_port')
+        .eq('connection_id', conn.id)
+      
+      if (portMaps && portMaps.length > 0) {
+        // Find mapping where to_port (transformer input) equals outputPort
+        // This tells us which upstream output feeds transformer input outputPort
+        const relevantMap = portMaps.find(m => Number(m.to_port) === Number(outputPort))
+        if (relevantMap) {
+          // Upstream output relevantMap.from_port feeds transformer input outputPort
+          // For 1:1 transformer, output outputPort = input outputPort
+          // So trace what's on upstream output relevantMap.from_port
+          const upstreamNodeId = conn.from_node_id || conn.from
+          const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
+          if (upstreamNode) {
+            const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
+            if (upstreamType === 'source') {
+              // Direct source - get source label
+              const incoming = { from_node_id: upstreamNodeId, input_number: relevantMap.from_port }
+              return getLRAwareSourceLabel(incoming)
+            } else if (upstreamType === 'transformer') {
+              // Recursively trace upstream transformer's output
+              return await traceTransformerOutput(upstreamNodeId, relevantMap.from_port)
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  
+  // No port mapping found - assume 1:1: output N = input N
+  // Find connection to transformer input that equals outputPort
+  const directInput = (props.existingConnections || []).find(c =>
+    (c.to_node_id === transformerId || c.to === transformerId) && c.input_number === outputPort
+  )
+  if (directInput) {
+    return getLRAwareSourceLabel(directInput)
+  }
+  
+  return null
 }
 
 function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
@@ -1152,10 +1258,24 @@ z-index: 1001;
 
 .draggable-modal {
   user-select: none;
+  cursor: move;
 }
 
 .draggable-modal .modal-header {
   user-select: none;
+}
+
+.draggable-modal button,
+.draggable-modal input,
+.draggable-modal select,
+.draggable-modal textarea,
+.draggable-modal a {
+  cursor: default;
+  user-select: auto;
+}
+
+.draggable-modal button {
+  cursor: pointer;
 }
 
 .help { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: #6b7280; }
