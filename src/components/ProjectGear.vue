@@ -13,38 +13,58 @@
     <p class="page-subtitle">Manage and organize your project's gear efficiently.</p>
   </header>
 
-  <!-- FILTER & SORT -->
-  <section class="filter-section">
-    <div class="filter-container ui-filter-bar">
-      <div class="filter-row">
-        <div class="filter-group">
-          <label for="filterAssignment" class="filter-label">Filter Gear:</label>
-          <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
-            <option value="all">All Gear</option>
-            <option value="unassigned">Unassigned</option>
-            <option value="assigned">Assigned</option>
-            <option
-              v-for="loc in locationsList"
-              :key="loc.id"
-              :value="String(loc.id)"
-            >
-              {{ loc.stage_name }} ({{ loc.venue_name }})
-            </option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="sortGear" class="filter-label">Sort By:</label>
-          <select id="sortGear" v-model="sortBy" class="filter-select">
-            <option value="default">Default Order</option>
-            <option value="name-asc">Name (A-Z)</option>
-            <option value="name-desc">Name (Z-A)</option>
-            <option value="quantity-desc">Quantity (Most to Least)</option>
-            <option value="quantity-asc">Quantity (Least to Most)</option>
-          </select>
+  <!-- TAB NAVIGATION -->
+  <div class="tab-navigation">
+    <button
+      :class="['tab-button', { active: activeTab === 'gear' }]"
+      @click="activeTab = 'gear'"
+    >
+      <span class="tab-icon">🎛️</span>
+      <span class="tab-label">Gear</span>
+    </button>
+    <button
+      :class="['tab-button', { active: activeTab === 'packing' }]"
+      @click="activeTab = 'packing'"
+    >
+      <span class="tab-icon">🎒</span>
+      <span class="tab-label">Packing</span>
+    </button>
+  </div>
+
+  <!-- GEAR TAB CONTENT -->
+  <div v-if="activeTab === 'gear'">
+    <!-- FILTER & SORT FOR MAIN GEAR -->
+    <section class="filter-section">
+      <div class="filter-container ui-filter-bar">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="filterAssignment" class="filter-label">Filter Gear:</label>
+            <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
+              <option value="all">All Gear</option>
+              <option value="unassigned">Unassigned</option>
+              <option value="assigned">Assigned</option>
+              <option
+                v-for="loc in locationsList"
+                :key="loc.id"
+                :value="String(loc.id)"
+              >
+                {{ loc.stage_name }} ({{ loc.venue_name }})
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="sortGear" class="filter-label">Sort By:</label>
+            <select id="sortGear" v-model="sortBy" class="filter-select">
+              <option value="default">Default Order</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="quantity-desc">Quantity (Most to Least)</option>
+              <option value="quantity-asc">Quantity (Least to Most)</option>
+            </select>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
   <!-- LOADING -->
   <div v-if="loading" class="loading-skeleton">
@@ -86,6 +106,10 @@
           <span class="btn-icon">📄</span>
           <span class="btn-text">Export PDF</span>
         </button>
+        <button class="btn btn-info" @click="printMyGearInventory">
+          <span class="btn-icon">🖨️</span>
+          <span class="btn-text">Print My Gear</span>
+        </button>
       </div>
     </div>
 
@@ -93,8 +117,10 @@
       Filter your gear by "All," "Unassigned," "Assigned," or a specific stage.
     </p>
 
-    <!-- Gear Cards (Mobile-First) -->
-    <div class="gear-cards">
+    <!-- Main Gear Table (Source, Transformer, Recorder) -->
+    <div class="gear-section">
+      <h3 class="gear-section-title">Sources, Transformers & Recorders</h3>
+      <div class="gear-cards">
       <div v-if="!filteredGearList.length" class="empty-state">
         <div class="empty-icon">🎸</div>
         <h3 class="empty-title">No gear found</h3>
@@ -102,7 +128,7 @@
       </div>
       
       <div 
-        v-for="(gear, idx) in filteredGearList" 
+        v-for="(gear, idx) in filteredMainGearList" 
         :key="gear.id"
         class="gear-card"
         :class="{ 'user-gear': gear.is_user_gear }"
@@ -154,7 +180,118 @@
           </button>
         </div>
       </div>
+      <div v-if="!filteredMainGearList.length" class="empty-state">
+        <div class="empty-icon">🎸</div>
+        <h3 class="empty-title">No main gear found</h3>
+        <p class="empty-message">Add some gear to get started!</p>
+      </div>
     </div>
+
+    <!-- Accessories & Cables Table -->
+    <div class="gear-section accessories-section">
+      <h3 class="gear-section-title">Accessories + Cables</h3>
+      
+      <!-- Filter & Sort for Accessories -->
+      <section class="filter-section accessories-filter">
+        <div class="filter-container ui-filter-bar">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="filterAccessories" class="filter-label">Filter:</label>
+              <select id="filterAccessories" v-model="filterAccessoriesLocationId" class="filter-select">
+                <option value="all">All Accessories</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="assigned">Assigned</option>
+                <option
+                  v-for="loc in locationsList"
+                  :key="loc.id"
+                  :value="String(loc.id)"
+                >
+                  {{ loc.stage_name }} ({{ loc.venue_name }})
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sortAccessories" class="filter-label">Sort By:</label>
+              <select id="sortAccessories" v-model="sortAccessoriesBy" class="filter-select">
+                <option value="default">Default Order</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="quantity-desc">Quantity (Most to Least)</option>
+                <option value="quantity-asc">Quantity (Least to Most)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Accessories Cards -->
+      <div class="gear-cards">
+        <div 
+          v-for="(gear, idx) in filteredAccessoriesList" 
+          :key="gear.id"
+          class="gear-card"
+          :class="{ 'user-gear': gear.is_user_gear }"
+        >
+          <div class="gear-header">
+            <div class="gear-name-section">
+              <h3 class="gear-name">{{ gear.gear_name }}</h3>
+              <div v-if="gear.is_user_gear" class="user-gear-indicator">
+                <span class="user-gear-badge">Personal</span>
+                <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
+              </div>
+            </div>
+            <div class="gear-type-badge">
+              {{ gear.gear_type || 'No type' }}
+            </div>
+          </div>
+          
+          <div class="gear-details">
+            <div class="detail-row">
+              <span class="detail-label">Available:</span>
+              <span class="detail-value">{{ gear.unassigned_amount }}/{{ gear.gear_amount }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Assigned:</span>
+              <span class="detail-value">{{ gear.total_assigned }}</span>
+            </div>
+            <div v-if="gear.vendor" class="detail-row">
+              <span class="detail-label">Vendor:</span>
+              <span class="detail-value">{{ gear.vendor }}</span>
+            </div>
+          </div>
+
+          <div class="gear-actions">
+            <button class="btn btn-primary" @click="openGearInfoModal(gear)" title="Info">
+              <span class="btn-icon">ℹ️</span>
+              <span class="btn-text">Info</span>
+            </button>
+            <button class="btn btn-positive" @click="openAssignmentModal(gear)" title="Assign">
+              <span class="btn-icon">📋</span>
+              <span class="btn-text">Assign</span>
+            </button>
+            <button class="btn btn-warning" @click="openEditModal(gear)" title="Edit">
+              <span class="btn-icon">✏️</span>
+              <span class="btn-text">Edit</span>
+            </button>
+            <button class="btn btn-danger" @click="confirmDelete(gear.id)" title="Delete">
+              <span class="btn-icon">🗑️</span>
+              <span class="btn-text">Delete</span>
+            </button>
+          </div>
+        </div>
+        <div v-if="!filteredAccessoriesList.length" class="empty-state">
+          <div class="empty-icon">🔌</div>
+          <h3 class="empty-title">No accessories found</h3>
+          <p class="empty-message">Add accessories and cables to get started!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PACKING TAB CONTENT -->
+  <div v-if="activeTab === 'packing'">
+    <PackingTab :project-id="String(currentProject?.id || '')" />
+  </div>
 
     <!-- ADD GEAR MODAL -->
     <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
@@ -182,6 +319,7 @@
                 <option value="source">Source (Microphones)</option>
                 <option value="transformer">Transformer</option>
                 <option value="recorder">Recorder</option>
+                <option value="accessories_cables">Accessories + Cables</option>
               </select>
             </div>
             <div class="form-group">
@@ -196,8 +334,8 @@
                 class="form-input"
               />
             </div>
-            <!-- Optional IO fields (hidden for sources) -->
-            <div v-if="gearType !== 'source'" class="form-group">
+            <!-- Optional IO fields (hidden for sources and accessories_cables) -->
+            <div v-if="gearType !== 'source' && gearType !== 'accessories_cables'" class="form-group">
               <label for="gearNumInputs" class="form-label">Inputs</label>
               <input 
                 id="gearNumInputs"
@@ -207,7 +345,7 @@
                 class="form-input"
               />
             </div>
-            <div v-if="gearType !== 'source'" class="form-group">
+            <div v-if="gearType !== 'source' && gearType !== 'accessories_cables'" class="form-group">
               <label for="gearNumOutputs" class="form-label">Outputs</label>
               <input 
                 id="gearNumOutputs"
@@ -426,6 +564,7 @@
                     <option value="source">Source (Microphones)</option>
                     <option value="transformer">Transformer</option>
                     <option value="recorder">Recorder</option>
+                    <option value="accessories_cables">Accessories + Cables</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -587,12 +726,14 @@ import { fetchTableData, mutateTableData } from '../services/dataService'
 import { supabase } from '../supabase'
 import UserGearSelector from './UserGearSelector.vue'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
+import PackingTab from './PackingTab.vue'
 
 export default {
 name: 'ProjectGear',
 components: {
   UserGearSelector,
-  ProjectBreadcrumbs
+  ProjectBreadcrumbs,
+  PackingTab
 },
 setup() {
   const route     = useRoute()
@@ -659,19 +800,36 @@ setup() {
   const selectedUserGear        = ref([])
 
   const currentProject = computed(() => userStore.getCurrentProject)
+  const userId = computed(() => userStore.user?.id)
+  
+  // Tab management
+  const activeTab = ref('gear')
+  
+  // Separate filters for accessories
+  const filterAccessoriesLocationId = ref(route.query.locationId || 'all')
+  const sortAccessoriesBy = ref('default')
 
-  const filteredGearList = computed(() => {
+  // Split gear list into main gear and accessories
+  const mainGearList = computed(() => {
+    return gearList.value.filter(g => g.gear_type !== 'accessories_cables')
+  })
+  
+  const accessoriesList = computed(() => {
+    return gearList.value.filter(g => g.gear_type === 'accessories_cables')
+  })
+
+  const filteredMainGearList = computed(() => {
     let filtered = []
     
-    // Apply filter
+    // Apply filter to main gear
     if (filterLocationId.value === 'all') {
-      filtered = gearList.value
+      filtered = mainGearList.value
     } else if (filterLocationId.value === 'unassigned') {
-      filtered = gearList.value.filter(g => g.unassigned_amount > 0)
+      filtered = mainGearList.value.filter(g => g.unassigned_amount > 0)
     } else if (filterLocationId.value === 'assigned') {
-      filtered = gearList.value.filter(g => g.total_assigned > 0)
+      filtered = mainGearList.value.filter(g => g.total_assigned > 0)
     } else {
-      filtered = gearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+      filtered = mainGearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
     }
     
     // Apply sorting
@@ -689,6 +847,41 @@ setup() {
     } else if (sortBy.value === 'quantity-desc') {
       return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
     } else if (sortBy.value === 'quantity-asc') {
+      return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
+    }
+    
+    return filtered
+  })
+
+  const filteredAccessoriesList = computed(() => {
+    let filtered = []
+    
+    // Apply filter to accessories
+    if (filterAccessoriesLocationId.value === 'all') {
+      filtered = accessoriesList.value
+    } else if (filterAccessoriesLocationId.value === 'unassigned') {
+      filtered = accessoriesList.value.filter(g => g.unassigned_amount > 0)
+    } else if (filterAccessoriesLocationId.value === 'assigned') {
+      filtered = accessoriesList.value.filter(g => g.total_assigned > 0)
+    } else {
+      filtered = accessoriesList.value.filter(g => g.assignments?.[filterAccessoriesLocationId.value] > 0)
+    }
+    
+    // Apply sorting
+    if (sortAccessoriesBy.value === 'default') {
+      // Keep original order (by sort_order)
+      return filtered
+    } else if (sortAccessoriesBy.value === 'name-asc') {
+      return [...filtered].sort((a, b) => 
+        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortAccessoriesBy.value === 'name-desc') {
+      return [...filtered].sort((a, b) => 
+        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortAccessoriesBy.value === 'quantity-desc') {
+      return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
+    } else if (sortAccessoriesBy.value === 'quantity-asc') {
       return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
     }
     
@@ -716,12 +909,20 @@ setup() {
     if (t === 'source') {
       gearNumInputs.value  = 0
       gearNumOutputs.value = 1
+    } else if (t === 'accessories_cables') {
+      gearNumInputs.value  = null
+      gearNumOutputs.value = null
+      gearNumRecords.value = null
     }
   })
   watch(editGearType, t => {
     if (t === 'source') {
       editNumInputs.value  = 0
       editNumOutputs.value = 1
+    } else if (t === 'accessories_cables') {
+      editNumInputs.value  = null
+      editNumOutputs.value = null
+      editNumRecords.value = null
     }
   })
 
@@ -851,8 +1052,8 @@ setup() {
       const payload = {
         gear_name:   gearName.value,
         gear_type:   gearType.value,
-        num_inputs:  gearType==='source' ? 0 : gearNumInputs.value,
-        num_outputs: gearType==='source' ? 1 : gearNumOutputs.value,
+        num_inputs:  gearType.value === 'source' ? 0 : (gearType.value === 'accessories_cables' ? null : gearNumInputs.value),
+        num_outputs: gearType.value === 'source' ? 1 : (gearType.value === 'accessories_cables' ? null : gearNumOutputs.value),
         num_records: gearType.value === 'recorder' ? Number(gearNumRecords.value) : null,
         gear_amount: gearAmount.value,
         is_rented:   isRented.value,
@@ -1330,11 +1531,17 @@ setup() {
       `Gear for ${locationsList.value.find(l=>String(l.id)===filterLocationId.value)?.stage_name}`
     doc.setFontSize(16)
     doc.text(title, 10, 20)
-    const data = filteredGearList.value.map(g => [
+    const mainData = filteredMainGearList.value.map(g => [
       g.gear_name, g.gear_type, g.gear_amount,
       g.unassigned_amount, g.total_assigned,
       g.is_rented ? 'Yes' : 'No', g.vendor || ''
     ])
+    const accessoriesData = filteredAccessoriesList.value.map(g => [
+      g.gear_name, g.gear_type, g.gear_amount,
+      g.unassigned_amount, g.total_assigned,
+      g.is_rented ? 'Yes' : 'No', g.vendor || ''
+    ])
+    const data = [...mainData, ...accessoriesData]
     autoTable(doc, {
       startY: 30,
       head: [['Name','Type','Total','Unassigned','Assigned','Rented?','Vendor']],
@@ -1342,6 +1549,64 @@ setup() {
     })
     doc.save(`gear_${new Date().toISOString().slice(0,10)}.pdf`)
     toast.success('Exported to PDF')
+  }
+
+  function printMyGearInventory() {
+    if (!userId.value) {
+      toast.error('User not authenticated')
+      return
+    }
+    
+    // Filter to user's own gear (is_user_gear = true) including accessories_cables they added
+    const myGear = gearList.value.filter(g => 
+      g.is_user_gear === true
+    )
+    
+    if (myGear.length === 0) {
+      toast.info('No gear found to print')
+      return
+    }
+    
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text('My Gear Inventory', 10, 20)
+    doc.setFontSize(12)
+    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, 30)
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 38)
+    
+    const data = myGear.map(g => {
+      // Get assignment locations
+      const assignmentStrs = []
+      if (g.assignments) {
+        Object.entries(g.assignments).forEach(([locId, amount]) => {
+          if (amount > 0) {
+            const loc = locationsList.value.find(l => l.id === Number(locId))
+            if (loc) {
+              assignmentStrs.push(`${loc.stage_name} (${amount})`)
+            }
+          }
+        })
+      }
+      const assignments = assignmentStrs.join(', ') || 'Unassigned'
+      
+      return [
+        g.gear_name,
+        g.gear_type || 'N/A',
+        g.gear_amount.toString(),
+        g.unassigned_amount.toString(),
+        assignments,
+        g.vendor || ''
+      ]
+    })
+    
+    autoTable(doc, {
+      startY: 45,
+      head: [['Gear Name', 'Type', 'Total', 'Available', 'Assignments', 'Vendor']],
+      body: data
+    })
+    
+    doc.save(`my_gear_inventory_${new Date().toISOString().slice(0, 10)}.pdf`)
+    toast.success('Inventory printed')
   }
 
   function calcMaxAssignment(locId) {
@@ -1490,7 +1755,11 @@ setup() {
     immediateAssignedAmount,
     toggleAddGear,
     addGear,
-    filteredGearList,
+    filteredMainGearList,
+    filteredAccessoriesList,
+    activeTab,
+    filterAccessoriesLocationId,
+    sortAccessoriesBy,
     confirmDelete,
     openAssignmentModal,
     closeAssignmentModal,
@@ -1550,7 +1819,9 @@ setup() {
     openUserGearSelector,
     closeUserGearSelector,
     handleUserGearSelected,
-    handleUserGearAdded
+    handleUserGearAdded,
+    printMyGearInventory,
+    userId
   }
 }
 }
@@ -1640,6 +1911,74 @@ setup() {
 
 .btn-text {
   font-size: 16px;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 0;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover {
+  color: #1a1a1a;
+  background: #f8f9fa;
+}
+
+.tab-button.active {
+  color: #0066cc;
+  border-bottom-color: #0066cc;
+  font-weight: 600;
+}
+
+.tab-icon {
+  font-size: 18px;
+}
+
+.tab-label {
+  font-size: 16px;
+}
+
+/* Gear Sections */
+.gear-section {
+  margin-bottom: 32px;
+}
+
+.gear-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.accessories-section {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 2px solid #e9ecef;
+}
+
+.accessories-filter {
+  margin-bottom: 20px;
 }
 
 /* Filter Section */

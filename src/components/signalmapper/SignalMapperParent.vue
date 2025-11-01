@@ -155,10 +155,12 @@ async function fetchGearList() {
   if (!props.projectId) return
 
   try {
-    const gearData = await fetchTableData('gear_table', { 
+    const allGearData = await fetchTableData('gear_table', { 
       eq: { project_id: props.projectId },
       order: [{ column: 'sort_order', ascending: true }]
     })
+    // Exclude accessories_cables from signal mapper
+    const gearData = allGearData.filter(g => g.gear_type !== 'accessories_cables')
     
     const ids = gearData.map(g => g.id)
     const asns = ids.length

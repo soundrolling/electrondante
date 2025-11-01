@@ -58,6 +58,7 @@ import FlightDetails from './FlightDetails.vue'
 import Documents from './Documents.vue'
 import Expenses from './Expenses.vue'
 import Parking from './Parking.vue'
+import Packing from './Packing.vue'
 
 export default {
 name: 'TravelTripDetail',
@@ -73,7 +74,8 @@ components: {
   FlightDetails,
   Documents,
   Expenses,
-  Parking
+  Parking,
+  Packing
 },
 data() {
   return {
@@ -82,7 +84,8 @@ data() {
       { key: 'flights', label: 'Flights', component: 'FlightDetails' },
       { key: 'documents', label: 'Documents', component: 'Documents' },
       { key: 'expenses', label: 'Expenses', component: 'Expenses' },
-      { key: 'parking', label: 'Parking', component: 'Parking' }
+      { key: 'parking', label: 'Parking', component: 'Parking' },
+      { key: 'packing', label: 'Packing', component: 'Packing' }
     ],
     activeTab: 'accommodations'
   }
@@ -100,7 +103,8 @@ methods: {
       flights: '✈️',
       documents: '📄',
       expenses: '💰',
-      parking: '🅿️'
+      parking: '🅿️',
+      packing: '🎒'
     }
     return icons[key] || '📋'
   }

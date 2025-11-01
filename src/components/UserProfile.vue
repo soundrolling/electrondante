@@ -253,8 +253,8 @@ async function saveGear() {
     gear_name: name,
     quantity: gearForm.value.quantity || 1,
     gear_type: gearForm.value.gear_type.trim() || null,
-    num_inputs: gearForm.value.gear_type === 'source' ? 0 : Number(gearForm.value.num_inputs || 0),
-    num_outputs: gearForm.value.gear_type === 'source' ? 1 : Number(gearForm.value.num_outputs || 0),
+    num_inputs: gearForm.value.gear_type === 'source' ? 0 : (gearForm.value.gear_type === 'accessories_cables' ? null : Number(gearForm.value.num_inputs || 0)),
+    num_outputs: gearForm.value.gear_type === 'source' ? 1 : (gearForm.value.gear_type === 'accessories_cables' ? null : Number(gearForm.value.num_outputs || 0)),
     num_records: gearForm.value.gear_type === 'recorder' ? Number(gearForm.value.num_records || 0) : null,
     is_rented: !!gearForm.value.is_rented,
     purchased_date: gearForm.value.purchased_date || null,
@@ -879,10 +879,11 @@ async function saveSecurity() {
                 <option value="source">Source (Microphones)</option>
                 <option value="transformer">Transformer</option>
                 <option value="recorder">Recorder</option>
+                <option value="accessories_cables">Accessories + Cables</option>
               </select>
             </div>
 
-            <div class="form-group" v-if="gearForm.gear_type !== 'source'">
+            <div class="form-group" v-if="gearForm.gear_type !== 'source' && gearForm.gear_type !== 'accessories_cables'">
               <label class="form-label">Inputs</label>
               <input 
                 v-model.number="gearForm.num_inputs" 
@@ -891,7 +892,7 @@ async function saveSecurity() {
                 min="0"
               />
             </div>
-            <div class="form-group" v-if="gearForm.gear_type !== 'source'">
+            <div class="form-group" v-if="gearForm.gear_type !== 'source' && gearForm.gear_type !== 'accessories_cables'">
               <label class="form-label">Outputs</label>
               <input 
                 v-model.number="gearForm.num_outputs" 

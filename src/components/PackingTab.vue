@@ -1,0 +1,717 @@
+<template>
+  <div class="packing-tab">
+    <div class="packing-header">
+      <h2 class="section-title">My Packing Bags</h2>
+      <button class="btn btn-positive" @click="openCreateBagModal">
+        <span class="btn-icon">➕</span>
+        <span class="btn-text">Create Bag</span>
+      </button>
+    </div>
+
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading bags...</p>
+    </div>
+
+    <div v-else-if="bags.length === 0" class="empty-state">
+      <div class="empty-icon">🎒</div>
+      <h3>No bags yet</h3>
+      <p>Create your first packing bag to organize your gear</p>
+      <button class="btn btn-positive" @click="openCreateBagModal">Create Your First Bag</button>
+    </div>
+
+    <div v-else class="bags-grid">
+      <div 
+        v-for="bag in bags" 
+        :key="bag.id"
+        class="bag-card"
+      >
+        <div class="bag-image-container">
+          <img 
+            v-if="bag.imageUrl" 
+            :src="bag.imageUrl" 
+            :alt="bag.name"
+            class="bag-image"
+          />
+          <div v-else class="bag-image-placeholder">
+            <span class="placeholder-icon">📷</span>
+            <span class="placeholder-text">No image</span>
+          </div>
+        </div>
+        
+        <div class="bag-content">
+          <h3 class="bag-name">{{ bag.name }}</h3>
+          <p v-if="bag.description" class="bag-description">{{ bag.description }}</p>
+          
+          <div class="bag-items-count">
+            <span class="count-label">Items:</span>
+            <span class="count-value">{{ getBagItemCount(bag.id) }}</span>
+          </div>
+
+          <div class="bag-actions">
+            <button class="btn btn-primary btn-sm" @click="viewBag(bag)" title="View">
+              <span class="btn-icon">👁️</span>
+              <span class="btn-text">View</span>
+            </button>
+            <button class="btn btn-warning btn-sm" @click="editBag(bag)" title="Edit">
+              <span class="btn-icon">✏️</span>
+              <span class="btn-text">Edit</span>
+            </button>
+            <button class="btn btn-primary btn-sm" @click="printBagInventory(bag)" title="Print">
+              <span class="btn-icon">🖨️</span>
+              <span class="btn-text">Print</span>
+            </button>
+            <button class="btn btn-danger btn-sm" @click="confirmDeleteBag(bag)" title="Delete">
+              <span class="btn-icon">🗑️</span>
+              <span class="btn-text">Delete</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create/Edit Bag Modal -->
+    <div v-if="showBagModal" class="modal-overlay" @click="closeBagModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h3>{{ isEditingBag ? 'Edit Bag' : 'Create Bag' }}</h3>
+          <button class="modal-close" @click="closeBagModal">✕</button>
+        </div>
+        <form @submit.prevent="saveBag" class="modal-form">
+          <div class="form-group">
+            <label class="form-label">Bag Name *</label>
+            <input 
+              v-model="bagForm.name" 
+              required
+              class="form-input"
+              placeholder="e.g., Main Equipment Bag"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea 
+              v-model="bagForm.description" 
+              class="form-textarea"
+              placeholder="Optional description"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Bag Image</label>
+            <input 
+              ref="imageInput"
+              type="file"
+              accept="image/*"
+              @change="onImageSelect"
+              class="form-input"
+            />
+            <div v-if="bagForm.imagePreview" class="image-preview-container">
+              <img :src="bagForm.imagePreview" alt="Preview" class="image-preview" />
+              <button type="button" class="btn btn-warning btn-sm" @click="clearImagePreview">
+                Remove Image
+              </button>
+            </div>
+            <div v-if="currentBag?.imageUrl && !bagForm.imageFile" class="current-image-container">
+              <p class="image-note">Current image:</p>
+              <img :src="currentBag.imageUrl" alt="Current" class="image-preview" />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-warning" @click="closeBagModal">Cancel</button>
+            <button type="submit" class="btn btn-positive" :disabled="saving">
+              {{ saving ? 'Saving...' : (isEditingBag ? 'Update Bag' : 'Create Bag') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- View/Manage Bag Items Modal -->
+    <div v-if="showBagItemsModal" class="modal-overlay" @click="closeBagItemsModal">
+      <div class="modal modal-large" @click.stop>
+        <div class="modal-header">
+          <h3>{{ currentBag?.name }} - Items</h3>
+          <button class="modal-close" @click="closeBagItemsModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="bag-items-section">
+            <div class="add-item-section">
+              <h4>Add Gear to Bag</h4>
+              <div class="gear-selector">
+                <select v-model="selectedGearToAdd" class="form-select">
+                  <option value="">Select gear to add...</option>
+                  <optgroup label="Project Gear">
+                    <option 
+                      v-for="gear in availableProjectGear" 
+                      :key="'pg-' + gear.id"
+                      :value="JSON.stringify({ type: 'gear', gear })"
+                    >
+                      {{ gear.gear_name }} ({{ gear.gear_type }}) - Qty: {{ gear.gear_amount }}
+                    </option>
+                  </optgroup>
+                  <optgroup label="My Personal Gear">
+                    <option 
+                      v-for="gear in availableUserGear" 
+                      :key="'ug-' + gear.id"
+                      :value="JSON.stringify({ type: 'user_gear', gear })"
+                    >
+                      {{ gear.gear_name }} ({{ gear.gear_type }}) - Qty: {{ gear.quantity }}
+                    </option>
+                  </optgroup>
+                </select>
+                <input 
+                  v-model.number="gearQuantityToAdd" 
+                  type="number"
+                  min="1"
+                  class="form-input"
+                  placeholder="Quantity"
+                  style="max-width: 120px;"
+                />
+                <button 
+                  class="btn btn-positive btn-sm" 
+                  @click="addItemToBag"
+                  :disabled="!selectedGearToAdd || !gearQuantityToAdd"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            <div class="items-list">
+              <h4>Items in Bag ({{ bagItems.length }})</h4>
+              <div v-if="bagItems.length === 0" class="empty-items">
+                <p>No items in this bag yet. Add gear above.</p>
+              </div>
+              <div v-else class="items-grid">
+                <div 
+                  v-for="item in bagItems" 
+                  :key="item.id"
+                  class="item-card"
+                >
+                  <div class="item-info">
+                    <h5 class="item-name">{{ item.gear_name }}</h5>
+                    <p class="item-quantity">Quantity: {{ item.quantity }}</p>
+                    <p v-if="item.notes" class="item-notes">{{ item.notes }}</p>
+                  </div>
+                  <button 
+                    class="btn btn-danger btn-sm" 
+                    @click="removeItemFromBag(item.id)"
+                    title="Remove"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-warning" @click="closeBagItemsModal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useToast } from 'vue-toastification'
+import { useUserStore } from '../stores/userStore'
+import { supabase } from '../supabase'
+import { fetchTableData } from '../services/dataService'
+import PackingService from '../services/packingService'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: true
+  }
+})
+
+const toast = useToast()
+const userStore = useUserStore()
+
+const loading = ref(false)
+const saving = ref(false)
+const bags = ref([])
+const bagItems = ref([])
+const showBagModal = ref(false)
+const showBagItemsModal = ref(false)
+const isEditingBag = ref(false)
+const currentBag = ref(null)
+const imageInput = ref(null)
+
+const bagForm = ref({
+  name: '',
+  description: '',
+  imageFile: null,
+  imagePreview: null
+})
+
+const selectedGearToAdd = ref('')
+const gearQuantityToAdd = ref(1)
+const availableProjectGear = ref([])
+const availableUserGear = ref([])
+
+const userId = computed(() => userStore.user?.id)
+
+function getBagItemCount(bagId) {
+  return bagItems.value.filter(item => item.bag_id === bagId).length
+}
+
+async function loadBags() {
+  if (!userId.value) return
+  loading.value = true
+  try {
+    bags.value = await PackingService.getUserBags(userId.value)
+  } catch (err) {
+    toast.error(err.message || 'Failed to load bags')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadBagItems(bagId) {
+  try {
+    bagItems.value = await PackingService.getBagItems(bagId)
+  } catch (err) {
+    toast.error(err.message || 'Failed to load bag items')
+  }
+}
+
+async function loadAvailableGear() {
+  try {
+    // Load project gear (user's own gear added to project)
+    const projectGear = await fetchTableData('gear_table', {
+      eq: { project_id: props.projectId, is_user_gear: true }
+    })
+    availableProjectGear.value = projectGear.filter(g => g.gear_type === 'accessories_cables' || g.is_user_gear)
+    
+    // Load user's personal gear
+    if (userId.value) {
+      const userGear = await fetchTableData('user_gear', {
+        eq: { user_id: userId.value }
+      })
+      availableUserGear.value = userGear.filter(g => g.gear_type === 'accessories_cables' || true)
+    }
+  } catch (err) {
+    console.error('Failed to load available gear:', err)
+  }
+}
+
+function openCreateBagModal() {
+  isEditingBag.value = false
+  currentBag.value = null
+  bagForm.value = {
+    name: '',
+    description: '',
+    imageFile: null,
+    imagePreview: null
+  }
+  showBagModal.value = true
+}
+
+function editBag(bag) {
+  isEditingBag.value = true
+  currentBag.value = bag
+  bagForm.value = {
+    name: bag.name,
+    description: bag.description || '',
+    imageFile: null,
+    imagePreview: null
+  }
+  showBagModal.value = true
+}
+
+function closeBagModal() {
+  showBagModal.value = false
+  bagForm.value = {
+    name: '',
+    description: '',
+    imageFile: null,
+    imagePreview: null
+  }
+  if (imageInput.value) imageInput.value.value = ''
+}
+
+function onImageSelect(event) {
+  const file = event.target.files?.[0]
+  if (file) {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be less than 10MB')
+      return
+    }
+    bagForm.value.imageFile = file
+    bagForm.value.imagePreview = URL.createObjectURL(file)
+  }
+}
+
+function clearImagePreview() {
+  bagForm.value.imageFile = null
+  bagForm.value.imagePreview = null
+  if (imageInput.value) imageInput.value.value = ''
+}
+
+async function saveBag() {
+  if (!bagForm.value.name.trim()) {
+    toast.error('Please enter a bag name')
+    return
+  }
+  if (!userId.value) {
+    toast.error('User not authenticated')
+    return
+  }
+
+  saving.value = true
+  try {
+    const bagData = {
+      name: bagForm.value.name.trim(),
+      description: bagForm.value.description?.trim() || null,
+      imageFile: bagForm.value.imageFile
+    }
+
+    if (isEditingBag.value && currentBag.value) {
+      await PackingService.updateBag(currentBag.value.id, bagData)
+      toast.success('Bag updated')
+    } else {
+      await PackingService.createBag(userId.value, bagData)
+      toast.success('Bag created')
+    }
+    
+    closeBagModal()
+    await loadBags()
+  } catch (err) {
+    toast.error(err.message || 'Failed to save bag')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function confirmDeleteBag(bag) {
+  if (!confirm(`Delete "${bag.name}"? This will also remove all items in the bag.`)) return
+  
+  try {
+    await PackingService.deleteBag(bag.id)
+    toast.success('Bag deleted')
+    await loadBags()
+  } catch (err) {
+    toast.error(err.message || 'Failed to delete bag')
+  }
+}
+
+function viewBag(bag) {
+  currentBag.value = bag
+  loadBagItems(bag.id)
+  loadAvailableGear()
+  showBagItemsModal.value = true
+}
+
+function closeBagItemsModal() {
+  showBagItemsModal.value = false
+  currentBag.value = null
+  bagItems.value = []
+  selectedGearToAdd.value = ''
+  gearQuantityToAdd.value = 1
+}
+
+async function addItemToBag() {
+  if (!selectedGearToAdd.value || !gearQuantityToAdd.value || !currentBag.value) return
+
+  try {
+    const selection = JSON.parse(selectedGearToAdd.value)
+    const gear = selection.gear
+    const gearName = gear.gear_name
+    
+    await PackingService.addItemToBag(currentBag.value.id, {
+      gear_id: selection.type === 'gear' ? gear.id : null,
+      user_gear_id: selection.type === 'user_gear' ? gear.id : null,
+      gear_name: gearName,
+      quantity: gearQuantityToAdd.value
+    })
+
+    toast.success(`Added ${gearQuantityToAdd.value} × ${gearName}`)
+    selectedGearToAdd.value = ''
+    gearQuantityToAdd.value = 1
+    await loadBagItems(currentBag.value.id)
+  } catch (err) {
+    toast.error(err.message || 'Failed to add item')
+  }
+}
+
+async function removeItemFromBag(itemId) {
+  try {
+    await PackingService.removeItemFromBag(itemId)
+    toast.success('Item removed')
+    if (currentBag.value) {
+      await loadBagItems(currentBag.value.id)
+    }
+  } catch (err) {
+    toast.error(err.message || 'Failed to remove item')
+  }
+}
+
+async function printBagInventory(bag) {
+  try {
+    const inventory = await PackingService.getBagInventoryForPrint(bag.id)
+    const items = await PackingService.getBagItems(bag.id)
+    
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text(`Bag Inventory: ${inventory.name}`, 10, 20)
+    
+    if (inventory.description) {
+      doc.setFontSize(12)
+      doc.text(`Description: ${inventory.description}`, 10, 30)
+    }
+
+    if (items.length > 0) {
+      const data = items.map(item => [
+        item.gear_name,
+        item.quantity,
+        item.notes || ''
+      ])
+      
+      autoTable(doc, {
+        startY: inventory.description ? 40 : 30,
+        head: [['Gear Name', 'Quantity', 'Notes']],
+        body: data
+      })
+    } else {
+      doc.setFontSize(12)
+      doc.text('No items in this bag.', 10, inventory.description ? 40 : 30)
+    }
+
+    doc.save(`bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`)
+    toast.success('Inventory printed')
+  } catch (err) {
+    toast.error(err.message || 'Failed to print inventory')
+  }
+}
+
+onMounted(async () => {
+  await loadBags()
+  await loadAvailableGear()
+})
+</script>
+
+<style scoped>
+.packing-tab {
+  padding: 16px;
+}
+
+.packing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e9ecef;
+  border-top: 4px solid #0066cc;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.bags-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.bag-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bag-image-container {
+  width: 100%;
+  height: 200px;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bag-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bag-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #6c757d;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+}
+
+.bag-content {
+  padding: 16px;
+}
+
+.bag-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: #1a1a1a;
+}
+
+.bag-description {
+  color: #6c757d;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+}
+
+.bag-items-count {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.count-label {
+  color: #6c757d;
+}
+
+.count-value {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.bag-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 14px;
+  min-height: 32px;
+}
+
+.modal-large {
+  max-width: 800px;
+}
+
+.image-preview-container,
+.current-image-container {
+  margin-top: 12px;
+}
+
+.image-preview {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.image-note {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.gear-selector {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.items-list h4 {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.item-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.item-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.item-quantity,
+.item-notes {
+  font-size: 12px;
+  color: #6c757d;
+  margin: 0;
+}
+
+.empty-items {
+  text-align: center;
+  padding: 24px;
+  color: #6c757d;
+}
+
+@media (min-width: 768px) {
+  .bags-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .bags-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+</style>
+

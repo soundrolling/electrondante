@@ -147,6 +147,7 @@ export async function getCompleteSignalPath(projectId) {
         .from('gear_table')
         .select('id, gear_name')
         .in('id', gearIds)
+        .neq('gear_type', 'accessories_cables')
       if (gearData) {
         gearData.forEach(gear => {
           gearMap[gear.id] = gear.gear_name
