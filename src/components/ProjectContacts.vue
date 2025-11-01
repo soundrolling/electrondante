@@ -961,6 +961,17 @@ color: var(--text-primary);
   justify-content: center;
 }
 
+.page-title-small {
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.page-subtitle-small {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .add-contact-fab {
   width: 44px;
   height: 44px;
