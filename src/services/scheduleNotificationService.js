@@ -1,11 +1,8 @@
 // src/services/scheduleNotificationService.js
-import { useToast } from 'vue-toastification'
 import { useUserStore } from '@/stores/userStore'
 import { fetchTableData } from '@/services/dataService'
 import { getSetting, saveSetting } from '@/utils/indexedDB'
 import { toDateTime, t5 } from '@/utils/scheduleHelpers'
-
-const toast = useToast()
 
 // Track notifications that have been shown to prevent duplicates
 // Key: `${scheduleId}_${recordingDate}_${startTime}`
@@ -16,13 +13,25 @@ let intervalId = null
 let lastCheckedDay = null
 let currentProjectId = null
 
+// Callbacks for updating modal
+let setModalCallback = null
+let showModalCallback = null
+
 /**
- * Calculate minutes until a scheduled start time
+ * Set the callback function to update modal state
+ */
+export function setChangeoverModalCallbacks(setModal, showModal) {
+  setModalCallback = setModal
+  showModalCallback = showModal
+}
+
+/**
+ * Calculate seconds until a scheduled start time
  * @param {string} recordingDate - Date string YYYY-MM-DD
  * @param {string} startTime - Time string HH:MM:SS
- * @returns {number} Minutes until start, or null if in past
+ * @returns {number} Seconds until start, or null if in past
  */
-function getMinutesUntilStart(recordingDate, startTime) {
+function getSecondsUntilStart(recordingDate, startTime) {
   if (!recordingDate || !startTime) return null
   
   const scheduleDateTime = toDateTime(recordingDate, startTime)
@@ -30,12 +39,12 @@ function getMinutesUntilStart(recordingDate, startTime) {
   
   const now = new Date()
   const diffMs = scheduleDateTime.getTime() - now.getTime()
-  const diffMinutes = Math.floor(diffMs / 60000)
+  const diffSeconds = Math.floor(diffMs / 1000)
   
   // Return null if the schedule is in the past
-  if (diffMinutes < 0) return null
+  if (diffSeconds < 0) return null
   
-  return diffMinutes
+  return diffSeconds
 }
 
 /**
@@ -48,15 +57,18 @@ function getNotificationKey(schedule) {
 /**
  * Check if notification should be shown for a schedule
  */
-function shouldShowNotification(schedule, warningMinutes, deviceMinutesUntil) {
-  if (!schedule || !warningMinutes || deviceMinutesUntil === null) return false
+function shouldShowNotification(schedule, warningMinutes, deviceSecondsUntil) {
+  if (!schedule || !warningMinutes || deviceSecondsUntil === null) return false
   
-  // Check if we're within the warning window (with ±5 second tolerance = ±0.08 minutes)
-  const tolerance = 0.08
-  const lowerBound = warningMinutes - tolerance
-  const upperBound = warningMinutes + tolerance
+  // Convert warning minutes to seconds (e.g., 2 minutes = 120 seconds)
+  const warningSeconds = warningMinutes * 60
   
-  if (deviceMinutesUntil < lowerBound || deviceMinutesUntil > upperBound) {
+  // Check if we're within the warning window (with ±5 second tolerance)
+  const tolerance = 5 // 5 seconds tolerance
+  const lowerBound = warningSeconds - tolerance
+  const upperBound = warningSeconds + tolerance
+  
+  if (deviceSecondsUntil < lowerBound || deviceSecondsUntil > upperBound) {
     return false
   }
   
@@ -70,30 +82,29 @@ function shouldShowNotification(schedule, warningMinutes, deviceMinutesUntil) {
 }
 
 /**
- * Show changeover notification toast
+ * Show changeover notification modal
  */
-function showChangeoverNotification(schedule) {
-  const startTime = t5(schedule.start_time)
-  const message = `Changeover: ${schedule.artist_name} starting at ${startTime}`
+function showChangeoverNotification(schedule, warningMinutes) {
+  // Calculate remaining minutes (round up to show at least 1 minute if less than a minute remains)
+  const secondsUntil = getSecondsUntilStart(schedule.recording_date, schedule.start_time)
+  const minutesRemaining = secondsUntil ? Math.max(1, Math.ceil(secondsUntil / 60)) : warningMinutes
   
-  // Custom icon component for changeover (circular arrows - two arrows in a circle)
-  const changeoverIcon = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <path d="M8 10L10 12L8 14" stroke-width="2.5"/>
-      <path d="M16 10L14 12L16 14" stroke-width="2.5"/>
-      <path d="M10 12H14" stroke-width="2.5"/>
-    </svg>
-  `
+  // Update modal state
+  if (setModalCallback) {
+    setModalCallback({
+      visible: true,
+      artistName: schedule.artist_name,
+      minutesRemaining: minutesRemaining,
+      startTime: t5(schedule.start_time),
+      locationId: schedule.location_id,
+      projectId: currentProjectId
+    })
+  }
   
-  toast.info(message, {
-    timeout: 5000,
-    icon: changeoverIcon,
-    closeOnClick: true,
-    pauseOnFocusLoss: true,
-    pauseOnHover: true,
-    draggable: true,
-  })
+  // Show modal
+  if (showModalCallback) {
+    showModalCallback()
+  }
   
   // Mark as notified
   const key = getNotificationKey(schedule)
@@ -162,12 +173,12 @@ async function checkSchedulesForNotifications() {
         ? parseInt(schedule.warning_bell_minutes, 10) 
         : warningMinutes
       
-      // Calculate minutes until this schedule starts
-      const minutesUntil = getMinutesUntilStart(schedule.recording_date, schedule.start_time)
+      // Calculate seconds until this schedule starts (for accurate timing)
+      const secondsUntil = getSecondsUntilStart(schedule.recording_date, schedule.start_time)
       
       // Check if we should show notification
-      if (shouldShowNotification(schedule, scheduleWarningMinutes, minutesUntil)) {
-        showChangeoverNotification(schedule)
+      if (shouldShowNotification(schedule, scheduleWarningMinutes, secondsUntil)) {
+        showChangeoverNotification(schedule, scheduleWarningMinutes)
       }
     }
   } catch (error) {

@@ -65,6 +65,25 @@ p, span, div, label {
   color: var(--text-primary) !important;
 }
 
+/* Changeover Toast Styling - Bright yellow background with black text */
+.changeover-toast {
+  background-color: #ffeb3b !important; /* Bright yellow */
+  color: #000000 !important; /* Black text */
+  border: 2px solid #fbc02d !important;
+}
+
+.changeover-toast .Vue-Toastification__toast-body {
+  color: #000000 !important;
+}
+
+.changeover-toast .Vue-Toastification__toast-icon {
+  color: #000000 !important;
+}
+
+.changeover-toast .Vue-Toastification__close-button {
+  color: #000000 !important;
+}
+
 /* Override any Tailwind or conflicting styles */
 * {
   color: inherit !important;

@@ -40,6 +40,17 @@
       @signOut="signOut"
     />
   </div>
+
+  <!-- Changeover Notification Modal -->
+  <ChangeoverNotificationModal
+    :visible="changeoverModal.visible"
+    :artist-name="changeoverModal.artistName"
+    :minutes-remaining="changeoverModal.minutesRemaining"
+    :start-time="changeoverModal.startTime"
+    :location-id="changeoverModal.locationId"
+    :project-id="changeoverModal.projectId"
+    @close="closeChangeoverModal"
+  />
 </div>
 </template>
 
@@ -49,12 +60,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/userStore'
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
+import ChangeoverNotificationModal from './components/ChangeoverNotificationModal.vue'
 import { useToast } from 'vue-toastification'
 import { syncOfflineChanges } from '@/services/dataService'
-import { startScheduleNotifications, stopScheduleNotifications } from '@/services/scheduleNotificationService'
+import { startScheduleNotifications, stopScheduleNotifications, setChangeoverModalCallbacks } from '@/services/scheduleNotificationService'
 
 export default {
-components: { Header, Footer },
+components: { Header, Footer, ChangeoverNotificationModal },
 setup() {
   const userStore = useUserStore()
   const route     = useRoute()
@@ -64,6 +76,29 @@ setup() {
   const initializationError = ref(null)
   const onlineStatus        = ref(navigator.onLine)
   const localStorageUsage   = ref({ used: 0, max: 5120 })
+
+  // Changeover modal state
+  const changeoverModal = ref({
+    visible: false,
+    artistName: '',
+    minutesRemaining: 0,
+    startTime: '',
+    locationId: null,
+    projectId: null
+  })
+
+  // Set up modal callbacks for notification service
+  const setChangeoverModal = (state) => {
+    changeoverModal.value = { ...changeoverModal.value, ...state }
+  }
+
+  const showChangeoverModal = () => {
+    changeoverModal.value.visible = true
+  }
+
+  const closeChangeoverModal = () => {
+    changeoverModal.value.visible = false
+  }
 
   const userEmail              = computed(() => userStore.getUserEmail)
   const isAdmin                = computed(() => userStore.isAdmin)
@@ -147,6 +182,9 @@ setup() {
       window.addEventListener('online', handleOnline)
       window.addEventListener('offline', updateOnlineStatus)
       
+      // Register modal callbacks with notification service
+      setChangeoverModalCallbacks(setChangeoverModal, showChangeoverModal)
+      
       // Start schedule notifications if authenticated and have a project
       if (userStore.isAuthenticated && userStore.getCurrentProject) {
         startScheduleNotifications(userStore.getCurrentProject.id)
@@ -173,7 +211,9 @@ setup() {
     isHiddenRoute,
     clearCache,
     signOut,
-    retryInitialization
+    retryInitialization,
+    changeoverModal,
+    closeChangeoverModal
   }
 }
 }
