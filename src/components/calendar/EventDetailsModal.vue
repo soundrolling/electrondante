@@ -236,6 +236,7 @@ box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 .modal h3 {
 margin: 0 0 1rem;
 font-size: 1.25rem;
+color: var(--text-heading);
 }
 .event-category-display {
 margin-bottom: 1rem;
@@ -270,7 +271,7 @@ margin: 1rem 0;
 padding: 1rem;
 background: var(--bg-secondary);
 border-radius: 6px;
-border: 1px solid #e9ecef;
+border: 1px solid var(--border-light);
 }
 
 .assigned-contacts h4 {
@@ -292,7 +293,7 @@ gap: 0.75rem;
 padding: 0.5rem;
 background: var(--bg-primary);
 border-radius: 4px;
-border: 1px solid #dee2e6;
+border: 1px solid var(--border-light);
 }
 
 .contact-avatar {
@@ -330,7 +331,7 @@ color: var(--text-secondary);
 .contact-selection {
 max-height: 200px;
 overflow-y: auto;
-border: 1px solid #dee2e6;
+border: 1px solid var(--border-light);
 border-radius: 4px;
 padding: 0.5rem;
 background: var(--bg-primary);
@@ -416,9 +417,11 @@ margin-bottom: 0.3rem;
 .form-field textarea,
 .form-field select {
 padding: 0.45rem;
-border: 1px solid #ccd0d5;
+border: 1px solid var(--border-medium);
 border-radius: 4px;
 font-size: 0.95rem;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 .modal-actions {
 display: flex;

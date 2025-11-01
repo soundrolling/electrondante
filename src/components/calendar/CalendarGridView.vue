@@ -183,7 +183,7 @@ box-sizing: border-box;
   padding: 1rem;
   background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .stage-hours-header {
@@ -213,7 +213,7 @@ box-sizing: border-box;
   background: var(--bg-primary);
   padding: 0.75rem;
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border-light);
 }
 
 .stage-name {
@@ -267,11 +267,12 @@ margin-bottom: 0.5rem;
 }
 .nav-button {
 background: var(--bg-secondary);
-border: 1px solid #cfd6dd;
+border: 1px solid var(--border-medium);
 padding: 0.4rem 0.8rem;
 border-radius: 4px;
 cursor: pointer;
 transition: background 0.2s;
+color: var(--text-primary);
 }
 .nav-button:hover {
 background: var(--bg-tertiary);
@@ -285,7 +286,7 @@ margin-bottom: 1rem;
 height: 10px;
 }
 .calendar-scroll::-webkit-scrollbar-thumb {
-background-color: rgba(0,0,0,0.2);
+background-color: var(--border-medium);
 border-radius: 5px;
 }
 .calendar-scroll::-webkit-scrollbar-track {
@@ -295,14 +296,15 @@ background: transparent;
 display: flex;
 flex-direction: column;
 width: 100%;
-border: 1px solid #d1d5db;
+border: 1px solid var(--border-medium);
 border-radius: 0;
+background: var(--bg-primary);
 }
 .vertical-week-row {
 display: flex;
 flex-direction: row;
 align-items: center;
-border-bottom: 1px solid #d1d5db;
+border-bottom: 1px solid var(--border-medium);
 min-height: 60px;
 }
 .vertical-week-row:last-child {
@@ -313,8 +315,9 @@ width: 60px;
 background: var(--bg-secondary);
 text-align: center;
 font-weight: 600;
-border-right: 1px solid #d1d5db;
+border-right: 1px solid var(--border-medium);
 padding: 10px 0;
+color: var(--text-primary);
 }
 .vertical-weekday-cell {
 flex: 1;
@@ -322,6 +325,8 @@ display: flex;
 align-items: center;
 padding: 10px;
 min-height: 60px;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 .vertical-weekday-cell.has-events .day-number {
 font-weight: 700;
@@ -390,27 +395,28 @@ font-weight: 700;
 .event-modal-item {
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-light);
 }
 .jump-today-btn {
   margin-left: 1rem;
   background: var(--bg-secondary);
-  border: 1px solid #cfd6dd;
+  border: 1px solid var(--border-medium);
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s;
   font-weight: 600;
+  color: var(--text-primary);
 }
 .jump-today-btn:hover {
-  background: #eaeef2;
+  background: var(--bg-tertiary);
 }
 .highlight-week {
-  background: #f0f8ff;
+  background: rgba(59, 130, 246, 0.1);
   border-radius: 8px;
 }
 .highlight-today {
-  background: #d1fae5 !important;
+  background: rgba(34, 197, 94, 0.15) !important;
 }
 .event-list {
   margin-top: 0.2rem;
@@ -420,7 +426,7 @@ font-weight: 700;
 }
 .event-list-item {
   background: var(--bg-secondary);
-  border-left: 4px solid #28a745;
+  border-left: 4px solid var(--color-success-500);
   border-radius: 4px;
   padding: 0.2rem 0.7rem 0.2rem 0.7rem;
   font-size: 0.97rem;
@@ -431,7 +437,7 @@ font-weight: 700;
   transition: background 0.2s;
 }
 .event-list-item:hover {
-  background: #e0f7e9;
+  background: var(--bg-tertiary);
 }
 .event-row {
   display: flex;
@@ -454,10 +460,10 @@ font-weight: 700;
 .event-title {
   flex: 1;
   font-weight: 500;
-  color: #222;
+  color: var(--text-primary);
 }
 .event-location {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.97em;
   margin-left: 0.7em;
   font-style: italic;
@@ -468,6 +474,7 @@ font-weight: 700;
   margin-bottom: 0.5rem;
   margin-right: 1.2rem;
   display: inline-block;
+  color: var(--text-primary);
 }
 .event-flex {
   display: flex;
@@ -505,17 +512,17 @@ font-weight: 700;
 }
 .event-title {
   font-weight: 500;
-  color: #222;
+  color: var(--text-primary);
   margin-bottom: 0.1em;
 }
 .event-location {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.97em;
   font-style: italic;
 }
 .multi-day-event {
-  border-left: 4px solid #ff6b35 !important;
-  background: #fff5f0 !important;
+  border-left: 4px solid var(--color-warning-500) !important;
+  background: rgba(251, 191, 36, 0.1) !important;
 }
 .multi-day-indicator {
   margin-top: 0.2rem;

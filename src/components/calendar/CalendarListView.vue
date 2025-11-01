@@ -288,7 +288,7 @@ margin-bottom: 2rem;
 padding: 1rem;
 background: var(--bg-secondary);
 border-radius: 8px;
-border: 1px solid #e9ecef;
+border: 1px solid var(--border-light);
 }
 
 .stage-hours-header {
@@ -318,7 +318,7 @@ gap: 0.75rem;
 background: var(--bg-primary);
 padding: 0.75rem;
 border-radius: 6px;
-border: 1px solid #dee2e6;
+border: 1px solid var(--border-light);
 }
 
 .stage-name {
@@ -363,7 +363,7 @@ gap: 0.75rem;
 
 .schedule-item {
 background: var(--bg-primary);
-border: 1px solid #dde2e8;
+border: 1px solid var(--border-light);
 border-radius: 4px;
 padding: 14px 16px;
 margin-bottom: 0.5rem;
@@ -374,7 +374,7 @@ gap: 0.5rem;
 }
 
 .schedule-item:hover {
-background: #f0f4f8;
+background: var(--bg-secondary);
 }
 
 .event-badges-row {
@@ -441,9 +441,9 @@ gap: 0.2rem;
 
 .multi-day-badge {
   font-size: 0.75rem;
-  color: #ff6b35;
+  color: var(--color-warning-600);
   font-weight: 600;
-  background: rgba(255, 107, 53, 0.1);
+  background: rgba(251, 191, 36, 0.15);
   padding: 0.2rem 0.5rem;
   border-radius: 3px;
   margin-top: 0.3rem;
@@ -451,7 +451,7 @@ gap: 0.2rem;
 }
 
 .event-time {
-color: #666;
+color: var(--text-secondary);
 font-size: 0.95rem;
 }
 
@@ -465,17 +465,17 @@ gap: 0.2rem;
 .event-title {
 font-size: 1.05rem;
 font-weight: 600;
-color: #222;
+color: var(--text-primary);
 word-break: break-word;
 }
 
 .event-location {
 font-size: 0.95rem;
-color: #666;
+color: var(--text-secondary);
 }
 
 .stage-hour-event {
-background-color: #f0f4f8;
+background-color: var(--bg-secondary);
 }
 
 /* Modal styles */
@@ -536,18 +536,18 @@ border: none;
 font-size: 1.1rem;
 cursor: pointer;
 margin-left: 0.25rem;
-color: #888;
+color: var(--text-secondary);
 padding: 0 0.2rem;
 }
 .cog-btn:hover {
-color: #222;
+color: var(--text-primary);
 }
 .cog-menu {
 position: absolute;
 top: 1.5rem;
 right: 0;
 background: var(--bg-primary);
-border: 1px solid #ccc;
+border: 1px solid var(--border-medium);
 border-radius: 6px;
 box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 min-width: 120px;
@@ -562,17 +562,17 @@ border: none;
 text-align: left;
 font-size: 0.95rem;
 cursor: pointer;
-color: #333;
+color: var(--text-primary);
 transition: background 0.2s;
 }
 .cog-menu-item:hover {
-background: #f0f4f8;
+background: var(--bg-secondary);
 }
 .cog-menu-item.delete {
-color: #e74c3c;
+color: var(--color-error-600);
 }
 .cog-menu-item.disabled {
-color: #aaa;
+color: var(--text-tertiary);
 cursor: not-allowed;
 }
 
@@ -589,9 +589,11 @@ margin-bottom: 0.3rem;
 .form-field textarea,
 .form-field select {
 padding: 0.45rem;
-border: 1px solid #ccd0d5;
+border: 1px solid var(--border-medium);
 border-radius: 4px;
 font-size: 0.95rem;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 .button.save-button {
 background: #27ae60;
@@ -634,18 +636,18 @@ gap: 0.25rem;
 width: 20px;
 height: 20px;
 border-radius: 50%;
-background-color: #888;
+background-color: var(--color-secondary-500);
 display: flex;
 align-items: center;
 justify-content: center;
 font-size: 0.8rem;
 font-weight: 600;
-color: #fff;
+color: var(--text-inverse);
 }
 
 .contact-name {
 font-size: 0.95rem;
-color: #666;
+color: var(--text-secondary);
 }
 
 .category-icon {

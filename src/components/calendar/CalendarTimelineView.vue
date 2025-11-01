@@ -234,14 +234,16 @@ display: flex;
 align-items: center;
 justify-content: space-between;
 margin-bottom: 0.75rem;
+color: var(--text-primary);
 }
 .nav-button {
 background: var(--bg-secondary);
-border: 1px solid #cfd6dd;
+border: 1px solid var(--border-medium);
 padding: 0.4rem 0.8rem;
 border-radius: 4px;
 cursor: pointer;
 transition: background 0.2s;
+color: var(--text-primary);
 }
 .nav-button:hover {
 background: var(--bg-tertiary);
@@ -252,7 +254,7 @@ background: var(--bg-tertiary);
   padding: 1rem;
   background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .stage-hours-header {
@@ -274,7 +276,7 @@ background: var(--bg-tertiary);
 
 .stage-hours-section h3 {
 margin: 0 0 0.75rem 0;
-color: #495057;
+color: var(--text-secondary);
 font-size: 1rem;
 }
 
@@ -288,13 +290,13 @@ gap: 0.5rem;
 background: var(--bg-primary);
 padding: 0.5rem;
 border-radius: 4px;
-border: 1px solid #dee2e6;
+border: 1px solid var(--border-light);
 }
 
 .stage-name {
 font-weight: 600;
 margin-bottom: 0.25rem;
-color: #495057;
+color: var(--text-secondary);
 font-size: 0.9rem;
 }
 
@@ -324,16 +326,26 @@ font-style: italic;
 .timeline-table {
 width: 100%;
 border-collapse: collapse;
+background: var(--bg-primary);
 }
 .timeline-table th,
 .timeline-table td {
-border: 1px solid #e1e5eb;
+border: 1px solid var(--border-medium);
 padding: 0.5rem;
+}
+.timeline-table th {
+background: var(--bg-secondary);
+color: var(--text-primary);
+}
+.timeline-table td {
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 .time-col {
 width: 70px;
 text-align: right;
 font-weight: 600;
+color: var(--text-primary);
 }
 .events-row {
 display: flex;
@@ -344,7 +356,7 @@ gap: 0.5rem;
 margin: 2px 0;
 padding: 6px 8px;
 border-radius: 4px;
-color: var(--text-inverse);
+color: var(--text-primary);
 font-size: 0.85rem;
 cursor: pointer;
 display: flex;
@@ -353,7 +365,7 @@ gap: 0.5rem;
 }
 
 .timeline-event.stage-hour-event {
-border: 2px solid #28a745;
+border: 2px solid var(--color-success-500);
 font-weight: 600;
 }
 
@@ -393,34 +405,37 @@ font-size: 0.7rem;
 .timeline-table tbody tr:nth-child(even) {
   background: var(--bg-secondary);
 }
+.timeline-table tbody tr:nth-child(odd) {
+  background: var(--bg-primary);
+}
 
 .timeline-event {
-  background: var(--bg-primary) !important;
+  background: var(--bg-secondary) !important;
   color: var(--text-primary);
   font-weight: 600;
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
-  border-left: 5px solid #ef4444;
+  border: 1.5px solid var(--border-medium);
+  border-left: 5px solid var(--color-error-500);
   transition: box-shadow 0.18s, background 0.18s;
 }
 .timeline-event:hover {
-  background: #f3f4f6 !important;
+  background: var(--bg-tertiary) !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 .timeline-event.stage-hour-event {
-  border: 2px solid #28a745;
-  border-left: 5px solid #28a745;
-  background: #f0fdf4 !important;
-  color: #14532d;
+  border: 2px solid var(--color-success-500);
+  border-left: 5px solid var(--color-success-500);
+  background: rgba(34, 197, 94, 0.1) !important;
+  color: var(--color-success-600);
 }
 .timeline-event.red-accent {
-  border-left: 5px solid #ef4444 !important;
+  border-left: 5px solid var(--color-error-500) !important;
 }
 
 .timeline-event.multi-day-event {
-  border-left: 5px solid #ff6b35 !important;
-  background: #fff5f0 !important;
+  border-left: 5px solid var(--color-warning-500) !important;
+  background: rgba(251, 191, 36, 0.1) !important;
 }
 
 .multi-day-indicator {
@@ -429,9 +444,9 @@ font-size: 0.7rem;
 
 .multi-day-text {
   font-size: 0.7em;
-  color: #ff6b35;
+  color: var(--color-warning-600);
   font-weight: 600;
-  background: rgba(255, 107, 53, 0.1);
+  background: rgba(251, 191, 36, 0.15);
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
 }
@@ -442,23 +457,23 @@ font-size: 0.7rem;
 
 .location-text {
   font-size: 0.7em;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 500;
-  background: rgba(107, 114, 128, 0.1);
+  background: var(--bg-tertiary);
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
 }
 
 .multi-day-stage-hour {
-  background: rgba(255, 107, 53, 0.1) !important;
-  border-left: 3px solid #ff6b35 !important;
+  background: rgba(251, 191, 36, 0.1) !important;
+  border-left: 3px solid var(--color-warning-500) !important;
 }
 
 .multi-day-stage-indicator {
   font-size: 0.7em;
-  color: #ff6b35;
+  color: var(--color-warning-600);
   font-weight: 600;
-  background: rgba(255, 107, 53, 0.2);
+  background: rgba(251, 191, 36, 0.2);
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   margin-left: 0.5rem;

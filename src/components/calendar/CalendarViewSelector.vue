@@ -37,8 +37,8 @@ data() {
 .view-controls {
   display: flex;
   gap: 0;
-  border-bottom: 2.5px solid #e5e7eb;
-  background: #f9fafb;
+  border-bottom: 2.5px solid var(--border-medium);
+  background: var(--bg-secondary);
   box-shadow: 0 2px 8px rgba(0,0,0,0.03);
   border-radius: 8px 8px 0 0;
   margin-bottom: 0.4rem;
@@ -51,7 +51,7 @@ data() {
   padding: 0.72rem 1.6rem 0.64rem 1.6rem;
   font-size: 1.09rem;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   cursor: pointer;
   border-radius: 8px 8px 0 0;
   transition: color 0.18s, border-bottom 0.18s, background 0.18s;
@@ -61,13 +61,13 @@ data() {
   z-index: 2;
 }
 .view-button:not(.active):hover {
-  background: #f3f4f6;
-  color: #007bff;
+  background: var(--bg-tertiary);
+  color: var(--color-primary-500);
 }
 .view-button.active {
-  color: #007bff;
-  border-bottom: 3px solid #007bff;
-  background: #fff;
+  color: var(--color-primary-600);
+  border-bottom: 3px solid var(--color-primary-500);
+  background: var(--bg-primary);
   font-weight: 600;
   z-index: 3;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);

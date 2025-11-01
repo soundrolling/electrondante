@@ -115,15 +115,16 @@ flex-direction: column;
 .filter-group label {
 font-size: 0.875rem;
 margin-bottom: 0.25rem;
-color: #555;
+color: var(--text-primary);
 }
 .filters-bar input,
 .filters-bar select {
 padding: 0.45rem 0.55rem;
-border: 1px solid #ccd0d5;
+border: 1px solid var(--border-medium);
 border-radius: 6px;
 font-size: 0.95rem;
-background: #fff;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 @media (min-width: 700px) {
   /* On wider screens, align label/field inline for compactness */

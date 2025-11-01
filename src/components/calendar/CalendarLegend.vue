@@ -64,7 +64,7 @@ data() {
 .legend-section {
   padding: 0.8rem 1rem;
   background: var(--bg-primary);
-  border-bottom: 1px solid #e1e5eb;
+  border-bottom: 1px solid var(--border-light);
   max-width: 700px;
   margin: 0 auto 1rem auto;
   box-sizing: border-box;
@@ -75,6 +75,7 @@ data() {
   justify-content: space-between;
   cursor: pointer;
   user-select: none;
+  color: var(--text-primary);
 }
 .legend-toggle-btn {
   background: none;
@@ -104,6 +105,7 @@ display: flex;
 align-items: center;
 gap: 0.5rem;
 font-size: 0.9rem;
+color: var(--text-primary);
 }
 .legend-icon {
   font-size: 1.2em;
@@ -135,7 +137,7 @@ color: var(--text-tertiary);
 }
 .legend-standout {
   background: var(--bg-secondary);
-  border: 1.5px solid #d1d5db;
+  border: 1.5px solid var(--border-medium);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   padding: 0.8rem 1rem 0.9rem 1rem;

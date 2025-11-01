@@ -183,13 +183,14 @@ box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 .modal h3 {
 margin: 0 0 1rem;
 font-size: 1.25rem;
+color: var(--text-heading);
 }
 
 /* Contact Selection Styles */
 .contact-selection {
 max-height: 200px;
 overflow-y: auto;
-border: 1px solid #dee2e6;
+border: 1px solid var(--border-light);
 border-radius: 4px;
 padding: 0.5rem;
 background: var(--bg-primary);
@@ -275,9 +276,11 @@ margin-bottom: 0.3rem;
 .form-field textarea,
 .form-field select {
 padding: 0.45rem;
-border: 1px solid #ccd0d5;
+border: 1px solid var(--border-medium);
 border-radius: 4px;
 font-size: 0.95rem;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 .modal-actions {
 display: flex;
