@@ -1618,8 +1618,9 @@ display: flex;
 justify-content: space-between;
 align-items: center;
 padding: 20px;
-border-bottom: 1px solid #e9ecef;
+border-bottom: 1px solid var(--border-light);
 cursor: move;
+background: var(--bg-secondary);
 }
 
 .modal-title {
@@ -1630,11 +1631,11 @@ color: var(--text-primary);
 }
 
 .close-btn {
-background: none;
-border: none;
+background: var(--bg-tertiary);
+border: 1px solid var(--border-medium);
 font-size: 24px;
 cursor: pointer;
-color: var(--text-secondary);
+color: var(--text-primary);
 padding: 0;
 width: 30px;
 height: 30px;
@@ -1649,7 +1650,8 @@ z-index: 10;
 
 .close-btn:hover {
 background: var(--bg-secondary);
-color: var(--text-secondary);
+color: var(--text-primary);
+border-color: var(--color-primary-500);
 }
 
 .modal-body {
@@ -1669,7 +1671,7 @@ gap: 15px;
 padding: 20px;
 background: var(--bg-secondary);
 border-radius: 8px;
-border: 1px solid #e9ecef;
+border: 1px solid var(--border-light);
 }
 
 .node-info {
@@ -1725,22 +1727,28 @@ gap: 8px;
 .form-label {
 font-size: 14px;
 font-weight: 500;
-color: var(--text-secondary);
+color: var(--text-primary);
+}
+
+.form-group label {
+color: var(--text-primary);
+font-weight: 500;
 }
 
 .form-select {
 padding: 10px 12px;
-border: 1px solid #ced4da;
+border: 1px solid var(--border-medium);
 border-radius: 6px;
 font-size: 14px;
-  background: var(--bg-primary);
+background: var(--bg-primary);
+color: var(--text-primary);
 transition: border-color 0.2s;
 }
 
 .form-select:focus {
 outline: none;
 border-color: var(--color-primary-500);
-box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
 .form-actions {
@@ -1801,21 +1809,22 @@ min-width: 110px;
 padding: 10px 12px;
 border-radius: 8px;
 background: var(--bg-secondary);
-border: 1.5px solid #e9ecef;
+border: 1.5px solid var(--border-light);
 cursor: pointer;
 display: flex;
 flex-direction: column;
 align-items: flex-start;
 transition: background 0.15s, border 0.15s;
+color: var(--text-primary);
 }
 .matrix-cell.selected {
 border: 2px solid var(--color-primary-500);
-background: rgba(59, 130, 246, 0.1);
+background: rgba(59, 130, 246, 0.15);
 }
 .matrix-cell.assigned {
 background: var(--bg-tertiary);
 color: var(--text-tertiary);
-border: 1.5px solid #e0e0e0;
+border: 1.5px solid var(--border-medium);
 cursor: not-allowed;
 }
 .cell-label {
@@ -1828,7 +1837,7 @@ color: var(--text-tertiary);
 }
 .cell-available {
 font-size: 0.95em;
-color: #28a745;
+color: var(--color-success-500);
 }
 
 .connection-properties {
@@ -1838,7 +1847,7 @@ gap: 10px;
 padding: 10px;
 background: var(--bg-secondary);
 border-radius: 6px;
-border: 1px solid #e9ecef;
+border: 1px solid var(--border-light);
 }
 
 .checkbox-label {
@@ -1854,11 +1863,12 @@ user-select: none;
 width: 18px;
 height: 18px;
 cursor: pointer;
+accent-color: var(--color-primary-500);
 }
 
 .checkbox-label span {
 font-weight: 500;
-color: var(--text-secondary);
+color: var(--text-primary);
 }
 
 .select-label {
@@ -1869,8 +1879,23 @@ gap: 6px;
 
 .select-label select {
 padding: 8px 10px;
-border: 1px solid #ced4da;
+border: 1px solid var(--border-medium);
 border-radius: 6px;
+background: var(--bg-primary);
+color: var(--text-primary);
+}
+
+.select-label span {
+color: var(--text-primary);
+font-weight: 500;
+}
+
+.select-label input[type="number"] {
+padding: 8px 10px;
+border: 1px solid var(--border-medium);
+border-radius: 6px;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .port-mapping-container {
@@ -1893,7 +1918,8 @@ gap: 8px;
 padding: 10px;
 background: var(--bg-secondary);
 border-radius: 6px;
-border: 1px solid #e9ecef;
+border: 1px solid var(--border-light);
+color: var(--text-primary);
 }
 
 .port-mapping-row > span:last-of-type {
@@ -2027,9 +2053,18 @@ background: var(--color-secondary-600);
 flex: 1;
 min-width: 100px;
 padding: 4px 8px;
-border: 1px solid #ced4da;
+border: 1px solid var(--border-medium);
 border-radius: 4px;
 font-size: 14px;
+background: var(--bg-primary);
+color: var(--text-primary);
+}
+
+.form-select option,
+.form-select-small option,
+.select-label select option {
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
