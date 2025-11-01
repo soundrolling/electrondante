@@ -57,12 +57,31 @@ a:hover {
 
 /* Force all headings to be visible */
 h1, h2, h3, h4, h5, h6 {
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 /* Force all text to be visible */
 p, span, div, label {
   color: var(--text-primary) !important;
+}
+
+/* Changeover Toast Styling - Bright yellow background with black text */
+.changeover-toast {
+  background-color: #ffeb3b !important; /* Bright yellow */
+  color: #000000 !important; /* Black text */
+  border: 2px solid #fbc02d !important;
+}
+
+.changeover-toast .Vue-Toastification__toast-body {
+  color: #000000 !important;
+}
+
+.changeover-toast .Vue-Toastification__toast-icon {
+  color: #000000 !important;
+}
+
+.changeover-toast .Vue-Toastification__close-button {
+  color: #000000 !important;
 }
 
 /* Override any Tailwind or conflicting styles */
@@ -75,7 +94,7 @@ p, span, div, label {
 .section-title,
 .gear-name,
 h1, h2, h3, h4, h5, h6 {
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 /* Button Contrast Rules */
@@ -87,9 +106,9 @@ h1, h2, h3, h4, h5, h6 {
   color: #ffffff !important;
 }
 
-/* Ensure buttons with light backgrounds have dark text */
+/* Ensure buttons with light backgrounds have appropriate text */
 .btn:not([style*="background"]) {
-  color: #000000 !important;
+  color: var(--text-primary) !important;
 }
 
 /* Design System - CSS Custom Properties */
@@ -296,6 +315,110 @@ h1, h2, h3, h4, h5, h6 {
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
+
+  /* Icon Colors - Light mode */
+  --icon-primary: #1e293b;
+  --icon-secondary: #64748b;
+  --icon-muted: #94a3b8;
+  --icon-inverse: #ffffff;
+}
+
+/* Dark Mode CSS Variables */
+.dark {
+  /* Background Colors - Inverted for dark mode */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2a2a2a;
+  --bg-tertiary: #333333;
+  --bg-elevated: #2a2a2a;
+  --bg-grouped: #1f1f1f;
+
+  /* Text Colors - Inverted for dark mode */
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #b0b0b0;
+  --text-quaternary: #888888;
+  --text-inverse: #000000;
+  --text-link: #5ac8fa;
+  --text-heading: #ffffff;
+  --text-muted: #999999;
+
+  /* Border Colors - Adjusted for dark backgrounds */
+  --border-light: #404040;
+  --border-medium: #505050;
+  --border-dark: #606060;
+  --border-separator: #505050;
+
+  /* Button Colors - Maintain contrast in dark mode */
+  --btn-positive-bg: #10b981;
+  --btn-positive-border: #059669;
+  --btn-positive-text: #ffffff;
+  --btn-positive-hover-bg: #059669;
+  --btn-positive-hover-border: #047857;
+
+  --btn-danger-bg: #ef4444;
+  --btn-danger-border: #dc2626;
+  --btn-danger-text: #ffffff;
+  --btn-danger-hover-bg: #dc2626;
+  --btn-danger-hover-border: #b91c1c;
+
+  --btn-warning-bg: #f59e0b;
+  --btn-warning-border: #d97706;
+  --btn-warning-text: #ffffff;
+  --btn-warning-hover-bg: #d97706;
+  --btn-warning-hover-border: #b45309;
+
+  --btn-primary-bg: #3b82f6;
+  --btn-primary-border: #2563eb;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover-bg: #2563eb;
+  --btn-primary-hover-border: #1d4ed8;
+
+  --btn-secondary-bg: #374151;
+  --btn-secondary-border: #4b5563;
+  --btn-secondary-text: #e5e7eb;
+  --btn-secondary-hover-bg: #4b5563;
+  --btn-secondary-hover-border: #6b7280;
+
+  --btn-neutral-bg: #2a2a2a;
+  --btn-neutral-border: #404040;
+  --btn-neutral-text: #e5e7eb;
+  --btn-neutral-hover-bg: #333333;
+  --btn-neutral-hover-border: #505050;
+
+  /* Icon Colors - Ensure icons are visible in dark mode */
+  --icon-primary: #e5e7eb;
+  --icon-secondary: #9ca3af;
+  --icon-muted: #6b7280;
+  --icon-inverse: #1a1a1a;
+}
+
+/* Global Icon Styles - Ensure icons are visible */
+svg[stroke="currentColor"],
+svg[fill="currentColor"],
+.btn-icon,
+.nav-icon,
+.icon {
+  color: var(--icon-primary);
+}
+
+/* Icons in buttons should match button text color */
+.btn svg,
+.nav-link svg {
+  color: inherit;
+}
+
+/* Dark mode icon adjustments */
+.dark svg[stroke="currentColor"],
+.dark svg[fill="currentColor"],
+.dark .btn-icon:not(.btn-light .btn-icon):not(.btn-danger .btn-icon):not(.btn-positive .btn-icon),
+.dark .nav-icon {
+  color: var(--icon-primary);
+}
+
+/* Light buttons in dark mode should have dark icons */
+.dark .btn-light svg,
+.dark .btn-light .btn-icon {
+  color: var(--icon-inverse);
 }
 
 /* Base Styles */
@@ -526,7 +649,7 @@ body {
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   background-color: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   transition: all var(--transition-normal);
   min-height: 44px;
   box-shadow: var(--shadow-sm);
@@ -555,7 +678,7 @@ select {
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-base);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   background-color: var(--bg-primary);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-normal);

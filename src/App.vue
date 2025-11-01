@@ -40,22 +40,37 @@
       @signOut="signOut"
     />
   </div>
+
+  <!-- Changeover Notification Modal -->
+  <ChangeoverNotificationModal
+    :visible="changeoverModal.visible"
+    :artist-name="changeoverModal.artistName"
+    :minutes-remaining="changeoverModal.minutesRemaining"
+    :start-time="changeoverModal.startTime"
+    :location-id="changeoverModal.locationId"
+    :project-id="changeoverModal.projectId"
+    @close="closeChangeoverModal"
+  />
 </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/userStore'
+import { useThemeStore } from './stores/themeStore'
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
+import ChangeoverNotificationModal from './components/ChangeoverNotificationModal.vue'
 import { useToast } from 'vue-toastification'
 import { syncOfflineChanges } from '@/services/dataService'
+import { startScheduleNotifications, stopScheduleNotifications, setChangeoverModalCallbacks } from '@/services/scheduleNotificationService'
 
 export default {
-components: { Header, Footer },
-setup() {
+components: { Header, Footer, ChangeoverNotificationModal },
+  setup() {
   const userStore = useUserStore()
+  const themeStore = useThemeStore()
   const route     = useRoute()
   const router    = useRouter()
   const toast     = useToast()
@@ -63,6 +78,29 @@ setup() {
   const initializationError = ref(null)
   const onlineStatus        = ref(navigator.onLine)
   const localStorageUsage   = ref({ used: 0, max: 5120 })
+
+  // Changeover modal state
+  const changeoverModal = ref({
+    visible: false,
+    artistName: '',
+    minutesRemaining: 0,
+    startTime: '',
+    locationId: null,
+    projectId: null
+  })
+
+  // Set up modal callbacks for notification service
+  const setChangeoverModal = (state) => {
+    changeoverModal.value = { ...changeoverModal.value, ...state }
+  }
+
+  const showChangeoverModal = () => {
+    changeoverModal.value.visible = true
+  }
+
+  const closeChangeoverModal = () => {
+    changeoverModal.value.visible = false
+  }
 
   const userEmail              = computed(() => userStore.getUserEmail)
   const isAdmin                = computed(() => userStore.isAdmin)
@@ -127,13 +165,35 @@ setup() {
     }
   }
 
+  // Watch for project changes to restart notification service
+  watch(() => userStore.getCurrentProject, (newProject) => {
+    if (newProject && userStore.isAuthenticated) {
+      // Restart notifications when project changes
+      stopScheduleNotifications()
+      startScheduleNotifications(newProject.id)
+    } else {
+      stopScheduleNotifications()
+    }
+  }, { immediate: false })
+
   onMounted(async () => {
     try {
+      // Initialize theme first, before other initialization
+      themeStore.initialize()
+      
       await userStore.initializeStore()
       calculateLocalStorageUsage()
       // watch for connectivity changes
       window.addEventListener('online', handleOnline)
       window.addEventListener('offline', updateOnlineStatus)
+      
+      // Register modal callbacks with notification service
+      setChangeoverModalCallbacks(setChangeoverModal, showChangeoverModal)
+      
+      // Start schedule notifications if authenticated and have a project
+      if (userStore.isAuthenticated && userStore.getCurrentProject) {
+        startScheduleNotifications(userStore.getCurrentProject.id)
+      }
     } catch (err) {
       initializationError.value = `Failed to initialize the app: ${err.message}`
     }
@@ -142,6 +202,7 @@ setup() {
   onBeforeUnmount(() => {
     window.removeEventListener('online', handleOnline)
     window.removeEventListener('offline', updateOnlineStatus)
+    stopScheduleNotifications()
   })
 
   return {
@@ -155,7 +216,9 @@ setup() {
     isHiddenRoute,
     clearCache,
     signOut,
-    retryInitialization
+    retryInitialization,
+    changeoverModal,
+    closeChangeoverModal
   }
 }
 }

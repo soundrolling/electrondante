@@ -456,7 +456,7 @@ border: none;
 border-radius: 4px;
 cursor: pointer;
 }
-.back-button:hover { background: #5a6268; }
+.back-button:hover { background: var(--color-secondary-600); }
 .quickfire-topbar h1 {
 margin: 0;
 font-size: 1.4rem;
@@ -481,8 +481,8 @@ margin: 0 auto 8px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .error-message {
-background: #f8d7da;
-color: #721c24;
+background: rgba(239, 68, 68, 0.1);
+color: var(--color-error-700);
 }
 
 /* FILTER */
@@ -501,7 +501,7 @@ border-radius: 4px;
 /* FORMS */
 .form-container,
 .edit-form {
-background: #f8f9fa;
+background: var(--bg-secondary);
 padding: 20px;
 border-radius: 6px;
 margin-bottom: 30px;
@@ -532,22 +532,22 @@ font-size: 0.95rem;
 margin-right: 6px;
 }
 .primary-button {
-background: #007bff;
-color: #fff;
+background: var(--color-primary-500);
+color: var(--text-inverse);
 }
 .primary-button:hover {
-background: #0056b3;
+background: var(--color-primary-600);
 }
 .secondary-button {
 background: #6c757d;
 color: #fff;
 }
 .secondary-button:hover {
-background: #5a6268;
+background: var(--color-secondary-600);
 }
 .edit-button {
-background: #ffc107;
-color: #212529;
+background: var(--color-warning-500);
+color: var(--text-primary);
 }
 .edit-button:hover {
 background: #e0a800;

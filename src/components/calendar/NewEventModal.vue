@@ -171,7 +171,7 @@ justify-content: center;
 z-index: 2000;
 }
 .modal {
-background: #fff;
+background: var(--bg-primary);
 padding: 1.25rem;
 border-radius: 6px;
 width: 100%;
@@ -192,7 +192,7 @@ overflow-y: auto;
 border: 1px solid #dee2e6;
 border-radius: 4px;
 padding: 0.5rem;
-background: #fff;
+background: var(--bg-primary);
 }
 
 .contact-option {
@@ -214,14 +214,14 @@ transition: background-color 0.2s;
 }
 
 .checkbox-label:hover {
-background: #f8f9fa;
+background: var(--bg-secondary);
 }
 
 .contact-checkbox {
 margin: 0;
 width: 16px;
 height: 16px;
-accent-color: #3b82f6;
+accent-color: var(--color-primary-500);
 }
 
 .contact-option-content {
@@ -235,8 +235,8 @@ flex: 1;
 width: 28px;
 height: 28px;
 border-radius: 50%;
-background: #3b82f6;
-color: #fff;
+background: var(--color-primary-500);
+  color: var(--text-inverse);
 display: flex;
 align-items: center;
 justify-content: center;
@@ -252,14 +252,14 @@ min-width: 0;
 
 .contact-details .contact-name {
 font-weight: 600;
-color: #212529;
+color: var(--text-primary);
 margin-bottom: 0.125rem;
 font-size: 0.875rem;
 }
 
 .contact-details .contact-role {
 font-size: 0.75rem;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 .form-field {
@@ -286,8 +286,8 @@ gap: 0.5rem;
 margin-top: 1rem;
 }
 .button {
-background: #27ae60;
-color: #fff;
+background: var(--color-success-500);
+  color: var(--text-inverse);
 border: none;
 padding: 0.6rem 1rem;
 border-radius: 4px;
@@ -295,12 +295,12 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .button:hover {
-background: #219150;
+background: var(--color-success-600);
 }
 .save-button {
-background: #27ae60;
+background: var(--color-success-500);
 }
 .cancel-button {
-background: #bdc3c7;
+background: var(--color-secondary-400);
 }
 </style> 

@@ -182,7 +182,7 @@ setup() {
 max-width: 400px;
 margin: 100px auto;
 padding: 20px;
-background-color: #f9f9f9;
+background-color: var(--bg-secondary);
 border-radius: 8px;
 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 text-align: left;
@@ -229,7 +229,7 @@ font-size: 14px;
 .toggle-password-btn {
 margin-left: 8px;
 padding: 8px 12px;
-background: #e0e0e0;
+background: var(--bg-tertiary);
 border: none;
 border-radius: 4px;
 cursor: pointer;
@@ -237,14 +237,14 @@ font-size: 14px;
 }
 
 .toggle-password-btn:hover {
-background: #cfcfcf;
+background: var(--color-secondary-400);
 }
 
 button {
 width: 100%;
 padding: 10px;
-background-color: #007bff;
-color: white;
+background-color: var(--color-primary-500);
+color: var(--text-inverse);
 border: none;
 border-radius: 4px;
 cursor: pointer;
@@ -252,11 +252,11 @@ font-size: 15px;
 }
 
 button:hover {
-background-color: #0056b3;
+background-color: var(--color-primary-600);
 }
 
 button:disabled {
-background-color: #ccc;
+background-color: var(--color-secondary-400);
 cursor: not-allowed;
 }
 </style>

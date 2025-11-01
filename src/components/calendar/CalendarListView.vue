@@ -286,7 +286,7 @@ box-sizing: border-box;
 .stage-hours-section {
 margin-bottom: 2rem;
 padding: 1rem;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
@@ -300,7 +300,7 @@ border: 1px solid #e9ecef;
 
 .stage-hours-header h3 {
 margin: 0;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .edit-stage-hours-btn {
@@ -315,7 +315,7 @@ gap: 0.75rem;
 }
 
 .stage-hour-card {
-background: #fff;
+background: var(--bg-primary);
 padding: 0.75rem;
 border-radius: 6px;
 border: 1px solid #dee2e6;
@@ -324,7 +324,7 @@ border: 1px solid #dee2e6;
 .stage-name {
 font-weight: 600;
 margin-bottom: 0.5rem;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .hours-list {
@@ -342,17 +342,17 @@ font-size: 0.9rem;
 
 .time-range {
 font-weight: 500;
-color: #28a745;
+color: var(--color-success-500);
 }
 
 .notes {
-color: #6c757d;
+color: var(--text-secondary);
 font-style: italic;
 }
 
 .events-section h3 {
 margin: 0 0 1rem 0;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .schedule-list {
@@ -362,7 +362,7 @@ gap: 0.75rem;
 }
 
 .schedule-item {
-background: #fff;
+background: var(--bg-primary);
 border: 1px solid #dde2e8;
 border-radius: 4px;
 padding: 14px 16px;
@@ -391,10 +391,10 @@ border-radius: 1.2em;
 font-size: 0.97em;
 font-weight: 600;
 margin-right: 0.7em;
-color: #111 !important;
+color: var(--text-heading) !important;
 letter-spacing: 0.02em;
 vertical-align: middle;
-background: #e5e7eb !important;
+background: var(--bg-tertiary) !important;
 transition: background 0.2s, color 0.2s;
 }
 
@@ -404,12 +404,12 @@ border: none;
 font-size: 1.1rem;
 cursor: pointer;
 margin-left: 0.25rem;
-color: #28a745;
+color: var(--color-success-500);
 padding: 0 0.2rem;
 }
 
 .info-btn:hover {
-color: #155724;
+color: var(--color-success-700);
 }
 
 .event-main-row {
@@ -435,7 +435,7 @@ gap: 0.2rem;
 .event-end-date {
   font-weight: 600;
   font-size: 0.9rem;
-  color: #666;
+  color: var(--text-secondary);
   margin-top: 0.1rem;
 }
 
@@ -490,7 +490,7 @@ z-index: 2000;
 }
 
 .modal {
-background: #fff;
+background: var(--bg-primary);
 padding: 1.25rem;
 border-radius: 6px;
 width: 100%;
@@ -546,7 +546,7 @@ color: #222;
 position: absolute;
 top: 1.5rem;
 right: 0;
-background: #fff;
+background: var(--bg-primary);
 border: 1px solid #ccc;
 border-radius: 6px;
 box-shadow: 0 2px 8px rgba(0,0,0,0.12);
@@ -615,7 +615,7 @@ gap: 0.5rem;
 
 .contacts-label {
 font-weight: 600;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .contacts-list {

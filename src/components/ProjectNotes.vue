@@ -139,18 +139,18 @@ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 text-align: center;
 margin-bottom: 10px;
 font-size: 2em;
-color: #343a40;
+color: var(--text-primary);
 }
 
 .header-section p {
 text-align: center;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 /* Locations Section */
 .locations-section {
 padding: 20px;
-background-color: #f9f9f9;
+background-color: var(--bg-secondary);
 border-radius: 8px;
 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 margin-bottom: 20px;
@@ -158,7 +158,7 @@ margin-bottom: 20px;
 
 .locations-section h2 {
 margin-bottom: 15px;
-color: #343a40;
+color: var(--text-primary);
 }
 
 .location-list {
@@ -172,7 +172,7 @@ gap: 10px;
 }
 
 .location-button {
-background-color: #17a2b8;
+background-color: var(--color-primary-500);
 color: white;
 padding: 10px 15px;
 width: 100%;
@@ -184,18 +184,18 @@ transition: background-color 0.3s ease;
 }
 
 .location-button:hover {
-background-color: #138496;
+background-color: var(--color-primary-600);
 }
 
 .no-locations p {
 text-align: center;
-color: #6c757d;
+color: var(--text-secondary);
 margin-bottom: 10px;
 }
 
 .nav-link {
 display: inline-block;
-background-color: #28a745;
+background-color: var(--color-success-500);
 color: white;
 padding: 8px 12px;
 text-decoration: none;
@@ -204,7 +204,7 @@ transition: background-color 0.3s ease;
 }
 
 .nav-link:hover {
-background-color: #218838;
+background-color: var(--color-success-600);
 }
 
 /* Responsive Styles */

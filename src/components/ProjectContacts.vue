@@ -892,7 +892,7 @@ return {
 max-width: 1200px;
 margin: 0 auto;
 padding: 24px;
-background-color: #fafafa;
+background-color: var(--bg-secondary);
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 min-height: 100vh;
 }
@@ -910,8 +910,8 @@ min-height: 44px;
 padding: 12px 20px;
 font-size: 1rem;
 border-radius: 8px;
-background-color: #fff;
-color: #374151;
+background-color: var(--bg-primary);
+color: var(--text-secondary);
 border: 1px solid #e5e7eb;
 cursor: pointer;
 transition: all 0.2s ease;
@@ -920,8 +920,8 @@ box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .back-button:hover {
-background-color: #f9fafb;
-border-color: #d1d5db;
+background-color: var(--bg-secondary);
+border-color: var(--border-medium);
 transform: translateY(-1px);
 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -947,7 +947,7 @@ overflow: hidden;
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px 16px 24px;
-  background: #fff;
+  background: var(--bg-primary);
   border-bottom: 1px solid #f3f4f6;
   min-height: 64px;
 }
@@ -964,8 +964,8 @@ overflow: hidden;
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background-color: #22c55e;
-  color: #fff;
+  background-color: var(--color-success-500);
+  color: var(--text-inverse);
   border: none;
   cursor: pointer;
   display: flex;
@@ -975,7 +975,7 @@ overflow: hidden;
 }
 
 .add-contact-fab:hover {
-  background-color: #16a34a;
+  background-color: var(--color-success-600);
   box-shadow: 0 4px 16px rgba(34,197,94,0.18);
 }
 
@@ -1031,12 +1031,12 @@ pointer-events: none;
  border-radius: 8px;
  background: #fff;
  font-size: 0.95rem;
- color: #374151;
+ color: var(--text-secondary);
  transition: all 0.2s ease;
 }
 
 .search-input:focus {
-border-color: #3b82f6;
+border-color: var(--color-primary-500);
 outline: none;
 box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -1060,7 +1060,7 @@ gap: 12px;
 
 .filter-label {
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 font-size: 0.9rem;
 }
 
@@ -1071,12 +1071,12 @@ font-size: 0.9rem;
  border-radius: 8px;
  background: #fff;
  font-size: 0.95rem;
- color: #374151;
+ color: var(--text-secondary);
  transition: all 0.2s ease;
 }
 
 .filter-select:focus {
-border-color: #3b82f6;
+border-color: var(--color-primary-500);
 outline: none;
 box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -1092,9 +1092,9 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 
 .contact-count {
   font-size: 0.9rem;
-  color: #ffffff !important; /* White text for contrast */
+  color: var(--text-inverse) !important; /* White text for contrast */
   font-weight: 600; /* Bolder text */
-  background-color: #374151; /* Dark gray background */
+  background-color: var(--color-secondary-600); /* Dark gray background */
   padding: 6px 12px; /* Add padding for better appearance */
   border-radius: 6px; /* Rounded corners */
   border: 1px solid #4b5563; /* Subtle border */
@@ -1104,9 +1104,9 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  background-color: #1e40af; /* Dark blue for better contrast */
-  color: #ffffff !important; /* Force white text for high contrast */
-  border: 2px solid #1d4ed8; /* Add border for better definition */
+  background-color: var(--color-primary-700); /* Dark blue for better contrast */
+  color: var(--text-inverse) !important; /* Force white text for high contrast */
+  border: 2px solid var(--color-primary-600); /* Add border for better definition */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1118,9 +1118,9 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .add-contact-square:hover {
-  background-color: #1d4ed8; /* Slightly lighter blue on hover */
-  color: #ffffff !important; /* Ensure white text on hover */
-  border-color: #1e40af;
+  background-color: var(--color-primary-600); /* Slightly lighter blue on hover */
+  color: var(--text-inverse) !important; /* Ensure white text on hover */
+  border-color: var(--color-primary-700);
   box-shadow: 0 4px 16px rgba(30, 64, 175, 0.3);
   transform: translateY(-1px);
 }
@@ -1137,7 +1137,7 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   font-size: 22px;
   line-height: 1;
   display: inline-block;
-  color: #ffffff !important; /* Ensure white text for + symbol */
+  color: var(--text-inverse) !important; /* Ensure white text for + symbol */
 }
 .action-btn.view-btn .icon-text {
   font-size: 18px;
@@ -1195,7 +1195,7 @@ color: #d1d5db;
 margin: 0 0 8px 0;
 font-size: 1.5rem;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 }
 
 .empty-state p {
@@ -1209,7 +1209,7 @@ line-height: 1.5;
   font-size: 1rem;
   border-radius: 8px;
   background-color: #1e40af; /* Darker blue for better contrast */
-  color: #ffffff !important; /* Force white text for high contrast */
+  color: var(--text-inverse) !important; /* Force white text for high contrast */
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1219,7 +1219,7 @@ line-height: 1.5;
 
 .empty-state-btn:hover {
   background-color: #1d4ed8; /* Even darker on hover */
-  color: #ffffff !important; /* Ensure white text on hover */
+  color: var(--text-inverse) !important; /* Ensure white text on hover */
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(30, 64, 175, 0.3);
 }
@@ -1336,14 +1336,14 @@ line-height: 1.5;
 /* Edit button styling - dark background with white text */
 .edit-btn {
   background-color: #374151 !important; /* Dark gray background */
-  color: #ffffff !important; /* White text for contrast */
+  color: var(--text-inverse) !important; /* White text for contrast */
   border: 1px solid #374151 !important;
   transition: all 0.2s ease;
 }
 
 .edit-btn:hover {
   background-color: #1f2937 !important; /* Darker on hover */
-  color: #ffffff !important; /* Keep white text */
+  color: var(--text-inverse) !important; /* Keep white text */
   border-color: #1f2937 !important;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -1360,14 +1360,14 @@ line-height: 1.5;
 /* Info button styling */
 .view-btn {
   background-color: #3b82f6 !important; /* Blue background */
-  color: #ffffff !important; /* White icon */
+  color: var(--text-inverse) !important; /* White icon */
   border: 1px solid #2563eb !important;
   transition: all 0.2s ease;
 }
 
 .view-btn:hover {
   background-color: #2563eb !important;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border-color: #1d4ed8 !important;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
@@ -1428,7 +1428,7 @@ line-height: 1.5;
   .copy-btn:hover {
     background: #e5e7eb;
     border-color: #9ca3af;
-    color: #374151;
+    color: var(--text-secondary);
     transform: translateY(-1px);
   }
   
@@ -1542,7 +1542,7 @@ margin-bottom: 20px;
 display: block;
 margin-bottom: 8px;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 font-size: 0.9rem;
 }
 
@@ -1555,7 +1555,7 @@ border: 1px solid #d1d5db;
 border-radius: 8px;
 background: #fff;
 font-size: 0.95rem;
-color: #374151;
+color: var(--text-secondary);
 transition: all 0.2s ease;
 box-sizing: border-box;
 }
@@ -1563,7 +1563,7 @@ box-sizing: border-box;
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
-border-color: #3b82f6;
+border-color: var(--color-primary-500);
 outline: none;
 box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -1590,28 +1590,28 @@ min-height: 44px;
 /* High contrast button base class */
 .btn-positive {
   background-color: #1e40af; /* Dark blue for high contrast */
-  color: #ffffff !important; /* Force white text */
+  color: var(--text-inverse) !important; /* Force white text */
   border: 1px solid #1e40af;
   font-weight: 600;
 }
 
 .btn-positive:hover:not(:disabled) {
   background-color: #1d4ed8;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border-color: #1d4ed8;
   transform: translateY(-1px);
 }
 
 .btn-warning {
   background-color: #dc2626; /* Dark red for high contrast */
-  color: #ffffff !important; /* Force white text */
+  color: var(--text-inverse) !important; /* Force white text */
   border: 1px solid #dc2626;
   font-weight: 600;
 }
 
 .btn-warning:hover:not(:disabled) {
   background-color: #b91c1c;
-  color: #ffffff !important;
+  color: var(--text-inverse) !important;
   border-color: #b91c1c;
   transform: translateY(-1px);
 }
@@ -1623,27 +1623,27 @@ cursor: not-allowed;
 
 .btn-primary {
   background-color: #1e40af; /* Darker blue for better contrast */
-  color: #ffffff !important; /* Force white text for high contrast */
+  color: var(--text-inverse) !important; /* Force white text for high contrast */
   border: 1px solid #1e40af;
 }
 
 .btn-primary:hover:not(:disabled) {
   background-color: #1d4ed8; /* Even darker on hover */
-  color: #ffffff !important; /* Ensure white text on hover */
+  color: var(--text-inverse) !important; /* Ensure white text on hover */
   border-color: #1d4ed8;
   transform: translateY(-1px);
 }
 
 .btn-secondary {
   background-color: #1f2937; /* Darker gray for better contrast */
-  color: #ffffff !important; /* Force white text for high contrast */
+  color: var(--text-inverse) !important; /* Force white text for high contrast */
   border: 1px solid #1f2937;
 }
 
 .btn-secondary:hover {
-  background-color: #374151; /* Slightly lighter on hover */
-  color: #ffffff !important; /* Ensure white text on hover */
-  border-color: #374151;
+  background-color: var(--text-secondary); /* Slightly lighter on hover */
+  color: var(--text-inverse) !important; /* Ensure white text on hover */
+  border-color: var(--text-secondary);
   transform: translateY(-1px);
 }
 
@@ -1901,7 +1901,7 @@ color: currentColor;
   z-index: 1000;
 }
 .modal-content {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 16px;
   width: 100%;
   max-width: 380px;
@@ -2023,7 +2023,7 @@ color: currentColor;
 }
 .info-label {
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
   min-width: 70px;
 }
 .info-value {
@@ -2074,7 +2074,7 @@ color: currentColor;
 .copy-btn:hover {
   background: #e5e7eb;
   border-color: #9ca3af;
-  color: #374151;
+  color: var(--text-secondary);
   transform: translateY(-1px);
 }
 
@@ -2100,7 +2100,7 @@ color: currentColor;
   border: 2px solid #d1d5db;
   border-radius: 8px;
   background: #ffffff;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -2110,7 +2110,7 @@ color: currentColor;
 }
 
 .stage-assignment-btn:hover {
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   background: #f8fafc;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);

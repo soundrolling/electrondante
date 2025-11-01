@@ -671,7 +671,7 @@ await fetchProjectDocs()
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -687,7 +687,7 @@ await fetchProjectDocs()
 .breadcrumb-item {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--color-primary-500);
   cursor: pointer;
   padding: 0;
   font-size: 14px;
@@ -698,11 +698,11 @@ await fetchProjectDocs()
 }
 
 .breadcrumb-separator {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .breadcrumb-text {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* Header Section */
@@ -724,12 +724,12 @@ await fetchProjectDocs()
 .header-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .header-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   font-size: 1rem;
 }
@@ -760,21 +760,21 @@ await fetchProjectDocs()
 }
 
 .btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
 }
 
 .btn-primary {
-  background: #2563eb;
-  color: #fff;
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1e40af;
+  background: var(--color-primary-700);
 }
 
 .btn-icon {
@@ -798,18 +798,18 @@ await fetchProjectDocs()
 }
 
 .upload-area:hover {
-  border-color: #3b82f6;
-  background: #f8fafc;
+  border-color: var(--color-primary-500);
+  background: var(--bg-secondary);
 }
 
 .upload-area--dragover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--color-primary-500);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .upload-area--uploading {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: var(--color-success-500);
+  background: rgba(34, 197, 94, 0.1);
   cursor: not-allowed;
 }
 
@@ -831,12 +831,12 @@ await fetchProjectDocs()
 .upload-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .upload-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 8px 0;
 }
 
@@ -870,7 +870,7 @@ await fetchProjectDocs()
 
 .progress-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -886,7 +886,7 @@ await fetchProjectDocs()
 .selected-files-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 16px 0;
 }
 
@@ -920,7 +920,7 @@ await fetchProjectDocs()
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -929,7 +929,7 @@ await fetchProjectDocs()
 
 .file-size {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -997,7 +997,7 @@ await fetchProjectDocs()
 
 .select-stage:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -1016,7 +1016,7 @@ await fetchProjectDocs()
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -1087,7 +1087,7 @@ await fetchProjectDocs()
 .docs-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -1153,7 +1153,7 @@ await fetchProjectDocs()
 }
 
 .doc-link {
-  color: #3b82f6;
+  color: var(--color-primary-500);
   text-decoration: none;
   font-weight: 500;
   font-size: 16px;
@@ -1211,7 +1211,7 @@ await fetchProjectDocs()
 
 .meta-item {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .description {
@@ -1238,12 +1238,12 @@ await fetchProjectDocs()
 .empty-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 12px 0;
 }
 
 .empty-description {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   max-width: 400px;
   margin-left: auto;
@@ -1342,7 +1342,7 @@ await fetchProjectDocs()
 .preview-modal-body {
   flex: 1;
   padding: 0;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1358,7 +1358,7 @@ await fetchProjectDocs()
 .preview-unsupported {
   padding: 32px;
   text-align: center;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 .preview-modal-footer {
   display: flex;

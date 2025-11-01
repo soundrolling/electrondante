@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.56">
-        <span class="version-text">v21.56</span>
-        <span class="version-date">October 29</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.57">
+        <span class="version-text">v21.57</span>
+        <span class="version-date">November 29</span>
       </button>
     </div>
 
@@ -19,29 +19,29 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.56</h2>
+          <h2 id="changelog-title">What's New in 21.57</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔐 Improved User Invitation Flow</h3>
-            <p>Smart invitation system now detects existing users and adds them to projects instantly without sending unnecessary emails. New users receive proper invitation emails with working password setup links.</p>
+            <h3>🎛️ Enhanced Gear Reordering</h3>
+            <p>New drag-and-drop functionality makes reordering gear items much easier. Simply click and drag any item to rearrange, with smooth visual feedback. Works seamlessly on both desktop and mobile devices.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>📧 Fixed Email Confirmation</h3>
-            <p>Resolved issues with invitation email links not working properly. Users can now successfully set their passwords and join projects through the email invitation process.</p>
+            <h3>🔤 Quick Sort Options for Gear</h3>
+            <p>Added convenient sorting shortcuts in the gear reorder modal: sort alphabetically (A-Z or Z-A) or by gear type with alphabetical sub-sorting. Perfect for organizing large gear lists quickly.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>🔑 Streamlined Login Experience</h3>
-            <p>Removed magic link login option and added a clean "Forgot Password?" link for better user experience. Login page is now more focused and user-friendly.</p>
+            <h3>🎨 Improved Button Contrast</h3>
+            <p>Enhanced visibility of all grey buttons throughout the gear management interface. Arrow buttons and sort controls now feature white text and icons on grey backgrounds for better readability and accessibility.</p>
           </div>
           
           <div class="changelog-section">
-            <h3>💬 Better User Feedback</h3>
-            <p>Project admins now receive clear, contextual messages when inviting users - different messages for existing users vs new users to help manage expectations.</p>
+            <h3>📱 Better Mobile Experience</h3>
+            <p>Gear reordering now fully supports touch interactions on mobile devices. Long press and drag to reorder items naturally, with the same smooth experience as desktop drag-and-drop.</p>
           </div>
         </div>
         
@@ -239,20 +239,17 @@ setup() {
 }
 
 .login-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--bg-primary);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px; /* 8-point spacing */
-  box-shadow: 
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 16px 32px rgba(0, 0, 0, 0.06);
-  padding: 24px 20px; /* 8-point spacing system */
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 24px 20px;
   width: 100%;
-  max-width: 400px; /* Mobile content width limit */
+  max-width: 400px;
   position: relative;
   z-index: 1;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-light);
 }
 
 /* Header Section */
@@ -279,18 +276,18 @@ setup() {
 }
 
 .login-title {
-  font-size: 24px; /* H1: 24px (600 weight) - mobile first */
+  font-size: 24px;
   font-weight: 600;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
   margin: 0;
   letter-spacing: -0.01em;
-  line-height: 1.4; /* 1.4 for readability */
+  line-height: 1.4;
 }
 
 .login-subtitle {
-  color: #86868b;
-  font-size: 16px; /* Body: 16px (400 weight) */
-  margin: 0 0 24px 0; /* 8-point spacing */
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin: 0 0 24px 0;
   font-weight: 400;
   line-height: 1.5;
 }
@@ -298,34 +295,33 @@ setup() {
 .version-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px; /* 4-point spacing */
-  background: rgba(248, 249, 250, 0.8);
+  gap: 8px;
+  background: var(--bg-secondary);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(233, 236, 239, 0.8);
-  border-radius: 8px; /* 4-point spacing */
-  padding: 12px 16px; /* 4-point spacing */
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 12px 16px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 14px; /* Caption: 14px */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  /* Minimum touch size: 44×44px */
+  font-size: 14px;
+  box-shadow: var(--shadow-sm);
   min-height: 44px;
   min-width: 44px;
 }
 
 .version-badge:hover {
-  background: rgba(233, 236, 239, 0.9);
-  border-color: rgba(222, 226, 230, 0.9);
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
   transform: translateY(-1px);
 }
 
 .version-text {
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-heading);
 }
 
 .version-date {
-  color: #86868b;
+  color: var(--text-secondary);
 }
 
 /* Messages */
@@ -341,15 +337,15 @@ setup() {
 }
 
 .error-message {
-  background: rgba(255, 59, 48, 0.08);
-  border-color: rgba(255, 59, 48, 0.2);
-  color: #d70015;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--color-error-600);
 }
 
 .success-message {
-  background: rgba(52, 199, 89, 0.08);
-  border-color: rgba(52, 199, 89, 0.2);
-  color: #007a3e;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--color-success-600);
 }
 
 .message-icon {
@@ -375,9 +371,9 @@ setup() {
 .form-label {
   display: block;
   font-weight: 600;
-  color: #1d1d1f;
-  margin-bottom: 8px; /* 4-point spacing */
-  font-size: 16px; /* Body: 16px */
+  color: var(--text-heading);
+  margin-bottom: 8px;
+  font-size: 16px;
   line-height: 1.4;
 }
 
@@ -389,62 +385,60 @@ setup() {
 
 .input-icon {
   position: absolute;
-  left: 16px; /* 4-point spacing */
+  left: 16px;
   font-size: 1.1rem;
-  color: #86868b;
+  color: var(--icon-secondary);
   z-index: 2;
   opacity: 0.8;
 }
 
 .form-input {
   width: 100%;
-  padding: 16px 16px 16px 48px; /* 4-point spacing, 48px min height */
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px; /* 4-point spacing */
-  font-size: 16px; /* Body: 16px */
-  background: rgba(255, 255, 255, 0.8);
+  padding: 16px 16px 16px 48px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-size: 16px;
+  background: var(--bg-primary);
   backdrop-filter: blur(16px);
-  color: #1d1d1f;
+  color: var(--text-primary);
   transition: all 0.2s ease;
   box-sizing: border-box;
   font-weight: 400;
   line-height: 1.4;
-  /* Minimum touch size: 44×48px */
   min-height: 48px;
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #0066cc;
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
-  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+  background: var(--bg-primary);
 }
 
 .form-input::placeholder {
-  color: #86868b;
+  color: var(--text-secondary);
   font-weight: 400;
 }
 
 .input-error {
-  border-color: #ff3b30;
+  border-color: var(--color-error-500);
 }
 
 .input-error:focus {
-  border-color: #ff3b30;
-  box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.1);
+  border-color: var(--color-error-500);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .toggle-password-btn {
   position: absolute;
-  right: 16px; /* 4-point spacing */
+  right: 16px;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 12px; /* 4-point spacing */
-  border-radius: 6px; /* 4-point spacing */
+  padding: 12px;
+  border-radius: 6px;
   transition: all 0.2s ease;
-  color: #86868b;
-  /* Minimum touch size: 44×44px */
+  color: var(--icon-secondary);
   min-height: 44px;
   min-width: 44px;
   display: flex;
@@ -453,8 +447,8 @@ setup() {
 }
 
 .toggle-password-btn:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: #1d1d1f;
+  background: var(--bg-secondary);
+  color: var(--icon-primary);
 }
 
 .toggle-icon {
@@ -527,15 +521,14 @@ setup() {
 }
 
 .forgot-password-link {
-  color: #0066cc;
-  font-size: 14px; /* Caption: 14px */
+  color: var(--text-link);
+  font-size: 14px;
   font-weight: 500;
   text-decoration: none;
   transition: all 0.2s ease;
   display: inline-block;
-  padding: 8px 12px; /* 4-point spacing */
-  border-radius: 6px; /* 4-point spacing */
-  /* Minimum touch size: 44×44px */
+  padding: 8px 12px;
+  border-radius: 6px;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -543,8 +536,8 @@ setup() {
 }
 
 .forgot-password-link:hover {
-  color: #0052a3;
-  background: rgba(0, 102, 204, 0.08);
+  color: var(--color-primary-600);
+  background: var(--bg-secondary);
   text-decoration: underline;
 }
 
@@ -568,30 +561,30 @@ setup() {
 }
 
 .changelog-modal {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--bg-primary);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px; /* 8-point spacing */
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  max-width: 400px; /* Mobile content width limit */
+  border-radius: 16px;
+  box-shadow: var(--shadow-xl);
+  max-width: 400px;
   width: 100%;
   max-height: 70vh;
   overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-light);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 24px 16px 24px; /* 8-point spacing */
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 24px 24px 16px 24px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .modal-header h2 {
   margin: 0;
-  color: #1d1d1f;
-  font-size: 20px; /* H2: 20px (600 weight) */
+  color: var(--text-heading);
+  font-size: 20px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -600,12 +593,11 @@ setup() {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #86868b;
+  color: var(--icon-secondary);
   cursor: pointer;
-  padding: 12px; /* 4-point spacing */
-  border-radius: 8px; /* 4-point spacing */
+  padding: 12px;
+  border-radius: 8px;
   transition: all 0.2s ease;
-  /* Minimum touch size: 44×44px */
   width: 44px;
   height: 44px;
   display: flex;
@@ -614,8 +606,8 @@ setup() {
 }
 
 .modal-close:hover {
-  background: rgba(0, 0, 0, 0.04);
-  color: #1d1d1f;
+  background: var(--bg-secondary);
+  color: var(--icon-primary);
 }
 
 .changelog-content {
@@ -623,12 +615,12 @@ setup() {
 }
 
 .changelog-section {
-  margin-bottom: 20px; /* 8-point spacing */
-  padding: 16px; /* 4-point spacing */
-  background: rgba(245, 245, 247, 0.5);
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
   backdrop-filter: blur(16px);
-  border-radius: 8px; /* 4-point spacing */
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
 }
 
 .changelog-section:last-child {
@@ -636,18 +628,18 @@ setup() {
 }
 
 .changelog-section h3 {
-  margin: 0 0 8px 0; /* 4-point spacing */
-  color: #1d1d1f;
-  font-size: 16px; /* Body: 16px */
+  margin: 0 0 8px 0;
+  color: var(--text-heading);
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .changelog-section p {
   margin: 0;
-  color: #424245;
+  color: var(--text-secondary);
   line-height: 1.5;
-  font-size: 14px; /* Caption: 14px */
+  font-size: 14px;
   font-weight: 400;
 }
 

@@ -395,7 +395,7 @@ justify-content: center;
 z-index: 2000;
 }
 .modal-content {
-background: #fff;
+background: var(--bg-primary);
 border-radius: 12px;
 box-shadow: 0 8px 32px rgba(0,0,0,0.18);
 padding: 32px 40px 24px 40px;
@@ -417,19 +417,19 @@ background: none;
 border: none;
 font-size: 1.7rem;
 cursor: pointer;
-color: #64748b;
+color: var(--text-secondary);
 border-radius: 6px;
 transition: background 0.2s;
 padding: 2px 8px;
 }
 .close-button:hover {
-background: #f1f5f9;
-color: #1d4ed8;
+background: var(--bg-secondary);
+color: var(--color-primary-600);
 }
 .modal-title {
 text-align: center;
 font-size: 1.2rem;
-color: #1f2937;
+color: var(--text-primary);
 font-weight: 600;
 margin-bottom: 18px;
 }
@@ -438,7 +438,7 @@ margin-bottom: 18px;
 .stage-hours-section {
 margin-bottom: 20px;
 padding: 16px;
-background: #f8fafc;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e2e8f0;
 }
@@ -446,7 +446,7 @@ border: 1px solid #e2e8f0;
 .hours-title {
 font-size: 1rem;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 margin: 0 0 12px 0;
 text-align: center;
 }
@@ -470,7 +470,7 @@ display: flex;
 align-items: center;
 justify-content: center;
 padding: 6px;
-background: #f8fafc;
+background: var(--bg-secondary);
 border: 1px solid #e2e8f0;
 border-radius: 6px;
 cursor: pointer;
@@ -487,12 +487,12 @@ transform: scale(1.05);
 
 .gear-button:active {
 transform: scale(0.95);
-background: #d1d5db;
+background: var(--border-medium);
 }
 
 .gear-icon {
 font-size: 1rem;
-color: #374151;
+color: var(--text-secondary);
 }
 
 .live-status-indicator {
@@ -527,12 +527,12 @@ display: inline-block;
 }
 
 .live-status-indicator.live .status-dot {
-background: #92400e;
+background: var(--color-warning-700);
 animation: pulse 2s infinite;
 }
 
 .live-status-indicator.scheduled .status-dot {
-background: #1e40af;
+background: var(--color-primary-700);
 }
 
 .hours-list {
@@ -546,7 +546,7 @@ display: flex;
 flex-direction: column;
 align-items: center;
 padding: 8px 12px;
-background: #ffffff;
+background: var(--bg-primary);
 border-radius: 6px;
 border: 1px solid #e5e7eb;
 }
@@ -554,7 +554,7 @@ border: 1px solid #e5e7eb;
 .time-range {
 font-size: 0.9rem;
 font-weight: 600;
-color: #1f2937;
+color: var(--text-primary);
 margin-bottom: 2px;
 }
 
@@ -574,7 +574,7 @@ text-align: center;
 .hours-management-section {
 margin-top: 16px;
 padding: 16px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e2e8f0;
   /* Ensure it doesn't get clipped inside the modal */
@@ -592,7 +592,7 @@ margin-bottom: 16px;
 .hours-title {
 font-size: 1rem;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 margin: 0;
 }
 
@@ -601,8 +601,8 @@ display: flex;
 align-items: center;
 gap: 6px;
 padding: 8px 12px;
-background: #0066cc;
-color: #ffffff;
+background: var(--color-primary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 font-size: 0.85rem;
@@ -612,7 +612,7 @@ transition: all 0.2s ease;
 }
 
 .add-hours-btn:hover {
-background: #0052a3;
+background: var(--color-primary-600);
 transform: translateY(-1px);
 }
 
@@ -628,7 +628,7 @@ margin-bottom: 16px;
 .hours-table {
 width: 100%;
 border-collapse: collapse;
-background: #ffffff;
+background: var(--bg-primary);
 border-radius: 6px;
 overflow: hidden;
 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -636,11 +636,11 @@ font-size: 0.85rem;
 }
 
 .hours-table th {
-background: #f1f5f9;
+background: var(--bg-secondary);
 padding: 8px 12px;
 text-align: left;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 border-bottom: 1px solid #e2e8f0;
 font-size: 0.8rem;
 }
@@ -648,12 +648,12 @@ font-size: 0.8rem;
 .hours-table td {
 padding: 8px 12px;
 border-bottom: 1px solid #e2e8f0;
-color: #374151;
+color: var(--text-secondary);
 font-size: 0.8rem;
 }
 
 .hours-table tr:hover {
-background: #f8fafc;
+background: var(--bg-secondary);
 }
 
 .hours-table tr.past-hour {
@@ -698,7 +698,7 @@ display: flex;
 align-items: center;
 justify-content: center;
 padding: 4px;
-background: #f1f5f9;
+background: var(--bg-secondary);
 border: 1px solid #e2e8f0;
 border-radius: 4px;
 cursor: pointer;
@@ -727,7 +727,7 @@ text-align: center;
 color: #6b7280;
 font-style: italic;
 padding: 20px;
-background: #ffffff;
+background: var(--bg-primary);
 border-radius: 6px;
 border: 1px solid #e2e8f0;
 }
@@ -740,7 +740,7 @@ margin-bottom: 16px;
 .form-field label {
 display: block;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 margin-bottom: 6px;
 font-size: 0.9rem;
 }
@@ -751,8 +751,8 @@ padding: 8px 12px;
 border: 1px solid #d1d5db;
 border-radius: 6px;
 font-size: 0.9rem;
-background: #ffffff;
-color: #374151;
+background: var(--bg-primary);
+color: var(--text-secondary);
 transition: all 0.2s ease;
 }
 
@@ -801,7 +801,7 @@ justify-content: center;
 gap: 6px;
 padding: 8px 16px;
 background: #f3f4f6;
-color: #374151;
+color: var(--text-secondary);
 border: 1px solid #d1d5db;
 border-radius: 6px;
 font-size: 0.9rem;
@@ -826,13 +826,13 @@ gap: 12px;
 margin-top: 8px;
 }
 .menu-item {
-background: #f8fafc;
+background: var(--bg-secondary);
 border: none;
 width: 100%;
 text-align: center;
 padding: 18px 0 12px 0;
 font-size: 1rem;
-color: #1f2937;
+color: var(--text-primary);
 border-radius: 10px;
 cursor: pointer;
 display: flex;

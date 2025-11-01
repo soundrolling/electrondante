@@ -227,23 +227,19 @@ onMounted(fetchAll)
 </script>
 
 <style scoped>
-/* component‐scoped palette */
+/* Using global CSS variables from index.css - these respond to dark mode */
 .pane {
---bg-light: #f8fafc;
---text-med: #64748b;
---border:   #e2e8f0;
---accent:   #3b82f6;
-background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+background: var(--bg-primary);
 padding: 32px;
 border-radius: 16px;
-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-border: 1px solid rgba(255, 255, 255, 0.2);
+box-shadow: var(--shadow-md);
+border: 1px solid var(--border-light);
 max-width: 1200px;
 margin: 0 auto;
 }
 .info {
 font-size: 0.9rem;
-color: var(--text-med);
+color: var(--text-secondary);
 margin-bottom: 12px;
 }
 .grid {
@@ -252,9 +248,9 @@ grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
 gap: 20px;
 margin-bottom: 24px;
 padding: 20px;
-background: rgba(255, 255, 255, 0.6);
+background: var(--bg-secondary);
 border-radius: 12px;
-border: 1px solid rgba(255, 255, 255, 0.3);
+border: 1px solid var(--border-light);
 backdrop-filter: blur(10px);
 }
 @media (max-width: 480px) {
@@ -264,27 +260,27 @@ backdrop-filter: blur(10px);
 }
 /* quickfire buttons */
 .qf {
---bg: #ccc; /* overridden inline */
---fg: #000;
+--bg: var(--bg-secondary); /* Uses theme background */
+--fg: var(--text-primary); /* Uses theme text color */
 background: var(--bg) !important;
 color: var(--fg) !important;
-  border: 2px solid rgba(0, 0, 0, 0.25);
+border: 2px solid var(--border-medium);
 border-radius: 16px;
 padding: 24px 16px;
 font-weight: 700;
 font-size: 1rem;
 text-align: center;
 cursor: pointer;
-box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+box-shadow: var(--shadow-sm);
 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 backdrop-filter: blur(10px);
 }
 .qf:hover {
-  background: var(--bg) !important;
+  background: var(--bg-tertiary) !important;
   color: var(--fg) !important;
-  border-color: rgba(0, 0, 0, 0.25) !important;
+  border-color: var(--border-dark) !important;
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-md);
   filter: saturate(1.05);
 }
 .qf:active {
@@ -300,19 +296,19 @@ margin-bottom: 12px;
 .mini {
 background: none;
 border: none;
-color: var(--accent);
+color: var(--color-primary-500);
 font-size: 0.85rem;
 cursor: pointer;
 }
 .mini.primary {
-background: #059669;
-color: #ffffff;
+background: var(--color-success-500);
+color: var(--text-inverse);
 border-radius: 6px;
 padding: 6px 14px;
 transition: background .2s;
 }
 .mini.primary:hover:not(:disabled) {
-background: #047857;
+background: var(--color-success-600);
 }
 
 /* High-contrast base button classes for consistency within location-notes */
@@ -455,7 +451,7 @@ backdrop-filter: blur(10px);
 }
 .table th,
 .table td {
-border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
 padding: 12px;
 font-size: 0.85rem;
 }

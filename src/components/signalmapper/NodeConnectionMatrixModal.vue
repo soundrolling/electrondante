@@ -253,7 +253,7 @@ box-sizing: border-box;
 padding: 0 32px 32px 32px;
 max-height: 90vh;
 overflow: hidden;
-background: #fff;
+background: var(--bg-primary);
 box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.04);
 border-radius: 18px;
 border: 1px solid #e9ecef;
@@ -267,7 +267,7 @@ padding: 32px 18px 18px 18px;
 }
 .matrix-table-wrapper {
 overflow-x: auto;
-background: #fff;
+background: var(--bg-primary);
 border-radius: 10px;
 box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 margin-top: 12px;
@@ -288,9 +288,9 @@ border-bottom: 1px solid #e9ecef;
 font-size: 15px;
 }
 .matrix-table th {
-background: #f8f9fa;
+background: var(--bg-secondary);
 font-weight: 700;
-color: #495057;
+color: var(--text-secondary);
 position: sticky;
 top: 0;
 z-index: 2;
@@ -299,10 +299,10 @@ z-index: 2;
 border-bottom: none;
 }
 .matrix-table tr:nth-child(even) {
-background: #f6f8fa;
+background: var(--bg-secondary);
 }
 .matrix-table tr:hover {
-background: #e7f1ff;
+background: rgba(59, 130, 246, 0.1);
 transition: background 0.15s;
 }
 select {
@@ -310,15 +310,15 @@ width: 100%;
 padding: 7px 10px;
 border: 1.5px solid #dee2e6;
 border-radius: 6px;
-background: #fff;
+background: var(--bg-primary);
 font-size: 15px;
-color: #222;
+  color: var(--text-primary);
 transition: border 0.15s;
 outline: none;
 }
 select:focus {
-border-color: #007bff;
-background: #f0f7ff;
+border-color: var(--color-primary-500);
+background: rgba(59, 130, 246, 0.1);
 }
 .modal-header {
 display: flex;
@@ -326,7 +326,7 @@ justify-content: space-between;
 align-items: center;
 padding: 22px 24px 0 24px;
 border-bottom: 1px solid #e9ecef;
-background: #fff;
+background: var(--bg-primary);
 border-top-left-radius: 14px;
 border-top-right-radius: 14px;
 }
@@ -334,27 +334,27 @@ border-top-right-radius: 14px;
 margin: 0;
 font-size: 20px;
 font-weight: 700;
-color: #212529;
+color: var(--text-primary);
 }
 .close-btn {
 background: none;
 border: none;
 font-size: 28px;
 cursor: pointer;
-color: #6c757d;
+color: var(--text-secondary);
 padding: 0 4px;
 border-radius: 4px;
 transition: background 0.15s;
 }
 .close-btn:hover {
-background: #f8f9fa;
-color: #495057;
+background: var(--bg-secondary);
+color: var(--text-secondary);
 }
 h4 {
 margin: 0 0 12px 0;
 font-size: 17px;
 font-weight: 600;
-color: #495057;
+color: var(--text-secondary);
 }
 @media (max-width: 600px) {
 .matrix-modal-content {
@@ -377,8 +377,8 @@ gap: 12px;
 margin-top: 28px;
 }
 .btn-save {
-background: #007bff;
-color: #fff;
+background: var(--color-primary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 padding: 12px 24px;
@@ -388,11 +388,11 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .btn-save:hover {
-background: #0056b3;
+background: var(--color-primary-600);
 }
 .btn-cancel {
-background: #6c757d;
-color: #fff;
+background: var(--color-secondary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 padding: 12px 24px;
@@ -402,7 +402,7 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .btn-cancel:hover {
-background: #545b62;
+background: var(--color-secondary-600);
 }
 .error-message {
 color: red;
@@ -410,9 +410,9 @@ margin-top: 12px;
 font-size: 15px;
 }
 .assigned-label {
-color: #aaa;
+color: var(--text-tertiary);
 font-style: italic;
-background: #f6f6f6;
+background: var(--bg-tertiary);
 padding: 4px 10px;
 border-radius: 6px;
 display: inline-block;

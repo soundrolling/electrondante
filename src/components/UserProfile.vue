@@ -1,9 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
+import { formatWeight, getWeightUnit, setWeightUnit, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
 
 const store = useUserStore();
+const route = useRoute();
+const router = useRouter();
 
 /* ---------- page‑level state ---------- */
 const loading = ref(false);
@@ -31,13 +35,34 @@ const profile = ref({
 });
 
 /* tabs */
-const activeTab = ref('profile');
 const tabs = [
   { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'gear', label: 'My Gear', icon: '🎛️' },
   { id: 'preferences', label: 'Preferences', icon: '⚙️' },
   { id: 'security', label: 'Security', icon: '🔒' }
 ];
+
+// Get active tab from route, default to 'profile'
+const activeTab = computed({
+  get: () => {
+    const tabFromRoute = route.params.tab || 'profile';
+    // Validate tab exists, fallback to 'profile'
+    return tabs.some(t => t.id === tabFromRoute) ? tabFromRoute : 'profile';
+  },
+  set: (newTab) => {
+    if (newTab !== route.params.tab) {
+      router.push(`/profile/${newTab}`);
+    }
+  }
+});
+
+// Watch route changes and redirect if invalid tab
+watch(() => route.params.tab, (newTab) => {
+  if (newTab && !tabs.some(t => t.id === newTab)) {
+    // Invalid tab, redirect to profile
+    router.replace('/profile/profile');
+  }
+});
 
 /* ---------- gear data ---------- */
 const gear = ref([]);
@@ -165,7 +190,7 @@ async function fetchGear() {
     gearLoading.value = true;
   const { data, error } = await supabase
     .from('user_gear')
-      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability, assigned_quantity')
+      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability')
     .eq('user_id', userId.value)
     .order('gear_name');
     
@@ -184,6 +209,9 @@ function openAddGear() {
 }
 
 function openEditGear(gearItem) {
+  const currentUnit = weightUnit.value;
+  const weightKg = gearItem.weight_kg || null;
+  
   gearForm.value = {
     gear_name: gearItem.gear_name,
     quantity: gearItem.quantity || 1,
@@ -195,7 +223,10 @@ function openEditGear(gearItem) {
     purchased_date: gearItem.purchased_date || '',
     notes: gearItem.notes || '',
     condition: gearItem.condition || 'excellent',
-    availability: gearItem.availability || 'available'
+    availability: gearItem.availability || 'available',
+    weight_kg: weightKg,
+    weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
+    weightInputUnit: currentUnit
   };
   isEditGear.value = true;
   editGearId.value = gearItem.id;
@@ -214,7 +245,10 @@ function resetGearForm() {
     purchased_date: '',
     notes: '',
     condition: 'excellent',
-    availability: 'available'
+    availability: 'available',
+    weight_kg: null,
+    weightInput: null,
+    weightInputUnit: weightUnit.value
   };
   isEditGear.value = false;
   editGearId.value = null;
@@ -224,19 +258,25 @@ async function saveGear() {
   const name = gearForm.value.gear_name.trim();
   if (!name) return;
 
+  // Convert weight input to kg for storage
+  const weightInKg = gearForm.value.weightInput 
+    ? convertInputToKg(gearForm.value.weightInput, gearForm.value.weightInputUnit)
+    : null;
+
   const payload = {
     user_id: userId.value,
     gear_name: name,
     quantity: gearForm.value.quantity || 1,
     gear_type: gearForm.value.gear_type.trim() || null,
-    num_inputs: gearForm.value.gear_type === 'source' ? 0 : Number(gearForm.value.num_inputs || 0),
-    num_outputs: gearForm.value.gear_type === 'source' ? 1 : Number(gearForm.value.num_outputs || 0),
+    num_inputs: gearForm.value.gear_type === 'source' ? 0 : (gearForm.value.gear_type === 'accessories_cables' ? null : Number(gearForm.value.num_inputs || 0)),
+    num_outputs: gearForm.value.gear_type === 'source' ? 1 : (gearForm.value.gear_type === 'accessories_cables' ? null : Number(gearForm.value.num_outputs || 0)),
     num_records: gearForm.value.gear_type === 'recorder' ? Number(gearForm.value.num_records || 0) : null,
     is_rented: !!gearForm.value.is_rented,
     purchased_date: gearForm.value.purchased_date || null,
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
-    availability: gearForm.value.availability
+    availability: gearForm.value.availability,
+    weight_kg: weightInKg
   };
 
   try {
@@ -347,12 +387,12 @@ async function fetchGearAssignments(userGearId) {
       locations = locs || [];
     }
     
-    // Get project names
+    // Get project names and dates
     let projects = [];
     if (projectIds.length > 0) {
       const { data: projs, error: projError } = await supabase
         .from('projects')
-        .select('id, project_name')
+        .select('id, project_name, build_days, main_show_days')
         .in('id', projectIds);
       
       if (projError) throw projError;
@@ -365,10 +405,54 @@ async function fetchGearAssignments(userGearId) {
       projectGearMap[g.id] = g;
     });
     
+    // Get all project dates for conflict checking
+    const projectDatesMap = {};
+    projects.forEach(p => {
+      projectDatesMap[p.id] = {
+        build_days: p.build_days || [],
+        main_show_days: p.main_show_days || []
+      };
+    });
+    
     const assignmentsList = (assignments || []).map(assignment => {
       const gear = projectGearMap[assignment.gear_id];
       const location = locations.find(l => l.id === assignment.location_id);
       const project = projects.find(p => p.id === gear?.project_id);
+      const projectDates = projectDatesMap[gear?.project_id] || { build_days: [], main_show_days: [] };
+      
+      // Check for conflicts with other assignments
+      const otherAssignments = (assignments || []).filter(a => 
+        a.gear_id !== assignment.gear_id && 
+        a.location_id !== assignment.location_id
+      );
+      
+      const conflicts = [];
+      if (projectDates.build_days?.length > 0 || projectDates.main_show_days?.length > 0) {
+        const thisProjectDates = [
+          ...(projectDates.build_days || []),
+          ...(projectDates.main_show_days || [])
+        ];
+        
+        // Check against all other projects using this user gear
+        otherAssignments.forEach(otherAss => {
+          const otherGear = projectGearMap[otherAss.gear_id];
+          const otherProject = projects.find(p => p.id === otherGear?.project_id);
+          if (otherProject) {
+            const otherProjectDates = [
+              ...(otherProject.build_days || []),
+              ...(otherProject.main_show_days || [])
+            ];
+            
+            const overlap = thisProjectDates.some(d => otherProjectDates.includes(d));
+            if (overlap) {
+              conflicts.push({
+                project_name: otherProject.project_name,
+                project_id: otherProject.id
+              });
+            }
+          }
+        });
+      }
       
       return {
         project_name: project?.project_name || 'Unknown Project',
@@ -376,7 +460,13 @@ async function fetchGearAssignments(userGearId) {
         stage_name: location?.stage_name || `Location ${assignment.location_id}`,
         venue_name: location?.venue_name || '',
         assigned_amount: assignment.assigned_amount || 0,
-        location_id: assignment.location_id
+        location_id: assignment.location_id,
+        conflicts: conflicts,
+        has_conflicts: conflicts.length > 0,
+        project_dates: {
+          build_days: projectDates.build_days || [],
+          main_show_days: projectDates.main_show_days || []
+        }
       };
     });
     
@@ -409,15 +499,25 @@ watch(activeTab, () => {
 });
 
 // Preferences state
+const weightUnit = ref(getWeightUnit());
 const preferences = ref({
-  notifications: true
+  notifications: true,
+  weightUnit: getWeightUnit()
 });
 const savingPreferences = ref(false);
 const prefMsg = ref('');
 
+// Watch weight unit changes and save to localStorage
+watch(weightUnit, (newUnit) => {
+  setWeightUnit(newUnit);
+  preferences.value.weightUnit = newUnit;
+});
+
 async function savePreferences() {
   savingPreferences.value = true;
   prefMsg.value = '';
+  // Save weight unit preference
+  setWeightUnit(weightUnit.value);
   // Simulate save (replace with real API/store call)
   setTimeout(() => {
     prefMsg.value = 'Preferences saved!';
@@ -486,7 +586,7 @@ async function saveSecurity() {
         v-for="tab in tabs"
         :key="tab.id"
         :class="['tab-button', { active: activeTab === tab.id } ]"
-        @click="activeTab = tab.id"
+        @click="router.push(`/profile/${tab.id}`)"
       >
         <span class="tab-icon">{{ tab.icon }}</span>
         <span class="tab-label">{{ tab.label }}</span>
@@ -496,7 +596,7 @@ async function saveSecurity() {
     <!-- Content Area -->
     <div class="content-area">
       <!-- Profile Tab -->
-      <div v-if="activeTab === 'profile'" class="tab-content">
+      <div v-if="activeTab === 'profile'" class="tab-content" key="profile">
         <div class="content-card">
           <h2 class="section-title">Personal Information</h2>
           <form @submit.prevent="saveProfile" class="profile-form">
@@ -586,7 +686,7 @@ async function saveSecurity() {
       </div>
 
       <!-- Gear Tab -->
-      <div v-if="activeTab === 'gear'" class="tab-content">
+      <div v-if="activeTab === 'gear'" class="tab-content" key="gear">
         <div class="content-card">
           <div class="gear-header">
             <div class="gear-header-left">
@@ -687,17 +787,14 @@ async function saveSecurity() {
                 </div>
 
                 <div class="gear-inventory">
-                  <span class="badge badge-available">Available: {{ (item.quantity || 0) - (item.assigned_quantity || 0) }}</span>
+                  <span class="badge badge-inventory">Inventory: {{ item.quantity || 0 }}</span>
                   <button 
-                    v-if="(item.assigned_quantity || 0) > 0"
                     class="btn-assignments"
                     @click="openAssignmentsModal(item)"
-                    :title="`View ${item.assigned_quantity || 0} assignment${(item.assigned_quantity || 0) !== 1 ? 's' : ''}`"
+                    title="View assignments across projects"
                   >
-                    Assigned: {{ item.assigned_quantity || 0 }}
+                    View Assignments
                   </button>
-                  <span v-else class="badge badge-unassigned">Not Assigned</span>
-                  <span class="badge badge-total">Total: {{ item.quantity || 0 }}</span>
                 </div>
 
                 <p v-if="item.notes" class="gear-notes">{{ item.notes }}</p>
@@ -708,7 +805,7 @@ async function saveSecurity() {
       </div>
 
       <!-- Preferences Tab -->
-      <div v-if="activeTab === 'preferences'" class="tab-content">
+      <div v-if="activeTab === 'preferences'" class="tab-content" key="preferences">
         <div class="content-card">
           <h2 class="section-title">Preferences</h2>
           <form class="pref-form" @submit.prevent="savePreferences">
@@ -719,6 +816,14 @@ async function saveSecurity() {
                 <span class="slider"></span>
               </label>
               <span class="input-note">Enable email notifications</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Weight Unit</label>
+              <select v-model="weightUnit" class="form-input">
+                <option value="kg">Kilograms (kg)</option>
+                <option value="lbs">Pounds (lbs)</option>
+              </select>
+              <p class="form-hint">Preferred unit for weight input and display</p>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-positive" :disabled="savingPreferences">
@@ -731,7 +836,7 @@ async function saveSecurity() {
       </div>
 
       <!-- Security Tab -->
-      <div v-if="activeTab === 'security'" class="tab-content">
+      <div v-if="activeTab === 'security'" class="tab-content" key="security">
         <div class="content-card">
           <h2 class="section-title">Security</h2>
           <form class="security-form" @submit.prevent="saveSecurity">
@@ -781,7 +886,7 @@ async function saveSecurity() {
         </div>
 
         <form @submit.prevent="saveGear" class="modal-form">
-          <div class="form-group">
+          <div class="form-group form-group-full">
             <label class="form-label">Gear Name *</label>
             <input 
               v-model="gearForm.gear_name" 
@@ -808,13 +913,11 @@ async function saveSecurity() {
                 <option value="source">Source (Microphones)</option>
                 <option value="transformer">Transformer</option>
                 <option value="recorder">Recorder</option>
+                <option value="accessories_cables">Accessories + Cables</option>
               </select>
             </div>
-          </div>
 
-          <!-- IO/Tracks in one row (Tracks only for recorders) -->
-          <div class="form-row">
-            <div class="form-group" v-if="gearForm.gear_type !== 'source'">
+            <div class="form-group" v-if="gearForm.gear_type !== 'source' && gearForm.gear_type !== 'accessories_cables'">
               <label class="form-label">Inputs</label>
               <input 
                 v-model.number="gearForm.num_inputs" 
@@ -823,7 +926,7 @@ async function saveSecurity() {
                 min="0"
               />
             </div>
-            <div class="form-group" v-if="gearForm.gear_type !== 'source'">
+            <div class="form-group" v-if="gearForm.gear_type !== 'source' && gearForm.gear_type !== 'accessories_cables'">
               <label class="form-label">Outputs</label>
               <input 
                 v-model.number="gearForm.num_outputs" 
@@ -832,7 +935,38 @@ async function saveSecurity() {
                 min="0"
               />
             </div>
-            <div class="form-group" v-if="gearForm.gear_type === 'recorder'">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Weight</label>
+              <div class="weight-input-group">
+                <input 
+                  v-model.number="gearForm.weightInput" 
+                  class="form-input weight-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Optional"
+                />
+                <select 
+                  v-model="gearForm.weightInputUnit"
+                  class="weight-unit-select"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lbs">lbs</option>
+                </select>
+              </div>
+              <p v-if="gearForm.weightInput" class="form-hint">
+                {{ formatWeight(convertInputToKg(gearForm.weightInput, gearForm.weightInputUnit) || 0, gearForm.weightInputUnit) }} per unit
+              </p>
+              <p v-else class="form-hint">Weight per unit (will be multiplied by quantity in bags)</p>
+            </div>
+          </div>
+
+          <!-- Tracks row (only for recorders) -->
+          <div class="form-row" v-if="gearForm.gear_type === 'recorder'">
+            <div class="form-group">
               <label class="form-label">Tracks</label>
               <input 
                 v-model.number="gearForm.num_records" 
@@ -841,6 +975,9 @@ async function saveSecurity() {
                 min="1"
               />
             </div>
+            <div class="form-group"></div>
+            <div class="form-group"></div>
+            <div class="form-group"></div>
           </div>
 
           <div class="form-row">
@@ -861,23 +998,23 @@ async function saveSecurity() {
                 </option>
               </select>
             </div>
+
+            <div class="form-group">
+              <label class="form-label">Availability</label>
+              <select v-model="gearForm.availability" class="form-input">
+                <option v-for="option in availabilityOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Rented?</label>
+              <input type="checkbox" v-model="gearForm.is_rented" style="width:auto; min-height:unset; margin-top: 0.5rem;" />
+            </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Availability</label>
-            <select v-model="gearForm.availability" class="form-input">
-              <option v-for="option in availabilityOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-        </div>
-
-          <div class="form-group">
-            <label class="form-label">Rented?</label>
-            <input type="checkbox" v-model="gearForm.is_rented" style="width:auto; min-height:unset;" />
-          </div>
-
-          <div class="form-group">
+          <div class="form-group form-group-full">
             <label class="form-label">Notes</label>
             <textarea 
               v-model="gearForm.notes" 
@@ -925,10 +1062,14 @@ async function saveSecurity() {
               v-for="(assignment, index) in gearAssignments" 
               :key="index"
               class="assignment-item"
+              :class="{ 'has-conflict': assignment.has_conflicts }"
             >
               <div class="assignment-header">
                 <div class="assignment-project">
                   <strong>{{ assignment.project_name }}</strong>
+                  <span v-if="assignment.has_conflicts" class="conflict-badge" title="Date conflicts with other projects">
+                    ⚠️ Conflict
+                  </span>
                 </div>
                 <div class="assignment-amount">
                   <span class="badge badge-assigned">{{ assignment.assigned_amount }}</span>
@@ -941,6 +1082,14 @@ async function saveSecurity() {
                   <span v-if="assignment.venue_name" class="venue-name">
                     ({{ assignment.venue_name }})
                   </span>
+                </div>
+                <div v-if="assignment.has_conflicts" class="conflict-details">
+                  <div class="conflict-label">Conflicts with:</div>
+                  <div class="conflict-projects">
+                    <span v-for="conflict in assignment.conflicts" :key="conflict.project_id" class="conflict-project">
+                      {{ conflict.project_name }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -958,65 +1107,48 @@ async function saveSecurity() {
 </template>
 
 <style scoped>
-:root {
-  --bg-main: #f8fafc;
-  --bg-card: #fff;
-  --bg-header: #f1f5f9;
-  --text-main: #334155;
-  --text-muted: #64748b;
-  --text-heading: #1e293b;
-  --text-inverse: #334155;
-  --border: #e2e8f0;
-  --input-bg: #fff;
-  --input-border: #d1d5db;
-  --input-text: #334155;
-  --primary: #3b82f6;
-  --primary-contrast: #fff;
-  --secondary: #64748b;
-  --secondary-contrast: #fff;
-}
-
+/* Using global CSS variables from index.css - these respond to dark mode */
 .profile-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem 0.75rem;
-  background: var(--bg-main);
+  background: var(--bg-primary);
   min-height: 100vh;
-  color: var(--text-main);
+  color: var(--text-primary);
 }
 
 .profile-header {
-  background: var(--bg-header);
-  color: var(--text-inverse);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   padding: 1rem 0.75rem;
   border-radius: 0.5rem;
   margin-bottom: 1rem;
   text-align: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
 }
 
 .profile-title {
   font-size: 1.6rem;
   font-weight: 700;
   margin: 0 0 0.2rem;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 .profile-subtitle {
   font-size: 0.98rem;
   opacity: 0.9;
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.3;
 }
 
 .tab-navigation {
   display: flex;
-  background: var(--bg-card);
+  background: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 0.25rem;
   margin-bottom: 1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   overflow-x: auto;
   gap: 0.25rem;
   min-height: unset;
@@ -1035,22 +1167,22 @@ async function saveSecurity() {
   transition: all 0.2s;
   white-space: nowrap;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   box-shadow: none;
 }
 
 .tab-button:hover {
-  background: #f1f5f9;
-  color: var(--text-main);
-  border-color: var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-light);
 }
 
 .tab-button.active {
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
   font-weight: 600;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
 }
 
 .tab-icon {
@@ -1066,21 +1198,21 @@ async function saveSecurity() {
 }
 
 .content-card {
-  background: var(--bg-card);
+  background: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 1.25rem;
   box-shadow: none;
-  color: var(--text-main);
-  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
 }
 
 .section-title {
   font-size: 1.3rem;
   font-weight: 600;
   margin: 0 0 1rem;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--border);
+  border-bottom: 2px solid var(--border-light);
 }
 
 .subsection-title {
@@ -1089,7 +1221,7 @@ async function saveSecurity() {
   margin: 1.25rem 0 0.75rem;
   color: var(--text-heading);
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .profile-form {
@@ -1106,7 +1238,7 @@ async function saveSecurity() {
 .form-group {
   margin-bottom: 1rem;
   padding: 0.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   border-radius: 0.5rem;
   background: #fafbfc;
 }
@@ -1126,8 +1258,8 @@ async function saveSecurity() {
   border: 2px solid var(--border-medium) !important;
   border-radius: 0.4rem;
   font-size: 0.9rem;
-  background: var(--input-bg);
-  color: #000000 !important;
+  background: var(--bg-primary);
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
@@ -1135,19 +1267,19 @@ async function saveSecurity() {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary) !important;
+  border-color: var(--color-primary-500) !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .form-input.readonly {
   background: #f8fafc;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 .input-note {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
@@ -1187,7 +1319,7 @@ async function saveSecurity() {
   margin-top: 0.75rem;
   border: 1px solid var(--border-medium);
   border-radius: 0.75rem;
-  background: var(--bg-card);
+  background: var(--bg-primary);
   padding: 0.75rem;
   box-shadow: var(--shadow-sm);
 }
@@ -1214,7 +1346,7 @@ async function saveSecurity() {
 
 .stat-label {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -1244,14 +1376,14 @@ async function saveSecurity() {
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
@@ -1260,7 +1392,7 @@ async function saveSecurity() {
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .filter-select {
@@ -1270,14 +1402,14 @@ async function saveSecurity() {
   font-size: 0.95rem;
   background: var(--bg-primary);
   min-width: 120px;
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
@@ -1315,7 +1447,7 @@ async function saveSecurity() {
 .gear-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
   margin: 0;
   flex: 1;
 }
@@ -1326,7 +1458,7 @@ async function saveSecurity() {
 }
 
 .gear-details {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .gear-info {
@@ -1337,7 +1469,7 @@ async function saveSecurity() {
 
 .gear-type {
   font-weight: 500;
-  color: var(--primary);
+  color: var(--color-primary-500);
 }
 
 .gear-quantity {
@@ -1372,10 +1504,10 @@ async function saveSecurity() {
   border: 1.5px solid #64748b;
 }
 
-.badge-available {
-  background: linear-gradient(90deg, #bbf7d0 0%, #4ade80 100%);
-  color: #166534;
-  border: 1.5px solid #22c55e;
+.badge-inventory {
+  background: linear-gradient(90deg, #dbeafe 0%, #60a5fa 100%);
+  color: #1e40af;
+  border: 1.5px solid #60a5fa;
 }
 
 .badge-assigned {
@@ -1384,33 +1516,27 @@ async function saveSecurity() {
   border: 1.5px solid #fbbf24;
 }
 
-.badge-unassigned {
-  background: linear-gradient(90deg, #e5e7eb 0%, #9ca3af 100%);
-  color: #4b5563;
-  border: 1.5px solid #9ca3af;
-}
-
 .btn-assignments {
   display: inline-block;
-  padding: 0.3em 0.9em;
-  border-radius: 1em;
-  font-size: 0.98em;
-  font-weight: 700;
-  background: linear-gradient(90deg, #fde68a 0%, #fbbf24 100%);
-  color: #92400e;
-  border: 1.5px solid #fbbf24;
+  padding: 0.4em 1em;
+  border-radius: 0.5rem;
+  font-size: 0.9em;
+  font-weight: 600;
+  background: var(--color-primary-500);
+  color: var(--primary-contrast);
+  border: 2px solid var(--color-primary-500);
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
   box-shadow: none;
-  margin-right: 0.1em;
+  margin-left: 0.5rem;
 }
 
 .btn-assignments:hover {
-  background: linear-gradient(90deg, #fcd34d 0%, #f59e0b 100%);
-  border-color: #f59e0b;
+  background: #2563eb;
+  border-color: #2563eb;
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .assignments-modal {
@@ -1427,14 +1553,14 @@ async function saveSecurity() {
   padding: 1rem;
   margin-bottom: 0.75rem;
   background: #f8fafc;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   border-radius: 0.5rem;
   transition: all 0.2s ease;
 }
 
 .assignment-item:hover {
   background: #f1f5f9;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
 }
 
 .assignment-header {
@@ -1462,7 +1588,7 @@ async function saveSecurity() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -1471,8 +1597,53 @@ async function saveSecurity() {
 }
 
 .venue-name {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
+}
+
+.assignment-item.has-conflict {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.conflict-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.2em 0.6em;
+  background: #fbbf24;
+  color: #92400e;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.conflict-details {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #fbbf24;
+}
+
+.conflict-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 0.25rem;
+}
+
+.conflict-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.conflict-project {
+  display: inline-block;
+  padding: 0.2em 0.5em;
+  background: #fde68a;
+  color: #78350f;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .badge-total {
@@ -1512,7 +1683,7 @@ async function saveSecurity() {
 .empty-state {
   text-align: center;
   padding: 3rem 2rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -1522,7 +1693,7 @@ async function saveSecurity() {
 
 .empty-state h3 {
   margin: 0 0 0.5rem;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 .empty-state p {
@@ -1532,14 +1703,14 @@ async function saveSecurity() {
 .loading-state {
   text-align: center;
   padding: 3rem 2rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 2rem;
   height: 2rem;
-  border: 3px solid var(--input-border);
-  border-top: 3px solid var(--primary);
+  border: 3px solid var(--border-medium);
+  border-top: 3px solid var(--color-primary-500);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -1560,9 +1731,9 @@ async function saveSecurity() {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--color-primary-500);
   color: var(--primary-contrast);
-  border: 2px solid var(--primary);
+  border: 2px solid var(--color-primary-500);
   border-radius: 0.5rem;
   font-weight: 600;
   font-size: 0.95rem;
@@ -1681,13 +1852,17 @@ async function saveSecurity() {
 
 .modal-overlay {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: 1rem;
+  overflow-y: auto;
 }
 
 .modal-content {
@@ -1705,6 +1880,8 @@ async function saveSecurity() {
   display: flex;
   flex-direction: column;
   padding: 2rem 2rem 1.5rem 2rem;
+  position: relative;
+  z-index: 10000;
 }
 
 .modal-header {
@@ -1773,8 +1950,8 @@ async function saveSecurity() {
   border: 2px solid var(--border-medium) !important;
   border-radius: 0.5rem !important;
   font-size: 1.05rem;
-  background: #fff !important;
-  color: #000000 !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm) !important;
   margin-top: 0.1rem;
   margin-bottom: 0.1rem;
@@ -1794,13 +1971,32 @@ async function saveSecurity() {
 }
 
 .modal-form .form-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.7rem;
 }
 
 .modal-form .form-row .form-group {
-  flex: 1 1 0;
   margin-bottom: 0 !important;
+}
+
+/* Full-width fields */
+.modal-form .form-group-full {
+  width: 100%;
+}
+
+/* 4 columns on wider screens */
+@media (min-width: 768px) {
+  .modal-form .form-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* On very wide screens, make modal wider to accommodate 4 columns */
+@media (min-width: 1024px) {
+  .modal-content {
+    max-width: 800px !important;
+  }
 }
 
 .modal-actions {
@@ -1848,6 +2044,26 @@ async function saveSecurity() {
 .modal-actions .btn-secondary:focus {
   background: #334155 !important;
   border-color: #64748b !important;
+}
+
+.modal-actions .btn-warning {
+  color: #ffffff !important;
+}
+
+.modal-actions .btn-warning:hover,
+.modal-actions .btn-warning:focus {
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
+.modal-actions .btn-positive {
+  color: #ffffff !important;
+}
+
+.modal-actions .btn-positive:hover,
+.modal-actions .btn-positive:focus {
+  color: #ffffff !important;
+  opacity: 0.9;
 }
 
 @keyframes fadeIn {
@@ -2031,31 +2247,73 @@ async function saveSecurity() {
 }
 .sec-msg { color: #ef4444; }
 
-/* Preferences save button - white styling */
+/* Preferences save button - styling */
 .pref-form .btn-positive {
-  background: white !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-dark) !important;
   font-weight: 600 !important;
 }
 
 .pref-form .btn-positive:hover {
-  background: #f8f9fa !important;
-  color: #000000 !important;
-  border-color: #000000 !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-dark) !important;
 }
 
-/* Security save button - white styling */
+/* Security save button - styling */
 .security-form .btn-positive {
-  background: white !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-dark) !important;
   font-weight: 600 !important;
 }
 
 .security-form .btn-positive:hover {
-  background: #f8f9fa !important;
-  color: #000000 !important;
-  border-color: #000000 !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* Gear tab Add Gear button - white text for contrast */
+.gear-header .btn-positive,
+.empty-state .btn-positive {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.gear-header .btn-positive:hover,
+.empty-state .btn-positive:hover {
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
+/* Weight Input Group */
+.weight-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.weight-input {
+  flex: 1;
+  min-width: 120px; /* Ensures enough space for 4 digits and decimal point */
+}
+
+.weight-unit-select {
+  min-width: 80px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.weight-unit-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 </style>

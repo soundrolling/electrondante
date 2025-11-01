@@ -43,7 +43,31 @@
 
   <!-- Tab Content -->
   <div class="tab-content" role="tabpanel" :id="`${activeTab}-panel`">
+    <div v-if="activeTab === 'packing'" class="packing-link-section">
+      <div class="packing-link-card">
+        <div class="packing-link-icon">🎒</div>
+        <h2>Packing & Repacking</h2>
+        <p class="packing-link-description">
+          Manage your packing bags and repacking checklist in the Project Gear section.
+        </p>
+        <router-link
+          :to="{ name: 'ProjectPacking', params: { id: projectId } }"
+          class="packing-link-button"
+        >
+          <span class="button-icon">🎒</span>
+          <span class="button-text">Go to Packing</span>
+        </router-link>
+        <router-link
+          :to="{ name: 'ProjectRepacking', params: { id: projectId } }"
+          class="packing-link-button secondary"
+        >
+          <span class="button-icon">📋</span>
+          <span class="button-text">Go to Repacking</span>
+        </router-link>
+      </div>
+    </div>
     <component
+      v-else
       :is="activeTabComponent"
       :trip-id="tripId"
       :id="projectId"
@@ -82,7 +106,8 @@ data() {
       { key: 'flights', label: 'Flights', component: 'FlightDetails' },
       { key: 'documents', label: 'Documents', component: 'Documents' },
       { key: 'expenses', label: 'Expenses', component: 'Expenses' },
-      { key: 'parking', label: 'Parking', component: 'Parking' }
+      { key: 'parking', label: 'Parking', component: 'Parking' },
+      { key: 'packing', label: 'Packing', component: 'Packing' }
     ],
     activeTab: 'accommodations'
   }
@@ -100,7 +125,8 @@ methods: {
       flights: '✈️',
       documents: '📄',
       expenses: '💰',
-      parking: '🅿️'
+      parking: '🅿️',
+      packing: '🎒'
     }
     return icons[key] || '📋'
   }
@@ -116,9 +142,9 @@ methods: {
   margin: 0 auto;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #1f2937;
+  color: var(--text-primary);
   line-height: 1.5;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -134,7 +160,7 @@ methods: {
 
 /* Consolidated Header Section */
 .consolidated-header {
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -161,14 +187,14 @@ methods: {
 
 .trip-title h1 {
   font-size: 24px;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 700;
   margin: 0 0 8px 0;
   line-height: 1.4;
 }
 
 .trip-title .trip-dates {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 8px 0;
   font-size: 16px;
   line-height: 1.5;
@@ -176,14 +202,14 @@ methods: {
 
 .trip-title .trip-destination {
   font-size: 16px;
-  color: #3b82f6;
+  color: var(--color-primary-500);
   margin: 0;
   line-height: 1.5;
 }
 
 .trip-title .destination-label {
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* Back Link */
@@ -192,20 +218,20 @@ methods: {
   align-items: center;
   gap: 8px;
   font-size: 16px;
-  color: #3b82f6;
+  color: var(--color-primary-500);
   text-decoration: none;
   font-weight: 500;
   padding: 8px 12px;
   border-radius: 8px;
   transition: all 0.2s ease;
-  background: #eff6ff;
+  background: rgba(59, 130, 246, 0.1);
   border: 1px solid #dbeafe;
   flex-shrink: 0;
 }
 
 .back-link:hover {
-  color: #1d4ed8;
-  background: #dbeafe;
+  color: var(--color-primary-700);
+  background: rgba(59, 130, 246, 0.15);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -230,7 +256,7 @@ methods: {
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
-  background: #f1f5f9;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -238,12 +264,12 @@ methods: {
 }
 
 .tab-btn {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 12px 16px;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -288,7 +314,7 @@ methods: {
 
 /* Tab Content */
 .tab-content {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
@@ -415,5 +441,96 @@ methods: {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* Packing Link Section */
+.packing-link-section {
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.packing-link-card {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: 48px 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.packing-link-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+}
+
+.packing-link-card h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+.packing-link-description {
+  font-size: 16px;
+  color: #6c757d;
+  margin: 0 0 32px 0;
+  line-height: 1.6;
+}
+
+.packing-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  width: 100%;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.packing-link-button:not(.secondary) {
+  background-color: #047857;
+  color: #ffffff !important;
+  border: 2px solid #065f46;
+}
+
+.packing-link-button:not(.secondary):hover {
+  background-color: #065f46;
+  border-color: #065f46;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(4, 120, 87, 0.3);
+}
+
+.packing-link-button.secondary {
+  background-color: #1e40af;
+  color: #ffffff !important;
+  border: 2px solid #1e3a8a;
+}
+
+.packing-link-button.secondary:hover {
+  background-color: #1e3a8a;
+  border-color: #1e3a8a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+}
+
+.packing-link-button .button-icon,
+.packing-link-button .button-text {
+  color: inherit;
+}
+
+.button-icon {
+  font-size: 20px;
 }
 </style> 

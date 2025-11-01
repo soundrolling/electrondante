@@ -16,19 +16,19 @@
   <div class="tab-navigation">
     <button 
       :class="['tab-btn', { active: activeTab === 'placement' }]"
-      @click="activeTab = 'placement'"
+      @click="setActiveTab('placement')"
     >
       📍 Mic Placement
     </button>
     <button 
       :class="['tab-btn', { active: activeTab === 'flow' }]"
-      @click="activeTab = 'flow'"
+      @click="setActiveTab('flow')"
     >
       🔗 Signal Flow
     </button>
     <button 
       :class="['tab-btn', { active: activeTab === 'tracklist' }]"
-      @click="activeTab = 'tracklist'"
+      @click="setActiveTab('tracklist')"
     >
       📊 Track List
     </button>
@@ -51,11 +51,13 @@
     
     <SignalFlow
       v-if="activeTab === 'flow'"
+      ref="signalFlowRef"
       :projectId="projectId"
       :locationId="effectiveLocationId"
       :nodes="allNodes"
       :connections="allConnections"
       :gearList="gearList"
+      :initialSelectedConnectionId="selectedConnectionId"
       @node-updated="handleNodeUpdated"
       @node-added="handleNodeAdded"
       @node-deleted="handleNodeDeleted"
@@ -69,6 +71,7 @@
       :projectId="projectId"
       :signalPaths="signalPaths"
       :loading="loadingPaths"
+      @track-name-clicked="handleTrackNameClicked"
     />
 
   </div>
@@ -76,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
@@ -108,14 +111,16 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-const activeTab = ref('placement')
+// Initialize activeTab from URL query parameter, default to 'placement'
+const activeTab = ref(route.query.tab || 'placement')
 const currentLocation = ref(null)
 const allNodes = ref([])
 const allConnections = ref([])
 const gearList = ref([])
 const signalPaths = ref([])
 const loadingPaths = ref(false)
-
+const selectedConnectionId = ref(null)
+const signalFlowRef = ref(null)
 
 // Computed filtered data
 const sourceNodes = computed(() => {
@@ -133,6 +138,22 @@ const effectiveLocationId = computed(() => {
 
 // Navigation
 const goBack = () => router.back()
+
+// Set active tab and update URL
+function setActiveTab(tab) {
+  activeTab.value = tab
+  // Clear selected connection when switching away from flow tab
+  if (tab !== 'flow') {
+    selectedConnectionId.value = null
+  }
+  // Update URL query parameter without navigating away
+  router.replace({
+    query: {
+      ...route.query,
+      tab: tab
+    }
+  })
+}
 
 // Load location data
 async function fetchLocation() {
@@ -155,10 +176,12 @@ async function fetchGearList() {
   if (!props.projectId) return
 
   try {
-    const gearData = await fetchTableData('gear_table', { 
+    const allGearData = await fetchTableData('gear_table', { 
       eq: { project_id: props.projectId },
       order: [{ column: 'sort_order', ascending: true }]
     })
+    // Exclude accessories_cables from signal mapper
+    const gearData = allGearData.filter(g => g.gear_type !== 'accessories_cables')
     
     const ids = gearData.map(g => g.id)
     const asns = ids.length
@@ -268,6 +291,20 @@ function handleConnectionDeleted(connectionId) {
   loadSignalPaths()
 }
 
+function handleTrackNameClicked(connectionId) {
+  selectedConnectionId.value = connectionId
+  setActiveTab('flow')
+  // Wait for SignalFlow to mount and then select the connection
+  nextTick(() => {
+    // Use a small delay to ensure the component is fully rendered
+    setTimeout(() => {
+      if (signalFlowRef.value && signalFlowRef.value.selectConnection) {
+        signalFlowRef.value.selectConnection(connectionId)
+      }
+    }, 150)
+  })
+}
+
 // Setup realtime subscriptions
 function setupRealtimeSubscriptions() {
   if (!props.projectId) return
@@ -298,8 +335,29 @@ function setupRealtimeSubscriptions() {
   }
 }
 
+// Watch for route changes to update active tab
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && ['placement', 'flow', 'tracklist'].includes(newTab)) {
+    activeTab.value = newTab
+  } else if (!newTab) {
+    // Default to placement if no tab in URL
+    activeTab.value = 'placement'
+  }
+})
+
 // Lifecycle
 onMounted(async () => {
+  // Initialize tab from URL
+  const tabFromUrl = route.query.tab
+  if (tabFromUrl && ['placement', 'flow', 'tracklist'].includes(tabFromUrl)) {
+    activeTab.value = tabFromUrl
+  } else {
+    // If no valid tab in URL, set default and update URL
+    if (!route.query.tab) {
+      setActiveTab('placement')
+    }
+  }
+  
   await fetchLocation()
   await fetchGearList()
   await loadNodesAndConnections()
@@ -323,15 +381,15 @@ onMounted(async () => {
   gap: 20px;
   margin-bottom: 20px;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
 
 .back-button {
   padding: 8px 16px;
-  background: #6c757d;
-  color: white;
+  background: var(--color-secondary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -340,12 +398,12 @@ onMounted(async () => {
 }
 
 .back-button:hover {
-  background: #5a6268;
+  background: var(--color-secondary-600);
 }
 
 .location-label {
   font-size: 14px;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .tab-navigation {
@@ -353,7 +411,7 @@ onMounted(async () => {
   gap: 10px;
   margin-bottom: 20px;
   padding: 10px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -361,31 +419,31 @@ onMounted(async () => {
 .tab-btn {
   flex: 1;
   padding: 12px 20px;
-  background: white;
+  background: var(--bg-primary);
   border: 2px solid #dee2e6;
   border-radius: 8px;
   cursor: pointer;
   font-size: 16px;
   font-weight: 500;
   transition: all 0.2s;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .tab-btn:hover {
-  border-color: #007bff;
-  background: #f8f9fa;
+  border-color: var(--color-primary-500);
+  background: var(--bg-secondary);
 }
 
 .tab-btn.active {
-  background: #2563eb; /* blue-600 */
-  color: #ffffff;
-  border-color: #1d4ed8; /* blue-700 */
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
+  border-color: var(--color-primary-700);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35), 0 6px 14px rgba(37, 99, 235, 0.25);
   font-weight: 700;
 }
 
 .tab-content {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
   min-height: 500px;

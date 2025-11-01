@@ -85,14 +85,14 @@ export default {
   max-width: 400px;
   margin: 100px auto;
   padding: 20px;
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 h1 {
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -108,8 +108,8 @@ h1 {
 .reset-button {
   width: 100%;
   padding: 10px;
-  background-color: #007bff;
-  color: white;
+  background-color: var(--color-primary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -118,27 +118,27 @@ h1 {
 }
 
 .reset-button:hover {
-  background-color: #0056b3;
+  background-color: var(--color-primary-600);
 }
 
 .reset-button:disabled {
-  background-color: #ccc;
+  background-color: var(--color-secondary-400);
   cursor: not-allowed;
 }
 
 .error-message {
-  color: #dc3545;
+  color: var(--color-error-600);
   margin-bottom: 15px;
   padding: 10px;
-  background-color: #f8d7da;
+  background-color: rgba(239, 68, 68, 0.1);
   border-radius: 4px;
 }
 
 .success-message {
-  color: #28a745;
+  color: var(--color-success-500);
   margin-bottom: 15px;
   padding: 10px;
-  background-color: #d4edda;
+  background-color: rgba(34, 197, 94, 0.15);
   border-radius: 4px;
 }
 
@@ -147,7 +147,7 @@ h1 {
 }
 
 .back-to-login a {
-  color: #007bff;
+  color: var(--color-primary-500);
   text-decoration: none;
 }
 

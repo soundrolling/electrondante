@@ -905,7 +905,7 @@ watch(() => route.query.stageId, async (newVal) => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -921,7 +921,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .breadcrumb-item {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--color-primary-500);
   cursor: pointer;
   padding: 0;
   font-size: 14px;
@@ -932,7 +932,7 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .breadcrumb-separator {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* Header Section */
@@ -954,12 +954,12 @@ watch(() => route.query.stageId, async (newVal) => {
 .header-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
 }
 
 .header-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   font-size: 0.95rem;
   font-weight: 400;
@@ -993,13 +993,13 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .btn-secondary {
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
   border: 1px solid #d1d5db;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
 }
 
 .btn-outline {
@@ -1009,8 +1009,8 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .btn-outline:hover:not(:disabled) {
-  background: #3b82f6;
-  color: #ffffff !important;
+  background: var(--color-primary-500);
+  color: var(--text-inverse) !important;
 }
 
 .btn-outline--active {
@@ -1019,13 +1019,13 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .btn-danger {
-  background: #dc2626 !important;
-  color: #ffffff !important;
+  background: var(--color-error-500) !important;
+  color: var(--text-inverse) !important;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c !important;
-  color: #ffffff !important;
+  background: var(--color-error-600) !important;
+  color: var(--text-inverse) !important;
 }
 
 .btn-icon {
@@ -1049,18 +1049,18 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .upload-area:hover {
-  border-color: #3b82f6;
-  background: #f8fafc;
+  border-color: var(--color-primary-500);
+  background: var(--bg-secondary);
 }
 
 .upload-area--dragover {
-  border-color: #3b82f6;
-  background: #eff6ff;
+  border-color: var(--color-primary-500);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .upload-area--uploading {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: var(--color-success-500);
+  background: rgba(34, 197, 94, 0.1);
   cursor: not-allowed;
 }
 
@@ -1082,12 +1082,12 @@ watch(() => route.query.stageId, async (newVal) => {
 .upload-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .upload-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -1101,7 +1101,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -1109,13 +1109,13 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .progress-fill {
   height: 100%;
-  background: #10b981;
+  background: var(--color-success-500);
   transition: width 0.3s ease;
 }
 
 .progress-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -1131,7 +1131,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .selected-files-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 16px 0;
 }
 
@@ -1166,7 +1166,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1175,7 +1175,7 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .file-size {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -1296,7 +1296,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .images-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0;
   white-space: nowrap;
 }
@@ -1369,7 +1369,7 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .image-card--selected {
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
@@ -1379,7 +1379,7 @@ watch(() => route.query.stageId, async (newVal) => {
   justify-content: space-between;
   align-items: center;
   gap: 4px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border-radius: 0 0 12px 12px;
   padding: 6px 8px 0 8px;
   margin: 0;
@@ -1388,7 +1388,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .card-action-btn {
   flex: 1 1 0;
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
   border: 1px solid #d1d5db;
   border-radius: 7px;
   padding: 8px 0;
@@ -1404,7 +1404,7 @@ watch(() => route.query.stageId, async (newVal) => {
   height: 36px;
 }
 .card-action-btn:hover {
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
   border-color: #b6bbc6;
 }
 .card-action-btn--delete {
@@ -1473,7 +1473,7 @@ watch(() => route.query.stageId, async (newVal) => {
 
 .order-btn {
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
   border: none;
   border-radius: 4px;
   width: 28px;
@@ -1487,7 +1487,7 @@ watch(() => route.query.stageId, async (newVal) => {
 }
 
 .order-btn:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
 }
 
 .order-btn:disabled {
@@ -1498,7 +1498,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .order-number {
   font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   min-width: 20px;
   text-align: center;
 }
@@ -1518,7 +1518,7 @@ watch(() => route.query.stageId, async (newVal) => {
 .input-field:focus,
 .textarea-field:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -1545,12 +1545,12 @@ watch(() => route.query.stageId, async (newVal) => {
 .empty-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 12px 0;
 }
 
 .empty-description {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   max-width: 400px;
   margin-left: auto;
@@ -1703,7 +1703,7 @@ watch(() => route.query.stageId, async (newVal) => {
   display: inline-flex;
   align-items: center;
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
   border-radius: 16px;
   padding: 2px 10px;
   font-size: 12px;

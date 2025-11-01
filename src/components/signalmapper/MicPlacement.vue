@@ -5,29 +5,26 @@
     <p>Place microphones on the floor plan and assign track names</p>
   </div>
 
+  <!-- Mobile Message -->
+  <div v-if="isMobile" class="mobile-message">
+    <p>📱 For better usability and to prevent errors, please view this page on a larger screen (desktop or tablet).</p>
+    <p>Mobile devices are not recommended for mic placement due to precision requirements.</p>
+  </div>
+
   <!-- Unified Toolbar Row -->
-  <div class="placement-toolbar unified">
+  <div class="placement-toolbar unified" :class="{ mobileHidden: isMobile }">
     <!-- Mobile: collapsible image settings trigger -->
-    <div class="mobile-controls">
+    <div class="mobile-controls" v-if="!isMobile">
       <button class="btn-secondary" @click="showMobileSettings = !showMobileSettings">Image Settings</button>
     </div>
-    <div class="left-group" :class="{ mobileHidden: !showMobileSettings }">
+    <div class="left-group" :class="{ mobileHidden: !showMobileSettings || isMobile }">
       <label class="inline-setting">
-        <input type="checkbox" v-model="panImageMode" :disabled="imageLocked" />
+        <input type="checkbox" v-model="panImageMode" />
         <span>Pan</span>
       </label>
-      <button @click="zoomIn" :disabled="!bgImage || imageLocked" class="btn-secondary">🔍+</button>
-      <button @click="zoomOut" :disabled="!bgImage || imageLocked" class="btn-secondary">🔍-</button>
-      <button @click="resetImageView" :disabled="!bgImage || imageLocked" class="btn-secondary">Reset</button>
-      <label class="inline-setting" v-if="bgImage">
-        <input type="checkbox" v-model="imageLocked" />
-        <span>🔒 Lock</span>
-      </label>
-      <div class="inline-setting">
-        <label>Opacity</label>
-        <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
-        <span>{{ Math.round(bgOpacity * 100) }}%</span>
-      </div>
+      <button @click="zoomIn" :disabled="!bgImage" class="btn-secondary">🔍+</button>
+      <button @click="zoomOut" :disabled="!bgImage" class="btn-secondary">🔍-</button>
+      <button @click="resetImageView" :disabled="!bgImage" class="btn-secondary">Reset</button>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
       <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
     </div>
@@ -40,7 +37,7 @@
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
       <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
-      <button @click="exportCanvas" class="btn-secondary">Export</button>
+      <button @click="exportToPDF" class="btn-secondary">📄 Export PDF</button>
     </div>
   </div>
 
@@ -168,7 +165,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
-import { addNode, updateNode, deleteNode } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -186,7 +183,7 @@ const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(800)
 const canvasHeight = ref(600)
 const canvasStyle = computed(() => 
-  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; display: block; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e9ecef; touch-action: none;`
+  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; display: block; margin: 0 auto; background: var(--bg-primary); border-radius: 8px; border: 1px solid #e9ecef; touch-action: none;`
 )
 
 // Image state
@@ -197,33 +194,22 @@ const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
 const panImageMode = ref(false)
-const imageLocked = ref(false)
-// Locked values - used for coordinate transforms when image is locked
-const lockedOffsetX = ref(0)
-const lockedOffsetY = ref(0)
-const lockedScale = ref(1)
 // no popover; show inline controls
 const showMobileSettings = ref(false)
+
+// Detect mobile/small screens
+const isMobile = ref(false)
+function checkScreenSize() {
+  isMobile.value = window.innerWidth < 768
+}
 
 // No local persistence - background lives in Supabase storage
 
 async function loadImageState() {
   try {
-    // Load lock state first
-    const wasLocked = loadLockState()
-    if (wasLocked) {
-      imageLocked.value = true
-    }
-    
     const cloudUrl = await getBgPublicUrl()
     if (cloudUrl) {
       await setBackgroundImage(cloudUrl)
-      // If image was locked, update locked values to current transform
-      if (wasLocked) {
-        lockedOffsetX.value = imageOffsetX.value
-        lockedOffsetY.value = imageOffsetY.value
-        lockedScale.value = scaleFactor.value
-      }
     }
   } catch (_) {}
 }
@@ -236,39 +222,6 @@ function storagePathForStage() {
   return `mic-placement/${props.projectId}/${scope}/bg.png`
 }
 
-// Lock state storage key
-function lockStateStorageKey() {
-  if (!props.projectId) return null
-  const scope = props.locationId ?? 'default'
-  return `mic-placement-lock-${props.projectId}-${scope}`
-}
-
-// Save lock state to localStorage
-function saveLockState() {
-  const key = lockStateStorageKey()
-  if (!key) return
-  try {
-    localStorage.setItem(key, JSON.stringify({ locked: imageLocked.value }))
-  } catch (err) {
-    console.error('Failed to save lock state:', err)
-  }
-}
-
-// Load lock state from localStorage
-function loadLockState() {
-  const key = lockStateStorageKey()
-  if (!key) return false
-  try {
-    const stored = localStorage.getItem(key)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      return parsed.locked === true
-    }
-  } catch (err) {
-    console.error('Failed to load lock state:', err)
-  }
-  return false
-}
 
 async function getBgPublicUrl() {
   try {
@@ -324,8 +277,6 @@ async function setBackgroundImage(src, state) {
         imageOffsetX.value = fit.offsetX
         imageOffsetY.value = fit.offsetY
       }
-      // Update locked values when image is set
-      updateLockedValues()
       drawCanvas()
       resolve()
     }
@@ -406,18 +357,15 @@ function drawCanvas() {
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw background image (use locked values when locked)
+  // Draw background image
   if (bgImageObj.value) {
-    ctx.globalAlpha = bgOpacity.value
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+    ctx.globalAlpha = 1.0 // Fixed opacity - no longer using bgOpacity
     ctx.drawImage(
       bgImageObj.value,
-      offsetX,
-      offsetY,
-      bgImageObj.value.width * scale,
-      bgImageObj.value.height * scale
+      imageOffsetX.value,
+      imageOffsetY.value,
+      bgImageObj.value.width * scaleFactor.value,
+      bgImageObj.value.height * scaleFactor.value
     )
     ctx.globalAlpha = 1.0
   }
@@ -476,6 +424,23 @@ function drawMic(ctx, mic) {
 
   ctx.restore()
 
+  // Draw gear name inside circle for source mics (first 6 characters)
+  if (mic.gear_id && (mic.gear_type === 'source' || mic.node_type === 'source')) {
+    const gear = props.gearList.find(g => g.id === mic.gear_id)
+    if (gear && gear.gear_name) {
+      const gearNameText = gear.gear_name.length > 6 
+        ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
+        : gear.gear_name.toUpperCase()
+      ctx.save()
+      ctx.font = 'bold 9px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = mic === selectedMic.value ? '#fff' : '#495057'
+      ctx.fillText(gearNameText, x, y)
+      ctx.restore()
+    }
+  }
+
   // Draw label with white background for readability over dark images
   ctx.font = 'bold 12px sans-serif'
   ctx.textAlign = 'center'
@@ -525,65 +490,150 @@ function fitImageToCanvas(img) {
 }
 
 function zoomIn() { 
-  if (imageLocked.value) return
   scaleFactor.value *= 1.1
-  updateLockedValues()
   drawCanvas() 
 }
 function zoomOut() { 
-  if (imageLocked.value) return
   scaleFactor.value /= 1.1
-  updateLockedValues()
   drawCanvas() 
 }
 function resetImageView() {
-  if (bgImageObj.value && !imageLocked.value) {
-    const fit = fitImageToCanvas(bgImageObj.value)
-    scaleFactor.value = fit.scale
-    imageOffsetX.value = fit.offsetX
-    imageOffsetY.value = fit.offsetY
-    updateLockedValues()
-    drawCanvas()
+  const PADDING = 20
+  
+  // Calculate bounding box of all elements
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  
+  // Include background image bounds if present
+  if (bgImageObj.value) {
+    const bx = imageOffsetX.value
+    const by = imageOffsetY.value
+    const bw = bgImageObj.value.width * scaleFactor.value
+    const bh = bgImageObj.value.height * scaleFactor.value
+    minX = Math.min(minX, bx)
+    minY = Math.min(minY, by)
+    maxX = Math.max(maxX, bx + bw)
+    maxY = Math.max(maxY, by + bh)
   }
+  
+  // Include all mic nodes (circle radius and label box)
+  const circleRadius = 30
+  const measure = document.createElement('canvas').getContext('2d')
+  if (measure) {
+    measure.font = 'bold 12px sans-serif'
+  }
+  
+  props.nodes.forEach(mic => {
+    const { x, y } = imageToCanvasCoords(mic.x, mic.y)
+    
+    // Circle extents
+    minX = Math.min(minX, x - circleRadius)
+    minY = Math.min(minY, y - circleRadius)
+    maxX = Math.max(maxX, x + circleRadius)
+    maxY = Math.max(maxY, y + circleRadius)
+    
+    // Label extents
+    const labelText = mic.track_name || mic.label || ''
+    const textMetrics = measure ? measure.measureText(labelText) : null
+    const padX = 6
+    const padY = 4
+    const bgW = textMetrics ? Math.ceil(textMetrics.width) + padX * 2 : (labelText.length * 7) + padX * 2
+    const bgH = 18 + padY * 2
+    const labelY = y + 40
+    const lx = x - bgW / 2
+    const ly = labelY - padY
+    minX = Math.min(minX, lx)
+    minY = Math.min(minY, ly)
+    maxX = Math.max(maxX, lx + bgW)
+    maxY = Math.max(maxY, ly + bgH)
+  })
+  
+  // If no elements found, fall back to fitting image or canvas
+  if (!isFinite(minX) || !isFinite(minY)) {
+    if (bgImageObj.value) {
+      const fit = fitImageToCanvas(bgImageObj.value)
+      scaleFactor.value = fit.scale
+      imageOffsetX.value = fit.offsetX
+      imageOffsetY.value = fit.offsetY
+      drawCanvas()
+    }
+    return
+  }
+  
+  // Calculate dimensions with padding
+  const contentWidth = maxX - minX
+  const contentHeight = maxY - minY
+  const paddedWidth = contentWidth + PADDING * 2
+  const paddedHeight = contentHeight + PADDING * 2
+  
+  // Calculate scale to fit canvas
+  const scaleX = canvasWidth.value / paddedWidth
+  const scaleY = canvasHeight.value / paddedHeight
+  const scale = Math.min(scaleX, scaleY)
+  
+  // Calculate center of content
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
+  
+  // If we have a background image, adjust it to frame the content
+  if (bgImageObj.value) {
+    // Target area on canvas (with padding)
+    const targetWidth = canvasWidth.value - PADDING * 2
+    const targetHeight = canvasHeight.value - PADDING * 2
+    const targetCenterX = canvasWidth.value / 2
+    const targetCenterY = canvasHeight.value / 2
+    
+    // Calculate scale to fit content into target area
+    const scaleX = targetWidth / contentWidth
+    const scaleY = targetHeight / contentHeight
+    const contentScale = Math.min(scaleX, scaleY)
+    
+    // Find mic bounds in image coordinates (0-1 normalized)
+    let imgMinX = 0, imgMinY = 0, imgMaxX = 1, imgMaxY = 1
+    props.nodes.forEach(mic => {
+      imgMinX = Math.min(imgMinX, mic.x)
+      imgMinY = Math.min(imgMinY, mic.y)
+      imgMaxX = Math.max(imgMaxX, mic.x)
+      imgMaxY = Math.max(imgMaxY, mic.y)
+    })
+    
+    // Image-space content dimensions (account for mics)
+    const imgContentWidth = Math.max(imgMaxX - imgMinX, 0.1)
+    const imgContentHeight = Math.max(imgMaxY - imgMinY, 0.1)
+    
+    // Calculate image scale needed to fit image content to target
+    const imgScaleX = targetWidth / (imgContentWidth * bgImageObj.value.width)
+    const imgScaleY = targetHeight / (imgContentHeight * bgImageObj.value.height)
+    const newImageScale = Math.min(imgScaleX, imgScaleY)
+    
+    // Calculate image content center in image coords
+    const imgContentCenterX = (imgMinX + imgMaxX) / 2
+    const imgContentCenterY = (imgMinY + imgMaxY) / 2
+    
+    // Calculate offset to center image content on canvas
+    const newOffsetX = targetCenterX - imgContentCenterX * bgImageObj.value.width * newImageScale
+    const newOffsetY = targetCenterY - imgContentCenterY * bgImageObj.value.height * newImageScale
+    
+    scaleFactor.value = newImageScale
+    imageOffsetX.value = newOffsetX
+    imageOffsetY.value = newOffsetY
+  }
+  
+  drawCanvas()
 }
 function triggerImageUpload() {
   document.getElementById('image-upload').click()
 }
 
-// Update locked values when image transform changes (only when not locked)
-function updateLockedValues() {
-  if (imageLocked.value) return
-  lockedOffsetX.value = imageOffsetX.value
-  lockedOffsetY.value = imageOffsetY.value
-  lockedScale.value = scaleFactor.value
-}
-
-// Watch imageLocked to update locked values when toggled
-watch(imageLocked, (locked) => {
-  if (locked) {
-    // Save current state as locked
-    lockedOffsetX.value = imageOffsetX.value
-    lockedOffsetY.value = imageOffsetY.value
-    lockedScale.value = scaleFactor.value
-  }
-  // Persist lock state
-  saveLockState()
-})
-
 // Coordinate transforms
-// When image is locked, use locked values for transforms so mics still position correctly
 function canvasToImageCoords(canvasX, canvasY) {
   if (!bgImageObj.value) {
     return { imgX: canvasX / canvasWidth.value, imgY: canvasY / canvasHeight.value }
   }
   const imgW = bgImageObj.value.width
   const imgH = bgImageObj.value.height
-  const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-  const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-  const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
   return {
-    imgX: (canvasX - offsetX) / (imgW * scale),
-    imgY: (canvasY - offsetY) / (imgH * scale)
+    imgX: (canvasX - imageOffsetX.value) / (imgW * scaleFactor.value),
+    imgY: (canvasY - imageOffsetY.value) / (imgH * scaleFactor.value)
   }
 }
 
@@ -593,12 +643,9 @@ function imageToCanvasCoords(imgX, imgY) {
   }
   const imgW = bgImageObj.value.width
   const imgH = bgImageObj.value.height
-  const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-  const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-  const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
   return {
-    x: imgX * (imgW * scale) + offsetX,
-    y: imgY * (imgH * scale) + offsetY
+    x: imgX * (imgW * scaleFactor.value) + imageOffsetX.value,
+    y: imgY * (imgH * scaleFactor.value) + imageOffsetY.value
   }
 }
 
@@ -620,8 +667,8 @@ function onPointerDown(e) {
   const { x, y } = getCanvasCoords(e)
   activePointers.set(e.pointerId, { x, y })
 
-  // Pan image mode (disabled when image is locked)
-  if (panImageMode.value && bgImageObj.value && !imageLocked.value) {
+  // Pan image mode
+  if (panImageMode.value && bgImageObj.value) {
     dragStart = { x, y }
     dragStartPos = { x: imageOffsetX.value, y: imageOffsetY.value }
     return
@@ -684,8 +731,8 @@ function onPointerMove(e) {
   const { x, y } = getCanvasCoords(e)
   if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x, y })
 
-  // Pinch to zoom (disabled when image is locked)
-  if (activePointers.size >= 2 && bgImageObj.value && !imageLocked.value) {
+  // Pinch to zoom
+  if (activePointers.size >= 2 && bgImageObj.value) {
     const pts = Array.from(activePointers.values())
     const dx = pts[0].x - pts[1].x
     const dy = pts[0].y - pts[1].y
@@ -699,13 +746,12 @@ function onPointerMove(e) {
     return
   }
 
-  // Pan image mode (disabled when image is locked)
-  if (panImageMode.value && dragStart && bgImageObj.value && !imageLocked.value) {
+  // Pan image mode
+  if (panImageMode.value && dragStart && bgImageObj.value) {
     const dx = x - dragStart.x
     const dy = y - dragStart.y
     imageOffsetX.value = dragStartPos.x + dx
     imageOffsetY.value = dragStartPos.y + dy
-    updateLockedValues()
     drawCanvas()
     return
   }
@@ -757,7 +803,6 @@ async function onPointerUp(e) {
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
 
 function applyZoom(zoomFactor, centerX, centerY) {
-  if (imageLocked.value) return
   const prevScale = scaleFactor.value
   const newScale = clamp(prevScale * zoomFactor, MIN_SCALE, MAX_SCALE)
   if (newScale === prevScale) return
@@ -767,29 +812,15 @@ function applyZoom(zoomFactor, centerX, centerY) {
   scaleFactor.value = newScale
   imageOffsetX.value = centerX - imgXBefore * newScale
   imageOffsetY.value = centerY - imgYBefore * newScale
-  updateLockedValues()
   drawCanvas()
 }
 
 function onWheel(e) {
-  if (!bgImageObj.value) return
-  
   // Stop auto-rotation when user scrolls
   stopAutoRotation()
   
-  // If image is locked, allow page to scroll normally
-  if (imageLocked.value) {
-    // Don't prevent default - let the page scroll
-    return
-  }
-  
-  // Prevent default scroll and handle zoom
-  e.preventDefault()
-  const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
-  const rect = canvas.value.getBoundingClientRect()
-  const cx = (e.clientX - rect.left) * (canvas.value.width / rect.width) / dpr
-  const cy = (e.clientY - rect.top) * (canvas.value.height / rect.height) / dpr
-  applyZoom(zoomFactor, cx, cy)
+  // Allow normal page scrolling - zoom is controlled via buttons only
+  // Do not prevent default or handle zoom here
 }
 
 // Mic detection
@@ -959,16 +990,58 @@ async function saveMicUpdate(mic) {
   }
 }
 
+async function cascadeDeleteNode(nodeId) {
+  // Fetch all connections for this project
+  const allConnections = await getConnections(props.projectId)
+  
+  // Find all connections FROM this node (outgoing)
+  const outgoingConns = allConnections.filter(c => c.from_node_id === nodeId)
+  
+  // Find all connections TO this node (incoming)
+  const incomingConns = allConnections.filter(c => c.to_node_id === nodeId)
+
+  // Delete all port mappings for these connections
+  const allConnIds = [...outgoingConns.map(c => c.id), ...incomingConns.map(c => c.id)]
+  if (allConnIds.length > 0) {
+    try {
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .in('connection_id', allConnIds)
+    } catch (err) {
+      console.error('Error deleting port mappings:', err)
+    }
+  }
+
+  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
+  for (const conn of [...outgoingConns, ...incomingConns]) {
+    try {
+      await deleteConnectionFromDB(conn.id)
+    } catch (err) {
+      console.error('Error deleting connection:', err)
+    }
+  }
+
+  // Finally, delete the node itself
+  try {
+    await deleteNode(nodeId)
+    emit('node-deleted', nodeId)
+  } catch (err) {
+    console.error('Error deleting node:', err)
+    throw err
+  }
+}
+
 async function deleteSelected() {
   if (!selectedMic.value) return
   
-  if (!confirm(`Delete ${selectedMic.value.track_name || selectedMic.value.label}?`)) return
+  const micLabel = selectedMic.value.track_name || selectedMic.value.label
+  if (!confirm(`Delete ${micLabel} and all its connections?`)) return
 
   try {
-    await deleteNode(selectedMic.value.id)
-    emit('node-deleted', selectedMic.value.id)
+    await cascadeDeleteNode(selectedMic.value.id)
     selectedMic.value = null
-    toast.success('Microphone deleted')
+    toast.success(`${micLabel} and connections deleted`)
     nextTick(drawCanvas)
   } catch (err) {
     console.error('Error deleting mic:', err)
@@ -977,13 +1050,15 @@ async function deleteSelected() {
 }
 
 // Watchers
-watch([() => props.nodes, bgOpacity], () => nextTick(drawCanvas))
+watch(() => props.nodes, () => nextTick(drawCanvas))
 
 // Persist opacity changes
 // no-op: opacity changes are not persisted locally
 
 // Lifecycle
 onMounted(() => {
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
   if (canvas.value) {
     canvas.value.width = canvasWidth.value * dpr
     canvas.value.height = canvasHeight.value * dpr
@@ -997,6 +1072,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
   stopAutoRotation()
 })
@@ -1014,33 +1090,133 @@ function updateCanvasSize() {
   drawCanvas()
 }
 
-// Export the current canvas (background + all mic placements) as a PNG
-function exportCanvas() {
+// Export/Print the current canvas with print preview (PDF default)
+function exportToPDF() {
   if (!canvas.value) return
-  // Ensure latest state is rendered
-  drawCanvas()
+  
+  // Use getCanvasDataURL to get a properly bounded export with all elements
+  const dataURL = getCanvasDataURL()
+  if (!dataURL) {
+    toast.error('Failed to generate export image')
+    return
+  }
+  
   try {
-    canvas.value.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      const date = new Date().toISOString().slice(0, 10)
-      a.href = url
-      a.download = `mic-placement-${props.projectId}-${props.locationId}-${date}.png`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  } catch (_) {
-    // no-op: if the canvas is tainted, export will fail silently here
+    
+    // Create a clean print preview window with just the canvas image
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
+    if (!printWindow) {
+      toast.error('Please allow popups to export')
+      return
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Mic Placement - Print Preview</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: var(--bg-secondary);
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            .print-content {
+              background: white;
+              padding: 20px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              max-width: 100%;
+            }
+            .print-content img {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
+            .print-actions {
+              text-align: center;
+              margin-top: 20px;
+              padding: 15px;
+            }
+            .print-actions button {
+              padding: 10px 20px;
+              margin: 0 5px;
+              background: var(--color-primary-500);
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .print-actions button:hover {
+              background: var(--color-primary-600);
+            }
+            .print-actions button.secondary {
+              background: var(--color-secondary-500);
+            }
+            .print-actions button.secondary:hover {
+              background: var(--color-secondary-600);
+            }
+            @media print {
+              body {
+                background: white;
+                padding: 0;
+              }
+              .print-actions {
+                display: none;
+              }
+              .print-content {
+                padding: 0;
+                box-shadow: none;
+              }
+              .print-content img {
+                width: 100%;
+                height: auto;
+                page-break-inside: avoid;
+              }
+            }
+            @page {
+              margin: 0;
+              size: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">
+            <img src="${dataURL}" alt="Mic Placement" />
+          </div>
+          <div class="print-actions">
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    // Wait for image to load
+    printWindow.onload = () => {
+      // Focus the window to bring it to front
+      printWindow.focus()
+    }
+  } catch (e) {
+    console.error('Error exporting canvas:', e)
+    toast.error('Failed to export mic placement')
   }
 }
 
 // Expose a method to retrieve the current canvas as a data URL for parent exports
 function getCanvasDataURL() {
   // Build an export canvas that fits the background image and all mic drawings with padding
-  const PADDING = 24
+  const PADDING = 20
   const dprLocal = window.devicePixelRatio || 1
 
   // If nothing to draw, return current canvas data
@@ -1054,15 +1230,12 @@ function getCanvasDataURL() {
   // Compute bounds in current canvas coordinates
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
 
-  // Include background image bounds if present (use locked values when locked)
+  // Include background image bounds if present
   if (bgImageObj.value) {
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
-    const bx = offsetX
-    const by = offsetY
-    const bw = bgImageObj.value.width * scale
-    const bh = bgImageObj.value.height * scale
+    const bx = imageOffsetX.value
+    const by = imageOffsetY.value
+    const bw = bgImageObj.value.width * scaleFactor.value
+    const bh = bgImageObj.value.height * scaleFactor.value
     minX = Math.min(minX, bx)
     minY = Math.min(minY, by)
     maxX = Math.max(maxX, bx + bw)
@@ -1121,18 +1294,15 @@ function getCanvasDataURL() {
   ctx.save()
   ctx.translate(-minX + PADDING, -minY + PADDING)
 
-  // Draw background image (with current opacity, use locked values when locked)
+  // Draw background image (with current opacity)
   if (bgImageObj.value) {
-    ctx.globalAlpha = bgOpacity.value
-    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
-    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
-    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+    ctx.globalAlpha = 1.0 // Fixed opacity
     ctx.drawImage(
       bgImageObj.value,
-      offsetX,
-      offsetY,
-      bgImageObj.value.width * scale,
-      bgImageObj.value.height * scale
+      imageOffsetX.value,
+      imageOffsetY.value,
+      bgImageObj.value.width * scaleFactor.value,
+      bgImageObj.value.height * scaleFactor.value
     )
     ctx.globalAlpha = 1.0
   }
@@ -1167,12 +1337,12 @@ defineExpose({ getCanvasDataURL })
 .placement-header h3 {
   margin: 0 0 10px 0;
   font-size: 24px;
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .placement-header p {
   margin: 0;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .image-controls {
@@ -1184,7 +1354,7 @@ defineExpose({ getCanvasDataURL })
 
 .image-controls button {
   padding: 8px 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #dee2e6;
   border-radius: 6px;
   cursor: pointer;
@@ -1192,7 +1362,7 @@ defineExpose({ getCanvasDataURL })
 }
 
 .image-controls button:hover {
-  background: #e9ecef;
+  background: var(--border-light);
 }
 
 .inline-setting { display: inline-flex; align-items: center; gap: 6px; }
@@ -1216,7 +1386,7 @@ defineExpose({ getCanvasDataURL })
   align-items: center;
   margin-bottom: 15px;
   padding: 10px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
 }
 
@@ -1233,18 +1403,18 @@ defineExpose({ getCanvasDataURL })
 .toolbar-divider {
   width: 1px;
   height: 30px;
-  background: #dee2e6;
+  background: var(--border-medium);
   margin: 0 10px;
 }
 
 .mic-count {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .mode-badge {
-  background: #e7f1ff;
-  color: #0b5ed7;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary-600);
   border: 1px solid #b6d4fe;
   padding: 6px 10px;
   border-radius: 999px;
@@ -1254,7 +1424,7 @@ defineExpose({ getCanvasDataURL })
 
 .btn-primary {
   padding: 10px 20px;
-  background: #007bff;
+  background: var(--color-primary-500);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1264,18 +1434,18 @@ defineExpose({ getCanvasDataURL })
 }
 
 .btn-primary:hover {
-  background: #0056b3;
+  background: var(--color-primary-600);
 }
 
 .btn-primary:disabled {
-  background: #adb5bd;
+  background: var(--color-secondary-400);
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 .btn-secondary {
   padding: 10px 20px;
-  background: #6c757d;
+  background: var(--color-secondary-500);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1285,12 +1455,12 @@ defineExpose({ getCanvasDataURL })
 }
 
 .btn-secondary:hover {
-  background: #5a6268;
+  background: var(--color-secondary-600);
 }
 
 .btn-danger {
   padding: 10px 20px;
-  background: #dc3545;
+  background: var(--color-error-500);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1300,18 +1470,18 @@ defineExpose({ getCanvasDataURL })
 }
 
 .btn-danger:hover {
-  background: #c82333;
+  background: var(--color-error-600);
 }
 
 .btn-danger:disabled {
-  background: #e9ecef;
-  color: #adb5bd;
+  background: var(--border-light);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
 .properties-panel {
   padding: 12px 15px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
   margin-bottom: 15px;
@@ -1348,8 +1518,8 @@ defineExpose({ getCanvasDataURL })
 }
 
 .property-row input:disabled {
-  background: #e9ecef;
-  color: #6c757d;
+  background: var(--border-light);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -1396,7 +1566,7 @@ defineExpose({ getCanvasDataURL })
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .close-btn {
@@ -1404,7 +1574,7 @@ defineExpose({ getCanvasDataURL })
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--text-secondary);
   padding: 0;
   width: 30px;
   height: 30px;
@@ -1415,7 +1585,7 @@ defineExpose({ getCanvasDataURL })
 }
 
 .close-btn:hover {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .modal-body {
@@ -1441,7 +1611,7 @@ defineExpose({ getCanvasDataURL })
 }
 
 .gear-item:hover {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-color: #007bff;
 }
 
@@ -1452,7 +1622,7 @@ defineExpose({ getCanvasDataURL })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
 }
 
@@ -1462,19 +1632,19 @@ defineExpose({ getCanvasDataURL })
 
 .gear-name {
   font-weight: 600;
-  color: #212529;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .gear-details {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .no-gear {
   text-align: center;
   padding: 40px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .orientation-picker {
@@ -1491,7 +1661,7 @@ defineExpose({ getCanvasDataURL })
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   width: 100%;
 }
@@ -1503,7 +1673,7 @@ defineExpose({ getCanvasDataURL })
 .orientation-mic-name {
   font-size: 18px;
   font-weight: 600;
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .orientation-track-name-input {
@@ -1601,7 +1771,7 @@ defineExpose({ getCanvasDataURL })
   height: 48px;
   border: 2px solid #dee2e6;
   border-radius: 50%;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1610,6 +1780,33 @@ defineExpose({ getCanvasDataURL })
 
 /* Hide mobile controls on larger screens */
 .mobile-controls {
+  display: none;
+}
+
+/* Mobile message styling */
+.mobile-message {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.mobile-message p {
+  margin: 8px 0;
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mobile-message p:first-child {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* Hide toolbar on mobile */
+.placement-toolbar.mobileHidden {
   display: none;
 }
 
@@ -1630,4 +1827,5 @@ defineExpose({ getCanvasDataURL })
   .property-row input { width: 100%; }
 }
 </style>
+
 

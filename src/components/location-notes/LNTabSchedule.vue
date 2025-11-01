@@ -1,7 +1,7 @@
 <!-- src/components/location-notes/LNTabSchedule.vue -->
 <template>
 <section class="schedule-pane">
-  <!-- Combined top row: sort/add + date range -->
+  <!-- Combined top row: sort/add + filter + alerts + recording day (on wide screens) -->
   <div class="controls-top combined">
     <div class="left-stack">
       <label class="label">Sort by:</label>
@@ -10,29 +10,100 @@
         <option value="desc">Latest</option>
         <option value="artist">Artist A–Z</option>
       </select>
-      <button class="btn btn-positive btn-add" @click="openForm()">Add Schedule Item</button>
+      <button 
+        class="btn btn-primary filter-toggle-btn" 
+        @click="showFilters = !showFilters"
+        :class="{ active: showFilters }"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="filter-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M5 4a1 1 0 011-1h8a1 1 0 011 1v1.586a1 1 0 01-.293.707l-4.414 4.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+        </svg>
+        Filter
+      </button>
+      <button 
+        class="btn btn-primary alert-toggle-btn" 
+        @click="showNotifications = !showNotifications"
+        :class="{ active: showNotifications }"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="alert-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+        </svg>
+        Changeover Alerts
+      </button>
+      <button class="btn btn-positive btn-add" @click="openForm()">Add Artist Time</button>
     </div>
-    <div class="right-stack">
-      <label class="label">From:</label>
-      <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
-      <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
-      <label class="label">To:</label>
-      <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
-      <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
-      <div class="range-shortcuts">
-        <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
-        <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
-      </div>
+    <div class="right-stack wide-screen-only">
+      <label class="label">Recording Day:</label>
+      <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
+      <div class="current-date">{{ currentGroupLabel }}</div>
+      <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
     </div>
   </div>
 
-  <!-- Date navigation -->
-  <div class="controls-bottom">
+  <!-- Date range filters (collapsible) -->
+  <transition name="fade-slide">
+    <div v-if="showFilters" class="filters-panel">
+      <div class="filters-content">
+        <div class="filter-row">
+          <label class="label">From:</label>
+          <input type="datetime-local" v-model="fromDateTime" @change="saveRange" class="range-input" />
+          <button v-if="fromDateTime" class="btn btn-danger clear-btn" @click="clearFrom">×</button>
+          <label class="label">To:</label>
+          <input type="datetime-local" v-model="toDateTime" @change="saveRange" class="range-input" />
+          <button v-if="toDateTime" class="btn btn-danger clear-btn" @click="clearTo">×</button>
+        </div>
+        <div class="range-shortcuts">
+          <button class="btn btn-primary shortcut-btn" @click="setToday">Today</button>
+          <button class="btn btn-primary shortcut-btn" @click="setPreviousDay">Previous Day</button>
+        </div>
+      </div>
+    </div>
+  </transition>
+
+  <!-- Date navigation (for smaller screens) -->
+  <div class="controls-bottom mobile-only">
     <label class="label">Recording Day:</label>
     <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
     <div class="current-date">{{ currentGroupLabel }}</div>
     <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
   </div>
+
+  <!-- Notification Settings (collapsible) -->
+  <transition name="fade-slide">
+    <div v-if="showNotifications" class="notification-settings">
+      <h4 class="settings-title">Changeover Notifications</h4>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label class="setting-label">
+            <input 
+              type="checkbox" 
+              v-model="notificationsEnabled"
+              @change="saveNotificationSettings"
+              class="setting-checkbox"
+            />
+            <span>Enable changeover notifications</span>
+          </label>
+          <small class="setting-hint">Receive alerts when artists are about to start</small>
+        </div>
+        <div class="setting-item" v-if="notificationsEnabled">
+          <label class="setting-label">
+            Default warning time (minutes):
+          </label>
+          <input 
+            type="number"
+            v-model.number="defaultWarningMinutes"
+            @change="saveNotificationSettings"
+            min="0"
+            max="60"
+            step="1"
+            class="setting-input"
+            placeholder="2"
+          />
+          <small class="setting-hint">Minutes before artist start time to show notification</small>
+        </div>
+      </div>
+    </div>
+  </transition>
 
   <!-- Schedule list -->
   <div class="list-wrapper">
@@ -116,6 +187,19 @@
               </option>
             </select>
           </div>
+          <div class="form-field">
+            <label>Warning (minutes)</label>
+            <input 
+              v-model.number="fWarningMinutes" 
+              type="number" 
+              min="0" 
+              max="60" 
+              step="1"
+              placeholder="2"
+              title="Minutes before artist start time to show notification (default: 2)"
+            />
+            <small class="form-hint">Minutes before start time to show changeover notification</small>
+          </div>
         </div>
         <p v-if="err" class="error-text">{{ err }}</p>
       </div>
@@ -140,6 +224,8 @@ import { useUserStore }                     from '@/stores/userStore'
 import { fetchTableData, mutateTableData }  from '@/services/dataService'
 import { todayISO, niceDate, t5, getTodayTime, getDateTimeISO, pad2 } from '@/utils/scheduleHelpers'
 import { useStageHours }                    from '@/composables/useStageHours'
+import { getSetting, saveSetting }          from '@/utils/indexedDB'
+import { setDefaultWarningMinutes }         from '@/services/scheduleNotificationService'
 
 export default {
   name: 'LNTabSchedule',
@@ -169,8 +255,17 @@ export default {
     const fEnd     = ref('')
     const fDate    = ref(new Date().toISOString().slice(0,10))
     const fStageHourId = ref('')
+    const fWarningMinutes = ref(null) // null means use default
     const busy     = ref(false)
     const err      = ref(null)
+
+    // Notification settings state
+    const notificationsEnabled = ref(true) // Default to enabled
+    const defaultWarningMinutes = ref(2) // Default 2 minutes
+
+    // Filter panel state
+    const showFilters = ref(false)
+    const showNotifications = ref(false)
 
     // Highlighting
     const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
@@ -337,12 +432,14 @@ export default {
         fEnd.value    = item.end_time
         fDate.value   = item.recording_date
         fStageHourId.value = item.stage_hour_id || (findStageHourIdFor(item.recording_date, item.start_time) || '')
+        fWarningMinutes.value = item.warning_bell_minutes || null
       } else {
         isEdit.value = false; editId = null
         fArtist.value = fStart.value = fEnd.value = ''
         fDate.value = todayISO()
         // auto-detect stage hour for the given date/start time if available
         fStageHourId.value = findStageHourIdFor(fDate.value, fStart.value) || ''
+        fWarningMinutes.value = null
       }
     }
 
@@ -365,7 +462,8 @@ export default {
             start_time:   fStart.value,
             end_time:     fEnd.value,
             recording_date: fDate.value,
-            stage_hour_id: fStageHourId.value || null
+            stage_hour_id: fStageHourId.value || null,
+            warning_bell_minutes: fWarningMinutes.value || null
           })
         } else {
           await mutateTableData('schedules','insert',{
@@ -375,7 +473,8 @@ export default {
             recording_date: fDate.value,
             location_id:    props.locationId,
             project_id:     store.getCurrentProject ? store.getCurrentProject.id : null,
-            stage_hour_id:  fStageHourId.value || null
+            stage_hour_id:  fStageHourId.value || null,
+            warning_bell_minutes: fWarningMinutes.value || null
           })
         }
         await fetchAll()
@@ -477,16 +576,46 @@ export default {
       saveRange()
     }
 
-    onMounted(fetchAll)
+    // Load notification settings
+    async function loadNotificationSettings() {
+      try {
+        const enabled = await getSetting('schedule_notifications_enabled', true)
+        const minutes = await getSetting('schedule_warning_minutes', 2)
+        notificationsEnabled.value = enabled !== false // Default to true
+        defaultWarningMinutes.value = parseInt(minutes, 10) || 2
+      } catch (error) {
+        console.error('Error loading notification settings:', error)
+      }
+    }
+
+    // Save notification settings
+    async function saveNotificationSettings() {
+      try {
+        await saveSetting('schedule_notifications_enabled', notificationsEnabled.value)
+        await saveSetting('schedule_warning_minutes', defaultWarningMinutes.value)
+        await setDefaultWarningMinutes(defaultWarningMinutes.value)
+        toast.success('Notification settings saved')
+      } catch (error) {
+        console.error('Error saving notification settings:', error)
+        toast.error('Failed to save notification settings')
+      }
+    }
+
+    onMounted(async () => {
+      await fetchAll()
+      await loadNotificationSettings()
+    })
 
     const exposed = {
       schedules, stageHours, groupedDays, idx, sortOrder,
-      showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, busy, err,
+      showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       activeIndex, filteredRows, fromDateTime, toDateTime,
+      notificationsEnabled, defaultWarningMinutes, showFilters, showNotifications,
       openForm, closeForm, save, remove, exportPdf, emitChangeNote,
       createChangeoverNote, isActive,
       saveRange, clearFrom, clearTo, setToday, setPreviousDay,
+      saveNotificationSettings,
       t5, niceDate, formatStageHourFallback
     }
     return exposed
@@ -496,22 +625,13 @@ export default {
 </script>
 
 <style scoped>
+/* Using global CSS variables from index.css - these respond to dark mode */
 .schedule-pane {
---bg-light:      #f8fafc;
---text-med:      #64748b;
---border:        #e2e8f0;
---accent:        #3b82f6;
---accent2:       #3b82f6;
---accent2-dark:  #2563eb;
---danger:        #ef4444;
---danger-dark:   #dc2626;
---success-bg:    #ecfdf5;
---success-text:  #059669;
-background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+background: var(--bg-primary);
 padding: 32px;
 border-radius: 16px;
-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-border: 1px solid rgba(255, 255, 255, 0.2);
+box-shadow: var(--shadow-md);
+border: 1px solid var(--border-light);
 max-width: 1200px;
 margin: 0 auto;
 }
@@ -525,11 +645,11 @@ gap: 16px;
 flex-wrap: wrap;
 margin-bottom: 20px;
 padding: 20px;
-background: rgba(255, 255, 255, 0.8);
+background: var(--bg-secondary);
 border-radius: 12px;
-border: 1px solid rgba(255, 255, 255, 0.3);
+border: 1px solid var(--border-light);
 backdrop-filter: blur(10px);
-box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+box-shadow: var(--shadow-sm);
 }
 .controls-top.combined {
   justify-content: space-between;
@@ -538,31 +658,36 @@ box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 .label {
 font-size: 0.9rem;
 font-weight: 600;
-color: var(--text-med);
+color: var(--text-secondary);
 }
 .sort-select {
   padding: 8px 32px 8px 8px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-medium);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 0.95rem;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' fill='none' stroke='%236c7a92' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  /* Icon color adapts to theme */
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' fill='none' stroke='%2364748b' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 18px 18px;
   cursor: pointer;
   transition: border-color 0.2s;
 }
+.dark .sort-select {
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' fill='none' stroke='%23e5e7eb' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
 .sort-select:focus {
-  border-color: var(--accent2);
+  border-color: var(--color-primary-500);
   outline: none;
 }
 .btn-add {
-background: #059669;
-color: #ffffff;
+background: var(--color-success-500);
+color: var(--text-inverse);
 padding: 8px 16px;
 border: none;
 border-radius: 6px;
@@ -570,7 +695,7 @@ cursor: pointer;
 transition: background .2s;
 }
 .btn-add:hover {
-background: #047857;
+background: var(--color-success-600);
 }
 
 /* High-contrast positive and warning button treatments across schedule UI */
@@ -766,9 +891,15 @@ font-size: 0.9rem;
 font-weight: 600;
 color: #374151;
 }
+.form-hint {
+font-size: 0.75rem;
+color: #6b7280;
+margin-top: 4px;
+display: block;
+}
 .form-grid input {
 padding: 8px;
-border: 1px solid var(--border);
+border: 1px solid var(--border-light);
 border-radius: 6px;
 font-size: 0.95rem;
 max-width: 300px;
@@ -811,7 +942,31 @@ cursor: default;
 }
 }
 
-/* Mobile stacking for controls */
+/* Responsive controls */
+.wide-screen-only {
+  display: none;
+}
+.mobile-only {
+  display: flex;
+}
+
+@media (min-width: 1024px) {
+  .wide-screen-only {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mobile-only {
+    display: none;
+  }
+  .controls-top.combined {
+    justify-content: space-between;
+  }
+  .right-stack.wide-screen-only {
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 640px) {
   .controls-top.combined {
     flex-direction: column;
@@ -821,7 +976,7 @@ cursor: default;
   .left-stack, .right-stack {
     width: 100%;
   }
-  .controls-bottom {
+  .controls-bottom.mobile-only {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
@@ -836,7 +991,7 @@ cursor: default;
 
 .range-input {
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.95rem;
   min-width: 210px;
@@ -873,4 +1028,141 @@ cursor: default;
 }
 .btn.btn-primary:hover { background-color: #1e40af !important; }
 .btn.btn-primary:focus { outline: 3px solid rgba(29,78,216,.35); outline-offset: 2px; }
+
+/* Filter Toggle Button */
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+}
+.filter-toggle-btn.active {
+  background-color: #1e40af !important;
+  box-shadow: 0 2px 4px rgba(29, 78, 216, 0.3);
+}
+.filter-icon,
+.alert-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Alert Toggle Button */
+.alert-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+}
+.alert-toggle-btn.active {
+  background-color: #1e40af !important;
+  box-shadow: 0 2px 4px rgba(29, 78, 216, 0.3);
+}
+
+/* Filters Panel */
+.filters-panel {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.filters-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Fade slide transition */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.fade-slide-enter-to {
+  opacity: 1;
+  max-height: 200px;
+}
+.fade-slide-leave-from {
+  opacity: 1;
+  max-height: 200px;
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Notification Settings */
+.notification-settings {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+.settings-title {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+.setting-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #059669;
+}
+.setting-input {
+  padding: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  max-width: 120px;
+}
+.setting-input:focus {
+  border-color: var(--color-primary-500);
+  outline: none;
+}
+.setting-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-left: 26px;
+  display: block;
+}
 </style>

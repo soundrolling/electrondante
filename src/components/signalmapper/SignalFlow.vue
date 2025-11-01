@@ -26,9 +26,22 @@
     <span class="node-count">
       Sources: {{ sourceCount }} | Transformers: {{ transformerCount }} | Recorders: {{ recorderCount }}
     </span>
-    <button class="tool-btn" @click="exportFlowPng" title="Export canvas as PNG">
-      📤 Export
+    <button class="tool-btn" @click="exportToPDF" title="Export signal flow as PDF">
+      📄 Export PDF
     </button>
+    <div class="toolbar-divider"></div>
+    <div class="zoom-controls">
+      <button class="tool-btn zoom-btn" @click="zoomOut" title="Zoom out" :disabled="zoomLevel <= 0.25">
+        ➖
+      </button>
+      <span class="zoom-level">{{ Math.round(zoomLevel * 100) }}%</span>
+      <button class="tool-btn zoom-btn" @click="zoomIn" title="Zoom in" :disabled="zoomLevel >= 4">
+       ➕
+      </button>
+      <button class="tool-btn zoom-btn" @click="resetZoom" title="Reset zoom">
+        🔄
+      </button>
+    </div>
   </div>
 
   <!-- Canvas -->
@@ -51,8 +64,18 @@
         Select your first connection node
       </template>
     </div>
-    <div v-if="selectedConnectionId" class="connection-details" :style="detailsStyle">
-      <h4>Connection Details</h4>
+    <!-- Connection Details Modal -->
+    <div 
+      v-if="selectedConnectionId" 
+      class="modal-overlay"
+      @click.self="selectedConnectionId = null"
+    >
+      <div class="connection-details-modal" @click.stop>
+        <div class="connection-details-header">
+          <h4>Connection Details</h4>
+          <button @click="selectedConnectionId = null" class="close-btn">×</button>
+        </div>
+        <div class="connection-details-body">
       <div class="detail-row">
         <span class="label">From:</span>
         <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
@@ -68,7 +91,7 @@
             <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
               <span>{{ getFromPortDisplayForEdit(mapping.from_port) }}</span>
               <span class="arrow">→</span>
-              <span>{{ toNodeOfSelected?.label }} {{ toNodeType === 'recorder' ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
+              <span>{{ toNodeType === 'recorder' ? (traceRecorderTrackInput(toNodeOfSelected?.id, mapping.to_port) || `${toNodeOfSelected?.label} Track ${mapping.to_port}`) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
               <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
             </div>
             <div class="port-mapping-add-edit">
@@ -118,12 +141,14 @@
           <option>Madi</option>
         </select>
       </div>
-      <div class="detail-actions">
-        <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
-          <span v-if="saveTick">✓ Saved</span>
-          <span v-else>Save</span>
-        </button>
-        <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
+          <div class="detail-actions">
+            <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
+              <span v-if="saveTick">✓ Saved</span>
+              <span v-else>Save</span>
+            </button>
+            <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -178,6 +203,13 @@
         <button @click="closeSourceModal" class="close-btn">×</button>
       </div>
       <div class="modal-body">
+        <div class="numbering-selector">
+          <label class="numbering-label">Numbering Style:</label>
+          <select v-model="sourceNumberingStyle" class="numbering-select">
+            <option value="numbers">Numbers (1, 2, 3...)</option>
+            <option value="letters">Letters (A, B, C...)</option>
+          </select>
+        </div>
         <div class="gear-categories">
           <button 
             v-for="cat in ['Stereo', 'Mono']" 
@@ -234,7 +266,8 @@ const props = defineProps({
   locationId: { type: [String, Number], default: null },
   nodes: { type: Array, default: () => [] },
   connections: { type: Array, default: () => [] },
-  gearList: { type: Array, default: () => [] }
+  gearList: { type: Array, default: () => [] },
+  initialSelectedConnectionId: { type: [String, Number], default: null }
 })
 
 const emit = defineEmits([
@@ -247,9 +280,9 @@ const canvas = ref(null)
 const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(1000)
-const canvasHeight = ref(700)
+const canvasHeight = ref(800)
 const canvasStyle = computed(() => 
-  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px;`
+  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; transform-origin: top left;`
 )
 
 // Tool state
@@ -278,6 +311,12 @@ const upstreamLabelsForFromNode = ref({})
 const draggingNode = ref(null)
 let dragStart = null
 
+// Zoom state
+const zoomLevel = ref(1.0)
+const minZoom = 0.25
+const maxZoom = 4.0
+const zoomStep = 0.25
+
 // Modal state
 const showGearModal = ref(false)
 const showSourceModal = ref(false)
@@ -285,6 +324,7 @@ const showConnectionModal = ref(false)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
 const sourceFilter = ref('Stereo')
+const sourceNumberingStyle = ref('numbers')
 const submittingConnection = ref(false)
 
 // Node counts
@@ -309,7 +349,7 @@ const availableGear = computed(() => {
 // Source presets for ad-hoc sources not tied to gear
 const sourcePresets = [
   { key: 'dj_lr', name: 'DJ LR', outputs: 2, category: 'Stereo' },
-  { key: 'foh_lr', name: 'FOH Feed LR', outputs: 2, category: 'Stereo' },
+  { key: 'foh_lr', name: 'Program LR', outputs: 2, category: 'Stereo' },
   { key: 'stereo_stem', name: 'Stereo Stem', outputs: 2, category: 'Stereo' },
   { key: 'handheld_mic', name: 'HandHeld Mic', outputs: 1, category: 'Mono' },
   { key: 'handheld_group', name: 'HandHeld Mic Group', outputs: 1, category: 'Mono' },
@@ -349,48 +389,199 @@ const needsPortMappingForSelected = computed(() => {
          (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder'))
 })
 
+// Recursively trace source label through transformer chain
+function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
+  if (visitedNodes.has(nodeId)) return null
+  visitedNodes.add(nodeId)
+  
+  const node = props.nodes.find(n => n.id === nodeId)
+  if (!node) return null
+  
+  const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
+  
+  // If it's a source, return the source label
+  if (nodeType === 'source') {
+    const outCount = node?.num_outputs || node?.outputs || 0
+    
+    // Check for stored output port labels first (most reliable for stereo sources)
+    if (outCount === 2 && typeof inputNum === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
+      const storedLabel = node.output_port_labels[String(inputNum)] || node.output_port_labels[inputNum]
+      if (storedLabel) return storedLabel
+    }
+    
+    // Fallback to computed labels if not stored
+    const label = node.label || ''
+    const trackName = node.track_name || ''
+    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    const num = m ? m[2] : ''
+    
+    let baseNoNum
+    if (trackName) {
+      baseNoNum = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    } else if (m) {
+      baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
+    } else {
+      baseNoNum = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    }
+    const numSuffix = num ? ` (${num})` : ''
+    
+    if (outCount === 2 && typeof inputNum === 'number') {
+      // Check siblings to determine L/R
+      const siblings = props.connections.filter(c =>
+        (c.to_node_id === nodeId || c.to === nodeId) &&
+        (c.from_node_id === nodeId || c.from === nodeId) &&
+        typeof c.input_number === 'number'
+      ).map(c => c.input_number).sort((a,b) => a - b)
+      
+      if (siblings.length >= 2) {
+        return inputNum === siblings[0] ? `${baseNoNum} L${numSuffix}` : `${baseNoNum} R${numSuffix}`
+      }
+      return `${baseNoNum} ${inputNum % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+    }
+    return `${baseNoNum}${numSuffix}`
+  }
+  
+  // If it's a transformer, trace back to its input
+  if (nodeType === 'transformer') {
+    // Find connection feeding this transformer's input
+    const incoming = props.connections.find(c => 
+      (c.to_node_id === nodeId || c.to === nodeId) && c.input_number === inputNum
+    )
+    
+    if (incoming) {
+      const parentNodeId = incoming.from_node_id || incoming.from
+      const parentNode = props.nodes.find(n => n.id === parentNodeId)
+      
+      if (parentNode) {
+        const parentType = (parentNode.gear_type || parentNode.node_type || '').toLowerCase()
+        
+        // For port-mapped connections, we might need to trace through the port mapping
+        // But for direct connections, if transformer input 1 is connected from parent output X,
+        // then transformer output 1 should show what's coming from parent output X
+        // We trace from the parent node - if it's a source, get its label
+        // If it's another transformer, recursively trace from it
+        
+        // For now, trace from parent with the same port number (1:1 mapping assumption)
+        // In reality, port mappings handle this, but for direct connections this works
+        return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+      }
+    }
+    
+    // Also check for port-mapped connections (transformer to transformer)
+    // Find any connection to this transformer
+    const anyIncoming = props.connections.find(c => 
+      (c.to_node_id === nodeId || c.to === nodeId)
+    )
+    
+    if (anyIncoming) {
+      // Check if this connection has port mappings
+      // For port mappings, we'd need to query the port_map table
+      // But for now, trace from the parent with inputNum as a hint
+      const parentNodeId = anyIncoming.from_node_id || anyIncoming.from
+      return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+    }
+  }
+  
+  return null
+}
+
+// Trace track name from recorder output (track number)
+function traceRecorderTrackName(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  // For recorders, output port number corresponds to track number
+  const trackConn = props.connections.find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back from the source of this connection
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source is another recorder
+  const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
+  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase() : ''
+  
+  if (sourceType === 'recorder') {
+    // Source is another recorder - recursively trace from that recorder's output
+    // The output port number corresponds to the track number on the source recorder
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackName(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
+  const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
+  return sourceLabel
+}
+
 function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
+  
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
-  // Label stereo source ports as L/R
+  
+  // For recorders, output port corresponds to track number - use track name
+  if (fromType === 'recorder') {
+    const trackName = traceRecorderTrackName(from.id, portNum)
+    if (trackName) return trackName
+    // Fallback to track number if no source found
+    return `Track ${portNum}`
+  }
+  
+  // Label stereo source ports as L/R - check stored labels first
   if (fromType === 'source') {
+    // Check for stored output port labels first (most reliable)
+    if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+      const storedLabel = from.output_port_labels[String(portNum)] || from.output_port_labels[portNum]
+      if (storedLabel) return storedLabel
+    }
+    
+    // Fallback to computed labels if not stored
     const outCount = from?.num_outputs || from?.outputs || 0
     if (outCount === 2) {
       const label = from.label || ''
       const trackName = from.track_name || ''
-      const m = label.match(/^(.*) \((\d+)\)$/)
+      const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
       const num = m ? m[2] : ''
       // Get clean base: prefer track_name (cleaned), fall back to label base
       let baseNoNum
       if (trackName) {
-        baseNoNum = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        baseNoNum = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
       } else if (m) {
         baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
       } else {
-        baseNoNum = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        baseNoNum = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
       }
       const numSuffix = num ? ` (${num})` : ''
       return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
     }
+    return trackName || label || `Output ${portNum}`
   }
+  
+  // For transformers, recursively trace to source
   if (fromType === 'transformer') {
-    // Try direct connection first
-    let incoming = props.connections.find(c => (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum)
-    if (!incoming) {
-      // Fall back to port map from previous transformer
-      // Find parent connection feeding this transformer
-      // Note: We avoid network calls here; modal handles labels precisely. For the panel,
-      // we approximate by checking if there is a connection whose to_node_id === from.id
-      // and then use the from_port mapping number equal to portNum when available in memory later.
-    }
+    const sourceLabel = traceSourceLabel(from.id, portNum)
+    if (sourceLabel) return sourceLabel
+    
+    // Fallback to direct incoming connection
+    const incoming = props.connections.find(c => 
+      (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum
+    )
     if (incoming) {
+      const sourceLabelFromConn = traceSourceLabel(incoming.from_node_id || incoming.from, incoming.input_number || portNum)
+      if (sourceLabelFromConn) return sourceLabelFromConn
+      
       const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
-      const srcLabel = upNode?.track_name || upNode?.label
-      if (srcLabel) return srcLabel
+      return upNode?.track_name || upNode?.label || `Output ${portNum}`
     }
   }
+  
   return `Output ${portNum}`
 }
 const inputOptionsForSelected = computed(() => {
@@ -413,13 +604,47 @@ const availableFromPortsForEdit = computed(() => {
   for (let n = 1; n <= count; n++) {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
-    if (fromType === 'transformer') {
-      const incoming = props.connections.find(c =>
-        (c.to_node_id === from?.id || c.to === from?.id) && c.input_number === n
-      )
-      const upNode = incoming ? props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from)) : null
-      const srcLabel = upNode?.track_name || upNode?.label
-      if (!upstreamLabelsForFromNode.value[n] && srcLabel) label = srcLabel
+    
+    // For sources, check stored output port labels first
+    if (fromType === 'source') {
+      if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+        const storedLabel = from.output_port_labels[String(n)] || from.output_port_labels[n]
+        if (storedLabel) {
+          label = storedLabel
+          opts.push({ value: n, label })
+          continue
+        }
+      }
+      // Fallback to computed label if not stored
+      label = getFromPortDisplayForEdit(n)
+    } else if (fromType === 'recorder') {
+      // For recorders, output port corresponds to track number - use track name
+      const trackName = traceRecorderTrackName(from.id, n)
+      if (trackName) {
+        label = trackName
+      } else {
+        label = `Track ${n}`
+      }
+    } else if (fromType === 'transformer') {
+      // Use recursive tracing to get source label
+      const sourceLabel = traceSourceLabel(from.id, n)
+      if (sourceLabel) {
+        label = sourceLabel
+      } else if (!upstreamLabelsForFromNode.value[n]) {
+        // Fallback to direct connection
+        const incoming = props.connections.find(c =>
+          (c.to_node_id === from?.id || c.to === from?.id) && c.input_number === n
+        )
+        if (incoming) {
+          const sourceLabelFromConn = traceSourceLabel(incoming.from_node_id || incoming.from, incoming.input_number || n)
+          if (sourceLabelFromConn) {
+            label = sourceLabelFromConn
+          } else {
+            const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
+            if (upNode) label = upNode.track_name || upNode.label || label
+          }
+        }
+      }
     }
     opts.push({ value: n, label })
   }
@@ -433,27 +658,76 @@ async function buildUpstreamLabelsForEdit() {
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
   if (fromType !== 'transformer') return
   try {
-    // Find parent connection feeding this transformer
-    const parentCandidates = props.connections.filter(c => c.to_node_id === from.id)
-    if (!parentCandidates.length) return
-    const parent = parentCandidates.find(c => {
-      const n = props.nodes.find(nd => nd.id === c.from_node_id)
-      return (n?.gear_type || n?.node_type) === 'transformer'
-    }) || parentCandidates[0]
-    const { data: maps } = await supabase
-      .from('connection_port_map')
-      .select('from_port, to_port')
-      .eq('connection_id', parent.id)
-    if (!maps || !maps.length) return
-    maps.forEach(m => {
-      const incoming = props.connections.find(c => (c.to_node_id === parent.from_node_id) && c.input_number === m.from_port)
-      if (incoming) {
-        const node = props.nodes.find(nd => nd.id === incoming.from_node_id)
-        const name = node?.track_name || node?.label
-        if (name) upstreamLabelsForFromNode.value[m.to_port] = name
+    // Build labels for all inputs by recursively tracing to sources
+    const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
+    
+    incomingConns.forEach(inc => {
+      const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
+      if (sourceLabel) {
+        upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
       }
     })
+    
+    // Also check for port-mapped connections
+    const { data: parentConns } = await supabase
+      .from('connections')
+      .select('id, from_node_id, to_node_id')
+      .eq('to_node_id', from.id)
+    
+    if (!parentConns || parentConns.length === 0) return
+    
+    for (const parentConn of parentConns) {
+      const { data: maps } = await supabase
+        .from('connection_port_map')
+        .select('from_port, to_port')
+        .eq('connection_id', parentConn.id)
+      
+      if (!maps || maps.length === 0) continue
+      
+      maps.forEach(m => {
+        const parentFromNode = props.nodes.find(nd => nd.id === parentConn.from_node_id)
+        if (parentFromNode) {
+          // Recursively trace source label
+          const sourceLabel = traceSourceLabel(parentConn.from_node_id, m.from_port)
+          if (sourceLabel) {
+            upstreamLabelsForFromNode.value[m.to_port] = sourceLabel
+          }
+        }
+      })
+    }
   } catch {}
+}
+
+// Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
+function traceRecorderTrackInput(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  const trackConn = props.connections.find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back to get the source label
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source is another recorder
+  const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
+  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase() : ''
+  
+  if (sourceType === 'recorder') {
+    // Source is another recorder - recursively trace from that recorder's output
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackInput(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
+  const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
+  return sourceLabel
 }
 
 const availableToPortsForEdit = computed(() => {
@@ -472,7 +746,12 @@ const availableToPortsForEdit = computed(() => {
         (c.to_node_id === to?.id || c.to === to?.id) &&
         (c.track_number === n || c.input_number === n)
       )
-      if (!taken) opts.push({ value: n, label: `Track ${n}` })
+      if (!taken) {
+        // Trace what input is assigned to this track to show as the track name (like transformers)
+        const assignedInput = traceRecorderTrackInput(to?.id, n)
+        const label = assignedInput || `Track ${n}`
+        opts.push({ value: n, label })
+      }
     }
   } else {
     const count = to?.num_inputs || to?.numinputs || to?.inputs || 0
@@ -593,8 +872,8 @@ async function saveSelectedConnection() {
       }
       
       emit('connection-updated', { ...c, ...payload })
-      saveTick.value = true
-      setTimeout(() => { saveTick.value = false }, 1000)
+      toast.success('Connection saved successfully')
+      selectedConnectionId.value = null // Close modal after successful save
       return
     }
     
@@ -609,8 +888,8 @@ async function saveSelectedConnection() {
     }
     const updated = await updateConnection(payload)
     emit('connection-updated', updated)
-    saveTick.value = true
-    setTimeout(() => { saveTick.value = false }, 1000)
+    toast.success('Connection saved successfully')
+    selectedConnectionId.value = null // Close modal after successful save
   } catch (err) {
     console.error('Failed to update connection:', err)
     toast.error('Failed to update connection')
@@ -698,6 +977,26 @@ function getGearIcon(type) {
   return icons[type] || '🎵'
 }
 
+// Zoom functions - ONLY controlled via buttons, never via scroll/wheel events
+function zoomIn() {
+  if (zoomLevel.value < maxZoom) {
+    zoomLevel.value = Math.min(maxZoom, zoomLevel.value + zoomStep)
+    nextTick(drawCanvas)
+  }
+}
+
+function zoomOut() {
+  if (zoomLevel.value > minZoom) {
+    zoomLevel.value = Math.max(minZoom, zoomLevel.value - zoomStep)
+    nextTick(drawCanvas)
+  }
+}
+
+function resetZoom() {
+  zoomLevel.value = 1.0
+  nextTick(drawCanvas)
+}
+
 // Drawing
 function drawCanvas() {
   const ctx = canvas.value?.getContext('2d')
@@ -706,20 +1005,26 @@ function drawCanvas() {
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
   ctx.scale(dpr, dpr)
+  
+  // Apply zoom transformation
+  ctx.save()
+  ctx.scale(zoomLevel.value, zoomLevel.value)
 
-  // Background
+  // Background (scaled)
   ctx.fillStyle = '#f8f9fa'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw connections
+  // Draw connections (will be scaled by zoom)
   props.connections.forEach(conn => {
     drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
   })
 
-  // Draw nodes
+  // Draw nodes (will be scaled by zoom)
   props.nodes.forEach(node => {
     drawNode(ctx, node)
   })
+  
+  ctx.restore()
 }
 
 function drawNode(ctx, node) {
@@ -749,15 +1054,34 @@ function drawNode(ctx, node) {
   ctx.fill()
   ctx.stroke()
 
-  // Selection indicator
+  // Selection indicator - enhanced visibility that persists
   if (isSelected) {
+    // Outer glow ring (subtle background)
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, 50, 0, 2 * Math.PI)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.2
+    ctx.stroke()
+    ctx.globalAlpha = 1.0
+    
+    // Main dashed selection ring
     ctx.beginPath()
     ctx.arc(pos.x, pos.y, 45, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 5])
+    ctx.lineWidth = 3 // Thicker for better visibility
+    ctx.setLineDash([8, 4]) // More pronounced dashed pattern
     ctx.stroke()
     ctx.setLineDash([])
+    
+    // Inner accent ring for extra emphasis
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, 40, 0, 2 * Math.PI)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.5
+    ctx.stroke()
+    ctx.globalAlpha = 1.0
   }
 
   // Label
@@ -777,9 +1101,55 @@ function drawNode(ctx, node) {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🎚️', pos.x, pos.y)
+  } else if (isSource && node.gear_id) {
+    // Draw gear name inside circle for source mics (first 6 characters)
+    const gear = props.gearList.find(g => g.id === node.gear_id)
+    if (gear && gear.gear_name) {
+      const gearNameText = gear.gear_name.length > 6 
+        ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
+        : gear.gear_name.toUpperCase()
+      ctx.font = 'bold 11px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = isSelected ? '#fff' : '#495057'
+      ctx.fillText(gearNameText, pos.x, pos.y)
+    }
   }
 
   ctx.restore()
+
+  // Draw full gear name above node when dragging (for source mics)
+  if (draggingNode.value === node && isSource && node.gear_id) {
+    const gear = props.gearList.find(g => g.id === node.gear_id)
+    if (gear && gear.gear_name) {
+      const gearNameText = gear.gear_name
+      
+      // Set font before measuring
+      ctx.font = 'bold 12px sans-serif'
+      ctx.textAlign = 'center'
+      const textMetrics = ctx.measureText(gearNameText)
+      
+      const padX = 8
+      const padY = 4
+      const bgW = Math.ceil(textMetrics.width) + padX * 2
+      const bgH = 18 + padY * 2
+      const labelY = pos.y - 55 // Position above the node
+      
+      // Background with border
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.rect(pos.x - bgW / 2, labelY - padY, bgW, bgH)
+      ctx.fill()
+      ctx.stroke()
+      
+      // Text
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#222'
+      ctx.fillText(gearNameText, pos.x, labelY + padY)
+    }
+  }
 }
 
 function drawConnection(ctx, conn, isSelected = false) {
@@ -825,21 +1195,27 @@ function onPointerDown(e) {
   e.preventDefault()
   const { x, y } = getCanvasCoords(e)
   const clickedNode = getNodeAt(x, y)
-  if (!clickedNode) {
-    const conn = getConnectionAt(x, y)
-    selectedConnectionId.value = conn?.id || null
-    selectedNode.value = null
-    drawCanvas()
-    return
-  }
-
+  
   if (tool.value === 'select') {
     if (clickedNode) {
+      // Select the clicked node (this will automatically deselect any previously selected node)
       selectedNode.value = clickedNode
       draggingNode.value = clickedNode
       dragStart = { x, y }
+      selectedConnectionId.value = null // Clear connection selection when selecting a node
+      drawCanvas() // Redraw to show the selection immediately
     } else {
-      selectedNode.value = null
+      // Clicked on empty space - check if it's a connection first
+      const conn = getConnectionAt(x, y)
+      if (conn) {
+        selectedConnectionId.value = conn.id
+        selectedNode.value = null // Deselect node when selecting connection
+      } else {
+        // Clicked on truly empty space - deselect everything
+        selectedNode.value = null
+        selectedConnectionId.value = null
+      }
+      drawCanvas() // Redraw to update selection state
     }
   } else if (tool.value === 'link') {
     if (clickedNode) {
@@ -894,9 +1270,10 @@ function getCanvasCoords(e) {
   const rect = canvas.value.getBoundingClientRect()
   const scaleX = canvas.value.width / rect.width
   const scaleY = canvas.value.height / rect.height
+  // Account for zoom level - pointer coordinates need to be divided by zoom
   return {
-    x: (e.clientX - rect.left) * scaleX / dpr,
-    y: (e.clientY - rect.top) * scaleY / dpr
+    x: (e.clientX - rect.left) * scaleX / dpr / zoomLevel.value,
+    y: (e.clientY - rect.top) * scaleY / dpr / zoomLevel.value
   }
 }
 
@@ -951,29 +1328,6 @@ function getNodeLabelById(id) {
   return node.track_name || node.label || 'Unknown'
 }
 
-// Position details panel near the selected connection midpoint
-const selectedConnMid = computed(() => {
-  const c = selectedConn.value
-  if (!c) return null
-  const fromNode = props.nodes.find(n => n.id === c.from_node_id)
-  const toNode = props.nodes.find(n => n.id === c.to_node_id)
-  if (!fromNode || !toNode) return null
-  const fromPos = getCanvasPos(fromNode)
-  const toPos = getCanvasPos(toNode)
-  return { x: (fromPos.x + toPos.x) / 2, y: (fromPos.y + toPos.y) / 2 }
-})
-
-const detailsStyle = computed(() => {
-  const def = { left: '10px', top: '10px' }
-  if (!selectedConnMid.value || !canvas.value || !canvasWrapper.value) return def
-  const wrap = canvasWrapper.value.getBoundingClientRect()
-  const rect = canvas.value.getBoundingClientRect()
-  const offsetX = rect.left - wrap.left
-  const offsetY = rect.top - wrap.top
-  const left = offsetX + selectedConnMid.value.x + 12
-  const top = offsetY + selectedConnMid.value.y - 10
-  return { left: `${left}px`, top: `${top}px` }
-})
 
 function canConnect(from, to) {
   const fromType = from.gear_type || from.node_type
@@ -984,9 +1338,11 @@ function canConnect(from, to) {
   // source -> recorder
   // transformer -> transformer
   // transformer -> recorder
+  // recorder -> recorder
 
   if (fromType === 'source' && (toType === 'transformer' || toType === 'recorder')) return true
   if (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) return true
+  if (fromType === 'recorder' && toType === 'recorder') return true
   
   return false
 }
@@ -1039,14 +1395,42 @@ async function addGearNode(gear) {
 }
 
 function nextNumberedLabel(baseName) {
-  // Find existing nodes with the same base prefix
-  const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
-  let max = 0
-  props.nodes.forEach(n => {
-    const m = (n.label || '').match(regex)
-    if (m) max = Math.max(max, Number(m[1]))
-  })
-  return `${baseName} (${max + 1})`
+  const useLetters = sourceNumberingStyle.value === 'letters'
+  
+  if (useLetters) {
+    // Find existing nodes with letter suffixes like "DJ LR (A)", "DJ LR (B)", etc.
+    const regex = new RegExp(`^${baseName} \\(([A-Z])\\)$`)
+    const usedLetters = new Set()
+    props.nodes.forEach(n => {
+      const m = (n.label || '').match(regex)
+      if (m) usedLetters.add(m[1])
+    })
+    
+    // Find next available letter
+    for (let i = 0; i < 26; i++) {
+      const letter = String.fromCharCode(65 + i) // A-Z
+      if (!usedLetters.has(letter)) {
+        return `${baseName} (${letter})`
+      }
+    }
+    // Fallback to numbers if we run out of letters
+    const numRegex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
+    let max = 0
+    props.nodes.forEach(n => {
+      const m = (n.label || '').match(numRegex)
+      if (m) max = Math.max(max, Number(m[1]))
+    })
+    return `${baseName} (${max + 1})`
+  } else {
+    // Find existing nodes with the same base prefix using numbers
+    const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
+    let max = 0
+    props.nodes.forEach(n => {
+      const m = (n.label || '').match(regex)
+      if (m) max = Math.max(max, Number(m[1]))
+    })
+    return `${baseName} (${max + 1})`
+  }
 }
 
 async function addSourceNode(preset) {
@@ -1061,6 +1445,37 @@ async function addSourceNode(preset) {
     }
     const label = nextNumberedLabel(base)
     const outCount = preset.outputs
+    
+    // Generate output port labels for all sources (both mono and stereo)
+    // This ensures consistent label tracking in the tracklist
+    let outputPortLabels = null
+    
+    // Extract base name and numbering suffix from label
+    const labelMatch = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    let baseName
+    let numSuffix = ''
+    
+    if (labelMatch) {
+      baseName = labelMatch[1].replace(/\s*LR$/i, '').trim()
+      numSuffix = ` (${labelMatch[2]})`
+    } else {
+      baseName = label.replace(/\s*LR$/i, '').trim()
+    }
+    
+    if (outCount === 2) {
+      // Generate explicit port labels for stereo sources: Port 1 = L, Port 2 = R
+      outputPortLabels = {
+        "1": `${baseName} L${numSuffix}`,
+        "2": `${baseName} R${numSuffix}`
+      }
+    } else {
+      // For mono sources, store the base label with numbering on port 1
+      // This ensures the source name appears consistently in the tracklist
+      outputPortLabels = {
+        "1": `${baseName}${numSuffix}`
+      }
+    }
+    
     const newNode = await addNode({
       project_id: props.projectId,
       type: 'source',
@@ -1074,7 +1489,8 @@ async function addSourceNode(preset) {
       gear_type: 'source',
       num_inputs: 0,
       num_outputs: outCount,
-      num_tracks: 0
+      num_tracks: 0,
+      output_port_labels: outputPortLabels
     })
     emit('node-added', newNode)
     closeSourceModal()
@@ -1101,6 +1517,7 @@ async function saveNodePosition(node) {
 }
 
 // Coordinate helpers: nodes store normalized coords (0..1). Convert for canvas drawing.
+// Note: zoom is applied at the canvas level, so positions are in unzoomed coordinates
 function getCanvasPos(node) {
   const nx = (node.flow_x ?? node.x ?? 0)
   const ny = (node.flow_y ?? node.y ?? 0)
@@ -1109,6 +1526,46 @@ function getCanvasPos(node) {
   return isPixel
     ? { x: nx, y: ny }
     : { x: nx * canvasWidth.value, y: ny * canvasHeight.value }
+}
+
+async function cascadeDeleteNode(nodeId) {
+  // Find all connections FROM this node (outgoing)
+  const outgoingConns = props.connections.filter(c => c.from_node_id === nodeId)
+  
+  // Find all connections TO this node (incoming)
+  const incomingConns = props.connections.filter(c => c.to_node_id === nodeId)
+
+  // Delete all port mappings for these connections
+  const allConnIds = [...outgoingConns.map(c => c.id), ...incomingConns.map(c => c.id)]
+  if (allConnIds.length > 0) {
+    try {
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .in('connection_id', allConnIds)
+    } catch (err) {
+      console.error('Error deleting port mappings:', err)
+    }
+  }
+
+  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
+  for (const conn of [...outgoingConns, ...incomingConns]) {
+    try {
+      await deleteConnectionFromDB(conn.id)
+      emit('connection-deleted', conn.id)
+    } catch (err) {
+      console.error('Error deleting connection:', err)
+    }
+  }
+
+  // Finally, delete the node itself
+  try {
+    await deleteNode(nodeId)
+    emit('node-deleted', nodeId)
+  } catch (err) {
+    console.error('Error deleting node:', err)
+    throw err
+  }
 }
 
 async function deleteSelected() {
@@ -1123,13 +1580,13 @@ async function deleteSelected() {
     }
   }
 
-  if (!confirm(`Delete ${selectedNode.value.label}?`)) return
+  const nodeLabel = selectedNode.value.label
+  if (!confirm(`Delete ${nodeLabel} and all its connections?`)) return
 
   try {
-    await deleteNode(selectedNode.value.id)
-    emit('node-deleted', selectedNode.value.id)
+    await cascadeDeleteNode(selectedNode.value.id)
     selectedNode.value = null
-    toast.success('Node deleted')
+    toast.success(`${nodeLabel} and connections deleted`)
     nextTick(drawCanvas)
   } catch (err) {
     console.error('Error deleting node:', err)
@@ -1149,21 +1606,55 @@ async function confirmConnection(connectionData) {
   submittingConnection.value = true
   
   try {
+    let newConn
     // If the modal already created the parent connection (port-mapped flow),
     // it will pass back an object with an id. In that case, do not insert again.
     if (connectionData && connectionData.id) {
+      newConn = connectionData
       emit('connection-added', connectionData)
     } else {
-      const newConn = await addConnectionToDB(connectionData)
+      newConn = await addConnectionToDB(connectionData)
       emit('connection-added', newConn)
     }
     closeConnectionModal()
     toast.success('Connection created')
-    // Redraw canvas immediately, then again after props update
+    
+    // Optimistically add the connection to trigger immediate redraw
+    // The watcher will handle the final redraw when props update
+    const optimisticConnections = [...props.connections, newConn]
+    
+    // Force immediate redraw with optimistic connection
     nextTick(() => {
-      drawCanvas()
-      // Also redraw after a brief delay to catch any prop updates
-      setTimeout(() => drawCanvas(), 100)
+      // Temporarily use optimistic connections for drawing
+      const ctx = canvas.value?.getContext('2d')
+      if (!ctx) return
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
+      ctx.scale(dpr, dpr)
+      
+      // Apply zoom transformation
+      ctx.save()
+      ctx.scale(zoomLevel.value, zoomLevel.value)
+
+      // Background (scaled)
+      ctx.fillStyle = '#f8f9fa'
+      ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
+
+      // Draw connections (including the new one)
+      optimisticConnections.forEach(conn => {
+        drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
+      })
+
+      // Draw nodes
+      props.nodes.forEach(node => {
+        drawNode(ctx, node)
+      })
+      
+      ctx.restore()
+      
+      // Redraw again after props are updated (watcher will handle this, but ensure it happens)
+      setTimeout(() => drawCanvas(), 50)
     })
   } catch (err) {
     console.error('Error creating connection:', err)
@@ -1181,7 +1672,11 @@ async function confirmConnection(connectionData) {
 }
 
 // Watchers
-watch([() => props.nodes, () => props.connections], () => nextTick(drawCanvas))
+watch([() => props.nodes, () => props.connections, zoomLevel], () => {
+  nextTick(() => {
+    drawCanvas()
+  })
+}, { deep: true, immediate: false })
 
 // Lifecycle
 onMounted(() => {
@@ -1190,42 +1685,9 @@ onMounted(() => {
     canvas.value.height = canvasHeight.value * dpr
   }
   nextTick(drawCanvas)
-
-  // Prevent browser zooming the canvas via Ctrl/⌘ + scroll or trackpad pinch
-  const wheelBlocker = (e) => {
-    // Allow scrolling inside scrollable UI (e.g., connection details panel)
-    const insideScrollablePanel = e.target && typeof e.target.closest === 'function' && (
-      e.target.closest('.connection-details')
-    )
-    // Block wheel events over the canvas wrapper except when over a scrollable panel
-    if (!insideScrollablePanel && canvasWrapper.value && canvasWrapper.value.contains(e.target)) {
-      e.preventDefault()
-    } else if (!insideScrollablePanel && e.ctrlKey) {
-      // Fallback: block page zoom anywhere when ctrl/⌘ pressed
-      e.preventDefault()
-    }
-  }
-  const gestureBlocker = (e) => {
-    e.preventDefault()
-  }
-  const touchBlocker = (e) => {
-    // Block two-finger pinch/zoom on trackpads/touch screens
-    if (e.touches && e.touches.length > 1) {
-      e.preventDefault()
-    }
-  }
-  window.addEventListener('wheel', wheelBlocker, { passive: false })
-  window.addEventListener('gesturestart', gestureBlocker, { passive: false })
-  window.addEventListener('gesturechange', gestureBlocker, { passive: false })
-  // iOS/Touch devices
-  document.addEventListener('touchmove', touchBlocker, { passive: false })
-
-  onUnmounted(() => {
-    window.removeEventListener('wheel', wheelBlocker)
-    window.removeEventListener('gesturestart', gestureBlocker)
-    window.removeEventListener('gesturechange', gestureBlocker)
-    document.removeEventListener('touchmove', touchBlocker)
-  })
+  // Note: All scroll/wheel blocking has been removed to allow normal page scrolling.
+  // Zoom is ONLY controlled via the +/- buttons with preset intervals (25% steps).
+  // Scrolling will NOT trigger zoom changes.
 })
 // Prompt when entering Link mode
 watch(tool, (v, prev) => {
@@ -1245,31 +1707,264 @@ function getCanvasDataURL() {
   }
 }
 
-defineExpose({ getCanvasDataURL })
+// Watch for external connection selection
+watch(() => props.initialSelectedConnectionId, (newId) => {
+  if (newId && props.connections.find(c => c.id === newId)) {
+    selectedConnectionId.value = newId
+    selectedNode.value = null // Clear node selection
+    nextTick(() => {
+      drawCanvas()
+    })
+  } else if (!newId) {
+    // Clear selection when prop is null
+    selectedConnectionId.value = null
+    nextTick(() => {
+      drawCanvas()
+    })
+  }
+})
 
-// Download the current canvas as a PNG file
-function exportFlowPng() {
+// Expose method to select connection from parent
+function selectConnection(connectionId) {
+  if (props.connections.find(c => c.id === connectionId)) {
+    selectedConnectionId.value = connectionId
+    selectedNode.value = null // Clear node selection
+    nextTick(() => {
+      drawCanvas()
+    })
+  }
+}
+
+defineExpose({ getCanvasDataURL, selectConnection })
+
+// Export/Print the current signal flow canvas with print preview (PDF default)
+function exportToPDF() {
   if (!canvas.value) return
-  drawCanvas()
+  
+  // Build an export canvas that fits all nodes and connections with padding
+  const PADDING = 20
+  const dprLocal = window.devicePixelRatio || 1
+  
+  // Calculate bounding box of all elements (nodes + connection paths)
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  
+  // Create measurement context for accurate label width calculation
+  const measure = document.createElement('canvas').getContext('2d')
+  if (measure) {
+    measure.font = 'bold 12px sans-serif'
+  }
+  
+  // Include all nodes (radius 35px + label height ~40px below)
+  props.nodes.forEach(node => {
+    const pos = getCanvasPos(node)
+    const nodeRadius = 35
+    const labelHeight = 40
+    const labelText = (node.gear_type || node.node_type) === 'source' && node.track_name 
+      ? node.track_name 
+      : node.label
+    // Calculate actual label width
+    const labelWidth = measure && labelText 
+      ? measure.measureText(labelText).width 
+      : (labelText?.length || 0) * 7
+    
+    minX = Math.min(minX, pos.x - nodeRadius)
+    minY = Math.min(minY, pos.y - nodeRadius)
+    maxX = Math.max(maxX, pos.x + nodeRadius)
+    maxY = Math.max(maxY, pos.y + nodeRadius)
+    
+    // Include label bounds
+    minX = Math.min(minX, pos.x - labelWidth / 2)
+    maxX = Math.max(maxX, pos.x + labelWidth / 2)
+    maxY = Math.max(maxY, pos.y + nodeRadius + labelHeight)
+  })
+  
+  // Include all connections (lines between nodes)
+  props.connections.forEach(conn => {
+    const fromNode = props.nodes.find(n => n.id === conn.from_node_id)
+    const toNode = props.nodes.find(n => n.id === conn.to_node_id)
+    if (fromNode && toNode) {
+      const fromPos = getCanvasPos(fromNode)
+      const toPos = getCanvasPos(toNode)
+      
+      // Include the line segment and arrow
+      minX = Math.min(minX, Math.min(fromPos.x, toPos.x) - 12) // arrow extends
+      minY = Math.min(minY, Math.min(fromPos.y, toPos.y) - 12)
+      maxX = Math.max(maxX, Math.max(fromPos.x, toPos.x) + 12)
+      maxY = Math.max(maxY, Math.max(fromPos.y, toPos.y) + 12)
+    }
+  })
+  
+  // If no elements found, use canvas bounds
+  if (!isFinite(minX) || !isFinite(minY)) {
+    minX = 0
+    minY = 0
+    maxX = canvasWidth.value
+    maxY = canvasHeight.value
+  }
+  
+  // Apply padding
+  const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
+  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+  
+  // Create offscreen canvas
+  const off = document.createElement('canvas')
+  off.width = exportW * dprLocal
+  off.height = exportH * dprLocal
+  const ctx = off.getContext('2d')
+  if (!ctx) {
+    toast.error('Failed to create export canvas')
+    return
+  }
+  ctx.scale(dprLocal, dprLocal)
+  
+  // Fill background
+  ctx.fillStyle = '#f8f9fa'
+  ctx.fillRect(0, 0, exportW, exportH)
+  
+  // Translate to account for bounding box offset and padding
+  ctx.save()
+  ctx.translate(-minX + PADDING, -minY + PADDING)
+  
+  // Draw connections first (so they appear under nodes)
+  props.connections.forEach(conn => {
+    drawConnection(ctx, conn, false)
+  })
+  
+  // Draw nodes
+  props.nodes.forEach(node => {
+    drawNode(ctx, node)
+  })
+  
+  ctx.restore()
+  
+  // Get data URL
+  let dataURL
   try {
-    canvas.value.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `signal-flow-${props.projectId}-${props.locationId}-${new Date().toISOString().slice(0,10)}.png`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  } catch {}
+    dataURL = off.toDataURL('image/png', 1.0)
+  } catch (e) {
+    console.error('Error generating export image:', e)
+    toast.error('Failed to generate export image')
+    return
+  }
+  
+  try {
+    
+    // Create a clean print preview window with just the canvas image
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
+    if (!printWindow) {
+      toast.error('Please allow popups to export')
+      return
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Signal Flow - Print Preview</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: var(--bg-secondary);
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            .print-content {
+              background: white;
+              padding: 20px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              max-width: 100%;
+            }
+            .print-content img {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
+            .print-actions {
+              text-align: center;
+              margin-top: 20px;
+              padding: 15px;
+            }
+            .print-actions button {
+              padding: 10px 20px;
+              margin: 0 5px;
+              background: var(--color-primary-500);
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .print-actions button:hover {
+              background: var(--color-primary-600);
+            }
+            .print-actions button.secondary {
+              background: var(--color-secondary-500);
+            }
+            .print-actions button.secondary:hover {
+              background: var(--color-secondary-600);
+            }
+            @media print {
+              body {
+                background: white;
+                padding: 0;
+              }
+              .print-actions {
+                display: none;
+              }
+              .print-content {
+                padding: 0;
+                box-shadow: none;
+              }
+              .print-content img {
+                width: 100%;
+                height: auto;
+                page-break-inside: avoid;
+              }
+            }
+            @page {
+              margin: 0;
+              size: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">
+            <img src="${dataURL}" alt="Signal Flow" />
+          </div>
+          <div class="print-actions">
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    // Wait for image to load
+    printWindow.onload = () => {
+      // Focus the window to bring it to front
+      printWindow.focus()
+    }
+  } catch (e) {
+    console.error('Error exporting canvas:', e)
+    toast.error('Failed to export signal flow')
+  }
 }
 </script>
 
 <style scoped>
 .signal-flow-container {
   padding: 20px;
+  min-height: 100vh;
+  width: 100%;
 }
 
 .flow-header {
@@ -1280,12 +1975,12 @@ function exportFlowPng() {
 .flow-header h3 {
   margin: 0 0 10px 0;
   font-size: 24px;
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .flow-header p {
   margin: 0;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .flow-toolbar {
@@ -1294,8 +1989,12 @@ function exportFlowPng() {
   align-items: center;
   margin-bottom: 15px;
   padding: 10px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .flow-toolbar button, .flow-toolbar .tool-btn {
@@ -1309,37 +2008,44 @@ function exportFlowPng() {
 }
 
 .flow-toolbar button:hover {
-  border-color: #007bff;
+  border-color: var(--color-primary-500);
 }
 
 .flow-toolbar .select-btn.active {
-  background: #d1f4e0; /* light green */
-  color: #0f7b3e;
-  border-color: #0f7b3e;
-  font-weight: 600;
+  background: var(--color-success-500) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--color-success-600) !important;
+  border-width: 3px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .flow-toolbar .connect-btn.active {
-  background: #d1f4e0; /* light green */
-  color: #0f7b3e;
-  border-color: #0f7b3e;
-  font-weight: 600;
+  background: var(--color-success-500) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--color-success-600) !important;
+  border-width: 3px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .flow-toolbar .link-btn.active {
-  background: #d1f4e0; /* light green */
-  color: #0f7b3e;
-  border-color: #0f7b3e;
+  background: var(--color-success-500) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--color-success-600) !important;
+  border-width: 3px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .btn-add {
-  background: #007bff !important;
-  color: white !important;
-  border-color: #007bff !important;
+  background: var(--color-primary-500) !important;
+  color: var(--text-inverse) !important;
+  border-color: var(--color-primary-500) !important;
 }
 
 .btn-add:hover {
-  background: #0056b3 !important;
+  background: var(--color-primary-600) !important;
 }
 
 .btn-danger {
@@ -1367,8 +2073,28 @@ function exportFlowPng() {
 }
 
 .node-count {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.zoom-controls .zoom-btn {
+  padding: 8px 12px;
+  min-width: 36px;
+}
+
+.zoom-level {
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
 }
 
 .canvas-wrapper {
@@ -1376,14 +2102,15 @@ function exportFlowPng() {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
-  /* Disable browser gesture zoom on supported browsers */
-  touch-action: none;
+  width: 100%;
+  min-height: 100vh;
 }
 
 .canvas-wrapper canvas {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   cursor: crosshair;
+  flex-shrink: 0;
 }
 
 .tool-indicator {
@@ -1397,24 +2124,35 @@ function exportFlowPng() {
   font-size: 14px;
 }
 
-.connection-details {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+.connection-details-modal {
   background: #fff;
   border: 1px solid #e9ecef;
-  border-radius: 8px;
-  padding: 12px 14px;
-  width: 420px;
-  max-height: 70vh;
-  overflow-y: auto;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
 }
-.connection-details h4 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: #212529;
+.connection-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+.connection-details-header h4 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.connection-details-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 .detail-row {
   display: flex;
@@ -1433,7 +2171,7 @@ function exportFlowPng() {
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 4px;
   margin-bottom: 4px;
   font-size: 12px;
@@ -1517,7 +2255,7 @@ function exportFlowPng() {
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .close-btn {
@@ -1525,7 +2263,7 @@ function exportFlowPng() {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--text-secondary);
   padding: 0;
   width: 30px;
   height: 30px;
@@ -1536,13 +2274,47 @@ function exportFlowPng() {
 }
 
 .close-btn:hover {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .modal-body {
   padding: 20px;
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.numbering-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.numbering-label {
+  font-weight: 500;
+  color: #495057;
+  font-size: 14px;
+}
+
+.numbering-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.numbering-select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .gear-categories {
@@ -1554,7 +2326,7 @@ function exportFlowPng() {
 .gear-categories button {
   flex: 1;
   padding: 10px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #dee2e6;
   border-radius: 6px;
   cursor: pointer;
@@ -1568,7 +2340,7 @@ function exportFlowPng() {
 .gear-categories button.active {
   background: #007bff;
   color: white;
-  border-color: #007bff;
+  border-color: var(--color-primary-500);
 }
 
 .gear-list {
@@ -1588,8 +2360,8 @@ function exportFlowPng() {
 }
 
 .gear-item:hover {
-  background: #f8f9fa;
-  border-color: #007bff;
+  background: var(--bg-secondary);
+  border-color: var(--color-primary-500);
 }
 
 .gear-icon {
@@ -1599,7 +2371,7 @@ function exportFlowPng() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
 }
 
@@ -1609,19 +2381,20 @@ function exportFlowPng() {
 
 .gear-name {
   font-weight: 600;
-  color: #212529;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .gear-details {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .no-gear {
   text-align: center;
   padding: 40px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 </style>
+
 

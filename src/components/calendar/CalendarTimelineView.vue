@@ -236,7 +236,7 @@ justify-content: space-between;
 margin-bottom: 0.75rem;
 }
 .nav-button {
-background: #f5f7fa;
+background: var(--bg-secondary);
 border: 1px solid #cfd6dd;
 padding: 0.4rem 0.8rem;
 border-radius: 4px;
@@ -244,13 +244,13 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .nav-button:hover {
-background: #eaeef2;
+background: var(--bg-tertiary);
 }
 
 .stage-hours-section {
   margin-bottom: 1rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -264,7 +264,7 @@ background: #eaeef2;
 
 .stage-hours-header h3 {
   margin: 0;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .edit-stage-hours-btn {
@@ -285,7 +285,7 @@ gap: 0.5rem;
 }
 
 .stage-hour-item {
-background: #fff;
+background: var(--bg-primary);
 padding: 0.5rem;
 border-radius: 4px;
 border: 1px solid #dee2e6;
@@ -313,11 +313,11 @@ font-size: 0.8rem;
 
 .time-range {
 font-weight: 500;
-color: #28a745;
+color: var(--color-success-500);
 }
 
 .notes {
-color: #6c757d;
+color: var(--text-secondary);
 font-style: italic;
 }
 
@@ -344,7 +344,7 @@ gap: 0.5rem;
 margin: 2px 0;
 padding: 6px 8px;
 border-radius: 4px;
-color: #fff;
+color: var(--text-inverse);
 font-size: 0.85rem;
 cursor: pointer;
 display: flex;
@@ -386,17 +386,17 @@ font-size: 0.7rem;
 }
 
 .current-timeslot {
-  background: #e0f2fe !important;
+  background: rgba(59, 130, 246, 0.15) !important;
   transition: background 0.3s;
 }
 
 .timeline-table tbody tr:nth-child(even) {
-  background: #f7fafc;
+  background: var(--bg-secondary);
 }
 
 .timeline-event {
-  background: #fff !important;
-  color: #222;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary);
   font-weight: 600;
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);

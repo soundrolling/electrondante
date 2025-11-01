@@ -125,7 +125,6 @@
           <textarea
             v-model="formData.steps"
             id="steps"
-            placeholder="1. Go to the page where the issue occurs&#10;2. Click on the element that causes the problem&#10;3. Observe the error or unexpected behavior&#10;4. Note any error messages that appear"
             rows="4"
             maxlength="2000"
           ></textarea>
@@ -140,7 +139,6 @@
               <textarea
                 v-model="formData.expectedBehavior"
                 id="expectedBehavior"
-                placeholder="What should have happened?"
                 rows="3"
                 maxlength="1000"
               ></textarea>
@@ -151,7 +149,6 @@
               <textarea
                 v-model="formData.actualBehavior"
                 id="actualBehavior"
-                placeholder="What actually happened?"
                 rows="3"
                 maxlength="1000"
               ></textarea>
@@ -359,11 +356,13 @@ export default {
       } else if (type === 'suggestion') {
         formData.value.title = 'Suggestion: '
         formData.value.priority = 'low'
-        formData.value.description = 'Describe the feature you\'d like to see and how it would help you.'
+        // Leave description empty - placeholder will show
+        formData.value.description = ''
       } else if (type === 'improvement') {
         formData.value.title = 'Improvement: '
         formData.value.priority = 'low'
-        formData.value.description = 'Describe what could be improved and how it would make things better.'
+        // Leave description empty - placeholder will show
+        formData.value.description = ''
       }
       
       // Focus on title field
@@ -478,8 +477,8 @@ export default {
   border-color: var(--color-primary-300);
 }
 .tab-badge {
-  background: #ef4444;
-  color: #fff;
+  background: var(--color-error-500);
+  color: var(--text-inverse);
   border-radius: 9999px;
   padding: 0 6px;
   margin-left: 6px;

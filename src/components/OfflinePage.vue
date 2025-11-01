@@ -29,7 +29,7 @@ methods: {
 .offline-page {
 text-align: center;
 padding: 20px;
-background: #fff;
+background: var(--bg-primary);
 border: 1px solid #ddd;
 border-radius: 8px;
 max-width: 500px;

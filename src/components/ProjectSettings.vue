@@ -459,8 +459,8 @@ export default {
 <style scoped>
 .container {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #f8f9fa;
-  color: #222;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   padding: 32px;
   max-width: 900px;
   margin: 32px auto;
@@ -469,7 +469,7 @@ export default {
   border: 1px solid #e5e7eb;
 }
 .card {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 10px;
   padding: 24px 20px 20px 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -478,19 +478,19 @@ export default {
 }
 h3 {
   font-size: 1.7rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 15px;
   font-weight: 700;
 }
 h4 {
   font-size: 1.25rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 12px;
   font-weight: 600;
 }
 h5 {
   font-size: 1.1rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 10px;
   font-weight: 600;
 }
@@ -567,15 +567,15 @@ select {
   border-radius: 8px;
   outline: none;
   transition: border-color .2s, box-shadow .2s;
-  background: #fff;
-  color: #222;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 input:focus,
-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #dbeafe; }
+select:focus { border-color: var(--color-primary-500); box-shadow: 0 0 0 2px #dbeafe; }
 .invite-button {
   padding: 10px 18px;
-  background: #3b82f6;
-  color: #fff;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -584,11 +584,11 @@ select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #dbeafe; }
   transition: background 0.2s;
 }
 .invite-button:disabled { opacity: 0.6; cursor: default; }
-.invite-button:hover:not(:disabled) { background: #2563eb; }
+.invite-button:hover:not(:disabled) { background: var(--color-primary-600); }
 
 .toggle-btn {
   background: none;
-  color: #2563eb;
+  color: var(--color-primary-600);
   text-decoration: underline;
   border: none;
   padding: 0;
@@ -601,8 +601,8 @@ select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #dbeafe; }
   transition: color 0.2s, background 0.2s;
 }
 .toggle-btn:hover {
-  color: #1d4ed8;
-  background: #f1f5f9;
+  color: var(--color-primary-700);
+  background: var(--bg-secondary);
 }
 .role-descriptions ul {
   list-style: disc inside;
@@ -619,20 +619,20 @@ select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px #dbeafe; }
   height: 8px;
 }
 .table-responsive::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--bg-tertiary);
   border-radius: 4px;
 }
 .table-responsive::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--border-medium);
   border-radius: 4px;
 }
 .table-responsive::-webkit-scrollbar-thumb:hover {
-  background: #999;
+  background: var(--color-secondary-500);
 }
 
 .scroll-hint-text {
   font-size: .95rem;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -652,7 +652,7 @@ td {
 th {
   background: #f1f5f9;
   font-weight: 600;
-  color: #222;
+  color: var(--text-primary);
 }
 tr:nth-child(even) td {
   background: #f8fafc;
@@ -679,7 +679,7 @@ tr:nth-child(even) td {
   margin: 24px 0;
 }
 .form-container {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 10px;
   padding: 18px;
   margin-top: 16px;
@@ -690,7 +690,7 @@ tr:nth-child(even) td {
   display: block;
   margin-bottom: 4px;
   font-weight: 500;
-  color: #222;
+  color: var(--text-primary);
 }
 .form-container select {
   width: 100%;
@@ -698,8 +698,8 @@ tr:nth-child(even) td {
   border: 1.5px solid #e5e7eb;
   border-radius: 8px;
   margin-bottom: 12px;
-  background: #fff;
-  color: #222;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-size: 1rem;
 }
 

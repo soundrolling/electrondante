@@ -719,9 +719,9 @@ setup(props) {
   margin: 0 auto;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #1f2937;
+  color: var(--text-primary);
   line-height: 1.5;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -737,7 +737,7 @@ setup(props) {
 
 /* Consolidated Header Section */
 .consolidated-header {
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -765,14 +765,14 @@ setup(props) {
 .title-section h1 {
   font-size: 24px;
   margin: 0 0 8px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .title-section p {
   margin: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
 }
@@ -786,7 +786,7 @@ setup(props) {
 
 .trip-selector label {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 16px;
   white-space: nowrap;
 }
@@ -797,14 +797,14 @@ setup(props) {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1f2937;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-width: 0;
 }
 
 .trip-select-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -812,7 +812,7 @@ setup(props) {
 
 .back-button {
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
   border: 1px solid #d1d5db;
   border-radius: 8px;
   padding: 12px 16px;
@@ -829,8 +829,8 @@ setup(props) {
 }
 
 .back-button:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -887,8 +887,8 @@ setup(props) {
 .empty-state {
   text-align: center;
   padding: 32px 16px;
-  color: #6b7280;
-  background: #ffffff;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
@@ -902,7 +902,7 @@ setup(props) {
 .empty-state h3 {
   font-size: 20px;
   margin: 0 0 8px 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -914,7 +914,7 @@ setup(props) {
 
 /* Content Container */
 .content-container {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -933,14 +933,14 @@ setup(props) {
 .section-header h2 {
   font-size: 20px;
   margin: 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
 }
 
 /* Add Button */
 .add-button {
-  background: #3b82f6;
+  background: var(--color-primary-500);
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -993,7 +993,7 @@ setup(props) {
 .accommodation-form-container h3 {
   font-size: 18px;
   margin: 0 0 20px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
 }
@@ -1007,7 +1007,7 @@ setup(props) {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -1015,7 +1015,7 @@ setup(props) {
 .form-help-text {
   margin-top: 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -1054,7 +1054,7 @@ setup(props) {
 
 .member-checkbox-label span {
   font-size: 14px;
-  color: #374151;
+  color: var(--text-secondary);
   user-select: none;
 }
 
@@ -1075,8 +1075,8 @@ setup(props) {
   font-size: 16px;
   line-height: 1.5;
   box-sizing: border-box;
-  background: #ffffff;
-  color: #111827;
+  background: var(--bg-primary);
+  color: var(--text-heading);
   transition: all 0.2s ease;
   min-height: 48px;
 }
@@ -1090,7 +1090,7 @@ setup(props) {
 .form-select:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -1178,7 +1178,7 @@ setup(props) {
 .empty-accommodations {
   text-align: center;
   padding: 32px 16px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .empty-accommodations .empty-icon {
@@ -1189,7 +1189,7 @@ setup(props) {
 .empty-accommodations h3 {
   font-size: 20px;
   margin: 0 0 8px 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -1232,13 +1232,13 @@ setup(props) {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-heading);
   line-height: 1.4;
 }
 
 .accommodation-dates {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -1255,7 +1255,7 @@ setup(props) {
 
 .address-icon {
   font-size: 16px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .address-link {
@@ -1279,7 +1279,7 @@ setup(props) {
 
 .detail-item {
   font-size: 14px;
-  color: #374151;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -1290,7 +1290,7 @@ setup(props) {
 
 .accommodation-notes {
   font-size: 14px;
-  color: #374151;
+  color: var(--text-secondary);
   line-height: 1.4;
   padding: 12px;
   background: #f3f4f6;
@@ -1314,7 +1314,7 @@ setup(props) {
   font-weight: 500;
   transition: all 0.2s ease;
   border: 1px solid #e5e7eb;
-  color: #374151;
+  color: var(--text-secondary);
   background: #f9fafb;
   min-height: 44px;
   min-width: 44px;
@@ -1337,7 +1337,7 @@ setup(props) {
 }
 
 .action-button.edit-button {
-  background: #3b82f6;
+  background: var(--color-primary-500);
   color: #ffffff;
   border-color: #2563eb;
 }

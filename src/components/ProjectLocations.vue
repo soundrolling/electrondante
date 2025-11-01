@@ -1172,13 +1172,13 @@ setup() {
 /* Base Styles - Mobile First */
 .project-locations {
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 16px;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 /* Typography Scale */
@@ -1187,7 +1187,7 @@ setup() {
   font-weight: 700;
   line-height: 1.3;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .section-title {
@@ -1195,7 +1195,7 @@ setup() {
   font-weight: 600;
   line-height: 1.4;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .subsection-title {
@@ -1203,14 +1203,14 @@ setup() {
   font-weight: 600;
   line-height: 1.4;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 /* Page Header */
 .page-header {
   margin-bottom: 16px;
   padding: 12px 16px; /* align with standardized header density */
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid #e9ecef;
 }
@@ -1227,8 +1227,8 @@ setup() {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #0066cc;
-  color: #ffffff;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   font-size: 16px;
@@ -1297,11 +1297,11 @@ setup() {
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--color-error-300);
   border-radius: 8px;
   margin-bottom: 24px;
-  color: #dc2626;
+  color: var(--color-error-600);
 }
 
 .error-icon {
@@ -1321,7 +1321,7 @@ setup() {
 /* Venues & Stages Section */
 .venues-stages-section {
   margin-bottom: 24px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid #e9ecef;
   border-radius: 12px;
   padding: 20px;
@@ -1340,7 +1340,7 @@ setup() {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
@@ -1348,12 +1348,12 @@ setup() {
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 44px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .manage-btn:hover {
-  background: #e9ecef;
-  border-color: #0066cc;
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
 
@@ -1381,7 +1381,7 @@ setup() {
   position: absolute;
   left: 16px;
   font-size: 18px;
-  color: #6c757d;
+  color: var(--text-secondary);
   z-index: 2;
 }
 
@@ -1391,14 +1391,14 @@ setup() {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1a1a1a;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 44px;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 }
 
@@ -1409,7 +1409,7 @@ setup() {
 }
 
 .stage-card {
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 2px solid #e9ecef;
   border-radius: 12px;
   padding: 20px;
@@ -1418,7 +1418,7 @@ setup() {
 }
 
 .stage-card:hover {
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
   transform: translateY(-2px);
 }
@@ -1433,7 +1433,7 @@ setup() {
 .stage-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.4;
 }
@@ -1443,7 +1443,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #e9ecef;
   border-radius: 6px;
   cursor: pointer;
@@ -1453,8 +1453,8 @@ setup() {
 }
 
 .stage-edit-btn:hover {
-  background: #e9ecef;
-  border-color: #0066cc;
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
 }
 
 .stage-meta {
@@ -1519,7 +1519,7 @@ setup() {
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -1547,7 +1547,7 @@ setup() {
 }
 
 .availability-time {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -1556,7 +1556,7 @@ setup() {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 2px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
@@ -1564,12 +1564,12 @@ setup() {
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 44px;
-  color: #1a1a1a;
+  color: var(--text-primary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .availability-btn:hover {
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
   transform: translateY(-1px);
 }
@@ -1591,7 +1591,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 16px 12px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 2px solid #e9ecef;
   border-radius: 12px;
   cursor: pointer;
@@ -1600,13 +1600,13 @@ setup() {
   text-align: center;
   font-size: 14px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--text-primary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stage-action-btn:hover {
-  border-color: #0066cc;
-  background: #ffffff;
+  border-color: var(--color-primary-500);
+  background: var(--bg-primary);
   box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
   transform: translateY(-2px);
 }
@@ -1630,12 +1630,12 @@ setup() {
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .empty-message {
   font-size: 16px;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin-bottom: 24px;
 }
 
@@ -1694,7 +1694,7 @@ setup() {
 }
 
 .modal-content {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   max-width: 500px;
   width: 100%;
@@ -1704,7 +1704,7 @@ setup() {
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 16px;
   max-width: 600px;
   width: 100%;
@@ -1720,7 +1720,7 @@ setup() {
   align-items: center;
   padding: 24px 28px 20px 28px;
   border-bottom: 1px solid #e9ecef;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 16px 16px 0 0;
 }
 
@@ -1728,14 +1728,14 @@ setup() {
   font-size: 20px;
   font-weight: 600;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .modal-close {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
@@ -1748,15 +1748,15 @@ setup() {
 }
 
 .modal-close:hover {
-  background: #f8f9fa;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .modal-tabs {
   display: flex;
   gap: 0;
   border-bottom: 1px solid #e9ecef;
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 0 8px;
 }
 
@@ -1767,7 +1767,7 @@ setup() {
   border: none;
   font-size: 16px;
   font-weight: 500;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 48px;
@@ -1778,18 +1778,18 @@ setup() {
 
 .modal-tab:hover {
   color: #0066cc;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .modal-tab.active {
   color: #0066cc;
   border-bottom-color: #0066cc;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .modal-body {
   padding: 28px;
-  background: #ffffff;
+  background: var(--bg-primary);
 }
 
 /* Form Elements */
@@ -1812,7 +1812,7 @@ setup() {
 
 .form-label {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 0;
   font-size: 16px;
   line-height: 1.4;
@@ -1824,8 +1824,8 @@ setup() {
   border: 2px solid #e9ecef;
   border-radius: 12px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1a1a1a;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   transition: all 0.2s ease;
   min-height: 48px;
   box-sizing: border-box;
@@ -1833,7 +1833,7 @@ setup() {
 
 .form-input:focus {
   outline: none;
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 }
 
@@ -1843,8 +1843,8 @@ setup() {
   border: 2px solid #e9ecef;
   border-radius: 12px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1a1a1a;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 48px;
   appearance: none;
   cursor: pointer;
@@ -1897,15 +1897,15 @@ setup() {
 }
 
 .btn-secondary {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   color: #1a1a1a !important;
   border: 2px solid #e9ecef;
 }
 
 .btn-secondary:hover {
-  background: #e9ecef;
+  background: var(--bg-tertiary);
   color: #1a1a1a !important;
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
 }
 
 .btn-danger {
@@ -1923,29 +1923,29 @@ setup() {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 20px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .hours-table th {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   border-bottom: 2px solid #e9ecef;
 }
 
 .hours-table td {
   padding: 12px 16px;
   border-bottom: 1px solid #e9ecef;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .hours-table tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .actions-cell {
@@ -1959,7 +1959,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #e9ecef;
   border-radius: 6px;
   cursor: pointer;
@@ -1969,8 +1969,8 @@ setup() {
 }
 
 .icon-action:hover {
-  background: #e9ecef;
-  border-color: #0066cc;
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
 }
 
 .icon-action.delete:hover {
@@ -2013,15 +2013,15 @@ setup() {
 
 /* Add New Slot Button - Dark Text */
 .primary-button.add-slot-button {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   color: #1a1a1a !important;
   border: 2px solid #e9ecef;
 }
 
 .primary-button.add-slot-button:hover {
-  background: #e9ecef;
+  background: var(--bg-tertiary);
   color: #1a1a1a !important;
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
 
@@ -2052,7 +2052,7 @@ setup() {
   justify-content: center;
   gap: 8px;
   padding: 12px 20px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   color: #1a1a1a !important;
   border: 2px solid #e9ecef;
   border-radius: 8px;
@@ -2066,9 +2066,9 @@ setup() {
 }
 
 .secondary-button:hover {
-  background: #e9ecef;
+  background: var(--bg-tertiary);
   color: #1a1a1a !important;
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   transform: translateY(-1px);
 }
 
@@ -2113,7 +2113,7 @@ setup() {
 .venue-selection {
   margin-bottom: 32px;
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid #e9ecef;
 }
@@ -2134,7 +2134,7 @@ setup() {
 .stages-section {
   margin-bottom: 32px;
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid #e9ecef;
 }
@@ -2151,14 +2151,14 @@ setup() {
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 2px solid #e9ecef;
   border-radius: 12px;
   transition: all 0.2s ease;
 }
 
 .stage-item:hover {
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
 
@@ -2173,7 +2173,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid #e9ecef;
   border-radius: 6px;
   cursor: pointer;
@@ -2184,8 +2184,8 @@ setup() {
 }
 
 .order-btn:hover:not(:disabled) {
-  background: #e9ecef;
-  border-color: #0066cc;
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
 }
 
 .order-btn:disabled {
@@ -2196,7 +2196,7 @@ setup() {
 .stage-name {
   flex: 1;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .stage-actions {
@@ -2209,7 +2209,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid #e9ecef;
   border-radius: 6px;
   cursor: pointer;
@@ -2219,8 +2219,8 @@ setup() {
 }
 
 .action-btn:hover {
-  background: #e9ecef;
-  border-color: #0066cc;
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
 }
 
 .action-btn.delete:hover {
@@ -2231,14 +2231,14 @@ setup() {
 
 .no-stages {
   text-align: center;
-  color: #6c757d;
+  color: var(--text-secondary);
   font-style: italic;
   padding: 20px;
 }
 
 .add-stage {
   padding: 24px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 2px solid #e9ecef;
   border-radius: 12px;
   margin-top: 16px;
@@ -2248,7 +2248,7 @@ setup() {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .add-stage-form {
@@ -2264,7 +2264,7 @@ setup() {
 /* Venue Details */
 .venue-details {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid #e9ecef;
 }
@@ -2304,7 +2304,7 @@ setup() {
 }
 
 .venue-display {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-style: italic;
 }
 

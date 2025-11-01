@@ -740,11 +740,11 @@ function printPreview() {
 }
 
 .breadcrumb-separator {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .breadcrumb-text {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* Project Header */
@@ -764,7 +764,7 @@ function printPreview() {
 .project-title {
   font-size: 1.6rem;
   margin: 0;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 /* Header Section */
@@ -786,12 +786,12 @@ function printPreview() {
 .header-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .header-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   font-size: 1rem;
 }
@@ -822,57 +822,57 @@ function printPreview() {
 }
 
 .btn-secondary {
-  background: #f3f4f6;
-  color: #1f2937 !important;
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
-  color: #111827 !important;
-  border-color: #9ca3af;
+  background: var(--bg-tertiary);
+  color: var(--text-heading) !important;
+  border-color: var(--border-medium);
 }
 
 .btn-primary {
-  background: #2563eb;
-  color: #ffffff !important;
-  border: 1px solid #1d4ed8;
+  background: var(--color-primary-600);
+  color: var(--text-inverse) !important;
+  border: 1px solid var(--color-primary-700);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1e40af;
-  color: #ffffff !important;
-  border-color: #1e3a8a;
+  background: var(--color-primary-700);
+  color: var(--text-inverse) !important;
+  border-color: var(--color-primary-800);
 }
 
 .btn-save {
-  background: #16a34a;
-  color: #ffffff !important;
+  background: var(--color-success-500);
+  color: var(--text-inverse) !important;
 }
 
 .btn-save:hover:not(:disabled) {
-  background: #15803d;
-  color: #ffffff !important;
+  background: var(--color-success-600);
+  color: var(--text-inverse) !important;
 }
 
 .btn-delete {
-  background: #dc2626;
-  color: #ffffff !important;
+  background: var(--color-error-500);
+  color: var(--text-inverse) !important;
 }
 
 .btn-delete:hover:not(:disabled) {
-  background: #b91c1c;
-  color: #ffffff !important;
+  background: var(--color-error-600);
+  color: var(--text-inverse) !important;
 }
 
 .btn-cancel {
-  background: #6b7280;
-  color: #ffffff !important;
+  background: var(--color-secondary-500);
+  color: var(--text-inverse) !important;
 }
 
 .btn-cancel:hover:not(:disabled) {
-  background: #4b5563;
-  color: #ffffff !important;
+  background: var(--color-secondary-600);
+  color: var(--text-inverse) !important;
 }
 
 .btn-icon {
@@ -929,12 +929,12 @@ function printPreview() {
 .upload-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .upload-subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 8px 0;
 }
 
@@ -968,7 +968,7 @@ function printPreview() {
 
 .progress-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -984,7 +984,7 @@ function printPreview() {
 .selected-files-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 16px 0;
 }
 
@@ -1018,7 +1018,7 @@ function printPreview() {
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 4px 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1027,7 +1027,7 @@ function printPreview() {
 
 .file-size {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -1073,7 +1073,7 @@ function printPreview() {
 .docs-count-title {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -1092,7 +1092,7 @@ function printPreview() {
 .search-input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 0.2s ease;
@@ -1242,9 +1242,9 @@ function printPreview() {
 }
 
 .action-btn {
-  background: #f3f4f6;
-  color: #1f2937 !important;
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary);
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium);
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -1283,7 +1283,7 @@ function printPreview() {
 
 .meta-item {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* Reorder Section */
@@ -1306,7 +1306,7 @@ function printPreview() {
 .order-btn {
   background: #f3f4f6;
   color: #000000 !important;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 4px;
   width: 28px;
   height: 28px;
@@ -1333,7 +1333,7 @@ function printPreview() {
 .order-number {
   font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   min-width: 20px;
   text-align: center;
 }
@@ -1382,7 +1382,7 @@ function printPreview() {
 .textarea-edit {
   width: 100%;
   min-height: 80px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   padding: 12px;
   font-size: 14px;
@@ -1420,12 +1420,12 @@ function printPreview() {
 .empty-title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 12px 0;
 }
 
 .empty-description {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0;
   max-width: 400px;
   margin-left: auto;
@@ -1559,7 +1559,7 @@ function printPreview() {
 .preview-unsupported {
   padding: 32px;
   text-align: center;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 .preview-modal-footer {
   display: flex;

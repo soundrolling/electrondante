@@ -131,6 +131,20 @@
                 required
               />
             </div>
+            <div class="form-group">
+              <label for="warningMinutes">Warning (minutes)</label>
+              <input
+                v-model.number="newWarningMinutes"
+                id="warningMinutes"
+                type="number"
+                min="0"
+                max="60"
+                step="1"
+                placeholder="2"
+                title="Minutes before artist start time to show notification (default: 2)"
+              />
+              <small class="form-hint">Minutes before start time to show changeover notification</small>
+            </div>
             <div class="form-actions">
               <button type="button" @click="cancelForm" class="secondary-button">
                 Cancel
@@ -256,6 +270,7 @@ const newArtistName    = ref('')
 const newStartTime     = ref('')
 const newEndTime       = ref('')
 const newRecordingDate = ref(getFormattedCurrentDate())
+const newWarningMinutes = ref(null) // null means use default
 const isEditing        = ref(false)
 const currentEditId    = ref(null)
 const isFormOpen       = ref(false)
@@ -427,6 +442,7 @@ newArtistName.value    = ''
 newStartTime.value     = ''
 newEndTime.value       = ''
 newRecordingDate.value = getFormattedCurrentDate()
+newWarningMinutes.value = null
 formError.value        = null
 }
 function handleFormSubmit() {
@@ -450,7 +466,8 @@ try {
     end_time: newEndTime.value,
     recording_date: newRecordingDate.value,
     location_id: Number(selectedLocationId.value),
-    project_id: route.params.id
+    project_id: route.params.id,
+    warning_bell_minutes: newWarningMinutes.value || null
   })
   toast.success('Added')
   await fetchSchedulesByLocation(selectedLocationId.value)
@@ -470,6 +487,7 @@ newArtistName.value= s.artist_name
 newStartTime.value = s.start_time
 newEndTime.value   = s.end_time
 newRecordingDate.value = s.recording_date
+newWarningMinutes.value = s.warning_bell_minutes || null
 isFormOpen.value   = true
 }
 async function updateScheduleItem() {
@@ -484,7 +502,8 @@ try {
     artist_name: newArtistName.value,
     start_time: newStartTime.value,
     end_time: newEndTime.value,
-    recording_date: newRecordingDate.value
+    recording_date: newRecordingDate.value,
+    warning_bell_minutes: newWarningMinutes.value || null
   })
   toast.success('Updated')
   await fetchSchedulesByLocation(selectedLocationId.value)
@@ -607,8 +626,8 @@ display: flex;
 margin-bottom: 16px;
 }
 .back-button {
-background: var(--accent2);
-color: #fff;
+background: var(--color-primary-500);
+color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 padding: 8px 14px;
@@ -616,7 +635,7 @@ cursor: pointer;
 transition: background .2s;
 }
 .back-button:hover {
-background: var(--accent2-dark);
+background: var(--color-primary-600);
 }
 
 /* Header */
@@ -656,9 +675,9 @@ margin-top: 8px; font-size: 1rem; color: var(--accent2);
 
 /* Error */
 .error-message {
-background: #fde2e5;
-border: 1px solid #f9c6cb;
-color: #86181d;
+background: rgba(239, 68, 68, 0.1);
+border: 1px solid var(--color-error-300);
+color: var(--color-error-700);
 padding: 16px;
 border-radius: 6px;
 margin-bottom: 24px;
@@ -700,8 +719,8 @@ margin: 18px 0 28px 0;
 }
 .collapsible-header {
 width: 100%;
-background: var(--accent2);
-color: #fff;
+background: var(--color-primary-500);
+color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 padding: 12px;
@@ -710,15 +729,15 @@ cursor: pointer;
 transition: background .2s;
 }
 .collapsible-header:hover {
-background: var(--accent2-dark);
+background: var(--color-primary-600);
 }
 .schedule-form {
-background: #fff;
-border: 1px solid var(--border);
+background: var(--bg-primary);
+border: 1px solid var(--border-light);
 border-radius: 6px;
 padding: 16px;
 margin-top: 12px;
-box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+box-shadow: var(--shadow-sm);
 }
 .schedule-form h3 {
 text-align: center;
@@ -741,6 +760,12 @@ transition: border-color .2s;
 .form-group input:focus {
 border-color: var(--accent2);
 }
+.form-hint {
+font-size: 0.75rem;
+  color: var(--text-secondary);
+margin-top: 4px;
+display: block;
+}
 
 /* Form actions */
 .form-actions {
@@ -757,23 +782,23 @@ cursor: pointer;
 transition: background .2s;
 }
 .primary-button {
-background: var(--accent2);
-color: #fff;
+background: var(--color-primary-500);
+color: var(--text-inverse);
 }
 .primary-button:hover:not(:disabled) {
-background: var(--accent2-dark);
+background: var(--color-primary-600);
 }
 .primary-button:disabled {
 opacity: .6;
 cursor: default;
 }
 .secondary-button {
-background: #fff;
+background: var(--bg-primary);
 color: var(--text-dark);
 border: 1px solid var(--border);
 }
 .secondary-button:hover {
-background: #f4f5f7;
+background: var(--bg-secondary);
 }
 
 /* Schedule table */
@@ -800,15 +825,15 @@ text-align: left;
 font-size: .9rem;
 }
 .schedule-table th {
-background: #f4f5f7;
+background: var(--bg-secondary);
 text-transform: uppercase;
 font-weight: 600;
 }
 .schedule-table tbody tr:hover {
-background: #f9fafb;
+background: var(--bg-secondary);
 }
 .current-schedule {
-background: #e6ffed;
+background: rgba(34, 197, 94, 0.1);
 }
 
 /* Actions */
@@ -822,16 +847,16 @@ display: inline-flex; align-items: center; justify-content: center;
 cursor: pointer; transition: background .2s, transform .2s;
 }
 .icon-button.edit {
- background: #f59e0b !important; /* amber-500 */
- color: #111827 !important;     /* gray-900 for strong contrast */
+ background: var(--color-warning-500) !important;
+ color: var(--text-primary) !important;
 }
 .icon-button.edit:hover {
- background: #d97706 !important; /* amber-600 */
+ background: var(--color-warning-600) !important;
  transform: translateY(-2px);
 }
 .icon-button.delete {
  background: var(--danger) !important;
- color: #ffffff !important;
+ color: var(--text-inverse) !important;
 }
 .icon-button.delete:hover {
  background: var(--danger-dark) !important;
@@ -876,7 +901,7 @@ to { transform: rotate(360deg); }
 /* Filters and Controls */
 .filters-section-modern {
   margin-bottom: 20px;
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 14px;
   box-shadow: 0 2px 12px 0 rgba(30,34,90,0.07);
   padding: 12px 12px 10px 12px; /* match calendar tighter header */
@@ -907,7 +932,7 @@ to { transform: rotate(360deg); }
   border: 1.5px solid #e3e7ef;
   border-radius: 8px;
   font-size: 0.98rem;
-  background: #fff;
+  background: var(--bg-primary);
   transition: border-color .2s;
 }
 .input-modern:focus {

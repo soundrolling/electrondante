@@ -1596,8 +1596,8 @@ setup(props) {
   margin: 0 auto;
   box-sizing: border-box;
   font-family: 'Segoe UI', Arial, sans-serif;
-  background: #f8f9fa;
-  color: #222;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 @media (min-width: 1024px) {
@@ -1609,7 +1609,7 @@ setup(props) {
 
 /* Consolidated Header Section */
 .consolidated-header {
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1637,14 +1637,14 @@ setup(props) {
 .title-section h1 {
   font-size: 24px;
   margin: 0 0 8px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .title-section p {
   margin: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
 }
@@ -1658,7 +1658,7 @@ setup(props) {
 
 .trip-selector label {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 16px;
   white-space: nowrap;
 }
@@ -1669,19 +1669,19 @@ setup(props) {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1f2937;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-width: 0;
 }
 
 .trip-select-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .header-section {
-  background: #fff;
+  background: var(--bg-primary);
   padding: 2rem 1rem 1.5rem 1rem;
   border-radius: 12px;
   text-align: center;
@@ -1692,7 +1692,7 @@ setup(props) {
 
 .header-section h1 {
   font-size: 2rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
   font-weight: 700;
 }
@@ -1724,7 +1724,7 @@ setup(props) {
 .back-button:hover {
   background: #e0e7ef;
   color: #1d4ed8;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
 }
 .back-icon {
   font-size: 1.2rem;
@@ -1747,7 +1747,7 @@ setup(props) {
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   border: 1.5px solid #e5e7eb;
@@ -1755,7 +1755,7 @@ setup(props) {
 }
 .trip-selector label {
   font-weight: 500;
-  color: #222;
+  color: var(--text-primary);
 }
 .trip-select-input {
   padding: 0.6rem;
@@ -1763,7 +1763,7 @@ setup(props) {
   border-radius: 8px;
   font-size: 1rem;
   background: #f8fafc;
-  color: #222;
+  color: var(--text-primary);
   width: 100%;
   box-sizing: border-box;
 }
@@ -1848,7 +1848,7 @@ setup(props) {
 }
 
 .content-container {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   border: 1.5px solid #e5e7eb;
@@ -1874,7 +1874,7 @@ setup(props) {
   border-radius: 8px 8px 0 0;
   padding: 10px 22px;
   font-size: 1rem;
-  color: #222;
+  color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border 0.2s;
@@ -1884,7 +1884,7 @@ setup(props) {
   gap: 0.5rem;
 }
 .tab-btn.active {
-  background: #fff;
+  background: var(--bg-primary);
   color: #2563eb;
   border-bottom: 2.5px solid #2563eb;
   font-weight: 700;
@@ -1930,7 +1930,7 @@ setup(props) {
 }
 .section-header h2 {
   font-size: 1.4rem;
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 600;
 }
 .add-button {
@@ -2017,7 +2017,7 @@ setup(props) {
 .parking-card-header h3 {
   margin: 0;
   font-size: 1.1rem;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 .parking-dates {
   font-size: 0.95rem;
@@ -2033,7 +2033,7 @@ setup(props) {
 }
 .parking-card-body p {
   margin: 0.5rem 0;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .flight-route {
@@ -2075,7 +2075,7 @@ setup(props) {
   color: #64748b;
 }
 .detail-value {
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .status-upcoming {
@@ -2123,7 +2123,7 @@ setup(props) {
 .parking-card-footer button:hover {
   background: #e0e7ef;
   color: #1d4ed8;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
 }
 .edit-button {
   background: #f1f5f9;
@@ -2139,7 +2139,7 @@ setup(props) {
 .edit-button:hover {
   background: #e0e7ef;
   color: #1d4ed8;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
 }
 .edit-button .action-icon {
   font-size: 1.1rem;
@@ -2201,7 +2201,7 @@ setup(props) {
 .action-button:hover {
   background: #e0e7ef;
   color: #1d4ed8;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
 }
 .action-button .action-icon {
   font-size: 1.1rem;
@@ -2243,7 +2243,7 @@ setup(props) {
   z-index: -1;
 }
 .modal-container {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
@@ -2302,7 +2302,7 @@ setup(props) {
   margin-bottom: 0.5rem;
   font-weight: 500;
   font-size: 0.97rem;
-  color: #222;
+  color: var(--text-primary);
 }
 .form-group input,
 .form-group textarea {
@@ -2312,8 +2312,8 @@ setup(props) {
   border-radius: 8px;
   font-size: 1rem;
   box-sizing: border-box;
-  background: #fff;
-  color: #222;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 .modal-container input:focus,
 .modal-container textarea:focus {

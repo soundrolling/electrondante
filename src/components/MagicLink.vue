@@ -96,39 +96,39 @@ export default {
   max-width: 400px;
   margin: 100px auto;
   padding: 20px;
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 h1 {
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 15px;
 }
 
 p {
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 20px;
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
 .error-message {
-  color: #d9534f;
+  color: var(--color-error-600);
   margin-bottom: 15px;
   text-align: center;
   padding: 10px;
-  background-color: #f2dede;
+  background-color: rgba(239, 68, 68, 0.1);
   border-radius: 4px;
 }
 
 .success-message {
-  color: #28a745;
+  color: var(--color-success-500);
   margin-bottom: 15px;
   text-align: center;
   padding: 10px;
-  background-color: #d4edda;
+  background-color: rgba(34, 197, 94, 0.15);
   border-radius: 4px;
 }
 
@@ -147,8 +147,8 @@ p {
 
 .magic-link-button {
   padding: 12px;
-  background-color: #5bc0de;
-  color: white;
+  background-color: var(--color-primary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -157,11 +157,11 @@ p {
 }
 
 .magic-link-button:hover {
-  background-color: #46b8da;
+  background-color: var(--color-primary-600);
 }
 
 .magic-link-button:disabled {
-  background-color: #a8d8e6;
+  background-color: var(--color-primary-300);
   cursor: not-allowed;
 }
 
@@ -170,7 +170,7 @@ p {
 }
 
 .back-to-login a {
-  color: #5bc0de;
+  color: var(--color-primary-500);
   text-decoration: none;
 }
 

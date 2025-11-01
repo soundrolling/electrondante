@@ -304,7 +304,7 @@ clearInterval(clockTimer)
 <style scoped>
 /* Mobile-first base styles */
 .weather-info {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 32px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -320,7 +320,7 @@ clearInterval(clockTimer)
 .weather-info h2 {
   font-size: 20px;
   margin: 0 0 20px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
   text-align: center;
@@ -346,8 +346,8 @@ clearInterval(clockTimer)
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
-  background: #ffffff;
-  color: #111827;
+  background: var(--bg-primary);
+  color: var(--text-heading);
   transition: all 0.2s ease;
   min-height: 48px;
   box-sizing: border-box;
@@ -355,12 +355,12 @@ clearInterval(clockTimer)
 
 .dest-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .dest-input::placeholder {
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 /* Suggestions List */
@@ -369,7 +369,7 @@ clearInterval(clockTimer)
   top: 100%;
   left: 0;
   right: 0;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -388,7 +388,7 @@ clearInterval(clockTimer)
   border-bottom: 1px solid #f3f4f6;
   font-size: 16px;
   line-height: 1.4;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .suggestion-item:last-child {
@@ -397,7 +397,7 @@ clearInterval(clockTimer)
 
 .suggestion-item:hover,
 .suggestion-item:focus {
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   outline: none;
 }
 
@@ -431,13 +431,13 @@ clearInterval(clockTimer)
 }
 
 .go-button {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
   flex: 1;
 }
 
 .go-button:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-primary-600);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -452,20 +452,20 @@ clearInterval(clockTimer)
 }
 
 .go-button:disabled {
-  background: #9ca3af;
+  background: var(--color-secondary-400);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
 .save-button {
-  background: #f59e0b;
-  color: #111827;
+  background: var(--color-warning-500);
+  color: var(--text-heading);
   flex: 1;
 }
 
 .save-button:hover:not(:disabled) {
-  background: #d97706;
+  background: var(--color-warning-600);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -480,7 +480,7 @@ clearInterval(clockTimer)
 }
 
 .save-button:disabled {
-  background: #fbbf24;
+  background: var(--color-warning-400);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -508,8 +508,8 @@ clearInterval(clockTimer)
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
-  background: #ffffff;
-  color: #111827;
+  background: var(--bg-primary);
+  color: var(--text-heading);
   transition: all 0.2s ease;
   min-height: 48px;
   box-sizing: border-box;
@@ -517,14 +517,14 @@ clearInterval(clockTimer)
 
 .favorites-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .unit-tabs {
   display: flex;
   gap: 4px;
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   border-radius: 8px;
   padding: 4px;
 }
@@ -544,13 +544,13 @@ clearInterval(clockTimer)
 }
 
 .unit-tabs button:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
 }
 
 .unit-tabs button.active {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
 }
 
 .unit-tabs button:focus {
@@ -573,7 +573,7 @@ clearInterval(clockTimer)
 .empty-state h3 {
   font-size: 20px;
   margin: 0 0 8px 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -635,7 +635,7 @@ clearInterval(clockTimer)
 
 .retry-button {
   background: #dc2626;
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -680,7 +680,7 @@ clearInterval(clockTimer)
 .weather-location {
   font-size: 18px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
   margin-bottom: 16px;
   line-height: 1.4;
 }
@@ -696,7 +696,7 @@ clearInterval(clockTimer)
 .weather-temp {
   font-size: 48px;
   font-weight: 700;
-  color: #111827;
+  color: var(--text-heading);
   line-height: 1.2;
 }
 
@@ -734,7 +734,7 @@ clearInterval(clockTimer)
 
 .weather-detail-item span:last-child {
   font-size: 16px;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -775,7 +775,7 @@ clearInterval(clockTimer)
 }
 
 .forecast-day:hover {
-  background: #f3f4f6;
+  background: var(--bg-secondary);
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -783,7 +783,7 @@ clearInterval(clockTimer)
 .forecast-day .date {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -808,7 +808,7 @@ clearInterval(clockTimer)
 .forecast-day .temp {
   font-size: 16px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-heading);
   line-height: 1.4;
 }
 

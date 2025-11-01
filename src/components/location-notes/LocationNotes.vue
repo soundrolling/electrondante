@@ -37,7 +37,7 @@
     <!-- tab buttons -->
     <nav class="tabs">
       <button :class="{ active: activeTab==='notes' }"    @click="activeTab='notes'">Notes</button>
-      <button :class="{ active: activeTab==='schedule' }" @click="activeTab='schedule'">Schedule</button>
+      <button :class="{ active: activeTab==='schedule' }" @click="activeTab='schedule'">Artist Timetable</button>
       <button :class="{ active: activeTab==='quickfire' }" @click="activeTab='quickfire'">Shortcuts</button>
     </nav>
     
@@ -732,31 +732,31 @@ padding: 4px 8px;
 }
 .tabs {
 display: flex;
-background: rgba(255, 255, 255, 0.95);
-border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+background: var(--bg-primary);
+border-bottom: 1px solid var(--border-light);
 position: sticky;
 top: 0;
 z-index: 20;
 backdrop-filter: blur(20px);
-box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+box-shadow: var(--shadow-sm);
 }
 .tabs button {
 	flex: 1;
 	padding: 16px 0;
 	border: 0;
 	background: none;
-	color: #334155; /* darker slate for better contrast */
+	color: var(--text-secondary);
 	font-weight: 700;
 	font-size: 0.95rem;
 	transition: all 0.2s ease;
 }
 .tabs button.active {
-	color: #0f172a; /* near-black for strong contrast */
+	color: var(--text-heading);
 	position: relative;
-	background: rgba(59, 130, 246, 0.14); /* stronger background for contrast */
+	background: rgba(59, 130, 246, 0.14);
 }
 .tabs button:hover {
-	color: #0f172a;
+	color: var(--text-heading);
 	background: rgba(59, 130, 246, 0.12);
 }
 .tabs button.active::after {
@@ -765,12 +765,12 @@ position: absolute;
 bottom: 0;
 left: 0;
 width: 100%;
-	height: 4px; /* thicker underline for visibility */
-	background: linear-gradient(90deg, #1d4ed8 0%, #1e40af 100%);
+	height: 4px;
+	background: var(--color-primary-600);
 border-radius: 2px 2px 0 0;
 }
 .tabs button:focus-visible {
-	outline: 3px solid #1d4ed8;
+	outline: 3px solid var(--color-primary-600);
 	outline-offset: 2px;
 	border-radius: 6px;
 }
@@ -799,47 +799,52 @@ background: rgba(0, 0, 0, 0.4);
 }
 .modal-card {
 position: relative;
-background: #fff;
+background: var(--bg-primary);
 border-radius: 12px;
 padding: 20px;
 width: 90%;
 max-width: 420px;
-box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+box-shadow: var(--shadow-lg);
 display: grid;
 gap: 10px;
  max-height: 90vh;
  overflow-y: auto;
+ border: 1px solid var(--border-light);
 }
 .modal-card label {
 font-weight: 600;
 margin-top: 8px;
+color: var(--text-heading);
 }
 .modal-card input,
 .modal-card textarea,
 .modal-card select {
 width: 100%;
-border: 1px solid #ccd1da;
+border: 1px solid var(--border-medium);
 border-radius: 6px;
 padding: 8px;
 font-size: 0.9rem;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .recording-day-select {
-  background: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .help-text {
   margin-top: 4px;
   padding: 8px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
   border-radius: 4px;
   font-size: 0.8rem;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .help-text a {
-  color: #007bff;
+  color: var(--text-link);
   text-decoration: none;
 }
 
@@ -859,9 +864,9 @@ margin-left: 8px;
   gap: 6px;
 }
 .refresh-btn {
-  background: #f59e0b; /* amber-500 */
-  color: #111827; /* gray-900 */
-  border: 1px solid #d97706; /* amber-600 */
+  background: var(--color-warning-500);
+  color: var(--text-primary);
+  border: 1px solid var(--color-warning-600);
   border-radius: 6px;
   width: 32px;
   height: 32px;

@@ -60,16 +60,29 @@
         v-for="item in searchResults" 
         :key="item.id"
         class="gear-result-item"
-        :class="{ selected: selectedItems.includes(item.id) }"
+        :class="{ 
+          selected: selectedItems.includes(item.id),
+          'has-conflict': gearConflicts[item.id] && gearConflicts[item.id].length > 0
+        }"
       >
         <div class="gear-info">
           <div class="gear-main">
-            <h4 class="gear-name">{{ item.gear_name }}</h4>
+            <h4 class="gear-name">
+              {{ item.gear_name }}
+              <span v-if="gearConflicts[item.id] && gearConflicts[item.id].length > 0" class="conflict-indicator" title="Date conflict with other projects">
+                ⚠️
+              </span>
+            </h4>
             <div class="gear-meta">
               <span class="gear-type">{{ item.gear_type || 'No type' }}</span>
               <span class="gear-quantity">Qty: {{ item.quantity }}</span>
               <span class="gear-condition" :class="item.condition">
                 {{ item.condition }}
+              </span>
+            </div>
+            <div v-if="gearConflicts[item.id] && gearConflicts[item.id].length > 0" class="conflict-warning">
+              <span class="conflict-text">
+                Conflicts with: {{ gearConflicts[item.id].map(c => c.project_name).join(', ') }}
               </span>
             </div>
           </div>
@@ -147,9 +160,9 @@
               class="quantity-input"
               v-model.number="selectedQuantities[item.id]"
               :min="1"
-              :max="(item.quantity || 0) - (item.assigned_quantity || 0)"
+              :max="item.quantity || 0"
             />
-            <span class="quantity-max">/ {{ (item.quantity || 0) - (item.assigned_quantity || 0) }} available ({{ item.quantity }} total)</span>
+            <span class="quantity-max">/ {{ item.quantity || 0 }} total</span>
           </label>
           <label v-if="selectedStageId" class="assign-label">
             <span>Assign:</span>
@@ -158,7 +171,7 @@
               class="assign-input"
               v-model.number="selectedAssignedAmounts[item.id]"
               :min="0"
-              :max="selectedQuantities[item.id] || ((item.quantity || 0) - (item.assigned_quantity || 0))"
+              :max="selectedQuantities[item.id] || (item.quantity || 0)"
               placeholder="0"
             />
           </label>
@@ -225,6 +238,7 @@ const filteredGear = ref([]); // Filtered results to display
 const selectedItems = ref([]);
 const availableTypes = ref([]);
 const availableTeamMembers = ref([]); // Store team members for filtering
+const gearConflicts = ref({}); // Map of gear_id -> conflict info
 
 // Add a map to track selected quantities by item id
 const selectedQuantities = ref({});
@@ -258,8 +272,8 @@ watch(selectedItems, (newVal, oldVal) => {
     if (!selectedQuantities.value[id]) {
       const item = filteredGear.value.find(i => i.id === id);
       if (item) {
-        const availableQty = (item.quantity || 0) - (item.assigned_quantity || 0);
-        selectedQuantities.value[id] = Math.min(1, Math.max(0, availableQty));
+        const totalQty = item.quantity || 0;
+        selectedQuantities.value[id] = Math.min(1, Math.max(0, totalQty));
       } else {
         selectedQuantities.value[id] = 1;
       }
@@ -378,22 +392,33 @@ async function loadUserGear() {
     
     console.log('Loading gear for user IDs:', userIdArray);
 
-    // Try to use user_gear_view first (includes owner info)
+    // Query user_gear directly (not the view) to avoid any filtering based on assigned_quantity
+    // We want to show ALL gear regardless of assignments to other projects
     let gear = [];
     try {
-      console.log('Attempting to query user_gear_view with user IDs:', userIdArray);
-      const { data: gearData, error: viewError } = await supabase
-        .from('user_gear_view')
+      console.log('[UserGearSelector] Querying user_gear table directly (bypassing view to avoid filtering):', userIdArray);
+      const { data: gearData, error: gearError } = await supabase
+        .from('user_gear')
         .select('*')
         .in('user_id', userIdArray)
         .order('gear_name');
 
-      if (viewError) {
-        console.error('Error querying user_gear_view:', viewError);
-        throw viewError;
+      if (gearError) {
+        console.error('Error querying user_gear table:', gearError);
+        throw gearError;
       }
+
+      console.log('[UserGearSelector] Loaded gear from direct query:', gearData?.length || 0, 'items');
       
-      // If using view, we need to fetch profiles separately to get the listed_by_name
+      if (!gearData || gearData.length === 0) {
+        console.warn('[UserGearSelector] No gear found for user IDs:', userIdArray);
+        allUserGear.value = [];
+        filteredGear.value = [];
+        filterGear();
+        return;
+      }
+
+      // Fetch profiles to get listed by names for all users
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id, full_name, company')
@@ -454,105 +479,10 @@ async function loadUserGear() {
         };
       });
       
-      console.log('Loaded gear from view:', gear.length, 'items');
-      
-      if (gear.length === 0) {
-        console.warn('No gear found in user_gear_view, trying direct query as fallback');
-        throw new Error('No results from view');
-      }
-    } catch (viewErr) {
-      console.warn('user_gear_view not available or returned no results, using direct query:', viewErr);
-      
-      // Fallback: Get gear directly and fetch owner info separately
-      console.log('Querying user_gear table directly for user IDs:', userIdArray);
-      const { data: gearData, error: gearError } = await supabase
-        .from('user_gear')
-        .select('*')
-        .in('user_id', userIdArray)
-        .order('gear_name');
-
-      if (gearError) {
-        console.error('Error fetching gear from user_gear table:', gearError);
-        throw gearError;
-      }
-
-      console.log('Loaded gear from direct query:', gearData?.length || 0, 'items');
-      
-      if (gearData && gearData.length > 0) {
-        console.log('Sample gear item:', gearData[0]);
-      } else {
-        console.warn('No gear found in user_gear table for user IDs:', userIdArray);
-      }
-
-      // Fetch profiles to get listed by names for all users
-      const { data: profiles } = await supabase
-        .from('user_profiles')
-        .select('user_id, full_name, company')
-        .in('user_id', userIdArray);
-
-      const profileMap = {};
-      if (profiles) {
-        profiles.forEach(p => {
-          profileMap[p.user_id] = {
-            name: p.full_name || null,
-            company: p.company || null
-          };
-        });
-      }
-
-      // Build email map from project members
-      const emailMap = {};
-      if (projectMembers) {
-        projectMembers.forEach(m => {
-          if (m.user_id) {
-            emailMap[m.user_id] = m.user_email;
-          }
-        });
-      }
-      
-      // Also try to get emails from auth.users for project owner
-      if (project?.user_id && !emailMap[project.user_id]) {
-        // If we have the current user and it matches project owner, use their email
-        if (currentUserId === project.user_id && userStore.userEmail) {
-          emailMap[project.user_id] = userStore.userEmail;
-        }
-      }
-
-      // Build team members list for filter dropdown
-      const teamMembersList = [];
-      userIdArray.forEach(userId => {
-        const profile = profileMap[userId];
-        const email = emailMap[userId];
-        const memberEntry = projectMembers?.find(m => m.user_id === userId);
-        
-        if (profile || email || memberEntry) {
-          teamMembersList.push({
-            user_id: userId,
-            full_name: profile?.name || null,
-            email: email || memberEntry?.user_email || null
-          });
-        }
-      });
-      availableTeamMembers.value = teamMembersList.sort((a, b) => {
-        const nameA = (a.full_name || a.email || '').toLowerCase();
-        const nameB = (b.full_name || b.email || '').toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-
-      // Add "listed by" information to each gear item (the person who listed it in their profile)
-      gear = (gearData || []).map(item => {
-        const profile = profileMap[item.user_id];
-        const email = emailMap[item.user_id];
-        
-        return {
-          ...item,
-          listed_by_name: profile?.name || email || 'Unknown',
-          listed_by_company: profile?.company || null,
-          // Keep owner_name for backwards compatibility/search
-          owner_name: profile?.name || email || 'Unknown',
-          owner_company: profile?.company || null
-        };
-      });
+      console.log('[UserGearSelector] Processed gear items:', gear.length);
+    } catch (error) {
+      console.error('[UserGearSelector] Error loading gear:', error);
+      throw error;
     }
     
     allUserGear.value = gear;
@@ -562,6 +492,11 @@ async function loadUserGear() {
     
     // Load available types from all gear
     availableTypes.value = [...new Set(gear.map(g => g.gear_type).filter(Boolean))].sort();
+    
+    // Check for conflicts if we have a project with dates
+    if (props.projectId && navigator.onLine) {
+      checkAllGearConflicts();
+    }
   } catch (error) {
     console.error('Error loading user gear:', error);
     allUserGear.value = [];
@@ -610,21 +545,128 @@ watch([searchTerm, selectedType, selectedCondition, selectedTeamMember], () => {
   filterGear();
 });
 
+// Check conflicts for all loaded gear
+async function checkAllGearConflicts() {
+  if (!props.projectId || !navigator.onLine) {
+    console.log('[UserGearSelector] Skipping conflict check - projectId:', props.projectId, 'online:', navigator.onLine);
+    return;
+  }
+  
+  console.log('[UserGearSelector] Starting conflict check for project:', props.projectId);
+  
+  try {
+    // Get current project dates
+    const { data: currentProject, error: projectError } = await supabase
+      .from('projects')
+      .select('id, project_name, build_days, main_show_days')
+      .eq('id', props.projectId)
+      .single();
+    
+    if (projectError || !currentProject) {
+      console.warn('[UserGearSelector] Could not fetch project for conflict check:', projectError);
+      return;
+    }
+    
+    console.log('[UserGearSelector] Project dates:', {
+      build_days: currentProject.build_days?.length || 0,
+      main_show_days: currentProject.main_show_days?.length || 0
+    });
+    
+    // Check if current project has dates
+    const hasCurrentDates = (Array.isArray(currentProject.build_days) && currentProject.build_days.length > 0) ||
+                            (Array.isArray(currentProject.main_show_days) && currentProject.main_show_days.length > 0);
+    
+    if (!hasCurrentDates) {
+      console.log('[UserGearSelector] Project has no dates, skipping conflict check');
+      return; // No dates, no conflicts possible
+    }
+    
+    const { checkGearAssignmentConflicts } = await import('../utils/gearConflictHelper');
+    console.log('[UserGearSelector] Checking conflicts for', allUserGear.value.length, 'gear items');
+    
+    // Check conflicts for all gear items
+    const conflictPromises = allUserGear.value.map(async (item) => {
+      const conflicts = await checkGearAssignmentConflicts(
+        item.id,
+        props.projectId,
+        currentProject,
+        supabase
+      );
+      
+      if (conflicts.length > 0) {
+        console.log('[UserGearSelector] Found conflicts for gear:', item.gear_name, conflicts);
+        gearConflicts.value[item.id] = conflicts;
+      } else {
+        delete gearConflicts.value[item.id];
+      }
+    });
+    
+    await Promise.all(conflictPromises);
+    console.log('[UserGearSelector] Conflict check complete. Items with conflicts:', Object.keys(gearConflicts.value).length);
+  } catch (err) {
+    console.error('[UserGearSelector] Error checking gear conflicts:', err);
+    // Don't block - just continue without conflict indicators
+  }
+}
+
 function updateSelection() {
   emit('gear-selected', selectedItemsData.value.map(item => ({ ...item, selectedQuantity: selectedQuantities.value[item.id] || 1 })));
 }
 
-function addSelectedToProject() {
+async function addSelectedToProject() {
   if (selectedItemsData.value.length === 0) return;
   
-  // Validate quantities don't exceed available
+  // Validate quantities don't exceed total quantity (but allow assignment to multiple projects)
   for (const item of selectedItemsData.value) {
     const selectedQty = selectedQuantities.value[item.id] || 1;
-    const availableQty = (item.quantity || 0) - (item.assigned_quantity || 0);
+    const totalQuantity = item.quantity || 0;
     
-    if (selectedQty > availableQty) {
-      toast.error(`Cannot add ${selectedQty} of ${item.gear_name}. Only ${availableQty} available (${item.quantity} total, ${item.assigned_quantity || 0} already assigned).`)
-      return; // Don't add if validation fails
+    if (selectedQty > totalQuantity) {
+      toast.error(`Cannot add ${selectedQty} of ${item.gear_name}. Total quantity is ${totalQuantity}.`)
+      return; // Don't add if exceeds total owned
+    }
+  }
+  
+  // Check for date conflicts (warn but don't block)
+  // Only check if both projects have dates set - if either project has no dates, no conflicts possible
+  if (props.projectId && navigator.onLine) {
+    try {
+      // Get current project dates
+      const { data: currentProject, error: projectError } = await supabase
+        .from('projects')
+        .select('id, project_name, build_days, main_show_days')
+        .eq('id', props.projectId)
+        .single();
+      
+      if (!projectError && currentProject) {
+        // Check if current project has any dates - if not, skip conflict checking entirely
+        const hasCurrentDates = (Array.isArray(currentProject.build_days) && currentProject.build_days.length > 0) ||
+                                (Array.isArray(currentProject.main_show_days) && currentProject.main_show_days.length > 0);
+        
+        if (hasCurrentDates) {
+          const { checkGearAssignmentConflicts, formatConflictMessage } = await import('../utils/gearConflictHelper');
+          
+          for (const item of selectedItemsData.value) {
+            const conflicts = await checkGearAssignmentConflicts(
+              item.id,
+              props.projectId,
+              currentProject,
+              supabase
+            );
+            
+            // Only show warning if there are actual conflicts
+            if (conflicts.length > 0) {
+              const conflictMsg = formatConflictMessage(conflicts, item.gear_name);
+              toast.warning(conflictMsg, { timeout: 8000 });
+            }
+          }
+        } else {
+          console.log('[UserGearSelector] Current project has no dates, skipping conflict check');
+        }
+      }
+    } catch (err) {
+      console.warn('Could not check for date conflicts:', err);
+      // Don't block on conflict check errors - allow assignment to proceed
     }
   }
   
@@ -666,6 +708,7 @@ onMounted(async () => {
 // Watch for prop changes
 watch(() => props.projectId, async () => {
   clearSelection();
+  gearConflicts.value = {}; // Clear conflicts when project changes
   await loadUserGear();
 });
 </script>
@@ -685,12 +728,12 @@ margin-bottom: 1.5rem;
 .selector-title {
 font-size: 1.25rem;
 font-weight: 600;
-color: #1e293b;
+color: var(--text-primary);
 margin: 0 0 0.5rem;
 }
 
 .selector-subtitle {
-color: #64748b;
+color: var(--text-secondary);
 margin: 0;
 font-size: 0.875rem;
 }
@@ -736,7 +779,7 @@ position: absolute;
 left: 0.75rem;
 top: 50%;
 transform: translateY(-50%);
-color: #64748b;
+color: var(--text-secondary);
 }
 
 .filter-group {
@@ -764,7 +807,7 @@ gap: 0.5rem;
 .loading-state {
 text-align: center;
 padding: 2rem;
-color: #64748b;
+color: var(--text-secondary);
 }
 
 .spinner {
@@ -790,7 +833,7 @@ margin-bottom: 1rem;
 
 .results-count {
 font-size: 0.875rem;
-color: #64748b;
+color: var(--text-secondary);
 }
 
 .gear-results {
@@ -824,6 +867,32 @@ gap: 0.75rem;
   box-shadow: var(--shadow-md);
 }
 
+.gear-result-item.has-conflict {
+  border-color: var(--color-warning-500);
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.conflict-indicator {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+.conflict-warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #fca5a5;
+  border-radius: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.conflict-text {
+  color: var(--color-error-700);
+  font-weight: 500;
+}
+
 .gear-info {
 flex: 1;
 display: flex;
@@ -838,7 +907,7 @@ flex: 1;
 .gear-name {
 font-size: 1rem;
 font-weight: 600;
-color: #1e293b;
+color: var(--text-primary);
 margin: 0 0 0.5rem;
 }
 
@@ -847,11 +916,11 @@ display: flex;
 gap: 1rem;
 align-items: center;
 font-size: 0.875rem;
-color: #64748b;
+color: var(--text-secondary);
 }
 
 .gear-type {
-color: #3b82f6;
+color: var(--color-primary-500);
 font-weight: 500;
 }
 
@@ -868,23 +937,23 @@ text-transform: capitalize;
 }
 
 .gear-condition.excellent {
-background: #dcfce7;
-color: #166534;
+background: rgba(34, 197, 94, 0.15);
+color: var(--color-success-700);
 }
 
 .gear-condition.good {
-background: #dbeafe;
-color: #1e40af;
+background: rgba(59, 130, 246, 0.15);
+color: var(--color-primary-700);
 }
 
 .gear-condition.fair {
-background: #fef3c7;
-color: #92400e;
+background: rgba(251, 191, 36, 0.15);
+color: var(--color-warning-700);
 }
 
 .gear-condition.poor {
-background: #fee2e2;
-color: #991b1b;
+background: rgba(239, 68, 68, 0.1);
+color: var(--color-error-700);
 }
 
 .gear-owner {
@@ -897,7 +966,7 @@ gap: 0.25rem;
 
 .owner-label {
 font-size: 0.75rem;
-color: #64748b;
+color: var(--text-secondary);
 font-weight: 500;
 text-transform: uppercase;
 letter-spacing: 0.5px;
@@ -906,13 +975,13 @@ letter-spacing: 0.5px;
 .owner-name {
 display: block;
 font-weight: 600;
-color: #1e293b;
+color: var(--text-primary);
 font-size: 0.9rem;
 }
 
 .owner-company {
 display: block;
-color: #64748b;
+color: var(--text-secondary);
 font-size: 0.75rem;
 }
 
@@ -947,12 +1016,12 @@ transition: all 0.2s ease;
 }
 
 .checkbox-label:hover input ~ .checkmark {
-border-color: #3b82f6;
+border-color: var(--color-primary-500);
 }
 
 .checkbox-label input:checked ~ .checkmark {
-background-color: #3b82f6;
-border-color: #3b82f6;
+background-color: var(--color-primary-500);
+border-color: var(--color-primary-500);
 }
 
 .checkmark:after {
@@ -976,7 +1045,7 @@ display: block;
 .initial-state {
 text-align: center;
 padding: 2rem;
-color: #64748b;
+color: var(--text-secondary);
 }
 
 .empty-icon,
@@ -1014,7 +1083,7 @@ border: 1px solid #e2e8f0;
 .stage-assignment-label {
 display: block;
 font-weight: 500;
-color: #1e293b;
+color: var(--text-primary);
 margin-bottom: 0.5rem;
 font-size: 0.875rem;
 }
@@ -1032,7 +1101,7 @@ transition: all 0.2s ease;
 
 .stage-select:focus {
 outline: none;
-border-color: #3b82f6;
+border-color: var(--color-primary-500);
 box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
@@ -1046,7 +1115,7 @@ margin-bottom: 1rem;
 .summary-header h4 {
 margin: 0;
 font-size: 1rem;
-color: #1e293b;
+color: var(--text-primary);
 }
 
 .selected-items {
@@ -1082,11 +1151,11 @@ flex-wrap: wrap;
 .item-name {
 flex: 1;
 font-weight: 500;
-color: #1e293b;
+color: var(--text-primary);
 }
 
 .item-owner {
-color: #64748b;
+color: var(--text-secondary);
 font-size: 0.75rem;
 }
 
@@ -1209,7 +1278,7 @@ text-align: center;
 
 .quantity-max {
 font-size: 0.75rem;
-color: #64748b;
+color: var(--text-secondary);
 }
 
 .assign-label {

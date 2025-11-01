@@ -63,7 +63,7 @@ data() {
 <style scoped>
 .legend-section {
   padding: 0.8rem 1rem;
-  background: #fff;
+  background: var(--bg-primary);
   border-bottom: 1px solid #e1e5eb;
   max-width: 700px;
   margin: 0 auto 1rem auto;
@@ -82,7 +82,7 @@ data() {
   font-size: 1.2em;
   cursor: pointer;
   margin-left: 0.5em;
-  color: #888;
+  color: var(--text-tertiary);
 }
 .legend-fade-enter-active, .legend-fade-leave-active {
   transition: opacity 0.2s;
@@ -114,7 +114,7 @@ font-size: 0.9rem;
 }
 .legend-note {
 margin-top: 0.5rem;
-color: #666;
+color: var(--text-secondary);
 font-style: italic;
 }
 .stage-hours-legend {
@@ -127,14 +127,14 @@ font-style: italic;
 }
 .hour-slot-legend {
   margin-left: 0.5em;
-  color: #28a745;
+  color: var(--color-success-500);
 }
 .hour-notes {
 font-style: italic;
-color: #999;
+color: var(--text-tertiary);
 }
 .legend-standout {
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border: 1.5px solid #d1d5db;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);

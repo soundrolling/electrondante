@@ -13,38 +13,79 @@
     <p class="page-subtitle">Manage and organize your project's gear efficiently.</p>
   </header>
 
-  <!-- FILTER & SORT -->
-  <section class="filter-section">
-    <div class="filter-container ui-filter-bar">
-      <div class="filter-row">
-        <div class="filter-group">
-          <label for="filterAssignment" class="filter-label">Filter Gear:</label>
-          <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
-            <option value="all">All Gear</option>
-            <option value="unassigned">Unassigned</option>
-            <option value="assigned">Assigned</option>
-            <option
-              v-for="loc in locationsList"
-              :key="loc.id"
-              :value="String(loc.id)"
-            >
-              {{ loc.stage_name }} ({{ loc.venue_name }})
-            </option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="sortGear" class="filter-label">Sort By:</label>
-          <select id="sortGear" v-model="sortBy" class="filter-select">
-            <option value="default">Default Order</option>
-            <option value="name-asc">Name (A-Z)</option>
-            <option value="name-desc">Name (Z-A)</option>
-            <option value="quantity-desc">Quantity (Most to Least)</option>
-            <option value="quantity-asc">Quantity (Least to Most)</option>
-          </select>
+  <!-- TAB NAVIGATION -->
+  <div class="tab-navigation">
+    <button
+      :class="['tab-button', { active: activeTab === 'gear' }]"
+      @click="switchTab('gear')"
+    >
+      <span class="tab-icon">🎛️</span>
+      <span class="tab-label">Gear</span>
+    </button>
+    <button
+      :class="['tab-button', { active: activeTab === 'packing' }]"
+      @click="switchTab('packing')"
+    >
+      <span class="tab-icon">🎒</span>
+      <span class="tab-label">Packing</span>
+    </button>
+    <button
+      :class="['tab-button', { active: activeTab === 'repacking' }]"
+      @click="switchTab('repacking')"
+    >
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Repacking</span>
+    </button>
+  </div>
+
+  <!-- GEAR TAB CONTENT -->
+  <div v-if="activeTab === 'gear'">
+    <!-- FILTER & SORT FOR MAIN GEAR -->
+    <section class="filter-section">
+      <div class="filter-container ui-filter-bar">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="filterAssignment" class="filter-label">Filter Gear:</label>
+            <select id="filterAssignment" v-model="filterLocationId" class="filter-select">
+              <option value="all">All Gear</option>
+              <option value="unassigned">Unassigned</option>
+              <option value="assigned">Assigned</option>
+              <option
+                v-for="loc in locationsList"
+                :key="loc.id"
+                :value="String(loc.id)"
+              >
+                {{ loc.stage_name }} ({{ loc.venue_name }})
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filterOwner" class="filter-label">Filter Owner:</label>
+            <select id="filterOwner" v-model="filterOwner" class="filter-select">
+              <option value="all">All Owners</option>
+              <option value="project">Project Gear</option>
+              <option
+                v-for="owner in uniqueOwners"
+                :key="owner"
+                :value="owner"
+              >
+                {{ owner }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="sortGear" class="filter-label">Sort By:</label>
+            <select id="sortGear" v-model="sortBy" class="filter-select">
+              <option value="default">Default Order</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="quantity-desc">Quantity (Most to Least)</option>
+              <option value="quantity-asc">Quantity (Least to Most)</option>
+            </select>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
   <!-- LOADING -->
   <div v-if="loading" class="loading-skeleton">
@@ -93,20 +134,22 @@
       Filter your gear by "All," "Unassigned," "Assigned," or a specific stage.
     </p>
 
-    <!-- Gear Cards (Mobile-First) -->
-    <div class="gear-cards">
-      <div v-if="!filteredGearList.length" class="empty-state">
-        <div class="empty-icon">🎸</div>
-        <h3 class="empty-title">No gear found</h3>
-        <p class="empty-message">Add some gear to get started!</p>
-      </div>
-      
-      <div 
-        v-for="(gear, idx) in filteredGearList" 
-        :key="gear.id"
-        class="gear-card"
-        :class="{ 'user-gear': gear.is_user_gear }"
-      >
+    <!-- Main Gear Table (Source, Transformer, Recorder) -->
+    <div class="gear-section">
+      <h3 class="gear-section-title">Sources, Transformers & Recorders</h3>
+      <div class="gear-cards">
+        <div v-if="!filteredMainGearList.length" class="empty-state">
+          <div class="empty-icon">🎸</div>
+          <h3 class="empty-title">No gear found</h3>
+          <p class="empty-message">Add some gear to get started!</p>
+        </div>
+        
+        <div 
+          v-for="(gear, idx) in filteredMainGearList" 
+          :key="gear.id"
+          class="gear-card"
+          :class="{ 'user-gear': gear.is_user_gear }"
+        >
         <div class="gear-header">
           <div class="gear-name-section">
             <h3 class="gear-name">{{ gear.gear_name }}</h3>
@@ -153,11 +196,138 @@
             <span class="btn-text">Delete</span>
           </button>
         </div>
+        </div>
       </div>
     </div>
 
-    <!-- ADD GEAR MODAL -->
-    <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
+    <!-- Accessories & Cables Table -->
+    <div class="gear-section accessories-section">
+      <h3 class="gear-section-title">Accessories + Cables</h3>
+      
+      <!-- Filter & Sort for Accessories -->
+      <section class="filter-section accessories-filter">
+        <div class="filter-container ui-filter-bar">
+          <div class="filter-row">
+            <div class="filter-group">
+              <label for="filterAccessories" class="filter-label">Filter:</label>
+              <select id="filterAccessories" v-model="filterAccessoriesLocationId" class="filter-select">
+                <option value="all">All Accessories</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="assigned">Assigned</option>
+                <option
+                  v-for="loc in locationsList"
+                  :key="loc.id"
+                  :value="String(loc.id)"
+                >
+                  {{ loc.stage_name }} ({{ loc.venue_name }})
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterAccessoriesOwner" class="filter-label">Filter Owner:</label>
+              <select id="filterAccessoriesOwner" v-model="filterAccessoriesOwner" class="filter-select">
+                <option value="all">All Owners</option>
+                <option value="project">Project Gear</option>
+                <option
+                  v-for="owner in uniqueOwners"
+                  :key="owner"
+                  :value="owner"
+                >
+                  {{ owner }}
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sortAccessories" class="filter-label">Sort By:</label>
+              <select id="sortAccessories" v-model="sortAccessoriesBy" class="filter-select">
+                <option value="default">Default Order</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="quantity-desc">Quantity (Most to Least)</option>
+                <option value="quantity-asc">Quantity (Least to Most)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Accessories Cards -->
+      <div class="gear-cards">
+        <div 
+          v-for="(gear, idx) in filteredAccessoriesList" 
+          :key="gear.id"
+          class="gear-card"
+          :class="{ 'user-gear': gear.is_user_gear }"
+        >
+          <div class="gear-header">
+            <div class="gear-name-section">
+              <h3 class="gear-name">{{ gear.gear_name }}</h3>
+              <div v-if="gear.is_user_gear" class="user-gear-indicator">
+                <span class="user-gear-badge">Personal</span>
+                <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
+              </div>
+            </div>
+            <div class="gear-type-badge">
+              {{ gear.gear_type || 'No type' }}
+            </div>
+          </div>
+          
+          <div class="gear-details">
+            <div class="detail-row">
+              <span class="detail-label">Available:</span>
+              <span class="detail-value">{{ gear.unassigned_amount }}/{{ gear.gear_amount }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Assigned:</span>
+              <span class="detail-value">{{ gear.total_assigned }}</span>
+            </div>
+            <div v-if="gear.vendor" class="detail-row">
+              <span class="detail-label">Vendor:</span>
+              <span class="detail-value">{{ gear.vendor }}</span>
+            </div>
+          </div>
+
+          <div class="gear-actions">
+            <button class="btn btn-primary" @click="openGearInfoModal(gear)" title="Info">
+              <span class="btn-icon">ℹ️</span>
+              <span class="btn-text">Info</span>
+            </button>
+            <button class="btn btn-positive" @click="openAssignmentModal(gear)" title="Assign">
+              <span class="btn-icon">📋</span>
+              <span class="btn-text">Assign</span>
+            </button>
+            <button class="btn btn-warning" @click="openEditModal(gear)" title="Edit">
+              <span class="btn-icon">✏️</span>
+              <span class="btn-text">Edit</span>
+            </button>
+            <button class="btn btn-danger" @click="confirmDelete(gear.id)" title="Delete">
+              <span class="btn-icon">🗑️</span>
+              <span class="btn-text">Delete</span>
+            </button>
+          </div>
+        </div>
+        <div v-if="!filteredAccessoriesList.length" class="empty-state">
+          <div class="empty-icon">🔌</div>
+          <h3 class="empty-title">No accessories found</h3>
+          <p class="empty-message">Add accessories and cables to get started!</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <!-- PACKING TAB CONTENT -->
+  <div v-if="activeTab === 'packing'">
+    <PackingTab :project-id="String(projectId)" />
+  </div>
+
+  <!-- REPACKING TAB CONTENT -->
+  <div v-if="activeTab === 'repacking'">
+    <RepackingTab :project-id="String(projectId)" />
+  </div>
+
+  <!-- ADD GEAR MODAL -->
+  <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">Add New Gear</h3>
@@ -182,6 +352,7 @@
                 <option value="source">Source (Microphones)</option>
                 <option value="transformer">Transformer</option>
                 <option value="recorder">Recorder</option>
+                <option value="accessories_cables">Accessories + Cables</option>
               </select>
             </div>
             <div class="form-group">
@@ -196,8 +367,8 @@
                 class="form-input"
               />
             </div>
-            <!-- Optional IO fields (hidden for sources) -->
-            <div v-if="gearType !== 'source'" class="form-group">
+            <!-- Optional IO fields (hidden for sources and accessories_cables) -->
+            <div v-if="gearType !== 'source' && gearType !== 'accessories_cables'" class="form-group">
               <label for="gearNumInputs" class="form-label">Inputs</label>
               <input 
                 id="gearNumInputs"
@@ -207,7 +378,7 @@
                 class="form-input"
               />
             </div>
-            <div v-if="gearType !== 'source'" class="form-group">
+            <div v-if="gearType !== 'source' && gearType !== 'accessories_cables'" class="form-group">
               <label for="gearNumOutputs" class="form-label">Outputs</label>
               <input 
                 id="gearNumOutputs"
@@ -270,7 +441,7 @@
                 placeholder="0" 
                 class="form-input"
               />
-              <small style="color: #6c757d; margin-top: 4px; display: block;">
+              <small style="color: var(--text-secondary); margin-top: 4px; display: block;">
                 Available: {{ gearAmount }} - Max assignable: {{ gearAmount }}
               </small>
             </div>
@@ -426,6 +597,7 @@
                     <option value="source">Source (Microphones)</option>
                     <option value="transformer">Transformer</option>
                     <option value="recorder">Recorder</option>
+                    <option value="accessories_cables">Accessories + Cables</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -507,12 +679,39 @@
           <button class="modal-close" @click="closeReorderModal">✕</button>
         </div>
         <div class="modal-body">
+          <div class="reorder-sort-options">
+            <span class="sort-label">Quick Sort:</span>
+            <div class="sort-buttons">
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('name-asc')">A-Z</button>
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('name-desc')">Z-A</button>
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('group-asc')">Group (A-Z)</button>
+              <button class="btn btn-secondary btn-sm" @click="sortReorderList('group-desc')">Group (Z-A)</button>
+            </div>
+          </div>
           <div class="reorder-list">
-            <div v-for="(g, i) in reorderList" :key="g.id" class="reorder-item">
+            <div 
+              v-for="(g, i) in reorderList" 
+              :key="g.id" 
+              class="reorder-item"
+              :class="{ 'dragging': draggedIndex === i, 'drag-over': dragOverIndex === i }"
+              draggable="true"
+              @dragstart="handleDragStart($event, i)"
+              @dragend="handleDragEnd"
+              @dragover.prevent="handleDragOver($event, i)"
+              @dragenter.prevent="handleDragEnter(i)"
+              @dragleave="handleDragLeave"
+              @drop.prevent="handleDrop($event, i)"
+              @touchstart="handleTouchStart($event, i)"
+              @touchmove="handleTouchMove"
+              @touchend="handleTouchEnd"
+            >
+              <div class="drag-handle" title="Drag to reorder">
+                <span class="drag-icon">☰</span>
+              </div>
               <span class="reorder-name">{{ g.gear_name }}</span>
               <div class="reorder-actions">
-                <button class="btn btn-secondary" @click="moveInReorder(i, -1)">↑</button>
-                <button class="btn btn-secondary" @click="moveInReorder(i, 1)">↓</button>
+                <button class="btn btn-secondary btn-arrow" @click="moveInReorder(i, -1)" title="Move up">↑</button>
+                <button class="btn btn-secondary btn-arrow" @click="moveInReorder(i, 1)" title="Move down">↓</button>
               </div>
             </div>
           </div>
@@ -544,7 +743,6 @@
         </div>
       </div>
     </div>
-  </section>
 </div>
 </template>
 
@@ -560,20 +758,35 @@ import { fetchTableData, mutateTableData } from '../services/dataService'
 import { supabase } from '../supabase'
 import UserGearSelector from './UserGearSelector.vue'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
+import PackingTab from './PackingTab.vue'
+import RepackingTab from './RepackingTab.vue'
 
 export default {
 name: 'ProjectGear',
 components: {
   UserGearSelector,
-  ProjectBreadcrumbs
+  ProjectBreadcrumbs,
+  PackingTab,
+  RepackingTab
 },
-setup() {
+props: {
+  locationId: {
+    type: String,
+    default: null
+  },
+  tab: {
+    type: String,
+    default: null
+  }
+},
+setup(props) {
   const route     = useRoute()
   const router    = useRouter()
   const toast     = useToast()
   const userStore = useUserStore()
 
   const filterLocationId        = ref(route.query.locationId || 'all')
+  const filterOwner              = ref('all')
   const sortBy                  = ref('default')
   const loading                 = ref(false)
   const error                   = ref(null)
@@ -615,6 +828,13 @@ setup() {
 
   const reorderModalVisible     = ref(false)
   const reorderList             = ref([])
+  
+  // Drag and drop state
+  const draggedIndex            = ref(null)
+  const dragOverIndex           = ref(null)
+  const touchStartY             = ref(null)
+  const touchStartIndex         = ref(null)
+  const touchCurrentIndex       = ref(null)
 
   // Gear Info Modal
   const gearInfoModalVisible    = ref(false)
@@ -625,19 +845,101 @@ setup() {
   const selectedUserGear        = ref([])
 
   const currentProject = computed(() => userStore.getCurrentProject)
+  const userId = computed(() => userStore.user?.id)
+  const projectId = computed(() => {
+    return currentProject.value?.id || route.params.id || ''
+  })
+  
+  // Tab management - check route query or props for initial tab
+  const activeTab = ref(props.tab || route.query.tab || 'gear')
+  
+  // Watch for route changes to update active tab
+  watch(() => route.query.tab, (newTab) => {
+    if (newTab === 'packing' || newTab === 'gear' || newTab === 'repacking') {
+      activeTab.value = newTab
+    }
+  })
+  
+  // Watch props changes (when navigating to /packing or /repacking route)
+  watch(() => props.tab, (newTab) => {
+    if (newTab === 'packing' || newTab === 'gear' || newTab === 'repacking') {
+      activeTab.value = newTab
+    }
+  })
+  
+  // Function to handle tab click - update route
+  function switchTab(tab) {
+    activeTab.value = tab
+    // Update route to reflect tab change
+    if (tab === 'packing') {
+      router.push({ 
+        name: 'ProjectPacking', 
+        params: { id: route.params.id },
+        query: { ...route.query }
+      })
+    } else if (tab === 'repacking') {
+      router.push({ 
+        name: 'ProjectRepacking', 
+        params: { id: route.params.id },
+        query: { ...route.query }
+      })
+    } else {
+      router.push({ 
+        name: 'ProjectGear', 
+        params: { id: route.params.id },
+        query: { ...route.query, tab: tab === 'gear' ? undefined : tab }
+      })
+    }
+  }
+  
+  // Separate filters for accessories
+  const filterAccessoriesLocationId = ref(route.query.locationId || 'all')
+  const filterAccessoriesOwner       = ref('all')
+  const sortAccessoriesBy = ref('default')
 
-  const filteredGearList = computed(() => {
+  // Split gear list into main gear and accessories
+  const mainGearList = computed(() => {
+    return gearList.value.filter(g => g.gear_type !== 'accessories_cables')
+  })
+  
+  const accessoriesList = computed(() => {
+    return gearList.value.filter(g => g.gear_type === 'accessories_cables')
+  })
+
+  // Get unique owners from gear list
+  const uniqueOwners = computed(() => {
+    const owners = new Set()
+    gearList.value.forEach(g => {
+      if (g.owner_name && g.is_user_gear) {
+        owners.add(g.owner_name)
+      }
+    })
+    return Array.from(owners).sort()
+  })
+
+  const filteredMainGearList = computed(() => {
     let filtered = []
     
-    // Apply filter
+    // Apply location/assignment filter to main gear
     if (filterLocationId.value === 'all') {
-      filtered = gearList.value
+      filtered = mainGearList.value
     } else if (filterLocationId.value === 'unassigned') {
-      filtered = gearList.value.filter(g => g.unassigned_amount > 0)
+      filtered = mainGearList.value.filter(g => g.unassigned_amount > 0)
     } else if (filterLocationId.value === 'assigned') {
-      filtered = gearList.value.filter(g => g.total_assigned > 0)
+      filtered = mainGearList.value.filter(g => g.total_assigned > 0)
     } else {
-      filtered = gearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+      filtered = mainGearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+    }
+    
+    // Apply owner filter
+    if (filterOwner.value !== 'all') {
+      if (filterOwner.value === 'project') {
+        // Filter for project gear (non-user gear)
+        filtered = filtered.filter(g => !g.is_user_gear)
+      } else {
+        // Filter for specific owner
+        filtered = filtered.filter(g => g.owner_name === filterOwner.value)
+      }
     }
     
     // Apply sorting
@@ -655,6 +957,52 @@ setup() {
     } else if (sortBy.value === 'quantity-desc') {
       return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
     } else if (sortBy.value === 'quantity-asc') {
+      return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
+    }
+    
+    return filtered
+  })
+
+  const filteredAccessoriesList = computed(() => {
+    let filtered = []
+    
+    // Apply location/assignment filter to accessories
+    if (filterAccessoriesLocationId.value === 'all') {
+      filtered = accessoriesList.value
+    } else if (filterAccessoriesLocationId.value === 'unassigned') {
+      filtered = accessoriesList.value.filter(g => g.unassigned_amount > 0)
+    } else if (filterAccessoriesLocationId.value === 'assigned') {
+      filtered = accessoriesList.value.filter(g => g.total_assigned > 0)
+    } else {
+      filtered = accessoriesList.value.filter(g => g.assignments?.[filterAccessoriesLocationId.value] > 0)
+    }
+    
+    // Apply owner filter
+    if (filterAccessoriesOwner.value !== 'all') {
+      if (filterAccessoriesOwner.value === 'project') {
+        // Filter for project gear (non-user gear)
+        filtered = filtered.filter(g => !g.is_user_gear)
+      } else {
+        // Filter for specific owner
+        filtered = filtered.filter(g => g.owner_name === filterAccessoriesOwner.value)
+      }
+    }
+    
+    // Apply sorting
+    if (sortAccessoriesBy.value === 'default') {
+      // Keep original order (by sort_order)
+      return filtered
+    } else if (sortAccessoriesBy.value === 'name-asc') {
+      return [...filtered].sort((a, b) => 
+        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortAccessoriesBy.value === 'name-desc') {
+      return [...filtered].sort((a, b) => 
+        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortAccessoriesBy.value === 'quantity-desc') {
+      return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
+    } else if (sortAccessoriesBy.value === 'quantity-asc') {
       return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
     }
     
@@ -682,12 +1030,20 @@ setup() {
     if (t === 'source') {
       gearNumInputs.value  = 0
       gearNumOutputs.value = 1
+    } else if (t === 'accessories_cables') {
+      gearNumInputs.value  = null
+      gearNumOutputs.value = null
+      gearNumRecords.value = null
     }
   })
   watch(editGearType, t => {
     if (t === 'source') {
       editNumInputs.value  = 0
       editNumOutputs.value = 1
+    } else if (t === 'accessories_cables') {
+      editNumInputs.value  = null
+      editNumOutputs.value = null
+      editNumRecords.value = null
     }
   })
 
@@ -817,8 +1173,8 @@ setup() {
       const payload = {
         gear_name:   gearName.value,
         gear_type:   gearType.value,
-        num_inputs:  gearType==='source' ? 0 : gearNumInputs.value,
-        num_outputs: gearType==='source' ? 1 : gearNumOutputs.value,
+        num_inputs:  gearType.value === 'source' ? 0 : (gearType.value === 'accessories_cables' ? null : gearNumInputs.value),
+        num_outputs: gearType.value === 'source' ? 1 : (gearType.value === 'accessories_cables' ? null : gearNumOutputs.value),
         num_records: gearType.value === 'recorder' ? Number(gearNumRecords.value) : null,
         gear_amount: gearAmount.value,
         is_rented:   isRented.value,
@@ -1066,9 +1422,21 @@ setup() {
   function openReorderModal() {
     reorderList.value = gearList.value.slice()
     reorderModalVisible.value = true
+    // Reset drag state
+    draggedIndex.value = null
+    dragOverIndex.value = null
+    touchStartY.value = null
+    touchStartIndex.value = null
+    touchCurrentIndex.value = null
   }
   function closeReorderModal() {
     reorderModalVisible.value = false
+    // Reset drag state
+    draggedIndex.value = null
+    dragOverIndex.value = null
+    touchStartY.value = null
+    touchStartIndex.value = null
+    touchCurrentIndex.value = null
   }
 
   function moveInReorder(idx, dir) {
@@ -1076,6 +1444,185 @@ setup() {
     if (i < 0 || i >= reorderList.value.length) return
     ;[reorderList.value[idx], reorderList.value[i]] =
       [reorderList.value[i], reorderList.value[idx]]
+  }
+
+  function sortReorderList(sortType) {
+    const list = [...reorderList.value]
+    
+    if (sortType === 'name-asc') {
+      list.sort((a, b) => 
+        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortType === 'name-desc') {
+      list.sort((a, b) => 
+        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
+      )
+    } else if (sortType === 'group-asc') {
+      list.sort((a, b) => {
+        const typeA = (a.gear_type || '').toLowerCase()
+        const typeB = (b.gear_type || '').toLowerCase()
+        const nameA = (a.gear_name || '').toLowerCase()
+        const nameB = (b.gear_name || '').toLowerCase()
+        
+        if (typeA !== typeB) {
+          return typeA.localeCompare(typeB)
+        }
+        return nameA.localeCompare(nameB)
+      })
+    } else if (sortType === 'group-desc') {
+      list.sort((a, b) => {
+        const typeA = (a.gear_type || '').toLowerCase()
+        const typeB = (b.gear_type || '').toLowerCase()
+        const nameA = (a.gear_name || '').toLowerCase()
+        const nameB = (b.gear_name || '').toLowerCase()
+        
+        if (typeA !== typeB) {
+          return typeA.localeCompare(typeB)
+        }
+        return nameB.localeCompare(nameA)
+      })
+    }
+    
+    reorderList.value = list
+  }
+
+  // Drag and Drop Handlers (Desktop)
+  function handleDragStart(event, index) {
+    draggedIndex.value = index
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/html', event.target.outerHTML)
+    // Add visual feedback
+    event.target.style.opacity = '0.5'
+  }
+
+  function handleDragEnd(event) {
+    event.target.style.opacity = ''
+    draggedIndex.value = null
+    dragOverIndex.value = null
+  }
+
+  function handleDragOver(event, index) {
+    if (draggedIndex.value === null || draggedIndex.value === index) return
+    dragOverIndex.value = index
+  }
+
+  function handleDragEnter(index) {
+    if (draggedIndex.value === null || draggedIndex.value === index) return
+    dragOverIndex.value = index
+  }
+
+  function handleDragLeave(event) {
+    // Only clear if we're actually leaving the item (not entering a child)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX
+    const y = event.clientY
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      dragOverIndex.value = null
+    }
+  }
+
+  function handleDrop(event, dropIndex) {
+    if (draggedIndex.value === null || draggedIndex.value === dropIndex) {
+      dragOverIndex.value = null
+      return
+    }
+
+    const items = [...reorderList.value]
+    const draggedItem = items[draggedIndex.value]
+    items.splice(draggedIndex.value, 1)
+    items.splice(dropIndex, 0, draggedItem)
+    reorderList.value = items
+
+    draggedIndex.value = null
+    dragOverIndex.value = null
+  }
+
+  // Touch Handlers (Mobile)
+  function handleTouchStart(event, index) {
+    touchStartY.value = event.touches[0].clientY
+    touchStartIndex.value = index
+    touchCurrentIndex.value = index
+    draggedIndex.value = index
+    
+    // Get the element for visual feedback
+    const target = event.currentTarget
+    if (target) {
+      target.style.opacity = '0.7'
+      target.style.transform = 'scale(1.02)'
+    }
+  }
+
+  function handleTouchMove(event) {
+    if (touchStartIndex.value === null) return
+    
+    event.preventDefault()
+    const touchY = event.touches[0].clientY
+    
+    // Find the reorder list container to get all items
+    const targetElement = event.currentTarget
+    const listContainer = targetElement?.closest('.reorder-list')
+    if (!listContainer) return
+    
+    const reorderItems = Array.from(listContainer.children) || []
+    let newIndex = touchStartIndex.value
+    
+    // Find which item's center the touch is closest to
+    for (let i = 0; i < reorderItems.length; i++) {
+      const item = reorderItems[i]
+      const rect = item.getBoundingClientRect()
+      const itemTop = rect.top
+      const itemBottom = rect.bottom
+      const itemCenterY = itemTop + rect.height / 2
+      
+      // Check if touch is within this item's bounds
+      if (touchY >= itemTop && touchY <= itemBottom) {
+        // Determine if we should insert before or after based on touch position
+        if (touchY < itemCenterY) {
+          newIndex = Math.max(0, i)
+          break
+        } else {
+          newIndex = Math.min(reorderList.value.length - 1, i + 1)
+        }
+      } else if (i === 0 && touchY < itemTop) {
+        newIndex = 0
+        break
+      } else if (i === reorderItems.length - 1 && touchY > itemBottom) {
+        newIndex = reorderList.value.length - 1
+        break
+      }
+    }
+    
+    // Clamp the index
+    newIndex = Math.max(0, Math.min(newIndex, reorderList.value.length - 1))
+    
+    if (newIndex !== touchCurrentIndex.value && newIndex !== touchStartIndex.value) {
+      touchCurrentIndex.value = newIndex
+      dragOverIndex.value = newIndex
+      
+      // Reorder the array
+      const items = [...reorderList.value]
+      const draggedItem = items[touchStartIndex.value]
+      items.splice(touchStartIndex.value, 1)
+      items.splice(newIndex, 0, draggedItem)
+      reorderList.value = items
+      
+      // Update the start index since we've reordered
+      touchStartIndex.value = newIndex
+    }
+  }
+
+  function handleTouchEnd(event) {
+    const target = event.currentTarget
+    if (target) {
+      target.style.opacity = ''
+      target.style.transform = ''
+    }
+    
+    draggedIndex.value = null
+    dragOverIndex.value = null
+    touchStartY.value = null
+    touchStartIndex.value = null
+    touchCurrentIndex.value = null
   }
 
   async function saveReorder() {
@@ -1105,11 +1652,17 @@ setup() {
       `Gear for ${locationsList.value.find(l=>String(l.id)===filterLocationId.value)?.stage_name}`
     doc.setFontSize(16)
     doc.text(title, 10, 20)
-    const data = filteredGearList.value.map(g => [
+    const mainData = filteredMainGearList.value.map(g => [
       g.gear_name, g.gear_type, g.gear_amount,
       g.unassigned_amount, g.total_assigned,
       g.is_rented ? 'Yes' : 'No', g.vendor || ''
     ])
+    const accessoriesData = filteredAccessoriesList.value.map(g => [
+      g.gear_name, g.gear_type, g.gear_amount,
+      g.unassigned_amount, g.total_assigned,
+      g.is_rented ? 'Yes' : 'No', g.vendor || ''
+    ])
+    const data = [...mainData, ...accessoriesData]
     autoTable(doc, {
       startY: 30,
       head: [['Name','Type','Total','Unassigned','Assigned','Rented?','Vendor']],
@@ -1162,15 +1715,23 @@ setup() {
     try {
       for (const { userGear, quantity, locationId, assignedAmount } of gearToAdd) {
         if (!userGear || !quantity || quantity < 1) continue;
+        
+        // Get gear type from user gear
+        const gearType = userGear.gear_type || 'user_gear'
+        
         // Convert user gear to project gear format
+        // Use the same logic as addGear() function
         const projectGearPayload = {
           gear_name: userGear.gear_name,
-          gear_type: userGear.gear_type || 'user_gear',
-          num_inputs: 0,
-          num_outputs: 1,
-          num_records: null,
+          gear_type: gearType,
+          // For source gear: inputs = 0, outputs = 1 (as per addGear logic)
+          // For other gear: use values from user_gear table
+          num_inputs: gearType === 'source' ? 0 : (userGear.num_inputs ?? 1),
+          num_outputs: gearType === 'source' ? 1 : (userGear.num_outputs ?? 1),
+          // For recorder gear: use num_records from user gear
+          num_records: gearType === 'recorder' ? (userGear.num_records ? Number(userGear.num_records) : null) : null,
           gear_amount: quantity,
-          is_rented: false,
+          is_rented: userGear.is_rented ?? false,
           vendor: `${userGear.owner_name || 'Unknown'} (Personal Gear)`,
           project_id: currentProject.value.id,
           sort_order: gearList.value.length + 1,
@@ -1191,40 +1752,24 @@ setup() {
           })
         }
         
-        // Update user gear assigned_quantity and availability if online
-        if (navigator.onLine) {
+        // Check for date conflicts with other projects (don't block, just warn)
+        if (navigator.onLine && currentProject.value) {
           try {
-            // Fetch current state to ensure we have latest values
-            const currentUserGear = await fetchTableData('user_gear', { eq: { id: userGear.id } })
-            if (!currentUserGear || currentUserGear.length === 0) {
-              console.warn('Could not find user gear to update:', userGear.id)
-              continue
+            const { checkGearAssignmentConflicts, formatConflictMessage } = await import('../utils/gearConflictHelper')
+            const conflicts = await checkGearAssignmentConflicts(
+              userGear.id,
+              currentProject.value.id,
+              currentProject.value,
+              supabase
+            )
+            
+            if (conflicts.length > 0) {
+              const conflictMsg = formatConflictMessage(conflicts, userGear.gear_name)
+              toast.warning(conflictMsg, { timeout: 8000 })
             }
-            
-            const currentGear = currentUserGear[0]
-            const currentQuantity = currentGear.quantity || 0
-            const currentAssigned = currentGear.assigned_quantity || 0
-            
-            // Calculate new assigned quantity
-            const newAssigned = currentAssigned + quantity
-            
-            // Ensure assigned_quantity doesn't exceed total quantity (constraint check)
-            if (newAssigned > currentQuantity) {
-              console.warn(`Cannot assign ${quantity} - would exceed total quantity of ${currentQuantity}. Available: ${currentQuantity - currentAssigned}`)
-              toast.warning(`Warning: Could not fully update inventory for ${userGear.gear_name}. Only ${currentQuantity - currentAssigned} available.`)
-              continue
-            }
-            
-            // Update only assigned_quantity - quantity stays the same (it's the total owned)
-            const availableQty = currentQuantity - newAssigned
-            await mutateTableData('user_gear', 'update', {
-              id: userGear.id,
-              assigned_quantity: newAssigned,
-              availability: availableQty > 0 ? 'available' : 'unavailable'
-            })
           } catch (err) {
-            console.warn('Could not update user gear assigned_quantity:', err)
-            toast.error(`Failed to update inventory for ${userGear.gear_name}. Gear added to project but inventory not updated.`)
+            console.warn('Could not check gear conflicts:', err)
+            // Don't block on conflict check errors
           }
         }
 
@@ -1254,6 +1799,8 @@ setup() {
   return {
     goBack,
     filterLocationId,
+    filterOwner,
+    uniqueOwners,
     sortBy,
     loading,
     error,
@@ -1273,7 +1820,13 @@ setup() {
     immediateAssignedAmount,
     toggleAddGear,
     addGear,
-    filteredGearList,
+    filteredMainGearList,
+    filteredAccessoriesList,
+    activeTab,
+    switchTab,
+    filterAccessoriesLocationId,
+    filterAccessoriesOwner,
+    sortAccessoriesBy,
     confirmDelete,
     openAssignmentModal,
     closeAssignmentModal,
@@ -1302,9 +1855,22 @@ setup() {
     openReorderModal,
     closeReorderModal,
     moveInReorder,
+    sortReorderList,
     saveReorder,
     reorderModalVisible,
     reorderList,
+    // Drag and drop
+    draggedIndex,
+    dragOverIndex,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragEnter,
+    handleDragLeave,
+    handleDrop,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
     exportGearToPDF,
     calcMaxAssignment,
     // Gear Info Modal
@@ -1320,7 +1886,11 @@ setup() {
     openUserGearSelector,
     closeUserGearSelector,
     handleUserGearSelected,
-    handleUserGearAdded
+    handleUserGearAdded,
+    userId,
+    route,
+    currentProject,
+    projectId
   }
 }
 }
@@ -1330,13 +1900,13 @@ setup() {
 /* Base Styles - Mobile First */
 .project-gear {
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 16px;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 /* Typography Scale */
@@ -1345,12 +1915,12 @@ setup() {
   font-weight: 700;
   line-height: 1.3;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .page-subtitle {
   font-size: 16px;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin: 8px 0 0 0;
   line-height: 1.4;
 }
@@ -1360,14 +1930,14 @@ setup() {
   font-weight: 600;
   line-height: 1.4;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-heading);
 }
 
 /* Page Header */
 .page-header {
   margin-bottom: 24px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid #e9ecef;
 }
@@ -1384,19 +1954,19 @@ setup() {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 44px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .back-btn:hover {
-  border-color: #0066cc;
+  border-color: var(--color-primary-500);
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
 
@@ -1410,6 +1980,74 @@ setup() {
 
 .btn-text {
   font-size: 16px;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--border-light);
+  padding-bottom: 0;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.tab-button.active {
+  color: var(--color-primary-500);
+  border-bottom-color: var(--color-primary-500);
+  font-weight: 600;
+}
+
+.tab-icon {
+  font-size: 18px;
+}
+
+.tab-label {
+  font-size: 16px;
+}
+
+/* Gear Sections */
+.gear-section {
+  margin-bottom: 32px;
+}
+
+.gear-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--text-heading);
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border-light);
+}
+
+.accessories-section {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 2px solid #e9ecef;
+}
+
+.accessories-filter {
+  margin-bottom: 20px;
 }
 
 /* Filter Section */
@@ -1443,7 +2081,7 @@ setup() {
 
 .filter-label {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-heading);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -1455,7 +2093,7 @@ setup() {
   border-radius: 0.5rem;
   font-size: 16px;
   background: var(--bg-primary);
-  color: #1a1a1a;
+  color: var(--text-primary);
   min-height: 44px;
   appearance: none;
   cursor: pointer;
@@ -1516,11 +2154,11 @@ setup() {
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--color-error-300);
   border-radius: 8px;
   margin-bottom: 24px;
-  color: #dc2626;
+  color: var(--color-error-600);
 }
 
 .error-icon {
@@ -1549,11 +2187,11 @@ setup() {
 }
 
 .tip-text {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 24px;
   padding: 12px 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -1600,7 +2238,7 @@ setup() {
 .gear-name {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
   line-height: 1.4;
 }
@@ -1621,7 +2259,7 @@ setup() {
 }
 
 .owner-name {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -1653,12 +2291,12 @@ setup() {
 }
 
 .detail-label {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .detail-value {
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 14px;
 }
@@ -1685,12 +2323,12 @@ setup() {
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .empty-message {
   font-size: 16px;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin-bottom: 24px;
 }
 
@@ -1712,7 +2350,7 @@ setup() {
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   max-width: 500px;
   width: 100%;
@@ -1733,14 +2371,14 @@ setup() {
   font-size: 20px;
   font-weight: 600;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .modal-close {
   background: none;
   border: none;
   font-size: 24px;
-  color: #6c757d;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
@@ -1753,8 +2391,8 @@ setup() {
 }
 
 .modal-close:hover {
-  background: #f8f9fa;
-  color: #1a1a1a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -1781,7 +2419,7 @@ setup() {
 
 .form-label {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 8px;
   font-size: 16px;
   line-height: 1.4;
@@ -1797,8 +2435,8 @@ setup() {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1a1a1a;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   transition: all 0.2s ease;
   min-height: 44px;
   box-sizing: border-box;
@@ -1816,8 +2454,8 @@ setup() {
   border: 1px solid #e9ecef;
   border-radius: 8px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1a1a1a;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 44px;
   appearance: none;
   cursor: pointer;
@@ -1877,11 +2515,18 @@ setup() {
 
 .btn-secondary {
   background: #6c757d;
-  color: #ffffff;
+  color: #ffffff !important;
+  border-color: #5a6268;
 }
 
 .btn-secondary:hover {
   background: #5a6268;
+  color: #ffffff !important;
+}
+
+.btn-secondary .btn-icon,
+.btn-secondary .btn-text {
+  color: #ffffff !important;
 }
 
 .btn-info {
@@ -1922,7 +2567,7 @@ setup() {
 
 .info-section {
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -1931,7 +2576,7 @@ setup() {
   font-size: 16px;
   font-weight: 600;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .info-grid {
@@ -1952,12 +2597,12 @@ setup() {
 }
 
 .info-label {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .info-value {
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 14px;
 }
@@ -1971,7 +2616,7 @@ setup() {
 
 .assignment-item {
   padding: 12px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border: 1px solid #e9ecef;
   border-radius: 6px;
 }
@@ -1985,7 +2630,7 @@ setup() {
 
 .assignment-stage {
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -2005,12 +2650,12 @@ setup() {
 }
 
 .assignment-venue {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .assignment-dates {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -2023,7 +2668,7 @@ setup() {
 
 .gear-summary {
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -2032,7 +2677,7 @@ setup() {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 12px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .gear-summary-details {
@@ -2041,7 +2686,7 @@ setup() {
 }
 
 .summary-item {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -2178,6 +2823,14 @@ setup() {
   border-color: #b91c1c !important;
 }
 
+.btn-secondary,
+.btn-secondary .btn-icon,
+.btn-secondary .btn-text {
+  background-color: #6c757d !important;
+  color: #ffffff !important;
+  border-color: #5a6268 !important;
+}
+
 .btn-purple,
 .btn-purple .btn-icon,
 .btn-purple .btn-text {
@@ -2203,21 +2856,193 @@ setup() {
   }
 }
 
+/* Reorder Modal Styles */
+.reorder-sort-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.sort-label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.sort-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 14px;
+  min-height: 36px;
+}
+
+/* Ensure sort buttons (btn-secondary btn-sm) have white text */
+.sort-buttons .btn-secondary {
+  color: #ffffff !important;
+}
+
+.sort-buttons .btn-secondary:hover {
+  color: #ffffff !important;
+  background: #5a6268 !important;
+}
+
+.reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.reorder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+}
+
+.reorder-item:active {
+  cursor: grabbing;
+}
+
+.reorder-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.reorder-item.drag-over {
+  border-color: #0066cc;
+  border-width: 2px;
+  background: #e3f2fd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 102, 204, 0.2);
+}
+
+.reorder-item:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.1);
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  margin-right: 12px;
+  color: var(--text-secondary);
+  cursor: grab;
+  transition: color 0.2s ease;
+  touch-action: none;
+}
+
+.reorder-item:active .drag-handle {
+  cursor: grabbing;
+}
+
+.drag-handle:hover {
+  color: #0066cc;
+}
+
+.drag-icon {
+  font-size: 18px;
+  line-height: 1;
+  display: inline-block;
+}
+
+.reorder-name {
+  flex: 1;
+  font-size: 16px;
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-right: 12px;
+}
+
+.reorder-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.reorder-actions .btn-arrow {
+  padding: 8px 12px;
+  min-height: 36px;
+  min-width: 40px;
+  font-size: 18px;
+  font-weight: 600;
+  background: #6c757d !important;
+  color: #ffffff !important;
+  border: 2px solid #5a6268;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.reorder-actions .btn-arrow:hover {
+  background: #5a6268 !important;
+  color: #ffffff !important;
+  border-color: #495057;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.reorder-actions .btn-arrow:active {
+  background: #495057 !important;
+  color: #ffffff !important;
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   .back-btn,
-  .btn {
+  .btn,
+  .reorder-item,
+  .drag-handle {
     transition: none;
   }
   
   .back-btn:hover,
-  .btn:hover {
+  .btn:hover,
+  .reorder-item:hover,
+  .reorder-item.drag-over {
     transform: none;
   }
   
   .back-btn:active,
-  .btn:active {
+  .btn:active,
+  .reorder-item.dragging {
     transform: none;
+  }
+}
+
+/* Tablet and Desktop adjustments for reorder modal */
+@media (min-width: 601px) {
+  .reorder-sort-options {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .sort-buttons {
+    flex-wrap: nowrap;
   }
 }
 </style>

@@ -224,7 +224,7 @@ justify-content: center;
 z-index: 2000;
 }
 .modal {
-background: #fff;
+background: var(--bg-primary);
 padding: 1.25rem;
 border-radius: 6px;
 width: 100%;
@@ -246,7 +246,7 @@ align-items: center;
 .category-badge {
 padding: 0.5rem 1rem;
 border-radius: 20px;
-color: #fff;
+color: var(--text-inverse);
 font-size: 0.875rem;
 font-weight: 600;
 text-transform: uppercase;
@@ -256,8 +256,8 @@ display: inline-block;
 .stage-hour-badge {
 padding: 0.25rem 0.5rem;
 border-radius: 12px;
-background: #6c757d;
-color: #fff;
+background: var(--color-secondary-500);
+color: var(--text-inverse);
 font-size: 0.75rem;
 font-weight: 500;
 text-transform: uppercase;
@@ -268,7 +268,7 @@ letter-spacing: 0.5px;
 .assigned-contacts {
 margin: 1rem 0;
 padding: 1rem;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 6px;
 border: 1px solid #e9ecef;
 }
@@ -276,7 +276,7 @@ border: 1px solid #e9ecef;
 .assigned-contacts h4 {
 margin: 0 0 0.75rem 0;
 font-size: 1rem;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .contact-list {
@@ -290,7 +290,7 @@ display: flex;
 align-items: center;
 gap: 0.75rem;
 padding: 0.5rem;
-background: #fff;
+background: var(--bg-primary);
 border-radius: 4px;
 border: 1px solid #dee2e6;
 }
@@ -299,8 +299,8 @@ border: 1px solid #dee2e6;
 width: 32px;
 height: 32px;
 border-radius: 50%;
-background: #3b82f6;
-color: #fff;
+background: var(--color-primary-500);
+color: var(--text-inverse);
 display: flex;
 align-items: center;
 justify-content: center;
@@ -316,14 +316,14 @@ min-width: 0;
 
 .contact-name {
 font-weight: 600;
-color: #212529;
+color: var(--text-primary);
 margin-bottom: 0.125rem;
 font-size: 0.9rem;
 }
 
 .contact-role {
 font-size: 0.8rem;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 /* Contact Selection Styles */
@@ -333,7 +333,7 @@ overflow-y: auto;
 border: 1px solid #dee2e6;
 border-radius: 4px;
 padding: 0.5rem;
-background: #fff;
+background: var(--bg-primary);
 }
 
 .contact-option {
@@ -355,14 +355,14 @@ transition: background-color 0.2s;
 }
 
 .checkbox-label:hover {
-background: #f8f9fa;
+background: var(--bg-secondary);
 }
 
 .contact-checkbox {
 margin: 0;
 width: 16px;
 height: 16px;
-accent-color: #3b82f6;
+accent-color: var(--color-primary-500);
 }
 
 .contact-option-content {
@@ -376,8 +376,8 @@ flex: 1;
 width: 28px;
 height: 28px;
 border-radius: 50%;
-background: #3b82f6;
-color: #fff;
+background: var(--color-primary-500);
+color: var(--text-inverse);
 display: flex;
 align-items: center;
 justify-content: center;
@@ -393,14 +393,14 @@ min-width: 0;
 
 .contact-details .contact-name {
 font-weight: 600;
-color: #212529;
+color: var(--text-primary);
 margin-bottom: 0.125rem;
 font-size: 0.875rem;
 }
 
 .contact-details .contact-role {
 font-size: 0.75rem;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 .form-field {
@@ -431,7 +431,7 @@ color: #fff !important;
 }
 .button {
 background: #27ae60;
-color: #fff;
+color: var(--text-inverse);
 border: none;
 padding: 0.6rem 1rem;
 border-radius: 4px;
@@ -439,23 +439,23 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .button:hover {
-background: #219150;
+background: var(--color-success-600);
 }
 .edit-button {
-background: #3498db;
-color: #fff !important;
+background: var(--color-primary-500);
+color: var(--text-inverse) !important;
 }
 .edit-button:hover {
-background: #2980b9;
-color: #fff !important;
+background: var(--color-primary-600);
+color: var(--text-inverse) !important;
 }
 .delete-button {
-background: #e74c3c;
-color: #fff !important;
+background: var(--color-error-500);
+color: var(--text-inverse) !important;
 }
 .delete-button:hover {
-background: #c0392b;
-color: #fff !important;
+background: var(--color-error-600);
+color: var(--text-inverse) !important;
 }
 .save-button {
 background: #27ae60;

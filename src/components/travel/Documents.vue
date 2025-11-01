@@ -848,9 +848,9 @@ export default {
   margin: 0 auto;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #1f2937;
+  color: var(--text-primary);
   line-height: 1.5;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -866,7 +866,7 @@ export default {
 
 /* Consolidated Header Section */
 .consolidated-header {
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -894,14 +894,14 @@ export default {
 .title-section h1 {
   font-size: 24px;
   margin: 0 0 8px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .title-section p {
   margin: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
 }
@@ -915,7 +915,7 @@ export default {
 
 .trip-selector label {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 16px;
   white-space: nowrap;
 }
@@ -926,14 +926,14 @@ export default {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 16px;
-  background: #ffffff;
-  color: #1f2937;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-width: 0;
 }
 
 .trip-select-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -942,21 +942,21 @@ export default {
 .header-section h1 {
   font-size: 24px;
   margin: 0 0 8px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .header-section p {
   margin: 0 0 20px 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
 }
 
 .back-button {
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
   border: 1px solid #d1d5db;
   border-radius: 8px;
   padding: 12px 16px;
@@ -973,8 +973,8 @@ export default {
 }
 
 .back-button:hover {
-  background: #e5e7eb;
-  border-color: #9ca3af;
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1031,8 +1031,8 @@ export default {
 .empty-state {
   text-align: center;
   padding: 32px 16px;
-  color: #6b7280;
-  background: #ffffff;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
@@ -1046,20 +1046,20 @@ export default {
 .empty-state h3 {
   font-size: 20px;
   margin: 0 0 8px 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .empty-state p {
   margin: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
 }
 
 /* Content Container */
 .content-container {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1078,7 +1078,7 @@ export default {
 .section-header h2 {
   font-size: 20px;
   margin: 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
 }
@@ -1130,7 +1130,7 @@ export default {
 .empty-documents {
   text-align: center;
   padding: 32px 16px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .empty-documents .empty-icon {
@@ -1141,7 +1141,7 @@ export default {
 .empty-documents h3 {
   font-size: 20px;
   margin: 0 0 8px 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -1217,7 +1217,7 @@ export default {
 
 .document-info h3 {
   margin: 0 0 8px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   font-size: 18px;
   line-height: 1.4;
@@ -1232,7 +1232,7 @@ export default {
 
 .document-date {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -1245,7 +1245,7 @@ export default {
 
 .type-label {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .document-actions {
@@ -1266,7 +1266,7 @@ export default {
   font-weight: 500;
   transition: all 0.2s ease;
   border: 1px solid #e5e7eb;
-  color: #374151;
+  color: var(--text-secondary);
   background: #f9fafb;
   min-height: 44px;
   min-width: 44px;
@@ -1337,7 +1337,7 @@ export default {
 
 .action-text {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.2;
 }
 
@@ -1366,7 +1366,7 @@ export default {
 
 .modal-container {
   position: relative;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 16px;
   padding: 28px 24px;
   width: 100%;
@@ -1387,7 +1387,7 @@ export default {
 .modal-header h2 {
   margin: 0;
   font-size: 22px;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
 }
@@ -1397,7 +1397,7 @@ export default {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   border-radius: 8px;
   transition: all 0.2s ease;
   padding: 8px;
@@ -1410,7 +1410,7 @@ export default {
 
 .close-button:hover {
   background: #f3f4f6;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .close-button:focus {
@@ -1432,7 +1432,7 @@ export default {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -1448,8 +1448,8 @@ export default {
   font-size: 16px;
   line-height: 1.5;
   box-sizing: border-box;
-  background: #ffffff;
-  color: #111827;
+  background: var(--bg-primary);
+  color: var(--text-heading);
   transition: all 0.2s ease;
   min-height: 48px;
 }
@@ -1464,13 +1464,13 @@ export default {
 .form-textarea:focus,
 .form-file-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .file-name {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-top: 8px;
   line-height: 1.4;
 }

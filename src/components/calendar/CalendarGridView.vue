@@ -181,7 +181,7 @@ box-sizing: border-box;
 .stage-hours-section {
   margin-bottom: 1rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -195,7 +195,7 @@ box-sizing: border-box;
 
 .stage-hours-header h3 {
   margin: 0;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .edit-stage-hours-btn {
@@ -210,7 +210,7 @@ box-sizing: border-box;
 }
 
 .stage-hour-item {
-  background: #fff;
+  background: var(--bg-primary);
   padding: 0.75rem;
   border-radius: 6px;
   border: 1px solid #dee2e6;
@@ -219,7 +219,7 @@ box-sizing: border-box;
 .stage-name {
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .hours-list {
@@ -237,11 +237,11 @@ box-sizing: border-box;
 
 .time-range {
   font-weight: 500;
-  color: #28a745;
+  color: var(--color-success-500);
 }
 
 .notes {
-  color: #6c757d;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -266,7 +266,7 @@ justify-content: space-between;
 margin-bottom: 0.5rem;
 }
 .nav-button {
-background: #f5f7fa;
+background: var(--bg-secondary);
 border: 1px solid #cfd6dd;
 padding: 0.4rem 0.8rem;
 border-radius: 4px;
@@ -274,7 +274,7 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .nav-button:hover {
-background: #eaeef2;
+background: var(--bg-tertiary);
 }
 .calendar-scroll {
 overflow-x: scroll;
@@ -310,7 +310,7 @@ border-bottom: none;
 }
 .vertical-weekday-label {
 width: 60px;
-background: #f9fafb;
+background: var(--bg-secondary);
 text-align: center;
 font-weight: 600;
 border-right: 1px solid #d1d5db;
@@ -361,7 +361,7 @@ font-weight: 700;
   justify-content: center;
 }
 .event-modal {
-  background: #fff;
+  background: var(--bg-primary);
   border-radius: 8px;
   box-shadow: 0 2px 16px rgba(0,0,0,0.15);
   min-width: 280px;
@@ -382,7 +382,7 @@ font-weight: 700;
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #888;
+  color: var(--text-tertiary);
 }
 .event-modal-body {
   font-size: 0.95rem;
@@ -394,7 +394,7 @@ font-weight: 700;
 }
 .jump-today-btn {
   margin-left: 1rem;
-  background: #f5f7fa;
+  background: var(--bg-secondary);
   border: 1px solid #cfd6dd;
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
@@ -419,7 +419,7 @@ font-weight: 700;
   gap: 0.25rem;
 }
 .event-list-item {
-  background: #f5f7fa;
+  background: var(--bg-secondary);
   border-left: 4px solid #28a745;
   border-radius: 4px;
   padding: 0.2rem 0.7rem 0.2rem 0.7rem;
@@ -439,14 +439,14 @@ font-weight: 700;
   gap: 0.5rem;
 }
 .event-time {
-  color: #28a745;
+  color: var(--color-success-500);
   font-weight: 600;
   font-size: 0.98em;
   min-width: 44px;
   text-align: right;
 }
 .event-arrow {
-  color: #28a745;
+  color: var(--color-success-500);
   font-size: 1.1em;
   margin: 0 0.2em;
   font-weight: 700;
@@ -483,7 +483,7 @@ font-weight: 700;
   gap: 0.1rem;
 }
 .event-time {
-  color: #28a745;
+  color: var(--color-success-500);
   font-weight: 600;
   font-size: 1.05em;
   text-align: center;
@@ -492,7 +492,7 @@ font-weight: 700;
   margin-bottom: 0.1em;
 }
 .event-arrow {
-  color: #28a745;
+  color: var(--color-success-500);
   font-size: 1.1em;
   font-weight: 700;
   margin: 0.1em 0;

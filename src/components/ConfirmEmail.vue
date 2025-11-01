@@ -138,14 +138,14 @@ setup() {
   max-width: 400px;
   margin: 100px auto;
   padding: 20px;
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   text-align: center;
 }
 
 h1 {
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -156,14 +156,14 @@ h1 {
 }
 
 .success {
-  background-color: #d4edda;
-  color: #155724;
+  background-color: rgba(34, 197, 94, 0.15);
+  color: var(--color-success-700);
   border: 1px solid #c3e6cb;
 }
 
 .error {
-  background-color: #f8d7da;
-  color: #721c24;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--color-error-700);
   border: 1px solid #f5c6cb;
 }
 

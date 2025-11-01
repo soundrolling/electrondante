@@ -695,21 +695,21 @@ padding: 20px;
 margin-bottom: 30px;
 text-align: center;
 padding: 20px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
 
 .doc-header h3 {
 margin: 0 0 10px 0;
-color: #495057;
+color: var(--text-secondary);
 font-size: 24px;
 font-weight: 600;
 }
 
 .doc-header p {
 margin: 0;
-color: #6c757d;
+color: var(--text-secondary);
 font-size: 16px;
 }
 
@@ -723,7 +723,7 @@ border: 1px solid #e9ecef;
 
 .doc-section h4 {
 margin: 0 0 20px 0;
-color: #495057;
+color: var(--text-secondary);
 font-size: 18px;
 font-weight: 600;
 }
@@ -736,7 +736,7 @@ gap: 20px;
 
 .gear-category h5 {
 margin: 0 0 15px 0;
-color: #495057;
+color: var(--text-secondary);
 font-size: 16px;
 font-weight: 600;
 padding-bottom: 8px;
@@ -753,7 +753,7 @@ display: flex;
 align-items: center;
 gap: 15px;
 padding: 15px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
@@ -783,13 +783,13 @@ font-size: 14px;
 
 .gear-details {
 font-size: 12px;
-color: #6c757d;
+color: var(--text-secondary);
 margin-bottom: 4px;
 }
 
 .gear-position {
 font-size: 11px;
-color: #adb5bd;
+color: var(--text-tertiary);
 }
 
 /* Summary Cards */
@@ -813,7 +813,7 @@ display: flex;
 align-items: center;
 gap: 15px;
 padding: 20px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
@@ -836,14 +836,14 @@ flex: 1;
 
 .card-title {
 font-size: 14px;
-color: #6c757d;
+color: var(--text-secondary);
 margin-bottom: 4px;
 }
 
 .card-value {
 font-size: 24px;
 font-weight: 700;
-color: #007bff;
+color: var(--color-primary-500);
 }
 
 /* Connection Matrix */
@@ -861,11 +861,11 @@ border: 1px solid #e9ecef;
 }
 
 .matrix-table th {
-background: #f8f9fa;
+background: var(--bg-secondary);
 padding: 12px;
 text-align: left;
 font-weight: 600;
-color: #495057;
+color: var(--text-secondary);
 border-bottom: 1px solid #e9ecef;
 font-size: 14px;
 }
@@ -877,7 +877,7 @@ font-size: 14px;
 }
 
 .matrix-table tr:hover {
-background: #f8f9fa;
+background: var(--bg-secondary);
 }
 
 .status-badge {
@@ -888,13 +888,13 @@ font-weight: 500;
 }
 
 .status-badge.connected {
-background: #d4edda;
-color: #155724;
+background: rgba(34, 197, 94, 0.15);
+color: var(--color-success-700);
 }
 
 .status-badge.active {
-background: #d4edda;
-color: #155724;
+background: rgba(34, 197, 94, 0.15);
+color: var(--color-success-700);
 }
 
 .property-badge {
@@ -903,8 +903,8 @@ padding: 4px 8px;
 border-radius: 4px;
 font-size: 12px;
 font-weight: 600;
-background: #d4edda;
-color: #155724;
+background: rgba(34, 197, 94, 0.15);
+color: var(--color-success-700);
 margin-right: 5px;
 }
 
@@ -914,7 +914,7 @@ margin-top: 8px;
 
 .no-data {
 text-align: center;
-color: #6c757d;
+color: var(--text-secondary);
 font-style: italic;
 }
 
@@ -926,7 +926,7 @@ gap: 15px;
 
 .signal-path {
 padding: 15px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
@@ -937,11 +937,11 @@ align-items: center;
 gap: 10px;
 margin-bottom: 10px;
 font-weight: 600;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .path-arrow {
-color: #007bff;
+color: var(--color-primary-500);
 font-weight: bold;
 }
 
@@ -960,18 +960,18 @@ font-size: 14px;
 .route-label,
 .tracks-label {
 font-weight: 500;
-color: #6c757d;
+color: var(--text-secondary);
 min-width: 60px;
 }
 
 .route-path,
 .tracks-list {
-color: #495057;
+color: var(--text-secondary);
 }
 
 .no-paths {
 text-align: center;
-color: #6c757d;
+color: var(--text-secondary);
 font-style: italic;
 padding: 20px;
 }
@@ -984,7 +984,7 @@ gap: 20px;
 
 .recorder-tracks h5 {
 margin: 0 0 15px 0;
-color: #495057;
+color: var(--text-secondary);
 font-size: 16px;
 font-weight: 600;
 padding-bottom: 8px;
@@ -999,7 +999,7 @@ gap: 10px;
 
 .track-item {
 padding: 10px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 6px;
 border: 1px solid #e9ecef;
 text-align: center;
@@ -1012,13 +1012,13 @@ border-color: #c3e6cb;
 
 .track-number {
 font-weight: 600;
-color: #495057;
+color: var(--text-secondary);
 margin-bottom: 4px;
 }
 
 .track-source {
 font-size: 12px;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 /* Export Options */
@@ -1029,7 +1029,7 @@ gap: 20px;
 
 .export-group h5 {
 margin: 0 0 15px 0;
-color: #495057;
+color: var(--text-secondary);
 font-size: 16px;
 font-weight: 600;
 padding-bottom: 8px;
@@ -1092,7 +1092,7 @@ background: #e0a800;
 .print-preview {
 text-align: center;
 padding: 20px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
@@ -1119,14 +1119,14 @@ margin-top: 15px;
 
 .print-info p {
 margin: 0;
-color: #6c757d;
+color: var(--text-secondary);
 font-size: 14px;
 }
 
 .loading-state {
 text-align: center;
 padding: 40px;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 .loading-state p {
@@ -1189,7 +1189,7 @@ background: #0056b3;
 .no-data-state {
 text-align: center;
 padding: 40px;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 .no-data-state p {
@@ -1202,10 +1202,10 @@ font-size: 16px;
 .no-tracks,
 .no-items {
 text-align: center;
-color: #6c757d;
+color: var(--text-secondary);
 font-style: italic;
 padding: 20px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }

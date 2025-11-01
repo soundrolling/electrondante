@@ -1,7 +1,11 @@
 <template>
 <div v-if="isTransformerToRecorder" class="modal-overlay" @mousedown.self="$emit('cancel')">
-  <div class="modal-content">
-    <div class="modal-header">
+  <div 
+    ref="modalRef"
+    class="modal-content draggable-modal"
+    :style="modalStyle"
+  >
+    <div class="modal-header" @mousedown="startDrag">
       <h2 class="modal-title">Confirm Connection</h2>
       <button @click="$emit('cancel')" class="close-btn">×</button>
     </div>
@@ -15,8 +19,12 @@
   </div>
 </div>
 <div v-else class="modal-overlay" @mousedown.self="$emit('cancel')">
-  <div class="modal-content">
-    <div class="modal-header">
+  <div 
+    ref="modalRef"
+    class="modal-content draggable-modal"
+    :style="modalStyle"
+  >
+    <div class="modal-header" @mousedown="startDrag">
       <h2 class="modal-title">Create Connection</h2>
       <button @click="$emit('cancel')" class="close-btn">×</button>
     </div>
@@ -64,7 +72,7 @@
                 <!-- Display mode -->
                 <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
-                <span>{{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}</span>
+                <span>{{ isRecorderTo ? (traceRecorderTrackInputForModal(props.toNode.id, mapping.to_port) || `Track ${mapping.to_port}`) : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
                 <button type="button" class="btn-remove" @click="removePortMapping(mapping._idx)">×</button>
               </template>
@@ -151,9 +159,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { supabase } from '@/supabase'
 import { addConnection, updateConnection } from '@/services/signalMapperService'
+import { useToast } from 'vue-toastification'
 
 const props = defineProps({
 fromNode: { 
@@ -193,6 +202,95 @@ projectId: {
 console.log('[CONNECTION MODAL] Props received:', props)
 
 const emit = defineEmits(['confirm', 'cancel'])
+const toast = useToast()
+
+// Dragging state
+const modalPosition = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const modalRef = ref(null)
+
+const modalStyle = computed(() => ({
+  left: modalPosition.value.x + 'px',
+  top: modalPosition.value.y + 'px',
+  transform: 'none',
+  margin: '0',
+  position: 'fixed'
+}))
+
+function startDrag(e) {
+  // Don't start drag on interactive elements (buttons, inputs, etc.)
+  if (e.target.closest('button')) return
+  if (e.target.closest('input')) return
+  if (e.target.closest('select')) return
+  if (e.target.closest('textarea')) return
+  if (e.target.closest('a')) return
+  
+  // Allow dragging from the header area
+  isDragging.value = true
+  dragStart.value = {
+    x: e.clientX - modalPosition.value.x,
+    y: e.clientY - modalPosition.value.y
+  }
+  
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+  e.preventDefault()
+}
+
+function onDrag(e) {
+  if (!isDragging.value) return
+  
+  const newX = e.clientX - dragStart.value.x
+  const newY = e.clientY - dragStart.value.y
+  
+  // Constrain to viewport
+  const rect = modalRef.value?.getBoundingClientRect()
+  if (rect) {
+    const maxX = window.innerWidth - rect.width
+    const maxY = window.innerHeight - rect.height
+    
+    modalPosition.value.x = Math.max(0, Math.min(newX, maxX))
+    modalPosition.value.y = Math.max(0, Math.min(newY, maxY))
+  } else {
+    modalPosition.value.x = newX
+    modalPosition.value.y = newY
+  }
+}
+
+function stopDrag() {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+function ensureModalInViewport() {
+  nextTick(() => {
+    if (!modalRef.value) return
+    
+    const rect = modalRef.value.getBoundingClientRect()
+    const maxX = window.innerWidth - rect.width
+    const maxY = window.innerHeight - rect.height
+    
+    // Adjust position if out of bounds
+    if (modalPosition.value.x < 0) modalPosition.value.x = 0
+    if (modalPosition.value.x > maxX) modalPosition.value.x = maxX
+    if (modalPosition.value.y < 0) modalPosition.value.y = 0
+    if (modalPosition.value.y > maxY) modalPosition.value.y = maxY
+  })
+}
+
+function centerModal() {
+  nextTick(() => {
+    if (!modalRef.value) return
+    const rect = modalRef.value.getBoundingClientRect()
+    modalPosition.value = {
+      x: (window.innerWidth - rect.width) / 2,
+      y: (window.innerHeight - rect.height) / 2
+    }
+    ensureModalInViewport()
+  })
+}
 
 function getType(node){
   return (node?.gearType || node?.gear_type || node?.node_type || '').toLowerCase()
@@ -254,79 +352,103 @@ const takenFromPorts = ref(new Set())
 const takenToPorts = ref(new Set())
 // Store source labels for port-mapped inputs (input number -> source label)
 const portMappedInputLabels = ref({})
+// Store recorder track names (track number -> source label) for the FROM recorder
+const recorderTrackNames = ref({})
 
 async function buildUpstreamSourceLabels() {
   try {
     upstreamSourceLabels.value = {}
     if (!isTransformerFrom.value) return
     
-    // First check all incoming connections to this transformer for direct source connections
-    const directIncomings = (props.existingConnections || []).filter(c =>
-      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && typeof c.input_number === 'number'
-    )
-    
-    // Build labels from direct incoming connections
-    directIncomings.forEach(inc => {
-      const label = getLRAwareSourceLabel(inc)
-      if (label) upstreamSourceLabels.value[inc.input_number] = label
-    })
-    
-    // Also check for parent connections with port maps (transformer → transformer)
+    // First, get all connections TO this transformer from the database (including those with port maps)
     const { data: parentConns } = await supabase
       .from('connections')
-      .select('id, from_node_id, to_node_id')
+      .select('id, from_node_id, to_node_id, input_number')
       .eq('project_id', props.projectId)
       .eq('to_node_id', props.fromNode.id)
     
     if (!parentConns || parentConns.length === 0) return
     
-    // Check each parent for port maps and resolve labels
+    // Process each connection to this transformer
     for (const parentConn of parentConns) {
+      // Check if this connection has port maps
       const { data: maps } = await supabase
         .from('connection_port_map')
         .select('from_port, to_port')
         .eq('connection_id', parentConn.id)
       
-      if (!maps || maps.length === 0) continue
-      
-      // Resolve upstream labels per mapping
       const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
-      maps.forEach(m => {
-        let label = ''
-        const fromNodeType = (parentFromNode?.gear_type || parentFromNode?.node_type || '').toLowerCase()
-        if (fromNodeType === 'source') {
-          // Clean base: extract number from label, strip LR suffix and number suffix
-          const pLabel = parentFromNode?.label || ''
-          const pTrackName = parentFromNode?.track_name || ''
-          const pm = pLabel.match(/^(.*) \((\d+)\)$/)
-          const pNum = pm ? pm[2] : ''
-          // Get clean base: prefer track_name (cleaned), fall back to label base
-          let base
-          if (pTrackName) {
-            base = pTrackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-          } else if (pm) {
-            base = pm[1].replace(/\s*LR$/i,'').trim()
-          } else {
-            base = (pLabel || 'Source').replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-          }
-          const pNumSuffix = pNum ? ` (${pNum})` : ''
-          if (Number(parentFromNode?.num_outputs || parentFromNode?.outputs || 0) === 2) {
-            label = Number(m.from_port) === 1 ? `${base} L${pNumSuffix}` : (Number(m.from_port) === 2 ? `${base} R${pNumSuffix}` : `${base} ${m.from_port}${pNumSuffix}`)
-          } else {
-            label = `${base}${pNumSuffix}`
-          }
-        } else {
-          // Upstream is transformer/other: try to find its incoming connection for the mapped from_port
-          const incoming = (props.existingConnections || []).find(c =>
-            (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
-          )
-          if (incoming) {
+      if (!parentFromNode) continue
+      
+      const fromNodeType = (parentFromNode.gear_type || parentFromNode.node_type || '').toLowerCase()
+      
+      if (maps && maps.length > 0) {
+        // Connection has port maps - process each mapping
+        for (const m of maps) {
+          let label = ''
+          // m.from_port is the OUTPUT port on the parent (source/transformer output)
+          // m.to_port is the INPUT port on this transformer
+          const parentOutputPort = m.from_port
+          const thisTransformerInput = m.to_port
+          
+          if (fromNodeType === 'source') {
+            // Direct source connection - get source label with L/R based on output port
+            const incoming = { 
+              from_node_id: parentConn.from_node_id, 
+              input_number: parentOutputPort 
+            }
             label = getLRAwareSourceLabel(incoming)
+          } else if (fromNodeType === 'transformer') {
+            // Parent is a transformer - trace what's on its OUTPUT port back to source
+            const tracedLabel = await traceTransformerOutput(parentConn.from_node_id, parentOutputPort)
+            if (tracedLabel) {
+              label = tracedLabel
+            } else {
+              // Fallback: try to trace through direct connection
+              const anyParentInput = (props.existingConnections || []).find(c =>
+                (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && 
+                c.input_number === parentOutputPort
+              )
+              if (anyParentInput) {
+                label = getLRAwareSourceLabel(anyParentInput)
+              }
+            }
+          } else {
+            // Other node type - fallback
+            label = parentFromNode.track_name || parentFromNode.label || ''
           }
+          if (label) upstreamSourceLabels.value[m.to_port] = label
         }
-        if (label) upstreamSourceLabels.value[m.to_port] = label
-      })
+      } else {
+        // Connection has no port maps - direct connection
+        // Use input_number from connection, or default to 1 if not specified
+        const inputNum = parentConn.input_number || 1
+        const incoming = { 
+          from_node_id: parentConn.from_node_id,
+          input_number: inputNum
+        }
+        const label = getLRAwareSourceLabel(incoming)
+        if (label) {
+          // For transformers, output N = input N, so map accordingly
+          upstreamSourceLabels.value[inputNum] = label
+        }
+      }
     }
+    
+    // Also check props.existingConnections for any we might have missed
+    const directIncomings = (props.existingConnections || []).filter(c =>
+      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && 
+      typeof c.input_number === 'number' &&
+      !upstreamSourceLabels.value[c.input_number] // Only if not already set
+    )
+    
+    // Build labels from direct incoming connections - recursively trace to source
+    directIncomings.forEach(inc => {
+      const label = getLRAwareSourceLabel(inc)
+      if (label && !upstreamSourceLabels.value[inc.input_number]) {
+        upstreamSourceLabels.value[inc.input_number] = label
+      }
+    })
   } catch {}
 }
 
@@ -363,6 +485,13 @@ function getSourcePortLabel(portNum){
 
 // Helper to get source port label for any node (not just props.fromNode)
 function getSourcePortLabelForNode(node, portNum) {
+  // Check for stored output port labels first (most reliable for stereo sources)
+  if (node?.output_port_labels && typeof node.output_port_labels === 'object') {
+    const storedLabel = node.output_port_labels[String(portNum)] || node.output_port_labels[portNum]
+    if (storedLabel) return storedLabel
+  }
+  
+  // Fallback to computed labels if not stored
   const label = node?.label || ''
   const trackName = node?.track_name || ''
   const m = label.match(/^(.*) \((\d+)\)$/)
@@ -452,6 +581,32 @@ async function loadTakenPorts() {
   } catch {}
 }
 
+// Load recorder track names asynchronously
+async function loadRecorderTrackNames() {
+  if (!isRecorderFrom.value) {
+    recorderTrackNames.value = {}
+    return
+  }
+  
+  const trackNames = {}
+  const count = numOutputs.value || 0
+  
+  // Load all track names in parallel
+  const promises = []
+  for (let n = 1; n <= count; n++) {
+    promises.push(
+      traceRecorderTrackNameForModalAsync(props.fromNode.id, n)
+        .then(label => {
+          if (label) trackNames[n] = label
+        })
+        .catch(() => {})
+    )
+  }
+  
+  await Promise.all(promises)
+  recorderTrackNames.value = trackNames
+}
+
 // Get available ports for mapping
 const availableFromPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
@@ -460,14 +615,39 @@ const availableFromPorts = computed(() => {
     if (used.has(n)) continue
     if (takenFromPorts.value.has(n)) continue
     let label
-    if (isTransformerFrom.value) {
+    if (isRecorderFrom.value) {
+      // For recorders, output port corresponds to track number - use track name
+      // First try the preloaded async names, then fallback to sync version
+      label = recorderTrackNames.value[n] || traceRecorderTrackNameForModal(props.fromNode.id, n)
+      if (!label) label = `Track ${n}`
+    } else if (isTransformerFrom.value) {
+      // For transformers, assume 1:1 mapping: output N corresponds to input N
+      // Check upstreamSourceLabels which is keyed by input number
       label = upstreamSourceLabels.value[n]
+      
+      // If not found in upstreamSourceLabels, try direct connection tracing
       if (!label) {
         const incoming = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
         )
-        if (incoming) label = getLRAwareSourceLabel(incoming)
+        if (incoming) {
+          label = getLRAwareSourceLabel(incoming)
+          // Cache it in upstreamSourceLabels for future use
+          if (label) upstreamSourceLabels.value[n] = label
+        }
       }
+      
+      // If still no label, try to trace through any connection to this transformer
+      if (!label) {
+        const anyIncoming = (props.existingConnections || []).find(c =>
+          (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id)
+        )
+        if (anyIncoming) {
+          label = getLRAwareSourceLabel(anyIncoming)
+          if (label) upstreamSourceLabels.value[n] = label
+        }
+      }
+      
       if (!label) label = `Output ${n}`
     } else if (isSource.value) {
       label = getSourcePortLabel(n)
@@ -478,6 +658,44 @@ const availableFromPorts = computed(() => {
   }
   return opts
 })
+
+// Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
+function traceRecorderTrackInputForModal(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  const trackConn = (props.existingConnections || []).find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) return null
+  
+  // Trace back to get the source label (same logic as traceRecorderTrackNameForModal but for "To" side)
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source node is another recorder (similar logic to traceRecorderTrackNameForModal)
+  const isSourceRecorder = (props.existingConnections || []).some(c =>
+    (c.to_node_id === sourceNodeId || c.to === sourceNodeId) && c.track_number
+  )
+  
+  // Also check if it's the fromNode or toNode in this modal
+  const isFromNodeRecorder = props.fromNode && (props.fromNode.id === sourceNodeId) && 
+                              (getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+  const isToNodeRecorder = props.toNode && (props.toNode.id === sourceNodeId) && 
+                            (getType(props.toNode) === 'recorder' || hasTracks(props.toNode))
+  
+  if (isSourceRecorder || isFromNodeRecorder || isToNodeRecorder) {
+    // Source is another recorder - recursively trace from that recorder's output
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackInputForModal(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use getLRAwareSourceLabel
+  return getLRAwareSourceLabel(trackConn, visitedNodes)
+}
 
 const availableToPorts = computed(() => {
   const used = new Set(portMappings.value.map(m => m.to_port).filter(Boolean))
@@ -491,7 +709,12 @@ const availableToPorts = computed(() => {
         const taken = (props.existingConnections || []).find(c =>
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
         )
-        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Track ${n}` })
+        if (!taken && !takenToPorts.value.has(n)) {
+          // Trace what input is assigned to this track to show as the track name (like transformers)
+          const assignedInput = traceRecorderTrackInputForModal(props.toNode.id, n)
+          const label = assignedInput || `Track ${n}`
+          opts.push({ value: n, label })
+        }
       }
     }
   } else {
@@ -554,9 +777,15 @@ function cancelEditMapping() {
 watch(() => props.defaultInput, v => { inputNumber.value = v })
 watch(() => props.defaultOutput, v => { outputNumber.value = v })
 watch(() => props.defaultTrack, v => { trackNumber.value = v })
-watch(() => props.existingConnections, () => {
-  buildUpstreamSourceLabels()
-  loadTakenPorts()
+watch(() => props.existingConnections, async () => {
+  await buildUpstreamSourceLabels()
+  await loadRecorderTrackNames()
+  await loadTakenPorts()
+})
+watch(() => props.fromNode?.id, async () => {
+  await buildUpstreamSourceLabels()
+  await loadRecorderTrackNames()
+  await loadTakenPorts()
 })
 watch(() => props.toNode?.id, () => loadTakenPorts())
 
@@ -587,45 +816,315 @@ const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
 }
 
-function getLRAwareSourceLabel(incoming) {
+// Helper to trace what's on a transformer's output port, handling port mappings
+async function traceTransformerOutput(transformerId, outputPort) {
+  // For transformers, assume 1:1 mapping: output N corresponds to input N
+  // So if we want to know what's on output N, we trace what's feeding input N
+  
+  try {
+    // First, query database for all connections TO this transformer
+    const { data: dbConns } = await supabase
+      .from('connections')
+      .select('id, from_node_id, to_node_id, input_number')
+      .eq('project_id', props.projectId)
+      .eq('to_node_id', transformerId)
+    
+    if (!dbConns || dbConns.length === 0) {
+      // Fallback to props.existingConnections
+      const directInput = (props.existingConnections || []).find(c =>
+        (c.to_node_id === transformerId || c.to === transformerId) && c.input_number === outputPort
+      )
+      if (directInput) {
+        return getLRAwareSourceLabel(directInput)
+      }
+      return null
+    }
+    
+    // Check each connection for port mappings
+    for (const conn of dbConns) {
+      try {
+        const { data: portMaps } = await supabase
+          .from('connection_port_map')
+          .select('from_port, to_port')
+          .eq('connection_id', conn.id)
+        
+        if (portMaps && portMaps.length > 0) {
+          // Find mapping where to_port (transformer input) equals outputPort
+          // This tells us which upstream output feeds transformer input outputPort
+          const relevantMap = portMaps.find(m => Number(m.to_port) === Number(outputPort))
+          if (relevantMap) {
+            // Upstream output relevantMap.from_port feeds transformer input outputPort
+            // For 1:1 transformer, output outputPort = input outputPort
+            // So trace what's on upstream output relevantMap.from_port
+            const upstreamNodeId = conn.from_node_id
+            const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
+            if (upstreamNode) {
+              const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
+              if (upstreamType === 'source') {
+                // Direct source - get source label
+                const incoming = { from_node_id: upstreamNodeId, input_number: relevantMap.from_port }
+                return getLRAwareSourceLabel(incoming)
+              } else if (upstreamType === 'transformer') {
+                // Recursively trace upstream transformer's output
+                const traced = await traceTransformerOutput(upstreamNodeId, relevantMap.from_port)
+                if (traced) return traced
+              }
+            }
+          }
+        } else {
+          // No port map - check if this connection's input_number matches outputPort
+          const inputNum = conn.input_number || 1
+          if (Number(inputNum) === Number(outputPort)) {
+            // Direct connection - trace what's feeding this input
+            const upstreamNodeId = conn.from_node_id
+            const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
+            if (upstreamNode) {
+              const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
+              if (upstreamType === 'source') {
+                const incoming = { from_node_id: upstreamNodeId, input_number: inputNum }
+                return getLRAwareSourceLabel(incoming)
+              } else if (upstreamType === 'transformer') {
+                // Recursively trace upstream transformer's corresponding output
+                const traced = await traceTransformerOutput(upstreamNodeId, inputNum)
+                if (traced) return traced
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+    
+    // Fallback: check props.existingConnections
+    const directInput = (props.existingConnections || []).find(c =>
+      (c.to_node_id === transformerId || c.to === transformerId) && c.input_number === outputPort
+    )
+    if (directInput) {
+      return getLRAwareSourceLabel(directInput)
+    }
+  } catch {}
+  
+  return null
+}
+
+function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   const srcId = incoming.from_node_id || incoming.from
   const src = props.elements.find(e => e.id === srcId)
   if (!src) return 'Connected'
-  // Clean base: extract number from label, strip LR suffix and number suffix
-  const label = src.label || ''
-  const trackName = src.track_name || ''
-  const m = label.match(/^(.*) \((\d+)\)$/)
-  const num = m ? m[2] : ''
-  // Get clean base: prefer track_name (cleaned), fall back to label base
-  let base
-  if (trackName) {
-    base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-  } else if (m) {
-    base = m[1].replace(/\s*LR$/i,'').trim()
-  } else {
-    base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-  }
-  const numSuffix = num ? ` (${num})` : ''
-  const outCount = src.num_outputs || src.outputs || 0
-  if (outCount === 2) {
-    // Look for sibling connection from same source to this transformer to decide L/R
-    const siblings = (props.existingConnections || []).filter(c =>
-      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
-      (c.from_node_id === srcId || c.from === srcId) &&
-      typeof c.input_number === 'number'
-    ).map(c => c.input_number).sort((a,b)=>a-b)
-    if (siblings.length >= 2) {
-      const first = siblings[0]
-      return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+  
+  const srcType = (src.gear_type || src.node_type || '').toLowerCase()
+  
+  // If this is a source, return the source label
+  if (srcType === 'source') {
+    // Clean base: extract number from label, strip LR suffix and number suffix
+    const label = src.label || ''
+    const trackName = src.track_name || ''
+    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    const num = m ? m[2] : ''
+    // Get clean base: prefer track_name (cleaned), fall back to label base
+    let base
+    if (trackName) {
+      base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    } else if (m) {
+      base = m[1].replace(/\s*LR$/i,'').trim()
+    } else {
+      base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
     }
-    // Fallback heuristic by parity
-    return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+    const numSuffix = num ? ` (${num})` : ''
+    const outCount = src.num_outputs || src.outputs || 0
+    if (outCount === 2) {
+      // Look for sibling connection from same source to this transformer to decide L/R
+      const siblings = (props.existingConnections || []).filter(c =>
+        (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
+        (c.from_node_id === srcId || c.from === srcId) &&
+        typeof c.input_number === 'number'
+      ).map(c => c.input_number).sort((a,b)=>a-b)
+      if (siblings.length >= 2) {
+        const first = siblings[0]
+        return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+      }
+      // Fallback heuristic by parity
+      return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+    }
+    return `${base}${numSuffix}`
   }
-  return `${base}${numSuffix}`
+  
+  // If this is a transformer, recursively trace back to find the source
+  if (srcType === 'transformer' && !visitedNodes.has(srcId)) {
+    visitedNodes.add(srcId)
+    
+    const inputNum = incoming.input_number
+    
+    // Try to find incoming connection to this transformer at the specified input number
+    let parentIncoming = (props.existingConnections || []).find(c =>
+      (c.to_node_id === srcId || c.to === srcId) && c.input_number === inputNum
+    )
+    
+    if (parentIncoming) {
+      // Direct connection found - recursively trace from the parent
+      return getLRAwareSourceLabel(parentIncoming, visitedNodes)
+    }
+    
+    // If no direct connection, check for port-mapped connections
+    // Find any connection to this transformer
+    const transformerIncoming = (props.existingConnections || []).find(c =>
+      (c.to_node_id === srcId || c.to === srcId)
+    )
+    
+    if (transformerIncoming) {
+      // For port-mapped connections, the mapping logic is handled in buildUpstreamSourceLabels
+      // But here we can still try to trace: if transformer input X is mapped, 
+      // we need to find what's on the parent's output that maps to input X
+      // For now, try tracing from the first input
+      parentIncoming = (props.existingConnections || []).find(c =>
+        (c.to_node_id === srcId || c.to === srcId) && c.input_number === 1
+      )
+      
+      if (parentIncoming) {
+        return getLRAwareSourceLabel(parentIncoming, visitedNodes)
+      }
+    }
+  }
+  
+  // Fallback: return node label
+  return src.track_name || src.label || 'Connected'
+}
+
+// Trace track name from recorder output (track number)
+// This function needs to check both direct connections and port-mapped connections
+async function traceRecorderTrackNameForModalAsync(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // First, check direct connections TO this recorder
+  let trackConn = (props.existingConnections || []).find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  // If no direct connection found, check port mappings
+  if (!trackConn) {
+    // Find all connections TO this recorder
+    const recorderConns = (props.existingConnections || []).filter(c => 
+      (c.to_node_id === recorderId || c.to === recorderId)
+    )
+    
+    if (recorderConns.length > 0) {
+      // Query port mappings for these connections
+      const connIds = recorderConns.map(c => c.id)
+      try {
+        const { data: portMaps } = await supabase
+          .from('connection_port_map')
+          .select('connection_id, from_port, to_port')
+          .in('connection_id', connIds)
+          .eq('to_port', trackNumber)
+        
+        if (portMaps && portMaps.length > 0) {
+          // Found a port mapping - get the parent connection
+          const portMap = portMaps[0]
+          trackConn = recorderConns.find(c => c.id === portMap.connection_id)
+          if (trackConn) {
+            // Add the from_port info to trackConn for tracing
+            trackConn._mappedFromPort = portMap.from_port
+          }
+        }
+      } catch (err) {
+        console.error('Error querying port maps:', err)
+      }
+    }
+  }
+  
+  if (!trackConn) return null
+  
+  // Trace back from the source of this connection
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Determine which port on the source to trace from
+  let sourcePort = trackConn.output_number || trackConn.input_number || 1
+  if (trackConn._mappedFromPort !== undefined) {
+    sourcePort = trackConn._mappedFromPort
+  }
+  
+  // Check if the source node is another recorder by looking for connections TO it with track_number
+  // This indicates it's a recorder
+  const isSourceRecorder = (props.existingConnections || []).some(c =>
+    (c.to_node_id === sourceNodeId || c.to === sourceNodeId) && c.track_number
+  )
+  
+  // Also check if it's the fromNode or toNode in this modal (which we have direct access to)
+  const isFromNodeRecorder = props.fromNode && (props.fromNode.id === sourceNodeId) && 
+                              (getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+  const isToNodeRecorder = props.toNode && (props.toNode.id === sourceNodeId) && 
+                            (getType(props.toNode) === 'recorder' || hasTracks(props.toNode))
+  
+  if (isSourceRecorder || isFromNodeRecorder || isToNodeRecorder) {
+    // Source is another recorder - recursively trace from that recorder's output
+    return traceRecorderTrackNameForModalAsync(sourceNodeId, sourcePort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
+  // Create a connection-like object for tracing
+  const traceConn = {
+    from_node_id: sourceNodeId,
+    input_number: sourcePort
+  }
+  const sourceLabel = getLRAwareSourceLabel(traceConn, visitedNodes)
+  return sourceLabel
+}
+
+// Synchronous version for use in computed properties (will return null if port maps need to be checked)
+function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  // For recorders, output port number corresponds to track number
+  const trackConn = (props.existingConnections || []).find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  if (!trackConn) {
+    // Can't check port maps synchronously - return null and let async version handle it
+    return null
+  }
+  
+  // Trace back from the source of this connection
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Check if the source node is another recorder by looking for connections TO it with track_number
+  // This indicates it's a recorder
+  const isSourceRecorder = (props.existingConnections || []).some(c =>
+    (c.to_node_id === sourceNodeId || c.to === sourceNodeId) && c.track_number
+  )
+  
+  // Also check if it's the fromNode or toNode in this modal (which we have direct access to)
+  const isFromNodeRecorder = props.fromNode && (props.fromNode.id === sourceNodeId) && 
+                              (getType(props.fromNode) === 'recorder' || hasTracks(props.fromNode))
+  const isToNodeRecorder = props.toNode && (props.toNode.id === sourceNodeId) && 
+                            (getType(props.toNode) === 'recorder' || hasTracks(props.toNode))
+  
+  if (isSourceRecorder || isFromNodeRecorder || isToNodeRecorder) {
+    // Source is another recorder - recursively trace from that recorder's output
+    // The output port number corresponds to the track number on the source recorder
+    const sourceOutputPort = trackConn.output_number || trackConn.input_number || trackNumber
+    return traceRecorderTrackNameForModal(sourceNodeId, sourceOutputPort, visitedNodes)
+  }
+  
+  // For sources and transformers, use the existing trace function
+  const sourceLabel = getLRAwareSourceLabel(trackConn, visitedNodes)
+  return sourceLabel
 }
 
 // Fallback port name for 'from' ports
 function getFromPortName(portNum) {
+  if (isRecorderFrom.value) {
+    // For recorders, output port corresponds to track number - use track name
+    const trackName = traceRecorderTrackNameForModal(props.fromNode.id, portNum)
+    if (trackName) return trackName
+    return `Track ${portNum}`
+  }
   if (isTransformerFrom.value) {
     const incoming = (props.existingConnections || []).find(c =>
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
@@ -642,6 +1141,12 @@ function getFromPortName(portNum) {
 }
 
 function getFromPortDisplay(portNum) {
+  // For recorders, output port corresponds to track number - use track name
+  if (isRecorderFrom.value) {
+    const trackName = traceRecorderTrackNameForModal(props.fromNode.id, portNum)
+    if (trackName) return trackName
+    return `Track ${portNum}`
+  }
   // Prefer upstream source name for transformer outputs
   if (isTransformerFrom.value) {
     const incoming = (props.existingConnections || []).find(c =>
@@ -866,7 +1371,17 @@ errorMsg.value = ''
       .insert(portMapInserts)
     if (mapError) throw mapError
     
-    emit('confirm', { id: parentConnId, port_mappings: portMappings.value })
+    // Fetch the full connection object to include all fields needed for drawing
+    const { data: fullConnection, error: fetchError } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', parentConnId)
+      .single()
+    
+    if (fetchError) throw fetchError
+    
+    toast.success('Connection saved successfully')
+    emit('confirm', { ...fullConnection, port_mappings: portMappings.value })
     return
   }
   
@@ -882,8 +1397,9 @@ errorMsg.value = ''
     phantom_power: phantomPowerEnabled.value,
     connection_type: connectionType.value
   }
-    await addConnection(connection)
-  emit('confirm', connection)
+  const savedConnection = await addConnection(connection)
+  toast.success('Connection saved successfully')
+  emit('confirm', savedConnection)
 } catch (e) {
   if (e?.code === '23505') {
     // Unique input constraint hit - refetch latest and retry once on first available
@@ -936,12 +1452,69 @@ addConnection({
   from_node_id: props.fromNode.id,
   to_node_id: props.toNode.id
 }).then(conn => {
+  toast.success('Connection saved successfully')
   emit('confirm', conn)
 }).catch(e => {
   errorMsg.value = e.message || 'Failed to save connection.'
 }).finally(() => {
   loading.value = false
 })
+}
+
+// Helper to check if source is a stereo DJ feed
+function isStereoDJSource(node) {
+  if (!node) return false
+  const outCount = node.num_outputs || node.outputs || 0
+  if (outCount !== 2) return false
+  
+  // Check if it's a DJ source by name or gear type
+  const label = (node.label || '').toLowerCase()
+  const trackName = (node.track_name || '').toLowerCase()
+  const gearType = (node.gear_type || node.node_type || '').toLowerCase()
+  
+  return gearType === 'dj_lr' || 
+         label.includes('dj') || 
+         trackName.includes('dj') ||
+         label.includes('dj lr') ||
+         trackName.includes('dj lr')
+}
+
+// Auto-add L and R port mappings for stereo DJ sources
+async function autoAddStereoDJPortMappings() {
+  if (!needsPortMapping.value) return
+  if (!isSource.value) return
+  if (!isStereoDJSource(props.fromNode)) return
+  if (portMappings.value.length > 0) return // Already has mappings
+  
+  // Wait for taken ports to be loaded
+  await loadTakenPorts()
+  
+  // Find available L and R ports (ports 1 and 2 for stereo sources)
+  const lPort = 1
+  const rPort = 2
+  
+  // Check if L and R ports are available
+  if (takenFromPorts.value.has(lPort) || takenFromPorts.value.has(rPort)) return
+  
+  // Find available target ports
+  const availableTargets = availableToPorts.value
+  if (availableTargets.length < 2) return // Need at least 2 target ports
+  
+  // Auto-add L mapping (port 1)
+  if (availableTargets[0]) {
+    portMappings.value.push({
+      from_port: lPort,
+      to_port: availableTargets[0].value
+    })
+  }
+  
+  // Auto-add R mapping (port 2) if available
+  if (availableTargets[1]) {
+    portMappings.value.push({
+      from_port: rPort,
+      to_port: availableTargets[1].value
+    })
+  }
 }
 
 onMounted(() => {
@@ -969,7 +1542,23 @@ try {
 // Build upstream labels for transformer outputs
 buildUpstreamSourceLabels()
 // Load already-taken mapped ports for source and target across existing connections
-loadTakenPorts()
+loadTakenPorts().then(() => {
+  // Auto-add stereo DJ port mappings after ports are loaded
+  autoAddStereoDJPortMappings()
+})
+// Load recorder track names if FROM node is a recorder
+loadRecorderTrackNames()
+
+// Center modal on mount and ensure it's in viewport
+centerModal()
+
+// Ensure modal stays in viewport on window resize
+window.addEventListener('resize', ensureModalInViewport)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', ensureModalInViewport)
+  stopDrag()
 })
 </script>
 
@@ -981,26 +1570,48 @@ left: 0;
 right: 0;
 bottom: 0;
 background: rgba(0, 0, 0, 0.5);
-display: flex;
-align-items: center;
-justify-content: center;
 z-index: 1000;
+pointer-events: all;
 }
 
 .modal-content {
-background: white;
+  background: var(--bg-primary);
 border-radius: 12px;
 box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 max-width: 500px;
 width: 90%;
 max-height: 80vh;
 overflow: hidden;
+position: fixed;
+z-index: 1001;
 }
 
-.help { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: #6b7280; }
+.draggable-modal {
+  user-select: none;
+  cursor: move;
+}
+
+.draggable-modal .modal-header {
+  user-select: none;
+}
+
+.draggable-modal button,
+.draggable-modal input,
+.draggable-modal select,
+.draggable-modal textarea,
+.draggable-modal a {
+  cursor: default;
+  user-select: auto;
+}
+
+.draggable-modal button {
+  cursor: pointer;
+}
+
+.help { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--text-secondary); }
 .help-title { font-weight: 600; margin-right: 6px; }
-.pill { background: #eef2f7; color: #374151; padding: 2px 8px; border-radius: 999px; }
-.error-msg { color: #b91c1c; font-size: 12px; margin-bottom: 8px; }
+.pill { background: var(--bg-secondary); color: var(--text-secondary); padding: 2px 8px; border-radius: 999px; }
+.error-msg { color: var(--color-error-700); font-size: 12px; margin-bottom: 8px; }
 
 .modal-header {
 display: flex;
@@ -1008,13 +1619,14 @@ justify-content: space-between;
 align-items: center;
 padding: 20px;
 border-bottom: 1px solid #e9ecef;
+cursor: move;
 }
 
 .modal-title {
 margin: 0;
 font-size: 18px;
 font-weight: 600;
-color: #212529;
+color: var(--text-primary);
 }
 
 .close-btn {
@@ -1022,7 +1634,7 @@ background: none;
 border: none;
 font-size: 24px;
 cursor: pointer;
-color: #6c757d;
+color: var(--text-secondary);
 padding: 0;
 width: 30px;
 height: 30px;
@@ -1031,11 +1643,13 @@ align-items: center;
 justify-content: center;
 border-radius: 4px;
 transition: all 0.2s;
+position: relative;
+z-index: 10;
 }
 
 .close-btn:hover {
-background: #f8f9fa;
-color: #495057;
+background: var(--bg-secondary);
+color: var(--text-secondary);
 }
 
 .modal-body {
@@ -1053,7 +1667,7 @@ display: flex;
 align-items: center;
 gap: 15px;
 padding: 20px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 8px;
 border: 1px solid #e9ecef;
 }
@@ -1065,7 +1679,7 @@ text-align: center;
 
 .node-label {
 font-size: 12px;
-color: #6c757d;
+color: var(--text-secondary);
 margin-bottom: 5px;
 font-weight: 500;
 }
@@ -1073,13 +1687,13 @@ font-weight: 500;
 .node-name {
 font-size: 16px;
 font-weight: 600;
-color: #212529;
+color: var(--text-primary);
 margin-bottom: 5px;
 }
 
 .node-details {
 font-size: 12px;
-color: #6c757d;
+color: var(--text-secondary);
 }
 
 .connection-arrow {
@@ -1092,7 +1706,7 @@ height: 40px;
 
 .arrow-icon {
 font-size: 20px;
-color: #007bff;
+color: var(--color-primary-500);
 font-weight: bold;
 }
 
@@ -1111,7 +1725,7 @@ gap: 8px;
 .form-label {
 font-size: 14px;
 font-weight: 500;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .form-select {
@@ -1119,13 +1733,13 @@ padding: 10px 12px;
 border: 1px solid #ced4da;
 border-radius: 6px;
 font-size: 14px;
-background: white;
+  background: var(--bg-primary);
 transition: border-color 0.2s;
 }
 
 .form-select:focus {
 outline: none;
-border-color: #007bff;
+border-color: var(--color-primary-500);
 box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
@@ -1138,8 +1752,8 @@ margin-top: 10px;
 .btn-confirm {
 flex: 1;
 padding: 12px 20px;
-background: #007bff;
-color: white;
+background: var(--color-primary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 font-size: 14px;
@@ -1149,14 +1763,14 @@ transition: background-color 0.2s;
 }
 
 .btn-confirm:hover {
-background: #0056b3;
+background: var(--color-primary-600);
 }
 
 .btn-cancel {
 flex: 1;
 padding: 12px 20px;
-background: #6c757d;
-color: white;
+background: var(--color-secondary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 font-size: 14px;
@@ -1166,7 +1780,7 @@ transition: background-color 0.2s;
 }
 
 .btn-cancel:hover {
-background: #545b62;
+background: var(--color-secondary-600);
 }
 
 .output-matrix {
@@ -1175,7 +1789,7 @@ margin: 18px 0 24px 0;
 .matrix-title {
 font-weight: 600;
 margin-bottom: 8px;
-color: #222;
+color: var(--text-primary);
 }
 .matrix-grid {
 display: flex;
@@ -1186,7 +1800,7 @@ gap: 8px;
 min-width: 110px;
 padding: 10px 12px;
 border-radius: 8px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border: 1.5px solid #e9ecef;
 cursor: pointer;
 display: flex;
@@ -1195,12 +1809,12 @@ align-items: flex-start;
 transition: background 0.15s, border 0.15s;
 }
 .matrix-cell.selected {
-border: 2px solid #007bff;
-background: #e7f1ff;
+border: 2px solid var(--color-primary-500);
+background: rgba(59, 130, 246, 0.1);
 }
 .matrix-cell.assigned {
-background: #f1f1f1;
-color: #aaa;
+background: var(--bg-tertiary);
+color: var(--text-tertiary);
 border: 1.5px solid #e0e0e0;
 cursor: not-allowed;
 }
@@ -1210,7 +1824,7 @@ margin-bottom: 2px;
 }
 .cell-assigned {
 font-size: 0.95em;
-color: #888;
+color: var(--text-tertiary);
 }
 .cell-available {
 font-size: 0.95em;
@@ -1222,7 +1836,7 @@ display: flex;
 flex-direction: column;
 gap: 10px;
 padding: 10px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 6px;
 border: 1px solid #e9ecef;
 }
@@ -1244,7 +1858,7 @@ cursor: pointer;
 
 .checkbox-label span {
 font-weight: 500;
-color: #495057;
+color: var(--text-secondary);
 }
 
 .select-label {
@@ -1277,7 +1891,7 @@ display: flex;
 align-items: center;
 gap: 8px;
 padding: 10px;
-background: #f8f9fa;
+background: var(--bg-secondary);
 border-radius: 6px;
 border: 1px solid #e9ecef;
 }
@@ -1287,13 +1901,13 @@ margin-right: auto;
 }
 
 .port-mapping-row .arrow {
-color: #007bff;
+color: var(--color-primary-500);
 font-weight: bold;
 }
 
 .btn-remove {
-background: #dc3545;
-color: white;
+background: var(--color-error-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 4px;
 width: 24px;
@@ -1308,7 +1922,7 @@ transition: background-color 0.2s;
 }
 
 .btn-remove:hover {
-background: #c82333;
+background: var(--color-error-600);
 }
 
 .port-mapping-add {
@@ -1324,14 +1938,14 @@ min-width: 120px;
 }
 
 .port-mapping-add .arrow {
-color: #007bff;
+color: var(--color-primary-500);
 font-weight: bold;
 }
 
 .btn-add {
 padding: 8px 16px;
-background: #28a745;
-color: white;
+background: var(--color-success-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 6px;
 font-size: 14px;
@@ -1341,17 +1955,17 @@ transition: background-color 0.2s;
 }
 
 .btn-add:hover:not(:disabled) {
-background: #218838;
+background: var(--color-success-600);
 }
 
 .btn-add:disabled {
-background: #6c757d;
+background: var(--color-secondary-500);
 cursor: not-allowed;
 }
 
 .btn-edit {
-background: #007bff;
-color: white;
+background: var(--color-primary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 4px;
 width: 28px;
@@ -1366,12 +1980,12 @@ transition: background-color 0.2s;
 }
 
 .btn-edit:hover {
-background: #0056b3;
+background: var(--color-primary-600);
 }
 
 .btn-save-small {
-background: #28a745;
-color: white;
+background: var(--color-success-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 4px;
 width: 28px;
@@ -1386,12 +2000,12 @@ transition: background-color 0.2s;
 }
 
 .btn-save-small:hover {
-background: #218838;
+background: var(--color-success-600);
 }
 
 .btn-cancel-small {
-background: #6c757d;
-color: white;
+background: var(--color-secondary-500);
+  color: var(--text-inverse);
 border: none;
 border-radius: 4px;
 width: 28px;
@@ -1406,7 +2020,7 @@ transition: background-color 0.2s;
 }
 
 .btn-cancel-small:hover {
-background: #5a6268;
+background: var(--color-secondary-600);
 }
 
 .form-select-small {

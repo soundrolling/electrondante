@@ -404,9 +404,9 @@ setup(props) {
   margin: 0 auto;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #1f2937;
+  color: var(--text-primary);
   line-height: 1.5;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   min-height: 100vh;
 }
 
@@ -424,7 +424,7 @@ setup(props) {
 .header-section {
   text-align: center;
   margin-bottom: 24px;
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 24px 16px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -434,21 +434,21 @@ setup(props) {
 .header-section h1 {
   font-size: 24px;
   margin: 0 0 8px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 700;
   line-height: 1.4;
 }
 
 .header-section p {
   margin: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.5;
 }
 
 /* Content Container */
 .content-container {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -467,7 +467,7 @@ setup(props) {
 .section-header h2 {
   font-size: 20px;
   margin: 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
 }
@@ -475,7 +475,7 @@ setup(props) {
 /* Add Button */
 .add-button {
   background: #3b82f6;
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 16px;
@@ -547,8 +547,8 @@ setup(props) {
 .empty-state {
   text-align: center;
   padding: 32px 16px;
-  color: #6b7280;
-  background: #f9fafb;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px dashed #e5e7eb;
 }
@@ -561,7 +561,7 @@ setup(props) {
 .empty-state h3 {
   font-size: 20px;
   margin: 0 0 8px 0;
-  color: #374151;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -573,7 +573,7 @@ setup(props) {
 
 /* Parking Form Container */
 .parking-form-container {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border: 1px solid #e5e7eb;
   padding: 24px 20px;
   border-radius: 12px;
@@ -583,7 +583,7 @@ setup(props) {
 
 .parking-form-container h3 {
   margin: 0 0 20px 0;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   font-size: 18px;
   line-height: 1.4;
@@ -598,7 +598,7 @@ setup(props) {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -612,8 +612,8 @@ setup(props) {
   font-size: 16px;
   line-height: 1.5;
   box-sizing: border-box;
-  background: #ffffff;
-  color: #111827;
+  background: var(--bg-primary);
+  color: var(--text-heading);
   transition: all 0.2s ease;
   min-height: 48px;
 }
@@ -626,7 +626,7 @@ setup(props) {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -640,8 +640,8 @@ setup(props) {
 
 /* Button Styles */
 .primary-button {
-  background: #10b981;
-  color: #ffffff;
+  background: var(--color-success-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -657,7 +657,7 @@ setup(props) {
 }
 
 .primary-button:hover {
-  background: #059669;
+  background: var(--color-success-600);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -672,15 +672,15 @@ setup(props) {
 }
 
 .primary-button:disabled {
-  background: #9ca3af;
+  background: var(--color-secondary-400);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
 .secondary-button {
-  background: #6b7280;
-  color: #ffffff;
+  background: var(--color-secondary-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
@@ -729,7 +729,7 @@ setup(props) {
 }
 
 .parking-card {
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px 16px;
   border: 1px solid #e5e7eb;
@@ -755,14 +755,14 @@ setup(props) {
 .parking-card-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #111827;
+  color: var(--text-heading);
   font-weight: 600;
   line-height: 1.4;
 }
 
 .parking-provider {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   background: #e5e7eb;
   padding: 4px 8px;
   border-radius: 6px;
@@ -789,12 +789,12 @@ setup(props) {
 
 .detail-label {
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .detail-value {
-  color: #111827;
+  color: var(--text-heading);
   font-size: 14px;
   text-align: right;
 }
@@ -822,8 +822,8 @@ setup(props) {
   font-weight: 500;
   transition: all 0.2s ease;
   border: 1px solid #e5e7eb;
-  color: #374151;
-  background: #f9fafb;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
   min-height: 44px;
   min-width: 44px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -845,7 +845,7 @@ setup(props) {
 
 .action-button.edit-button {
   background: #3b82f6;
-  color: #ffffff;
+  color: var(--text-inverse);
   border-color: #2563eb;
 }
 
@@ -856,7 +856,7 @@ setup(props) {
 
 .action-button.delete-button {
   background: #dc2626;
-  color: #ffffff;
+  color: var(--text-inverse);
   border-color: #b91c1c;
 }
 
@@ -871,7 +871,7 @@ setup(props) {
 
 .action-text {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.2;
 }
 
