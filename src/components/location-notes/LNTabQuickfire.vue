@@ -313,21 +313,21 @@ background: var(--color-success-600);
 
 /* High-contrast base button classes for consistency within location-notes */
 .btn.btn-positive {
-  background-color: #047857 !important;
-  color: #ffffff !important;
-  border: 2px solid #065f46 !important;
+  background-color: var(--color-success-600) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-success-700) !important;
   font-weight: 700;
 }
 .btn.btn-warning {
-  background-color: #d97706 !important;
-  color: #ffffff !important;
-  border: 2px solid #b45309 !important;
+  background-color: var(--color-warning-500) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-warning-600) !important;
   font-weight: 700;
 }
 .btn.btn-danger {
-  background-color: #dc2626 !important;
-  color: #ffffff !important;
-  border: 2px solid #b91c1c !important;
+  background-color: var(--color-error-500) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-error-600) !important;
   font-weight: 700;
 }
 /* modal */
@@ -344,13 +344,14 @@ justify-content: center;
 z-index: 1000;
 }
 .modal-content {
-background: #fff;
+background: var(--bg-primary);
 border-radius: 12px;
-box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+box-shadow: var(--shadow-lg);
 max-width: 500px;
 width: 90%;
 max-height: 90vh;
 overflow-y: auto;
+border: 1px solid var(--border-light);
 }
 .modal-header {
 display: flex;
@@ -362,12 +363,12 @@ padding: 20px 24px 0;
 margin: 0;
 font-size: 1.25rem;
 font-weight: 600;
-color: #111827;
+color: var(--text-heading);
 }
 .modal-close {
-background: #d97706;
-color: #ffffff;
-border: 1px solid #b45309;
+background: var(--color-warning-500);
+color: var(--text-inverse);
+border: 1px solid var(--color-warning-600);
 font-size: 1.5rem;
 cursor: pointer;
 padding: 4px;
@@ -375,7 +376,7 @@ border-radius: 4px;
 transition: background .2s;
 }
 .modal-close:hover {
-background: #b45309;
+background: var(--color-warning-600);
 }
 .modal-body {
 padding: 20px 24px;
@@ -395,18 +396,20 @@ margin-bottom: 16px;
 .form-field label {
 font-size: 0.9rem;
 font-weight: 600;
-color: #374151;
+color: var(--text-secondary);
 }
 .form-field input,
 .form-field select {
-border: 1px solid var(--border);
+border: 1px solid var(--border-medium);
 border-radius: 6px;
 padding: 8px;
 font-size: 0.95rem;
 max-width: 300px;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 .error-text {
-color: #ff7070;
+color: var(--color-error-500);
 font-size: 0.85rem;
 margin-bottom: 12px;
 }
@@ -418,17 +421,17 @@ cursor: pointer;
 font-size: 0.95rem;
 }
 .cancel-btn {
-background: #d97706;
-color: #ffffff;
-border: 1px solid #b45309;
+background: var(--color-warning-500);
+color: var(--text-inverse);
+border: 1px solid var(--color-warning-600);
 }
 .save-btn {
-background: #059669;
-color: #ffffff;
+background: var(--color-success-500);
+color: var(--text-inverse);
 transition: background .2s;
 }
 .save-btn:hover:not(:disabled) {
-background: #047857;
+background: var(--color-success-600);
 }
 .save-btn:disabled {
 opacity: 0.6;
@@ -438,11 +441,11 @@ cursor: default;
 .table {
 width: 100%;
 border-collapse: collapse;
-background: rgba(255, 255, 255, 0.9);
+background: var(--bg-primary);
 border-radius: 12px;
 overflow: hidden;
-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-border: 1px solid rgba(255, 255, 255, 0.3);
+box-shadow: var(--shadow-md);
+border: 1px solid var(--border-light);
 backdrop-filter: blur(10px);
 }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -456,8 +459,9 @@ padding: 12px;
 font-size: 0.85rem;
 }
 .table th {
-background: #f4f5f7;
+background: var(--bg-secondary);
 font-weight: 600;
+color: var(--text-heading);
 }
 .actions {
 display: flex;
@@ -477,24 +481,24 @@ cursor: pointer;
 transition: background .2s;
 }
 .icon.edit {
-background: #d97706;
-color: #ffffff;
+background: var(--color-warning-500);
+color: var(--text-inverse);
 }
 .icon.edit:hover {
-background: #b45309;
+background: var(--color-warning-600);
 }
 .icon.delete {
-background: #dc2626;
-color: #ffffff;
+background: var(--color-error-500);
+color: var(--text-inverse);
 }
 .icon.delete:hover {
-background: #b91c1c;
+background: var(--color-error-600);
 }
 /* inline SVG */
 .icon-svg {
 width: 16px;
 height: 16px;
-color: #fff;
+color: var(--text-inverse);
 }
 .pill {
 display: inline-block;

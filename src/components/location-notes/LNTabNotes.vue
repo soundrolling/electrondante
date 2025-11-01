@@ -1534,8 +1534,8 @@ opacity: 0.6;
   width: 100%;
   max-width: 100%;
   margin-bottom: 32px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(10px);
@@ -1679,7 +1679,7 @@ opacity: 0.6;
 .icon-btn {
   width: 44px;
   height: 44px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--border-medium);
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -1707,7 +1707,7 @@ opacity: 0.6;
 }
 .date-range-input {
   padding: 6px;
-  border: 1px solid #dce0e8;
+  border: 1px solid var(--border-medium);
   border-radius: 6px;
   font-size: 0.97rem;
   flex: 1 1 auto;
@@ -1803,11 +1803,12 @@ opacity: 0.6;
 
 .recording-day-select {
   width: 100%;
-  border: 1px solid #cad8f3;
+  border: 1px solid var(--border-medium);
   border-radius: 6px;
   padding: 8px;
   font-size: 0.95rem;
-  background: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .note-input {
@@ -1905,7 +1906,7 @@ opacity: 0.6;
 
 .export-filename-input {
   padding: 6px;
-  border: 1px solid #dce0e8;
+  border: 1px solid var(--border-medium);
   border-radius: 6px;
   min-width: 180px;
   width: 100%;
@@ -1917,9 +1918,9 @@ opacity: 0.6;
   gap: 6px;
 }
 .refresh-btn {
-  background: #d97706;
-  color: #ffffff;
-  border: 1px solid #b45309;
+  background: var(--color-warning-500);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-warning-600);
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -1931,7 +1932,7 @@ opacity: 0.6;
   transition: background 0.2s;
 }
 .refresh-btn:hover {
-  background: #b45309;
+  background: var(--color-warning-600);
 }
 
 /* Today and Previous Day button styles are now handled by btn btn-primary classes */
@@ -1945,13 +1946,13 @@ opacity: 0.6;
 
 /* High-contrast primary buttons for Today / Previous Day */
 .btn.btn-primary {
-  background-color: #1d4ed8 !important; /* stronger blue */
-  color: #ffffff !important;
-  border: 2px solid #1e40af !important;
+  background-color: var(--color-primary-600) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-primary-700) !important;
   font-weight: 700;
 }
 .btn.btn-primary:hover {
-  background-color: #1e40af !important;
+  background-color: var(--color-primary-700) !important;
 }
 .btn.btn-primary:focus {
   outline: 3px solid rgba(29, 78, 216, 0.35);
@@ -1960,21 +1961,21 @@ opacity: 0.6;
 
 /* High-contrast positive and warning buttons (New Note, Export, Save) */
 .btn.btn-positive {
-  background-color: #047857 !important;
-  color: #ffffff !important;
-  border: 2px solid #065f46 !important;
+  background-color: var(--color-success-600) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-success-700) !important;
   font-weight: 700;
 }
-.btn.btn-positive:hover { background-color: #065f46 !important; }
+.btn.btn-positive:hover { background-color: var(--color-success-700) !important; }
 .btn.btn-positive:focus { outline: 3px solid rgba(4,120,87,.35); outline-offset: 2px; }
 
 .btn.btn-warning {
-  background-color: #d97706 !important;
-  color: #ffffff !important;
-  border: 2px solid #b45309 !important;
+  background-color: var(--color-warning-500) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-warning-600) !important;
   font-weight: 700;
 }
-.btn.btn-warning:hover { background-color: #b45309 !important; }
+.btn.btn-warning:hover { background-color: var(--color-warning-600) !important; }
 .btn.btn-warning:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
 
 /* Stage Hours Button */
@@ -1983,9 +1984,9 @@ opacity: 0.6;
 }
 
 .stage-hours-button {
-  background: #2563eb;
-  color: #ffffff !important;
-  border: 2px solid #1d4ed8;
+  background: var(--color-primary-600);
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-primary-700);
   border-radius: 8px;
   padding: 8px 16px;
   font-weight: 600;
@@ -1996,8 +1997,8 @@ opacity: 0.6;
 }
 
 .stage-hours-button:hover {
-  background: #1d4ed8;
-  border-color: #1e40af;
+  background: var(--color-primary-700);
+  border-color: var(--color-primary-800);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
 }
@@ -2014,8 +2015,8 @@ opacity: 0.6;
 }
 
 .stage-hour-item {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 12px;
@@ -2030,17 +2031,17 @@ opacity: 0.6;
 
 .stage-hour-label {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-heading);
 }
 
 .stage-hour-dates {
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 .edit-stage-hour-btn {
-  background: #f59e0b;
-  color: white;
+  background: var(--color-warning-500);
+  color: var(--text-inverse);
   border: none;
   border-radius: 4px;
   padding: 4px 8px;
@@ -2049,24 +2050,24 @@ opacity: 0.6;
 }
 
 .edit-stage-hour-btn:hover {
-  background: #d97706;
+  background: var(--color-warning-600);
 }
 
 .stage-hour-times {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .time-separator {
-  color: #9ca3af;
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
 .stage-hour-edit {
-  background: #fef3c7;
-  border: 2px solid #f59e0b;
+  background: rgba(251, 191, 36, 0.15);
+  border: 2px solid var(--color-warning-500);
   border-radius: 8px;
   padding: 16px;
   margin-top: 8px;
@@ -2086,19 +2087,21 @@ opacity: 0.6;
 
 .form-row label {
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 .form-row input {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 0.9rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .form-row input:focus {
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
   outline: none;
 }
@@ -2113,14 +2116,14 @@ opacity: 0.6;
 .add-stage-hour-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-medium);
   text-align: center;
 }
 
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .empty-state p {
