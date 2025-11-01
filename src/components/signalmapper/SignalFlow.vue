@@ -1614,6 +1614,10 @@ function exportToPDF() {
   padding: 10px;
   background: #f8f9fa;
   border-radius: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .flow-toolbar button, .flow-toolbar .tool-btn {
