@@ -29,6 +29,13 @@
       <span class="tab-icon">🎒</span>
       <span class="tab-label">Packing</span>
     </button>
+    <button
+      :class="['tab-button', { active: activeTab === 'repacking' }]"
+      @click="switchTab('repacking')"
+    >
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Repacking</span>
+    </button>
   </div>
 
   <!-- GEAR TAB CONTENT -->
@@ -284,6 +291,11 @@
   <!-- PACKING TAB CONTENT -->
   <div v-if="activeTab === 'packing'">
     <PackingTab :project-id="String(projectId)" />
+  </div>
+
+  <!-- REPACKING TAB CONTENT -->
+  <div v-if="activeTab === 'repacking'">
+    <RepackingTab :project-id="String(projectId)" />
   </div>
 
   <!-- ADD GEAR MODAL -->
@@ -719,13 +731,15 @@ import { supabase } from '../supabase'
 import UserGearSelector from './UserGearSelector.vue'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
 import PackingTab from './PackingTab.vue'
+import RepackingTab from './RepackingTab.vue'
 
 export default {
 name: 'ProjectGear',
 components: {
   UserGearSelector,
   ProjectBreadcrumbs,
-  PackingTab
+  PackingTab,
+  RepackingTab
 },
 props: {
   locationId: {
@@ -812,14 +826,14 @@ setup(props) {
   
   // Watch for route changes to update active tab
   watch(() => route.query.tab, (newTab) => {
-    if (newTab === 'packing' || newTab === 'gear') {
+    if (newTab === 'packing' || newTab === 'gear' || newTab === 'repacking') {
       activeTab.value = newTab
     }
   })
   
-  // Watch props changes (when navigating to /packing route)
+  // Watch props changes (when navigating to /packing or /repacking route)
   watch(() => props.tab, (newTab) => {
-    if (newTab === 'packing' || newTab === 'gear') {
+    if (newTab === 'packing' || newTab === 'gear' || newTab === 'repacking') {
       activeTab.value = newTab
     }
   })
@@ -831,6 +845,12 @@ setup(props) {
     if (tab === 'packing') {
       router.push({ 
         name: 'ProjectPacking', 
+        params: { id: route.params.id },
+        query: { ...route.query }
+      })
+    } else if (tab === 'repacking') {
+      router.push({ 
+        name: 'ProjectRepacking', 
         params: { id: route.params.id },
         query: { ...route.query }
       })

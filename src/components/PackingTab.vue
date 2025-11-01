@@ -53,6 +53,12 @@
             <span class="count-label">Total Items:</span>
             <span class="count-value">{{ getBagTotalQuantity(bag.id) }}</span>
           </div>
+          
+          <div class="bag-weight-info">
+            <span class="weight-label">Estimated Weight:</span>
+            <span class="weight-value">{{ getBagTotalWeight(bag.id) }} kg</span>
+            <span v-if="bag.weight_kg" class="weight-custom">(Custom: {{ bag.weight_kg }} kg)</span>
+          </div>
 
           <div class="bag-actions">
             <button class="btn btn-primary btn-sm" @click="viewBag(bag)" title="View">
@@ -102,6 +108,19 @@
               placeholder="Optional description"
               rows="3"
             ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Bag Weight (kg)</label>
+            <input 
+              v-model.number="bagForm.weight_kg" 
+              type="number"
+              step="0.01"
+              min="0"
+              class="form-input"
+              placeholder="Enter bag weight in kg (optional)"
+            />
+            <p class="form-hint">Leave empty to auto-calculate from gear items</p>
           </div>
 
           <div class="form-group">
@@ -297,6 +316,7 @@ const imageInput = ref(null)
 const bagForm = ref({
   name: '',
   description: '',
+  weight_kg: null,
   imageFile: null,
   imagePreview: null
 })
@@ -345,6 +365,31 @@ function getBagTotalQuantity(bagId) {
   return bagItems.value
     .filter(item => item.bag_id === bagId)
     .reduce((sum, item) => sum + (item.quantity || 0), 0)
+}
+
+function getBagTotalWeight(bagId) {
+  const bag = bags.value.find(b => b.id === bagId)
+  
+  // If bag has a custom weight, use that
+  if (bag && bag.weight_kg) {
+    return Number(bag.weight_kg).toFixed(2)
+  }
+  
+  // Otherwise calculate from gear items
+  const itemsInBag = bagItems.value.filter(item => item.bag_id === bagId)
+  let totalWeight = 0
+  
+  itemsInBag.forEach(item => {
+    if (item.gear_id) {
+      // Find gear in availableProjectGear to get its weight
+      const gear = availableProjectGear.value.find(g => g.id === item.gear_id)
+      if (gear && gear.weight_kg) {
+        totalWeight += (Number(gear.weight_kg) || 0) * (item.quantity || 0)
+      }
+    }
+  })
+  
+  return totalWeight > 0 ? totalWeight.toFixed(2) : '0.00'
 }
 
 async function loadBags() {
@@ -510,10 +555,28 @@ async function loadAvailableGear() {
           
           console.log('[PackingTab] Owned gear:', ownedGear.length, ownedGear)
           
+          // Fetch weight from user_gear table
+          const userGearIdsForWeight = ownedGear.map(g => g.user_gear_id).filter(Boolean)
+          let weightMap = {}
+          if (userGearIdsForWeight.length > 0) {
+            const { data: userGearWeightData, error: weightError } = await supabase
+              .from('user_gear')
+              .select('id, weight_kg')
+              .in('id', userGearIdsForWeight)
+            
+            if (!weightError && userGearWeightData) {
+              userGearWeightData.forEach(ug => {
+                weightMap[ug.id] = ug.weight_kg
+              })
+            }
+          }
+          
           availableProjectGear.value = ownedGear.map(g => ({
             ...g,
             // Ensure gear_amount is always available, default to 0 if missing
-            gear_amount: g.gear_amount || 0
+            gear_amount: g.gear_amount || 0,
+            // Add weight from user_gear
+            weight_kg: weightMap[g.user_gear_id] || null
           }))
         } else {
           console.error('[PackingTab] Error fetching user_gear or no data:', error)
@@ -642,6 +705,7 @@ async function saveBag() {
     const bagData = {
       name: bagForm.value.name.trim(),
       description: bagForm.value.description?.trim() || null,
+      weight_kg: bagForm.value.weight_kg ? Number(bagForm.value.weight_kg) : null,
       imageFile: bagForm.value.imageFile
     }
 
@@ -727,6 +791,8 @@ async function moveItemToBag() {
     
     // Reload items for current bag
     await loadBagItems(currentBag.value.id)
+    // Reload all bags to refresh total counts on bag cards
+    await loadBags()
     await updateGearAssignedCounts()
     await loadAvailableGear()
     closeChangeBagModal()
@@ -1512,6 +1578,38 @@ onMounted(async () => {
 
 .item-preview strong {
   font-size: 16px;
+}
+
+/* Weight Display */
+.bag-weight-info {
+  margin-top: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.weight-label {
+  color: #6c757d;
+}
+
+.weight-value {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.weight-custom {
+  color: #047857;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #6c757d;
+  margin: 4px 0 0 0;
+  font-style: italic;
 }
 </style>
 

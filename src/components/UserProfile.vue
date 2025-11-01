@@ -219,7 +219,8 @@ function openEditGear(gearItem) {
     purchased_date: gearItem.purchased_date || '',
     notes: gearItem.notes || '',
     condition: gearItem.condition || 'excellent',
-    availability: gearItem.availability || 'available'
+    availability: gearItem.availability || 'available',
+    weight_kg: gearItem.weight_kg || null
   };
   isEditGear.value = true;
   editGearId.value = gearItem.id;
@@ -238,7 +239,8 @@ function resetGearForm() {
     purchased_date: '',
     notes: '',
     condition: 'excellent',
-    availability: 'available'
+    availability: 'available',
+    weight_kg: null
   };
   isEditGear.value = false;
   editGearId.value = null;
@@ -260,7 +262,8 @@ async function saveGear() {
     purchased_date: gearForm.value.purchased_date || null,
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
-    availability: gearForm.value.availability
+    availability: gearForm.value.availability,
+    weight_kg: gearForm.value.weight_kg ? Number(gearForm.value.weight_kg) : null
   };
 
   try {
@@ -902,6 +905,20 @@ async function saveSecurity() {
               />
             </div>
           </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Weight (kg)</label>
+              <input 
+                v-model.number="gearForm.weight_kg" 
+                class="form-input"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Optional"
+              />
+              <p class="form-hint">Used for calculating bag weights</p>
+            </div>
 
           <!-- Tracks row (only for recorders) -->
           <div class="form-row" v-if="gearForm.gear_type === 'recorder'">
