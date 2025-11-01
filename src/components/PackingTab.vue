@@ -1396,7 +1396,7 @@ onMounted(async () => {
 .bag-image-container {
   width: 100%;
   height: 200px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1551,7 +1551,7 @@ onMounted(async () => {
 }
 
 .modal-close:hover {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
@@ -1628,7 +1628,7 @@ onMounted(async () => {
 
 .form-input[type="file"]::file-selector-button {
   padding: 8px 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 2px solid #e9ecef;
   border-radius: 6px;
   color: var(--text-primary);
@@ -1812,7 +1812,7 @@ onMounted(async () => {
 }
 
 .item-card {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 12px;
@@ -1867,7 +1867,7 @@ onMounted(async () => {
 .item-preview {
   margin-bottom: 20px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
 }
 

@@ -351,7 +351,7 @@ onMounted(async () => {
 .bag-image-container {
   width: 100%;
   height: 200px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -435,7 +435,7 @@ onMounted(async () => {
 }
 
 .item-card {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 12px;
