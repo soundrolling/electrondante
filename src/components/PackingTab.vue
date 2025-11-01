@@ -1351,7 +1351,7 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .loading-state,
@@ -1386,7 +1386,7 @@ onMounted(async () => {
 }
 
 .bag-card {
-  background: var(--bg-primary);
+  background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 12px;
   overflow: hidden;
@@ -1396,7 +1396,7 @@ onMounted(async () => {
 .bag-image-container {
   width: 100%;
   height: 200px;
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1414,7 +1414,7 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 .placeholder-icon {
@@ -1429,11 +1429,11 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 8px 0;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .bag-description {
-  color: var(--text-secondary);
+  color: #6c757d;
   font-size: 14px;
   margin: 0 0 12px 0;
 }
@@ -1444,12 +1444,12 @@ onMounted(async () => {
 }
 
 .count-label {
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 .count-value {
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .bag-actions {
@@ -1491,7 +1491,7 @@ onMounted(async () => {
 }
 
 .modal {
-  background: var(--bg-primary);
+  background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 500px;
@@ -1530,14 +1530,14 @@ onMounted(async () => {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .modal-close {
   background: transparent;
   border: none;
   font-size: 24px;
-  color: var(--text-secondary);
+  color: #6c757d;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 8px;
@@ -1551,8 +1551,8 @@ onMounted(async () => {
 }
 
 .modal-close:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: #f8f9fa;
+  color: #1a1a1a;
 }
 
 .modal-form {
@@ -1583,12 +1583,12 @@ onMounted(async () => {
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
-  color: var(--text-primary);
+  color: #1a1a1a;
   font-size: 14px;
 }
 
 .form-label .required {
-  color: var(--color-error-600);
+  color: #dc2626;
   margin-left: 2px;
 }
 
@@ -1602,8 +1602,8 @@ onMounted(async () => {
   font-size: 16px;
   font-family: inherit;
   transition: all 0.2s ease;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #1a1a1a;
   box-sizing: border-box;
 }
 
@@ -1611,7 +1611,7 @@ onMounted(async () => {
 .form-textarea:focus,
 .form-select:focus {
   outline: none;
-  border-color: var(--color-success-600);
+  border-color: #047857;
   box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.1);
 }
 
@@ -1628,10 +1628,10 @@ onMounted(async () => {
 
 .form-input[type="file"]::file-selector-button {
   padding: 8px 16px;
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   border: 2px solid #e9ecef;
   border-radius: 6px;
-  color: var(--text-primary);
+  color: #1a1a1a;
   cursor: pointer;
   font-weight: 500;
   margin-right: 12px;
@@ -1788,7 +1788,7 @@ onMounted(async () => {
 
 .image-note {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #6c757d;
   margin-bottom: 4px;
 }
 
@@ -1812,7 +1812,7 @@ onMounted(async () => {
 }
 
 .item-card {
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 12px;
@@ -1830,14 +1830,14 @@ onMounted(async () => {
 .item-quantity,
 .item-notes {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #6c757d;
   margin: 0;
 }
 
 .empty-items {
   text-align: center;
   padding: 24px;
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 @media (min-width: 768px) {
@@ -1867,13 +1867,13 @@ onMounted(async () => {
 .item-preview {
   margin-bottom: 20px;
   padding: 16px;
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   border-radius: 8px;
 }
 
 .item-preview p {
   margin: 4px 0;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .item-preview strong {
@@ -1891,12 +1891,12 @@ onMounted(async () => {
 }
 
 .weight-label {
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 .weight-value {
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .weight-custom {
@@ -1919,7 +1919,7 @@ onMounted(async () => {
 
 .form-hint {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #6c757d;
   margin: 4px 0 0 0;
   font-style: italic;
 }
@@ -1941,7 +1941,7 @@ onMounted(async () => {
   padding: 8px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  background: var(--bg-primary);
+  background: #ffffff;
   font-size: 14px;
   color: #374151;
   cursor: pointer;
@@ -1970,7 +1970,7 @@ onMounted(async () => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: var(--bg-primary);
+  background: #ffffff;
 }
 
 .radio-option:hover {

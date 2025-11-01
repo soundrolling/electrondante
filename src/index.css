@@ -421,6 +421,69 @@ svg[fill="currentColor"],
   color: var(--icon-inverse);
 }
 
+/* Dark Mode CSS Variables */
+.dark {
+  /* Background Colors - Inverted for dark mode */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2a2a2a;
+  --bg-tertiary: #333333;
+  --bg-elevated: #2a2a2a;
+  --bg-grouped: #1f1f1f;
+
+  /* Text Colors - Inverted for dark mode */
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #b0b0b0;
+  --text-quaternary: #888888;
+  --text-inverse: #000000;
+  --text-link: #5ac8fa;
+  --text-heading: #ffffff;
+  --text-muted: #999999;
+
+  /* Border Colors - Adjusted for dark backgrounds */
+  --border-light: #404040;
+  --border-medium: #505050;
+  --border-dark: #606060;
+  --border-separator: #505050;
+
+  /* Button Colors - Maintain contrast in dark mode */
+  --btn-positive-bg: #10b981;
+  --btn-positive-border: #059669;
+  --btn-positive-text: #ffffff;
+  --btn-positive-hover-bg: #059669;
+  --btn-positive-hover-border: #047857;
+
+  --btn-danger-bg: #ef4444;
+  --btn-danger-border: #dc2626;
+  --btn-danger-text: #ffffff;
+  --btn-danger-hover-bg: #dc2626;
+  --btn-danger-hover-border: #b91c1c;
+
+  --btn-warning-bg: #f59e0b;
+  --btn-warning-border: #d97706;
+  --btn-warning-text: #ffffff;
+  --btn-warning-hover-bg: #d97706;
+  --btn-warning-hover-border: #b45309;
+
+  --btn-primary-bg: #3b82f6;
+  --btn-primary-border: #2563eb;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover-bg: #2563eb;
+  --btn-primary-hover-border: #1d4ed8;
+
+  --btn-secondary-bg: #374151;
+  --btn-secondary-border: #4b5563;
+  --btn-secondary-text: #e5e7eb;
+  --btn-secondary-hover-bg: #4b5563;
+  --btn-secondary-hover-border: #6b7280;
+
+  --btn-neutral-bg: #2a2a2a;
+  --btn-neutral-border: #404040;
+  --btn-neutral-text: #e5e7eb;
+  --btn-neutral-hover-bg: #333333;
+  --btn-neutral-hover-border: #505050;
+}
+
 /* Base Styles */
 * {
   box-sizing: border-box;

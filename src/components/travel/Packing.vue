@@ -300,11 +300,11 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .packing-description {
-  color: var(--text-secondary);
+  color: #6c757d;
   font-size: 14px;
   margin-bottom: 24px;
 }
@@ -341,7 +341,7 @@ onMounted(async () => {
 }
 
 .bag-card {
-  background: var(--bg-primary);
+  background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 12px;
   overflow: hidden;
@@ -351,7 +351,7 @@ onMounted(async () => {
 .bag-image-container {
   width: 100%;
   height: 200px;
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -369,7 +369,7 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 .placeholder-icon {
@@ -384,11 +384,11 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 8px 0;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .bag-description {
-  color: var(--text-secondary);
+  color: #6c757d;
   font-size: 14px;
   margin: 0 0 12px 0;
 }
@@ -399,12 +399,12 @@ onMounted(async () => {
 }
 
 .count-label {
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 .count-value {
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .bag-actions {
@@ -435,7 +435,7 @@ onMounted(async () => {
 }
 
 .item-card {
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 12px;
@@ -450,14 +450,14 @@ onMounted(async () => {
 .item-quantity,
 .item-notes {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #6c757d;
   margin: 0;
 }
 
 .empty-items {
   text-align: center;
   padding: 24px;
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 @media (min-width: 768px) {

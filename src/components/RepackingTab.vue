@@ -485,7 +485,7 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .loading-state,
@@ -502,7 +502,7 @@ onMounted(async () => {
 .repacking-table-container {
   overflow-x: auto;
   margin-bottom: 24px;
-  background: var(--bg-primary);
+  background: #ffffff;
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
@@ -514,7 +514,7 @@ onMounted(async () => {
 }
 
 .repacking-table thead {
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   border-bottom: 2px solid #dee2e6;
 }
 
@@ -523,7 +523,7 @@ onMounted(async () => {
   text-align: left;
   font-weight: 600;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #495057;
   white-space: nowrap;
 }
 
@@ -533,21 +533,21 @@ onMounted(async () => {
 }
 
 .repacking-table tbody tr:hover {
-  background: var(--bg-secondary);
+  background: #f8f9fa;
 }
 
 .repacking-table tbody tr.checked {
-  background: rgba(34, 197, 94, 0.15);
+  background: #e8f5e9;
 }
 
 .repacking-table tbody tr.checked:hover {
-  background: rgba(34, 197, 94, 0.2);
+  background: #d4edda;
 }
 
 .repacking-table td {
   padding: 12px 16px;
   font-size: 14px;
-  color: var(--text-primary);
+  color: #1a1a1a;
   vertical-align: middle;
 }
 
@@ -564,11 +564,11 @@ onMounted(async () => {
 
 .gear-name {
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .gear-type {
-  color: var(--text-secondary);
+  color: #6c757d;
   font-size: 13px;
 }
 
@@ -580,7 +580,7 @@ onMounted(async () => {
 }
 
 .unpacked {
-  color: var(--color-warning-500);
+  color: #f59e0b;
 }
 
 .bags-list {
@@ -596,14 +596,14 @@ onMounted(async () => {
 .bag-tag {
   display: inline-block;
   padding: 4px 8px;
-  background: var(--bg-tertiary);
+  background: #e9ecef;
   border-radius: 4px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #495057;
 }
 
 .no-bags {
-  color: var(--text-secondary);
+  color: #6c757d;
   font-style: italic;
   font-size: 13px;
 }
@@ -621,23 +621,23 @@ onMounted(async () => {
 }
 
 .status-success {
-  background: rgba(34, 197, 94, 0.2);
-  color: var(--color-success-700);
+  background: #d4edda;
+  color: #155724;
 }
 
 .status-warning {
-  background: rgba(251, 191, 36, 0.15);
-  color: var(--color-warning-700);
+  background: #fff3cd;
+  color: #856404;
 }
 
 .status-info {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--color-primary-700);
+  background: #d1ecf1;
+  color: #0c5460;
 }
 
 .status-checked {
-  background: rgba(34, 197, 94, 0.2);
-  color: var(--color-success-700);
+  background: #d4edda;
+  color: #155724;
   font-weight: 600;
 }
 
@@ -646,7 +646,7 @@ onMounted(async () => {
 }
 
 .summary-card {
-  background: var(--bg-secondary);
+  background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 20px;
@@ -656,7 +656,7 @@ onMounted(async () => {
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .summary-stats {
@@ -674,13 +674,13 @@ onMounted(async () => {
 
 .stat-label {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
 }
 
 .stat-value.checked {
@@ -694,7 +694,7 @@ onMounted(async () => {
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: var(--bg-tertiary);
+  background: #e9ecef;
   border-radius: 4px;
   overflow: hidden;
 }
