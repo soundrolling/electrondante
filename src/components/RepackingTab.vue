@@ -621,23 +621,45 @@ onMounted(async () => {
 }
 
 .status-success {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-success-600);
 }
 
 .status-warning {
-  background: #fff3cd;
-  color: #856404;
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--color-warning-600);
 }
 
 .status-info {
-  background: #d1ecf1;
-  color: #0c5460;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--color-primary-600);
 }
 
 .status-checked {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-success-600);
+  font-weight: 600;
+}
+
+/* Dark mode styling for status badges */
+.dark .status-success {
+  background: var(--color-success-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-warning {
+  background: var(--color-warning-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-info {
+  background: var(--color-primary-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-checked {
+  background: var(--color-success-700);
+  color: var(--text-inverse);
   font-weight: 600;
 }
 
