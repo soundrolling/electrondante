@@ -1070,9 +1070,9 @@ setup() {
 <style scoped>
 /* === GLOBAL & RESET === */
 .calendar-page {
-font-family: sans-serif;
-color: #333;
-background: #f9fafb;
+font-family: var(--font-family-sans);
+color: var(--text-primary);
+background: var(--bg-primary);
 box-sizing: border-box;
 padding: 0 15px;
 }
@@ -1082,17 +1082,18 @@ padding: 0 15px;
 display: flex;
 align-items: center;
 justify-content: space-between;
-background: #f0f4f8;
+background: var(--bg-secondary);
 padding: 1rem 1.5rem;
-border-bottom: 2px solid #d1d9e6;
+border-bottom: 2px solid var(--border-medium);
 }
 .header-section h1 {
 margin: 0;
 font-size: 1.75rem;
+color: var(--text-heading);
 }
 .button {
-background: #27ae60;
-color: #fff;
+background: var(--color-success-500);
+color: var(--text-inverse);
 border: none;
 padding: 0.6rem 1rem;
 border-radius: 4px;
@@ -1100,10 +1101,10 @@ cursor: pointer;
 transition: background 0.2s;
 }
 .button:hover {
-background: #219150;
+background: var(--color-success-600);
 }
 .add-button {
-background: #2ecc71;
+background: var(--color-success-500);
 }
 
 /* === TOAST === */
@@ -1123,8 +1124,8 @@ z-index: 1000;
 /* === CONTROLS === */
 .controls-section {
 padding: 0.75rem 1rem 0.6rem 1rem;
-background: #fff;
-border-bottom: 1px solid #e1e5eb;
+background: var(--bg-primary);
+border-bottom: 1px solid var(--border-light);
 display: flex;
 flex-wrap: wrap;
 align-items: center;
@@ -1144,11 +1145,11 @@ padding: 0.7rem 1.2rem 0.5rem 1.2rem;
 .error-message {
 text-align: center;
 margin: 0.7rem 0;
-color: #555;
+color: var(--text-secondary);
 }
 .spinner {
-border: 4px solid #f3f3f3;
-border-top: 4px solid #007bff;
+border: 4px solid var(--bg-secondary);
+border-top: 4px solid var(--color-primary-500);
 border-radius: 50%;
 width: 36px;
 height: 36px;
@@ -1167,10 +1168,10 @@ box-sizing: border-box;
 
 /* Make legend more compact */
 .legend-standout {
-  background: #f8fafc;
-  border: 1.5px solid #d1d5db;
+  background: var(--bg-secondary);
+  border: 1.5px solid var(--border-medium);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-sm);
   padding: 0.7rem 1.1rem 0.7rem 1.1rem;
   margin-bottom: 0.7rem;
 }
@@ -1197,7 +1198,7 @@ box-sizing: border-box;
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
   max-width: 800px;
   width: 90%;
@@ -1210,12 +1211,12 @@ box-sizing: border-box;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .modal-header h2 {
   margin: 0;
-  color: #495057;
+  color: var(--text-heading);
 }
 
 .close-button {
@@ -1223,11 +1224,11 @@ box-sizing: border-box;
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .close-button:hover {
-  color: #495057;
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -1237,15 +1238,15 @@ box-sizing: border-box;
 .stage-hours-item {
   margin-bottom: 2rem;
   padding: 1rem;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .stage-name {
   font-weight: 600;
   margin-bottom: 1rem;
-  color: #495057;
+  color: var(--text-heading);
 }
 
 .hours-list {
@@ -1257,14 +1258,14 @@ box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 4px;
   margin-bottom: 0.5rem;
 }
 
 .time-range {
   font-weight: 500;
-  color: #28a745;
+  color: var(--color-success-500);
 }
 
 .day-id {

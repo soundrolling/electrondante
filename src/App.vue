@@ -58,6 +58,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/userStore'
+import { useThemeStore } from './stores/themeStore'
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
 import ChangeoverNotificationModal from './components/ChangeoverNotificationModal.vue'
@@ -67,8 +68,9 @@ import { startScheduleNotifications, stopScheduleNotifications, setChangeoverMod
 
 export default {
 components: { Header, Footer, ChangeoverNotificationModal },
-setup() {
+  setup() {
   const userStore = useUserStore()
+  const themeStore = useThemeStore()
   const route     = useRoute()
   const router    = useRouter()
   const toast     = useToast()
@@ -176,6 +178,9 @@ setup() {
 
   onMounted(async () => {
     try {
+      // Initialize theme first, before other initialization
+      themeStore.initialize()
+      
       await userStore.initializeStore()
       calculateLocalStorageUsage()
       // watch for connectivity changes

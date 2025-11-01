@@ -909,32 +909,7 @@ setup() {
 <style scoped>
 /* Base Styles - Mobile First */
 .projects {
-  /* Modern accessible color palette (tailwind-inspired) */
-  --bg-primary:            #ffffff;
-  --bg-secondary:          #f8fafc; /* slate-50 */
-  --text-primary:          #111827; /* gray-900 */
-  --text-secondary:        #374151; /* gray-700 */
-  --text-tertiary:         #6b7280; /* gray-500 */
-  --text-inverse:          #ffffff;
-  --border-light:          #e5e7eb; /* gray-200 */
-  --border-medium:         #cbd5e1; /* slate-300 */
-  --color-primary-100:     #dbeafe; /* blue-100 */
-  --color-primary-500:     #2563eb; /* blue-600 */
-  --color-primary-600:     #1d4ed8; /* blue-700 */
-  --color-primary-700:     #1e40af; /* blue-800 */
-  --color-secondary-100:   #e2e8f0; /* slate-200 */
-  --color-secondary-200:   #cbd5e1; /* slate-300 */
-  --color-secondary-500:   #64748b; /* slate-500 */
-  --color-secondary-600:   #475569; /* slate-600 */
-  --color-warning-100:     #fef3c7; /* amber-100 */
-  --color-warning-700:     #b45309; /* amber-700 */
-  --color-error-500:       #ef4444; /* red-500 */
-  --color-error-600:       #dc2626; /* red-600 */
-  --shadow-sm:             0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md:             0 4px 10px rgba(0,0,0,0.08);
-  --shadow-lg:             0 8px 16px rgba(0,0,0,0.12);
-  --shadow-xl:             0 10px 24px rgba(0,0,0,0.14);
-
+  /* Using global CSS variables from index.css - these respond to dark mode */
   min-height: 100vh;
   background: var(--bg-primary);
   padding: var(--space-4);
@@ -942,7 +917,7 @@ setup() {
   padding-bottom: env(safe-area-inset-bottom, var(--space-4));
   font-family: var(--font-family-sans);
   line-height: var(--leading-normal);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
 }
 
 /* Avoid forcing color on all descendants to preserve contrast on buttons, links, badges */
@@ -954,7 +929,7 @@ setup() {
 .projects .form-title,
 .projects .modal-title,
 .projects .project-title {
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 /* Typography Scale */
@@ -963,7 +938,7 @@ setup() {
   font-weight: var(--font-bold);
   line-height: var(--leading-tight);
   margin: 0 0 var(--space-4) 0;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 .form-title,
@@ -972,7 +947,7 @@ setup() {
   font-weight: var(--font-semibold);
   line-height: var(--leading-snug);
   margin: 0 0 var(--space-4) 0;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 /* Page Header */
@@ -1151,7 +1126,7 @@ setup() {
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   transition: all var(--transition-normal);
   min-height: 44px;
   box-sizing: border-box;
@@ -1230,11 +1205,11 @@ setup() {
 .form-select {
   width: 100%;
   padding: var(--space-3) 48px var(--space-3) var(--space-4); /* extra right padding for arrow */
-  border: 2px solid #94a3b8 !important; /* slate-400 for higher contrast */
+  border: 2px solid var(--border-medium) !important;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   min-height: 44px;
   appearance: none;
   cursor: pointer;
@@ -1267,11 +1242,11 @@ setup() {
 .search-input {
   width: 100%;
   padding: var(--space-3) var(--space-4) var(--space-3) 48px;
-  border: 2px solid #94a3b8 !important; /* slate-400 for higher contrast */
+  border: 2px solid var(--border-medium) !important;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   min-height: 44px;
   box-shadow: var(--shadow-sm);
 }
@@ -1380,7 +1355,7 @@ setup() {
 .project-title {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
-  color: #000000 !important;
+  color: var(--text-heading) !important;
   margin: 0;
   line-height: var(--leading-snug);
 }

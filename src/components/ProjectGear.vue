@@ -60,6 +60,20 @@
             </select>
           </div>
           <div class="filter-group">
+            <label for="filterOwner" class="filter-label">Filter Owner:</label>
+            <select id="filterOwner" v-model="filterOwner" class="filter-select">
+              <option value="all">All Owners</option>
+              <option value="project">Project Gear</option>
+              <option
+                v-for="owner in uniqueOwners"
+                :key="owner"
+                :value="owner"
+              >
+                {{ owner }}
+              </option>
+            </select>
+          </div>
+          <div class="filter-group">
             <label for="sortGear" class="filter-label">Sort By:</label>
             <select id="sortGear" v-model="sortBy" class="filter-select">
               <option value="default">Default Order</option>
@@ -206,6 +220,20 @@
                   :value="String(loc.id)"
                 >
                   {{ loc.stage_name }} ({{ loc.venue_name }})
+                </option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="filterAccessoriesOwner" class="filter-label">Filter Owner:</label>
+              <select id="filterAccessoriesOwner" v-model="filterAccessoriesOwner" class="filter-select">
+                <option value="all">All Owners</option>
+                <option value="project">Project Gear</option>
+                <option
+                  v-for="owner in uniqueOwners"
+                  :key="owner"
+                  :value="owner"
+                >
+                  {{ owner }}
                 </option>
               </select>
             </div>
@@ -758,6 +786,7 @@ setup(props) {
   const userStore = useUserStore()
 
   const filterLocationId        = ref(route.query.locationId || 'all')
+  const filterOwner              = ref('all')
   const sortBy                  = ref('default')
   const loading                 = ref(false)
   const error                   = ref(null)
@@ -865,6 +894,7 @@ setup(props) {
   
   // Separate filters for accessories
   const filterAccessoriesLocationId = ref(route.query.locationId || 'all')
+  const filterAccessoriesOwner       = ref('all')
   const sortAccessoriesBy = ref('default')
 
   // Split gear list into main gear and accessories
@@ -876,10 +906,21 @@ setup(props) {
     return gearList.value.filter(g => g.gear_type === 'accessories_cables')
   })
 
+  // Get unique owners from gear list
+  const uniqueOwners = computed(() => {
+    const owners = new Set()
+    gearList.value.forEach(g => {
+      if (g.owner_name && g.is_user_gear) {
+        owners.add(g.owner_name)
+      }
+    })
+    return Array.from(owners).sort()
+  })
+
   const filteredMainGearList = computed(() => {
     let filtered = []
     
-    // Apply filter to main gear
+    // Apply location/assignment filter to main gear
     if (filterLocationId.value === 'all') {
       filtered = mainGearList.value
     } else if (filterLocationId.value === 'unassigned') {
@@ -888,6 +929,17 @@ setup(props) {
       filtered = mainGearList.value.filter(g => g.total_assigned > 0)
     } else {
       filtered = mainGearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+    }
+    
+    // Apply owner filter
+    if (filterOwner.value !== 'all') {
+      if (filterOwner.value === 'project') {
+        // Filter for project gear (non-user gear)
+        filtered = filtered.filter(g => !g.is_user_gear)
+      } else {
+        // Filter for specific owner
+        filtered = filtered.filter(g => g.owner_name === filterOwner.value)
+      }
     }
     
     // Apply sorting
@@ -914,7 +966,7 @@ setup(props) {
   const filteredAccessoriesList = computed(() => {
     let filtered = []
     
-    // Apply filter to accessories
+    // Apply location/assignment filter to accessories
     if (filterAccessoriesLocationId.value === 'all') {
       filtered = accessoriesList.value
     } else if (filterAccessoriesLocationId.value === 'unassigned') {
@@ -923,6 +975,17 @@ setup(props) {
       filtered = accessoriesList.value.filter(g => g.total_assigned > 0)
     } else {
       filtered = accessoriesList.value.filter(g => g.assignments?.[filterAccessoriesLocationId.value] > 0)
+    }
+    
+    // Apply owner filter
+    if (filterAccessoriesOwner.value !== 'all') {
+      if (filterAccessoriesOwner.value === 'project') {
+        // Filter for project gear (non-user gear)
+        filtered = filtered.filter(g => !g.is_user_gear)
+      } else {
+        // Filter for specific owner
+        filtered = filtered.filter(g => g.owner_name === filterAccessoriesOwner.value)
+      }
     }
     
     // Apply sorting
@@ -1736,6 +1799,8 @@ setup(props) {
   return {
     goBack,
     filterLocationId,
+    filterOwner,
+    uniqueOwners,
     sortBy,
     loading,
     error,
@@ -1760,6 +1825,7 @@ setup(props) {
     activeTab,
     switchTab,
     filterAccessoriesLocationId,
+    filterAccessoriesOwner,
     sortAccessoriesBy,
     confirmDelete,
     openAssignmentModal,

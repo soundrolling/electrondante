@@ -16,6 +16,7 @@ import Toast, { POSITION } from 'vue-toastification';
 import 'vue-toastification/dist/index.css';
 
 import { useUserStore } from './stores/userStore';
+import { useThemeStore } from './stores/themeStore';
 import { saveSetting } from './utils/indexedDB';
 import { syncOfflineChanges } from './services/syncService'; // ✅ Centralized sync
 
@@ -43,6 +44,10 @@ async function bootstrap() {
 
   app.use(pinia);
   app.use(router);
+
+  // Initialize theme store early to prevent FOUC
+  const themeStore = useThemeStore(pinia);
+  themeStore.initialize();
 
   // ← register the named export here
   app.use(VueFlow);

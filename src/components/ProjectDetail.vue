@@ -285,13 +285,13 @@ export default {
 /* Base Styles - Mobile First */
 .project-detail {
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--bg-primary);
   padding: 16px;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-family-sans);
   line-height: 1.5;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 /* Typography Scale */
@@ -300,7 +300,7 @@ export default {
   font-weight: 700;
   line-height: 1.3;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-heading);
 }
 
 .section-title {
@@ -308,7 +308,7 @@ export default {
   font-weight: 600;
   line-height: 1.4;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-heading);
 }
 
 /* Loading Skeleton */
@@ -367,9 +367,9 @@ export default {
 .project-header {
   margin-bottom: 24px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .project-meta {
@@ -409,9 +409,9 @@ export default {
 .compact-header {
   margin-bottom: 24px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .header-main {
@@ -439,11 +439,11 @@ export default {
 }
 
 .meta-text {
-  color: #495057;
+  color: var(--text-secondary);
 }
 
 .meta-link {
-  color: #0066cc;
+  color: var(--text-link);
   text-decoration: none;
   font-weight: 500;
 }
@@ -470,15 +470,15 @@ export default {
 }
 
 .timeline-chip.build {
-  background: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #bbdefb;
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  border: 1px solid var(--color-primary-200);
 }
 
 .timeline-chip.show {
-  background: #f3e5f5;
-  color: #7b1fa2;
-  border: 1px solid #e1bee7;
+  background: var(--color-secondary-100);
+  color: var(--color-secondary-800);
+  border: 1px solid var(--color-secondary-300);
 }
 
 .chip-icon {
@@ -509,8 +509,8 @@ export default {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -520,14 +520,14 @@ export default {
 }
 
 .stage-card:hover {
-  border-color: #0066cc;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  border-color: var(--color-primary-500);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
 }
 
 .stage-card:active,
 .stage-card.touch-active {
   transform: scale(0.98);
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .stage-icon {
@@ -544,18 +544,18 @@ export default {
 .stage-name {
   font-weight: 600;
   font-size: 16px;
-  color: #1a1a1a;
+  color: var(--text-heading);
   margin-bottom: 2px;
 }
 
 .stage-venue {
   font-size: 14px;
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .stage-arrow {
   font-size: 18px;
-  color: #6c757d;
+  color: var(--text-secondary);
   font-weight: 300;
 }
 

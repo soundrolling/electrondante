@@ -170,6 +170,32 @@
           <span v-if="openReportsCount > 0" class="badge badge-danger" :title="openReportsCount + ' open reports'">{{ openReportsCount }}</span>
         </button>
         
+        <!-- Theme Toggle Button -->
+        <button
+          @click="themeStore.toggleTheme()"
+          class="btn btn-light theme-toggle-btn"
+          :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          aria-label="Toggle theme"
+        >
+          <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Sun icon for light mode -->
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Moon icon for dark mode -->
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <span class="btn-text">{{ themeStore.isDark ? 'Light' : 'Dark' }}</span>
+        </button>
+
         <button
           v-if="isAuthenticated"
           @click="handleSignOut"
@@ -220,6 +246,23 @@
         <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="nav-link light-btn" @click="showMobileMenu = false">All Projects</router-link>
       </div>
       <div class="menu-section actions">
+        <button class="btn btn-light" @click="themeStore.toggleTheme(); showMobileMenu = false">
+          <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <span>{{ themeStore.isDark ? 'Light Mode' : 'Dark Mode' }}</span>
+        </button>
         <button v-if="isAuthenticated" class="btn btn-positive" @click="showBugReportModal = true; showMobileMenu = false">Report</button>
         <button v-if="isAuthenticated" class="btn btn-danger" @click="handleSignOut">Sign Out</button>
       </div>
@@ -232,6 +275,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
+import { useThemeStore } from '../stores/themeStore';
 import { useBugReportStore } from '../stores/bugReportStore';
 import BugReportModal from './BugReportModal.vue';
 
@@ -241,6 +285,7 @@ export default {
   },
   setup() {
     const userStore = useUserStore();
+    const themeStore = useThemeStore();
     const bugReportStore = useBugReportStore();
     const router = useRouter();
     const route = useRoute();
@@ -406,6 +451,7 @@ export default {
     handleBugReportSubmit,
     showMobileMenu,
     openReportsCount,
+    themeStore,
   };
 },
 };
@@ -426,14 +472,14 @@ export default {
 
 /* Force text visibility */
 .header * {
-  color: #000000 !important;
+  color: var(--text-primary) !important;
 }
 
 .header .nav-link,
 .header .btn-text,
 .header .nav-text,
 .header .home-text {
-  color: #000000 !important;
+  color: var(--text-primary) !important;
 }
 
 .header-content {
@@ -554,14 +600,14 @@ export default {
 
 .nav-text {
   font-size: var(--text-base);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
 }
 
 /* Route title shown in header center when on a top-level page like Projects */
 .route-title {
   font-weight: var(--font-bold);
   font-size: var(--text-xl);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   padding: var(--space-3) var(--space-4);
 }
 
@@ -665,7 +711,7 @@ export default {
 .btn-text {
   font-weight: var(--font-medium);
   font-size: var(--text-base);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
 }
 
 /* Sign out button text should be white */

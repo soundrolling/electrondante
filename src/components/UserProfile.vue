@@ -1107,65 +1107,48 @@ async function saveSecurity() {
 </template>
 
 <style scoped>
-:root {
-  --bg-main: #f8fafc;
-  --bg-card: #fff;
-  --bg-header: #f1f5f9;
-  --text-main: #334155;
-  --text-muted: #64748b;
-  --text-heading: #1e293b;
-  --text-inverse: #334155;
-  --border: #e2e8f0;
-  --input-bg: #fff;
-  --input-border: #d1d5db;
-  --input-text: #334155;
-  --primary: #3b82f6;
-  --primary-contrast: #fff;
-  --secondary: #64748b;
-  --secondary-contrast: #fff;
-}
-
+/* Using global CSS variables from index.css - these respond to dark mode */
 .profile-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem 0.75rem;
-  background: var(--bg-main);
+  background: var(--bg-primary);
   min-height: 100vh;
-  color: var(--text-main);
+  color: var(--text-primary);
 }
 
 .profile-header {
-  background: var(--bg-header);
-  color: var(--text-inverse);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   padding: 1rem 0.75rem;
   border-radius: 0.5rem;
   margin-bottom: 1rem;
   text-align: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
 }
 
 .profile-title {
   font-size: 1.6rem;
   font-weight: 700;
   margin: 0 0 0.2rem;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 .profile-subtitle {
   font-size: 0.98rem;
   opacity: 0.9;
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.3;
 }
 
 .tab-navigation {
   display: flex;
-  background: var(--bg-card);
+  background: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 0.25rem;
   margin-bottom: 1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   overflow-x: auto;
   gap: 0.25rem;
   min-height: unset;
@@ -1184,22 +1167,22 @@ async function saveSecurity() {
   transition: all 0.2s;
   white-space: nowrap;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   box-shadow: none;
 }
 
 .tab-button:hover {
-  background: #f1f5f9;
-  color: var(--text-main);
-  border-color: var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-light);
 }
 
 .tab-button.active {
-  background: var(--primary);
-  color: var(--primary-contrast);
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
   font-weight: 600;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
 }
 
 .tab-icon {
@@ -1215,21 +1198,21 @@ async function saveSecurity() {
 }
 
 .content-card {
-  background: var(--bg-card);
+  background: var(--bg-primary);
   border-radius: 0.5rem;
   padding: 1.25rem;
   box-shadow: none;
-  color: var(--text-main);
-  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
 }
 
 .section-title {
   font-size: 1.3rem;
   font-weight: 600;
   margin: 0 0 1rem;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--border);
+  border-bottom: 2px solid var(--border-light);
 }
 
 .subsection-title {
@@ -1238,7 +1221,7 @@ async function saveSecurity() {
   margin: 1.25rem 0 0.75rem;
   color: var(--text-heading);
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .profile-form {
@@ -1255,7 +1238,7 @@ async function saveSecurity() {
 .form-group {
   margin-bottom: 1rem;
   padding: 0.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   border-radius: 0.5rem;
   background: #fafbfc;
 }
@@ -1275,8 +1258,8 @@ async function saveSecurity() {
   border: 2px solid var(--border-medium) !important;
   border-radius: 0.4rem;
   font-size: 0.9rem;
-  background: var(--input-bg);
-  color: #000000 !important;
+  background: var(--bg-primary);
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
@@ -1284,19 +1267,19 @@ async function saveSecurity() {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary) !important;
+  border-color: var(--color-primary-500) !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-md);
 }
 
 .form-input.readonly {
   background: #f8fafc;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 .input-note {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-top: 0.25rem;
 }
 
@@ -1336,7 +1319,7 @@ async function saveSecurity() {
   margin-top: 0.75rem;
   border: 1px solid var(--border-medium);
   border-radius: 0.75rem;
-  background: var(--bg-card);
+  background: var(--bg-primary);
   padding: 0.75rem;
   box-shadow: var(--shadow-sm);
 }
@@ -1363,7 +1346,7 @@ async function saveSecurity() {
 
 .stat-label {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -1393,14 +1376,14 @@ async function saveSecurity() {
   border-radius: 0.5rem;
   font-size: 0.95rem;
   background: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
@@ -1409,7 +1392,7 @@ async function saveSecurity() {
   left: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .filter-select {
@@ -1419,14 +1402,14 @@ async function saveSecurity() {
   font-size: 0.95rem;
   background: var(--bg-primary);
   min-width: 120px;
-  color: #000000 !important;
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
 }
 
@@ -1464,7 +1447,7 @@ async function saveSecurity() {
 .gear-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
   margin: 0;
   flex: 1;
 }
@@ -1475,7 +1458,7 @@ async function saveSecurity() {
 }
 
 .gear-details {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .gear-info {
@@ -1486,7 +1469,7 @@ async function saveSecurity() {
 
 .gear-type {
   font-weight: 500;
-  color: var(--primary);
+  color: var(--color-primary-500);
 }
 
 .gear-quantity {
@@ -1539,9 +1522,9 @@ async function saveSecurity() {
   border-radius: 0.5rem;
   font-size: 0.9em;
   font-weight: 600;
-  background: var(--primary);
+  background: var(--color-primary-500);
   color: var(--primary-contrast);
-  border: 2px solid var(--primary);
+  border: 2px solid var(--color-primary-500);
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
@@ -1570,14 +1553,14 @@ async function saveSecurity() {
   padding: 1rem;
   margin-bottom: 0.75rem;
   background: #f8fafc;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-light);
   border-radius: 0.5rem;
   transition: all 0.2s ease;
 }
 
 .assignment-item:hover {
   background: #f1f5f9;
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
 }
 
 .assignment-header {
@@ -1605,7 +1588,7 @@ async function saveSecurity() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -1614,7 +1597,7 @@ async function saveSecurity() {
 }
 
 .venue-name {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -1700,7 +1683,7 @@ async function saveSecurity() {
 .empty-state {
   text-align: center;
   padding: 3rem 2rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -1710,7 +1693,7 @@ async function saveSecurity() {
 
 .empty-state h3 {
   margin: 0 0 0.5rem;
-  color: #000000 !important;
+  color: var(--text-heading) !important;
 }
 
 .empty-state p {
@@ -1720,14 +1703,14 @@ async function saveSecurity() {
 .loading-state {
   text-align: center;
   padding: 3rem 2rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 2rem;
   height: 2rem;
-  border: 3px solid var(--input-border);
-  border-top: 3px solid var(--primary);
+  border: 3px solid var(--border-medium);
+  border-top: 3px solid var(--color-primary-500);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -1748,9 +1731,9 @@ async function saveSecurity() {
 }
 
 .btn-primary {
-  background: var(--primary);
+  background: var(--color-primary-500);
   color: var(--primary-contrast);
-  border: 2px solid var(--primary);
+  border: 2px solid var(--color-primary-500);
   border-radius: 0.5rem;
   font-weight: 600;
   font-size: 0.95rem;
@@ -1967,8 +1950,8 @@ async function saveSecurity() {
   border: 2px solid var(--border-medium) !important;
   border-radius: 0.5rem !important;
   font-size: 1.05rem;
-  background: #fff !important;
-  color: #000000 !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
   box-shadow: var(--shadow-sm) !important;
   margin-top: 0.1rem;
   margin-bottom: 0.1rem;
@@ -2264,32 +2247,32 @@ async function saveSecurity() {
 }
 .sec-msg { color: #ef4444; }
 
-/* Preferences save button - white styling */
+/* Preferences save button - styling */
 .pref-form .btn-positive {
-  background: white !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-dark) !important;
   font-weight: 600 !important;
 }
 
 .pref-form .btn-positive:hover {
-  background: #f8f9fa !important;
-  color: #000000 !important;
-  border-color: #000000 !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-dark) !important;
 }
 
-/* Security save button - white styling */
+/* Security save button - styling */
 .security-form .btn-positive {
-  background: white !important;
-  color: #000000 !important;
-  border: 2px solid #000000 !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-dark) !important;
   font-weight: 600 !important;
 }
 
 .security-form .btn-positive:hover {
-  background: #f8f9fa !important;
-  color: #000000 !important;
-  border-color: #000000 !important;
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-dark) !important;
 }
 
 /* Gear tab Add Gear button - white text for contrast */
