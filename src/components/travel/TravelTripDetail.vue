@@ -43,7 +43,31 @@
 
   <!-- Tab Content -->
   <div class="tab-content" role="tabpanel" :id="`${activeTab}-panel`">
+    <div v-if="activeTab === 'packing'" class="packing-link-section">
+      <div class="packing-link-card">
+        <div class="packing-link-icon">🎒</div>
+        <h2>Packing & Repacking</h2>
+        <p class="packing-link-description">
+          Manage your packing bags and repacking checklist in the Project Gear section.
+        </p>
+        <router-link
+          :to="{ name: 'ProjectPacking', params: { id: projectId } }"
+          class="packing-link-button"
+        >
+          <span class="button-icon">🎒</span>
+          <span class="button-text">Go to Packing</span>
+        </router-link>
+        <router-link
+          :to="{ name: 'ProjectRepacking', params: { id: projectId } }"
+          class="packing-link-button secondary"
+        >
+          <span class="button-icon">📋</span>
+          <span class="button-text">Go to Repacking</span>
+        </router-link>
+      </div>
+    </div>
     <component
+      v-else
       :is="activeTabComponent"
       :trip-id="tripId"
       :id="projectId"
@@ -58,7 +82,6 @@ import FlightDetails from './FlightDetails.vue'
 import Documents from './Documents.vue'
 import Expenses from './Expenses.vue'
 import Parking from './Parking.vue'
-import Packing from './Packing.vue'
 
 export default {
 name: 'TravelTripDetail',
@@ -74,8 +97,7 @@ components: {
   FlightDetails,
   Documents,
   Expenses,
-  Parking,
-  Packing
+  Parking
 },
 data() {
   return {
@@ -419,5 +441,96 @@ methods: {
     width: 100%;
     justify-content: center;
   }
+}
+
+/* Packing Link Section */
+.packing-link-section {
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.packing-link-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 48px 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+}
+
+.packing-link-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+}
+
+.packing-link-card h2 {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+}
+
+.packing-link-description {
+  font-size: 16px;
+  color: #6c757d;
+  margin: 0 0 32px 0;
+  line-height: 1.6;
+}
+
+.packing-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  min-height: 48px;
+  width: 100%;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.packing-link-button:not(.secondary) {
+  background-color: #047857;
+  color: #ffffff !important;
+  border: 2px solid #065f46;
+}
+
+.packing-link-button:not(.secondary):hover {
+  background-color: #065f46;
+  border-color: #065f46;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(4, 120, 87, 0.3);
+}
+
+.packing-link-button.secondary {
+  background-color: #1e40af;
+  color: #ffffff !important;
+  border: 2px solid #1e3a8a;
+}
+
+.packing-link-button.secondary:hover {
+  background-color: #1e3a8a;
+  border-color: #1e3a8a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+}
+
+.packing-link-button .button-icon,
+.packing-link-button .button-text {
+  color: inherit;
+}
+
+.button-icon {
+  font-size: 20px;
 }
 </style> 

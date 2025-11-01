@@ -206,7 +206,7 @@ export default {
 
     /* ---------------- Navigation helpers ---------------- */
     function goToProfile() {
-      router.push({ name: 'UserProfile' });
+      router.push({ name: 'UserProfile', params: { tab: 'profile' } });
     }
     function goToLocations() {
       router.push({ name: 'ProjectLocations', params: { id: currentProject.value.id } });
