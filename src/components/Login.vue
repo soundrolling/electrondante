@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.58">
-        <span class="version-text">v21.58</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.59">
+        <span class="version-text">v21.59</span>
         <span class="version-date">December 2024</span>
       </button>
     </div>
@@ -19,7 +19,7 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.58</h2>
+          <h2 id="changelog-title">What's New in 21.59</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
@@ -42,6 +42,21 @@
           <div class="changelog-section">
             <h3>📦 Enhanced Modals & Forms</h3>
             <p>Create Bag modal, User Gear Selector, and all form elements now have proper dark mode styling. Input fields, dropdowns, and interactive elements use theme-aware colors for consistent appearance across both light and dark modes.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>📷 Stage Pictures & Documents Dark Mode</h3>
+            <p>Completely redesigned Stage Pictures and Stage Documents pages for dark mode compatibility. All white backgrounds replaced with theme-aware dark backgrounds. Upload areas, file lists, image cards, and document previews now seamlessly adapt to dark mode with proper contrast.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>🛠️ Project Tools & UI Improvements</h3>
+            <p>Project Tools buttons now feature dark backgrounds with white text in dark mode. Theme toggle button redesigned as a proper toggle switch with consistent sizing. Sign Out and Clear Cache buttons use dark red styling for better visual hierarchy.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>🔧 Login & Authentication</h3>
+            <p>Login page background now uses theme variables for consistent dark mode appearance. All authentication-related components properly support both light and dark themes.</p>
           </div>
         </div>
         
@@ -216,7 +231,7 @@ setup() {
   align-items: center;
   justify-content: center;
   padding: 16px; /* 4-point spacing system */
-  background: #000000;
+  background: var(--bg-primary);
   position: relative;
   /* Safe area support */
   padding-top: max(16px, env(safe-area-inset-top));
