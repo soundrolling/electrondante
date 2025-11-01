@@ -106,10 +106,6 @@
           <span class="btn-icon">📄</span>
           <span class="btn-text">Export PDF</span>
         </button>
-        <button class="btn btn-info" @click="printMyGearInventory">
-          <span class="btn-icon">🖨️</span>
-          <span class="btn-text">Print My Gear</span>
-        </button>
       </div>
     </div>
 
@@ -1547,64 +1543,6 @@ setup() {
     toast.success('Exported to PDF')
   }
 
-  function printMyGearInventory() {
-    if (!userId.value) {
-      toast.error('User not authenticated')
-      return
-    }
-    
-    // Filter to user's own gear (is_user_gear = true) including accessories_cables they added
-    const myGear = gearList.value.filter(g => 
-      g.is_user_gear === true
-    )
-    
-    if (myGear.length === 0) {
-      toast.info('No gear found to print')
-      return
-    }
-    
-    const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text('My Gear Inventory', 10, 20)
-    doc.setFontSize(12)
-    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, 30)
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 38)
-    
-    const data = myGear.map(g => {
-      // Get assignment locations
-      const assignmentStrs = []
-      if (g.assignments) {
-        Object.entries(g.assignments).forEach(([locId, amount]) => {
-          if (amount > 0) {
-            const loc = locationsList.value.find(l => l.id === Number(locId))
-            if (loc) {
-              assignmentStrs.push(`${loc.stage_name} (${amount})`)
-            }
-          }
-        })
-      }
-      const assignments = assignmentStrs.join(', ') || 'Unassigned'
-      
-      return [
-        g.gear_name,
-        g.gear_type || 'N/A',
-        g.gear_amount.toString(),
-        g.unassigned_amount.toString(),
-        assignments,
-        g.vendor || ''
-      ]
-    })
-    
-    autoTable(doc, {
-      startY: 45,
-      head: [['Gear Name', 'Type', 'Total', 'Available', 'Assignments', 'Vendor']],
-      body: data
-    })
-    
-    doc.save(`my_gear_inventory_${new Date().toISOString().slice(0, 10)}.pdf`)
-    toast.success('Inventory printed')
-  }
-
   function calcMaxAssignment(locId) {
     const a = currentAssignmentGear.value?.assignments?.[locId] || 0
     const u = currentAssignmentGear.value?.unassigned_amount || 0
@@ -1816,7 +1754,6 @@ setup() {
     closeUserGearSelector,
     handleUserGearSelected,
     handleUserGearAdded,
-    printMyGearInventory,
     userId
   }
 }

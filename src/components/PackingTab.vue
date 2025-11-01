@@ -2,10 +2,16 @@
   <div class="packing-tab">
     <div class="packing-header">
       <h2 class="section-title">My Packing Bags</h2>
-      <button class="btn btn-positive" @click="openCreateBagModal">
-        <span class="btn-icon">➕</span>
-        <span class="btn-text">Create Bag</span>
-      </button>
+      <div class="header-actions">
+        <button class="btn btn-info print-my-gear-btn" @click="printMyGearInventory">
+          <span class="btn-icon">🖨️</span>
+          <span class="btn-text">Print My Gear</span>
+        </button>
+        <button class="btn btn-positive" @click="openCreateBagModal">
+          <span class="btn-icon">➕</span>
+          <span class="btn-text">Create Bag</span>
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading-state">
@@ -229,7 +235,8 @@ import autoTable from 'jspdf-autotable'
 const props = defineProps({
   projectId: {
     type: String,
-    required: true
+    required: false,
+    default: ''
   }
 })
 
@@ -257,8 +264,10 @@ const selectedGearToAdd = ref('')
 const gearQuantityToAdd = ref(1)
 const availableProjectGear = ref([])
 const availableUserGear = ref([])
+const locationsList = ref([])
 
 const userId = computed(() => userStore.user?.id)
+const currentProject = computed(() => userStore.getCurrentProject)
 
 function getBagItemCount(bagId) {
   return bagItems.value.filter(item => item.bag_id === bagId).length
@@ -286,11 +295,15 @@ async function loadBagItems(bagId) {
 
 async function loadAvailableGear() {
   try {
-    // Load project gear (user's own gear added to project)
-    const projectGear = await fetchTableData('gear_table', {
-      eq: { project_id: props.projectId, is_user_gear: true }
-    })
-    availableProjectGear.value = projectGear.filter(g => g.gear_type === 'accessories_cables' || g.is_user_gear)
+    // Load project gear (user's own gear added to project) - only if projectId is valid
+    if (props.projectId && props.projectId.trim() !== '') {
+      const projectGear = await fetchTableData('gear_table', {
+        eq: { project_id: props.projectId, is_user_gear: true }
+      })
+      availableProjectGear.value = projectGear.filter(g => g.gear_type === 'accessories_cables' || g.is_user_gear)
+    } else {
+      availableProjectGear.value = []
+    }
     
     // Load user's personal gear
     if (userId.value) {
@@ -301,6 +314,8 @@ async function loadAvailableGear() {
     }
   } catch (err) {
     console.error('Failed to load available gear:', err)
+    availableProjectGear.value = []
+    availableUserGear.value = []
   }
 }
 
@@ -497,9 +512,115 @@ async function printBagInventory(bag) {
   }
 }
 
+async function fetchLocations() {
+  if (!props.projectId || props.projectId.trim() === '') return
+  try {
+    locationsList.value = await fetchTableData('locations', {
+      eq: { project_id: props.projectId },
+      order: [{ column: 'order', ascending: true }]
+    })
+  } catch (err) {
+    console.error('Failed to fetch locations:', err)
+  }
+}
+
+async function printMyGearInventory() {
+  if (!userId.value) {
+    toast.error('User not authenticated')
+    return
+  }
+  
+  if (!props.projectId || props.projectId.trim() === '') {
+    toast.error('No project selected')
+    return
+  }
+
+  try {
+    // Fetch user's gear from project
+    const myGear = await fetchTableData('gear_table', {
+      eq: { project_id: props.projectId, is_user_gear: true }
+    })
+    
+    // Fetch gear assignments
+    const gearIds = myGear.map(g => g.id)
+    let assignments = {}
+    if (gearIds.length > 0) {
+      const { data: assignmentData, error } = await supabase
+        .from('gear_assignments')
+        .select('gear_id, location_id, assigned_amount')
+        .in('gear_id', gearIds)
+      
+      if (!error && assignmentData) {
+        assignments = assignmentData.reduce((acc, a) => {
+          if (!acc[a.gear_id]) acc[a.gear_id] = {}
+          acc[a.gear_id][a.location_id] = a.assigned_amount
+          return acc
+        }, {})
+      }
+    }
+    
+    // Fetch locations if not already loaded
+    if (locationsList.value.length === 0) {
+      await fetchLocations()
+    }
+    
+    if (myGear.length === 0) {
+      toast.info('No gear found to print')
+      return
+    }
+    
+    const doc = new jsPDF()
+    doc.setFontSize(18)
+    doc.text('My Gear Inventory', 10, 20)
+    doc.setFontSize(12)
+    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, 30)
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 38)
+    
+    const data = myGear.map(g => {
+      // Get assignment locations
+      const assignmentStrs = []
+      if (assignments[g.id]) {
+        Object.entries(assignments[g.id]).forEach(([locId, amount]) => {
+          if (amount > 0) {
+            const loc = locationsList.value.find(l => l.id === Number(locId))
+            if (loc) {
+              assignmentStrs.push(`${loc.stage_name} (${amount})`)
+            }
+          }
+        })
+      }
+      const assignmentText = assignmentStrs.join(', ') || 'Unassigned'
+      
+      return [
+        g.gear_name,
+        g.gear_type || 'N/A',
+        g.gear_amount?.toString() || '0',
+        (g.gear_amount - (Object.values(assignments[g.id] || {}).reduce((sum, amt) => sum + amt, 0))).toString(),
+        assignmentText,
+        g.vendor || ''
+      ]
+    })
+    
+    autoTable(doc, {
+      startY: 45,
+      head: [['Gear Name', 'Type', 'Total', 'Available', 'Assignments', 'Vendor']],
+      body: data
+    })
+    
+    doc.save(`my_gear_inventory_${new Date().toISOString().slice(0, 10)}.pdf`)
+    toast.success('Inventory printed')
+  } catch (err) {
+    console.error('Failed to print my gear inventory:', err)
+    toast.error(err.message || 'Failed to print inventory')
+  }
+}
+
 onMounted(async () => {
   await loadBags()
   await loadAvailableGear()
+  if (props.projectId && props.projectId.trim() !== '') {
+    await fetchLocations()
+  }
 })
 </script>
 
@@ -513,6 +634,20 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.print-my-gear-btn {
+  color: white !important;
+}
+
+.print-my-gear-btn .btn-text {
+  color: white !important;
 }
 
 .section-title {
