@@ -154,7 +154,7 @@
                     :key="'pg-' + gear.id"
                     :value="JSON.stringify({ type: 'gear', gear })"
                   >
-                    {{ gear.gear_name }} ({{ gear.gear_type }}) - Available: {{ gear.gear_amount }}
+                    {{ gear.gear_name }} ({{ gear.gear_type }}) - Total: {{ gear.gear_amount || 0 }}
                   </option>
                 </select>
                 <input 
@@ -300,15 +300,20 @@ async function loadBagItems(bagId) {
 async function loadAvailableGear() {
   try {
     // Load gear from the project that belongs to the current user - only if projectId is valid
+    // Note: We use gear_amount (total) regardless of stage assignments since packing happens separately
     if (props.projectId && props.projectId.trim() !== '' && userId.value) {
-      // First, get all project gear
+      // First, get all project gear - we don't need to check assignments, just get gear_amount
       const allProjectGear = await fetchTableData('gear_table', {
         eq: { project_id: props.projectId },
         order: [{ column: 'gear_name', ascending: true }]
       })
       
-      // Filter to only user gear (is_user_gear = true)
-      const userGearItems = allProjectGear.filter(g => g.is_user_gear === true && g.user_gear_id)
+      // Filter to only user gear (is_user_gear = true) and ensure gear_amount exists
+      const userGearItems = allProjectGear.filter(g => 
+        g.is_user_gear === true && 
+        g.user_gear_id &&
+        g.gear_amount > 0 // Only show gear that has a quantity
+      )
       
       if (userGearItems.length > 0) {
         // Get the user_gear_ids
@@ -328,10 +333,15 @@ async function loadAvailableGear() {
           })
           
           // Filter to only gear owned by the current user
+          // Use gear_amount (total) - don't worry about assignments
           availableProjectGear.value = userGearItems.filter(g => {
             const gearUserId = userGearOwnershipMap[g.user_gear_id]
             return gearUserId === userId.value
-          })
+          }).map(g => ({
+            ...g,
+            // Ensure gear_amount is always available, default to 0 if missing
+            gear_amount: g.gear_amount || 0
+          }))
         } else {
           availableProjectGear.value = []
         }
@@ -357,7 +367,8 @@ async function loadAvailableGear() {
             // Add owner_name to gear items
             availableProjectGear.value = availableProjectGear.value.map(g => ({
               ...g,
-              owner_name: ownerMap[g.user_gear_id] || 'Unknown'
+              owner_name: ownerMap[g.user_gear_id] || 'Unknown',
+              gear_amount: g.gear_amount || 0 // Ensure gear_amount is always set
             }))
           }
         }
