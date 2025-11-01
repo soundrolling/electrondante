@@ -85,16 +85,15 @@ function shouldShowNotification(schedule, warningMinutes, deviceSecondsUntil) {
  * Show changeover notification modal
  */
 function showChangeoverNotification(schedule, warningMinutes) {
-  // Calculate remaining minutes (round up to show at least 1 minute if less than a minute remains)
-  const secondsUntil = getSecondsUntilStart(schedule.recording_date, schedule.start_time)
-  const minutesRemaining = secondsUntil ? Math.max(1, Math.ceil(secondsUntil / 60)) : warningMinutes
+  // Use the configured warning minutes for the display (not calculated remaining time)
+  // This shows the warning time the user configured (e.g., "2 minutes")
   
   // Update modal state
   if (setModalCallback) {
     setModalCallback({
       visible: true,
       artistName: schedule.artist_name,
-      minutesRemaining: minutesRemaining,
+      minutesRemaining: warningMinutes, // Show the configured warning time
       startTime: t5(schedule.start_time),
       locationId: schedule.location_id,
       projectId: currentProjectId
