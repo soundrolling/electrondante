@@ -299,14 +299,69 @@ async function loadBagItems(bagId) {
 
 async function loadAvailableGear() {
   try {
-    // Load ALL gear from the project (not just user gear) - only if projectId is valid
-    if (props.projectId && props.projectId.trim() !== '') {
-      const projectGear = await fetchTableData('gear_table', {
+    // Load gear from the project that belongs to the current user - only if projectId is valid
+    if (props.projectId && props.projectId.trim() !== '' && userId.value) {
+      // First, get all project gear
+      const allProjectGear = await fetchTableData('gear_table', {
         eq: { project_id: props.projectId },
         order: [{ column: 'gear_name', ascending: true }]
       })
-      // Show all gear types including accessories_cables
-      availableProjectGear.value = projectGear
+      
+      // Filter to only user gear (is_user_gear = true)
+      const userGearItems = allProjectGear.filter(g => g.is_user_gear === true && g.user_gear_id)
+      
+      if (userGearItems.length > 0) {
+        // Get the user_gear_ids
+        const userGearIds = userGearItems.map(g => g.user_gear_id)
+        
+        // Fetch user_gear records to check ownership
+        const { data: userGearData, error } = await supabase
+          .from('user_gear')
+          .select('id, user_id')
+          .in('id', userGearIds)
+        
+        if (!error && userGearData) {
+          // Create a map of user_gear_id to user_id
+          const userGearOwnershipMap = {}
+          userGearData.forEach(ug => {
+            userGearOwnershipMap[ug.id] = ug.user_id
+          })
+          
+          // Filter to only gear owned by the current user
+          availableProjectGear.value = userGearItems.filter(g => {
+            const gearUserId = userGearOwnershipMap[g.user_gear_id]
+            return gearUserId === userId.value
+          })
+        } else {
+          availableProjectGear.value = []
+        }
+      } else {
+        availableProjectGear.value = []
+      }
+      
+      // Also get owner_name from user_gear_view for display
+      if (availableProjectGear.value.length > 0) {
+        const gearIds = availableProjectGear.value.map(g => g.user_gear_id).filter(Boolean)
+        if (gearIds.length > 0) {
+          const { data: userGearInfo, error: infoError } = await supabase
+            .from('user_gear_view')
+            .select('id, owner_name')
+            .in('id', gearIds)
+          
+          if (!infoError && userGearInfo) {
+            const ownerMap = {}
+            userGearInfo.forEach(ug => {
+              ownerMap[ug.id] = ug.owner_name
+            })
+            
+            // Add owner_name to gear items
+            availableProjectGear.value = availableProjectGear.value.map(g => ({
+              ...g,
+              owner_name: ownerMap[g.user_gear_id] || 'Unknown'
+            }))
+          }
+        }
+      }
     } else {
       availableProjectGear.value = []
     }
