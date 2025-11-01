@@ -2224,6 +2224,16 @@ setup(props) {
   background: #fffbeb;
 }
 
+/* Dark mode styling for gear cards */
+.dark .gear-card {
+  background: var(--bg-secondary);
+}
+
+.dark .gear-card.user-gear {
+  background: rgba(146, 64, 14, 0.2);
+  border-color: #b45309;
+}
+
 .gear-header {
   display: flex;
   justify-content: space-between;
