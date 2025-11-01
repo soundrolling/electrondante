@@ -108,6 +108,17 @@
               </span>
             </div>
             <div class="report-actions">
+              <router-link
+                :to="{ name: 'BugReportDetail', params: { projectId: currentProjectId, reportId: report.id } }"
+                class="btn btn-primary view-details-btn"
+                title="View Details"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                View Details
+              </router-link>
               <button 
                 @click="toggleReportDetails(report.id)"
                 class="btn btn-primary toggle-btn"
@@ -239,11 +250,14 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useBugReportStore } from '../stores/bugReportStore'
+import { useUserStore } from '../stores/userStore'
 
 export default {
   name: 'BugReportList',
   setup() {
     const bugReportStore = useBugReportStore()
+    const userStore = useUserStore()
+    const currentProjectId = computed(() => userStore.getCurrentProject?.id)
     
     const filters = ref({
       status: '',
@@ -387,7 +401,8 @@ export default {
       clearFilters,
       refreshReports,
       updateReportStatus,
-      deleteReport
+      deleteReport,
+      currentProjectId
     }
   }
 }
@@ -619,9 +634,19 @@ export default {
   color: var(--color-primary-700);
 }
 
+.dark .report-type {
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
+}
+
 .report-priority.priority-low {
   background: var(--color-success-100);
   color: var(--color-success-700);
+}
+
+.dark .report-priority.priority-low {
+  background: var(--color-success-600);
+  color: var(--text-inverse);
 }
 
 .report-priority.priority-medium {
@@ -629,9 +654,19 @@ export default {
   color: var(--color-warning-700);
 }
 
+.dark .report-priority.priority-medium {
+  background: var(--color-warning-600);
+  color: var(--text-inverse);
+}
+
 .report-priority.priority-high {
   background: var(--color-error-100);
   color: var(--color-error-700);
+}
+
+.dark .report-priority.priority-high {
+  background: var(--color-error-600);
+  color: var(--text-inverse);
 }
 
 .report-priority.priority-critical {
@@ -639,9 +674,19 @@ export default {
   color: var(--color-error-800);
 }
 
+.dark .report-priority.priority-critical {
+  background: var(--color-error-700);
+  color: var(--text-inverse);
+}
+
 .report-status.status-open {
   background: var(--color-primary-100);
   color: var(--color-primary-700);
+}
+
+.dark .report-status.status-open {
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
 }
 
 .report-status.status-in_progress {
@@ -649,14 +694,33 @@ export default {
   color: var(--color-warning-700);
 }
 
+.dark .report-status.status-in_progress {
+  background: var(--color-warning-600);
+  color: var(--text-inverse);
+}
+
 .report-status.status-closed {
   background: var(--color-success-100);
   color: var(--color-success-700);
 }
 
+.dark .report-status.status-closed {
+  background: var(--color-success-600);
+  color: var(--text-inverse);
+}
+
 .report-actions {
   display: flex;
   gap: var(--space-2);
+}
+
+.view-details-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+  font-size: var(--text-sm);
 }
 
 .toggle-btn {
@@ -682,6 +746,11 @@ export default {
 
 .toggle-btn svg.rotated {
   transform: rotate(180deg);
+}
+
+.view-details-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .report-content {

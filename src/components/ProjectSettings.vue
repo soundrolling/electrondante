@@ -209,8 +209,15 @@ export default {
     const currentProject = computed(() => userStore.getCurrentProject)
     const toast = useToast()
 
-    // Tab management
-    const activeTab = ref('members')
+    // Tab management - check query param for tab
+    const activeTab = ref(route.query.tab || 'members')
+    
+    // Watch for tab query changes
+    watch(() => route.query.tab, (newTab) => {
+      if (newTab && ['members', 'details', 'bug-reports'].includes(newTab)) {
+        activeTab.value = newTab
+      }
+    })
 
   const projectMembers = ref([])
   const loadingMembers = ref(false)

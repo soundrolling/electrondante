@@ -103,6 +103,7 @@ const routes = [
   { path: '/projects/:id/repacking',  name: 'ProjectRepacking', component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: 'repacking' }) },
   { path: '/projects/:id/contacts',  name: 'ProjectContacts', component: ProjectContacts, props: true },
   { path: '/projects/:id/settings',  name: 'ProjectSettings', component: ProjectSettings, props: true },
+  { path: '/projects/:projectId/bug-reports/:reportId', name: 'BugReportDetail', component: defineAsyncComponent(() => import('../components/BugReportDetail.vue')), props: true },
 
   // Location-specific notes
   { path: '/projects/:id/locations/:locationId/notes', name: 'LocationNotes', component: LocationNotes, props: true },
