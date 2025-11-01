@@ -1272,15 +1272,15 @@ function printPreview() {
 }
 
 .view-btn:hover {
-  background: #1e3a8a;
-  color: #ffffff !important;
-  border-color: #1e40af;
+  background: var(--color-primary-600);
+  color: var(--text-inverse) !important;
+  border-color: var(--color-primary-700);
 }
 
 .download-btn:hover {
-  background: #166534;
-  color: #ffffff !important;
-  border-color: #15803d;
+  background: var(--color-success-600);
+  color: var(--text-inverse) !important;
+  border-color: var(--color-success-700);
 }
 
 .doc-meta {
