@@ -5,13 +5,19 @@
     <p>Place microphones on the floor plan and assign track names</p>
   </div>
 
+  <!-- Mobile Message -->
+  <div v-if="isMobile" class="mobile-message">
+    <p>📱 For better usability and to prevent errors, please view this page on a larger screen (desktop or tablet).</p>
+    <p>Mobile devices are not recommended for mic placement due to precision requirements.</p>
+  </div>
+
   <!-- Unified Toolbar Row -->
-  <div class="placement-toolbar unified">
+  <div class="placement-toolbar unified" :class="{ mobileHidden: isMobile }">
     <!-- Mobile: collapsible image settings trigger -->
-    <div class="mobile-controls">
+    <div class="mobile-controls" v-if="!isMobile">
       <button class="btn-secondary" @click="showMobileSettings = !showMobileSettings">Image Settings</button>
     </div>
-    <div class="left-group" :class="{ mobileHidden: !showMobileSettings }">
+    <div class="left-group" :class="{ mobileHidden: !showMobileSettings || isMobile }">
       <label class="inline-setting">
         <input type="checkbox" v-model="panImageMode" :disabled="imageLocked" />
         <span>Pan</span>
@@ -23,11 +29,6 @@
         <input type="checkbox" v-model="imageLocked" />
         <span>🔒 Lock</span>
       </label>
-      <div class="inline-setting">
-        <label>Opacity</label>
-        <input type="range" min="0.1" max="1" step="0.05" v-model.number="bgOpacity" />
-        <span>{{ Math.round(bgOpacity * 100) }}%</span>
-      </div>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
       <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
     </div>
@@ -204,6 +205,12 @@ const lockedOffsetY = ref(0)
 const lockedScale = ref(1)
 // no popover; show inline controls
 const showMobileSettings = ref(false)
+
+// Detect mobile/small screens
+const isMobile = ref(false)
+function checkScreenSize() {
+  isMobile.value = window.innerWidth < 768
+}
 
 // No local persistence - background lives in Supabase storage
 
@@ -408,7 +415,7 @@ function drawCanvas() {
 
   // Draw background image (use locked values when locked)
   if (bgImageObj.value) {
-    ctx.globalAlpha = bgOpacity.value
+    ctx.globalAlpha = 1.0 // Fixed opacity - no longer using bgOpacity
     const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
     const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
     const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
@@ -537,14 +544,134 @@ function zoomOut() {
   drawCanvas() 
 }
 function resetImageView() {
-  if (bgImageObj.value && !imageLocked.value) {
-    const fit = fitImageToCanvas(bgImageObj.value)
-    scaleFactor.value = fit.scale
-    imageOffsetX.value = fit.offsetX
-    imageOffsetY.value = fit.offsetY
-    updateLockedValues()
-    drawCanvas()
+  if (imageLocked.value) return
+  
+  const PADDING = 20
+  
+  // Calculate bounding box of all elements
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  
+  // Include background image bounds if present
+  if (bgImageObj.value) {
+    const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
+    const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
+    const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
+    const bx = offsetX
+    const by = offsetY
+    const bw = bgImageObj.value.width * scale
+    const bh = bgImageObj.value.height * scale
+    minX = Math.min(minX, bx)
+    minY = Math.min(minY, by)
+    maxX = Math.max(maxX, bx + bw)
+    maxY = Math.max(maxY, by + bh)
   }
+  
+  // Include all mic nodes (circle radius and label box)
+  const circleRadius = 30
+  const measure = document.createElement('canvas').getContext('2d')
+  if (measure) {
+    measure.font = 'bold 12px sans-serif'
+  }
+  
+  props.nodes.forEach(mic => {
+    const { x, y } = imageToCanvasCoords(mic.x, mic.y)
+    
+    // Circle extents
+    minX = Math.min(minX, x - circleRadius)
+    minY = Math.min(minY, y - circleRadius)
+    maxX = Math.max(maxX, x + circleRadius)
+    maxY = Math.max(maxY, y + circleRadius)
+    
+    // Label extents
+    const labelText = mic.track_name || mic.label || ''
+    const textMetrics = measure ? measure.measureText(labelText) : null
+    const padX = 6
+    const padY = 4
+    const bgW = textMetrics ? Math.ceil(textMetrics.width) + padX * 2 : (labelText.length * 7) + padX * 2
+    const bgH = 18 + padY * 2
+    const labelY = y + 40
+    const lx = x - bgW / 2
+    const ly = labelY - padY
+    minX = Math.min(minX, lx)
+    minY = Math.min(minY, ly)
+    maxX = Math.max(maxX, lx + bgW)
+    maxY = Math.max(maxY, ly + bgH)
+  })
+  
+  // If no elements found, fall back to fitting image or canvas
+  if (!isFinite(minX) || !isFinite(minY)) {
+    if (bgImageObj.value) {
+      const fit = fitImageToCanvas(bgImageObj.value)
+      scaleFactor.value = fit.scale
+      imageOffsetX.value = fit.offsetX
+      imageOffsetY.value = fit.offsetY
+      updateLockedValues()
+      drawCanvas()
+    }
+    return
+  }
+  
+  // Calculate dimensions with padding
+  const contentWidth = maxX - minX
+  const contentHeight = maxY - minY
+  const paddedWidth = contentWidth + PADDING * 2
+  const paddedHeight = contentHeight + PADDING * 2
+  
+  // Calculate scale to fit canvas
+  const scaleX = canvasWidth.value / paddedWidth
+  const scaleY = canvasHeight.value / paddedHeight
+  const scale = Math.min(scaleX, scaleY)
+  
+  // Calculate center of content
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
+  
+  // If we have a background image, adjust it to frame the content
+  if (bgImageObj.value) {
+    // Target area on canvas (with padding)
+    const targetWidth = canvasWidth.value - PADDING * 2
+    const targetHeight = canvasHeight.value - PADDING * 2
+    const targetCenterX = canvasWidth.value / 2
+    const targetCenterY = canvasHeight.value / 2
+    
+    // Calculate scale to fit content into target area
+    const scaleX = targetWidth / contentWidth
+    const scaleY = targetHeight / contentHeight
+    const contentScale = Math.min(scaleX, scaleY)
+    
+    // Find mic bounds in image coordinates (0-1 normalized)
+    let imgMinX = 0, imgMinY = 0, imgMaxX = 1, imgMaxY = 1
+    props.nodes.forEach(mic => {
+      imgMinX = Math.min(imgMinX, mic.x)
+      imgMinY = Math.min(imgMinY, mic.y)
+      imgMaxX = Math.max(imgMaxX, mic.x)
+      imgMaxY = Math.max(imgMaxY, mic.y)
+    })
+    
+    // Image-space content dimensions (account for mics)
+    const imgContentWidth = Math.max(imgMaxX - imgMinX, 0.1)
+    const imgContentHeight = Math.max(imgMaxY - imgMinY, 0.1)
+    
+    // Calculate image scale needed to fit image content to target
+    const imgScaleX = targetWidth / (imgContentWidth * bgImageObj.value.width)
+    const imgScaleY = targetHeight / (imgContentHeight * bgImageObj.value.height)
+    const newImageScale = Math.min(imgScaleX, imgScaleY)
+    
+    // Calculate image content center in image coords
+    const imgContentCenterX = (imgMinX + imgMaxX) / 2
+    const imgContentCenterY = (imgMinY + imgMaxY) / 2
+    
+    // Calculate offset to center image content on canvas
+    const newOffsetX = targetCenterX - imgContentCenterX * bgImageObj.value.width * newImageScale
+    const newOffsetY = targetCenterY - imgContentCenterY * bgImageObj.value.height * newImageScale
+    
+    scaleFactor.value = newImageScale
+    imageOffsetX.value = newOffsetX
+    imageOffsetY.value = newOffsetY
+  }
+  
+  updateLockedValues()
+  drawCanvas()
 }
 function triggerImageUpload() {
   document.getElementById('image-upload').click()
@@ -977,13 +1104,15 @@ async function deleteSelected() {
 }
 
 // Watchers
-watch([() => props.nodes, bgOpacity], () => nextTick(drawCanvas))
+watch(() => props.nodes, () => nextTick(drawCanvas))
 
 // Persist opacity changes
 // no-op: opacity changes are not persisted locally
 
 // Lifecycle
 onMounted(() => {
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
   if (canvas.value) {
     canvas.value.width = canvasWidth.value * dpr
     canvas.value.height = canvasHeight.value * dpr
@@ -997,6 +1126,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
   stopAutoRotation()
 })
@@ -1223,7 +1353,7 @@ function getCanvasDataURL() {
 
   // Draw background image (with current opacity, use locked values when locked)
   if (bgImageObj.value) {
-    ctx.globalAlpha = bgOpacity.value
+    ctx.globalAlpha = 1.0 // Fixed opacity
     const offsetX = imageLocked.value ? lockedOffsetX.value : imageOffsetX.value
     const offsetY = imageLocked.value ? lockedOffsetY.value : imageOffsetY.value
     const scale = imageLocked.value ? lockedScale.value : scaleFactor.value
@@ -1710,6 +1840,33 @@ defineExpose({ getCanvasDataURL })
 
 /* Hide mobile controls on larger screens */
 .mobile-controls {
+  display: none;
+}
+
+/* Mobile message styling */
+.mobile-message {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.mobile-message p {
+  margin: 8px 0;
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mobile-message p:first-child {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* Hide toolbar on mobile */
+.placement-toolbar.mobileHidden {
   display: none;
 }
 
