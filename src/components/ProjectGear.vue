@@ -2270,6 +2270,7 @@ setup(props) {
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 /* Dark mode styling for gear type badge */
@@ -2277,9 +2278,6 @@ setup(props) {
   background: var(--color-primary-600);
   color: var(--text-inverse);
   border: 1px solid var(--color-primary-700);
-}
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 /* Gear Details */
