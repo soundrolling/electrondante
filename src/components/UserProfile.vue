@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
+import { formatWeight, getWeightUnit, setWeightUnit, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
 
 const store = useUserStore();
 const route = useRoute();
@@ -208,6 +209,9 @@ function openAddGear() {
 }
 
 function openEditGear(gearItem) {
+  const currentUnit = weightUnit.value;
+  const weightKg = gearItem.weight_kg || null;
+  
   gearForm.value = {
     gear_name: gearItem.gear_name,
     quantity: gearItem.quantity || 1,
@@ -220,7 +224,9 @@ function openEditGear(gearItem) {
     notes: gearItem.notes || '',
     condition: gearItem.condition || 'excellent',
     availability: gearItem.availability || 'available',
-    weight_kg: gearItem.weight_kg || null
+    weight_kg: weightKg,
+    weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
+    weightInputUnit: currentUnit
   };
   isEditGear.value = true;
   editGearId.value = gearItem.id;
@@ -240,7 +246,9 @@ function resetGearForm() {
     notes: '',
     condition: 'excellent',
     availability: 'available',
-    weight_kg: null
+    weight_kg: null,
+    weightInput: null,
+    weightInputUnit: weightUnit.value
   };
   isEditGear.value = false;
   editGearId.value = null;
@@ -249,6 +257,11 @@ function resetGearForm() {
 async function saveGear() {
   const name = gearForm.value.gear_name.trim();
   if (!name) return;
+
+  // Convert weight input to kg for storage
+  const weightInKg = gearForm.value.weightInput 
+    ? convertInputToKg(gearForm.value.weightInput, gearForm.value.weightInputUnit)
+    : null;
 
   const payload = {
     user_id: userId.value,
@@ -263,7 +276,7 @@ async function saveGear() {
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
     availability: gearForm.value.availability,
-    weight_kg: gearForm.value.weight_kg ? Number(gearForm.value.weight_kg) : null
+    weight_kg: weightInKg
   };
 
   try {
@@ -486,15 +499,25 @@ watch(activeTab, () => {
 });
 
 // Preferences state
+const weightUnit = ref(getWeightUnit());
 const preferences = ref({
-  notifications: true
+  notifications: true,
+  weightUnit: getWeightUnit()
 });
 const savingPreferences = ref(false);
 const prefMsg = ref('');
 
+// Watch weight unit changes and save to localStorage
+watch(weightUnit, (newUnit) => {
+  setWeightUnit(newUnit);
+  preferences.value.weightUnit = newUnit;
+});
+
 async function savePreferences() {
   savingPreferences.value = true;
   prefMsg.value = '';
+  // Save weight unit preference
+  setWeightUnit(weightUnit.value);
   // Simulate save (replace with real API/store call)
   setTimeout(() => {
     prefMsg.value = 'Preferences saved!';
@@ -794,6 +817,14 @@ async function saveSecurity() {
               </label>
               <span class="input-note">Enable email notifications</span>
             </div>
+            <div class="form-group">
+              <label class="form-label">Weight Unit</label>
+              <select v-model="weightUnit" class="form-input">
+                <option value="kg">Kilograms (kg)</option>
+                <option value="lbs">Pounds (lbs)</option>
+              </select>
+              <p class="form-hint">Preferred unit for weight input and display</p>
+            </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-positive" :disabled="savingPreferences">
                 {{ savingPreferences ? 'Saving...' : 'Save Preferences' }}
@@ -908,16 +939,28 @@ async function saveSecurity() {
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Weight (kg)</label>
-              <input 
-                v-model.number="gearForm.weight_kg" 
-                class="form-input"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Optional"
-              />
-              <p class="form-hint">Used for calculating bag weights</p>
+              <label class="form-label">Weight</label>
+              <div class="weight-input-group">
+                <input 
+                  v-model.number="gearForm.weightInput" 
+                  class="form-input weight-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Optional"
+                />
+                <select 
+                  v-model="gearForm.weightInputUnit"
+                  class="weight-unit-select"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lbs">lbs</option>
+                </select>
+              </div>
+              <p v-if="gearForm.weightInput" class="form-hint">
+                {{ formatWeight(convertInputToKg(gearForm.weightInput, gearForm.weightInputUnit) || 0, gearForm.weightInputUnit) }}
+              </p>
+              <p v-else class="form-hint">Used for calculating bag weights</p>
             </div>
           </div>
 
@@ -2260,5 +2303,33 @@ async function saveSecurity() {
 .empty-state .btn-positive:hover {
   color: #ffffff !important;
   opacity: 0.9;
+}
+
+/* Weight Input Group */
+.weight-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.weight-input {
+  flex: 1;
+}
+
+.weight-unit-select {
+  min-width: 80px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.weight-unit-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 </style>

@@ -56,8 +56,8 @@
           
           <div class="bag-weight-info">
             <span class="weight-label">Estimated Weight:</span>
-            <span class="weight-value">{{ getBagTotalWeight(bag.id) }} kg</span>
-            <span v-if="bag.weight_kg" class="weight-custom">(Custom: {{ bag.weight_kg }} kg)</span>
+            <span class="weight-value">{{ formatBagWeight(bag.id) }}</span>
+            <span v-if="bag.weight_kg" class="weight-custom">(Custom weight)</span>
           </div>
 
           <div class="bag-actions">
@@ -111,16 +111,28 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Bag Weight (kg)</label>
-            <input 
-              v-model.number="bagForm.weight_kg" 
-              type="number"
-              step="0.01"
-              min="0"
-              class="form-input"
-              placeholder="Enter bag weight in kg (optional)"
-            />
-            <p class="form-hint">Leave empty to auto-calculate from gear items</p>
+            <label class="form-label">Bag Weight</label>
+            <div class="weight-input-group">
+              <input 
+                v-model.number="bagForm.weightInput" 
+                type="number"
+                step="0.01"
+                min="0"
+                class="form-input weight-input"
+                placeholder="Enter bag weight (optional)"
+              />
+              <select 
+                v-model="bagForm.weightInputUnit"
+                class="weight-unit-select"
+              >
+                <option value="kg">kg</option>
+                <option value="lbs">lbs</option>
+              </select>
+            </div>
+            <p v-if="bagForm.weightInput" class="form-hint">
+              {{ formatWeight(convertInputToKg(bagForm.weightInput, bagForm.weightInputUnit) || 0, bagForm.weightInputUnit) }}
+            </p>
+            <p v-else class="form-hint">Leave empty to auto-calculate from gear items</p>
           </div>
 
           <div class="form-group">
@@ -289,6 +301,7 @@ import { fetchTableData } from '../services/dataService'
 import PackingService from '../services/packingService'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { formatWeight, getWeightUnit, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils'
 
 const props = defineProps({
   projectId: {
@@ -317,6 +330,8 @@ const bagForm = ref({
   name: '',
   description: '',
   weight_kg: null,
+  weightInput: null,
+  weightInputUnit: 'kg',
   imageFile: null,
   imagePreview: null
 })
@@ -367,12 +382,14 @@ function getBagTotalQuantity(bagId) {
     .reduce((sum, item) => sum + (item.quantity || 0), 0)
 }
 
+const weightUnit = ref(getWeightUnit())
+
 function getBagTotalWeight(bagId) {
   const bag = bags.value.find(b => b.id === bagId)
   
   // If bag has a custom weight, use that
   if (bag && bag.weight_kg) {
-    return Number(bag.weight_kg).toFixed(2)
+    return Number(bag.weight_kg)
   }
   
   // Otherwise calculate from gear items
@@ -389,7 +406,12 @@ function getBagTotalWeight(bagId) {
     }
   })
   
-  return totalWeight > 0 ? totalWeight.toFixed(2) : '0.00'
+  return totalWeight > 0 ? totalWeight : 0
+}
+
+function formatBagWeight(bagId) {
+  const weightKg = getBagTotalWeight(bagId)
+  return formatWeight(weightKg, weightUnit.value)
 }
 
 async function loadBags() {
@@ -639,6 +661,9 @@ function openCreateBagModal() {
   bagForm.value = {
     name: '',
     description: '',
+    weight_kg: null,
+    weightInput: null,
+    weightInputUnit: weightUnit.value,
     imageFile: null,
     imagePreview: null
   }
@@ -648,9 +673,14 @@ function openCreateBagModal() {
 function editBag(bag) {
   isEditingBag.value = true
   currentBag.value = bag
+  const weightKg = bag.weight_kg || null
+  const currentUnit = weightUnit.value
   bagForm.value = {
     name: bag.name,
     description: bag.description || '',
+    weight_kg: weightKg,
+    weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
+    weightInputUnit: currentUnit,
     imageFile: null,
     imagePreview: null
   }
@@ -662,6 +692,9 @@ function closeBagModal() {
   bagForm.value = {
     name: '',
     description: '',
+    weight_kg: null,
+    weightInput: null,
+    weightInputUnit: weightUnit.value,
     imageFile: null,
     imagePreview: null
   }
@@ -705,7 +738,9 @@ async function saveBag() {
     const bagData = {
       name: bagForm.value.name.trim(),
       description: bagForm.value.description?.trim() || null,
-      weight_kg: bagForm.value.weight_kg ? Number(bagForm.value.weight_kg) : null,
+      weight_kg: bagForm.value.weightInput 
+        ? convertInputToKg(bagForm.value.weightInput, bagForm.value.weightInputUnit)
+        : null,
       imageFile: bagForm.value.imageFile
     }
 
@@ -1610,6 +1645,34 @@ onMounted(async () => {
   color: #6c757d;
   margin: 4px 0 0 0;
   font-style: italic;
+}
+
+/* Weight Input Group */
+.weight-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.weight-input {
+  flex: 1;
+}
+
+.weight-unit-select {
+  min-width: 80px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.weight-unit-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 </style>
 
