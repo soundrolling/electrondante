@@ -41,7 +41,7 @@
             <th>Type</th>
             <th>Bag</th>
             <th>Total Brought</th>
-            <th>In This Bag</th>
+            <th>Quantity</th>
             <th>Unpacked</th>
             <th>Status</th>
           </tr>
@@ -63,10 +63,18 @@
             <td class="gear-type">{{ item.gear_type }}</td>
             <td class="bag-name">{{ item.bag_name || 'Unpacked' }}</td>
             <td class="total-brought">{{ item.total_brought }}</td>
-            <td class="in-bags">{{ item.in_bags }}</td>
+            <td class="in-bags">{{ item.in_bags }} in {{ item.bag_name || 'Unpacked' }}</td>
             <td class="unpacked">{{ item.unpacked }}</td>
             <td class="status">
               <span 
+                v-if="isAllGearChecked(item.gear_id)"
+                class="status-badge status-checked"
+                title="All instances checked"
+              >
+                ✓ Checked
+              </span>
+              <span 
+                v-else
                 :class="['status-badge', getStatusClass(item)]"
                 :title="getStatusText(item)"
               >
@@ -257,7 +265,22 @@ const allChecked = computed(() => {
   return totalItems.value > 0 && checkedItems.value.size === totalItems.value
 })
 
+function isAllGearChecked(gearId) {
+  // Check if all instances of this gear across all bags are checked
+  const allInstances = repackingList.value.filter(i => i.gear_id === gearId)
+  if (allInstances.length === 0) return false
+  
+  return allInstances.every(instance => {
+    const key = instance.bag_id ? `${instance.gear_id}-${instance.bag_id}` : `${instance.gear_id}-unpacked`
+    return checkedItems.value.has(key)
+  })
+}
+
 function getStatusClass(item) {
+  // If all instances of this gear are checked, show checked status (handled in template)
+  if (isAllGearChecked(item.gear_id)) {
+    return 'status-checked'
+  }
   if (item.unpacked > 0) {
     return 'status-warning' // Some items not in bags
   }
@@ -610,6 +633,12 @@ onMounted(async () => {
 .status-info {
   background: #d1ecf1;
   color: #0c5460;
+}
+
+.status-checked {
+  background: #d4edda;
+  color: #155724;
+  font-weight: 600;
 }
 
 .summary-section {
