@@ -1028,6 +1028,18 @@ setup() {
 
 .refresh-btn:hover { background: #fde68a !important; } /* amber-200 */
 
+/* Dark mode: Dark yellow/amber background with white text */
+.dark .refresh-btn {
+  background: var(--color-warning-700) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-warning-600) !important;
+}
+
+.dark .refresh-btn:hover {
+  background: var(--color-warning-600) !important;
+  border-color: var(--color-warning-500) !important;
+}
+
 .new-project-btn {
   /* Lighter pill w/ darker text */
   background: #dbeafe !important;   /* blue-100 */
@@ -1036,6 +1048,18 @@ setup() {
 }
 
 .new-project-btn:hover { background: #bfdbfe !important; } /* blue-200 */
+
+/* Dark mode: Dark blue background with white text */
+.dark .new-project-btn {
+  background: var(--color-primary-700) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-primary-600) !important;
+}
+
+.dark .new-project-btn:hover {
+  background: var(--color-primary-600) !important;
+  border-color: var(--color-primary-500) !important;
+}
 
 .btn-icon {
   font-size: var(--text-lg);
@@ -1370,6 +1394,12 @@ setup() {
 .project-badge.owner {
   background: var(--color-primary-100);
   color: var(--color-primary-700);
+}
+
+/* Dark mode: Dark blue background with white text */
+.dark .project-badge.owner {
+  background: var(--color-primary-700) !important;
+  color: var(--text-inverse) !important;
 }
 
 /* Project Meta */
