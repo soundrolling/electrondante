@@ -1564,6 +1564,7 @@ onMounted(async () => {
 /* Create Bag Modal - hide header, add padding */
 .bag-modal {
   padding: 24px;
+  position: relative;
 }
 
 .bag-modal .modal-form {
