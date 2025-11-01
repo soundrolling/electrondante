@@ -799,18 +799,11 @@ function applyZoom(zoomFactor, centerX, centerY) {
 }
 
 function onWheel(e) {
-  if (!bgImageObj.value) return
-  
   // Stop auto-rotation when user scrolls
   stopAutoRotation()
   
-  // Prevent default scroll and handle zoom
-  e.preventDefault()
-  const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
-  const rect = canvas.value.getBoundingClientRect()
-  const cx = (e.clientX - rect.left) * (canvas.value.width / rect.width) / dpr
-  const cy = (e.clientY - rect.top) * (canvas.value.height / rect.height) / dpr
-  applyZoom(zoomFactor, cx, cy)
+  // Allow normal page scrolling - zoom is controlled via buttons only
+  // Do not prevent default or handle zoom here
 }
 
 // Mic detection

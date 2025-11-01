@@ -16,19 +16,19 @@
   <div class="tab-navigation">
     <button 
       :class="['tab-btn', { active: activeTab === 'placement' }]"
-      @click="activeTab = 'placement'"
+      @click="setActiveTab('placement')"
     >
       📍 Mic Placement
     </button>
     <button 
       :class="['tab-btn', { active: activeTab === 'flow' }]"
-      @click="activeTab = 'flow'"
+      @click="setActiveTab('flow')"
     >
       🔗 Signal Flow
     </button>
     <button 
       :class="['tab-btn', { active: activeTab === 'tracklist' }]"
-      @click="activeTab = 'tracklist'"
+      @click="setActiveTab('tracklist')"
     >
       📊 Track List
     </button>
@@ -76,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
@@ -108,7 +108,8 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-const activeTab = ref('placement')
+// Initialize activeTab from URL query parameter, default to 'placement'
+const activeTab = ref(route.query.tab || 'placement')
 const currentLocation = ref(null)
 const allNodes = ref([])
 const allConnections = ref([])
@@ -133,6 +134,18 @@ const effectiveLocationId = computed(() => {
 
 // Navigation
 const goBack = () => router.back()
+
+// Set active tab and update URL
+function setActiveTab(tab) {
+  activeTab.value = tab
+  // Update URL query parameter without navigating away
+  router.replace({
+    query: {
+      ...route.query,
+      tab: tab
+    }
+  })
+}
 
 // Load location data
 async function fetchLocation() {
@@ -300,8 +313,29 @@ function setupRealtimeSubscriptions() {
   }
 }
 
+// Watch for route changes to update active tab
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && ['placement', 'flow', 'tracklist'].includes(newTab)) {
+    activeTab.value = newTab
+  } else if (!newTab) {
+    // Default to placement if no tab in URL
+    activeTab.value = 'placement'
+  }
+})
+
 // Lifecycle
 onMounted(async () => {
+  // Initialize tab from URL
+  const tabFromUrl = route.query.tab
+  if (tabFromUrl && ['placement', 'flow', 'tracklist'].includes(tabFromUrl)) {
+    activeTab.value = tabFromUrl
+  } else {
+    // If no valid tab in URL, set default and update URL
+    if (!route.query.tab) {
+      setActiveTab('placement')
+    }
+  }
+  
   await fetchLocation()
   await fetchGearList()
   await loadNodesAndConnections()

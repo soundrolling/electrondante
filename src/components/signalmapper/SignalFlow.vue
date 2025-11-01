@@ -336,7 +336,7 @@ const availableGear = computed(() => {
 // Source presets for ad-hoc sources not tied to gear
 const sourcePresets = [
   { key: 'dj_lr', name: 'DJ LR', outputs: 2, category: 'Stereo' },
-  { key: 'foh_lr', name: 'FOH Feed LR', outputs: 2, category: 'Stereo' },
+  { key: 'foh_lr', name: 'Program LR', outputs: 2, category: 'Stereo' },
   { key: 'stereo_stem', name: 'Stereo Stem', outputs: 2, category: 'Stereo' },
   { key: 'handheld_mic', name: 'HandHeld Mic', outputs: 1, category: 'Mono' },
   { key: 'handheld_group', name: 'HandHeld Mic Group', outputs: 1, category: 'Mono' },
@@ -376,48 +376,142 @@ const needsPortMappingForSelected = computed(() => {
          (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder'))
 })
 
+// Recursively trace source label through transformer chain
+function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
+  if (visitedNodes.has(nodeId)) return null
+  visitedNodes.add(nodeId)
+  
+  const node = props.nodes.find(n => n.id === nodeId)
+  if (!node) return null
+  
+  const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
+  
+  // If it's a source, return the source label
+  if (nodeType === 'source') {
+    const outCount = node?.num_outputs || node?.outputs || 0
+    const label = node.label || ''
+    const trackName = node.track_name || ''
+    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    const num = m ? m[2] : ''
+    
+    let baseNoNum
+    if (trackName) {
+      baseNoNum = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    } else if (m) {
+      baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
+    } else {
+      baseNoNum = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    }
+    const numSuffix = num ? ` (${num})` : ''
+    
+    if (outCount === 2 && typeof inputNum === 'number') {
+      // Check siblings to determine L/R
+      const siblings = props.connections.filter(c =>
+        (c.to_node_id === nodeId || c.to === nodeId) &&
+        (c.from_node_id === nodeId || c.from === nodeId) &&
+        typeof c.input_number === 'number'
+      ).map(c => c.input_number).sort((a,b) => a - b)
+      
+      if (siblings.length >= 2) {
+        return inputNum === siblings[0] ? `${baseNoNum} L${numSuffix}` : `${baseNoNum} R${numSuffix}`
+      }
+      return `${baseNoNum} ${inputNum % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+    }
+    return `${baseNoNum}${numSuffix}`
+  }
+  
+  // If it's a transformer, trace back to its input
+  if (nodeType === 'transformer') {
+    // Find connection feeding this transformer's input
+    const incoming = props.connections.find(c => 
+      (c.to_node_id === nodeId || c.to === nodeId) && c.input_number === inputNum
+    )
+    
+    if (incoming) {
+      const parentNodeId = incoming.from_node_id || incoming.from
+      const parentNode = props.nodes.find(n => n.id === parentNodeId)
+      
+      if (parentNode) {
+        const parentType = (parentNode.gear_type || parentNode.node_type || '').toLowerCase()
+        
+        // For port-mapped connections, we might need to trace through the port mapping
+        // But for direct connections, if transformer input 1 is connected from parent output X,
+        // then transformer output 1 should show what's coming from parent output X
+        // We trace from the parent node - if it's a source, get its label
+        // If it's another transformer, recursively trace from it
+        
+        // For now, trace from parent with the same port number (1:1 mapping assumption)
+        // In reality, port mappings handle this, but for direct connections this works
+        return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+      }
+    }
+    
+    // Also check for port-mapped connections (transformer to transformer)
+    // Find any connection to this transformer
+    const anyIncoming = props.connections.find(c => 
+      (c.to_node_id === nodeId || c.to === nodeId)
+    )
+    
+    if (anyIncoming) {
+      // Check if this connection has port mappings
+      // For port mappings, we'd need to query the port_map table
+      // But for now, trace from the parent with inputNum as a hint
+      const parentNodeId = anyIncoming.from_node_id || anyIncoming.from
+      return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+    }
+  }
+  
+  return null
+}
+
 function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
+  
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  
   // Label stereo source ports as L/R
   if (fromType === 'source') {
     const outCount = from?.num_outputs || from?.outputs || 0
     if (outCount === 2) {
       const label = from.label || ''
       const trackName = from.track_name || ''
-      const m = label.match(/^(.*) \((\d+)\)$/)
+      const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
       const num = m ? m[2] : ''
       // Get clean base: prefer track_name (cleaned), fall back to label base
       let baseNoNum
       if (trackName) {
-        baseNoNum = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        baseNoNum = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
       } else if (m) {
         baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
       } else {
-        baseNoNum = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        baseNoNum = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
       }
       const numSuffix = num ? ` (${num})` : ''
       return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
     }
+    return trackName || label || `Output ${portNum}`
   }
+  
+  // For transformers, recursively trace to source
   if (fromType === 'transformer') {
-    // Try direct connection first
-    let incoming = props.connections.find(c => (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum)
-    if (!incoming) {
-      // Fall back to port map from previous transformer
-      // Find parent connection feeding this transformer
-      // Note: We avoid network calls here; modal handles labels precisely. For the panel,
-      // we approximate by checking if there is a connection whose to_node_id === from.id
-      // and then use the from_port mapping number equal to portNum when available in memory later.
-    }
+    const sourceLabel = traceSourceLabel(from.id, portNum)
+    if (sourceLabel) return sourceLabel
+    
+    // Fallback to direct incoming connection
+    const incoming = props.connections.find(c => 
+      (c.to_node_id === from.id || c.to === from.id) && c.input_number === portNum
+    )
     if (incoming) {
+      const sourceLabelFromConn = traceSourceLabel(incoming.from_node_id || incoming.from, incoming.input_number || portNum)
+      if (sourceLabelFromConn) return sourceLabelFromConn
+      
       const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
-      const srcLabel = upNode?.track_name || upNode?.label
-      if (srcLabel) return srcLabel
+      return upNode?.track_name || upNode?.label || `Output ${portNum}`
     }
   }
+  
   return `Output ${portNum}`
 }
 const inputOptionsForSelected = computed(() => {
@@ -441,12 +535,25 @@ const availableFromPortsForEdit = computed(() => {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
     if (fromType === 'transformer') {
-      const incoming = props.connections.find(c =>
-        (c.to_node_id === from?.id || c.to === from?.id) && c.input_number === n
-      )
-      const upNode = incoming ? props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from)) : null
-      const srcLabel = upNode?.track_name || upNode?.label
-      if (!upstreamLabelsForFromNode.value[n] && srcLabel) label = srcLabel
+      // Use recursive tracing to get source label
+      const sourceLabel = traceSourceLabel(from.id, n)
+      if (sourceLabel) {
+        label = sourceLabel
+      } else if (!upstreamLabelsForFromNode.value[n]) {
+        // Fallback to direct connection
+        const incoming = props.connections.find(c =>
+          (c.to_node_id === from?.id || c.to === from?.id) && c.input_number === n
+        )
+        if (incoming) {
+          const sourceLabelFromConn = traceSourceLabel(incoming.from_node_id || incoming.from, incoming.input_number || n)
+          if (sourceLabelFromConn) {
+            label = sourceLabelFromConn
+          } else {
+            const upNode = props.nodes.find(nd => nd.id === (incoming.from_node_id || incoming.from))
+            if (upNode) label = upNode.track_name || upNode.label || label
+          }
+        }
+      }
     }
     opts.push({ value: n, label })
   }
@@ -460,26 +567,43 @@ async function buildUpstreamLabelsForEdit() {
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
   if (fromType !== 'transformer') return
   try {
-    // Find parent connection feeding this transformer
-    const parentCandidates = props.connections.filter(c => c.to_node_id === from.id)
-    if (!parentCandidates.length) return
-    const parent = parentCandidates.find(c => {
-      const n = props.nodes.find(nd => nd.id === c.from_node_id)
-      return (n?.gear_type || n?.node_type) === 'transformer'
-    }) || parentCandidates[0]
-    const { data: maps } = await supabase
-      .from('connection_port_map')
-      .select('from_port, to_port')
-      .eq('connection_id', parent.id)
-    if (!maps || !maps.length) return
-    maps.forEach(m => {
-      const incoming = props.connections.find(c => (c.to_node_id === parent.from_node_id) && c.input_number === m.from_port)
-      if (incoming) {
-        const node = props.nodes.find(nd => nd.id === incoming.from_node_id)
-        const name = node?.track_name || node?.label
-        if (name) upstreamLabelsForFromNode.value[m.to_port] = name
+    // Build labels for all inputs by recursively tracing to sources
+    const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
+    
+    incomingConns.forEach(inc => {
+      const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
+      if (sourceLabel) {
+        upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
       }
     })
+    
+    // Also check for port-mapped connections
+    const { data: parentConns } = await supabase
+      .from('connections')
+      .select('id, from_node_id, to_node_id')
+      .eq('to_node_id', from.id)
+    
+    if (!parentConns || parentConns.length === 0) return
+    
+    for (const parentConn of parentConns) {
+      const { data: maps } = await supabase
+        .from('connection_port_map')
+        .select('from_port, to_port')
+        .eq('connection_id', parentConn.id)
+      
+      if (!maps || maps.length === 0) continue
+      
+      maps.forEach(m => {
+        const parentFromNode = props.nodes.find(nd => nd.id === parentConn.from_node_id)
+        if (parentFromNode) {
+          // Recursively trace source label
+          const sourceLabel = traceSourceLabel(parentConn.from_node_id, m.from_port)
+          if (sourceLabel) {
+            upstreamLabelsForFromNode.value[m.to_port] = sourceLabel
+          }
+        }
+      })
+    }
   } catch {}
 }
 

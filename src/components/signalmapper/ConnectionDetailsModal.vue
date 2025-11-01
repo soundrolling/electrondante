@@ -363,7 +363,7 @@ async function buildUpstreamSourceLabels() {
       (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && typeof c.input_number === 'number'
     )
     
-    // Build labels from direct incoming connections
+    // Build labels from direct incoming connections - recursively trace to source
     directIncomings.forEach(inc => {
       const label = getLRAwareSourceLabel(inc)
       if (label) upstreamSourceLabels.value[inc.input_number] = label
@@ -387,34 +387,20 @@ async function buildUpstreamSourceLabels() {
       
       if (!maps || maps.length === 0) continue
       
-      // Resolve upstream labels per mapping
+      // Resolve upstream labels per mapping - recursively trace to source
       const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
       maps.forEach(m => {
         let label = ''
         const fromNodeType = (parentFromNode?.gear_type || parentFromNode?.node_type || '').toLowerCase()
         if (fromNodeType === 'source') {
-          // Clean base: extract number from label, strip LR suffix and number suffix
-          const pLabel = parentFromNode?.label || ''
-          const pTrackName = parentFromNode?.track_name || ''
-          const pm = pLabel.match(/^(.*) \((\d+)\)$/)
-          const pNum = pm ? pm[2] : ''
-          // Get clean base: prefer track_name (cleaned), fall back to label base
-          let base
-          if (pTrackName) {
-            base = pTrackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-          } else if (pm) {
-            base = pm[1].replace(/\s*LR$/i,'').trim()
-          } else {
-            base = (pLabel || 'Source').replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+          // Direct source connection - get source label with L/R
+          const incoming = { 
+            from_node_id: parentConn.from_node_id, 
+            input_number: m.from_port 
           }
-          const pNumSuffix = pNum ? ` (${pNum})` : ''
-          if (Number(parentFromNode?.num_outputs || parentFromNode?.outputs || 0) === 2) {
-            label = Number(m.from_port) === 1 ? `${base} L${pNumSuffix}` : (Number(m.from_port) === 2 ? `${base} R${pNumSuffix}` : `${base} ${m.from_port}${pNumSuffix}`)
-          } else {
-            label = `${base}${pNumSuffix}`
-          }
+          label = getLRAwareSourceLabel(incoming)
         } else {
-          // Upstream is transformer/other: try to find its incoming connection for the mapped from_port
+          // Upstream is transformer/other: recursively trace back to source
           const incoming = (props.existingConnections || []).find(c =>
             (c.to_node_id === parentConn.from_node_id || c.to === parentConn.from_node_id) && c.input_number === m.from_port
           )
@@ -685,41 +671,87 @@ const node = props.elements.find(e => e.id === id)
 return node?.track_name || node?.label || id
 }
 
-function getLRAwareSourceLabel(incoming) {
+function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   const srcId = incoming.from_node_id || incoming.from
   const src = props.elements.find(e => e.id === srcId)
   if (!src) return 'Connected'
-  // Clean base: extract number from label, strip LR suffix and number suffix
-  const label = src.label || ''
-  const trackName = src.track_name || ''
-  const m = label.match(/^(.*) \((\d+)\)$/)
-  const num = m ? m[2] : ''
-  // Get clean base: prefer track_name (cleaned), fall back to label base
-  let base
-  if (trackName) {
-    base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-  } else if (m) {
-    base = m[1].replace(/\s*LR$/i,'').trim()
-  } else {
-    base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-  }
-  const numSuffix = num ? ` (${num})` : ''
-  const outCount = src.num_outputs || src.outputs || 0
-  if (outCount === 2) {
-    // Look for sibling connection from same source to this transformer to decide L/R
-    const siblings = (props.existingConnections || []).filter(c =>
-      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
-      (c.from_node_id === srcId || c.from === srcId) &&
-      typeof c.input_number === 'number'
-    ).map(c => c.input_number).sort((a,b)=>a-b)
-    if (siblings.length >= 2) {
-      const first = siblings[0]
-      return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+  
+  const srcType = (src.gear_type || src.node_type || '').toLowerCase()
+  
+  // If this is a source, return the source label
+  if (srcType === 'source') {
+    // Clean base: extract number from label, strip LR suffix and number suffix
+    const label = src.label || ''
+    const trackName = src.track_name || ''
+    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    const num = m ? m[2] : ''
+    // Get clean base: prefer track_name (cleaned), fall back to label base
+    let base
+    if (trackName) {
+      base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    } else if (m) {
+      base = m[1].replace(/\s*LR$/i,'').trim()
+    } else {
+      base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
     }
-    // Fallback heuristic by parity
-    return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+    const numSuffix = num ? ` (${num})` : ''
+    const outCount = src.num_outputs || src.outputs || 0
+    if (outCount === 2) {
+      // Look for sibling connection from same source to this transformer to decide L/R
+      const siblings = (props.existingConnections || []).filter(c =>
+        (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
+        (c.from_node_id === srcId || c.from === srcId) &&
+        typeof c.input_number === 'number'
+      ).map(c => c.input_number).sort((a,b)=>a-b)
+      if (siblings.length >= 2) {
+        const first = siblings[0]
+        return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
+      }
+      // Fallback heuristic by parity
+      return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
+    }
+    return `${base}${numSuffix}`
   }
-  return `${base}${numSuffix}`
+  
+  // If this is a transformer, recursively trace back to find the source
+  if (srcType === 'transformer' && !visitedNodes.has(srcId)) {
+    visitedNodes.add(srcId)
+    
+    const inputNum = incoming.input_number
+    
+    // Try to find incoming connection to this transformer at the specified input number
+    let parentIncoming = (props.existingConnections || []).find(c =>
+      (c.to_node_id === srcId || c.to === srcId) && c.input_number === inputNum
+    )
+    
+    if (parentIncoming) {
+      // Direct connection found - recursively trace from the parent
+      return getLRAwareSourceLabel(parentIncoming, visitedNodes)
+    }
+    
+    // If no direct connection, check for port-mapped connections
+    // Find any connection to this transformer
+    const transformerIncoming = (props.existingConnections || []).find(c =>
+      (c.to_node_id === srcId || c.to === srcId)
+    )
+    
+    if (transformerIncoming) {
+      // For port-mapped connections, the mapping logic is handled in buildUpstreamSourceLabels
+      // But here we can still try to trace: if transformer input X is mapped, 
+      // we need to find what's on the parent's output that maps to input X
+      // For now, try tracing from the first input
+      parentIncoming = (props.existingConnections || []).find(c =>
+        (c.to_node_id === srcId || c.to === srcId) && c.input_number === 1
+      )
+      
+      if (parentIncoming) {
+        return getLRAwareSourceLabel(parentIncoming, visitedNodes)
+      }
+    }
+  }
+  
+  // Fallback: return node label
+  return src.track_name || src.label || 'Connected'
 }
 
 // Fallback port name for 'from' ports
