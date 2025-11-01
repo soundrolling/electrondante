@@ -852,7 +852,7 @@ async function saveSecurity() {
         </div>
 
         <form @submit.prevent="saveGear" class="modal-form">
-          <div class="form-group">
+          <div class="form-group form-group-full">
             <label class="form-label">Gear Name *</label>
             <input 
               v-model="gearForm.gear_name" 
@@ -881,10 +881,7 @@ async function saveSecurity() {
                 <option value="recorder">Recorder</option>
               </select>
             </div>
-          </div>
 
-          <!-- IO/Tracks in one row (Tracks only for recorders) -->
-          <div class="form-row">
             <div class="form-group" v-if="gearForm.gear_type !== 'source'">
               <label class="form-label">Inputs</label>
               <input 
@@ -903,7 +900,11 @@ async function saveSecurity() {
                 min="0"
               />
             </div>
-            <div class="form-group" v-if="gearForm.gear_type === 'recorder'">
+          </div>
+
+          <!-- Tracks row (only for recorders) -->
+          <div class="form-row" v-if="gearForm.gear_type === 'recorder'">
+            <div class="form-group">
               <label class="form-label">Tracks</label>
               <input 
                 v-model.number="gearForm.num_records" 
@@ -912,6 +913,9 @@ async function saveSecurity() {
                 min="1"
               />
             </div>
+            <div class="form-group"></div>
+            <div class="form-group"></div>
+            <div class="form-group"></div>
           </div>
 
           <div class="form-row">
@@ -932,23 +936,23 @@ async function saveSecurity() {
                 </option>
               </select>
             </div>
+
+            <div class="form-group">
+              <label class="form-label">Availability</label>
+              <select v-model="gearForm.availability" class="form-input">
+                <option v-for="option in availabilityOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Rented?</label>
+              <input type="checkbox" v-model="gearForm.is_rented" style="width:auto; min-height:unset; margin-top: 0.5rem;" />
+            </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Availability</label>
-            <select v-model="gearForm.availability" class="form-input">
-              <option v-for="option in availabilityOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-        </div>
-
-          <div class="form-group">
-            <label class="form-label">Rented?</label>
-            <input type="checkbox" v-model="gearForm.is_rented" style="width:auto; min-height:unset;" />
-          </div>
-
-          <div class="form-group">
+          <div class="form-group form-group-full">
             <label class="form-label">Notes</label>
             <textarea 
               v-model="gearForm.notes" 
@@ -1916,13 +1920,32 @@ async function saveSecurity() {
 }
 
 .modal-form .form-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.7rem;
 }
 
 .modal-form .form-row .form-group {
-  flex: 1 1 0;
   margin-bottom: 0 !important;
+}
+
+/* Full-width fields */
+.modal-form .form-group-full {
+  width: 100%;
+}
+
+/* 4 columns on wider screens */
+@media (min-width: 768px) {
+  .modal-form .form-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* On very wide screens, make modal wider to accommodate 4 columns */
+@media (min-width: 1024px) {
+  .modal-content {
+    max-width: 800px !important;
+  }
 }
 
 .modal-actions {
