@@ -2667,6 +2667,13 @@ setup(props) {
   font-weight: 600;
 }
 
+/* Dark mode styling for assignment amount box */
+.dark .assignment-amount {
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-primary-700);
+}
+
 .assignment-details {
   display: flex;
   flex-direction: column;
