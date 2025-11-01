@@ -283,7 +283,7 @@
 
   <!-- PACKING TAB CONTENT -->
   <div v-if="activeTab === 'packing'">
-    <PackingTab :project-id="route.params.id" />
+    <PackingTab :project-id="String(projectId)" />
   </div>
 
   <!-- ADD GEAR MODAL -->
@@ -793,6 +793,9 @@ setup() {
 
   const currentProject = computed(() => userStore.getCurrentProject)
   const userId = computed(() => userStore.user?.id)
+  const projectId = computed(() => {
+    return currentProject.value?.id || route.params.id || ''
+  })
   
   // Tab management
   const activeTab = ref('gear')
@@ -1754,7 +1757,10 @@ setup() {
     closeUserGearSelector,
     handleUserGearSelected,
     handleUserGearAdded,
-    userId
+    userId,
+    route,
+    currentProject,
+    projectId
   }
 }
 }
