@@ -212,7 +212,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useUserStore } from '../stores/userStore'
 import { supabase } from '../supabase'
@@ -228,6 +229,8 @@ const props = defineProps({
     default: ''
   }
 })
+
+const route = useRoute()
 
 const toast = useToast()
 const userStore = useUserStore()
@@ -257,6 +260,22 @@ const locationsList = ref([])
 
 const userId = computed(() => userStore.user?.id)
 const currentProject = computed(() => userStore.getCurrentProject)
+
+// Get project ID from prop, route params, or currentProject as fallback
+const effectiveProjectId = computed(() => {
+  if (props.projectId && props.projectId.trim() !== '') {
+    return props.projectId
+  }
+  // Fallback to route params (common in project pages)
+  if (route.params.id) {
+    return String(route.params.id)
+  }
+  // Fallback to currentProject from store
+  if (currentProject.value?.id) {
+    return String(currentProject.value.id)
+  }
+  return ''
+})
 
 const totalBagQuantity = computed(() => {
   return bagItems.value.reduce((sum, item) => sum + (item.quantity || 0), 0)
@@ -301,12 +320,13 @@ async function loadAvailableGear() {
   try {
     // Load gear from the project that belongs to the current user - only if projectId is valid
     // Note: We use gear_amount (total) regardless of stage assignments since packing happens separately
-    if (props.projectId && props.projectId.trim() !== '' && userId.value) {
-      console.log('[PackingTab] Loading gear for project:', props.projectId, 'user:', userId.value)
+    const projectId = effectiveProjectId.value
+    if (projectId && projectId.trim() !== '' && userId.value) {
+      console.log('[PackingTab] Loading gear for project:', projectId, 'user:', userId.value)
       
       // First, get all project gear - we don't need to check assignments, just get gear_amount
       const allProjectGear = await fetchTableData('gear_table', {
-        eq: { project_id: props.projectId },
+        eq: { project_id: projectId },
         order: [{ column: 'gear_name', ascending: true }]
       })
       
@@ -416,7 +436,13 @@ async function loadAvailableGear() {
       
       console.log('[PackingTab] Final available gear:', availableProjectGear.value.length, availableProjectGear.value)
     } else {
-      console.log('[PackingTab] Missing projectId or userId:', { projectId: props.projectId, userId: userId.value })
+      console.log('[PackingTab] Missing projectId or userId:', { 
+        projectId: projectId, 
+        effectiveProjectId: effectiveProjectId.value,
+        routeParamsId: route.params.id,
+        currentProjectId: currentProject.value?.id,
+        userId: userId.value 
+      })
       availableProjectGear.value = []
     }
     
@@ -623,10 +649,11 @@ async function printBagInventory(bag) {
 }
 
 async function fetchLocations() {
-  if (!props.projectId || props.projectId.trim() === '') return
+  const projectId = effectiveProjectId.value
+  if (!projectId || projectId.trim() === '') return
   try {
     locationsList.value = await fetchTableData('locations', {
-      eq: { project_id: props.projectId },
+      eq: { project_id: projectId },
       order: [{ column: 'order', ascending: true }]
     })
   } catch (err) {
@@ -640,7 +667,8 @@ async function printMyGearInventory() {
     return
   }
   
-  if (!props.projectId || props.projectId.trim() === '') {
+  const projectId = effectiveProjectId.value
+  if (!projectId || projectId.trim() === '') {
     toast.error('No project selected')
     return
   }
@@ -648,7 +676,7 @@ async function printMyGearInventory() {
   try {
     // Fetch user's gear from project
     const myGear = await fetchTableData('gear_table', {
-      eq: { project_id: props.projectId, is_user_gear: true }
+      eq: { project_id: projectId, is_user_gear: true }
     })
     
     // Fetch gear assignments
@@ -725,11 +753,24 @@ async function printMyGearInventory() {
   }
 }
 
+// Watch for projectId changes and reload gear when it becomes available
+watch(() => effectiveProjectId.value, async (newProjectId) => {
+  if (newProjectId && newProjectId.trim() !== '') {
+    console.log('[PackingTab] ProjectId changed, reloading gear:', newProjectId)
+    await loadAvailableGear()
+    await fetchLocations()
+  }
+}, { immediate: true })
+
 onMounted(async () => {
   await loadBags()
-  await loadAvailableGear()
-  if (props.projectId && props.projectId.trim() !== '') {
+  const projectId = effectiveProjectId.value
+  if (projectId && projectId.trim() !== '') {
+    console.log('[PackingTab] ProjectId available on mount:', projectId)
+    await loadAvailableGear()
     await fetchLocations()
+  } else {
+    console.log('[PackingTab] No projectId on mount, will wait for prop/route update')
   }
 })
 </script>
