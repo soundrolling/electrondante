@@ -1218,6 +1218,22 @@ setup() {
   color: var(--color-success-700);
 }
 
+/* Dark mode: Darker backgrounds with white text */
+.dark .status-badge.status-upcoming {
+  background: var(--color-primary-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-badge.status-in-progress {
+  background: var(--color-warning-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-badge.status-completed {
+  background: var(--color-success-700);
+  color: var(--text-inverse);
+}
+
 .trip-card-footer {
   border-top: 1px solid var(--border-light);
   padding-top: var(--space-4);

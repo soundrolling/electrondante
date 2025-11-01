@@ -2079,16 +2079,46 @@ setup(props) {
 }
 
 .status-upcoming {
-  color: #10b981;
+  color: var(--color-success-600);
   font-weight: 600;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--color-success-100);
 }
+
 .status-in-progress {
-  color: #f59e42;
+  color: var(--color-warning-700);
   font-weight: 600;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--color-warning-100);
 }
+
 .status-completed {
-  color: #64748b;
+  color: var(--color-secondary-700);
   font-weight: 600;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--color-secondary-100);
+}
+
+/* Dark mode: Darker backgrounds with white text */
+.dark .status-upcoming {
+  background: var(--color-success-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-in-progress {
+  background: var(--color-warning-700);
+  color: var(--text-inverse);
+}
+
+.dark .status-completed {
+  background: var(--color-secondary-600);
+  color: var(--text-inverse);
 }
 
 .flight-card-footer,
