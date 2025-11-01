@@ -260,7 +260,7 @@ const canvas = ref(null)
 const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(1000)
-const canvasHeight = ref(1400)
+const canvasHeight = ref(800)
 const canvasStyle = computed(() => 
   `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; transform-origin: top left;`
 )
@@ -1550,6 +1550,8 @@ function exportToPDF() {
 <style scoped>
 .signal-flow-container {
   padding: 20px;
+  min-height: 100vh;
+  width: 100%;
 }
 
 .flow-header {
@@ -1683,8 +1685,8 @@ function exportToPDF() {
   display: flex;
   justify-content: center;
   margin-bottom: 20px;
-  overflow: auto;
-  max-height: calc(100vh - 300px);
+  width: 100%;
+  min-height: 100vh;
 }
 
 .canvas-wrapper canvas {
