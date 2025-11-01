@@ -192,7 +192,7 @@
         class="btn btn-positive"
         @click="addSelectedToProject"
       >
-        Add {{ selectedItems.length }} {{ selectedItems.length === 1 ? 'Item' : 'Items' }} to Project
+        Add Gear To Project
       </button>
     </div>
   </div>
