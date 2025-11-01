@@ -1656,6 +1656,7 @@ onMounted(async () => {
 
 .weight-input {
   flex: 1;
+  min-width: 120px; /* Ensures enough space for 4 digits and decimal point */
 }
 
 .weight-unit-select {
