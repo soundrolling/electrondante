@@ -50,8 +50,8 @@
           <p v-if="bag.description" class="bag-description">{{ bag.description }}</p>
           
           <div class="bag-items-count">
-            <span class="count-label">Items:</span>
-            <span class="count-value">{{ getBagItemCount(bag.id) }}</span>
+            <span class="count-label">Total Items:</span>
+            <span class="count-value">{{ getBagTotalQuantity(bag.id) }}</span>
           </div>
 
           <div class="bag-actions">
@@ -149,24 +149,13 @@
               <div class="gear-selector">
                 <select v-model="selectedGearToAdd" class="form-select">
                   <option value="">Select gear to add...</option>
-                  <optgroup label="Project Gear">
-                    <option 
-                      v-for="gear in availableProjectGear" 
-                      :key="'pg-' + gear.id"
-                      :value="JSON.stringify({ type: 'gear', gear })"
-                    >
-                      {{ gear.gear_name }} ({{ gear.gear_type }}) - Qty: {{ gear.gear_amount }}
-                    </option>
-                  </optgroup>
-                  <optgroup label="My Personal Gear">
-                    <option 
-                      v-for="gear in availableUserGear" 
-                      :key="'ug-' + gear.id"
-                      :value="JSON.stringify({ type: 'user_gear', gear })"
-                    >
-                      {{ gear.gear_name }} ({{ gear.gear_type }}) - Qty: {{ gear.quantity }}
-                    </option>
-                  </optgroup>
+                  <option 
+                    v-for="gear in availableProjectGear" 
+                    :key="'pg-' + gear.id"
+                    :value="JSON.stringify({ type: 'gear', gear })"
+                  >
+                    {{ gear.gear_name }} ({{ gear.gear_type }}) - Available: {{ gear.gear_amount }}
+                  </option>
                 </select>
                 <input 
                   v-model.number="gearQuantityToAdd" 
@@ -187,7 +176,7 @@
             </div>
 
             <div class="items-list">
-              <h4>Items in Bag ({{ bagItems.length }})</h4>
+              <h4>Items in Bag ({{ totalBagQuantity }})</h4>
               <div v-if="bagItems.length === 0" class="empty-items">
                 <p>No items in this bag yet. Add gear above.</p>
               </div>
@@ -269,8 +258,14 @@ const locationsList = ref([])
 const userId = computed(() => userStore.user?.id)
 const currentProject = computed(() => userStore.getCurrentProject)
 
-function getBagItemCount(bagId) {
-  return bagItems.value.filter(item => item.bag_id === bagId).length
+const totalBagQuantity = computed(() => {
+  return bagItems.value.reduce((sum, item) => sum + (item.quantity || 0), 0)
+})
+
+function getBagTotalQuantity(bagId) {
+  return bagItems.value
+    .filter(item => item.bag_id === bagId)
+    .reduce((sum, item) => sum + (item.quantity || 0), 0)
 }
 
 async function loadBags() {
@@ -278,6 +273,15 @@ async function loadBags() {
   loading.value = true
   try {
     bags.value = await PackingService.getUserBags(userId.value)
+    // Load items for all bags to show accurate counts
+    if (bags.value.length > 0) {
+      const allBagIds = bags.value.map(b => b.id)
+      const allItems = await Promise.all(
+        allBagIds.map(bagId => PackingService.getBagItems(bagId))
+      )
+      // Flatten all items into a single array
+      bagItems.value = allItems.flat()
+    }
   } catch (err) {
     toast.error(err.message || 'Failed to load bags')
   } finally {
@@ -295,23 +299,20 @@ async function loadBagItems(bagId) {
 
 async function loadAvailableGear() {
   try {
-    // Load project gear (user's own gear added to project) - only if projectId is valid
+    // Load ALL gear from the project (not just user gear) - only if projectId is valid
     if (props.projectId && props.projectId.trim() !== '') {
       const projectGear = await fetchTableData('gear_table', {
-        eq: { project_id: props.projectId, is_user_gear: true }
+        eq: { project_id: props.projectId },
+        order: [{ column: 'gear_name', ascending: true }]
       })
-      availableProjectGear.value = projectGear.filter(g => g.gear_type === 'accessories_cables' || g.is_user_gear)
+      // Show all gear types including accessories_cables
+      availableProjectGear.value = projectGear
     } else {
       availableProjectGear.value = []
     }
     
-    // Load user's personal gear
-    if (userId.value) {
-      const userGear = await fetchTableData('user_gear', {
-        eq: { user_id: userId.value }
-      })
-      availableUserGear.value = userGear.filter(g => g.gear_type === 'accessories_cables' || true)
-    }
+    // Don't load user's personal gear - only show project gear
+    availableUserGear.value = []
   } catch (err) {
     console.error('Failed to load available gear:', err)
     availableProjectGear.value = []
@@ -446,9 +447,9 @@ async function addItemToBag() {
     const gear = selection.gear
     const gearName = gear.gear_name
     
+    // Only use gear_id since we're only showing project gear now
     await PackingService.addItemToBag(currentBag.value.id, {
-      gear_id: selection.type === 'gear' ? gear.id : null,
-      user_gear_id: selection.type === 'user_gear' ? gear.id : null,
+      gear_id: gear.id,
       gear_name: gearName,
       quantity: gearQuantityToAdd.value
     })
