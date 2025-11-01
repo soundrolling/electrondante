@@ -55,7 +55,8 @@ const routes = [
 
   // Top-level
   { path: '/projects', name: 'Projects',    component: Projects },
-  { path: '/profile',  name: 'UserProfile', component: UserProfile },
+  { path: '/profile', redirect: '/profile/profile' },
+  { path: '/profile/:tab', name: 'UserProfile', component: UserProfile, props: true },
 
   // Project hierarchy
   { path: '/projects/:id',            name: 'ProjectDetail',    component: ProjectDetail,     props: true },
@@ -97,7 +98,9 @@ const routes = [
   { path: '/projects/:id/expenses/:tripId',          name: 'Expenses',        component: Expenses,        props: true },
 
   // Gear, Contacts, Settings
-  { path: '/projects/:id/gear',      name: 'ProjectGear',     component: ProjectGear,     props: r => ({ locationId: r.query.locationId }) },
+  { path: '/projects/:id/gear',      name: 'ProjectGear',     component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: r.query.tab }) },
+  { path: '/projects/:id/packing',    name: 'ProjectPacking',  component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: 'packing' }) },
+  { path: '/projects/:id/repacking',  name: 'ProjectRepacking', component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: 'repacking' }) },
   { path: '/projects/:id/contacts',  name: 'ProjectContacts', component: ProjectContacts, props: true },
   { path: '/projects/:id/settings',  name: 'ProjectSettings', component: ProjectSettings, props: true },
 

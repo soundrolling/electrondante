@@ -138,6 +138,24 @@ export async function getCompleteSignalPath(projectId) {
     nodeMap[node.id] = node
   })
   
+  // Fetch gear data for nodes that have gear_id
+  const gearIds = nodes.filter(n => n.gear_id).map(n => n.gear_id)
+  const gearMap = {}
+  if (gearIds.length > 0) {
+    try {
+      const { data: gearData } = await supabase
+        .from('gear_table')
+        .select('id, gear_name')
+        .in('id', gearIds)
+        .neq('gear_type', 'accessories_cables')
+      if (gearData) {
+        gearData.forEach(gear => {
+          gearMap[gear.id] = gear.gear_name
+        })
+      }
+    } catch {}
+  }
+  
   // Find all recorder nodes
   const recorders = nodes.filter(n => n.gear_type === 'recorder' || n.node_type === 'recorder')
   
@@ -188,6 +206,10 @@ export async function getCompleteSignalPath(projectId) {
         if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
           startInput = conn.from_port // Use from_port (1 or 2) for source output detection
           recorderTrackNum = conn.input_number // Keep original track number for label
+        } else {
+          // Even if not directly a source, preserve from_port for tracing through transformers
+          // The from_port tells us which output from the upstream node (could be transformer or source)
+          startInput = conn.from_port
         }
       }
 
@@ -199,6 +221,9 @@ export async function getCompleteSignalPath(projectId) {
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
+      // Get source gear name if the source node has a gear_id
+      const sourceGearName = finalSourceNode?.gear_id ? gearMap[finalSourceNode.gear_id] : null
+
       signalPaths.push({
         recorder_id: recorder.id,
         recorder_label: recorder.label,
@@ -208,10 +233,12 @@ export async function getCompleteSignalPath(projectId) {
         // Prefer computed source label (includes L/R for stereo ad-hoc sources)
         source_label: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
         track_name: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
+        source_gear_name: sourceGearName,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),
         phantom_power: conn.phantom_power || false,
-        connection_id: conn.id
+        // For expanded port-mapped connections, use the real connection_id, otherwise use the connection id
+        connection_id: conn.connection_id || conn.id
       })
     })
   }
@@ -241,27 +268,57 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (!node) break
     
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      // For sources, prefer custom track_name; if the source has two outputs and
-      // we arrived carrying the source output index in currentInput, append L/R.
-      // Clean the base name to avoid duplicate numbers and LR suffix
-      const label = node.label || ''
-      const trackName = node.track_name || ''
-      const m = label.match(/^(.*) \((\d+)\)$/)
-      const num = m ? m[2] : ''
-      let base
-      if (trackName) {
-        base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-      } else if (m) {
-        base = m[1].replace(/\s*LR$/i,'').trim()
-      } else {
-        base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+      // Check for stored output port labels first (for both mono and stereo sources)
+      let sourceName = null
+      if (node.output_port_labels && typeof node.output_port_labels === 'object' && typeof currentInput === 'number') {
+        // Try to get stored label for this port (works for both mono port 1 and stereo ports 1/2)
+        const storedLabel = node.output_port_labels[String(currentInput)] || node.output_port_labels[currentInput]
+        if (storedLabel) {
+          sourceName = storedLabel
+        }
+        // For mono sources, try port 1 if currentInput doesn't match
+        if (!sourceName && (node.num_outputs === 1 || node.outputs === 1)) {
+          const monoLabel = node.output_port_labels['1'] || node.output_port_labels[1]
+          if (monoLabel) {
+            sourceName = monoLabel
+          }
+        }
       }
-      const numSuffix = num ? ` (${num})` : ''
       
-      let sourceName = base + numSuffix
-      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
-        if (Number(currentInput) === 1) sourceName = `${base} L${numSuffix}`
-        else if (Number(currentInput) === 2) sourceName = `${base} R${numSuffix}`
+      // Fallback to computed labels if not stored
+      if (!sourceName) {
+        // For sources, prefer custom track_name; if the source has two outputs and
+        // we arrived carrying the source output index in currentInput, append L/R.
+        // Clean the base name to avoid duplicate numbers and LR suffix
+        const label = node.label || ''
+        const trackName = node.track_name || ''
+        const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+        const num = m ? m[2] : ''
+        let base
+        if (trackName) {
+          base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        } else if (m) {
+          base = m[1].replace(/\s*LR$/i,'').trim()
+        } else {
+          base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        }
+        const numSuffix = num ? ` (${num})` : ''
+        
+        sourceName = base + numSuffix
+        if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
+          // currentInput should be 1 or 2 indicating source output (1=L, 2=R)
+          // Make sure we use the actual port number, not a transformer input number
+          const sourceOutput = Number(currentInput)
+          if (sourceOutput === 1) {
+            sourceName = `${base} L${numSuffix}`
+          } else if (sourceOutput === 2) {
+            sourceName = `${base} R${numSuffix}`
+          } else {
+            // Fallback: if currentInput is not 1 or 2, try to infer from context
+            // This should rarely happen if tracing is correct
+            sourceName = `${base}${sourceOutput % 2 === 1 ? ' L' : ' R'}${numSuffix}`
+          }
+        }
       }
       labels.push(sourceName)
       finalSourceNode = node
@@ -309,45 +366,51 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
         // Reached a source - determine L/R for stereo sources
         if ((fromNode.num_outputs === 2 || fromNode.outputs === 2)) {
-          // Find all connections from this source to the transformer we just came from
-          // The transformer we were at is the one that has currentNodeId set before we moved to source
-          // We need to look back at the node we came from to find all its incoming connections
-          const transformerId = matchingConn.to_node_id
-          const transformerConnections = parentConnsByToNode[transformerId] || []
+          // Check if there's a port map from source to transformer - this is the most reliable way
+          const connId = matchingConn.id
+          const portMaps = mapsByConnId[connId] || []
           
-          // Find all connections from this source to that transformer
-          const siblings = transformerConnections.filter(c => 
-            c.from_node_id === matchingConn.from_node_id &&
-            typeof c.input_number === 'number'
-          ).map(c => Number(c.input_number)).sort((a,b) => a - b)
-          
-          if (siblings.length >= 2) {
-            // Multiple connections from same stereo source
-            // The transformer inputs are in siblings array, find which position currentInput is at
-            const currentInputNum = Number(currentInput)
-            const index = siblings.indexOf(currentInputNum)
-            if (index >= 0) {
-              // Position 0 (lowest input number) = L (output 1), position 1 = R (output 2)
-              currentInput = index === 0 ? 1 : 2
-            } else {
-              // Current input not in siblings - use parity heuristic
-              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
-            }
-          } else if (siblings.length === 1) {
-            // Single connection - check if there's a port map to tell us which output
-            const connId = matchingConn.id
-            const portMaps = mapsByConnId[connId] || []
-            if (portMaps.length > 0) {
-              // Port map exists - use from_port to determine output (1=L, 2=R)
-              const portMap = portMaps.find(m => Number(m.to_port) === Number(currentInput)) || portMaps[0]
+          if (portMaps.length > 0) {
+            // Port map exists - use from_port to determine source output (1=L, 2=R)
+            // Find the port map entry that matches the transformer input we came from
+            const portMap = portMaps.find(m => Number(m.to_port) === Number(currentInput))
+            if (portMap) {
+              // from_port tells us which source output (1 or 2)
               currentInput = Number(portMap.from_port) || 1
             } else {
-              // No port map - use parity heuristic based on transformer input number
-              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+              // If no matching port map found, use first one or default
+              currentInput = Number(portMaps[0]?.from_port) || 1
             }
           } else {
-            // No siblings found - use parity heuristic
-            currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            // No port map - try to determine from sibling connections
+            const transformerId = matchingConn.to_node_id
+            const transformerConnections = parentConnsByToNode[transformerId] || []
+            
+            // Find all connections from this source to that transformer
+            const siblings = transformerConnections.filter(c => 
+              c.from_node_id === matchingConn.from_node_id &&
+              typeof c.input_number === 'number'
+            ).map(c => Number(c.input_number)).sort((a,b) => a - b)
+            
+            if (siblings.length >= 2) {
+              // Multiple connections from same stereo source
+              // The transformer inputs are in siblings array, find which position currentInput is at
+              const currentInputNum = Number(currentInput)
+              const index = siblings.indexOf(currentInputNum)
+              if (index >= 0) {
+                // Position 0 (lowest input number) = L (output 1), position 1 = R (output 2)
+                currentInput = index === 0 ? 1 : 2
+              } else {
+                // Current input not in siblings - use parity heuristic
+                currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+              }
+            } else if (siblings.length === 1) {
+              // Single connection - use parity heuristic based on transformer input number
+              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            } else {
+              // No siblings found - use parity heuristic
+              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            }
           }
         } else {
           currentInput = 1 // Mono source
@@ -426,8 +489,62 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         
         if (sourceConn) {
           const sourceNode = nodeMap[sourceConn.from_node_id]
-          if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
-            finalSourceNode = sourceNode
+        if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
+          finalSourceNode = sourceNode
+          
+          // Check for stored output port labels first (most reliable for stereo sources)
+          let sourceName = null
+          if (sourceNode.output_port_labels && typeof sourceNode.output_port_labels === 'object') {
+            // Determine which source output port we're using (1 or 2)
+            let sourceOutputPort = null
+            
+            // First check if there's a port map that tells us which source output (1=L, 2=R)
+            const sourcePortMaps = mapsByConnId[sourceConn.id] || []
+            if (sourcePortMaps.length > 0) {
+              // Port map exists - find which source output port (from_port) maps to currentInput
+              const portMapRow = sourcePortMaps.find(m => Number(m.to_port) === Number(currentInput))
+              if (portMapRow) {
+                sourceOutputPort = Number(portMapRow.from_port)
+              } else {
+                // No exact match, try first port map
+                const firstMap = sourcePortMaps[0]
+                if (firstMap) {
+                  sourceOutputPort = Number(firstMap.from_port)
+                }
+              }
+            } else {
+              // No port map - try to infer from currentInput or connection context
+              // For stereo sources connected directly, currentInput might be the source output
+              if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2) && typeof currentInput === 'number') {
+                if (currentInput === 1 || currentInput === 2) {
+                  sourceOutputPort = currentInput
+                }
+              }
+            }
+            
+            // If we found a source output port, try to get stored label
+            if (sourceOutputPort) {
+              const storedLabel = sourceNode.output_port_labels[String(sourceOutputPort)] || sourceNode.output_port_labels[sourceOutputPort]
+              if (storedLabel) {
+                sourceName = storedLabel
+              }
+            }
+            
+            // If stereo source but no specific port found, try both ports (shouldn't happen, but fallback)
+            if (!sourceName && (sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
+              const storedLabel1 = sourceNode.output_port_labels['1'] || sourceNode.output_port_labels[1]
+              const storedLabel2 = sourceNode.output_port_labels['2'] || sourceNode.output_port_labels[2]
+              // Prefer port 1 if only one exists, otherwise we can't determine
+              if (storedLabel1 && !storedLabel2) {
+                sourceName = storedLabel1
+              } else if (storedLabel2 && !storedLabel1) {
+                sourceName = storedLabel2
+              }
+            }
+          }
+          
+          // Fallback to computed labels if not stored
+          if (!sourceName) {
             // Build source label
             const label = sourceNode.label || ''
             const trackName = sourceNode.track_name || ''
@@ -443,7 +560,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
             }
             const numSuffix = num ? ` (${num})` : ''
             
-            let sourceName = base + numSuffix
+            sourceName = base + numSuffix
             if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
               // First check if there's a port map that tells us which source output (1=L, 2=R)
               const sourcePortMaps = mapsByConnId[sourceConn.id] || []
@@ -482,8 +599,11 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
                 }
               }
             }
-            finalSourceLabel = sourceName
           }
+          finalSourceLabel = sourceName
+          // Also add source name to labels array so it appears in the path
+          labels.push(sourceName)
+        }
         }
       }
     }
