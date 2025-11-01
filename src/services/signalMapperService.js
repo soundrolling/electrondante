@@ -268,12 +268,20 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (!node) break
     
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      // Check for stored output port labels first (most reliable for stereo sources)
+      // Check for stored output port labels first (for both mono and stereo sources)
       let sourceName = null
-      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
+      if (node.output_port_labels && typeof node.output_port_labels === 'object' && typeof currentInput === 'number') {
+        // Try to get stored label for this port (works for both mono port 1 and stereo ports 1/2)
         const storedLabel = node.output_port_labels[String(currentInput)] || node.output_port_labels[currentInput]
         if (storedLabel) {
           sourceName = storedLabel
+        }
+        // For mono sources, try port 1 if currentInput doesn't match
+        if (!sourceName && (node.num_outputs === 1 || node.outputs === 1)) {
+          const monoLabel = node.output_port_labels['1'] || node.output_port_labels[1]
+          if (monoLabel) {
+            sourceName = monoLabel
+          }
         }
       }
       
@@ -481,8 +489,62 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         
         if (sourceConn) {
           const sourceNode = nodeMap[sourceConn.from_node_id]
-          if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
-            finalSourceNode = sourceNode
+        if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
+          finalSourceNode = sourceNode
+          
+          // Check for stored output port labels first (most reliable for stereo sources)
+          let sourceName = null
+          if (sourceNode.output_port_labels && typeof sourceNode.output_port_labels === 'object') {
+            // Determine which source output port we're using (1 or 2)
+            let sourceOutputPort = null
+            
+            // First check if there's a port map that tells us which source output (1=L, 2=R)
+            const sourcePortMaps = mapsByConnId[sourceConn.id] || []
+            if (sourcePortMaps.length > 0) {
+              // Port map exists - find which source output port (from_port) maps to currentInput
+              const portMapRow = sourcePortMaps.find(m => Number(m.to_port) === Number(currentInput))
+              if (portMapRow) {
+                sourceOutputPort = Number(portMapRow.from_port)
+              } else {
+                // No exact match, try first port map
+                const firstMap = sourcePortMaps[0]
+                if (firstMap) {
+                  sourceOutputPort = Number(firstMap.from_port)
+                }
+              }
+            } else {
+              // No port map - try to infer from currentInput or connection context
+              // For stereo sources connected directly, currentInput might be the source output
+              if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2) && typeof currentInput === 'number') {
+                if (currentInput === 1 || currentInput === 2) {
+                  sourceOutputPort = currentInput
+                }
+              }
+            }
+            
+            // If we found a source output port, try to get stored label
+            if (sourceOutputPort) {
+              const storedLabel = sourceNode.output_port_labels[String(sourceOutputPort)] || sourceNode.output_port_labels[sourceOutputPort]
+              if (storedLabel) {
+                sourceName = storedLabel
+              }
+            }
+            
+            // If stereo source but no specific port found, try both ports (shouldn't happen, but fallback)
+            if (!sourceName && (sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
+              const storedLabel1 = sourceNode.output_port_labels['1'] || sourceNode.output_port_labels[1]
+              const storedLabel2 = sourceNode.output_port_labels['2'] || sourceNode.output_port_labels[2]
+              // Prefer port 1 if only one exists, otherwise we can't determine
+              if (storedLabel1 && !storedLabel2) {
+                sourceName = storedLabel1
+              } else if (storedLabel2 && !storedLabel1) {
+                sourceName = storedLabel2
+              }
+            }
+          }
+          
+          // Fallback to computed labels if not stored
+          if (!sourceName) {
             // Build source label
             const label = sourceNode.label || ''
             const trackName = sourceNode.track_name || ''
@@ -498,7 +560,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
             }
             const numSuffix = num ? ` (${num})` : ''
             
-            let sourceName = base + numSuffix
+            sourceName = base + numSuffix
             if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
               // First check if there's a port map that tells us which source output (1=L, 2=R)
               const sourcePortMaps = mapsByConnId[sourceConn.id] || []
@@ -537,8 +599,11 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
                 }
               }
             }
-            finalSourceLabel = sourceName
           }
+          finalSourceLabel = sourceName
+          // Also add source name to labels array so it appears in the path
+          labels.push(sourceName)
+        }
         }
       }
     }

@@ -872,8 +872,8 @@ async function saveSelectedConnection() {
       }
       
       emit('connection-updated', { ...c, ...payload })
-      saveTick.value = true
-      setTimeout(() => { saveTick.value = false }, 1000)
+      toast.success('Connection saved successfully')
+      selectedConnectionId.value = null // Close modal after successful save
       return
     }
     
@@ -888,8 +888,8 @@ async function saveSelectedConnection() {
     }
     const updated = await updateConnection(payload)
     emit('connection-updated', updated)
-    saveTick.value = true
-    setTimeout(() => { saveTick.value = false }, 1000)
+    toast.success('Connection saved successfully')
+    selectedConnectionId.value = null // Close modal after successful save
   } catch (err) {
     console.error('Failed to update connection:', err)
     toast.error('Failed to update connection')
@@ -1446,25 +1446,33 @@ async function addSourceNode(preset) {
     const label = nextNumberedLabel(base)
     const outCount = preset.outputs
     
-    // Generate output port labels for stereo sources (2 outputs)
+    // Generate output port labels for all sources (both mono and stereo)
+    // This ensures consistent label tracking in the tracklist
     let outputPortLabels = null
+    
+    // Extract base name and numbering suffix from label
+    const labelMatch = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    let baseName
+    let numSuffix = ''
+    
+    if (labelMatch) {
+      baseName = labelMatch[1].replace(/\s*LR$/i, '').trim()
+      numSuffix = ` (${labelMatch[2]})`
+    } else {
+      baseName = label.replace(/\s*LR$/i, '').trim()
+    }
+    
     if (outCount === 2) {
-      // Extract base name and numbering suffix from label
-      const labelMatch = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-      let baseName
-      let numSuffix = ''
-      
-      if (labelMatch) {
-        baseName = labelMatch[1].replace(/\s*LR$/i, '').trim()
-        numSuffix = ` (${labelMatch[2]})`
-      } else {
-        baseName = label.replace(/\s*LR$/i, '').trim()
-      }
-      
-      // Generate explicit port labels: Port 1 = L, Port 2 = R
+      // Generate explicit port labels for stereo sources: Port 1 = L, Port 2 = R
       outputPortLabels = {
         "1": `${baseName} L${numSuffix}`,
         "2": `${baseName} R${numSuffix}`
+      }
+    } else {
+      // For mono sources, store the base label with numbering on port 1
+      // This ensures the source name appears consistently in the tracklist
+      outputPortLabels = {
+        "1": `${baseName}${numSuffix}`
       }
     }
     
