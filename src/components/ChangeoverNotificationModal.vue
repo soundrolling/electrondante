@@ -34,10 +34,10 @@
             </button>
             <button 
               class="btn btn-primary" 
-              @click="goToNotes"
+              @click="goToArtistSchedule"
               v-if="locationId"
             >
-              Go to Notes
+              Go To Artist Schedule
             </button>
           </div>
         </div>
@@ -92,7 +92,7 @@ export default {
       emit('close')
     }
 
-    const goToNotes = () => {
+    const goToArtistSchedule = () => {
       if (props.locationId && props.projectId) {
         router.push({
           name: 'LocationNotes',
@@ -111,7 +111,7 @@ export default {
     return {
       isVisible,
       close,
-      goToNotes
+      goToArtistSchedule
     }
   }
 }
@@ -140,7 +140,7 @@ export default {
   max-width: 500px;
   width: 90%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  color: var(--text-primary);
+  color: #000000; /* Dark text for light background */
 }
 
 .changeover-modal-header {
@@ -163,14 +163,14 @@ export default {
 .changeover-icon {
   width: 32px;
   height: 32px;
-  color: var(--text-primary);
+  color: #000000; /* Dark icon for light background */
 }
 
 .changeover-title {
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #000000; /* Dark text for light background */
 }
 
 .changeover-modal-body {
@@ -180,18 +180,19 @@ export default {
 .changeover-message {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #000000; /* Dark text for light background */
   margin-bottom: 12px;
   line-height: 1.4;
 }
 
 .changeover-message strong {
   font-weight: 700;
+  color: #000000; /* Dark text for light background */
 }
 
 .changeover-time {
   font-size: 1rem;
-  color: var(--text-heading);
+  color: #333333; /* Dark gray for light background */
   margin: 0;
 }
 
@@ -212,21 +213,25 @@ export default {
 }
 
 .btn-secondary {
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #000000; /* Dark text for light background */
+  border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
 .btn-secondary:hover {
-  background-color: var(--bg-tertiary);
+  background-color: rgba(0, 0, 0, 0.15);
+  border-color: rgba(0, 0, 0, 0.3);
 }
 
 .btn-primary {
   background-color: var(--color-primary-600);
-  color: var(--text-inverse);
+  color: #ffffff; /* White text for dark button */
+  border: 1px solid var(--color-primary-700);
 }
 
 .btn-primary:hover {
   background-color: var(--color-primary-700);
+  border-color: var(--color-primary-800);
 }
 
 /* Modal fade transition */
