@@ -2022,6 +2022,10 @@ opacity: 0.6;
   border: 2px solid var(--color-primary-700) !important;
   font-weight: 700;
 }
+.btn.btn-primary,
+.btn.btn-primary * {
+  color: var(--text-inverse) !important;
+}
 .btn.btn-primary:hover {
   background-color: var(--color-primary-700) !important;
 }
@@ -2042,6 +2046,10 @@ opacity: 0.6;
   border: 2px solid var(--color-success-700) !important;
   font-weight: 700;
 }
+.btn.btn-positive,
+.btn.btn-positive * {
+  color: var(--text-inverse) !important;
+}
 .btn.btn-positive:hover { background-color: var(--color-success-700) !important; }
 .btn.btn-positive:focus { outline: 3px solid rgba(4,120,87,.35); outline-offset: 2px; }
 .btn.btn-positive svg {
@@ -2056,8 +2064,17 @@ opacity: 0.6;
   border: 2px solid var(--color-warning-600) !important;
   font-weight: 700;
 }
+.btn.btn-warning,
+.btn.btn-warning * {
+  color: var(--text-inverse) !important;
+}
 .btn.btn-warning:hover { background-color: var(--color-warning-600) !important; }
 .btn.btn-warning:focus { outline: 3px solid rgba(217,119,6,.35); outline-offset: 2px; }
+.btn.btn-warning svg {
+  color: var(--text-inverse) !important;
+  fill: var(--text-inverse) !important;
+  stroke: var(--text-inverse) !important;
+}
 
 .btn.btn-danger {
   background-color: var(--color-error-500) !important;
@@ -2065,14 +2082,13 @@ opacity: 0.6;
   border: 2px solid var(--color-error-600) !important;
   font-weight: 700;
 }
+.btn.btn-danger,
+.btn.btn-danger * {
+  color: var(--text-inverse) !important;
+}
 .btn.btn-danger:hover { background-color: var(--color-error-600) !important; }
 .btn.btn-danger:focus { outline: 3px solid rgba(239,68,68,.35); outline-offset: 2px; }
 .btn.btn-danger svg {
-  color: var(--text-inverse) !important;
-  fill: var(--text-inverse) !important;
-  stroke: var(--text-inverse) !important;
-}
-.btn.btn-warning svg {
   color: var(--text-inverse) !important;
   fill: var(--text-inverse) !important;
   stroke: var(--text-inverse) !important;
@@ -2094,6 +2110,10 @@ opacity: 0.6;
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+.stage-hours-button,
+.stage-hours-button * {
+  color: var(--text-inverse) !important;
 }
 
 .stage-hours-button:hover {
