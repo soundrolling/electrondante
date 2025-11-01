@@ -283,11 +283,7 @@
 
   <!-- PACKING TAB CONTENT -->
   <div v-if="activeTab === 'packing'">
-    <PackingTab v-if="currentProject?.id" :project-id="String(currentProject.id)" />
-    <div v-else class="loading-state">
-      <div class="spinner"></div>
-      <p>Loading project...</p>
-    </div>
+    <PackingTab :project-id="route.params.id" />
   </div>
 
   <!-- ADD GEAR MODAL -->

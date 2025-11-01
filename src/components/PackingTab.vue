@@ -261,16 +261,17 @@ const locationsList = ref([])
 const userId = computed(() => userStore.user?.id)
 const currentProject = computed(() => userStore.getCurrentProject)
 
-// Get project ID from prop, route params, or currentProject as fallback
+// Get project ID from prop or route params - route params is most reliable
 const effectiveProjectId = computed(() => {
-  if (props.projectId && props.projectId.trim() !== '') {
-    return props.projectId
-  }
-  // Fallback to route params (common in project pages)
+  // Prefer route params since we're in a project route
   if (route.params.id) {
     return String(route.params.id)
   }
-  // Fallback to currentProject from store
+  // Fallback to prop
+  if (props.projectId && props.projectId.trim() !== '') {
+    return props.projectId
+  }
+  // Last resort: currentProject from store
   if (currentProject.value?.id) {
     return String(currentProject.value.id)
   }
