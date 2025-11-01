@@ -715,10 +715,11 @@ watch(() => props.projectId, async () => {
 
 <style scoped>
 .user-gear-selector {
-background: white;
+background: var(--bg-primary);
 border-radius: 0.75rem;
 padding: 1.5rem;
 box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+color: var(--text-primary);
 }
 
 .selector-header {
@@ -850,7 +851,7 @@ gap: 0.75rem;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-xl);
   transition: all var(--transition-normal);
-  background: var(--bg-elevated);
+  background: var(--bg-secondary);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px);
 }
@@ -862,9 +863,14 @@ gap: 0.75rem;
 }
 
 .gear-result-item.selected {
-  border-color: var(--primary);
+  border-color: var(--color-primary-500);
   background: var(--color-primary-50);
   box-shadow: var(--shadow-md);
+}
+
+.dark .gear-result-item.selected {
+  background: rgba(29, 78, 216, 0.2);
+  border-color: var(--color-primary-500);
 }
 
 .gear-result-item.has-conflict {
@@ -1008,8 +1014,8 @@ width: 0;
 .checkmark {
 height: 1.5rem;
 width: 1.5rem;
-background-color: white;
-border: 2px solid #d1d5db;
+background-color: var(--bg-primary);
+border: 2px solid var(--border-medium);
 border-radius: 0.25rem;
 position: relative;
 transition: all 0.2s ease;
@@ -1057,7 +1063,7 @@ margin-bottom: 1rem;
 .empty-state h4,
 .initial-state h4 {
 margin: 0 0 0.5rem;
-color: #374151;
+color: var(--text-heading);
 }
 
 .empty-state p,
@@ -1069,15 +1075,15 @@ font-size: 0.875rem;
 .selected-summary {
 margin-top: 1.5rem;
 padding-top: 1.5rem;
-border-top: 1px solid #e2e8f0;
+border-top: 1px solid var(--border-light);
 }
 
 .stage-assignment-section {
 margin-bottom: 1rem;
 padding: 0.75rem;
-background: #f8fafc;
+background: var(--bg-secondary);
 border-radius: 0.5rem;
-border: 1px solid #e2e8f0;
+border: 1px solid var(--border-light);
 }
 
 .stage-assignment-label {
@@ -1091,10 +1097,11 @@ font-size: 0.875rem;
 .stage-select {
 width: 100%;
 padding: 0.75rem 1rem;
-border: 1px solid #e2e8f0;
+border: 1px solid var(--border-medium);
 border-radius: 0.5rem;
 font-size: 0.875rem;
-background: white;
+background: var(--bg-primary);
+color: var(--text-primary);
 cursor: pointer;
 transition: all 0.2s ease;
 }
@@ -1129,9 +1136,10 @@ display: flex;
 flex-direction: column;
 gap: 0.75rem;
 padding: 0.75rem;
-background: #f8fafc;
+background: var(--bg-secondary);
 border-radius: 0.5rem;
 font-size: 0.875rem;
+border: 1px solid var(--border-light);
 }
 
 .selected-item-content {
@@ -1171,7 +1179,7 @@ transition: background-color 0.2s ease;
 }
 
 .remove-btn:hover {
-background: #fee2e2;
+background: rgba(239, 68, 68, 0.1);
 }
 
 /* Buttons */
@@ -1268,12 +1276,14 @@ font-size: 0.875rem;
 }
 
 .quantity-input {
-border: 1px solid #e2e8f0;
+border: 1px solid var(--border-medium);
 border-radius: 0.25rem;
 padding: 0.25rem 0.5rem;
 font-size: 0.9em;
 width: 60px;
 text-align: center;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .quantity-max {
@@ -1289,18 +1299,20 @@ font-size: 0.875rem;
 }
 
 .assign-input {
-border: 1px solid #e2e8f0;
+border: 1px solid var(--border-medium);
 border-radius: 0.25rem;
 padding: 0.25rem 0.5rem;
 font-size: 0.9em;
 width: 60px;
 text-align: center;
+background: var(--bg-primary);
+color: var(--text-primary);
 }
 
 .add-to-project-actions {
 margin-top: 1rem;
 padding-top: 1rem;
-border-top: 1px solid #e2e8f0;
+border-top: 1px solid var(--border-light);
 display: flex;
 justify-content: center;
 }
