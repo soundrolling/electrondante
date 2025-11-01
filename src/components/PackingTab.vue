@@ -1946,7 +1946,7 @@ onMounted(async () => {
 .weight-breakdown {
   margin-top: 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
