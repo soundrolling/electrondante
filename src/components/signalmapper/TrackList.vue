@@ -7,14 +7,11 @@
 
   <!-- Export Buttons -->
   <div class="track-list-actions">
-    <button @click="printTrackList" class="btn-export">
-      📤 Export
+    <button @click="exportToPDF" class="btn-export">
+      📄 Export PDF
     </button>
     <button @click="exportCSV" class="btn-export">
       📊 Export CSV
-    </button>
-    <button @click="printTrackList" class="btn-print">
-      🖨️ Print
     </button>
   </div>
 
@@ -127,9 +124,225 @@ function exportCSV() {
   document.body.removeChild(link)
 }
 
-// Print track list
-function printTrackList() {
-  window.print()
+// Export/Print track list with print preview (PDF default)
+function exportToPDF() {
+  if (props.signalPaths.length === 0) {
+    return
+  }
+  
+  try {
+    // Create a clean print preview window with just the track list table
+    const printWindow = window.open('', '_blank', 'width=900,height=700')
+    if (!printWindow) {
+      return
+    }
+    
+    // Build HTML table from signal paths
+    const buildTableHTML = () => {
+      const sorted = [...props.signalPaths].sort((a, b) => {
+        const trackA = a.track_number || 0
+        const trackB = b.track_number || 0
+        return trackA - trackB
+      })
+      
+      const reversedPath = (path) => {
+        if (!Array.isArray(path)) return []
+        return [...path].reverse()
+      }
+      
+      let rows = ''
+      sorted.forEach(path => {
+        const trackNum = path.track_number || '—'
+        const recorder = path.recorder_label || '—'
+        const sourceName = path.track_name || path.source_label || '—'
+        const signalPath = reversedPath(path.path).join(' → ')
+        
+        rows += `
+          <tr>
+            <td>${trackNum}</td>
+            <td>${recorder}</td>
+            <td><strong>${sourceName}</strong></td>
+            <td>${signalPath}</td>
+          </tr>
+        `
+      })
+      
+      return `
+        <table class="track-list-table">
+          <thead>
+            <tr>
+              <th>Track #</th>
+              <th>Recorder</th>
+              <th>Source Name</th>
+              <th>Signal Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Track List - Print Preview</title>
+          <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              background: #f5f5f5;
+              padding: 20px;
+            }
+            .print-content {
+              background: white;
+              padding: 20px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              max-width: 100%;
+            }
+            .print-header {
+              margin-bottom: 20px;
+              text-align: center;
+            }
+            .print-header h3 {
+              margin: 0 0 5px 0;
+              font-size: 24px;
+              color: #212529;
+            }
+            .print-header p {
+              margin: 0;
+              color: #6c757d;
+              font-size: 14px;
+            }
+            .track-list-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            .track-list-table th {
+              background: #f8f9fa;
+              padding: 12px;
+              text-align: left;
+              border-bottom: 2px solid #dee2e6;
+              font-weight: 600;
+              color: #212529;
+            }
+            .track-list-table td {
+              padding: 10px 12px;
+              border-bottom: 1px solid #e9ecef;
+              color: #495057;
+            }
+            .track-list-table tbody tr:hover {
+              background: #f8f9fa;
+            }
+            .track-list-summary {
+              margin-top: 20px;
+              padding: 15px;
+              background: #f8f9fa;
+              border-radius: 6px;
+              text-align: center;
+            }
+            .summary-item {
+              display: inline-block;
+              margin: 0 20px;
+            }
+            .summary-label {
+              color: #6c757d;
+              margin-right: 8px;
+            }
+            .summary-value {
+              font-weight: 600;
+              color: #212529;
+            }
+            .print-actions {
+              text-align: center;
+              margin-top: 20px;
+              padding: 15px;
+            }
+            .print-actions button {
+              padding: 10px 20px;
+              margin: 0 5px;
+              background: #007bff;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .print-actions button:hover {
+              background: #0056b3;
+            }
+            .print-actions button.secondary {
+              background: #6c757d;
+            }
+            .print-actions button.secondary:hover {
+              background: #545b62;
+            }
+            @media print {
+              body {
+                background: white;
+                padding: 0;
+              }
+              .print-content {
+                padding: 0;
+                box-shadow: none;
+              }
+              .print-header {
+                margin-bottom: 15px;
+              }
+              .print-actions {
+                display: none;
+              }
+              .track-list-table {
+                page-break-inside: auto;
+              }
+              .track-list-table tbody tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
+            }
+            @page {
+              margin: 1cm;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-content">
+            <div class="print-header">
+              <h3>Track List</h3>
+              <p>Complete signal routing from source to recorder tracks</p>
+            </div>
+            ${buildTableHTML()}
+            <div class="track-list-summary">
+              <div class="summary-item">
+                <span class="summary-label">Total Tracks:</span>
+                <span class="summary-value">${props.signalPaths.length}</span>
+              </div>
+            </div>
+          </div>
+          <div class="print-actions">
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Close</button>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    // Wait for content to load
+    printWindow.onload = () => {
+      printWindow.focus()
+    }
+  } catch (e) {
+    console.error('Error exporting track list:', e)
+  }
 }
 </script>
 

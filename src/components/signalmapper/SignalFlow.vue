@@ -26,11 +26,8 @@
     <span class="node-count">
       Sources: {{ sourceCount }} | Transformers: {{ transformerCount }} | Recorders: {{ recorderCount }}
     </span>
-    <button class="tool-btn" @click="exportFlowPng" title="Export canvas as PNG">
-      📤 Export
-    </button>
-    <button class="tool-btn" @click="printFlow" title="Print signal flow">
-      🖨️ Print
+    <button class="tool-btn" @click="exportToPDF" title="Export signal flow as PDF">
+      📄 Export PDF
     </button>
     <div class="toolbar-divider"></div>
     <div class="zoom-controls">
@@ -263,7 +260,7 @@ const canvas = ref(null)
 const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(1000)
-const canvasHeight = ref(700)
+const canvasHeight = ref(1400)
 const canvasStyle = computed(() => 
   `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; transform-origin: top left;`
 )
@@ -1327,37 +1324,122 @@ function getCanvasDataURL() {
 
 defineExpose({ getCanvasDataURL })
 
-// Download the current canvas as a PNG file
-function exportFlowPng() {
+// Export/Print the current signal flow canvas with print preview (PDF default)
+function exportToPDF() {
   if (!canvas.value) return
-  drawCanvas()
-  try {
-    canvas.value.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `signal-flow-${props.projectId}-${props.locationId}-${new Date().toISOString().slice(0,10)}.png`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  } catch {}
-}
-
-// Print the current signal flow canvas
-function printFlow() {
-  if (!canvas.value) return
-  drawCanvas()
-  try {
-    // Convert canvas to data URL
-    const dataURL = canvas.value.toDataURL('image/png')
+  
+  // Build an export canvas that fits all nodes and connections with padding
+  const PADDING = 20
+  const dprLocal = window.devicePixelRatio || 1
+  
+  // Calculate bounding box of all elements (nodes + connection paths)
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  
+  // Create measurement context for accurate label width calculation
+  const measure = document.createElement('canvas').getContext('2d')
+  if (measure) {
+    measure.font = 'bold 12px sans-serif'
+  }
+  
+  // Include all nodes (radius 35px + label height ~40px below)
+  props.nodes.forEach(node => {
+    const pos = getCanvasPos(node)
+    const nodeRadius = 35
+    const labelHeight = 40
+    const labelText = (node.gear_type || node.node_type) === 'source' && node.track_name 
+      ? node.track_name 
+      : node.label
+    // Calculate actual label width
+    const labelWidth = measure && labelText 
+      ? measure.measureText(labelText).width 
+      : (labelText?.length || 0) * 7
     
-    // Create a print window with just the canvas image
-    const printWindow = window.open('', '_blank')
+    minX = Math.min(minX, pos.x - nodeRadius)
+    minY = Math.min(minY, pos.y - nodeRadius)
+    maxX = Math.max(maxX, pos.x + nodeRadius)
+    maxY = Math.max(maxY, pos.y + nodeRadius)
+    
+    // Include label bounds
+    minX = Math.min(minX, pos.x - labelWidth / 2)
+    maxX = Math.max(maxX, pos.x + labelWidth / 2)
+    maxY = Math.max(maxY, pos.y + nodeRadius + labelHeight)
+  })
+  
+  // Include all connections (lines between nodes)
+  props.connections.forEach(conn => {
+    const fromNode = props.nodes.find(n => n.id === conn.from_node_id)
+    const toNode = props.nodes.find(n => n.id === conn.to_node_id)
+    if (fromNode && toNode) {
+      const fromPos = getCanvasPos(fromNode)
+      const toPos = getCanvasPos(toNode)
+      
+      // Include the line segment and arrow
+      minX = Math.min(minX, Math.min(fromPos.x, toPos.x) - 12) // arrow extends
+      minY = Math.min(minY, Math.min(fromPos.y, toPos.y) - 12)
+      maxX = Math.max(maxX, Math.max(fromPos.x, toPos.x) + 12)
+      maxY = Math.max(maxY, Math.max(fromPos.y, toPos.y) + 12)
+    }
+  })
+  
+  // If no elements found, use canvas bounds
+  if (!isFinite(minX) || !isFinite(minY)) {
+    minX = 0
+    minY = 0
+    maxX = canvasWidth.value
+    maxY = canvasHeight.value
+  }
+  
+  // Apply padding
+  const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
+  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+  
+  // Create offscreen canvas
+  const off = document.createElement('canvas')
+  off.width = exportW * dprLocal
+  off.height = exportH * dprLocal
+  const ctx = off.getContext('2d')
+  if (!ctx) {
+    toast.error('Failed to create export canvas')
+    return
+  }
+  ctx.scale(dprLocal, dprLocal)
+  
+  // Fill background
+  ctx.fillStyle = '#f8f9fa'
+  ctx.fillRect(0, 0, exportW, exportH)
+  
+  // Translate to account for bounding box offset and padding
+  ctx.save()
+  ctx.translate(-minX + PADDING, -minY + PADDING)
+  
+  // Draw connections first (so they appear under nodes)
+  props.connections.forEach(conn => {
+    drawConnection(ctx, conn, false)
+  })
+  
+  // Draw nodes
+  props.nodes.forEach(node => {
+    drawNode(ctx, node)
+  })
+  
+  ctx.restore()
+  
+  // Get data URL
+  let dataURL
+  try {
+    dataURL = off.toDataURL('image/png', 1.0)
+  } catch (e) {
+    console.error('Error generating export image:', e)
+    toast.error('Failed to generate export image')
+    return
+  }
+  
+  try {
+    
+    // Create a clean print preview window with just the canvas image
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
     if (!printWindow) {
-      toast.error('Please allow popups to print')
+      toast.error('Please allow popups to export')
       return
     }
     
@@ -1365,14 +1447,70 @@ function printFlow() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Signal Flow</title>
+          <title>Signal Flow - Print Preview</title>
           <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: #f5f5f5;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            .print-content {
+              background: white;
+              padding: 20px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              max-width: 100%;
+            }
+            .print-content img {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
+            .print-actions {
+              text-align: center;
+              margin-top: 20px;
+              padding: 15px;
+            }
+            .print-actions button {
+              padding: 10px 20px;
+              margin: 0 5px;
+              background: #007bff;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .print-actions button:hover {
+              background: #0056b3;
+            }
+            .print-actions button.secondary {
+              background: #6c757d;
+            }
+            .print-actions button.secondary:hover {
+              background: #545b62;
+            }
             @media print {
               body {
-                margin: 0;
+                background: white;
                 padding: 0;
               }
-              img {
+              .print-actions {
+                display: none;
+              }
+              .print-content {
+                padding: 0;
+                box-shadow: none;
+              }
+              .print-content img {
                 width: 100%;
                 height: auto;
                 page-break-inside: avoid;
@@ -1385,22 +1523,26 @@ function printFlow() {
           </style>
         </head>
         <body>
-          <img src="${dataURL}" alt="Signal Flow" />
+          <div class="print-content">
+            <img src="${dataURL}" alt="Signal Flow" />
+          </div>
+          <div class="print-actions">
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Close</button>
+          </div>
         </body>
       </html>
     `)
     printWindow.document.close()
     
-    // Wait for image to load, then print
+    // Wait for image to load
     printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print()
-        printWindow.close()
-      }, 250)
+      // Focus the window to bring it to front
+      printWindow.focus()
     }
   } catch (e) {
-    console.error('Error printing canvas:', e)
-    toast.error('Failed to print signal flow')
+    console.error('Error exporting canvas:', e)
+    toast.error('Failed to export signal flow')
   }
 }
 </script>
@@ -1790,4 +1932,5 @@ function printFlow() {
   color: #6c757d;
 }
 </style>
+
 

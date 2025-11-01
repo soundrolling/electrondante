@@ -40,8 +40,7 @@
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
       <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
-      <button @click="exportCanvas" class="btn-secondary">Export</button>
-      <button @click="printCanvas" class="btn-secondary">🖨️ Print</button>
+      <button @click="exportToPDF" class="btn-secondary">📄 Export PDF</button>
     </div>
   </div>
 
@@ -1015,41 +1014,23 @@ function updateCanvasSize() {
   drawCanvas()
 }
 
-// Export the current canvas (background + all mic placements) as a PNG
-function exportCanvas() {
+// Export/Print the current canvas with print preview (PDF default)
+function exportToPDF() {
   if (!canvas.value) return
-  // Ensure latest state is rendered
-  drawCanvas()
-  try {
-    canvas.value.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      const date = new Date().toISOString().slice(0, 10)
-      a.href = url
-      a.download = `mic-placement-${props.projectId}-${props.locationId}-${date}.png`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  } catch (_) {
-    // no-op: if the canvas is tainted, export will fail silently here
+  
+  // Use getCanvasDataURL to get a properly bounded export with all elements
+  const dataURL = getCanvasDataURL()
+  if (!dataURL) {
+    toast.error('Failed to generate export image')
+    return
   }
-}
-
-// Print the current canvas (mic placement)
-function printCanvas() {
-  if (!canvas.value) return
-  drawCanvas()
+  
   try {
-    // Convert canvas to data URL
-    const dataURL = canvas.value.toDataURL('image/png')
     
-    // Create a print window with just the canvas image
-    const printWindow = window.open('', '_blank')
+    // Create a clean print preview window with just the canvas image
+    const printWindow = window.open('', '_blank', 'width=800,height=600')
     if (!printWindow) {
-      toast.error('Please allow popups to print')
+      toast.error('Please allow popups to export')
       return
     }
     
@@ -1057,14 +1038,70 @@ function printCanvas() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Mic Placement</title>
+          <title>Mic Placement - Print Preview</title>
           <style>
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              background: #f5f5f5;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+            .print-content {
+              background: white;
+              padding: 20px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              max-width: 100%;
+            }
+            .print-content img {
+              display: block;
+              max-width: 100%;
+              height: auto;
+            }
+            .print-actions {
+              text-align: center;
+              margin-top: 20px;
+              padding: 15px;
+            }
+            .print-actions button {
+              padding: 10px 20px;
+              margin: 0 5px;
+              background: #007bff;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .print-actions button:hover {
+              background: #0056b3;
+            }
+            .print-actions button.secondary {
+              background: #6c757d;
+            }
+            .print-actions button.secondary:hover {
+              background: #545b62;
+            }
             @media print {
               body {
-                margin: 0;
+                background: white;
                 padding: 0;
               }
-              img {
+              .print-actions {
+                display: none;
+              }
+              .print-content {
+                padding: 0;
+                box-shadow: none;
+              }
+              .print-content img {
                 width: 100%;
                 height: auto;
                 page-break-inside: avoid;
@@ -1077,29 +1114,33 @@ function printCanvas() {
           </style>
         </head>
         <body>
-          <img src="${dataURL}" alt="Mic Placement" />
+          <div class="print-content">
+            <img src="${dataURL}" alt="Mic Placement" />
+          </div>
+          <div class="print-actions">
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Close</button>
+          </div>
         </body>
       </html>
     `)
     printWindow.document.close()
     
-    // Wait for image to load, then print
+    // Wait for image to load
     printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print()
-        printWindow.close()
-      }, 250)
+      // Focus the window to bring it to front
+      printWindow.focus()
     }
   } catch (e) {
-    console.error('Error printing canvas:', e)
-    toast.error('Failed to print mic placement')
+    console.error('Error exporting canvas:', e)
+    toast.error('Failed to export mic placement')
   }
 }
 
 // Expose a method to retrieve the current canvas as a data URL for parent exports
 function getCanvasDataURL() {
   // Build an export canvas that fits the background image and all mic drawings with padding
-  const PADDING = 24
+  const PADDING = 20
   const dprLocal = window.devicePixelRatio || 1
 
   // If nothing to draw, return current canvas data
@@ -1689,4 +1730,5 @@ defineExpose({ getCanvasDataURL })
   .property-row input { width: 100%; }
 }
 </style>
+
 
