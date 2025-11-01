@@ -273,22 +273,32 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       // Clean the base name to avoid duplicate numbers and LR suffix
       const label = node.label || ''
       const trackName = node.track_name || ''
-      const m = label.match(/^(.*) \((\d+)\)$/)
+      const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
       const num = m ? m[2] : ''
       let base
       if (trackName) {
-        base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
       } else if (m) {
         base = m[1].replace(/\s*LR$/i,'').trim()
       } else {
-        base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+        base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
       }
       const numSuffix = num ? ` (${num})` : ''
       
       let sourceName = base + numSuffix
       if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
-        if (Number(currentInput) === 1) sourceName = `${base} L${numSuffix}`
-        else if (Number(currentInput) === 2) sourceName = `${base} R${numSuffix}`
+        // currentInput should be 1 or 2 indicating source output (1=L, 2=R)
+        // Make sure we use the actual port number, not a transformer input number
+        const sourceOutput = Number(currentInput)
+        if (sourceOutput === 1) {
+          sourceName = `${base} L${numSuffix}`
+        } else if (sourceOutput === 2) {
+          sourceName = `${base} R${numSuffix}`
+        } else {
+          // Fallback: if currentInput is not 1 or 2, try to infer from context
+          // This should rarely happen if tracing is correct
+          sourceName = `${base}${sourceOutput % 2 === 1 ? ' L' : ' R'}${numSuffix}`
+        }
       }
       labels.push(sourceName)
       finalSourceNode = node
@@ -336,45 +346,51 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
         // Reached a source - determine L/R for stereo sources
         if ((fromNode.num_outputs === 2 || fromNode.outputs === 2)) {
-          // Find all connections from this source to the transformer we just came from
-          // The transformer we were at is the one that has currentNodeId set before we moved to source
-          // We need to look back at the node we came from to find all its incoming connections
-          const transformerId = matchingConn.to_node_id
-          const transformerConnections = parentConnsByToNode[transformerId] || []
+          // Check if there's a port map from source to transformer - this is the most reliable way
+          const connId = matchingConn.id
+          const portMaps = mapsByConnId[connId] || []
           
-          // Find all connections from this source to that transformer
-          const siblings = transformerConnections.filter(c => 
-            c.from_node_id === matchingConn.from_node_id &&
-            typeof c.input_number === 'number'
-          ).map(c => Number(c.input_number)).sort((a,b) => a - b)
-          
-          if (siblings.length >= 2) {
-            // Multiple connections from same stereo source
-            // The transformer inputs are in siblings array, find which position currentInput is at
-            const currentInputNum = Number(currentInput)
-            const index = siblings.indexOf(currentInputNum)
-            if (index >= 0) {
-              // Position 0 (lowest input number) = L (output 1), position 1 = R (output 2)
-              currentInput = index === 0 ? 1 : 2
-            } else {
-              // Current input not in siblings - use parity heuristic
-              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
-            }
-          } else if (siblings.length === 1) {
-            // Single connection - check if there's a port map to tell us which output
-            const connId = matchingConn.id
-            const portMaps = mapsByConnId[connId] || []
-            if (portMaps.length > 0) {
-              // Port map exists - use from_port to determine output (1=L, 2=R)
-              const portMap = portMaps.find(m => Number(m.to_port) === Number(currentInput)) || portMaps[0]
+          if (portMaps.length > 0) {
+            // Port map exists - use from_port to determine source output (1=L, 2=R)
+            // Find the port map entry that matches the transformer input we came from
+            const portMap = portMaps.find(m => Number(m.to_port) === Number(currentInput))
+            if (portMap) {
+              // from_port tells us which source output (1 or 2)
               currentInput = Number(portMap.from_port) || 1
             } else {
-              // No port map - use parity heuristic based on transformer input number
-              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+              // If no matching port map found, use first one or default
+              currentInput = Number(portMaps[0]?.from_port) || 1
             }
           } else {
-            // No siblings found - use parity heuristic
-            currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            // No port map - try to determine from sibling connections
+            const transformerId = matchingConn.to_node_id
+            const transformerConnections = parentConnsByToNode[transformerId] || []
+            
+            // Find all connections from this source to that transformer
+            const siblings = transformerConnections.filter(c => 
+              c.from_node_id === matchingConn.from_node_id &&
+              typeof c.input_number === 'number'
+            ).map(c => Number(c.input_number)).sort((a,b) => a - b)
+            
+            if (siblings.length >= 2) {
+              // Multiple connections from same stereo source
+              // The transformer inputs are in siblings array, find which position currentInput is at
+              const currentInputNum = Number(currentInput)
+              const index = siblings.indexOf(currentInputNum)
+              if (index >= 0) {
+                // Position 0 (lowest input number) = L (output 1), position 1 = R (output 2)
+                currentInput = index === 0 ? 1 : 2
+              } else {
+                // Current input not in siblings - use parity heuristic
+                currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+              }
+            } else if (siblings.length === 1) {
+              // Single connection - use parity heuristic based on transformer input number
+              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            } else {
+              // No siblings found - use parity heuristic
+              currentInput = Number(currentInput) % 2 === 1 ? 1 : 2
+            }
           }
         } else {
           currentInput = 1 // Mono source

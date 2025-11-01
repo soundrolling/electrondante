@@ -1093,6 +1093,39 @@ function drawNode(ctx, node) {
   }
 
   ctx.restore()
+
+  // Draw full gear name above node when dragging (for source mics)
+  if (draggingNode.value === node && isSource && node.gear_id) {
+    const gear = props.gearList.find(g => g.id === node.gear_id)
+    if (gear && gear.gear_name) {
+      const gearNameText = gear.gear_name
+      
+      // Set font before measuring
+      ctx.font = 'bold 12px sans-serif'
+      ctx.textAlign = 'center'
+      const textMetrics = ctx.measureText(gearNameText)
+      
+      const padX = 8
+      const padY = 4
+      const bgW = Math.ceil(textMetrics.width) + padX * 2
+      const bgH = 18 + padY * 2
+      const labelY = pos.y - 55 // Position above the node
+      
+      // Background with border
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.rect(pos.x - bgW / 2, labelY - padY, bgW, bgH)
+      ctx.fill()
+      ctx.stroke()
+      
+      // Text
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = '#222'
+      ctx.fillText(gearNameText, pos.x, labelY + padY)
+    }
+  }
 }
 
 function drawConnection(ctx, conn, isSelected = false) {
