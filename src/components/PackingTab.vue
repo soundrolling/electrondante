@@ -5,7 +5,7 @@
       <div class="header-actions">
         <button class="btn btn-info print-my-gear-btn" @click="printMyGearInventory">
           <span class="btn-icon">🖨️</span>
-          <span class="btn-text">Print My Gear</span>
+          <span class="btn-text">Print All Gear Bags</span>
         </button>
         <button class="btn btn-positive" @click="openCreateBagModal">
           <span class="btn-icon">➕</span>
@@ -245,15 +245,17 @@
                 <input 
                   v-model.number="gearQuantityToAdd" 
                   type="number"
-                  min="1"
+                  :min="1"
+                  :max="getMaxQuantityForSelectedGear()"
                   class="form-input"
                   placeholder="Quantity"
                   style="max-width: 120px;"
+                  @input="enforceMaxQuantity"
                 />
                 <button 
                   class="btn btn-positive btn-sm" 
                   @click="addItemToBag"
-                  :disabled="!selectedGearToAdd || !gearQuantityToAdd"
+                  :disabled="!selectedGearToAdd || !gearQuantityToAdd || gearQuantityToAdd > getMaxQuantityForSelectedGear()"
                 >
                   Add
                 </button>
@@ -580,6 +582,29 @@ function getGearAvailable(gearId) {
   const total = gear.gear_amount || 0
   const inBags = getGearInBags(gearId)
   return Math.max(0, total - inBags)
+}
+
+function getMaxQuantityForSelectedGear() {
+  if (!selectedGearToAdd.value) return 1
+  try {
+    const selection = JSON.parse(selectedGearToAdd.value)
+    const gear = selection.gear
+    const available = getGearAvailable(gear.id)
+    return Math.max(1, available)
+  } catch (err) {
+    return 1
+  }
+}
+
+function enforceMaxQuantity() {
+  const maxQuantity = getMaxQuantityForSelectedGear()
+  if (gearQuantityToAdd.value > maxQuantity) {
+    gearQuantityToAdd.value = maxQuantity
+    toast.warning(`Maximum available quantity is ${maxQuantity}`)
+  }
+  if (gearQuantityToAdd.value < 1) {
+    gearQuantityToAdd.value = 1
+  }
 }
 
 async function loadAvailableGear() {
@@ -970,6 +995,14 @@ async function addItemToBag() {
     const selection = JSON.parse(selectedGearToAdd.value)
     const gear = selection.gear
     const gearName = gear.gear_name
+    const available = getGearAvailable(gear.id)
+    
+    // Validate quantity doesn't exceed available
+    if (gearQuantityToAdd.value > available) {
+      toast.error(`Cannot add more than ${available} ${gearName}. Only ${available} available.`)
+      gearQuantityToAdd.value = Math.max(1, available)
+      return
+    }
     
     // Only use gear_id since we're only showing project gear now
     await PackingService.addItemToBag(currentBag.value.id, {
@@ -1013,34 +1046,91 @@ async function printBagInventory(bag) {
     const items = await PackingService.getBagItems(bag.id)
     
     const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text(`Bag Inventory: ${inventory.name}`, 10, 20)
+    let yPosition = 20
     
+    // Project name
+    doc.setFontSize(14)
+    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, yPosition)
+    yPosition += 10
+    
+    // Bag title
+    doc.setFontSize(18)
+    doc.setFont(undefined, 'bold')
+    doc.text(`Bag Inventory: ${inventory.name}`, 10, yPosition)
+    yPosition += 10
+    
+    // Bag image if available
+    if (bag.imageUrl) {
+      try {
+        // Fetch the image as a blob
+        const response = await fetch(bag.imageUrl)
+        const blob = await response.blob()
+        const imageDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        
+        // Create an image element to get actual dimensions
+        const img = new Image()
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = reject
+          img.src = imageDataUrl
+        })
+        
+        // Calculate dimensions (max width 80mm, maintain aspect ratio)
+        // jsPDF uses mm as units, so we need to convert from pixels
+        // Standard DPI is 96, so 1 mm ≈ 3.779527559 pixels
+        const maxWidth = 80 // mm
+        const aspectRatio = img.height / img.width
+        const imgWidthMm = Math.min(maxWidth, img.width / 3.779527559) // Convert px to mm
+        const imgHeightMm = imgWidthMm * aspectRatio
+        
+        // Determine image format from data URL or blob type
+        const imageFormat = blob.type.includes('png') ? 'PNG' : 'JPEG'
+        doc.addImage(imageDataUrl, imageFormat, 10, yPosition, imgWidthMm, imgHeightMm)
+        yPosition += imgHeightMm + 10
+      } catch (imgErr) {
+        console.warn('Could not add bag image to PDF:', imgErr)
+        // Continue without image
+      }
+    }
+    
+    // Bag description if exists
     if (inventory.description) {
       doc.setFontSize(12)
-      doc.text(`Description: ${inventory.description}`, 10, 30)
+      doc.setFont(undefined, 'normal')
+      doc.text(`Description: ${inventory.description}`, 10, yPosition)
+      yPosition += 8
     }
 
+    // Items table
     if (items.length > 0) {
       const data = items.map(item => [
-        item.gear_name,
-        item.quantity,
+        item.gear_name || 'Unknown',
+        (item.quantity || 0).toString(),
         item.notes || ''
       ])
       
       autoTable(doc, {
-        startY: inventory.description ? 40 : 30,
+        startY: yPosition,
         head: [['Gear Name', 'Quantity', 'Notes']],
-        body: data
+        body: data,
+        theme: 'grid',
+        headStyles: { fillColor: [23, 162, 184], textColor: [255, 255, 255] }
       })
     } else {
       doc.setFontSize(12)
-      doc.text('No items in this bag.', 10, inventory.description ? 40 : 30)
+      doc.setFont(undefined, 'normal')
+      doc.text('No items in this bag.', 10, yPosition)
     }
 
     doc.save(`bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`)
     toast.success('Inventory printed')
   } catch (err) {
+    console.error('Failed to print bag inventory:', err)
     toast.error(err.message || 'Failed to print inventory')
   }
 }
@@ -1071,82 +1161,126 @@ async function printMyGearInventory() {
   }
 
   try {
-    // Fetch user's gear from project
-    const myGear = await fetchTableData('gear_table', {
-      eq: { project_id: projectId, is_user_gear: true }
-    })
-    
-    // Fetch gear assignments
-    const gearIds = myGear.map(g => g.id)
-    let assignments = {}
-    if (gearIds.length > 0) {
-      const { data: assignmentData, error } = await supabase
-        .from('gear_assignments')
-        .select('gear_id, location_id, assigned_amount')
-        .in('gear_id', gearIds)
-      
-      if (!error && assignmentData) {
-        assignments = assignmentData.reduce((acc, a) => {
-          if (!acc[a.gear_id]) acc[a.gear_id] = {}
-          acc[a.gear_id][a.location_id] = a.assigned_amount
-          return acc
-        }, {})
-      }
+    // Ensure gear is loaded for weight calculations
+    if (availableProjectGear.value.length === 0) {
+      await loadAvailableGear()
     }
     
-    // Fetch locations if not already loaded
-    if (locationsList.value.length === 0) {
-      await fetchLocations()
-    }
+    // Get all bags for the user
+    const userBags = await PackingService.getUserBags(userId.value)
     
-    if (myGear.length === 0) {
-      toast.info('No gear found to print')
+    if (userBags.length === 0) {
+      toast.info('No bags found to print')
       return
     }
     
     const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text('My Gear Inventory', 10, 20)
-    doc.setFontSize(12)
-    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, 30)
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 38)
+    let yPosition = 20
     
-    const data = myGear.map(g => {
-      // Get assignment locations
-      const assignmentStrs = []
-      if (assignments[g.id]) {
-        Object.entries(assignments[g.id]).forEach(([locId, amount]) => {
-          if (amount > 0) {
-            const loc = locationsList.value.find(l => l.id === Number(locId))
-            if (loc) {
-              assignmentStrs.push(`${loc.stage_name} (${amount})`)
+    // Header
+    doc.setFontSize(18)
+    doc.text('All Gear Bags', 10, yPosition)
+    yPosition += 10
+    
+    doc.setFontSize(12)
+    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, yPosition)
+    yPosition += 8
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, yPosition)
+    yPosition += 15
+    
+    // Process each bag
+    for (let i = 0; i < userBags.length; i++) {
+      const bag = userBags[i]
+      
+      // Check if we need a new page (leave space for header + at least one item)
+      if (yPosition > 250) {
+        doc.addPage()
+        yPosition = 20
+      }
+      
+      // Bag header
+      doc.setFontSize(16)
+      doc.setFont(undefined, 'bold')
+      doc.text(`${i + 1}. ${bag.name}`, 10, yPosition)
+      yPosition += 10
+      
+      // Bag description if exists
+      if (bag.description) {
+        doc.setFontSize(11)
+        doc.setFont(undefined, 'normal')
+        doc.text(bag.description, 10, yPosition)
+        yPosition += 7
+      }
+      
+      // Get bag items
+      const items = await PackingService.getBagItems(bag.id)
+      
+      // Calculate bag weight
+      let bagWeight = 0
+      // Option 1: If override weight is set, use that
+      if (bag.weight_kg) {
+        bagWeight = Number(bag.weight_kg)
+      } else {
+        // Option 2: Empty bag weight + items weight
+        const emptyBagWeight = bag.empty_bag_weight_kg ? Number(bag.empty_bag_weight_kg) : 0
+        let itemsWeight = 0
+        
+        // Calculate items weight from gear
+        items.forEach(item => {
+          if (item.gear_id) {
+            const gear = availableProjectGear.value.find(g => g.id === item.gear_id)
+            if (gear && gear.weight_kg) {
+              itemsWeight += (Number(gear.weight_kg) || 0) * (item.quantity || 0)
             }
           }
         })
+        
+        bagWeight = emptyBagWeight + itemsWeight
       }
-      const assignmentText = assignmentStrs.join(', ') || 'Unassigned'
       
-      return [
-        g.gear_name,
-        g.gear_type || 'N/A',
-        g.gear_amount?.toString() || '0',
-        (g.gear_amount - (Object.values(assignments[g.id] || {}).reduce((sum, amt) => sum + amt, 0))).toString(),
-        assignmentText,
-        g.vendor || ''
-      ]
-    })
+      const weightText = bagWeight > 0 ? formatWeight(bagWeight, weightUnit.value) : 'Weight not calculated'
+      
+      // Bag weight info
+      doc.setFontSize(11)
+      doc.setFont(undefined, 'bold')
+      doc.text(`Weight: ${weightText}`, 10, yPosition)
+      yPosition += 8
+      
+      // Items table
+      if (items.length > 0) {
+        const itemData = items.map(item => [
+          item.gear_name || 'Unknown',
+          (item.quantity || 0).toString(),
+          item.notes || ''
+        ])
+        
+        autoTable(doc, {
+          startY: yPosition,
+          head: [['Gear Name', 'Quantity', 'Notes']],
+          body: itemData,
+          theme: 'grid',
+          headStyles: { fillColor: [23, 162, 184], textColor: [255, 255, 255] },
+          margin: { left: 10, right: 10 }
+        })
+        
+        // Get the final Y position after the table
+        yPosition = doc.lastAutoTable.finalY + 10
+      } else {
+        doc.setFontSize(10)
+        doc.setFont(undefined, 'italic')
+        doc.text('No items in this bag.', 10, yPosition)
+        yPosition += 10
+      }
+      
+      // Add spacing between bags
+      yPosition += 5
+    }
     
-    autoTable(doc, {
-      startY: 45,
-      head: [['Gear Name', 'Type', 'Total', 'Available', 'Assignments', 'Vendor']],
-      body: data
-    })
-    
-    doc.save(`my_gear_inventory_${new Date().toISOString().slice(0, 10)}.pdf`)
-    toast.success('Inventory printed')
+    doc.save(`all_gear_bags_${new Date().toISOString().slice(0, 10)}.pdf`)
+    toast.success('All gear bags printed')
   } catch (err) {
-    console.error('Failed to print my gear inventory:', err)
-    toast.error(err.message || 'Failed to print inventory')
+    console.error('Failed to print all gear bags:', err)
+    toast.error(err.message || 'Failed to print bags')
   }
 }
 
@@ -1159,6 +1293,19 @@ watch(() => effectiveProjectId.value, async (newProjectId) => {
     await fetchLocations()
   }
 }, { immediate: true })
+
+// Watch for gear selection changes and adjust quantity if needed
+watch(() => selectedGearToAdd.value, (newSelection) => {
+  if (newSelection) {
+    const maxQuantity = getMaxQuantityForSelectedGear()
+    if (gearQuantityToAdd.value > maxQuantity) {
+      gearQuantityToAdd.value = Math.max(1, maxQuantity)
+    }
+  } else {
+    // Reset to 1 when no gear is selected
+    gearQuantityToAdd.value = 1
+  }
+})
 
 onMounted(async () => {
   await loadBags()

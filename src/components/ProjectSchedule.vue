@@ -131,6 +131,20 @@
                 required
               />
             </div>
+            <div class="form-group">
+              <label for="warningMinutes">Warning (minutes)</label>
+              <input
+                v-model.number="newWarningMinutes"
+                id="warningMinutes"
+                type="number"
+                min="0"
+                max="60"
+                step="1"
+                placeholder="2"
+                title="Minutes before artist start time to show notification (default: 2)"
+              />
+              <small class="form-hint">Minutes before start time to show changeover notification</small>
+            </div>
             <div class="form-actions">
               <button type="button" @click="cancelForm" class="secondary-button">
                 Cancel
@@ -256,6 +270,7 @@ const newArtistName    = ref('')
 const newStartTime     = ref('')
 const newEndTime       = ref('')
 const newRecordingDate = ref(getFormattedCurrentDate())
+const newWarningMinutes = ref(null) // null means use default
 const isEditing        = ref(false)
 const currentEditId    = ref(null)
 const isFormOpen       = ref(false)
@@ -427,6 +442,7 @@ newArtistName.value    = ''
 newStartTime.value     = ''
 newEndTime.value       = ''
 newRecordingDate.value = getFormattedCurrentDate()
+newWarningMinutes.value = null
 formError.value        = null
 }
 function handleFormSubmit() {
@@ -450,7 +466,8 @@ try {
     end_time: newEndTime.value,
     recording_date: newRecordingDate.value,
     location_id: Number(selectedLocationId.value),
-    project_id: route.params.id
+    project_id: route.params.id,
+    warning_bell_minutes: newWarningMinutes.value || null
   })
   toast.success('Added')
   await fetchSchedulesByLocation(selectedLocationId.value)
@@ -470,6 +487,7 @@ newArtistName.value= s.artist_name
 newStartTime.value = s.start_time
 newEndTime.value   = s.end_time
 newRecordingDate.value = s.recording_date
+newWarningMinutes.value = s.warning_bell_minutes || null
 isFormOpen.value   = true
 }
 async function updateScheduleItem() {
@@ -484,7 +502,8 @@ try {
     artist_name: newArtistName.value,
     start_time: newStartTime.value,
     end_time: newEndTime.value,
-    recording_date: newRecordingDate.value
+    recording_date: newRecordingDate.value,
+    warning_bell_minutes: newWarningMinutes.value || null
   })
   toast.success('Updated')
   await fetchSchedulesByLocation(selectedLocationId.value)
@@ -740,6 +759,12 @@ transition: border-color .2s;
 }
 .form-group input:focus {
 border-color: var(--accent2);
+}
+.form-hint {
+font-size: 0.75rem;
+color: #6b7280;
+margin-top: 4px;
+display: block;
 }
 
 /* Form actions */

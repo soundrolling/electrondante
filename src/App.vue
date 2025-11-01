@@ -44,13 +44,14 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/userStore'
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
 import { useToast } from 'vue-toastification'
 import { syncOfflineChanges } from '@/services/dataService'
+import { startScheduleNotifications, stopScheduleNotifications } from '@/services/scheduleNotificationService'
 
 export default {
 components: { Header, Footer },
@@ -127,6 +128,17 @@ setup() {
     }
   }
 
+  // Watch for project changes to restart notification service
+  watch(() => userStore.getCurrentProject, (newProject) => {
+    if (newProject && userStore.isAuthenticated) {
+      // Restart notifications when project changes
+      stopScheduleNotifications()
+      startScheduleNotifications(newProject.id)
+    } else {
+      stopScheduleNotifications()
+    }
+  }, { immediate: false })
+
   onMounted(async () => {
     try {
       await userStore.initializeStore()
@@ -134,6 +146,11 @@ setup() {
       // watch for connectivity changes
       window.addEventListener('online', handleOnline)
       window.addEventListener('offline', updateOnlineStatus)
+      
+      // Start schedule notifications if authenticated and have a project
+      if (userStore.isAuthenticated && userStore.getCurrentProject) {
+        startScheduleNotifications(userStore.getCurrentProject.id)
+      }
     } catch (err) {
       initializationError.value = `Failed to initialize the app: ${err.message}`
     }
@@ -142,6 +159,7 @@ setup() {
   onBeforeUnmount(() => {
     window.removeEventListener('online', handleOnline)
     window.removeEventListener('offline', updateOnlineStatus)
+    stopScheduleNotifications()
   })
 
   return {

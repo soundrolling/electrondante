@@ -116,6 +116,19 @@
               </option>
             </select>
           </div>
+          <div class="form-field">
+            <label>Warning (minutes)</label>
+            <input 
+              v-model.number="fWarningMinutes" 
+              type="number" 
+              min="0" 
+              max="60" 
+              step="1"
+              placeholder="2"
+              title="Minutes before artist start time to show notification (default: 2)"
+            />
+            <small class="form-hint">Minutes before start time to show changeover notification</small>
+          </div>
         </div>
         <p v-if="err" class="error-text">{{ err }}</p>
       </div>
@@ -169,6 +182,7 @@ export default {
     const fEnd     = ref('')
     const fDate    = ref(new Date().toISOString().slice(0,10))
     const fStageHourId = ref('')
+    const fWarningMinutes = ref(null) // null means use default
     const busy     = ref(false)
     const err      = ref(null)
 
@@ -337,12 +351,14 @@ export default {
         fEnd.value    = item.end_time
         fDate.value   = item.recording_date
         fStageHourId.value = item.stage_hour_id || (findStageHourIdFor(item.recording_date, item.start_time) || '')
+        fWarningMinutes.value = item.warning_bell_minutes || null
       } else {
         isEdit.value = false; editId = null
         fArtist.value = fStart.value = fEnd.value = ''
         fDate.value = todayISO()
         // auto-detect stage hour for the given date/start time if available
         fStageHourId.value = findStageHourIdFor(fDate.value, fStart.value) || ''
+        fWarningMinutes.value = null
       }
     }
 
@@ -365,7 +381,8 @@ export default {
             start_time:   fStart.value,
             end_time:     fEnd.value,
             recording_date: fDate.value,
-            stage_hour_id: fStageHourId.value || null
+            stage_hour_id: fStageHourId.value || null,
+            warning_bell_minutes: fWarningMinutes.value || null
           })
         } else {
           await mutateTableData('schedules','insert',{
@@ -375,7 +392,8 @@ export default {
             recording_date: fDate.value,
             location_id:    props.locationId,
             project_id:     store.getCurrentProject ? store.getCurrentProject.id : null,
-            stage_hour_id:  fStageHourId.value || null
+            stage_hour_id:  fStageHourId.value || null,
+            warning_bell_minutes: fWarningMinutes.value || null
           })
         }
         await fetchAll()
@@ -481,7 +499,7 @@ export default {
 
     const exposed = {
       schedules, stageHours, groupedDays, idx, sortOrder,
-      showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, busy, err,
+      showForm, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       activeIndex, filteredRows, fromDateTime, toDateTime,
       openForm, closeForm, save, remove, exportPdf, emitChangeNote,
@@ -765,6 +783,12 @@ gap: 6px;
 font-size: 0.9rem;
 font-weight: 600;
 color: #374151;
+}
+.form-hint {
+font-size: 0.75rem;
+color: #6b7280;
+margin-top: 4px;
+display: block;
 }
 .form-grid input {
 padding: 8px;

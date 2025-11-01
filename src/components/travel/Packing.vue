@@ -187,36 +187,94 @@ async function printBagInventory(bag) {
   try {
     const inventory = await PackingService.getBagInventoryForPrint(bag.id)
     const items = await PackingService.getBagItems(bag.id)
+    const currentProject = userStore.getCurrentProject
     
     const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text(`Bag Inventory: ${inventory.name}`, 10, 20)
+    let yPosition = 20
     
+    // Project name
+    doc.setFontSize(14)
+    doc.text(`Project: ${currentProject?.project_name || 'Current Project'}`, 10, yPosition)
+    yPosition += 10
+    
+    // Bag title
+    doc.setFontSize(18)
+    doc.setFont(undefined, 'bold')
+    doc.text(`Bag Inventory: ${inventory.name}`, 10, yPosition)
+    yPosition += 10
+    
+    // Bag image if available
+    if (bag.imageUrl) {
+      try {
+        // Fetch the image as a blob
+        const response = await fetch(bag.imageUrl)
+        const blob = await response.blob()
+        const imageDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        
+        // Create an image element to get actual dimensions
+        const img = new Image()
+        await new Promise((resolve, reject) => {
+          img.onload = resolve
+          img.onerror = reject
+          img.src = imageDataUrl
+        })
+        
+        // Calculate dimensions (max width 80mm, maintain aspect ratio)
+        // jsPDF uses mm as units, so we need to convert from pixels
+        // Standard DPI is 96, so 1 mm ≈ 3.779527559 pixels
+        const maxWidth = 80 // mm
+        const aspectRatio = img.height / img.width
+        const imgWidthMm = Math.min(maxWidth, img.width / 3.779527559) // Convert px to mm
+        const imgHeightMm = imgWidthMm * aspectRatio
+        
+        // Determine image format from data URL or blob type
+        const imageFormat = blob.type.includes('png') ? 'PNG' : 'JPEG'
+        doc.addImage(imageDataUrl, imageFormat, 10, yPosition, imgWidthMm, imgHeightMm)
+        yPosition += imgHeightMm + 10
+      } catch (imgErr) {
+        console.warn('Could not add bag image to PDF:', imgErr)
+        // Continue without image
+      }
+    }
+    
+    // Bag description if exists
     if (inventory.description) {
       doc.setFontSize(12)
-      doc.text(`Description: ${inventory.description}`, 10, 30)
+      doc.setFont(undefined, 'normal')
+      doc.text(`Description: ${inventory.description}`, 10, yPosition)
+      yPosition += 8
     }
 
+    // Items table
     if (items.length > 0) {
       const data = items.map(item => [
-        item.gear_name,
-        item.quantity,
+        item.gear_name || 'Unknown',
+        (item.quantity || 0).toString(),
         item.notes || ''
       ])
       
       autoTable(doc, {
-        startY: inventory.description ? 40 : 30,
+        startY: yPosition,
         head: [['Gear Name', 'Quantity', 'Notes']],
-        body: data
+        body: data,
+        theme: 'grid',
+        headStyles: { fillColor: [23, 162, 184], textColor: [255, 255, 255] }
       })
     } else {
       doc.setFontSize(12)
-      doc.text('No items in this bag.', 10, inventory.description ? 40 : 30)
+      doc.setFont(undefined, 'normal')
+      doc.text('No items in this bag.', 10, yPosition)
     }
 
     doc.save(`bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`)
     toast.success('Inventory printed')
   } catch (err) {
+    console.error('Failed to print bag inventory:', err)
     toast.error(err.message || 'Failed to print inventory')
   }
 }
