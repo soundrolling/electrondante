@@ -1578,6 +1578,18 @@ setup() {
 .project-actions .open-btn:hover {
   background: #a7f3d0 !important;     /* emerald-200 */
 }
+
+/* Dark mode: Dark green background with white text */
+.dark .project-actions .open-btn {
+  background: var(--color-success-700) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-success-600) !important;
+}
+.dark .project-actions .open-btn:hover {
+  background: var(--color-success-600) !important;
+  border-color: var(--color-success-500) !important;
+}
+
 .project-actions .leave-btn {
   background: #fee2e2 !important;     /* red-100 */
   color: #991b1b !important;          /* red-800 */
@@ -1586,6 +1598,17 @@ setup() {
 }
 .project-actions .leave-btn:hover {
   background: #fecaca !important;     /* red-200 */
+}
+
+/* Dark mode: Dark red background with white text */
+.dark .project-actions .leave-btn {
+  background: var(--color-error-600) !important;
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-error-700) !important;
+}
+.dark .project-actions .leave-btn:hover {
+  background: var(--color-error-700) !important;
+  border-color: var(--color-error-800) !important;
 }
 
 /* Modal */
