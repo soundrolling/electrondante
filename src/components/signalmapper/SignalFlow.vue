@@ -797,15 +797,34 @@ function drawNode(ctx, node) {
   ctx.fill()
   ctx.stroke()
 
-  // Selection indicator
+  // Selection indicator - enhanced visibility that persists
   if (isSelected) {
+    // Outer glow ring (subtle background)
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, 50, 0, 2 * Math.PI)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.2
+    ctx.stroke()
+    ctx.globalAlpha = 1.0
+    
+    // Main dashed selection ring
     ctx.beginPath()
     ctx.arc(pos.x, pos.y, 45, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 5])
+    ctx.lineWidth = 3 // Thicker for better visibility
+    ctx.setLineDash([8, 4]) // More pronounced dashed pattern
     ctx.stroke()
     ctx.setLineDash([])
+    
+    // Inner accent ring for extra emphasis
+    ctx.beginPath()
+    ctx.arc(pos.x, pos.y, 40, 0, 2 * Math.PI)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.globalAlpha = 0.5
+    ctx.stroke()
+    ctx.globalAlpha = 1.0
   }
 
   // Label
@@ -873,21 +892,27 @@ function onPointerDown(e) {
   e.preventDefault()
   const { x, y } = getCanvasCoords(e)
   const clickedNode = getNodeAt(x, y)
-  if (!clickedNode) {
-    const conn = getConnectionAt(x, y)
-    selectedConnectionId.value = conn?.id || null
-    selectedNode.value = null
-    drawCanvas()
-    return
-  }
-
+  
   if (tool.value === 'select') {
     if (clickedNode) {
+      // Select the clicked node (this will automatically deselect any previously selected node)
       selectedNode.value = clickedNode
       draggingNode.value = clickedNode
       dragStart = { x, y }
+      selectedConnectionId.value = null // Clear connection selection when selecting a node
+      drawCanvas() // Redraw to show the selection immediately
     } else {
-      selectedNode.value = null
+      // Clicked on empty space - check if it's a connection first
+      const conn = getConnectionAt(x, y)
+      if (conn) {
+        selectedConnectionId.value = conn.id
+        selectedNode.value = null // Deselect node when selecting connection
+      } else {
+        // Clicked on truly empty space - deselect everything
+        selectedNode.value = null
+        selectedConnectionId.value = null
+      }
+      drawCanvas() // Redraw to update selection state
     }
   } else if (tool.value === 'link') {
     if (clickedNode) {
@@ -1426,23 +1451,30 @@ function printFlow() {
 }
 
 .flow-toolbar .select-btn.active {
-  background: #d1f4e0; /* light green */
-  color: #0f7b3e;
-  border-color: #0f7b3e;
-  font-weight: 600;
+  background: #22c55e !important; /* vibrant green */
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+  border-width: 3px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .flow-toolbar .connect-btn.active {
-  background: #d1f4e0; /* light green */
-  color: #0f7b3e;
-  border-color: #0f7b3e;
-  font-weight: 600;
+  background: #22c55e !important; /* vibrant green */
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+  border-width: 3px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .flow-toolbar .link-btn.active {
-  background: #d1f4e0; /* light green */
-  color: #0f7b3e;
-  border-color: #0f7b3e;
+  background: #22c55e !important; /* vibrant green */
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+  border-width: 3px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
 }
 
 .btn-add {
