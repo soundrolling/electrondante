@@ -442,21 +442,50 @@ onMounted(() => {
   min-height: 36px;
 }
 
-/* Theme toggle button - smaller size */
+/* Theme toggle button - styled as toggle switch */
 .theme-toggle-btn {
-  padding: var(--space-1-5) var(--space-3);
-  min-height: auto;
-  font-size: var(--text-xs);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  min-height: 48px;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   margin-top: 0;
+  border: 2px solid var(--border-medium);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
+  transform: translateY(-1px);
 }
 
 .theme-toggle-btn .btn-icon {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .theme-toggle-btn .btn-text {
-  font-size: var(--text-xs);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+}
+
+/* Dark mode styling for theme toggle */
+.dark .theme-toggle-btn {
+  background: var(--bg-secondary);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.dark .theme-toggle-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
 }
 
 .btn:hover {
