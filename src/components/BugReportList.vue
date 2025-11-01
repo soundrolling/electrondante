@@ -498,9 +498,9 @@ export default {
 
 .clear-filters-btn {
   padding: var(--space-2) var(--space-3);
-  background: var(--color-error-50);
-  color: var(--color-error-600);
-  border: 1px solid var(--color-error-200);
+  background: var(--color-error-600);
+  color: var(--text-inverse);
+  border: 1px solid var(--color-error-700);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
@@ -509,8 +509,8 @@ export default {
 }
 
 .clear-filters-btn:hover {
-  background: var(--color-error-100);
-  border-color: var(--color-error-300);
+  background: var(--color-error-700);
+  border-color: var(--color-error-800);
 }
 
 .statistics {
