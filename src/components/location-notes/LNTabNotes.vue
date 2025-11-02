@@ -897,6 +897,14 @@ function getExportedNotes() {
       arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
     }
   }
+  // Filter by recording day if a specific one is selected (not 'all')
+  if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
+    if (recordingDayFilter.value === 'unassigned') {
+      arr = arr.filter(n => !n.stage_hour_id);
+    } else {
+      arr = arr.filter(n => n.stage_hour_id === recordingDayFilter.value);
+    }
+  }
   // Sort
   return arr.sort((a, b) => {
     const aDate = new Date(`${a.recording_date}T${a.timestamp}`);
@@ -972,6 +980,14 @@ async function doExportPdf() {
         { column: 'start_time', ascending: true }
       ]
     });
+    // Filter schedules by recording day if a specific one is selected (not 'all')
+    if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
+      if (recordingDayFilter.value === 'unassigned') {
+        schedules = schedules.filter(s => !s.stage_hour_id);
+      } else {
+        schedules = schedules.filter(s => s.stage_hour_id === recordingDayFilter.value);
+      }
+    }
     // Filter schedules by range
     if (exportWholeDay.value && exportWholeDayDate.value) {
       const d = exportWholeDayDate.value;
@@ -1078,6 +1094,14 @@ async function doExportCsv() {
         { column: 'start_time', ascending: true }
       ]
     });
+    // Filter schedules by recording day if a specific one is selected (not 'all')
+    if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
+      if (recordingDayFilter.value === 'unassigned') {
+        schedules = schedules.filter(s => !s.stage_hour_id);
+      } else {
+        schedules = schedules.filter(s => s.stage_hour_id === recordingDayFilter.value);
+      }
+    }
     // Filter schedules by range
     if (exportWholeDay.value && exportWholeDayDate.value) {
       const d = exportWholeDayDate.value;
