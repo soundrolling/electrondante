@@ -52,6 +52,7 @@ import { ref, onMounted } from 'vue';
 import { supabase } from '../supabase';
 import { useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
+import { useUserStore } from '../stores/userStore';
 
 export default {
 setup() {
@@ -65,6 +66,7 @@ setup() {
 
   const router = useRouter();
   const toast = useToast();
+  const userStore = useUserStore();
 
   // We'll parse session values from the URL hash: access_token, refresh_token, etc.
   const sessionParams = ref({
@@ -142,21 +144,26 @@ setup() {
         password: password.value,
       });
       if (error) {
-        throw new Error(`Failed to reset password: ${error.message}`);
+        throw new Error(`Failed to set password: ${error.message}`);
       }
 
-      // 4.3) Success
-      message.value = 'Password successfully reset! You can now log in.';
-      toast.success('Password reset successful!');
+      // 4.3) Initialize user store (like Login does)
+      await userStore.fetchUserSession();
+      await userStore.initDB();
+      await userStore.loadProjectFromLocalStorage();
 
-      // Optionally redirect after a short delay
+      // 4.4) Success
+      message.value = 'Password successfully set! Redirecting...';
+      toast.success('Password set successfully! Welcome!');
+
+      // Redirect to projects page
       setTimeout(() => {
-        router.push('/');
-      }, 3000);
+        router.push('/projects');
+      }, 1500);
     } catch (err) {
-      console.error('Password reset error:', err);
+      console.error('Password set error:', err);
       errorMessage.value = err.message;
-      toast.error(`Password reset failed: ${err.message}`);
+      toast.error(`Password setup failed: ${err.message}`);
     } finally {
       loading.value = false;
     }

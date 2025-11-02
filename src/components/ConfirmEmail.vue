@@ -76,10 +76,8 @@ setup() {
         if (refreshToken) hashParams.set('refresh_token', refreshToken);
         hashParams.set('type', 'invite');
         
-        router.push({
-          path: '/auth/set-password',
-          hash: `#${hashParams.toString()}`
-        });
+        // Use window.location to ensure hash is properly preserved
+        window.location.href = `/auth/set-password#${hashParams.toString()}`;
         return;
       } else if (tokenType === 'recovery') {
         // This is a password reset flow
@@ -89,10 +87,8 @@ setup() {
         if (refreshToken) hashParams.set('refresh_token', refreshToken);
         hashParams.set('type', 'recovery');
         
-        router.push({
-          path: '/auth/set-password',
-          hash: `#${hashParams.toString()}`
-        });
+        // Use window.location to ensure hash is properly preserved
+        window.location.href = `/auth/set-password#${hashParams.toString()}`;
         return;
       } else {
         // This is an email verification flow (signup confirmation)
@@ -105,12 +101,12 @@ setup() {
         if (error) throw error;
       }
 
-      message.value = 'Email successfully confirmed! You can now log in.';
+      message.value = 'Email successfully confirmed! Redirecting to login...';
       toast.success('Email confirmed successfully!');
       
       setTimeout(() => {
         router.push('/');
-      }, 3000); // Redirect to login after 3 seconds
+      }, 2000); // Redirect to login after 2 seconds
     } catch (error) {
       console.error('Email confirmation error:', error);
       errorMessage.value = error.message || 'Failed to confirm email. Please try again.';
