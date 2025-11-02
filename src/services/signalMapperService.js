@@ -118,10 +118,15 @@ export async function getCompleteSignalPath(projectId) {
   // Preload all connection_port_map rows for this project to resolve transformer→transformer/recorder chains
   let allPortMaps = []
   try {
-    const { data } = await supabase
-      .from('connection_port_map')
-      .select('connection_id, from_port, to_port')
-    allPortMaps = data || []
+    // Get all connections for this project first
+    const connIds = connections.map(c => c.id)
+    if (connIds.length > 0) {
+      const { data } = await supabase
+        .from('connection_port_map')
+        .select('connection_id, from_port, to_port')
+        .in('connection_id', connIds)
+      allPortMaps = data || []
+    }
   } catch {}
   const mapsByConnId = allPortMaps.reduce((acc, m)=>{
     (acc[m.connection_id] = acc[m.connection_id] || []).push(m)
@@ -168,8 +173,10 @@ export async function getCompleteSignalPath(projectId) {
     const recorderConnections = connections.filter(c => c.to_node_id === recorder.id)
 
     // Expand port-mapped parent connections (transformer→recorder with connection_port_map rows)
-    let trackConns = recorderConnections.filter(c => !!c.input_number)
+    // Start with all direct connections to the recorder (those with input_number set)
+    let trackConns = recorderConnections.filter(c => !!c.input_number || !!c.track_number)
     const parentConnIds = recorderConnections.map(c => c.id)
+    
     if (parentConnIds.length) {
       try {
         const mapRows = allPortMaps.filter(r => parentConnIds.includes(r.connection_id))
@@ -186,7 +193,12 @@ export async function getCompleteSignalPath(projectId) {
             id: `${row.connection_id}:${row.to_port}`,
             connection_id: row.connection_id // Keep reference to original connection for port map lookup
           })).filter(v => v.from_node_id)
-          trackConns = trackConns.concat(expanded)
+          
+          // Combine direct connections with expanded port-mapped connections
+          // Use a Set to avoid duplicates based on input_number
+          const seenInputs = new Set(trackConns.map(c => c.input_number || c.track_number).filter(Boolean))
+          const uniqueExpanded = expanded.filter(e => !seenInputs.has(e.input_number))
+          trackConns = trackConns.concat(uniqueExpanded)
         }
       } catch {}
     }
@@ -214,10 +226,11 @@ export async function getCompleteSignalPath(projectId) {
       }
 
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const { labels, finalSourceNode, finalSourceLabel } = resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum)
+      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum)
 
-      // For uniqueness, key off recorder + track + first node id at end of traversal
-      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}`
+      // For uniqueness, key off recorder + track + source node id + source output port
+      // This ensures L and R from the same source are treated as separate paths
+      const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}|${sourceOutputPort || ''}`
       if (seen.has(uniqueKey)) return
       seen.add(uniqueKey)
 
@@ -262,6 +275,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
   const maxHops = 25
   let finalSourceNode = null
   let finalSourceLabel = null
+  let sourceOutputPort = null // Track the actual source output port (1=L, 2=R)
   
   for (let hop = 0; hop < maxHops; hop++) {
     const node = nodeMap[currentNodeId]
@@ -323,6 +337,12 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       labels.push(sourceName)
       finalSourceNode = node
       finalSourceLabel = sourceName
+      // Capture the source output port (1=L, 2=R) if this is a stereo source
+      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number' && currentInput >= 1 && currentInput <= 2) {
+        sourceOutputPort = currentInput
+      } else if (node.num_outputs === 1 || node.outputs === 1) {
+        sourceOutputPort = 1 // Mono sources always use port 1
+      }
       break
     }
     
@@ -664,13 +684,49 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
           finalSourceLabel = sourceName
           // Also add source name to labels array so it appears in the path
           labels.push(sourceName)
+          // Capture source output port from the label or port map
+          if (sourceNode && (sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
+            // Check if there's a port map that tells us which source output (1=L, 2=R)
+            const sourcePortMaps = mapsByConnId[sourceConn.id] || []
+            if (sourcePortMaps.length > 0) {
+              const portMapRow = sourcePortMaps.find(m => Number(m.to_port) === Number(currentInput))
+              if (portMapRow) {
+                sourceOutputPort = Number(portMapRow.from_port)
+              } else if (sourcePortMaps[0]) {
+                sourceOutputPort = Number(sourcePortMaps[0].from_port)
+              }
+            } else {
+              // Infer from label (L = 1, R = 2) or from connection position
+              if (sourceName.includes(' L')) {
+                sourceOutputPort = 1
+              } else if (sourceName.includes(' R')) {
+                sourceOutputPort = 2
+              } else {
+                // Infer from transformer input position
+                const siblings = transformerParents.filter(c => 
+                  c.from_node_id === sourceConn.from_node_id &&
+                  typeof c.input_number === 'number'
+                ).map(c => Number(c.input_number)).sort((a,b) => a - b)
+                if (siblings.length >= 2) {
+                  const sourceConnInput = Number(sourceConn.input_number)
+                  const index = siblings.indexOf(sourceConnInput)
+                  sourceOutputPort = index === 0 ? 1 : 2
+                } else {
+                  const sourceConnInput = Number(sourceConn.input_number)
+                  sourceOutputPort = sourceConnInput % 2 === 1 ? 1 : 2
+                }
+              }
+            }
+          } else if (sourceNode && (sourceNode.num_outputs === 1 || sourceNode.outputs === 1)) {
+            sourceOutputPort = 1 // Mono sources always use port 1
+          }
         }
         }
       }
     }
   }
   
-  return { labels, finalSourceNode, finalSourceLabel }
+  return { labels, finalSourceNode, finalSourceLabel, sourceOutputPort }
 }
 
 function buildPathToSource(nodeId, connections, nodeMap) {
