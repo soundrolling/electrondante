@@ -62,7 +62,7 @@
                 <select class="form-select-small" v-model.number="editToPort">
                   <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   <option :value="mapping.to_port" v-if="!availableToPorts.find(o => o.value === mapping.to_port)">
-                    {{ isRecorderTo ? `Track ${mapping.to_port}` : `Input ${mapping.to_port}` }}
+                    {{ isRecorderTo ? getToRecorderTrackNameDisplay(mapping.to_port, editFromPort || mapping.from_port) : `Input ${mapping.to_port}` }}
                   </option>
                 </select>
                 <button type="button" class="btn-save-small" @click="saveEditMapping">✓</button>
@@ -72,7 +72,7 @@
                 <!-- Display mode -->
                 <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
-                <span>{{ isRecorderTo ? (toRecorderTrackNames[mapping.to_port] || traceRecorderTrackInputForModal(props.toNode.id, mapping.to_port) || `Track ${mapping.to_port}`) : `Input ${mapping.to_port}` }}</span>
+                <span>{{ isRecorderTo ? getToRecorderTrackNameDisplay(mapping.to_port, mapping.from_port) : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
                 <button type="button" class="btn-remove" @click="removePortMapping(mapping._idx)">×</button>
               </template>
@@ -740,8 +740,19 @@ const availableToPorts = computed(() => {
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
         )
         if (!taken && !takenToPorts.value.has(n)) {
-          // Use cached track name first, then fallback to synchronous trace
-          const label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
+          let label
+          // For recorder-to-recorder connections, show what track name will be assigned to this destination track
+          // The track name comes from the source recorder's track (when a mapping is made)
+          // But for the dropdown, we show what's currently assigned or will be shown after mapping
+          if (isRecorderFrom.value) {
+            // For recorder-to-recorder: if we have a selected from_port, we could show that track name
+            // But since we don't know which to_port will be selected, show current assignments
+            // The actual track name will be shown in the mapping display using getToRecorderTrackNameDisplay
+            label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
+          } else {
+            // For source/transformer-to-recorder, show what's currently assigned to that track
+            label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
+          }
           opts.push({ value: n, label })
         }
       }
@@ -1196,6 +1207,27 @@ function getFromPortDisplay(portNum) {
     return getSourcePortLabel(portNum)
   }
   return `Output ${portNum}`
+}
+
+// Get display name for destination recorder track when routing from a recorder
+// For recorder-to-recorder: show the track name from the source recorder's track
+// For source/transformer-to-recorder: show what's assigned to that track
+function getToRecorderTrackNameDisplay(trackNumber, fromPort = null) {
+  // If routing from a recorder to a recorder, use the track name from the source recorder
+  if (isRecorderFrom.value && isRecorderTo.value && fromPort) {
+    // For recorder-to-recorder, we want to show the track name that will be assigned
+    // This comes from tracing what's on the FROM recorder's track
+    const sourceTrackName = recorderTrackNames.value[fromPort] || 
+                           traceRecorderTrackNameForModal(props.fromNode.id, fromPort)
+    if (sourceTrackName) return sourceTrackName
+    // Fallback if we can't get the track name
+    return `Track ${trackNumber}`
+  }
+  
+  // For source/transformer-to-recorder: show what's currently assigned to this track
+  return toRecorderTrackNames.value[trackNumber] || 
+         traceRecorderTrackInputForModal(props.toNode.id, trackNumber) || 
+         `Track ${trackNumber}`
 }
 
 const inputOptions = computed(() => {
