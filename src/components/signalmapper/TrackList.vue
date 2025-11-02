@@ -270,7 +270,7 @@ function getPrintStyles() {
     }
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg-secondary);
+      background: #f8f9fa;
       padding: 20px;
     }
     .print-content {
@@ -286,11 +286,11 @@ function getPrintStyles() {
     .print-header h3 {
       margin: 0 0 5px 0;
       font-size: 24px;
-      color: var(--text-primary);
+      color: #212529;
     }
     .print-header p {
       margin: 0;
-      color: var(--text-secondary);
+      color: #6c757d;
       font-size: 14px;
     }
     .recorder-group-section {
@@ -300,7 +300,7 @@ function getPrintStyles() {
     .recorder-section-header {
       margin: 0 0 15px 0;
       padding: 10px;
-      background: var(--color-primary-500);
+      background: #2563eb;
       color: white;
       font-size: 18px;
       border-radius: 6px;
@@ -312,25 +312,25 @@ function getPrintStyles() {
       margin-bottom: 20px;
     }
     .track-list-table th {
-      background: var(--bg-secondary);
+      background: #f8f9fa;
       padding: 12px;
       text-align: left;
       border-bottom: 2px solid #dee2e6;
       font-weight: 600;
-      color: var(--text-primary);
+      color: #212529;
     }
     .track-list-table td {
       padding: 10px 12px;
       border-bottom: 1px solid #e9ecef;
-      color: var(--text-secondary);
+      color: #495057;
     }
     .track-list-table tbody tr:hover {
-      background: var(--bg-secondary);
+      background: #f8f9fa;
     }
     .track-list-summary {
       margin-top: 20px;
       padding: 15px;
-      background: var(--bg-secondary);
+      background: #f8f9fa;
       border-radius: 6px;
       text-align: center;
     }
@@ -339,12 +339,12 @@ function getPrintStyles() {
       margin: 0 20px;
     }
     .summary-label {
-      color: var(--text-secondary);
+      color: #6c757d;
       margin-right: 8px;
     }
     .summary-value {
       font-weight: 600;
-      color: var(--text-primary);
+      color: #212529;
     }
     .print-actions {
       text-align: center;
@@ -354,7 +354,7 @@ function getPrintStyles() {
     .print-actions button {
       padding: 10px 20px;
       margin: 0 5px;
-      background: var(--color-primary-500);
+      background: #2563eb;
       color: white;
       border: none;
       border-radius: 6px;
@@ -363,13 +363,13 @@ function getPrintStyles() {
       font-weight: 500;
     }
     .print-actions button:hover {
-      background: var(--color-primary-600);
+      background: #1d4ed8;
     }
     .print-actions button.secondary {
       background: #6c757d;
     }
     .print-actions button.secondary:hover {
-      background: var(--color-secondary-600);
+      background: #5a6268;
     }
     @media print {
       body {
@@ -569,13 +569,13 @@ function exportToPDF() {
   overflow-x: auto;
   margin-bottom: 20px;
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-color, #e9ecef);
 }
 
 .track-list-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--bg-primary);
 }
 
 .track-list-table thead {
@@ -590,13 +590,13 @@ function exportToPDF() {
   text-align: left;
   font-weight: 600;
   color: var(--text-secondary);
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-color, #e9ecef);
   font-size: 14px;
 }
 
 .track-list-table td {
   padding: 15px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-color, #e9ecef);
   font-size: 14px;
   color: var(--text-secondary);
 }
@@ -625,30 +625,30 @@ function exportToPDF() {
 
 .track-number {
   font-weight: 700;
-  color: #007bff;
+  color: var(--color-primary-600, #007bff);
   font-size: 16px;
 }
 
 .recorder-name {
   font-weight: 600;
-  color: #dc3545;
+  color: var(--color-danger-500, #dc3545);
 }
 
 .source-name strong {
-  color: #28a745;
+  color: var(--color-success-600, #28a745);
   font-size: 15px;
 }
 
 .track-name-link {
   cursor: pointer;
   text-decoration: underline;
-  text-decoration-color: rgba(40, 167, 69, 0.5);
+  text-decoration-color: var(--color-success-300, rgba(40, 167, 69, 0.5));
   transition: all 0.2s ease;
 }
 
 .track-name-link:hover {
-  color: #1e7e34;
-  text-decoration-color: #28a745;
+  color: var(--color-success-700, #1e7e34);
+  text-decoration-color: var(--color-success-600, #28a745);
   text-decoration-thickness: 2px;
 }
 
@@ -677,7 +677,7 @@ function exportToPDF() {
 }
 
 .path-arrow {
-  color: #007bff;
+  color: var(--color-primary-600, #007bff);
   font-weight: bold;
   margin: 0 2px;
 }
@@ -692,13 +692,13 @@ function exportToPDF() {
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
-  background: #e9ecef;
+  background: var(--bg-tertiary, #e9ecef);
   color: var(--text-secondary);
 }
 
 .status-badge.active {
-  background: #d4edda;
-  color: #155724;
+  background: var(--color-success-100, #d4edda);
+  color: var(--color-success-800, #155724);
 }
 
 .track-list-summary {
@@ -708,7 +708,7 @@ function exportToPDF() {
   padding: 20px;
   background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-color, #e9ecef);
 }
 
 .summary-item {
@@ -727,7 +727,7 @@ function exportToPDF() {
 .summary-value {
   font-size: 24px;
   font-weight: 700;
-  color: #007bff;
+  color: var(--color-primary-600, #007bff);
 }
 
 @media (max-width: 768px) {
