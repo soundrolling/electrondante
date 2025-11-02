@@ -44,6 +44,20 @@
     </div>
   </div>
 
+  <!-- Connection Type Legend -->
+  <div class="connection-legend">
+    <div class="legend-title">Connection Types:</div>
+    <div class="legend-items">
+      <div v-for="type in connectionTypes" :key="type" class="legend-item">
+        <span 
+          class="legend-color" 
+          :style="{ backgroundColor: getConnectionColor(type) }"
+        ></span>
+        <span class="legend-label">{{ type }}</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Canvas -->
   <div class="canvas-wrapper" ref="canvasWrapper">
     <canvas 
@@ -326,6 +340,26 @@ const gearFilter = ref('Transformers')
 const sourceFilter = ref('Stereo')
 const sourceNumberingStyle = ref('numbers')
 const submittingConnection = ref(false)
+
+// Connection type colors - chosen for good contrast with light background (#f8f9fa)
+const connectionTypeColors = {
+  'Mic': '#dc3545',      // Red
+  'Line': '#007bff',     // Blue
+  'Dante': '#28a745',    // Green
+  'Midi': '#ffc107',     // Yellow/Amber
+  'Madi': '#6f42c1'      // Purple
+}
+
+// Default color for connections without a type
+const defaultConnectionColor = '#6c757d' // Gray
+
+// Connection types list for legend
+const connectionTypes = ['Mic', 'Line', 'Dante', 'Midi', 'Madi']
+
+// Function to get color for connection type
+function getConnectionColor(type) {
+  return connectionTypeColors[type] || defaultConnectionColor
+}
 
 // Node counts
 const sourceCount = computed(() => 
@@ -1161,8 +1195,14 @@ function drawConnection(ctx, conn, isSelected = false) {
   const fromPos = getCanvasPos(fromNode)
   const toPos = getCanvasPos(toNode)
 
+  // Get color based on connection type, or default
+  const connType = conn.connection_type || 'Mic'
+  const baseColor = getConnectionColor(connType)
+  // When selected, use orange; otherwise use the type-based color
+  const strokeColor = isSelected ? '#ff7a00' : baseColor
+
   ctx.save()
-  ctx.strokeStyle = isSelected ? '#ff7a00' : '#007bff'
+  ctx.strokeStyle = strokeColor
   ctx.lineWidth = isSelected ? 4 : 3
   ctx.setLineDash(isSelected ? [4, 4] : [8, 4])
 
@@ -1183,7 +1223,7 @@ function drawConnection(ctx, conn, isSelected = false) {
   ctx.lineTo(mx - 12 * Math.cos(angle - Math.PI / 6), my - 12 * Math.sin(angle - Math.PI / 6))
   ctx.moveTo(mx, my)
   ctx.lineTo(mx - 12 * Math.cos(angle + Math.PI / 6), my - 12 * Math.sin(angle + Math.PI / 6))
-  ctx.strokeStyle = isSelected ? '#ff7a00' : '#007bff'
+  ctx.strokeStyle = strokeColor
   ctx.lineWidth = 2
   ctx.stroke()
 
@@ -1995,6 +2035,52 @@ function exportToPDF() {
   top: 0;
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.connection-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 15px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  flex-wrap: wrap;
+}
+
+.legend-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.legend-items {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.legend-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .flow-toolbar button, .flow-toolbar .tool-btn {
