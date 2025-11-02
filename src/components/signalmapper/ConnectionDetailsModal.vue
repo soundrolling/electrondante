@@ -458,22 +458,23 @@ function getSourceLabelParts(node){
   // Prefer track_name for base if present, but numbering comes from label suffix
   const label = node?.label || ''
   const trackName = node?.track_name || ''
-  // Extract number from label (e.g., "FOH Feed LR (2)" -> number is "2")
-  const m = (label || '').match(/^(.*) \((\d+)\)$/)
-  const num = m ? m[2] : ''
-  // Get base: prefer track_name (cleaned), fall back to label base (without number)
+  // Extract identifier from label (e.g., "DJ L (A)" -> identifier is "A", "FOH Feed LR (2)" -> identifier is "2")
+  // Supports both letters (A-Z) and numbers (0-9)
+  const m = (label || '').match(/^(.*) \(([A-Z0-9]+)\)$/)
+  const identifier = m ? m[2] : ''
+  // Get base: prefer track_name (cleaned), fall back to label base (without identifier)
   let baseNoNum
   if (trackName) {
-    // Clean track_name: remove number suffix and LR
-    baseNoNum = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    // Clean track_name: remove identifier suffix and LR
+    baseNoNum = trackName.replace(/ \([A-Z0-9]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
   } else if (m) {
-    // Use label base without number: already extracted in m[1]
+    // Use label base without identifier: already extracted in m[1]
     baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
   } else {
-    // No number in label, clean what we have
-    baseNoNum = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    // No identifier in label, clean what we have
+    baseNoNum = label.replace(/ \([A-Z0-9]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
   }
-  const numSuffix = num ? ` (${num})` : ''
+  const numSuffix = identifier ? ` (${identifier})` : ''
   return { baseNoNum, numSuffix }
 }
 
@@ -496,17 +497,18 @@ function getSourcePortLabelForNode(node, portNum) {
   // Fallback to computed labels if not stored
   const label = node?.label || ''
   const trackName = node?.track_name || ''
-  const m = label.match(/^(.*) \((\d+)\)$/)
-  const num = m ? m[2] : ''
+  // Extract identifier (supports both letters A-Z and numbers 0-9)
+  const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+  const identifier = m ? m[2] : ''
   let base
   if (trackName) {
-    base = trackName.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    base = trackName.replace(/ \([A-Z0-9]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
   } else if (m) {
     base = m[1].replace(/\s*LR$/i,'').trim()
   } else {
-    base = label.replace(/ \([\d]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
+    base = label.replace(/ \([A-Z0-9]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
   }
-  const numSuffix = num ? ` (${num})` : ''
+  const numSuffix = identifier ? ` (${identifier})` : ''
   const outCount = node?.num_outputs || node?.outputs || 0
   if (outCount === 2) {
     return portNum === 1 ? `${base} L${numSuffix}` : (portNum === 2 ? `${base} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
