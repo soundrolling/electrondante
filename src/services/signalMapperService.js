@@ -326,7 +326,68 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
       break
     }
     
-    // Add this transformer/recorder with its input number
+    // Check if this is a recorder - if so, we need to trace what's feeding its track (output port)
+    if (node.gear_type === 'recorder' || node.node_type === 'recorder') {
+      // For recorders, currentInput represents the track number (output port)
+      // We need to find what's feeding this recorder's track
+      const recorderParents = parentConnsByToNode[currentNodeId] || []
+      
+      // Find connection to this recorder that uses this track number
+      // Check both direct connections and port-mapped connections
+      let trackConn = recorderParents.find(c => 
+        (c.track_number === currentInput || c.input_number === currentInput)
+      )
+      
+      // If no direct connection, check port mappings
+      if (!trackConn) {
+        for (const parentConn of recorderParents) {
+          const portMaps = mapsByConnId[parentConn.id] || []
+          // Check if any port map has to_port matching the track number
+          const matchingMap = portMaps.find(m => Number(m.to_port) === Number(currentInput))
+          if (matchingMap) {
+            trackConn = { ...parentConn, _mappedFromPort: matchingMap.from_port }
+            break
+          }
+        }
+      }
+      
+      if (trackConn) {
+        // Found connection feeding this recorder track - trace from source
+        const sourceNodeId = trackConn.from_node_id
+        const sourceNode = nodeMap[sourceNodeId]
+        
+        if (sourceNode) {
+          // Determine which port on the source to trace from
+          let sourcePort = trackConn.output_number || trackConn.input_number || 1
+          if (trackConn._mappedFromPort !== undefined) {
+            sourcePort = trackConn._mappedFromPort
+          }
+          
+          // Check if source is another recorder - recursively trace
+          if (sourceNode.gear_type === 'recorder' || sourceNode.node_type === 'recorder') {
+            // Source is another recorder - continue tracing from its output port
+            currentNodeId = sourceNodeId
+            currentInput = sourcePort
+            // Add recorder to labels
+            labels.push(`${node.label} Track ${currentInput}`)
+            continue
+          } else {
+            // Source is a transformer or regular source - continue tracing normally
+            currentNodeId = sourceNodeId
+            currentInput = sourcePort
+            // Add recorder to labels
+            labels.push(`${node.label} Track ${currentInput}`)
+            continue
+          }
+        }
+      }
+      
+      // If we couldn't find what's feeding this recorder track, add label and break
+      labels.push(`${node.label} Track ${currentInput}`)
+      break
+    }
+    
+    // Add this transformer with its input number
     labels.push(currentInput ? `${node.label} Input ${currentInput}` : `${node.label}`)
     
     // Find parent connections feeding this node

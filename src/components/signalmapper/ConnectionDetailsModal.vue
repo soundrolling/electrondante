@@ -72,7 +72,7 @@
                 <!-- Display mode -->
                 <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
-                <span>{{ isRecorderTo ? (traceRecorderTrackInputForModal(props.toNode.id, mapping.to_port) || `Track ${mapping.to_port}`) : `Input ${mapping.to_port}` }}</span>
+                <span>{{ isRecorderTo ? (toRecorderTrackNames[mapping.to_port] || traceRecorderTrackInputForModal(props.toNode.id, mapping.to_port) || `Track ${mapping.to_port}`) : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
                 <button type="button" class="btn-remove" @click="removePortMapping(mapping._idx)">×</button>
               </template>
@@ -354,6 +354,8 @@ const takenToPorts = ref(new Set())
 const portMappedInputLabels = ref({})
 // Store recorder track names (track number -> source label) for the FROM recorder
 const recorderTrackNames = ref({})
+// Store recorder track names (track number -> source label) for the TO recorder
+const toRecorderTrackNames = ref({})
 
 async function buildUpstreamSourceLabels() {
   try {
@@ -581,7 +583,7 @@ async function loadTakenPorts() {
   } catch {}
 }
 
-// Load recorder track names asynchronously
+// Load recorder track names asynchronously for FROM recorder
 async function loadRecorderTrackNames() {
   if (!isRecorderFrom.value) {
     recorderTrackNames.value = {}
@@ -605,6 +607,32 @@ async function loadRecorderTrackNames() {
   
   await Promise.all(promises)
   recorderTrackNames.value = trackNames
+}
+
+// Load recorder track names asynchronously for TO recorder
+async function loadToRecorderTrackNames() {
+  if (!isRecorderTo.value) {
+    toRecorderTrackNames.value = {}
+    return
+  }
+  
+  const trackNames = {}
+  const count = (numTracks.value && numTracks.value > 0) ? numTracks.value : (numInputs.value || 0)
+  
+  // Load all track names in parallel
+  const promises = []
+  for (let n = 1; n <= count; n++) {
+    promises.push(
+      traceRecorderTrackNameForModalAsync(props.toNode.id, n)
+        .then(label => {
+          if (label) trackNames[n] = label
+        })
+        .catch(() => {})
+    )
+  }
+  
+  await Promise.all(promises)
+  toRecorderTrackNames.value = trackNames
 }
 
 // Get available ports for mapping
@@ -710,9 +738,8 @@ const availableToPorts = computed(() => {
           (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
         )
         if (!taken && !takenToPorts.value.has(n)) {
-          // Trace what input is assigned to this track to show as the track name (like transformers)
-          const assignedInput = traceRecorderTrackInputForModal(props.toNode.id, n)
-          const label = assignedInput || `Track ${n}`
+          // Use cached track name first, then fallback to synchronous trace
+          const label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
           opts.push({ value: n, label })
         }
       }
@@ -780,14 +807,19 @@ watch(() => props.defaultTrack, v => { trackNumber.value = v })
 watch(() => props.existingConnections, async () => {
   await buildUpstreamSourceLabels()
   await loadRecorderTrackNames()
+  await loadToRecorderTrackNames()
   await loadTakenPorts()
 })
 watch(() => props.fromNode?.id, async () => {
   await buildUpstreamSourceLabels()
   await loadRecorderTrackNames()
+  await loadToRecorderTrackNames()
   await loadTakenPorts()
 })
-watch(() => props.toNode?.id, () => loadTakenPorts())
+watch(() => props.toNode?.id, async () => {
+  await loadToRecorderTrackNames()
+  await loadTakenPorts()
+})
 
 // (moved below inputOptions definition)
 
@@ -1549,6 +1581,8 @@ loadTakenPorts().then(() => {
 })
 // Load recorder track names if FROM node is a recorder
 loadRecorderTrackNames()
+// Load recorder track names if TO node is a recorder
+loadToRecorderTrackNames()
 
 // Center modal on mount and ensure it's in viewport
 centerModal()
