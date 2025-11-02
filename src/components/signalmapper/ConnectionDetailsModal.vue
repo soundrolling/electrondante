@@ -1143,7 +1143,8 @@ function getFromPortName(portNum) {
 function getFromPortDisplay(portNum) {
   // For recorders, output port corresponds to track number - use track name
   if (isRecorderFrom.value) {
-    const trackName = traceRecorderTrackNameForModal(props.fromNode.id, portNum)
+    // First try the preloaded async names, then fallback to sync version
+    let trackName = recorderTrackNames.value[portNum] || traceRecorderTrackNameForModal(props.fromNode.id, portNum)
     if (trackName) return trackName
     return `Track ${portNum}`
   }

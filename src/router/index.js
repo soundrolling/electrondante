@@ -20,7 +20,6 @@ const ProjectNotes     = defineAsyncComponent(() => import('../components/Projec
 const ProjectSchedule  = defineAsyncComponent(() => import('../components/ProjectSchedule.vue'));
 const Calendar         = defineAsyncComponent(() => import('../components/Calendar.vue'));
 const ProjectQuickfire = defineAsyncComponent(() => import('../components/ProjectQuickfire.vue'));
-const ProjectPatchBay  = defineAsyncComponent(() => import('../components/patchbay/ProjectPatchBay.vue'));
 
 // Travel
 const TravelDashboard = defineAsyncComponent(() => import('../components/travel/TravelDashboard.vue'));

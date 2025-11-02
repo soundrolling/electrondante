@@ -28,11 +28,11 @@
     <p v-if="locationError" class="error-message">{{ locationError }}</p>
   </div>
   
-  <!-- Proceed to Patch Bay -->
+  <!-- Proceed to Signal Mapper -->
   <div v-if="selectedLocation" class="form-actions">
     <router-link 
-      :to="{ name: 'LocationPatchBay', params: { venueId: selectedVenue, locationId: selectedLocation } }">
-      <button class="proceed-button">Proceed to Patch Bay</button>
+      :to="{ name: 'SignalMapper', query: { venueId: selectedVenue, stageId: selectedLocation, locationId: selectedLocation } }">
+      <button class="proceed-button">Proceed to Signal Mapper</button>
     </router-link>
   </div>
 </div>
