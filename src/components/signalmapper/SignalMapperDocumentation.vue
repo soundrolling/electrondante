@@ -540,7 +540,37 @@ connections.value.forEach(conn => {
   yPos += 6
 })
 
-doc.save('signal-mapper-documentation.pdf')
+// Save PDF with iPad-compatible blob download
+const fileName = `signal-mapper-documentation-${Date.now()}.pdf`
+try {
+  // Use blob approach for better iPad/iOS compatibility
+  const pdfBlob = doc.output('blob')
+  const url = URL.createObjectURL(pdfBlob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  // Clean up after a delay
+  setTimeout(() => URL.revokeObjectURL(url), 100)
+} catch (blobError) {
+  // Fallback: try using data URI
+  try {
+    const pdfDataUri = doc.output('datauristring')
+    const link = document.createElement('a')
+    link.href = pdfDataUri
+    link.download = fileName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (dataUriError) {
+    // Final fallback: use jsPDF's save method
+    doc.save(fileName)
+  }
+}
 }
 
 function exportSignalFlowDoc() {
@@ -577,7 +607,37 @@ signalPaths.value.forEach((path, index) => {
   yPos += 10
 })
 
-doc.save('signal-flow-report.pdf')
+// Save PDF with iPad-compatible blob download
+const fileName = `signal-flow-report-${Date.now()}.pdf`
+try {
+  // Use blob approach for better iPad/iOS compatibility
+  const pdfBlob = doc.output('blob')
+  const url = URL.createObjectURL(pdfBlob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  // Clean up after a delay
+  setTimeout(() => URL.revokeObjectURL(url), 100)
+} catch (blobError) {
+  // Fallback: try using data URI
+  try {
+    const pdfDataUri = doc.output('datauristring')
+    const link = document.createElement('a')
+    link.href = pdfDataUri
+    link.download = fileName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (dataUriError) {
+    // Final fallback: use jsPDF's save method
+    doc.save(fileName)
+  }
+}
 }
 
 function exportConnectionMatrix() {

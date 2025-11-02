@@ -436,6 +436,201 @@ function cancelSimpleLink() {
   pendingSimpleLink.value = null
   setMode('')
 }
+
+// — Export functions —
+async function exportPdf() {
+  try {
+    const canvasElement = document.getElementById('patchbay-canvas')
+    if (!canvasElement) {
+      alert('Canvas element not found')
+      return
+    }
+
+    // Store original transforms and reset them temporarily for better iPad compatibility
+    // Find the panzoom root (the div with border-2 class that contains the panzoom content)
+    const panzoomRoot = canvasElement.querySelector('.border-2.border-gray-400') || null
+    let originalTransform = ''
+    
+    if (panzoomRoot) {
+      originalTransform = panzoomRoot.style.transform || ''
+      // Temporarily reset panzoom transforms for capture (iPad compatibility)
+      panzoomRoot.style.transform = 'translate(0px, 0px) scale(1)'
+    }
+
+    // Use html2canvas with iPad/mobile-friendly options
+    const canvas = await html2canvas(canvasElement, {
+      useCORS: true,
+      allowTaint: false,
+      scale: 2, // Higher resolution for better quality
+      logging: false,
+      backgroundColor: '#f3f4f6', // Match the bg-gray-100 background
+      // Important for iPad/iOS compatibility
+      removeContainer: false,
+      imageTimeout: 20000, // Longer timeout for iPad
+      // Handle SVG and foreign elements better
+      foreignObjectRendering: true,
+      // Better handling on mobile Safari
+      proxy: undefined,
+      // Ensure proper rendering on touch devices
+      onclone: (clonedDoc) => {
+        // Reset all transforms in the cloned document for clean capture
+        const clonedCanvas = clonedDoc.getElementById('patchbay-canvas')
+        if (clonedCanvas) {
+          // Reset any transforms on the container
+          const clonedPanzoom = clonedCanvas.querySelector('.absolute')
+          if (clonedPanzoom) {
+            clonedPanzoom.style.transform = 'translate(0px, 0px) scale(1)'
+            clonedPanzoom.style.position = 'absolute'
+          }
+          // Ensure overflow is visible for capture
+          clonedCanvas.style.overflow = 'visible'
+        }
+      }
+    })
+
+    // Restore original transform after capture
+    if (panzoomRoot && originalTransform) {
+      panzoomRoot.style.transform = originalTransform
+    }
+
+    // Create PDF with proper dimensions
+    const imgWidth = 210 // A4 width in mm
+    const pageHeight = 297 // A4 height in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    let heightLeft = imgHeight
+
+    const doc = new jsPDF('p', 'mm', 'a4')
+    let position = 0
+
+    // Add first page
+    doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight)
+    heightLeft -= pageHeight
+
+    // Add additional pages if needed
+    while (heightLeft >= 0) {
+      position = heightLeft - imgHeight
+      doc.addPage()
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+    }
+
+    // Save PDF - use method that works on iPad
+    const fileName = `patchbay-${selectedStage.value || 'export'}-${Date.now()}.pdf`
+    
+    // For iPad/iOS and better cross-browser compatibility, use blob approach
+    try {
+      // Try to get blob directly (works on modern browsers including iPad Safari)
+      const pdfBlob = doc.output('blob')
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch (blobError) {
+      // Fallback: try using data URI (less reliable on iPad but may work)
+      try {
+        const pdfDataUri = doc.output('datauristring')
+        const link = document.createElement('a')
+        link.href = pdfDataUri
+        link.download = fileName
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } catch (dataUriError) {
+        // Final fallback: use jsPDF's save method
+        doc.save(fileName)
+      }
+    }
+  } catch (error) {
+    console.error('PDF export error:', error)
+    alert('Failed to export PDF. Error: ' + (error.message || 'Unknown error'))
+  }
+}
+
+async function exportImage() {
+  try {
+    const canvasElement = document.getElementById('patchbay-canvas')
+    if (!canvasElement) {
+      alert('Canvas element not found')
+      return
+    }
+
+    // Store original transforms and reset them temporarily for better iPad compatibility
+    // Find the panzoom root (the div with border-2 class that contains the panzoom content)
+    const panzoomRoot = canvasElement.querySelector('.border-2.border-gray-400') || null
+    let originalTransform = ''
+    
+    if (panzoomRoot) {
+      originalTransform = panzoomRoot.style.transform || ''
+      // Temporarily reset panzoom transforms for capture (iPad compatibility)
+      panzoomRoot.style.transform = 'translate(0px, 0px) scale(1)'
+    }
+
+    // Use html2canvas with iPad/mobile-friendly options
+    const canvas = await html2canvas(canvasElement, {
+      useCORS: true,
+      allowTaint: false,
+      scale: 2, // Higher resolution for better quality
+      logging: false,
+      backgroundColor: '#f3f4f6', // Match the bg-gray-100 background
+      // Important for iPad/iOS compatibility
+      removeContainer: false,
+      imageTimeout: 20000, // Longer timeout for iPad
+      // Handle SVG and foreign elements better
+      foreignObjectRendering: true,
+      // Better handling on mobile Safari
+      proxy: undefined,
+      // Ensure proper rendering on touch devices
+      onclone: (clonedDoc) => {
+        // Reset all transforms in the cloned document for clean capture
+        const clonedCanvas = clonedDoc.getElementById('patchbay-canvas')
+        if (clonedCanvas) {
+          // Reset any transforms on the container
+          const clonedPanzoom = clonedCanvas.querySelector('.absolute')
+          if (clonedPanzoom) {
+            clonedPanzoom.style.transform = 'translate(0px, 0px) scale(1)'
+            clonedPanzoom.style.position = 'absolute'
+          }
+          // Ensure overflow is visible for capture
+          clonedCanvas.style.overflow = 'visible'
+        }
+      }
+    })
+
+    // Restore original transform after capture
+    if (panzoomRoot && originalTransform) {
+      panzoomRoot.style.transform = originalTransform
+    }
+
+    // Convert to blob and download
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        alert('Failed to create image')
+        return
+      }
+
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `patchbay-${selectedStage.value || 'export'}-${Date.now()}.png`
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    }, 'image/png', 1.0)
+  } catch (error) {
+    console.error('Image export error:', error)
+    alert('Failed to export image. Error: ' + (error.message || 'Unknown error'))
+  }
+}
 </script>
 
 <style scoped>
