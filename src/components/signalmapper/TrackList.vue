@@ -11,7 +11,7 @@
       🖨️ Print / Export PDF
     </button>
     <button @click="exportCSV" class="btn-export">
-      🖨️ Print / Export CSV
+      📥 Export CSV
     </button>
   </div>
 
@@ -148,115 +148,59 @@ function reversedPath(path) {
 
 // no additional summary columns
 
-// Export to CSV (using print preview)
+// Export to CSV file
 function exportCSV() {
   if (props.signalPaths.length === 0) {
     return
   }
   
   try {
-    const printWindow = window.open('', '_blank', 'width=900,height=700')
-    if (!printWindow) {
-      return
+    // Helper to escape CSV values
+    const escapeCSV = (value) => {
+      if (value === null || value === undefined) {
+        return ''
+      }
+      const stringValue = String(value)
+      // If contains comma, quote, or newline, wrap in quotes and escape quotes
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`
+      }
+      return stringValue
     }
     
-    const buildCSVTableHTML = () => {
-      let html = ''
+    let csv = 'Recorder,Track #,Source Name,Source Gear,Signal Path\n'
+    
+    // Sort recorders alphabetically for consistent output
+    Object.keys(groupedByRecorder.value).sort().forEach(recorderName => {
+      const tracks = groupedByRecorder.value[recorderName]
       
-      Object.keys(groupedByRecorder.value).sort().forEach(recorderName => {
-        const tracks = groupedByRecorder.value[recorderName]
+      tracks.forEach(path => {
+        const recorder = escapeCSV(recorderName)
+        const trackNum = escapeCSV(path.track_number || '')
+        const sourceName = escapeCSV(path.track_name || path.source_label || '')
+        const sourceGear = escapeCSV(path.source_gear_name || '')
+        const signalPath = escapeCSV(reversedPath(path.path).join(' → '))
         
-        html += `
-          <div class="recorder-group-section">
-            <h3 class="recorder-section-header">${recorderName}</h3>
-            <table class="track-list-table">
-              <thead>
-                <tr>
-                  <th>Track #</th>
-                  <th>Source Name</th>
-                  <th>Signal Path</th>
-                </tr>
-              </thead>
-              <tbody>
-        `
-        
-        tracks.forEach(path => {
-          const trackNum = path.track_number || '—'
-          const sourceName = path.track_name || path.source_label || '—'
-          const signalPath = reversedPath(path.path).join(' → ')
-          
-          html += `
-            <tr>
-              <td>${trackNum}</td>
-              <td><strong>${sourceName}</strong></td>
-              <td>${signalPath}</td>
-            </tr>
-          `
-        })
-        
-        html += `
-              </tbody>
-            </table>
-          </div>
-        `
+        csv += `${recorder},${trackNum},${sourceName},${sourceGear},${signalPath}\n`
       })
-      
-      return html
-    }
+    })
     
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Track List (CSV) - Print Preview</title>
-          <style>
-            ${getPrintStyles()}
-            .recorder-group-section {
-              margin-bottom: 40px;
-              page-break-inside: avoid;
-            }
-            .recorder-section-header {
-              margin: 0 0 15px 0;
-              padding: 10px;
-              background: var(--color-primary-500);
-              color: white;
-              font-size: 18px;
-              border-radius: 6px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-content">
-            <div class="print-header">
-              <h3>Track List</h3>
-              <p>Complete signal routing from source to recorder tracks</p>
-            </div>
-            ${buildCSVTableHTML()}
-            <div class="track-list-summary">
-              <div class="summary-item">
-                <span class="summary-label">Total Tracks:</span>
-                <span class="summary-value">${props.signalPaths.length}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Recorders:</span>
-                <span class="summary-value">${Object.keys(groupedByRecorder.value).length}</span>
-              </div>
-            </div>
-          </div>
-          <div class="print-actions">
-            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-            <button class="secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    // Create blob and download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.href = url
+    link.download = `track-list-${props.projectId || 'export'}-${Date.now()}.csv`
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
     
-    printWindow.onload = () => {
-      printWindow.focus()
-    }
+    // Clean up the URL after a short delay
+    setTimeout(() => URL.revokeObjectURL(url), 100)
   } catch (e) {
     console.error('Error exporting CSV:', e)
+    alert('Failed to export CSV. Please try again.')
   }
 }
 
