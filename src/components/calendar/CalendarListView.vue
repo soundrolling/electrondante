@@ -42,9 +42,12 @@
           <div class="cog-menu-wrapper">
             <button class="btn btn-warning cog-btn" @click="toggleCogMenu(evt)">⚙️</button>
             <div v-if="showCogMenuFor === evt.id" class="cog-menu" @mouseleave="closeCogMenu">
-              <template v-if="!evt.isStageHour">
+              <template v-if="!evt.isStageHour && !evt.isSynthetic">
                 <button class="btn btn-warning cog-menu-item" @click="openEditModal(evt)">Edit</button>
                 <button class="btn btn-danger cog-menu-item delete" @click="deleteEvent(evt)">Delete</button>
+              </template>
+              <template v-else-if="evt.isSynthetic">
+                <div class="cog-menu-info">Travel events must be managed in the Travel section</div>
               </template>
               <template v-else>
                 <button class="btn btn-warning cog-menu-item" @click="goToProjectLocations(evt)">Edit in Project Locations</button>
@@ -230,6 +233,10 @@ methods: {
   },
   openEditModal(evt) {
     this.closeCogMenu();
+    // Don't allow editing synthetic events
+    if (evt.isSynthetic) {
+      return;
+    }
     // Deep clone to avoid mutating the original event until save
     this.editEventData = JSON.parse(JSON.stringify(evt));
     this.showEditModal = true;
@@ -244,6 +251,10 @@ methods: {
   },
   deleteEvent(evt) {
     this.closeCogMenu();
+    // Don't allow deleting synthetic events
+    if (evt.isSynthetic) {
+      return;
+    }
     this.$emit('delete', evt);
   },
   goToProjectLocations(evt) {
@@ -572,8 +583,16 @@ background: var(--bg-secondary);
 color: var(--color-error-600);
 }
 .cog-menu-item.disabled {
-color: var(--text-tertiary);
-cursor: not-allowed;
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+.cog-menu-info {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+  font-style: italic;
+  line-height: 1.4;
 }
 
 .form-field {

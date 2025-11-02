@@ -34,9 +34,9 @@
       </div>
       
       <div class="modal-actions">
-        <button v-if="!isStageHourEvent" class="btn btn-warning edit-button" @click="$emit('edit')">Edit</button>
-        <button v-if="!isStageHourEvent" class="btn btn-danger delete-button" @click="$emit('delete')">Delete</button>
-        <button class="btn btn-warning close-button" @click="$emit('save', localEvent)">Save</button>
+        <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn btn-warning edit-button" @click="$emit('edit')">Edit</button>
+        <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn btn-danger delete-button" @click="$emit('delete')">Delete</button>
+        <button class="btn btn-warning close-button" @click="$emit('close')">Close</button>
       </div>
     </template>
     <template v-else>

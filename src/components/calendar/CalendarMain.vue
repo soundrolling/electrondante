@@ -533,8 +533,9 @@ setup() {
             category: 'setup',
             title: 'Build Day',
             event_date: date,
-            start_time: '',
-            end_time: '',
+            start_time: '00:00', // All-day event starts at midnight
+            end_time: '23:59',   // All-day event ends at end of day
+            end_date: date,       // Single-day event
             location_id: null,
             notes: 'Build day (auto-added)',
             isSynthetic: true
@@ -556,8 +557,9 @@ setup() {
             category: 'travel',
             title: `Travel: ${trip.name}${trip.destination ? ' - ' + trip.destination : ''}`,
             event_date: dateStr,
-            start_time: '',
-            end_time: '',
+            start_time: '00:00', // All-day event starts at midnight
+            end_time: '23:59',   // All-day event ends at end of day
+            end_date: dateStr,   // Single-day event
             location_id: null,
             notes: trip.description || 'Travel event (auto-added)',
             isSynthetic: true
@@ -687,7 +689,10 @@ setup() {
     if (isToday(new Date(currentDate)) && !filters.value.dateStart && !filters.value.dateEnd) {
       events = events.filter(e => {
         // For events starting today, only show if start_time >= 03:00
+        // EXCEPT for all-day events (00:00 to 23:59), which should always be shown
         if (e.event_date === currentDate) {
+          const isAllDay = e.start_time === '00:00' && e.end_time === '23:59';
+          if (isAllDay) return true;
           return e.start_time >= '03:00';
         }
         // For events starting on previous days but ending today, always show
@@ -806,6 +811,17 @@ setup() {
     showDetailsModal.value = false;
   }
   async function confirmDelete() {
+    // Don't allow deleting synthetic events (travel, build days)
+    if (detailsEvent.value.isSynthetic) {
+      if (detailsEvent.value.category === 'travel') {
+        toast.info("Travel events cannot be deleted from the calendar. Please manage them in the Travel section.");
+      } else {
+        toast.info("This event cannot be deleted from the calendar as it is automatically generated.");
+      }
+      closeDetailsModal();
+      return;
+    }
+    
     if (!detailsEvent.value.id) { toast.error("Missing ID"); return; }
     if (!confirm("Delete this event?")) return;
     const { error } = await supabase.from("calendar_events")
@@ -820,6 +836,18 @@ setup() {
   }
   async function saveDetails() {
     const ev = detailsEvent.value;
+    
+    // Don't allow saving synthetic events
+    if (ev.isSynthetic) {
+      if (ev.category === 'travel') {
+        toast.info("Travel events cannot be edited from the calendar. Please manage them in the Travel section.");
+      } else {
+        toast.info("This event cannot be edited from the calendar as it is automatically generated.");
+      }
+      detailsMode.value = "view";
+      return;
+    }
+    
     if (!ev.id) { toastMsg.value = "Missing ID"; return; }
     const { error } = await supabase
       .from("calendar_events")
@@ -1002,6 +1030,16 @@ setup() {
   watch(() => route.query, syncFromRoute);
 
   async function onEditEvent(event) {
+    // Don't allow editing synthetic events
+    if (event.isSynthetic) {
+      if (event.category === 'travel') {
+        toast.info("Travel events cannot be edited from the calendar. Please manage them in the Travel section.");
+      } else {
+        toast.info("This event cannot be edited from the calendar as it is automatically generated.");
+      }
+      return;
+    }
+    
     if (!event.id) { toastMsg.value = "Missing event ID"; return; }
     const { error } = await supabase
       .from("calendar_events")
@@ -1027,6 +1065,16 @@ setup() {
   }
 
   async function onDeleteEvent(event) {
+    // Don't allow deleting synthetic events (travel, build days)
+    if (event.isSynthetic) {
+      if (event.category === 'travel') {
+        toast.info("Travel events cannot be deleted from the calendar. Please manage them in the Travel section.");
+      } else {
+        toast.info("This event cannot be deleted from the calendar as it is automatically generated.");
+      }
+      return;
+    }
+    
     if (!event.id) { toast.error("Missing event ID"); return; }
     if (!confirm("Delete this event?")) return;
     const { error } = await supabase
