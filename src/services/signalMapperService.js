@@ -378,9 +378,46 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         
         if (sourceNode) {
           // Determine which port on the source to trace from
-          let sourcePort = trackConn.output_number || trackConn.input_number || 1
+          let sourcePort = 1 // Default to port 1
+          
+          // If connection has port maps, use the mapped from_port
           if (trackConn._mappedFromPort !== undefined) {
             sourcePort = trackConn._mappedFromPort
+          } else {
+            // Check if the connection itself has port maps (for port-mapped connections to recorder)
+            const trackConnMaps = mapsByConnId[trackConn.id] || []
+            if (trackConnMaps.length > 0) {
+              // Find the port map entry that matches this track number
+              const matchingMap = trackConnMaps.find(m => Number(m.to_port) === Number(currentInput))
+              if (matchingMap) {
+                sourcePort = matchingMap.from_port
+              } else if (trackConnMaps[0]) {
+                sourcePort = trackConnMaps[0].from_port
+              }
+            } else {
+              // No port maps - try to determine from connection
+              // For direct source-to-recorder connections, we may need to infer
+              sourcePort = trackConn.output_number || trackConn.input_number || 1
+              
+              // If source is stereo and we have multiple connections, try to infer L/R
+              if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
+                if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
+                  const allSourceConns = recorderParents.filter(c => 
+                    c.from_node_id === sourceNodeId
+                  )
+                  if (allSourceConns.length >= 2) {
+                    // Multiple connections from stereo source - use track number position to infer
+                    const sortedTracks = allSourceConns
+                      .map(c => c.track_number || c.input_number)
+                      .filter(Boolean)
+                      .map(Number)
+                      .sort((a, b) => a - b)
+                    const trackIndex = sortedTracks.indexOf(Number(currentInput))
+                    sourcePort = trackIndex === 0 ? 1 : 2 // First track = L, second = R
+                  }
+                }
+              }
+            }
           }
           
           // Check if source is another recorder - recursively trace
@@ -393,6 +430,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
             continue
           } else {
             // Source is a transformer or regular source - continue tracing normally
+            // currentInput should already be set to sourcePort which is the source output port
             currentNodeId = sourceNodeId
             currentInput = sourcePort
             // Add recorder to labels
@@ -425,10 +463,46 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         // No mapping for this input; stop here
         break
       }
-      // Move to the parent node - from_port tells us which input/output on the parent
+      // Move to the parent node - from_port tells us which OUTPUT port on the parent
+      // For transformers, output N typically corresponds to input N (1:1 mapping)
+      // But we need to check if the parent connection has port maps that tell us
+      // which source output feeds this transformer output
       currentNodeId = parentWithMap.from_node_id
+      const parentNode = nodeMap[currentNodeId]
+      
+      // If parent is a source, from_port directly tells us source output (1 or 2)
+      if (parentNode && (parentNode.gear_type === 'source' || parentNode.node_type === 'source')) {
+        currentInput = row.from_port // This is the source output port (1 or 2)
+        continue
+      }
+      
+      // If parent is a transformer, we need to find which transformer input corresponds to output row.from_port
+      // For transformers, assume 1:1 mapping (input N = output N) unless there's a port map telling us otherwise
+      // Check if the parent transformer has incoming connections with port maps
+      const parentInputConn = (parentConnsByToNode[currentNodeId] || []).find(p => {
+        const parentMaps = mapsByConnId[p.id] || []
+        if (parentMaps.length > 0) {
+          // Check if any port map has from_port matching row.from_port (the parent transformer output we're tracing)
+          return parentMaps.some(m => Number(m.to_port) === Number(row.from_port))
+        }
+        return false
+      })
+      
+      if (parentInputConn) {
+        // Found a port-mapped connection to parent - find which port map entry matches
+        const parentMaps = mapsByConnId[parentInputConn.id] || []
+        const parentMapRow = parentMaps.find(m => Number(m.to_port) === Number(row.from_port))
+        if (parentMapRow) {
+          // The from_port in parentMapRow tells us which source/upstream output feeds this
+          currentInput = parentMapRow.from_port
+          currentNodeId = parentInputConn.from_node_id
+          continue
+        }
+      }
+      
+      // Fallback: for transformers, assume 1:1 mapping (output N = input N)
       currentInput = row.from_port
-      // Continue loop to trace from the parent node's input/output
+      // Continue loop to trace from the parent node
       continue
     }
     
@@ -500,24 +574,85 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         continue
       } else {
         // Not a source yet - this is a transformer
-        // Keep tracing through this transformer - find ANY connection feeding it
+        // Keep tracing through this transformer - find connection feeding the input that produces output currentInput
+        // For transformers, typically output N = input N (1:1 mapping)
         if (!nodeMap[currentNodeId]) break
         
         const transformerParents = parentConnsByToNode[currentNodeId] || []
         if (!transformerParents.length) break
         
-        // Try to find connection with matching input, otherwise use first available
-        const nextConn = transformerParents.find(c => 
-          typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
-        ) || transformerParents.find(c => typeof c.input_number === 'number')
+        // Find connection feeding the transformer input that corresponds to output currentInput
+        // For 1:1 transformers, input N produces output N
+        const inputNum = currentInput // Transformer output N typically comes from input N
+        const nextConn = transformerParents.find(c => {
+          // Check if connection has port maps
+          const connMaps = mapsByConnId[c.id] || []
+          if (connMaps.length > 0) {
+            // Find if any port map has to_port matching inputNum
+            return connMaps.some(m => Number(m.to_port) === Number(inputNum))
+          }
+          // No port map - check if input_number matches
+          return typeof c.input_number === 'number' && Number(c.input_number) === Number(inputNum)
+        })
         
         if (nextConn) {
-          // Continue tracing from the source of this connection
+          const connMaps = mapsByConnId[nextConn.id] || []
+          if (connMaps.length > 0) {
+            // Has port map - find which from_port maps to inputNum
+            const mapRow = connMaps.find(m => Number(m.to_port) === Number(inputNum))
+            if (mapRow) {
+              // from_port tells us which source/upstream output feeds this transformer input
+              currentNodeId = nextConn.from_node_id
+              currentInput = mapRow.from_port
+              continue
+            }
+          }
+          
+          // No port map or didn't find matching map - check if parent is a source
+          const nextNode = nodeMap[nextConn.from_node_id]
+          if (nextNode && (nextNode.gear_type === 'source' || nextNode.node_type === 'source')) {
+            // Parent is a source - for direct connections, we need to determine which source output
+            // Check if there are multiple connections from this source to help determine L/R
+            const sourceConnections = transformerParents.filter(c => 
+              c.from_node_id === nextConn.from_node_id
+            )
+            
+            if ((nextNode.num_outputs === 2 || nextNode.outputs === 2) && sourceConnections.length >= 2) {
+              // Multiple connections from stereo source - use position to determine L/R
+              const sortedInputs = sourceConnections
+                .map(c => c.input_number)
+                .filter(Boolean)
+                .map(Number)
+                .sort((a, b) => a - b)
+              
+              const index = sortedInputs.indexOf(Number(inputNum))
+              currentInput = index === 0 ? 1 : 2 // First connection = L (output 1), second = R (output 2)
+            } else {
+              // Single connection or mono source - use parity heuristic
+              currentInput = Number(inputNum) % 2 === 1 ? 1 : 2
+            }
+          } else {
+            // Parent is another transformer - assume 1:1 mapping (output = input)
+            currentInput = nextConn.input_number || inputNum
+          }
+          
           currentNodeId = nextConn.from_node_id
-          // Use the input number from the connection for further tracing
-          currentInput = nextConn.input_number
           continue
         }
+        
+        // Try fallback: find any connection to continue tracing
+        const fallbackConn = transformerParents.find(c => typeof c.input_number === 'number')
+        if (fallbackConn) {
+          currentNodeId = fallbackConn.from_node_id
+          const fallbackMaps = mapsByConnId[fallbackConn.id] || []
+          if (fallbackMaps.length > 0 && fallbackMaps[0]) {
+            currentInput = fallbackMaps[0].from_port
+          } else {
+            currentInput = fallbackConn.input_number
+          }
+          continue
+        }
+        
         // No connection found - stop here
         break
       }
@@ -530,18 +665,67 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
          (node.gear_type !== 'source' && node.node_type !== 'source' && node.gear_type !== 'recorder' && node.node_type !== 'recorder'))
       
       if (isTransformer && parents.length > 0) {
-        // Try to use the first available connection to continue tracing
-        // But try to find one that matches our input first
+        // Try to find connection with port maps first
+        const portMappedParent = parents.find(p => {
+          const maps = mapsByConnId[p.id] || []
+          return maps.length > 0 && maps.some(m => Number(m.to_port) === Number(currentInput))
+        })
+        
+        if (portMappedParent) {
+          const maps = mapsByConnId[portMappedParent.id] || []
+          const mapRow = maps.find(m => Number(m.to_port) === Number(currentInput))
+          if (mapRow) {
+            currentNodeId = portMappedParent.from_node_id
+            const parentNode = nodeMap[currentNodeId]
+            if (parentNode && (parentNode.gear_type === 'source' || parentNode.node_type === 'source')) {
+              currentInput = mapRow.from_port // Source output port (1 or 2)
+            } else {
+              currentInput = mapRow.from_port // Transformer output port
+            }
+            continue
+          }
+        }
+        
+        // Fallback: try to use a connection that matches our input
         const fallbackConn = parents.find(c => 
           typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
         ) || parents.find(c => typeof c.input_number === 'number')
+        
         if (fallbackConn) {
+          const fallbackMaps = mapsByConnId[fallbackConn.id] || []
           currentNodeId = fallbackConn.from_node_id
-          // Keep currentInput as is, or use the connection's input_number if we're starting fresh
-          // Actually, if we're tracing input 1, we should look for what feeds input 1
-          // But the connection's input_number IS the input on the transformer we're at
-          // So we should keep it as is for further tracing
-          currentInput = fallbackConn.input_number
+          const fallbackNode = nodeMap[currentNodeId]
+          
+          if (fallbackMaps.length > 0) {
+            // Has port maps - use from_port of first map
+            const firstMap = fallbackMaps[0]
+            if (fallbackNode && (fallbackNode.gear_type === 'source' || fallbackNode.node_type === 'source')) {
+              currentInput = firstMap.from_port // Source output port
+            } else {
+              currentInput = firstMap.from_port // Upstream output port
+            }
+          } else {
+            // No port maps - check if it's a source
+            if (fallbackNode && (fallbackNode.gear_type === 'source' || fallbackNode.node_type === 'source')) {
+              // Determine source output from connection context
+              if ((fallbackNode.num_outputs === 2 || fallbackNode.outputs === 2)) {
+                const siblings = parents
+                  .filter(c => c.from_node_id === fallbackConn.from_node_id)
+                  .map(c => Number(c.input_number))
+                  .filter(Boolean)
+                  .sort((a, b) => a - b)
+                
+                const inputNum = Number(fallbackConn.input_number)
+                const index = siblings.indexOf(inputNum)
+                currentInput = index === 0 ? 1 : 2 // L or R based on position
+              } else {
+                currentInput = 1 // Mono source
+              }
+            } else {
+              // Transformer - assume 1:1 mapping
+              currentInput = fallbackConn.input_number || currentInput
+            }
+          }
           continue
         }
       }
