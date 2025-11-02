@@ -114,12 +114,10 @@ const groupedByRecorder = computed(() => {
     groups[recorderName].push(path)
   })
   
-  // Sort each group by track number
+  // Sort each group by track number using smart sorting
   Object.keys(groups).forEach(recorder => {
     groups[recorder].sort((a, b) => {
-      const trackA = a.track_number || 0
-      const trackB = b.track_number || 0
-      return trackA - trackB
+      return compareTrackNumbers(a.track_number, b.track_number)
     })
   })
   
@@ -134,9 +132,7 @@ const sortedPaths = computed(() => {
     if (recorderA !== recorderB) {
       return recorderA.localeCompare(recorderB)
     }
-    const trackA = a.track_number || 0
-    const trackB = b.track_number || 0
-    return trackA - trackB
+    return compareTrackNumbers(a.track_number, b.track_number)
   })
 })
 
@@ -144,6 +140,68 @@ const sortedPaths = computed(() => {
 function reversedPath(path) {
   if (!Array.isArray(path)) return []
   return [...path].reverse()
+}
+
+// Smart track number sorting that handles numbers, letters, and alphanumeric combinations
+// Examples: 1, 2, 3, A, B, C, 1L, 1R, 2L, 2R, 10A, 10B
+function compareTrackNumbers(a, b) {
+  // Handle null/undefined
+  if (!a && !b) return 0
+  if (!a) return 1  // null/undefined goes to end
+  if (!b) return -1
+  
+  const strA = String(a).trim()
+  const strB = String(b).trim()
+  
+  // If both are pure numbers, compare numerically
+  const numA = Number(strA)
+  const numB = Number(strB)
+  if (!isNaN(numA) && !isNaN(numB) && strA === String(numA) && strB === String(numB)) {
+    return numA - numB
+  }
+  
+  // Natural sort: split into parts (numbers and text)
+  const partsA = strA.match(/(\d+|\D+)/g) || []
+  const partsB = strB.match(/(\d+|\D+)/g) || []
+  
+  const maxLength = Math.max(partsA.length, partsB.length)
+  
+  for (let i = 0; i < maxLength; i++) {
+    const partA = partsA[i] || ''
+    const partB = partsB[i] || ''
+    
+    // If one part is missing, the shorter string comes first
+    if (!partA) return -1
+    if (!partB) return 1
+    
+    // Check if both parts are numeric
+    const numPartA = Number(partA)
+    const numPartB = Number(partB)
+    const isNumA = !isNaN(numPartA) && partA === String(numPartA)
+    const isNumB = !isNaN(numPartB) && partB === String(numPartB)
+    
+    if (isNumA && isNumB) {
+      // Both are numbers, compare numerically
+      if (numPartA !== numPartB) {
+        return numPartA - numPartB
+      }
+    } else if (isNumA) {
+      // A is number, B is text - numbers come before letters
+      return -1
+    } else if (isNumB) {
+      // A is text, B is number - numbers come before letters
+      return 1
+    } else {
+      // Both are text, compare alphabetically
+      const comparison = partA.localeCompare(partB, undefined, { numeric: true, sensitivity: 'base' })
+      if (comparison !== 0) {
+        return comparison
+      }
+    }
+  }
+  
+  // If all parts are equal, they're the same
+  return 0
 }
 
 // no additional summary columns
