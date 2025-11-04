@@ -46,7 +46,18 @@
       </div>
       <form @submit.prevent="submit" class="connection-form">
         <div v-if="needsPortMapping" class="form-group">
-          <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
+            <button 
+              type="button" 
+              class="btn-clear-connections" 
+              @click="clearExistingConnection"
+              :disabled="!hasExistingConnection"
+              title="Delete existing connection and port mappings"
+            >
+              Clear Previous Connections
+            </button>
+          </div>
           <div class="port-mapping-container">
             <div v-if="displayedPortMappings.length > 0" class="port-mappings-list">
             <div v-for="mapping in displayedPortMappings" :key="mapping._idx" class="port-mapping-row">
@@ -161,7 +172,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { supabase } from '@/supabase'
-import { addConnection, updateConnection } from '@/services/signalMapperService'
+import { addConnection, updateConnection, deleteConnection } from '@/services/signalMapperService'
 import { useToast } from 'vue-toastification'
 
 const props = defineProps({
@@ -1436,20 +1447,41 @@ errorMsg.value = ''
   try {
   // Handle port mapping for non-source to non-source connections
   if (needsPortMapping.value) {
+    // If no port mappings and there's an existing connection, delete it
     if (portMappings.value.length === 0) {
-      errorMsg.value = 'Please add at least one port mapping.'
-      loading.value = false
-      return
+      if (existingConnectionId.value) {
+        // Delete existing connection (acts as clearing it)
+        await deleteConnection(existingConnectionId.value)
+        existingConnectionId.value = null
+        toast.success('Connection removed (no port mappings specified)')
+        emit('confirm', null) // Emit null to indicate deletion
+        loading.value = false
+        return
+      } else {
+        errorMsg.value = 'Please add at least one port mapping, or there must be an existing connection to delete.'
+        loading.value = false
+        return
+      }
     }
     
     // Check if parent connection already exists (one per pair)
-    const { data: existingParent } = await supabase
-      .from('connections')
-      .select('id')
-      .eq('project_id', props.projectId)
-      .eq('from_node_id', props.fromNode.id)
-      .eq('to_node_id', props.toNode.id)
-      .maybeSingle()
+    // Use existingConnectionId if we already checked, otherwise query
+    let existingParent = null
+    if (existingConnectionId.value) {
+      existingParent = { id: existingConnectionId.value }
+    } else {
+      const { data } = await supabase
+        .from('connections')
+        .select('id')
+        .eq('project_id', props.projectId)
+        .eq('from_node_id', props.fromNode.id)
+        .eq('to_node_id', props.toNode.id)
+        .maybeSingle()
+      existingParent = data
+      if (existingParent) {
+        existingConnectionId.value = existingParent.id
+      }
+    }
     
     let parentConnId
     if (existingParent) {
