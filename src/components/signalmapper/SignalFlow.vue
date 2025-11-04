@@ -2209,6 +2209,34 @@ function exportToPDF() {
   margin: 0;
 }
 
+/* Dark mode styles for venue sources modal */
+.dark .venue-sources-info {
+  background: #1a1a1a;
+  border: 1px solid #404040;
+}
+
+.dark .venue-sources-info p {
+  color: #e0e0e0;
+}
+
+.dark .warning-text {
+  color: #ff7070;
+}
+
+.dark .venue-sources-item:hover {
+  background-color: #2a2a2a;
+}
+
+.dark .venue-sources-exists {
+  background: #3d2f00;
+  border: 1px solid #d97706;
+  color: #ffd700;
+}
+
+.dark .venue-sources-exists p {
+  color: #ffd700;
+}
+
 .signal-flow-container {
   padding: 20px;
   min-height: 100vh;
@@ -2591,8 +2619,53 @@ function exportToPDF() {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   max-width: 600px;
   width: 90%;
-  max-height: 80vh;
-  overflow: hidden;
+}
+
+/* Dark mode modal styling */
+.dark .modal-content {
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.dark .modal-header h3 {
+  color: #ffffff;
+}
+
+.dark .modal-body {
+  color: #e0e0e0;
+}
+
+.dark .close-btn {
+  color: #ffffff;
+  background: #2a2a2a;
+  border: 1px solid #404040;
+}
+
+.dark .close-btn:hover {
+  background: #333333;
+}
+
+.dark .modal-header {
+  border-bottom: 1px solid #404040;
+}
+
+.dark .gear-item {
+  background: #2a2a2a;
+  border-color: #404040;
+}
+
+.dark .gear-item:hover {
+  background: #333333;
+  border-color: #505050;
+}
+
+.dark .gear-name {
+  color: #ffffff;
+}
+
+.dark .gear-details {
+  color: #b0b0b0;
 }
 
 .modal-header {
