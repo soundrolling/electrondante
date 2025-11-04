@@ -1674,51 +1674,49 @@ async function autoAddStereoDJPortMappings() {
   }
 }
 
-onMounted(() => {
-const fromType = props.fromNode.gearType || props.fromNode.node_type
-const toType = props.toNode.gearType || props.toNode.node_type
-if (fromType === 'transformer' && toType === 'recorder') {
-  // Immediately emit confirm and do not render modal
-  emit('confirm', {
-    project_id: props.projectId,
-    from_node_id: props.fromNode.id,
-    to_node_id: props.toNode.id
-  })
-}
-// If default input is already taken in this session context, pick first free
-try {
-  const used = new Set((props.existingConnections || [])
-    .filter(c => (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number)
-    .map(c => c.input_number))
-  if (used.has(inputNumber.value)) {
-    for (let n = 1; n <= (numInputs.value || 64); n++) {
-      if (!used.has(n)) { inputNumber.value = n; break }
-    }
+onMounted(async () => {
+  // Check for existing connection
+  await checkExistingConnection()
+  
+  const fromType = props.fromNode.gearType || props.fromNode.node_type
+  const toType = props.toNode.gearType || props.toNode.node_type
+  if (fromType === 'transformer' && toType === 'recorder') {
+    // Immediately emit confirm and do not render modal
+    emit('confirm', {
+      project_id: props.projectId,
+      from_node_id: props.fromNode.id,
+      to_node_id: props.toNode.id
+    })
+    return
   }
-} catch {}
+  
+  // If default input is already taken in this session context, pick first free
+  try {
+    const used = new Set((props.existingConnections || [])
+      .filter(c => (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number)
+      .map(c => c.input_number))
+    if (used.has(inputNumber.value)) {
+      for (let n = 1; n <= (numInputs.value || 64); n++) {
+        if (!used.has(n)) { inputNumber.value = n; break }
+      }
+    }
+  } catch {}
+  
   // Build upstream labels for transformer outputs
   if (isTransformerFrom.value) {
     await buildUpstreamSourceLabels()
   }
   
-  // Load recorder track names if needed
-  if (isRecorderFrom.value || isRecorderTo.value) {
-    await loadRecorderTrackNamesForModal()
-  }
+  // Load already-taken mapped ports for source and target across existing connections
+  await loadTakenPorts()
+  
+  // Load recorder track names if FROM node is a recorder
+  await loadRecorderTrackNames()
+  // Load recorder track names if TO node is a recorder
+  await loadToRecorderTrackNames()
   
   // Auto-add stereo DJ port mappings after ports are loaded
   autoAddStereoDJPortMappings()
-})
-buildUpstreamSourceLabels()
-// Load already-taken mapped ports for source and target across existing connections
-loadTakenPorts().then(() => {
-  // Auto-add stereo DJ port mappings after ports are loaded
-  autoAddStereoDJPortMappings()
-})
-// Load recorder track names if FROM node is a recorder
-loadRecorderTrackNames()
-// Load recorder track names if TO node is a recorder
-loadToRecorderTrackNames()
 
 // Center modal on mount and ensure it's in viewport
 centerModal()
