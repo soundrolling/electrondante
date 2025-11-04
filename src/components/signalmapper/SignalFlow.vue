@@ -347,6 +347,8 @@ const editFromPort = ref(null)
 const editToPort = ref(null)
 // Upstream source labels for selected connection's FROM transformer
 const upstreamLabelsForFromNode = ref({})
+// Store recorder track names (track number -> source label) for the FROM recorder when editing
+const recorderTrackNamesForEdit = ref({})
 const draggingNode = ref(null)
 let dragStart = null
 
@@ -609,16 +611,19 @@ function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   
-  // Check if we have a cached label from buildUpstreamLabelsForEdit
-  if (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[portNum]) {
-    return upstreamLabelsForFromNode.value[portNum]
-  }
-  
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
   
-  // For recorders, output port corresponds to track number - use track name
+  // For recorders, first check the preloaded async names, then fallback to sync version
   if (fromType === 'recorder') {
-    // Try to trace what's recorded on this track
+    // First try the preloaded async names
+    if (recorderTrackNamesForEdit.value && recorderTrackNamesForEdit.value[portNum]) {
+      return recorderTrackNamesForEdit.value[portNum]
+    }
+    // Check cached upstream labels
+    if (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[portNum]) {
+      return upstreamLabelsForFromNode.value[portNum]
+    }
+    // Fallback to sync version
     const trackName = traceRecorderTrackName(from.id, portNum)
     if (trackName) {
       // Cache it for future use
@@ -627,49 +632,13 @@ function getFromPortDisplayForEdit(portNum) {
       }
       return trackName
     }
-    
-    // If no connection found, check if there's a direct connection to this recorder's track
-    const trackConn = props.connections.find(c => 
-      (c.to_node_id === from.id || c.to === from.id) &&
-      (c.track_number === portNum || c.input_number === portNum)
-    )
-    
-    if (trackConn) {
-      // Trace from the source
-      const sourceNodeId = trackConn.from_node_id || trackConn.from
-      if (sourceNodeId) {
-        const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
-        if (sourceNode) {
-          const sourceType = (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase()
-          if (sourceType === 'recorder') {
-            // Recorder to recorder - recursively trace
-            const sourceOutputPort = trackConn.output_number || trackConn.input_number || portNum
-            const recursiveTrackName = traceRecorderTrackName(sourceNodeId, sourceOutputPort)
-            if (recursiveTrackName) {
-              // Cache it
-              if (upstreamLabelsForFromNode.value) {
-                upstreamLabelsForFromNode.value[portNum] = recursiveTrackName
-              }
-              return recursiveTrackName
-            }
-          } else {
-            // Source or transformer - trace the label
-            const sourceOutputPort = trackConn.output_number || trackConn.input_number || 1
-            const sourceLabel = traceSourceLabel(sourceNodeId, sourceOutputPort)
-            if (sourceLabel) {
-              // Cache it
-              if (upstreamLabelsForFromNode.value) {
-                upstreamLabelsForFromNode.value[portNum] = sourceLabel
-              }
-              return sourceLabel
-            }
-          }
-        }
-      }
-    }
-    
     // Fallback to track number if no source found
     return `Track ${portNum}`
+  }
+  
+  // Check if we have a cached label from buildUpstreamLabelsForEdit
+  if (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[portNum]) {
+    return upstreamLabelsForFromNode.value[portNum]
   }
   
   // Label stereo source ports as L/R - check stored labels first
@@ -757,12 +726,9 @@ const availableFromPortsForEdit = computed(() => {
       label = getFromPortDisplayForEdit(n)
     } else if (fromType === 'recorder') {
       // For recorders, output port corresponds to track number - use track name
-      const trackName = traceRecorderTrackName(from.id, n)
-      if (trackName) {
-        label = trackName
-      } else {
-        label = `Track ${n}`
-      }
+      // First try the preloaded async names, then fallback to sync version
+      label = recorderTrackNamesForEdit.value[n] || traceRecorderTrackName(from.id, n)
+      if (!label) label = `Track ${n}`
     } else if (fromType === 'transformer') {
       // Use recursive tracing to get source label
       const sourceLabel = traceSourceLabel(from.id, n)
@@ -838,17 +804,113 @@ async function buildUpstreamLabelsForEdit() {
     } catch {}
   }
   
-  // For recorders, build track names for all output ports (tracks)
+  // For recorders, build track names for all output ports (tracks) asynchronously
   if (fromType === 'recorder') {
-    const numOutputs = from?.num_outputs || from?.numoutputs || from?.outputs || from?.num_tracks || from?.tracks || from?.num_records || from?.numrecord || 0
-    for (let n = 1; n <= numOutputs; n++) {
-      // Trace what's recorded on this track
-      const trackName = traceRecorderTrackName(from.id, n)
-      if (trackName) {
-        upstreamLabelsForFromNode.value[n] = trackName
+    await loadRecorderTrackNamesForEdit(from.id)
+  }
+}
+
+// Load recorder track names asynchronously (similar to ConnectionDetailsModal)
+async function loadRecorderTrackNamesForEdit(recorderId) {
+  recorderTrackNamesForEdit.value = {}
+  const numOutputs = fromNodeOfSelected.value?.num_outputs || fromNodeOfSelected.value?.numoutputs || fromNodeOfSelected.value?.outputs || fromNodeOfSelected.value?.num_tracks || fromNodeOfSelected.value?.tracks || fromNodeOfSelected.value?.num_records || fromNodeOfSelected.value?.numrecord || 0
+  
+  // Load all track names in parallel
+  const trackPromises = []
+  for (let n = 1; n <= numOutputs; n++) {
+    trackPromises.push(traceRecorderTrackNameAsync(recorderId, n))
+  }
+  
+  const trackNames = await Promise.all(trackPromises)
+  
+  for (let n = 1; n <= numOutputs; n++) {
+    const trackName = trackNames[n - 1]
+    if (trackName) {
+      recorderTrackNamesForEdit.value[n] = trackName
+      upstreamLabelsForFromNode.value[n] = trackName
+    }
+  }
+}
+
+// Async version of traceRecorderTrackName that handles port mappings
+async function traceRecorderTrackNameAsync(recorderId, trackNumber, visitedNodes = new Set()) {
+  if (visitedNodes.has(recorderId)) return null
+  visitedNodes.add(recorderId)
+  
+  // Find connection TO this recorder that uses this track number
+  let trackConn = props.connections.find(c => 
+    (c.to_node_id === recorderId || c.to === recorderId) &&
+    (c.track_number === trackNumber || c.input_number === trackNumber)
+  )
+  
+  // If no direct connection found, check port mappings
+  if (!trackConn) {
+    const recorderConns = props.connections.filter(c => 
+      (c.to_node_id === recorderId || c.to === recorderId)
+    )
+    
+    if (recorderConns.length > 0) {
+      const connIds = recorderConns.map(c => c.id).filter(Boolean)
+      if (connIds.length > 0) {
+        try {
+          const { data: portMaps } = await supabase
+            .from('connection_port_map')
+            .select('connection_id, from_port, to_port')
+            .in('connection_id', connIds)
+            .eq('to_port', trackNumber)
+          
+          if (portMaps && portMaps.length > 0) {
+            const portMap = portMaps[0]
+            trackConn = recorderConns.find(c => c.id === portMap.connection_id)
+            if (trackConn) {
+              trackConn._mappedFromPort = portMap.from_port
+            }
+          }
+        } catch (err) {
+          console.error('Error querying port maps:', err)
+        }
       }
     }
   }
+  
+  if (!trackConn) return null
+  
+  // Trace back from the source
+  const sourceNodeId = trackConn.from_node_id || trackConn.from
+  if (!sourceNodeId) return null
+  
+  // Determine which port on the source to trace from
+  let sourcePort = trackConn.output_number || trackConn.input_number || 1
+  if (trackConn._mappedFromPort !== undefined) {
+    sourcePort = trackConn._mappedFromPort
+  }
+  
+  const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
+  if (!sourceNode) return null
+  
+  const sourceType = (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase()
+  
+  if (sourceType === 'recorder') {
+    // Source is another recorder - recursively trace
+    const recursiveTrackName = await traceRecorderTrackNameAsync(sourceNodeId, sourcePort, visitedNodes)
+    if (recursiveTrackName) return recursiveTrackName
+  } else if (sourceType === 'source') {
+    // Direct source - get source label
+    const traceConn = {
+      from_node_id: sourceNodeId,
+      input_number: sourcePort,
+      output_number: sourcePort
+    }
+    // Use traceSourceLabel to get the label
+    const sourceLabel = traceSourceLabel(sourceNodeId, sourcePort)
+    if (sourceLabel) return sourceLabel
+  } else if (sourceType === 'transformer') {
+    // Transformer - trace through it
+    const sourceLabel = traceSourceLabel(sourceNodeId, sourcePort)
+    if (sourceLabel) return sourceLabel
+  }
+  
+  return null
 }
 
 // Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
