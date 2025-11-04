@@ -325,7 +325,8 @@ export async function getCompleteSignalPath(projectId) {
       } catch {}
     }
     
-    trackConns.forEach(conn => {
+    // Use for...of loop to properly handle async/await
+    for (const conn of trackConns) {
       // Build the path backwards from the recorder to source
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
@@ -353,7 +354,7 @@ export async function getCompleteSignalPath(projectId) {
       // For uniqueness, key off recorder + track + source node id + source output port
       // This ensures L and R from the same source are treated as separate paths
       const uniqueKey = `${recorder.id}|${conn.input_number || conn.track_number || ''}|${finalSourceNode?.id || ''}|${sourceOutputPort || ''}`
-      if (seen.has(uniqueKey)) return
+      if (seen.has(uniqueKey)) continue
       seen.add(uniqueKey)
 
       // Get source gear name if the source node has a gear_id
