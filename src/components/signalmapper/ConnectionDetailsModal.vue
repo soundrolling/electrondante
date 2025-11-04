@@ -1975,7 +1975,30 @@ transition: background-color 0.2s;
 }
 
 .btn-cancel:hover {
-background: var(--color-secondary-600);
+  background: var(--color-secondary-600);
+}
+
+.btn-clear-connections {
+  padding: 6px 12px;
+  background: #dc3545;
+  color: white;
+  border: 1px solid #dc3545;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background 0.2s;
+}
+
+.btn-clear-connections:hover:not(:disabled) {
+  background: #c82333;
+  border-color: #bd2130;
+}
+
+.btn-clear-connections:disabled {
+  background: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .output-matrix {
