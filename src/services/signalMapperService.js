@@ -385,7 +385,7 @@ export async function getCompleteSignalPath(projectId) {
   return signalPaths
 }
 
-function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber) {
+async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber) {
   const labels = []
   // Use recorderTrackNumber if provided (for direct port-mapped connections), otherwise use startInput
   const trackLabel = (recorderTrackNumber !== undefined && recorderTrackNumber !== null) 
