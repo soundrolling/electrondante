@@ -103,10 +103,32 @@
           <span class="label">Port Mappings:</span>
           <div class="port-mappings-list-edit">
             <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
-              <span>{{ getFromPortDisplayForEdit(mapping.from_port) }}</span>
-              <span class="arrow">→</span>
-              <span>{{ toNodeType === 'recorder' ? (traceRecorderTrackInput(toNodeOfSelected?.id, mapping.to_port) || `${toNodeOfSelected?.label} Track ${mapping.to_port}`) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
-              <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
+              <template v-if="editingIdx === mapping._idx">
+                <!-- Edit mode -->
+                <select class="inline-select" v-model.number="editFromPort" style="flex: 1; min-width: 100px;">
+                  <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  <option :value="mapping.from_port" v-if="!availableFromPortsForEdit.find(o => o.value === mapping.from_port)">
+                    {{ upstreamLabelsForFromNode.value[mapping.from_port] || getFromPortDisplayForEdit(mapping.from_port) }}
+                  </option>
+                </select>
+                <span class="arrow">→</span>
+                <select class="inline-select" v-model.number="editToPort" style="flex: 1; min-width: 100px;">
+                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  <option :value="mapping.to_port" v-if="!availableToPortsForEdit.find(o => o.value === mapping.to_port)">
+                    {{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, editFromPort || mapping.from_port) : `Input ${mapping.to_port}` }}
+                  </option>
+                </select>
+                <button type="button" class="btn-save-small" @click="saveEditMapping">✓</button>
+                <button type="button" class="btn-cancel-small" @click="cancelEditMapping">✕</button>
+              </template>
+              <template v-else>
+                <!-- Display mode -->
+                <span>{{ upstreamLabelsForFromNode.value[mapping.from_port] || getFromPortDisplayForEdit(mapping.from_port) }}</span>
+                <span class="arrow">→</span>
+                <span>{{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, mapping.from_port) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
+                <button type="button" class="btn-edit-small" @click="startEditMapping(mapping._idx)">✎</button>
+                <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
+              </template>
             </div>
             <div class="port-mapping-add-edit">
               <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
@@ -320,6 +342,9 @@ const displayedEditPortMappings = computed(() => editPortMappings.value
 )
 const newMappingFromPort = ref(null)
 const newMappingToPort = ref(null)
+const editingIdx = ref(null)
+const editFromPort = ref(null)
+const editToPort = ref(null)
 // Upstream source labels for selected connection's FROM transformer
 const upstreamLabelsForFromNode = ref({})
 const draggingNode = ref(null)
@@ -407,6 +432,18 @@ const toNodeOfSelected = computed(() => {
 })
 const fromNodeType = computed(() => (fromNodeOfSelected.value?.gear_type || fromNodeOfSelected.value?.node_type || '').toLowerCase())
 const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOfSelected.value?.node_type || '').toLowerCase())
+const isRecorderFrom = computed(() => {
+  const from = fromNodeOfSelected.value
+  if (!from) return false
+  const type = (from.gear_type || from.node_type || '').toLowerCase()
+  return type === 'recorder' || !!(from.num_tracks || from.tracks || from.num_records || from.numrecord)
+})
+const isRecorderTo = computed(() => {
+  const to = toNodeOfSelected.value
+  if (!to) return false
+  const type = (to.gear_type || to.node_type || '').toLowerCase()
+  return type === 'recorder' || !!(to.num_tracks || to.tracks || to.num_records || to.numrecord)
+})
 
 // Check if this connection needs port mapping UI
 const needsPortMappingForSelected = computed(() => {
@@ -705,46 +742,51 @@ async function buildUpstreamLabelsForEdit() {
   const from = fromNodeOfSelected.value
   if (!from) return
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
-  if (fromType !== 'transformer') return
-  try {
-    // Build labels for all inputs by recursively tracing to sources
-    const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
-    
-    incomingConns.forEach(inc => {
-      const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
-      if (sourceLabel) {
-        upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
-      }
-    })
-    
-    // Also check for port-mapped connections
-    const { data: parentConns } = await supabase
-      .from('connections')
-      .select('id, from_node_id, to_node_id')
-      .eq('to_node_id', from.id)
-    
-    if (!parentConns || parentConns.length === 0) return
-    
-    for (const parentConn of parentConns) {
-      const { data: maps } = await supabase
-        .from('connection_port_map')
-        .select('from_port, to_port')
-        .eq('connection_id', parentConn.id)
+  
+  // For transformers, build upstream labels
+  if (fromType === 'transformer') {
+    try {
+      // Build labels for all inputs by recursively tracing to sources
+      const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
       
-      if (!maps || maps.length === 0) continue
-      
-      maps.forEach(m => {
-        const parentFromNode = props.nodes.find(nd => nd.id === parentConn.from_node_id)
-        if (parentFromNode) {
-          // Recursively trace source label
-          const sourceLabel = traceSourceLabel(parentConn.from_node_id, m.from_port)
-          if (sourceLabel) {
-            upstreamLabelsForFromNode.value[m.to_port] = sourceLabel
-          }
+      incomingConns.forEach(inc => {
+        const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
+        if (sourceLabel) {
+          upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
         }
       })
-    }
-  } catch {}
+    
+      // Also check for port-mapped connections
+      const { data: parentConns } = await supabase
+        .from('connections')
+        .select('id, from_node_id, to_node_id')
+        .eq('to_node_id', from.id)
+      
+      if (parentConns && parentConns.length > 0) {
+        for (const parentConn of parentConns) {
+          const { data: maps } = await supabase
+            .from('connection_port_map')
+            .select('from_port, to_port')
+            .eq('connection_id', parentConn.id)
+          
+          if (!maps || maps.length === 0) continue
+          
+          maps.forEach(m => {
+            const parentFromNode = props.nodes.find(nd => nd.id === parentConn.from_node_id)
+            if (parentFromNode) {
+              // Recursively trace source label
+              const sourceLabel = traceSourceLabel(parentConn.from_node_id, m.from_port)
+              if (sourceLabel) {
+                upstreamLabelsForFromNode.value[m.to_port] = sourceLabel
+              }
+            }
+          })
+        }
+      }
+    } catch {}
+  }
+  
+  // For recorders, track names are handled dynamically in availableFromPortsForEdit via traceRecorderTrackName
 }
 
 // Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
@@ -835,6 +877,51 @@ function addEditPortMapping() {
 
 function removeEditPortMapping(index) {
   editPortMappings.value.splice(index, 1)
+  if (editingIdx.value === index) {
+    editingIdx.value = null
+  }
+}
+
+function startEditMapping(index) {
+  editingIdx.value = index
+  editFromPort.value = editPortMappings.value[index].from_port
+  editToPort.value = editPortMappings.value[index].to_port
+}
+
+function saveEditMapping() {
+  if (editingIdx.value !== null && editFromPort.value && editToPort.value) {
+    editPortMappings.value[editingIdx.value] = {
+      from_port: editFromPort.value,
+      to_port: editToPort.value
+    }
+    editingIdx.value = null
+    editFromPort.value = null
+    editToPort.value = null
+  }
+}
+
+function cancelEditMapping() {
+  editingIdx.value = null
+  editFromPort.value = null
+  editToPort.value = null
+}
+
+// Get display name for destination recorder track when routing from a recorder
+// For recorder-to-recorder: show the track name from the source recorder's track
+// For source/transformer-to-recorder: show what's assigned to that track
+function getToRecorderTrackNameDisplayForEdit(trackNumber, fromPort = null) {
+  // If routing from a recorder to a recorder, use the track name from the source recorder
+  if (isRecorderFrom.value && isRecorderTo.value && fromPort) {
+    // For recorder-to-recorder, we want to show the track name that will be assigned
+    // This comes from tracing what's on the FROM recorder's track
+    const sourceTrackName = traceRecorderTrackName(fromNodeOfSelected.value?.id, fromPort)
+    if (sourceTrackName) return sourceTrackName
+    // Fallback if we can't get the track name
+    return `Track ${trackNumber}`
+  }
+  
+  // For source/transformer-to-recorder: show what's currently assigned to this track
+  return traceRecorderTrackInput(toNodeOfSelected.value?.id, trackNumber) || `Track ${trackNumber}`
 }
 
 async function loadPortMappingsForConnection(connId) {
@@ -863,6 +950,9 @@ watch(selectedConn, async (c) => {
   if (!c) {
     editPortMappings.value = []
     upstreamLabelsForFromNode.value = {}
+    editingIdx.value = null
+    editFromPort.value = null
+    editToPort.value = null
     return
   }
   editPad.value = Number(c.pad || 0)
@@ -870,6 +960,11 @@ watch(selectedConn, async (c) => {
   editType.value = c.connection_type || 'Mic'
   editInput.value = c.input_number || null
   editTrack.value = c.track_number || null
+  
+  // Reset editing state
+  editingIdx.value = null
+  editFromPort.value = null
+  editToPort.value = null
   
   // Load port mappings if this is a port-mapped connection
   if (needsPortMappingForSelected.value) {
@@ -2279,6 +2374,9 @@ function exportToPDF() {
   margin-bottom: 4px;
   font-size: 12px;
 }
+.port-mapping-row-edit > span:last-of-type {
+  margin-right: auto;
+}
 .port-mapping-row-edit .arrow { color: #007bff; font-weight: bold; }
 .port-mapping-add-edit {
   display: flex;
@@ -2302,6 +2400,60 @@ function exportToPDF() {
   margin-left: auto;
 }
 .btn-remove-small:hover { background: #c82333; }
+.btn-edit-small {
+  background: var(--color-primary-500);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: background-color 0.2s;
+}
+.btn-edit-small:hover {
+  background: var(--color-primary-600);
+}
+.btn-save-small {
+  background: var(--color-success-500);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  transition: background-color 0.2s;
+}
+.btn-save-small:hover {
+  background: var(--color-success-600);
+}
+.btn-cancel-small {
+  background: var(--color-secondary-500);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  transition: background-color 0.2s;
+}
+.btn-cancel-small:hover {
+  background: var(--color-secondary-600);
+}
 .btn-add-small {
   padding: 4px 10px;
   background: #28a745;
