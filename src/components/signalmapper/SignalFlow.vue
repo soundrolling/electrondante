@@ -108,7 +108,7 @@
                 <select class="inline-select" v-model.number="editFromPort" style="flex: 1; min-width: 100px;">
                   <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   <option :value="mapping.from_port" v-if="!availableFromPortsForEdit.find(o => o.value === mapping.from_port)">
-                    {{ upstreamLabelsForFromNode.value[mapping.from_port] || getFromPortDisplayForEdit(mapping.from_port) }}
+                    {{ (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port) }}
                   </option>
                 </select>
                 <span class="arrow">→</span>
@@ -123,7 +123,7 @@
               </template>
               <template v-else>
                 <!-- Display mode -->
-                <span>{{ upstreamLabelsForFromNode.value[mapping.from_port] || getFromPortDisplayForEdit(mapping.from_port) }}</span>
+                <span>{{ (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port) }}</span>
                 <span class="arrow">→</span>
                 <span>{{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, mapping.from_port) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit-small" @click="startEditMapping(mapping._idx)">✎</button>
@@ -965,6 +965,11 @@ watch(selectedConn, async (c) => {
   editingIdx.value = null
   editFromPort.value = null
   editToPort.value = null
+  
+  // Always ensure upstreamLabelsForFromNode is initialized
+  if (!upstreamLabelsForFromNode.value) {
+    upstreamLabelsForFromNode.value = {}
+  }
   
   // Load port mappings if this is a port-mapped connection
   if (needsPortMappingForSelected.value) {
