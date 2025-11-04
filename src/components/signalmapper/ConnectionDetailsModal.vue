@@ -733,32 +733,11 @@ const availableFromPorts = computed(() => {
       if (!label) label = `Track ${n}`
     } else if (isTransformerFrom.value) {
       // For transformers, assume 1:1 mapping: output N corresponds to input N
-      // Check upstreamSourceLabels which is keyed by input number
+      // Check upstreamSourceLabels which is keyed by input number (preloaded asynchronously)
       label = upstreamSourceLabels.value[n]
       
-      // If not found in upstreamSourceLabels, try direct connection tracing
-      if (!label) {
-        const incoming = (props.existingConnections || []).find(c =>
-          (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === n
-        )
-        if (incoming) {
-          label = getLRAwareSourceLabel(incoming)
-          // Cache it in upstreamSourceLabels for future use
-          if (label) upstreamSourceLabels.value[n] = label
-        }
-      }
-      
-      // If still no label, try to trace through any connection to this transformer
-      if (!label) {
-        const anyIncoming = (props.existingConnections || []).find(c =>
-          (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id)
-        )
-        if (anyIncoming) {
-          label = getLRAwareSourceLabel(anyIncoming)
-          if (label) upstreamSourceLabels.value[n] = label
-        }
-      }
-      
+      // If not found in upstreamSourceLabels, use fallback
+      // Don't call async functions here - they're already loaded in buildUpstreamSourceLabels
       if (!label) label = `Output ${n}`
     } else if (isSource.value) {
       label = getSourcePortLabel(n)
@@ -1361,18 +1340,15 @@ function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = 
 function getFromPortName(portNum) {
   if (isRecorderFrom.value) {
     // For recorders, output port corresponds to track number - use track name
-    const trackName = traceRecorderTrackNameForModal(props.fromNode.id, portNum)
+    // Use preloaded async names, then fallback to sync version
+    const trackName = recorderTrackNames.value[portNum] || traceRecorderTrackNameForModal(props.fromNode.id, portNum)
     if (trackName) return trackName
     return `Track ${portNum}`
   }
   if (isTransformerFrom.value) {
-    const incoming = (props.existingConnections || []).find(c =>
-      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
-    )
-    if (incoming) {
-      const srcLabel = getLRAwareSourceLabel(incoming)
-      if (srcLabel) return srcLabel
-    }
+    // Use preloaded upstreamSourceLabels (loaded asynchronously in buildUpstreamSourceLabels)
+    const srcLabel = upstreamSourceLabels.value[portNum]
+    if (srcLabel) return srcLabel
   }
   if (isSource.value) {
     return getSourcePortLabel(portNum)
