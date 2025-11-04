@@ -614,7 +614,8 @@ async function loadTakenPorts() {
       // Build map of connection_id -> from_node_id
       const connToFrom = Object.fromEntries(toConns.map(c => [c.id, c.from_node_id]))
       
-      ;(mapsTo || []).forEach(r => {
+      // Use for...of loop to support await
+      for (const r of (mapsTo || [])) {
         const inputNum = Number(r.to_port)
         takenToPorts.value.add(inputNum)
         
@@ -643,7 +644,7 @@ async function loadTakenPorts() {
             }
           }
         }
-      })
+      }
     }
   } catch {}
 }
