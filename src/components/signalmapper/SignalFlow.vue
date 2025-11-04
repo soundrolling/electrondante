@@ -17,7 +17,7 @@
       ➕ Add Gear
     </button>
     <button @click="openSourceModal" class="btn-add">
-      ➕ Add Source
+      ➕ Add Venue Sources
     </button>
     <button @click="deleteSelected" :disabled="!selectedNode" class="btn-danger">
       🗑️ Delete
@@ -235,42 +235,30 @@
   <div v-if="showSourceModal" class="modal-overlay" @click="closeSourceModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>Add Source</h3>
+        <h3>Add Venue Sources</h3>
         <button @click="closeSourceModal" class="close-btn">×</button>
       </div>
       <div class="modal-body">
-        <div class="numbering-selector">
-          <label class="numbering-label">Numbering Style:</label>
-          <select v-model="sourceNumberingStyle" class="numbering-select">
-            <option value="numbers">Numbers (1, 2, 3...)</option>
-            <option value="letters">Letters (A, B, C...)</option>
-          </select>
-        </div>
-        <div class="gear-categories">
-          <button 
-            v-for="cat in ['Stereo', 'Mono']" 
-            :key="cat"
-            @click="sourceFilter = cat"
-            :class="{ active: sourceFilter === cat }"
-          >
-            {{ cat }} Sources
-          </button>
+        <div class="venue-sources-info">
+          <p>Create a master node to manage all venue sources (DJ feeds, Program sources, etc.) in one place.</p>
+          <p class="warning-text" v-if="hasVenueSourcesNode">
+            ⚠️ A Venue Sources node already exists. Click on it to configure feeds.
+          </p>
         </div>
         <div class="gear-list">
           <div 
-            v-for="src in filteredSourcePresets" 
-            :key="src.key"
-            @click="addSourceNode(src)"
-            class="gear-item"
+            v-if="!hasVenueSourcesNode"
+            @click="addSourceNode(venueSourcePreset)"
+            class="gear-item venue-sources-item"
           >
-            <div class="gear-icon">{{ src.isVenueSources ? '🎛️' : '🎚️' }}</div>
+            <div class="gear-icon">🎛️</div>
             <div class="gear-info">
-              <div class="gear-name">{{ src.name }}</div>
-              <div class="gear-details">
-                <span v-if="src.isVenueSources">Master hub for all venue sources</span>
-                <span v-else>{{ src.outputs }} {{ src.outputs === 2 ? 'channels (L/R)' : 'channel' }}</span>
-              </div>
+              <div class="gear-name">Venue Sources</div>
+              <div class="gear-details">Master hub for all venue sources</div>
             </div>
+          </div>
+          <div v-else class="venue-sources-exists">
+            <p>Venue Sources node already exists. Click on it in the signal flow to configure feeds.</p>
           </div>
         </div>
       </div>
@@ -376,8 +364,6 @@ const showVenueSourcesConfig = ref(false)
 const selectedVenueSourcesNode = ref(null)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
-const sourceFilter = ref('Stereo')
-const sourceNumberingStyle = ref('numbers')
 const submittingConnection = ref(false)
 
 // Connection type colors - chosen for good contrast with light background (#f8f9fa)
@@ -419,27 +405,14 @@ const availableGear = computed(() => {
   )
 })
 
-// Source presets for ad-hoc sources not tied to gear
-const sourcePresets = [
-  { key: 'venue_sources', name: 'Venue Sources', outputs: 0, category: 'Master', isVenueSources: true },
-  { key: 'dj_lr', name: 'DJ LR', outputs: 2, category: 'Stereo' },
-  { key: 'foh_lr', name: 'Program LR', outputs: 2, category: 'Stereo' },
-  { key: 'stereo_stem', name: 'Stereo Stem', outputs: 2, category: 'Stereo' },
-  { key: 'handheld_mic', name: 'HandHeld Mic', outputs: 1, category: 'Mono' },
-  { key: 'handheld_group', name: 'HandHeld Mic Group', outputs: 1, category: 'Mono' },
-  { key: 'mono_stem', name: 'Mono Stem', outputs: 1, category: 'Mono' }
-]
-const filteredSourcePresets = computed(() => {
-  const filtered = sourcePresets.filter(s => {
-    if (s.isVenueSources) return true // Always show Venue Sources
-    return s.category === sourceFilter.value
-  })
-  // Sort so Venue Sources appears first
-  return filtered.sort((a, b) => {
-    if (a.isVenueSources) return -1
-    if (b.isVenueSources) return 1
-    return 0
-  })
+// Venue Sources preset - only one type now
+const venueSourcePreset = { key: 'venue_sources', name: 'Venue Sources', outputs: 0, category: 'Master', isVenueSources: true }
+
+// Check if Venue Sources node already exists
+const hasVenueSourcesNode = computed(() => {
+  return props.nodes.some(n => 
+    n.gear_type === 'venue_sources' || n.node_type === 'venue_sources'
+  )
 })
 
 // Combined nodes for modal
@@ -1688,155 +1661,47 @@ async function addGearNode(gear) {
   }
 }
 
-function nextNumberedLabel(baseName) {
-  const useLetters = sourceNumberingStyle.value === 'letters'
-  
-  if (useLetters) {
-    // Find existing nodes with letter suffixes like "DJ LR (A)", "DJ LR (B)", etc.
-    const regex = new RegExp(`^${baseName} \\(([A-Z])\\)$`)
-    const usedLetters = new Set()
-    props.nodes.forEach(n => {
-      const m = (n.label || '').match(regex)
-      if (m) usedLetters.add(m[1])
-    })
-    
-    // Find next available letter
-    for (let i = 0; i < 26; i++) {
-      const letter = String.fromCharCode(65 + i) // A-Z
-      if (!usedLetters.has(letter)) {
-        return `${baseName} (${letter})`
-      }
-    }
-    // Fallback to numbers if we run out of letters
-    const numRegex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
-    let max = 0
-    props.nodes.forEach(n => {
-      const m = (n.label || '').match(numRegex)
-      if (m) max = Math.max(max, Number(m[1]))
-    })
-    return `${baseName} (${max + 1})`
-  } else {
-    // Find existing nodes with the same base prefix using numbers
-    const regex = new RegExp(`^${baseName} \\((\\d+)\\)$`)
-    let max = 0
-    props.nodes.forEach(n => {
-      const m = (n.label || '').match(regex)
-      if (m) max = Math.max(max, Number(m[1]))
-    })
-    return `${baseName} (${max + 1})`
-  }
-}
 
 async function addSourceNode(preset) {
   try {
-    // Handle Venue Sources master node
-    if (preset.key === 'venue_sources') {
-      // Check if Venue Sources node already exists for this project
-      const existingVenueSources = props.nodes.find(n => 
-        n.gear_type === 'venue_sources' || n.node_type === 'venue_sources'
-      )
-      if (existingVenueSources) {
-        toast.warning('Venue Sources node already exists. Please configure the existing node.')
-        closeSourceModal()
-        return
-      }
-      
-      // Create Venue Sources master node
-      const newNode = await addNode({
-        project_id: props.projectId,
-        type: 'venue_sources',
-        label: 'Venue Sources',
-        track_name: 'Venue Sources',
-        x: 0.5,
-        y: 0.5,
-        flow_x: 0.5,
-        flow_y: 0.5,
-        gear_type: 'venue_sources',
-        node_type: 'venue_sources',
-        num_inputs: 0,
-        num_outputs: 0, // Will be calculated based on feeds
-        num_tracks: 0,
-        output_port_labels: {} // Will be populated when feeds are added
-      })
-      
-      // Initialize with default feeds: DJ A, DJ B, Program 1
-      // These will be created via the configuration modal
-      emit('node-added', newNode)
-      closeSourceModal()
-      toast.success('Venue Sources node created. Click to configure feeds.')
-      nextTick(drawCanvas)
+    // Only handle Venue Sources now
+    if (preset.key !== 'venue_sources') {
+      toast.error('Only Venue Sources can be added')
       return
     }
     
-    // Handle regular source nodes (existing logic)
-    let base = preset.name
-    if (preset.key === 'mono_stem' || preset.key === 'stereo_stem') {
-      const userName = prompt('Enter stem name (e.g., Violin, Drums, Keys):', '')
-      if (userName === null) return
-      const trimmed = (userName || '').trim()
-      if (!trimmed) return
-      base = `Stem - ${trimmed}`
-    }
-    const label = nextNumberedLabel(base)
-    const outCount = preset.outputs
-    
-    // Generate output port labels for all sources (both mono and stereo)
-    // This ensures consistent label tracking in the tracklist
-    let outputPortLabels = null
-    
-    // Extract base name and numbering suffix from label
-    const labelMatch = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-    let baseName
-    let numSuffix = ''
-    
-    if (labelMatch) {
-      baseName = labelMatch[1].replace(/\s*LR$/i, '').trim()
-      numSuffix = ` (${labelMatch[2]})`
-    } else {
-      baseName = label.replace(/\s*LR$/i, '').trim()
+    // Check if Venue Sources node already exists for this project
+    if (hasVenueSourcesNode.value) {
+      toast.warning('Venue Sources node already exists. Please configure the existing node.')
+      closeSourceModal()
+      return
     }
     
-    if (outCount === 2) {
-      // Generate explicit port labels for stereo sources: Port 1 = L, Port 2 = R
-      outputPortLabels = {
-        "1": `${baseName} L${numSuffix}`,
-        "2": `${baseName} R${numSuffix}`
-      }
-    } else {
-      // For mono sources, store the base label with numbering on port 1
-      // This ensures the source name appears consistently in the tracklist
-      outputPortLabels = {
-        "1": `${baseName}${numSuffix}`
-      }
-    }
-    
-    // Create the source node - the node ID is the primary identifier
-    // The label is for display, but all connections will reference this node by ID
+    // Create Venue Sources master node
     const newNode = await addNode({
       project_id: props.projectId,
-      type: 'source',
-      label, // Display name (e.g., "DJ LR (1)")
-      // For stems, keep a clean base name as track_name; others can omit
-      track_name: (preset.key === 'mono_stem' || preset.key === 'stereo_stem') ? base : null,
+      type: 'venue_sources',
+      label: 'Venue Sources',
+      track_name: 'Venue Sources',
       x: 0.5,
       y: 0.5,
       flow_x: 0.5,
       flow_y: 0.5,
-      gear_type: 'source',
+      gear_type: 'venue_sources',
+      node_type: 'venue_sources',
       num_inputs: 0,
-      num_outputs: outCount,
+      num_outputs: 0, // Will be calculated based on feeds
       num_tracks: 0,
-      output_port_labels: outputPortLabels // Port labels map port numbers to names (e.g., "1": "DJ L (1)")
+      output_port_labels: {} // Will be populated when feeds are added
     })
-    // newNode.id is the unique identifier - connections will use from_node_id = newNode.id
-    // This ensures tracking even if the label changes later
+    
     emit('node-added', newNode)
     closeSourceModal()
-    toast.success(`Added ${label}`)
+    toast.success('Venue Sources node created. Click to configure feeds.')
     nextTick(drawCanvas)
   } catch (err) {
-    console.error('Error adding source:', err)
-    toast.error('Failed to add source')
+    console.error('Error adding venue sources node:', err)
+    toast.error('Failed to add Venue Sources node: ' + (err.message || 'Unknown error'))
   }
 }
 
@@ -2305,6 +2170,46 @@ function exportToPDF() {
 </script>
 
 <style scoped>
+.venue-sources-info {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.venue-sources-info p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+.warning-text {
+  color: #dc3545;
+  font-weight: 500;
+  margin-top: 0.75rem !important;
+}
+
+.venue-sources-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.venue-sources-item:hover {
+  background-color: #f0f0f0;
+}
+
+.venue-sources-exists {
+  padding: 1.5rem;
+  text-align: center;
+  color: #666;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+}
+
+.venue-sources-exists p {
+  margin: 0;
+}
+
 .signal-flow-container {
   padding: 20px;
   min-height: 100vh;
