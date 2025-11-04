@@ -914,6 +914,55 @@ function addPortMapping() {
   newMappingToPort.value = null
 }
 
+// Add venue source port mapping from text input
+function addVenueSourcePortMapping() {
+  const label = venueSourceLabelInput.value?.trim()
+  if (!label || !newMappingToPort.value) {
+    toast.error('Please enter a label and select a destination port')
+    return
+  }
+  
+  // Check if the selected to_port is disabled (taken)
+  const selectedOpt = availableToPorts.value.find(o => o.value === newMappingToPort.value)
+  if (selectedOpt && selectedOpt.disabled) {
+    toast.error('This port is already assigned to another source')
+    return
+  }
+  
+  // Check if destination port is already in use in current mappings
+  const portAlreadyUsed = portMappings.value.some(m => m.to_port === newMappingToPort.value)
+  if (portAlreadyUsed) {
+    toast.error('This port is already mapped in this connection')
+    return
+  }
+  
+  // Find next available from_port (venue sources use sequential port numbers)
+  const usedPorts = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
+  let nextPort = venueSourceNextPort
+  while (usedPorts.has(nextPort)) {
+    nextPort++
+  }
+  
+  // Add mapping with label stored in a custom property for display
+  portMappings.value.push({
+    from_port: nextPort,
+    to_port: newMappingToPort.value,
+    label: label // Store label for display
+  })
+  
+  // Update upstreamSourceLabels for display
+  upstreamSourceLabels.value[nextPort] = label
+  
+  // Update port counter for next mapping
+  venueSourceNextPort = nextPort + 1
+  
+  // Clear inputs
+  venueSourceLabelInput.value = ''
+  newMappingToPort.value = null
+  
+  toast.success(`Added ${label} → Input ${nextPort}`)
+}
+
 function removePortMapping(index) {
   portMappings.value.splice(index, 1)
   if (editingIdx.value === index) {
