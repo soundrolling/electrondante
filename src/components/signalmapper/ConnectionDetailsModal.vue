@@ -700,8 +700,8 @@ async function loadToRecorderTrackNames() {
   toRecorderTrackNames.value = trackNames
 }
 
-// Initialize venue source port counter when modal opens
-watch(() => props.fromNode, () => {
+// Initialize venue source port counter when modal opens or when mappings change
+watch([() => props.fromNode?.id, () => portMappings.value.length], () => {
   if (isVenueSources.value) {
     // Reset port counter and find next available port
     const usedPorts = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
