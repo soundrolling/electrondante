@@ -1794,6 +1794,15 @@ onMounted(async () => {
   // Load already-taken mapped ports for source and target across existing connections
   await loadTakenPorts()
   
+  // Initialize venue source port counter
+  if (isVenueSources.value) {
+    const usedPorts = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
+    venueSourceNextPort = 1
+    while (usedPorts.has(venueSourceNextPort)) {
+      venueSourceNextPort++
+    }
+  }
+  
   // Load recorder track names if FROM node is a recorder
   await loadRecorderTrackNames()
   // Load recorder track names if TO node is a recorder
