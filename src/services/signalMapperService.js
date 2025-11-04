@@ -130,10 +130,54 @@ export async function getSourceNodes(projectId) {
 
 // Centralized function to get source label from a node
 // Always prioritizes output_port_labels (most reliable) and handles mono/stereo correctly
-export function getSourceLabelFromNode(node, outputPort) {
+export async function getSourceLabelFromNode(node, outputPort) {
   if (!node) return null
   
   const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
+  
+  // Handle venue_sources node type
+  if (nodeType === 'venue_sources') {
+    // Query venue_source_feeds table to resolve port number to source type + feed
+    try {
+      const { data: feeds, error } = await supabase
+        .from('venue_source_feeds')
+        .select('*')
+        .eq('node_id', node.id)
+        .eq('port_number', outputPort)
+        .maybeSingle()
+      
+      if (error) {
+        console.error('Error querying venue_source_feeds:', error)
+        return null
+      }
+      
+      if (feeds) {
+        const sourceTypeName = feeds.source_type.charAt(0).toUpperCase() + feeds.source_type.slice(1).replace(/_/g, ' ')
+        if (feeds.channel === 2) {
+          return `${sourceTypeName} ${feeds.feed_identifier} R`
+        } else {
+          // Check if stereo (has channel 2)
+          const { data: stereoCheck } = await supabase
+            .from('venue_source_feeds')
+            .select('id')
+            .eq('node_id', node.id)
+            .eq('source_type', feeds.source_type)
+            .eq('feed_identifier', feeds.feed_identifier)
+            .eq('channel', 2)
+            .maybeSingle()
+          
+          if (stereoCheck) {
+            return `${sourceTypeName} ${feeds.feed_identifier} L`
+          }
+          return `${sourceTypeName} ${feeds.feed_identifier}`
+        }
+      }
+    } catch (err) {
+      console.error('Error in getSourceLabelFromNode for venue_sources:', err)
+    }
+    return null
+  }
+  
   if (nodeType !== 'source') return null
   
   const outCount = node?.num_outputs || node?.outputs || 0
@@ -304,7 +348,7 @@ export async function getCompleteSignalPath(projectId) {
       }
 
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum)
+      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = await resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum)
 
       // For uniqueness, key off recorder + track + source node id + source output port
       // This ensures L and R from the same source are treated as separate paths
@@ -362,7 +406,7 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (node.gear_type === 'source' || node.node_type === 'source') {
       // Use centralized helper function - ensures consistent label retrieval
       // currentInput should represent the source output port (1=L, 2=R for stereo)
-      const sourceName = getSourceLabelFromNode(node, currentInput)
+      const sourceName = await getSourceLabelFromNode(node, currentInput)
       if (sourceName) {
         labels.push(sourceName)
         finalSourceNode = node
@@ -373,6 +417,20 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
         } else if (node.num_outputs === 1 || node.outputs === 1) {
           sourceOutputPort = 1 // Mono sources always use port 1
         }
+      }
+      break
+    }
+    
+    // Handle venue_sources node type
+    if (node.gear_type === 'venue_sources' || node.node_type === 'venue_sources') {
+      // Use centralized helper function for venue sources
+      const sourceName = await getSourceLabelFromNode(node, currentInput)
+      if (sourceName) {
+        labels.push(sourceName)
+        finalSourceNode = node
+        finalSourceLabel = sourceName
+        // For venue sources, sourceOutputPort is the port number
+        sourceOutputPort = currentInput
       }
       break
     }

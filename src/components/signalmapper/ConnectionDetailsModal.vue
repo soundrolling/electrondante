@@ -90,16 +90,53 @@
               </div>
             </div>
             <div class="port-mapping-add">
-              <select class="form-select" v-model.number="newMappingFromPort" :disabled="availableFromPorts.length === 0">
-                <option :value="null">{{ isTransformerFrom ? 'From Source' : 'From Port' }}</option>
-                <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <span class="arrow">→</span>
-              <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.filter(o => !o.disabled).length === 0">
-                <option :value="null">Select To Port</option>
-                <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value" :disabled="opt.disabled">{{ opt.label }}</option>
-              </select>
-              <button type="button" class="btn-add" @click="addPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
+              <!-- Venue Sources: Nested dropdowns (Source Type → Feed) -->
+              <template v-if="isVenueSources">
+                <select 
+                  class="form-select" 
+                  v-model="selectedVenueSourceType"
+                  @change="selectedVenueFeed = null"
+                >
+                  <option :value="null">Select Source Type</option>
+                  <option v-for="type in venueSourceTypes" :key="type" :value="type">{{ type }}</option>
+                </select>
+                <select 
+                  class="form-select" 
+                  v-model="selectedVenueFeed"
+                  :disabled="!selectedVenueSourceType"
+                >
+                  <option :value="null">Select Feed</option>
+                  <option v-for="feed in availableVenueFeeds" :key="feed.identifier" :value="feed.identifier">
+                    {{ feed.identifier }}<span v-if="feed.channels === 2"> (L/R)</span>
+                  </option>
+                </select>
+                <span class="arrow">→</span>
+                <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.filter(o => !o.disabled).length === 0">
+                  <option :value="null">Select To Port</option>
+                  <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value" :disabled="opt.disabled">{{ opt.label }}</option>
+                </select>
+                <button 
+                  type="button" 
+                  class="btn-add" 
+                  @click="addVenueSourcePortMapping" 
+                  :disabled="!selectedVenueSourceType || !selectedVenueFeed || !newMappingToPort"
+                >
+                  Add
+                </button>
+              </template>
+              <!-- Regular port mapping -->
+              <template v-else>
+                <select class="form-select" v-model.number="newMappingFromPort" :disabled="availableFromPorts.length === 0">
+                  <option :value="null">{{ isTransformerFrom ? 'From Source' : 'From Port' }}</option>
+                  <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <span class="arrow">→</span>
+                <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.filter(o => !o.disabled).length === 0">
+                  <option :value="null">Select To Port</option>
+                  <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value" :disabled="opt.disabled">{{ opt.label }}</option>
+                </select>
+                <button type="button" class="btn-add" @click="addPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
+              </template>
             </div>
           </div>
         </div>
@@ -307,6 +344,10 @@ function getType(node){
   return (node?.gearType || node?.gear_type || node?.node_type || '').toLowerCase()
 }
 const isSource = computed(() => getType(props.fromNode) === 'source')
+const isVenueSources = computed(() => {
+  const type = getType(props.fromNode)
+  return type === 'venue_sources'
+})
 const isRecorder = computed(() => getType(props.toNode) === 'recorder')
 const isTransformer = computed(() => getType(props.fromNode) === 'transformer' || getType(props.toNode) === 'transformer')
 // Recorder detection also falls back to presence of track fields
@@ -320,10 +361,11 @@ const isTransformerFrom = computed(() => getType(props.fromNode) === 'transforme
 
 // Use port mapping when neither side is a source and a transformer is involved,
 // or recorder→recorder, or when the from side is a multi-output source going to
-// a transformer/recorder (e.g., stereo source mapping L/R).
+// a transformer/recorder (e.g., stereo source mapping L/R), or venue_sources node.
 const needsPortMapping = computed(() => {
   const multiOutputSource = isSource.value && ((numOutputs.value || 0) > 1) && (isTransformerTo.value || isRecorderTo.value)
-  return (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
+  return isVenueSources.value || // Venue Sources always requires port mapping
+         (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
          (isRecorderFrom.value && isRecorderTo.value) ||
          multiOutputSource
 })
@@ -369,6 +411,11 @@ const recorderTrackNames = ref({})
 const toRecorderTrackNames = ref({})
 // Track if there's an existing connection between fromNode and toNode
 const existingConnectionId = ref(null)
+// Venue Sources: Store feeds loaded from database
+const venueSourceFeeds = ref([])
+// Venue Sources: Selected source type and feed for port mapping
+const selectedVenueSourceType = ref(null)
+const selectedVenueFeed = ref(null)
 
 // Check if there's an existing connection
 const hasExistingConnection = computed(() => !!existingConnectionId.value)
@@ -615,11 +662,12 @@ async function loadTakenPorts() {
           const fromNode = props.elements.find(e => e.id === fromNodeId)
           if (fromNode) {
             const fromNodeType = (fromNode.gear_type || fromNode.node_type || '').toLowerCase()
-            if (fromNodeType === 'source') {
+            if (fromNodeType === 'source' || fromNodeType === 'venue_sources') {
               // Direct source connection via port map - use from_port to determine L/R
               // Use centralized helper from signalMapperService
-              const label = getSourceLabelFromNode(fromNode, Number(r.from_port))
-              if (label) portMappedInputLabels.value[inputNum] = label
+              getSourceLabelFromNode(fromNode, Number(r.from_port)).then(label => {
+                if (label) portMappedInputLabels.value[inputNum] = label
+              }).catch(() => {})
             } else {
               // Transformer→Transformer: find incoming connection to this transformer
               const incoming = (props.existingConnections || []).find(c =>
@@ -689,8 +737,56 @@ async function loadToRecorderTrackNames() {
   toRecorderTrackNames.value = trackNames
 }
 
+// Venue Sources: Get available source types
+const venueSourceTypes = computed(() => {
+  if (!isVenueSources.value) return []
+  const types = new Set(venueSourceFeeds.value.map(f => {
+    // Capitalize first letter of source type
+    const type = f.source_type.toLowerCase()
+    return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')
+  }))
+  return Array.from(types).sort()
+})
+
+// Venue Sources: Get available feeds for selected source type
+const availableVenueFeeds = computed(() => {
+  if (!isVenueSources.value || !selectedVenueSourceType.value) return []
+  
+  const typeKey = selectedVenueSourceType.value.toLowerCase().replace(/\s+/g, '_')
+  const feeds = venueSourceFeeds.value
+    .filter(f => f.source_type.toLowerCase() === typeKey && f.channel === 1) // Only show channel 1 (L) for stereo
+    .map(f => ({
+      identifier: f.feed_identifier,
+      channels: venueSourceFeeds.value.filter(f2 => 
+        f2.source_type === f.source_type && 
+        f2.feed_identifier === f.feed_identifier
+      ).length
+    }))
+  
+  // Remove duplicates
+  const unique = feeds.filter((f, idx, arr) => 
+    arr.findIndex(f2 => f2.identifier === f.identifier) === idx
+  )
+  
+  return unique.sort((a, b) => {
+    // Sort by identifier (handle both letters and numbers)
+    if (isNaN(a.identifier) && isNaN(b.identifier)) {
+      return a.identifier.localeCompare(b.identifier)
+    }
+    if (isNaN(a.identifier)) return 1
+    if (isNaN(b.identifier)) return -1
+    return Number(a.identifier) - Number(b.identifier)
+  })
+})
+
 // Get available ports for mapping
 const availableFromPorts = computed(() => {
+  // For venue sources, we use nested dropdowns instead of port list
+  if (isVenueSources.value) {
+    // Return empty array - we'll use nested dropdowns in the template
+    return []
+  }
+  
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
   const opts = []
   for (let n = 1; n <= numOutputs.value; n++) {
@@ -1082,7 +1178,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
   return null
 }
 
-function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
+async function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   // Always use node ID as primary identifier - ensures tracking even if names change
   const srcId = incoming.from_node_id || incoming.from
   if (!srcId) return 'Connected'
@@ -1093,11 +1189,11 @@ function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   
   const srcType = (src.gear_type || src.node_type || '').toLowerCase()
   
-  // If this is a source, use centralized helper to get label
-  if (srcType === 'source') {
+  // If this is a source or venue_sources, use centralized helper to get label
+  if (srcType === 'source' || srcType === 'venue_sources') {
     // inputNum should represent the source output port (1=L, 2=R for stereo)
     const inputNum = incoming.input_number || incoming.output_number || 1
-    const label = getSourceLabelFromNode(src, inputNum)
+    const label = await getSourceLabelFromNode(src, inputNum)
     if (label) return label
     // Fallback if helper returns null
     return src.track_name || src.label || 'Connected'

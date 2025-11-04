@@ -263,11 +263,12 @@
             @click="addSourceNode(src)"
             class="gear-item"
           >
-            <div class="gear-icon">🎚️</div>
+            <div class="gear-icon">{{ src.isVenueSources ? '🎛️' : '🎚️' }}</div>
             <div class="gear-info">
               <div class="gear-name">{{ src.name }}</div>
               <div class="gear-details">
-                {{ src.outputs }} {{ src.outputs === 2 ? 'channels (L/R)' : 'channel' }}
+                <span v-if="src.isVenueSources">Master hub for all venue sources</span>
+                <span v-else>{{ src.outputs }} {{ src.outputs === 2 ? 'channels (L/R)' : 'channel' }}</span>
               </div>
             </div>
           </div>
@@ -286,6 +287,15 @@
     :projectId="projectId"
     @confirm="confirmConnection"
     @cancel="closeConnectionModal"
+  />
+  
+  <!-- Venue Sources Configuration Modal -->
+  <VenueSourcesConfigModal
+    v-if="showVenueSourcesConfig && selectedVenueSourcesNode"
+    :nodeId="selectedVenueSourcesNode.id"
+    :projectId="projectId"
+    @saved="handleVenueSourcesSaved"
+    @close="showVenueSourcesConfig = false"
   />
 </div>
 </template>
@@ -362,6 +372,8 @@ const zoomStep = 0.25
 const showGearModal = ref(false)
 const showSourceModal = ref(false)
 const showConnectionModal = ref(false)
+const showVenueSourcesConfig = ref(false)
+const selectedVenueSourcesNode = ref(null)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
 const sourceFilter = ref('Stereo')
@@ -409,6 +421,7 @@ const availableGear = computed(() => {
 
 // Source presets for ad-hoc sources not tied to gear
 const sourcePresets = [
+  { key: 'venue_sources', name: 'Venue Sources', outputs: 0, category: 'Master', isVenueSources: true },
   { key: 'dj_lr', name: 'DJ LR', outputs: 2, category: 'Stereo' },
   { key: 'foh_lr', name: 'Program LR', outputs: 2, category: 'Stereo' },
   { key: 'stereo_stem', name: 'Stereo Stem', outputs: 2, category: 'Stereo' },
@@ -416,7 +429,18 @@ const sourcePresets = [
   { key: 'handheld_group', name: 'HandHeld Mic Group', outputs: 1, category: 'Mono' },
   { key: 'mono_stem', name: 'Mono Stem', outputs: 1, category: 'Mono' }
 ]
-const filteredSourcePresets = computed(() => sourcePresets.filter(s => s.category === sourceFilter.value))
+const filteredSourcePresets = computed(() => {
+  const filtered = sourcePresets.filter(s => {
+    if (s.isVenueSources) return true // Always show Venue Sources
+    return s.category === sourceFilter.value
+  })
+  // Sort so Venue Sources appears first
+  return filtered.sort((a, b) => {
+    if (a.isVenueSources) return -1
+    if (b.isVenueSources) return 1
+    return 0
+  })
+})
 
 // Combined nodes for modal
 const allNodesForModal = computed(() => props.nodes)
@@ -1465,6 +1489,14 @@ function onPointerDown(e) {
       draggingNode.value = clickedNode
       dragStart = { x, y }
       selectedConnectionId.value = null // Clear connection selection when selecting a node
+      
+      // If Venue Sources node is clicked, open configuration modal
+      const nodeType = (clickedNode.gear_type || clickedNode.node_type || '').toLowerCase()
+      if (nodeType === 'venue_sources') {
+        selectedVenueSourcesNode.value = clickedNode
+        showVenueSourcesConfig.value = true
+      }
+      
       drawCanvas() // Redraw to show the selection immediately
     } else {
       // Clicked on empty space - check if it's a connection first
@@ -1697,6 +1729,46 @@ function nextNumberedLabel(baseName) {
 
 async function addSourceNode(preset) {
   try {
+    // Handle Venue Sources master node
+    if (preset.key === 'venue_sources') {
+      // Check if Venue Sources node already exists for this project
+      const existingVenueSources = props.nodes.find(n => 
+        n.gear_type === 'venue_sources' || n.node_type === 'venue_sources'
+      )
+      if (existingVenueSources) {
+        toast.warning('Venue Sources node already exists. Please configure the existing node.')
+        closeSourceModal()
+        return
+      }
+      
+      // Create Venue Sources master node
+      const newNode = await addNode({
+        project_id: props.projectId,
+        type: 'venue_sources',
+        label: 'Venue Sources',
+        track_name: 'Venue Sources',
+        x: 0.5,
+        y: 0.5,
+        flow_x: 0.5,
+        flow_y: 0.5,
+        gear_type: 'venue_sources',
+        node_type: 'venue_sources',
+        num_inputs: 0,
+        num_outputs: 0, // Will be calculated based on feeds
+        num_tracks: 0,
+        output_port_labels: {} // Will be populated when feeds are added
+      })
+      
+      // Initialize with default feeds: DJ A, DJ B, Program 1
+      // These will be created via the configuration modal
+      emit('node-added', newNode)
+      closeSourceModal()
+      toast.success('Venue Sources node created. Click to configure feeds.')
+      nextTick(drawCanvas)
+      return
+    }
+    
+    // Handle regular source nodes (existing logic)
     let base = preset.name
     if (preset.key === 'mono_stem' || preset.key === 'stereo_stem') {
       const userName = prompt('Enter stem name (e.g., Violin, Drums, Keys):', '')
@@ -1832,6 +1904,24 @@ async function cascadeDeleteNode(nodeId) {
     console.error('Error deleting node:', err)
     throw err
   }
+}
+
+async function deleteSelected() {
+  if (!selectedNode.value) return
+
+  const isSource = (selectedNode.value.gear_type || selectedNode.value.node_type) === 'source'
+  if (isSource) {
+    const isAdHoc = (selectedNode.value.type === 'source') || !selectedNode.value.gear_id
+    if (!isAdHoc) {
+      toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
+      return
+    }
+  }
+
+function handleVenueSourcesSaved() {
+  // Reload nodes to get updated output counts and labels
+  emit('node-updated', selectedVenueSourcesNode.value)
+  // The parent will reload nodes and connections
 }
 
 async function deleteSelected() {
