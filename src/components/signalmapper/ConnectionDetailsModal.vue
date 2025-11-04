@@ -341,7 +341,7 @@ function centerModal() {
 }
 
 function getType(node){
-  return (node?.gearType || node?.gear_type || node?.node_type || '').toLowerCase()
+  return (node?.gearType || node?.gear_type || node?.type || '').toLowerCase()
 }
 const isSource = computed(() => getType(props.fromNode) === 'source')
 const isVenueSources = computed(() => {
@@ -478,7 +478,7 @@ async function buildUpstreamSourceLabels() {
       const parentFromNode = props.elements.find(e => e.id === parentConn.from_node_id)
       if (!parentFromNode) continue
       
-      const fromNodeType = (parentFromNode.gear_type || parentFromNode.node_type || '').toLowerCase()
+      const fromNodeType = (parentFromNode.gear_type || parentFromNode.type || '').toLowerCase()
       
       if (maps && maps.length > 0) {
         // Connection has port maps - process each mapping
@@ -661,7 +661,7 @@ async function loadTakenPorts() {
         if (fromNodeId) {
           const fromNode = props.elements.find(e => e.id === fromNodeId)
           if (fromNode) {
-            const fromNodeType = (fromNode.gear_type || fromNode.node_type || '').toLowerCase()
+            const fromNodeType = (fromNode.gear_type || fromNode.type || '').toLowerCase()
             if (fromNodeType === 'source' || fromNodeType === 'venue_sources') {
               // Direct source connection via port map - use from_port to determine L/R
               // Use centralized helper from signalMapperService
@@ -1118,7 +1118,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
             const upstreamNodeId = conn.from_node_id
             const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
             if (upstreamNode) {
-              const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
+              const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
               if (upstreamType === 'source') {
                 // Direct source - get source label
                 const incoming = { 
@@ -1142,7 +1142,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
             const upstreamNodeId = conn.from_node_id
             const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
             if (upstreamNode) {
-              const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
+              const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
               if (upstreamType === 'source') {
                 const incoming = { 
                   from_node_id: upstreamNodeId, 
@@ -1187,7 +1187,7 @@ async function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   const src = props.elements.find(e => e.id === srcId)
   if (!src) return 'Connected'
   
-  const srcType = (src.gear_type || src.node_type || '').toLowerCase()
+  const srcType = (src.gear_type || src.type || '').toLowerCase()
   
   // If this is a source or venue_sources, use centralized helper to get label
   if (srcType === 'source' || srcType === 'venue_sources') {
@@ -1750,7 +1750,7 @@ errorMsg.value = ''
 }
 
 const isTransformerToRecorder = computed(() =>
-((props.fromNode.gearType || props.fromNode.node_type) === 'transformer' && (props.toNode.gearType || props.toNode.node_type) === 'recorder')
+((props.fromNode.gearType || props.fromNode.type) === 'transformer' && (props.toNode.gearType || props.toNode.type) === 'recorder')
 )
 
 function confirmTransformerToRecorder() {
@@ -1778,7 +1778,7 @@ function isStereoDJSource(node) {
   // Check if it's a DJ source by name or gear type
   const label = (node.label || '').toLowerCase()
   const trackName = (node.track_name || '').toLowerCase()
-  const gearType = (node.gear_type || node.node_type || '').toLowerCase()
+  const gearType = (node.gear_type || node.type || '').toLowerCase()
   
   return gearType === 'dj_lr' || 
          label.includes('dj') || 
@@ -1829,8 +1829,8 @@ onMounted(async () => {
   // Check for existing connection
   await checkExistingConnection()
   
-  const fromType = props.fromNode.gearType || props.fromNode.node_type
-  const toType = props.toNode.gearType || props.toNode.node_type
+  const fromType = props.fromNode.gearType || props.fromNode.type
+  const toType = props.toNode.gearType || props.toNode.type
   if (fromType === 'transformer' && toType === 'recorder') {
     // Immediately emit confirm and do not render modal
     emit('confirm', {

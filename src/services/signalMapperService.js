@@ -133,7 +133,7 @@ export async function getSourceNodes(projectId) {
 export async function getSourceLabelFromNode(node, outputPort) {
   if (!node) return null
   
-  const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
+  const nodeType = (node.gear_type || node.type || '').toLowerCase()
   
   // Handle venue_sources node type
   if (nodeType === 'venue_sources') {
@@ -284,7 +284,7 @@ export async function getCompleteSignalPath(projectId) {
   }
   
   // Find all recorder nodes
-  const recorders = nodes.filter(n => n.gear_type === 'recorder' || n.node_type === 'recorder')
+  const recorders = nodes.filter(n => n.gear_type === 'recorder' || n.type === 'recorder')
   
   // Build signal paths for each recorder track
   const signalPaths = []
@@ -338,7 +338,7 @@ export async function getCompleteSignalPath(projectId) {
         // This is an expanded port map connection - from_port tells us the source output (1=L, 2=R)
         // Check if the from_node is a source - if so, we can use from_port directly for L/R determination
         const fromNode = nodeMap[conn.from_node_id]
-        if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
+        if (fromNode && (fromNode.gear_type === 'source' || fromNode.type === 'source')) {
           startInput = conn.from_port // Use from_port (1 or 2) for source output detection
           recorderTrackNum = conn.input_number // Keep original track number for label
         } else {
@@ -423,7 +423,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
     }
     
     // Handle venue_sources node type
-    if (node.gear_type === 'venue_sources' || node.node_type === 'venue_sources') {
+    if (node.gear_type === 'venue_sources' || node.type === 'venue_sources') {
       // Use centralized helper function for venue sources
       const sourceName = await getSourceLabelFromNode(node, currentInput)
       if (sourceName) {
@@ -437,7 +437,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
     }
     
     // Check if this is a recorder - if so, we need to trace what's feeding its track (output port)
-    if (node.gear_type === 'recorder' || node.node_type === 'recorder') {
+    if (node.gear_type === 'recorder' || node.type === 'recorder') {
       // For recorders, currentInput represents the track number (output port)
       // We need to find what's feeding this recorder's track
       const recorderParents = parentConnsByToNode[currentNodeId] || []
@@ -490,7 +490,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
               sourcePort = trackConn.output_number || trackConn.input_number || 1
               
               // If source is stereo and we have multiple connections, try to infer L/R
-              if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
+              if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.type === 'source')) {
                 if ((sourceNode.num_outputs === 2 || sourceNode.outputs === 2)) {
                   const allSourceConns = recorderParents.filter(c => 
                     c.from_node_id === sourceNodeId
@@ -511,7 +511,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
           }
           
           // Check if source is another recorder - recursively trace
-          if (sourceNode.gear_type === 'recorder' || sourceNode.node_type === 'recorder') {
+          if (sourceNode.gear_type === 'recorder' || sourceNode.type === 'recorder') {
             // Source is another recorder - continue tracing from its output port
             currentNodeId = sourceNodeId
             currentInput = sourcePort
@@ -561,7 +561,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
       const parentNode = nodeMap[currentNodeId]
       
       // If parent is a source, from_port directly tells us source output (1 or 2)
-      if (parentNode && (parentNode.gear_type === 'source' || parentNode.node_type === 'source')) {
+      if (parentNode && (parentNode.gear_type === 'source' || parentNode.type === 'source')) {
         currentInput = row.from_port // This is the source output port (1 or 2)
         continue
       }
@@ -608,7 +608,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
       currentNodeId = matchingConn.from_node_id
       const fromNode = nodeMap[currentNodeId]
       
-      if (fromNode && (fromNode.gear_type === 'source' || fromNode.node_type === 'source')) {
+      if (fromNode && (fromNode.gear_type === 'source' || fromNode.type === 'source')) {
         // Reached a source - determine L/R for stereo sources
         if ((fromNode.num_outputs === 2 || fromNode.outputs === 2)) {
           // Check if there's a port map from source to transformer - this is the most reliable way
@@ -700,7 +700,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
           
           // No port map or didn't find matching map - check if parent is a source
           const nextNode = nodeMap[nextConn.from_node_id]
-          if (nextNode && (nextNode.gear_type === 'source' || nextNode.node_type === 'source')) {
+          if (nextNode && (nextNode.gear_type === 'source' || nextNode.type === 'source')) {
             // Parent is a source - for direct connections, we need to determine which source output
             // Check if there are multiple connections from this source to help determine L/R
             const sourceConnections = transformerParents.filter(c => 
@@ -751,8 +751,8 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
       // If this is a transformer, try to find ANY connection to continue tracing
       const node = nodeMap[currentNodeId]
       const isTransformer = node && 
-        (node.gear_type === 'transformer' || node.node_type === 'transformer' ||
-         (node.gear_type !== 'source' && node.node_type !== 'source' && node.gear_type !== 'recorder' && node.node_type !== 'recorder'))
+        (node.gear_type === 'transformer' || node.type === 'transformer' ||
+         (node.gear_type !== 'source' && node.type !== 'source' && node.gear_type !== 'recorder' && node.type !== 'recorder'))
       
       if (isTransformer && parents.length > 0) {
         // Try to find connection with port maps first
@@ -767,7 +767,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
           if (mapRow) {
             currentNodeId = portMappedParent.from_node_id
             const parentNode = nodeMap[currentNodeId]
-            if (parentNode && (parentNode.gear_type === 'source' || parentNode.node_type === 'source')) {
+            if (parentNode && (parentNode.gear_type === 'source' || parentNode.type === 'source')) {
               currentInput = mapRow.from_port // Source output port (1 or 2)
             } else {
               currentInput = mapRow.from_port // Transformer output port
@@ -789,14 +789,14 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
           if (fallbackMaps.length > 0) {
             // Has port maps - use from_port of first map
             const firstMap = fallbackMaps[0]
-            if (fallbackNode && (fallbackNode.gear_type === 'source' || fallbackNode.node_type === 'source')) {
+            if (fallbackNode && (fallbackNode.gear_type === 'source' || fallbackNode.type === 'source')) {
               currentInput = firstMap.from_port // Source output port
             } else {
               currentInput = firstMap.from_port // Upstream output port
             }
           } else {
             // No port maps - check if it's a source
-            if (fallbackNode && (fallbackNode.gear_type === 'source' || fallbackNode.node_type === 'source')) {
+            if (fallbackNode && (fallbackNode.gear_type === 'source' || fallbackNode.type === 'source')) {
               // Determine source output from connection context
               if ((fallbackNode.num_outputs === 2 || fallbackNode.outputs === 2)) {
                 const siblings = parents
@@ -828,7 +828,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
   // Look at connections feeding the transformer to get the source name
   if (!finalSourceNode && currentNodeId) {
     const lastNode = nodeMap[currentNodeId]
-    if (lastNode && (lastNode.gear_type === 'source' || lastNode.node_type === 'source')) {
+    if (lastNode && (lastNode.gear_type === 'source' || lastNode.type === 'source')) {
       // We actually did reach a source
       finalSourceNode = lastNode
       const trackName = lastNode.track_name || ''
@@ -844,7 +844,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
         
         if (sourceConn) {
           const sourceNode = nodeMap[sourceConn.from_node_id]
-        if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.node_type === 'source')) {
+        if (sourceNode && (sourceNode.gear_type === 'source' || sourceNode.type === 'source')) {
           finalSourceNode = sourceNode
           
           // Check for stored output port labels first (most reliable for stereo sources)

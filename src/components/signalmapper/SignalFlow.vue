@@ -388,13 +388,13 @@ function getConnectionColor(type) {
 
 // Node counts
 const sourceCount = computed(() => 
-  props.nodes.filter(n => (n.gear_type || n.node_type) === 'source').length
+  props.nodes.filter(n => (n.gear_type || n.type) === 'source').length
 )
 const transformerCount = computed(() => 
-  props.nodes.filter(n => (n.gear_type || n.node_type) === 'transformer').length
+  props.nodes.filter(n => (n.gear_type || n.type) === 'transformer').length
 )
 const recorderCount = computed(() => 
-  props.nodes.filter(n => (n.gear_type || n.node_type) === 'recorder').length
+  props.nodes.filter(n => (n.gear_type || n.type) === 'recorder').length
 )
 
 // Available gear for modal
@@ -411,7 +411,7 @@ const venueSourcePreset = { key: 'venue_sources', name: 'Venue Sources', outputs
 // Check if Venue Sources node already exists
 const hasVenueSourcesNode = computed(() => {
   return props.nodes.some(n => 
-    n.gear_type === 'venue_sources' || n.node_type === 'venue_sources'
+    n.gear_type === 'venue_sources' || (n.type === 'venue_sources')
   )
 })
 
@@ -429,18 +429,18 @@ const toNodeOfSelected = computed(() => {
   if (!c) return null
   return props.nodes.find(n => n.id === c.to_node_id) || null
 })
-const fromNodeType = computed(() => (fromNodeOfSelected.value?.gear_type || fromNodeOfSelected.value?.node_type || '').toLowerCase())
-const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOfSelected.value?.node_type || '').toLowerCase())
+const fromNodeType = computed(() => (fromNodeOfSelected.value?.gear_type || fromNodeOfSelected.value?.type || '').toLowerCase())
+const toNodeType = computed(() => (toNodeOfSelected.value?.gear_type || toNodeOfSelected.value?.type || '').toLowerCase())
 const isRecorderFrom = computed(() => {
   const from = fromNodeOfSelected.value
   if (!from) return false
-  const type = (from.gear_type || from.node_type || '').toLowerCase()
+  const type = (from.gear_type || from.type || '').toLowerCase()
   return type === 'recorder' || !!(from.num_tracks || from.tracks || from.num_records || from.numrecord)
 })
 const isRecorderTo = computed(() => {
   const to = toNodeOfSelected.value
   if (!to) return false
-  const type = (to.gear_type || to.node_type || '').toLowerCase()
+  const type = (to.gear_type || to.type || '').toLowerCase()
   return type === 'recorder' || !!(to.num_tracks || to.tracks || to.num_records || to.numrecord)
 })
 
@@ -470,7 +470,7 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   const node = props.nodes.find(n => n.id === nodeId)
   if (!node) return null
   
-  const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
+  const nodeType = (node.gear_type || node.type || '').toLowerCase()
   
   // If it's a source, use centralized helper to get label
   if (nodeType === 'source') {
@@ -490,7 +490,7 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
       const parentNode = props.nodes.find(n => n.id === parentNodeId)
       
       if (parentNode) {
-        const parentType = (parentNode.gear_type || parentNode.node_type || '').toLowerCase()
+        const parentType = (parentNode.gear_type || parentNode.type || '').toLowerCase()
         
         // For port-mapped connections, we might need to trace through the port mapping
         // But for direct connections, if transformer input 1 is connected from parent output X,
@@ -562,7 +562,7 @@ function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   
-  const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  const fromType = (from.gear_type || from.type || '').toLowerCase()
   
   // For recorders, first check the preloaded async names, then fallback to sync version
   if (fromType === 'recorder') {
@@ -689,7 +689,7 @@ async function buildUpstreamLabelsForEdit() {
   upstreamLabelsForFromNode.value = {}
   const from = fromNodeOfSelected.value
   if (!from) return
-  const fromType = (from.gear_type || from.node_type || '').toLowerCase()
+  const fromType = (from.gear_type || from.type || '').toLowerCase()
   
   // For transformers, build upstream labels
   if (fromType === 'transformer') {
@@ -818,7 +818,7 @@ async function traceRecorderTrackNameAsync(recorderId, trackNumber, visitedNodes
   const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
   if (!sourceNode) return null
   
-  const sourceType = (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase()
+  const sourceType = (sourceNode.gear_type || sourceNode.type || '').toLowerCase()
   
   if (sourceType === 'recorder') {
     // Source is another recorder - recursively trace
@@ -1127,7 +1127,7 @@ async function deleteSelectedConnection() {
     // Check if this is a source→transformer connection
     const fromNode = props.nodes.find(n => n.id === c.from_node_id)
     const toNode = props.nodes.find(n => n.id === c.to_node_id)
-    const isSourceConn = (fromNode?.gear_type || fromNode?.node_type) === 'source'
+    const isSourceConn = (fromNode?.gear_type || fromNode?.type) === 'source'
     
     if (isSourceConn && c.input_number && toNode) {
       // Cascade cleanup: remove downstream port mappings that depend on this input
@@ -1281,7 +1281,7 @@ function drawCanvas() {
 }
 
 function drawNode(ctx, node) {
-  const isSource = (node.gear_type || node.node_type) === 'source'
+  const isSource = (node.gear_type || node.type) === 'source'
   const isAdHocSource = isSource && ((node.type === 'source') || !node.gear_id)
   const isSelected = node === selectedNode.value
   const pos = getCanvasPos(node)
@@ -1299,7 +1299,7 @@ function drawNode(ctx, node) {
     recorder: '#dc3545'
   }
   // Ad-hoc sources use purple for extra clarity
-  const color = isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.node_type] || '#6c757d')
+  const color = isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.type] || '#6c757d')
   
   ctx.fillStyle = isSelected ? color : '#fff'
   ctx.strokeStyle = color
@@ -1464,7 +1464,7 @@ function onPointerDown(e) {
       selectedConnectionId.value = null // Clear connection selection when selecting a node
       
       // If Venue Sources node is clicked, open configuration modal
-      const nodeType = (clickedNode.gear_type || clickedNode.node_type || '').toLowerCase()
+      const nodeType = (clickedNode.gear_type || clickedNode.type || '').toLowerCase()
       if (nodeType === 'venue_sources') {
         selectedVenueSourcesNode.value = clickedNode
         showVenueSourcesConfig.value = true
@@ -1597,8 +1597,8 @@ function getNodeLabelById(id) {
 
 
 function canConnect(from, to) {
-  const fromType = from.gear_type || from.node_type
-  const toType = to.gear_type || to.node_type
+  const fromType = from.gear_type || from.type
+  const toType = to.gear_type || to.type
 
   // Valid connections:
   // source -> transformer
@@ -1688,7 +1688,6 @@ async function addSourceNode(preset) {
       flow_x: 0.5,
       flow_y: 0.5,
       gear_type: 'venue_sources',
-      node_type: 'venue_sources',
       num_inputs: 0,
       num_outputs: 0, // Will be calculated based on feeds
       num_tracks: 0,
@@ -1780,7 +1779,7 @@ function handleVenueSourcesSaved() {
 async function deleteSelected() {
   if (!selectedNode.value) return
 
-  const isSource = (selectedNode.value.gear_type || selectedNode.value.node_type) === 'source'
+  const isSource = (selectedNode.value.gear_type || selectedNode.value.type) === 'source'
   if (isSource) {
     const isAdHoc = (selectedNode.value.type === 'source') || !selectedNode.value.gear_id
     if (!isAdHoc) {
@@ -1968,7 +1967,7 @@ function exportToPDF() {
     const pos = getCanvasPos(node)
     const nodeRadius = 35
     const labelHeight = 40
-    const labelText = (node.gear_type || node.node_type) === 'source' && node.track_name 
+    const labelText = (node.gear_type || node.type) === 'source' && node.track_name 
       ? node.track_name 
       : node.label
     // Calculate actual label width
