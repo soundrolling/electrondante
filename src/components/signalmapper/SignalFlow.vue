@@ -962,6 +962,51 @@ function addEditPortMapping() {
   newMappingToPort.value = null
 }
 
+// Add venue source port mapping from text input
+function addVenueSourcePortMapping() {
+  const label = venueSourceLabelInput.value?.trim()
+  if (!label || !newMappingToPort.value) {
+    toast.error('Please enter a label and select a destination port')
+    return
+  }
+  
+  // Check if destination port is already in use
+  const portAlreadyUsed = editPortMappings.value.some(m => m.to_port === newMappingToPort.value)
+  if (portAlreadyUsed) {
+    toast.error('This port is already mapped in this connection')
+    return
+  }
+  
+  // Find next available from_port (venue sources use sequential port numbers)
+  const usedPorts = new Set(editPortMappings.value.map(m => m.from_port).filter(Boolean))
+  let nextPort = venueSourceNextPort
+  while (usedPorts.has(nextPort)) {
+    nextPort++
+  }
+  
+  // Add mapping with label stored for display
+  editPortMappings.value.push({
+    from_port: nextPort,
+    to_port: newMappingToPort.value,
+    label: label // Store label for display
+  })
+  
+  // Update upstreamLabelsForFromNode for display
+  if (!upstreamLabelsForFromNode.value) {
+    upstreamLabelsForFromNode.value = {}
+  }
+  upstreamLabelsForFromNode.value[nextPort] = label
+  
+  // Update port counter for next mapping
+  venueSourceNextPort = nextPort + 1
+  
+  // Clear inputs
+  venueSourceLabelInput.value = ''
+  newMappingToPort.value = null
+  
+  toast.success(`Added ${label} → Input ${nextPort}`)
+}
+
 function removeEditPortMapping(index) {
   editPortMappings.value.splice(index, 1)
   if (editingIdx.value === index) {
@@ -1155,6 +1200,85 @@ async function saveSelectedConnection() {
           .from('connection_port_map')
           .insert(portMapInserts)
         if (error) throw error
+      }
+      
+      // If this is a venue sources connection, save labels to venue_source_feeds table
+      if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value && editPortMappings.value.length > 0) {
+        const venueFeedInserts = []
+        for (const mapping of editPortMappings.value) {
+          if (mapping.label) {
+            const label = mapping.label.trim()
+            // Parse label (e.g., "DJA L", "DJA R", "Program 1")
+            const parts = label.match(/^([A-Za-z]+)\s*([A-Z0-9]+)\s*(L|R)?$/i)
+            if (parts) {
+              const sourceType = parts[1].toLowerCase()
+              const feedIdentifier = parts[2]
+              const channel = parts[3] ? (parts[3].toUpperCase() === 'R' ? 2 : 1) : 1
+              
+              // Check if feed already exists
+              const { data: existing } = await supabase
+                .from('venue_source_feeds')
+                .select('id')
+                .eq('node_id', fromNodeOfSelected.value.id)
+                .eq('port_number', mapping.from_port)
+                .maybeSingle()
+              
+              if (existing) {
+                await supabase
+                  .from('venue_source_feeds')
+                  .update({
+                    source_type: sourceType,
+                    feed_identifier: feedIdentifier,
+                    channel: channel,
+                    output_port_label: label
+                  })
+                  .eq('id', existing.id)
+              } else {
+                venueFeedInserts.push({
+                  node_id: fromNodeOfSelected.value.id,
+                  source_type: sourceType,
+                  feed_identifier: feedIdentifier,
+                  port_number: mapping.from_port,
+                  channel: channel,
+                  output_port_label: label
+                })
+              }
+            } else {
+              // Generic feed if can't parse
+              const { data: existing } = await supabase
+                .from('venue_source_feeds')
+                .select('id')
+                .eq('node_id', fromNodeOfSelected.value.id)
+                .eq('port_number', mapping.from_port)
+                .maybeSingle()
+              
+              if (existing) {
+                await supabase
+                  .from('venue_source_feeds')
+                  .update({ output_port_label: label })
+                  .eq('id', existing.id)
+              } else {
+                venueFeedInserts.push({
+                  node_id: fromNodeOfSelected.value.id,
+                  source_type: 'custom',
+                  feed_identifier: String(mapping.from_port),
+                  port_number: mapping.from_port,
+                  channel: 1,
+                  output_port_label: label
+                })
+              }
+            }
+          }
+        }
+        
+        if (venueFeedInserts.length > 0) {
+          const { error: feedError } = await supabase
+            .from('venue_source_feeds')
+            .insert(venueFeedInserts)
+          if (feedError) {
+            console.error('Error saving venue source feeds:', feedError)
+          }
+        }
       }
       
       emit('connection-updated', { ...c, ...payload })
@@ -2672,6 +2796,22 @@ function exportToPDF() {
 .btn-add-small:disabled {
   background: #6c757d;
   cursor: not-allowed;
+}
+
+.form-input-small {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 120px;
+}
+
+.form-input-small:focus {
+  outline: none;
+  border-color: #007bff;
 }
 
 .detail-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 8px; }
