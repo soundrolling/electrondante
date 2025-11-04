@@ -48,15 +48,6 @@
         <div v-if="needsPortMapping" class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <label>Map Ports: <b>{{ fromNode.label }}</b> → <b>{{ toNode.label }}</b></label>
-            <button 
-              type="button" 
-              class="btn-clear-connections" 
-              @click="clearExistingConnection"
-              :disabled="!hasExistingConnection"
-              title="Delete existing connection and port mappings"
-            >
-              Clear Previous Connections
-            </button>
           </div>
           <div class="port-mapping-container">
             <div v-if="displayedPortMappings.length > 0" class="port-mappings-list">
@@ -81,7 +72,7 @@
               </template>
               <template v-else>
                 <!-- Display mode -->
-                <span>{{ upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port) }}</span>
+                <span>{{ (mapping.label || upstreamSourceLabels[mapping.from_port] || getFromPortDisplay(mapping.from_port)) }}</span>
                 <span class="arrow">→</span>
                 <span>{{ isRecorderTo ? getToRecorderTrackNameDisplay(mapping.to_port, mapping.from_port) : `Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit" @click="startEditMapping(mapping._idx)">✎</button>
@@ -90,26 +81,15 @@
               </div>
             </div>
             <div class="port-mapping-add">
-              <!-- Venue Sources: Nested dropdowns (Source Type → Feed) -->
+              <!-- Venue Sources: Text input for feed labels -->
               <template v-if="isVenueSources">
-                <select 
-                  class="form-select" 
-                  v-model="selectedVenueSourceType"
-                  @change="selectedVenueFeed = null"
-                >
-                  <option :value="null">Select Source Type</option>
-                  <option v-for="type in venueSourceTypes" :key="type" :value="type">{{ type }}</option>
-                </select>
-                <select 
-                  class="form-select" 
-                  v-model="selectedVenueFeed"
-                  :disabled="!selectedVenueSourceType"
-                >
-                  <option :value="null">Select Feed</option>
-                  <option v-for="feed in availableVenueFeeds" :key="feed.identifier" :value="feed.identifier">
-                    {{ feed.identifier }}<span v-if="feed.channels === 2"> (L/R)</span>
-                  </option>
-                </select>
+                <input 
+                  type="text" 
+                  class="form-input" 
+                  v-model="venueSourceLabelInput"
+                  placeholder="e.g., DJA L, DJA R, Program 1"
+                  @keyup.enter="addVenueSourcePortMapping"
+                />
                 <span class="arrow">→</span>
                 <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.filter(o => !o.disabled).length === 0">
                   <option :value="null">Select To Port</option>
@@ -119,7 +99,7 @@
                   type="button" 
                   class="btn-add" 
                   @click="addVenueSourcePortMapping" 
-                  :disabled="!selectedVenueSourceType || !selectedVenueFeed || !newMappingToPort"
+                  :disabled="!venueSourceLabelInput || !venueSourceLabelInput.trim() || !newMappingToPort"
                 >
                   Add
                 </button>
@@ -411,11 +391,10 @@ const recorderTrackNames = ref({})
 const toRecorderTrackNames = ref({})
 // Track if there's an existing connection between fromNode and toNode
 const existingConnectionId = ref(null)
-// Venue Sources: Store feeds loaded from database
-const venueSourceFeeds = ref([])
-// Venue Sources: Selected source type and feed for port mapping
-const selectedVenueSourceType = ref(null)
-const selectedVenueFeed = ref(null)
+// Venue Sources: Text input for feed label
+const venueSourceLabelInput = ref('')
+// Venue Sources: Track next available port number (all feeds are mono)
+let venueSourceNextPort = 1
 
 // Check if there's an existing connection
 const hasExistingConnection = computed(() => !!existingConnectionId.value)
@@ -434,22 +413,6 @@ async function checkExistingConnection() {
   } catch (err) {
     console.error('Error checking existing connection:', err)
     existingConnectionId.value = null
-  }
-}
-
-async function clearExistingConnection() {
-  if (!existingConnectionId.value) return
-  
-  try {
-    // Delete the connection (which will also delete port mappings via cascade or explicit deletion)
-    await deleteConnection(existingConnectionId.value)
-    existingConnectionId.value = null
-    portMappings.value = []
-    toast.success('Previous connection cleared')
-    emit('confirm', null) // Emit null to indicate deletion
-  } catch (err) {
-    console.error('Error clearing connection:', err)
-    toast.error('Failed to clear connection')
   }
 }
 
@@ -737,47 +700,17 @@ async function loadToRecorderTrackNames() {
   toRecorderTrackNames.value = trackNames
 }
 
-// Venue Sources: Get available source types
-const venueSourceTypes = computed(() => {
-  if (!isVenueSources.value) return []
-  const types = new Set(venueSourceFeeds.value.map(f => {
-    // Capitalize first letter of source type
-    const type = f.source_type.toLowerCase()
-    return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')
-  }))
-  return Array.from(types).sort()
-})
-
-// Venue Sources: Get available feeds for selected source type
-const availableVenueFeeds = computed(() => {
-  if (!isVenueSources.value || !selectedVenueSourceType.value) return []
-  
-  const typeKey = selectedVenueSourceType.value.toLowerCase().replace(/\s+/g, '_')
-  const feeds = venueSourceFeeds.value
-    .filter(f => f.source_type.toLowerCase() === typeKey && f.channel === 1) // Only show channel 1 (L) for stereo
-    .map(f => ({
-      identifier: f.feed_identifier,
-      channels: venueSourceFeeds.value.filter(f2 => 
-        f2.source_type === f.source_type && 
-        f2.feed_identifier === f.feed_identifier
-      ).length
-    }))
-  
-  // Remove duplicates
-  const unique = feeds.filter((f, idx, arr) => 
-    arr.findIndex(f2 => f2.identifier === f.identifier) === idx
-  )
-  
-  return unique.sort((a, b) => {
-    // Sort by identifier (handle both letters and numbers)
-    if (isNaN(a.identifier) && isNaN(b.identifier)) {
-      return a.identifier.localeCompare(b.identifier)
+// Initialize venue source port counter when modal opens
+watch(() => props.fromNode, () => {
+  if (isVenueSources.value) {
+    // Reset port counter and find next available port
+    const usedPorts = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
+    venueSourceNextPort = 1
+    while (usedPorts.has(venueSourceNextPort)) {
+      venueSourceNextPort++
     }
-    if (isNaN(a.identifier)) return 1
-    if (isNaN(b.identifier)) return -1
-    return Number(a.identifier) - Number(b.identifier)
-  })
-})
+  }
+}, { immediate: true })
 
 // Get available ports for mapping
 const availableFromPorts = computed(() => {
@@ -2089,6 +2022,24 @@ border-color: var(--color-primary-500);
 box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
 }
 
+.form-input {
+  padding: 10px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color 0.2s;
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
 .form-actions {
 display: flex;
 gap: 10px;
@@ -2129,28 +2080,6 @@ transition: background-color 0.2s;
   background: var(--color-secondary-600);
 }
 
-.btn-clear-connections {
-  padding: 6px 12px;
-  background: #dc3545;
-  color: white;
-  border: 1px solid #dc3545;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: background 0.2s;
-}
-
-.btn-clear-connections:hover:not(:disabled) {
-  background: #c82333;
-  border-color: #bd2130;
-}
-
-.btn-clear-connections:disabled {
-  background: #ccc;
-  border-color: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
 
 .output-matrix {
 margin: 18px 0 24px 0;
