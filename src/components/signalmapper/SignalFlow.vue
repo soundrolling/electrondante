@@ -108,7 +108,7 @@
                 <select class="inline-select" v-model.number="editFromPort" style="flex: 1; min-width: 100px;">
                   <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   <option :value="mapping.from_port" v-if="!availableFromPortsForEdit.find(o => o.value === mapping.from_port)">
-                    {{ (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port) }}
+                    {{ (mapping.label || (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port)) }}
                   </option>
                 </select>
                 <span class="arrow">→</span>
