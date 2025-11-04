@@ -1603,11 +1603,13 @@ function canConnect(from, to) {
   // Valid connections:
   // source -> transformer
   // source -> recorder
+  // venue_sources -> transformer (treat like source)
+  // venue_sources -> recorder (treat like source)
   // transformer -> transformer
   // transformer -> recorder
   // recorder -> recorder
 
-  if (fromType === 'source' && (toType === 'transformer' || toType === 'recorder')) return true
+  if ((fromType === 'source' || fromType === 'venue_sources') && (toType === 'transformer' || toType === 'recorder')) return true
   if (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) return true
   if (fromType === 'recorder' && toType === 'recorder') return true
   
