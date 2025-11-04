@@ -4,9 +4,29 @@
 
 Based on the analysis, these 3 tables are from an old signal mapper implementation:
 
-1. **`signal_connections`** - 9 columns
-2. **`signal_flow_data`** - 6 columns
-3. **`signal_mapper_layouts`** - 9 columns
+1. **`signal_connections`** - 9 columns (similar structure to current `connections` table)
+2. **`signal_flow_data`** - 6 columns (stores nodes/connections as JSONB)
+3. **`signal_mapper_layouts`** - 9 columns (stores UI layout/canvas positions as JSONB)
+
+## Table Structure Analysis
+
+### signal_connections
+- **Structure**: Similar to current `connections` table
+- **Columns**: `from_node_id`, `to_node_id`, `input_number`, `output_number`, `track_number`, `connection_type`, `notes`
+- **Difference**: Uses `character varying` for node IDs (old) vs likely UUID in current implementation
+- **Migration**: Data might be migratable if node IDs match, but structure is slightly different
+
+### signal_flow_data
+- **Structure**: Stores entire signal flow as JSONB
+- **Columns**: `location_id`, `nodes` (jsonb), `connections` (jsonb)
+- **Difference**: Old implementation stored everything as JSON vs current structured tables
+- **Migration**: Complex - would require parsing JSONB and mapping to `nodes`, `connections`, and `connection_port_map` tables
+
+### signal_mapper_layouts
+- **Structure**: Stores UI layout/canvas configuration
+- **Columns**: `elements` (jsonb), `canvas_width`, `canvas_height`, `created_email`
+- **Difference**: This appears to be UI state/layout data, not core signal flow data
+- **Migration**: Probably not needed - UI layouts are typically user-specific and can be regenerated
 
 ## Current Signal Mapper Tables (Active)
 
@@ -94,22 +114,38 @@ The `CASCADE` option will automatically drop any dependent objects (foreign keys
 
 ### If Tables Have Data
 
-If the tables contain data you want to preserve:
+**If `signal_flow_data` has data:**
+- This stores the entire signal flow as JSONB
+- Migration would require parsing JSONB and creating structured records
+- **Recommendation**: If data is old/unused, export as backup and delete. If recent, consider migration script.
 
-1. **Export the data** (optional, for backup):
-```sql
--- Export to CSV or JSON for backup
--- Use Supabase export feature or pg_dump
-```
+**If `signal_connections` has data:**
+- Data structure is similar to current `connections` table
+- **Check first**: Run Query 10 to see row count
+- **If migration needed**: Node IDs might need conversion (character varying → UUID)
+- **Migration complexity**: Medium - requires ID mapping
 
-2. **Check if migration is needed:**
-   - Compare old table structure with new tables
-   - Determine if data maps to `nodes`, `connections`, or `connection_port_map`
-   - If migration is needed, create migration scripts
+**If `signal_mapper_layouts` has data:**
+- This is UI layout data (canvas positions, zoom levels, etc.)
+- **Recommendation**: Typically safe to delete - layouts are user-specific and can be regenerated
+- **Exception**: Only keep if you need to preserve specific user layouts
 
-3. **If no migration needed:**
-   - Data is historical and not needed
-   - Proceed with deletion
+### Migration Decision Guide
+
+**Safe to delete (recommended) if:**
+- All tables have 0 rows OR
+- Data is from old/unused implementations OR
+- Current signal mapper is working and users don't need old data
+
+**Consider migration if:**
+- `signal_flow_data` has recent/important signal flow configurations
+- `signal_connections` has data that needs to be preserved
+- You need to maintain historical signal mapper data
+
+**Migration Complexity:**
+- `signal_connections`: Medium (requires ID mapping)
+- `signal_flow_data`: High (JSONB parsing and transformation)
+- `signal_mapper_layouts`: Low (probably not needed)
 
 ## Verification After Deletion
 
