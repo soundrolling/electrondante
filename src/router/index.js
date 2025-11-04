@@ -66,11 +66,21 @@ const routes = [
 
   // Quickfire / micmapper
   { path: '/projects/:id/quickfire',  name: 'ProjectQuickfire', component: ProjectQuickfire, props: r => ({ locationId: r.query.locationId }) },
-  { path: '/projects/:id/signal-mapper', name: 'SignalMapper', component: SignalMapper, props: r => ({
+  // Signal mapper - use separate routes for each tab for better reliability
+  { 
+    path: '/projects/:id/signal-mapper', 
+    redirect: to => `/projects/${to.params.id}/signal-mapper/placement${to.search ? `?${to.search}` : ''}`
+  },
+  { 
+    path: '/projects/:id/signal-mapper/:tab', 
+    name: 'SignalMapper', 
+    component: SignalMapper, 
+    props: r => ({
       projectId: r.params.id,
       venueId:   r.query.venueId,
       stageId:   r.query.stageId,
-      locationId: r.query.locationId
+      locationId: r.query.locationId,
+      tab: r.params.tab || 'placement'
     })
   },
 

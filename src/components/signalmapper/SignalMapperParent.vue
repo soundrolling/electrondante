@@ -104,6 +104,11 @@ const props = defineProps({
   locationId: {
     type: [String, Number],
     default: null
+  },
+  tab: {
+    type: String,
+    default: 'placement',
+    validator: (value) => ['placement', 'flow', 'tracklist'].includes(value)
   }
 })
 
@@ -111,8 +116,8 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-// Initialize activeTab from URL query parameter, default to 'placement'
-const activeTab = ref(route.query.tab || 'placement')
+// Initialize activeTab from route param (prop) or query param (fallback for old URLs)
+const activeTab = ref(props.tab || route.query.tab || 'placement')
 const currentLocation = ref(null)
 const allNodes = ref([])
 const allConnections = ref([])
@@ -146,12 +151,14 @@ function setActiveTab(tab) {
   if (tab !== 'flow') {
     selectedConnectionId.value = null
   }
-  // Update URL query parameter without navigating away
+  // Update URL route parameter (more reliable than query params)
   router.replace({
-    query: {
-      ...route.query,
+    name: 'SignalMapper',
+    params: {
+      id: props.projectId,
       tab: tab
-    }
+    },
+    query: route.query // Preserve other query params (venueId, stageId, locationId)
   })
 }
 
@@ -335,25 +342,33 @@ function setupRealtimeSubscriptions() {
   }
 }
 
-// Watch for route changes to update active tab
-watch(() => route.query.tab, (newTab) => {
+// Watch for route changes to update active tab (both params and query for backward compatibility)
+watch(() => route.params.tab || route.query.tab, (newTab) => {
   if (newTab && ['placement', 'flow', 'tracklist'].includes(newTab)) {
     activeTab.value = newTab
   } else if (!newTab) {
     // Default to placement if no tab in URL
     activeTab.value = 'placement'
+    // Redirect to placement tab if invalid/missing
+    if (route.params.tab && !['placement', 'flow', 'tracklist'].includes(route.params.tab)) {
+      setActiveTab('placement')
+    }
   }
 })
 
 // Lifecycle
 onMounted(async () => {
-  // Initialize tab from URL
-  const tabFromUrl = route.query.tab
+  // Initialize tab from route param (preferred) or query param (backward compatibility)
+  const tabFromUrl = route.params.tab || route.query.tab
   if (tabFromUrl && ['placement', 'flow', 'tracklist'].includes(tabFromUrl)) {
     activeTab.value = tabFromUrl
+    // If we're using query param, migrate to route param
+    if (route.query.tab && !route.params.tab) {
+      setActiveTab(tabFromUrl)
+    }
   } else {
     // If no valid tab in URL, set default and update URL
-    if (!route.query.tab) {
+    if (!route.params.tab && !route.query.tab) {
       setActiveTab('placement')
     }
   }
