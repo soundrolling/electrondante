@@ -459,7 +459,7 @@ async function buildUpstreamSourceLabels() {
               input_number: parentOutputPort,
               output_number: parentOutputPort
             }
-            label = getLRAwareSourceLabel(incoming)
+            label = await getLRAwareSourceLabel(incoming)
           } else if (fromNodeType === 'transformer') {
             // Parent is a transformer - trace what's on its OUTPUT port back to source
             const tracedLabel = await traceTransformerOutput(parentConn.from_node_id, parentOutputPort)
@@ -472,7 +472,7 @@ async function buildUpstreamSourceLabels() {
                 c.input_number === parentOutputPort
               )
               if (anyParentInput) {
-                label = getLRAwareSourceLabel(anyParentInput)
+                label = await getLRAwareSourceLabel(anyParentInput)
               }
             }
           } else {
@@ -490,7 +490,7 @@ async function buildUpstreamSourceLabels() {
           input_number: inputNum,
           output_number: inputNum
         }
-        const label = getLRAwareSourceLabel(incoming)
+        const label = await getLRAwareSourceLabel(incoming)
         if (label) {
           // For transformers, output N = input N, so map accordingly
           upstreamSourceLabels.value[inputNum] = label
@@ -506,12 +506,12 @@ async function buildUpstreamSourceLabels() {
     )
     
     // Build labels from direct incoming connections - recursively trace to source
-    directIncomings.forEach(inc => {
-      const label = getLRAwareSourceLabel(inc)
+    for (const inc of directIncomings) {
+      const label = await getLRAwareSourceLabel(inc)
       if (label && !upstreamSourceLabels.value[inc.input_number]) {
         upstreamSourceLabels.value[inc.input_number] = label
       }
-    })
+    }
   } catch {}
 }
 
@@ -637,7 +637,7 @@ async function loadTakenPorts() {
                 (c.to_node_id === fromNodeId || c.to === fromNodeId) && c.input_number === Number(r.from_port)
               )
               if (incoming) {
-                const label = getLRAwareSourceLabel(incoming)
+                const label = await getLRAwareSourceLabel(incoming)
                 if (label) portMappedInputLabels.value[inputNum] = label
               }
             }
@@ -783,8 +783,10 @@ function traceRecorderTrackInputForModal(recorderId, trackNumber, visitedNodes =
     return traceRecorderTrackInputForModal(sourceNodeId, sourceOutputPort, visitedNodes)
   }
   
-  // For sources and transformers, use getLRAwareSourceLabel
-  return getLRAwareSourceLabel(trackConn, visitedNodes)
+  // For sources and transformers, we can't call async functions here since this is used in computed properties
+  // Return null - the caller should use preloaded values from toRecorderTrackNames
+  // If we need async tracing, it should be done in loadToRecorderTrackNames
+  return null
 }
 
 const availableToPorts = computed(() => {
@@ -1087,7 +1089,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
                   input_number: relevantMap.from_port,
                   output_number: relevantMap.from_port
                 }
-                return getLRAwareSourceLabel(incoming)
+                return await getLRAwareSourceLabel(incoming)
               } else if (upstreamType === 'transformer') {
                 // Recursively trace upstream transformer's output
                 const traced = await traceTransformerOutput(upstreamNodeId, relevantMap.from_port)
@@ -1110,7 +1112,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
                   input_number: inputNum,
                   output_number: inputNum
                 }
-                return getLRAwareSourceLabel(incoming)
+                return await getLRAwareSourceLabel(incoming)
               } else if (upstreamType === 'transformer') {
                 // Recursively trace upstream transformer's corresponding output
                 const traced = await traceTransformerOutput(upstreamNodeId, inputNum)
@@ -1132,7 +1134,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
         ...directInput,
         output_number: directInput.input_number || directInput.output_number || outputPort
       }
-      return getLRAwareSourceLabel(incoming)
+      return await getLRAwareSourceLabel(incoming)
     }
   } catch {}
   
