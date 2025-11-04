@@ -1,5 +1,7 @@
 -- SQL Queries to Find Unused Supabase Tables
 -- Compares tables in database vs tables actually used in the application
+--
+-- QUICK START: Run Query 9 to see which specific tables need investigation
 
 -- ============================================
 -- STEP 1: List ALL tables in your database
@@ -351,4 +353,50 @@ WHERE t.table_schema = 'public'
     'user_profiles',
     'bug_reports', 'bug_report_comments', 'quickfire_buttons'
   );
+
+-- 9. DETAILED: Show which specific tables are flagged for investigation
+-- This shows the actual table names that need to be checked
+SELECT 
+    t.table_name,
+    CASE 
+        WHEN (t.table_name LIKE '%signal%' OR t.table_name LIKE '%mapper%')
+             AND t.table_name NOT IN ('nodes', 'connections', 'connection_port_map')
+        THEN 'Old signal mapper table'
+        WHEN t.table_name LIKE '%-%'
+             AND t.table_name NOT IN ('stage_docs', 'stage_pictures', 
+                                      'stage-docs', 'stage-pictures',
+                                      'travel-documents', 'travel-expenses',
+                                      'gear-bag-images')  -- These are in used list
+        THEN 'Hyphenated table (old naming)'
+        ELSE 'Other - needs investigation'
+    END as reason,
+    (SELECT COUNT(*) 
+     FROM information_schema.columns 
+     WHERE table_name = t.table_name 
+       AND table_schema = 'public') as column_count
+FROM information_schema.tables t
+WHERE t.table_schema = 'public'
+  AND t.table_type = 'BASE TABLE'
+  AND (
+    -- Old signal mapper patterns
+    (t.table_name LIKE '%signal%' OR t.table_name LIKE '%mapper%')
+    AND t.table_name NOT IN ('nodes', 'connections', 'connection_port_map')
+  )
+  OR (
+    -- Hyphenated tables (old naming) - but exclude ones we know are used
+    t.table_name LIKE '%-%'
+    AND t.table_name NOT IN (
+        'stage_docs', 'stage_pictures',  -- underscore versions
+        'stage-docs', 'stage-pictures',  -- hyphen versions (might be used)
+        'travel-documents', 'travel-expenses',  -- hyphen versions (might be used)
+        'gear-bag-images'  -- hyphen version (might be used)
+    )
+  )
+ORDER BY 
+    CASE 
+        WHEN t.table_name LIKE '%signal%' OR t.table_name LIKE '%mapper%' THEN 1
+        WHEN t.table_name LIKE '%-%' THEN 2
+        ELSE 3
+    END,
+    t.table_name;
 
