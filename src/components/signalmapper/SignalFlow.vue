@@ -123,7 +123,7 @@
               </template>
               <template v-else>
                 <!-- Display mode -->
-                <span>{{ (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port) }}</span>
+                <span>{{ (mapping.label || (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port)) }}</span>
                 <span class="arrow">→</span>
                 <span>{{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, mapping.from_port) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
                 <button type="button" class="btn-edit-small" @click="startEditMapping(mapping._idx)">✎</button>
@@ -343,6 +343,10 @@ const newMappingToPort = ref(null)
 const editingIdx = ref(null)
 const editFromPort = ref(null)
 const editToPort = ref(null)
+// Venue Sources: Text input for feed label
+const venueSourceLabelInput = ref('')
+// Venue Sources: Track next available port number (all feeds are mono)
+let venueSourceNextPort = 1
 // Upstream source labels for selected connection's FROM transformer
 const upstreamLabelsForFromNode = ref({})
 // Store recorder track names (track number -> source label) for the FROM recorder when editing
@@ -452,11 +456,14 @@ const needsPortMappingForSelected = computed(() => {
   // - transformer → transformer/recorder
   // - recorder → recorder
   // - multi-output source (e.g., stereo) → transformer/recorder
+  // - venue_sources → transformer/recorder (can have unlimited source tracks)
   const fromNode = fromNodeOfSelected.value
   const isMultiOutputSource = (fromType === 'source') && ((fromNode?.num_outputs || fromNode?.outputs || 0) > 1)
+  const isVenueSources = fromType === 'venue_sources'
   return (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) ||
          (fromType === 'recorder' && toType === 'recorder') ||
-         (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder'))
+         (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder')) ||
+         (isVenueSources && (toType === 'transformer' || toType === 'recorder'))
 })
 
 // Recursively trace source label through transformer chain
@@ -990,7 +997,47 @@ async function loadPortMappingsForConnection(connId) {
       .eq('connection_id', connId)
       .order('from_port')
     if (!error && data) {
-      editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+      // If this is a venue sources connection, load labels from venue_source_feeds
+      if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
+        const portNumbers = data.map(m => m.from_port)
+        const { data: feeds } = await supabase
+          .from('venue_source_feeds')
+          .select('port_number, output_port_label')
+          .eq('node_id', fromNodeOfSelected.value.id)
+          .in('port_number', portNumbers)
+        
+        const feedMap = {}
+        if (feeds) {
+          feeds.forEach(feed => {
+            feedMap[feed.port_number] = feed.output_port_label
+          })
+        }
+        
+        editPortMappings.value = data.map(m => ({
+          from_port: m.from_port,
+          to_port: m.to_port,
+          label: feedMap[m.from_port] // Include label from venue_source_feeds
+        }))
+        
+        // Initialize upstreamLabelsForFromNode with loaded labels
+        if (!upstreamLabelsForFromNode.value) {
+          upstreamLabelsForFromNode.value = {}
+        }
+        data.forEach(m => {
+          if (feedMap[m.from_port]) {
+            upstreamLabelsForFromNode.value[m.from_port] = feedMap[m.from_port]
+          }
+        })
+        
+        // Initialize venue source port counter
+        const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
+        venueSourceNextPort = 1
+        while (usedPorts.has(venueSourceNextPort)) {
+          venueSourceNextPort++
+        }
+      } else {
+        editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+      }
     } else {
       editPortMappings.value = []
     }

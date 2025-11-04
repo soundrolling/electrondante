@@ -1633,7 +1633,91 @@ errorMsg.value = ''
     const { error: mapError } = await supabase
       .from('connection_port_map')
       .insert(portMapInserts)
-    if (mapError) throw mapError
+      if (mapError) throw mapError
+    
+    // If this is a venue sources connection, save labels to venue_source_feeds table
+    if (isVenueSources.value && portMappings.value.length > 0) {
+      const venueFeedInserts = []
+      for (const mapping of portMappings.value) {
+        if (mapping.label) {
+          // Parse label (e.g., "DJA L", "DJA R", "Program 1")
+          const label = mapping.label.trim()
+          // Try to extract source type and feed identifier
+          // Format: "DJ A L" or "Program 1" or "DJA L"
+          const parts = label.match(/^([A-Za-z]+)\s*([A-Z0-9]+)\s*(L|R)?$/i)
+          if (parts) {
+            const sourceType = parts[1].toLowerCase() // e.g., "dj", "program"
+            const feedIdentifier = parts[2] // e.g., "A", "1"
+            const channel = parts[3] ? (parts[3].toUpperCase() === 'R' ? 2 : 1) : 1
+            
+            // Check if feed already exists for this port
+            const { data: existing } = await supabase
+              .from('venue_source_feeds')
+              .select('id')
+              .eq('node_id', props.fromNode.id)
+              .eq('port_number', mapping.from_port)
+              .maybeSingle()
+            
+            if (existing) {
+              // Update existing feed
+              await supabase
+                .from('venue_source_feeds')
+                .update({
+                  source_type: sourceType,
+                  feed_identifier: feedIdentifier,
+                  channel: channel,
+                  output_port_label: label
+                })
+                .eq('id', existing.id)
+            } else {
+              // Insert new feed
+              venueFeedInserts.push({
+                node_id: props.fromNode.id,
+                source_type: sourceType,
+                feed_identifier: feedIdentifier,
+                port_number: mapping.from_port,
+                channel: channel,
+                output_port_label: label
+              })
+            }
+          } else {
+            // If we can't parse, use the label as-is and create a generic feed
+            const { data: existing } = await supabase
+              .from('venue_source_feeds')
+              .select('id')
+              .eq('node_id', props.fromNode.id)
+              .eq('port_number', mapping.from_port)
+              .maybeSingle()
+            
+            if (existing) {
+              await supabase
+                .from('venue_source_feeds')
+                .update({ output_port_label: label })
+                .eq('id', existing.id)
+            } else {
+              venueFeedInserts.push({
+                node_id: props.fromNode.id,
+                source_type: 'custom',
+                feed_identifier: String(mapping.from_port),
+                port_number: mapping.from_port,
+                channel: 1,
+                output_port_label: label
+              })
+            }
+          }
+        }
+      }
+      
+      if (venueFeedInserts.length > 0) {
+        const { error: feedError } = await supabase
+          .from('venue_source_feeds')
+          .insert(venueFeedInserts)
+        if (feedError) {
+          console.error('Error saving venue source feeds:', feedError)
+          // Don't throw - connection is already saved, this is just metadata
+        }
+      }
+    }
     
     // Fetch the full connection object to include all fields needed for drawing
     const { data: fullConnection, error: fetchError } = await supabase
