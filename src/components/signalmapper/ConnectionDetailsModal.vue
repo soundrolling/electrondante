@@ -367,6 +367,44 @@ const portMappedInputLabels = ref({})
 const recorderTrackNames = ref({})
 // Store recorder track names (track number -> source label) for the TO recorder
 const toRecorderTrackNames = ref({})
+// Track if there's an existing connection between fromNode and toNode
+const existingConnectionId = ref(null)
+
+// Check if there's an existing connection
+const hasExistingConnection = computed(() => !!existingConnectionId.value)
+
+async function checkExistingConnection() {
+  try {
+    const { data } = await supabase
+      .from('connections')
+      .select('id')
+      .eq('project_id', props.projectId)
+      .eq('from_node_id', props.fromNode.id)
+      .eq('to_node_id', props.toNode.id)
+      .maybeSingle()
+    
+    existingConnectionId.value = data?.id || null
+  } catch (err) {
+    console.error('Error checking existing connection:', err)
+    existingConnectionId.value = null
+  }
+}
+
+async function clearExistingConnection() {
+  if (!existingConnectionId.value) return
+  
+  try {
+    // Delete the connection (which will also delete port mappings via cascade or explicit deletion)
+    await deleteConnection(existingConnectionId.value)
+    existingConnectionId.value = null
+    portMappings.value = []
+    toast.success('Previous connection cleared')
+    emit('confirm', null) // Emit null to indicate deletion
+  } catch (err) {
+    console.error('Error clearing connection:', err)
+    toast.error('Failed to clear connection')
+  }
+}
 
 async function buildUpstreamSourceLabels() {
   try {
