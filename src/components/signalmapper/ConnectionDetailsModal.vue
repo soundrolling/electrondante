@@ -1364,15 +1364,10 @@ function getFromPortDisplay(portNum) {
     if (trackName) return trackName
     return `Track ${portNum}`
   }
-  // Prefer upstream source name for transformer outputs
+  // Prefer upstream source name for transformer outputs (preloaded asynchronously)
   if (isTransformerFrom.value) {
-    const incoming = (props.existingConnections || []).find(c =>
-      (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) && c.input_number === portNum
-    )
-    if (incoming) {
-      const srcLabel = getLRAwareSourceLabel(incoming)
-      if (srcLabel) return srcLabel
-    }
+    // Use preloaded upstreamSourceLabels - don't call async functions here
+    return upstreamSourceLabels.value[portNum] || `Output ${portNum}`
   }
   if (isSource.value) {
     return getSourcePortLabel(portNum)
