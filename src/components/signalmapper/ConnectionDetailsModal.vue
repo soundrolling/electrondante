@@ -1696,7 +1696,19 @@ try {
     }
   }
 } catch {}
-// Build upstream labels for transformer outputs
+  // Build upstream labels for transformer outputs
+  if (isTransformerFrom.value) {
+    await buildUpstreamSourceLabels()
+  }
+  
+  // Load recorder track names if needed
+  if (isRecorderFrom.value || isRecorderTo.value) {
+    await loadRecorderTrackNamesForModal()
+  }
+  
+  // Auto-add stereo DJ port mappings after ports are loaded
+  autoAddStereoDJPortMappings()
+})
 buildUpstreamSourceLabels()
 // Load already-taken mapped ports for source and target across existing connections
 loadTakenPorts().then(() => {
