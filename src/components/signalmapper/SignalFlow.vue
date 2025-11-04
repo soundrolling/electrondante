@@ -542,7 +542,7 @@ function traceRecorderTrackName(recorderId, trackNumber, visitedNodes = new Set(
   
   // Check if the source is another recorder
   const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
-  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase() : ''
+  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.type || '').toLowerCase() : ''
   
   if (sourceType === 'recorder') {
     // Source is another recorder - recursively trace from that recorder's output
@@ -637,7 +637,7 @@ const availableFromPortsForEdit = computed(() => {
   const from = fromNodeOfSelected.value
   const count = from?.num_outputs || from?.numoutputs || from?.outputs || 0
   const opts = []
-  const fromType = (from?.gear_type || from?.node_type || '').toLowerCase()
+  const fromType = (from?.gear_type || from?.type || '').toLowerCase()
   for (let n = 1; n <= count; n++) {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
@@ -862,7 +862,7 @@ function traceRecorderTrackInput(recorderId, trackNumber, visitedNodes = new Set
   
   // Check if the source is another recorder
   const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
-  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase() : ''
+  const sourceType = sourceNode ? (sourceNode.gear_type || sourceNode.type || '').toLowerCase() : ''
   
   if (sourceType === 'recorder') {
     // Source is another recorder - recursively trace from that recorder's output
