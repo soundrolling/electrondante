@@ -972,7 +972,11 @@ async function traceTransformerOutput(transformerId, outputPort) {
 }
 
 function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
+  // Always use node ID as primary identifier - ensures tracking even if names change
   const srcId = incoming.from_node_id || incoming.from
+  if (!srcId) return 'Connected'
+  
+  // Look up node by ID (primary identifier) - then get name from node
   const src = props.elements.find(e => e.id === srcId)
   if (!src) return 'Connected'
   
@@ -1457,10 +1461,12 @@ errorMsg.value = ''
         .eq('connection_id', parentConnId)
     } else {
       // Create parent connection (no input_number for port-mapped connections)
+      // from_node_id is the primary identifier - links to the source node's ID
+      // This ensures we track the source by ID, not just by name
       const parentConn = {
         project_id: props.projectId,
-        from_node_id: props.fromNode.id,
-        to_node_id: props.toNode.id,
+        from_node_id: props.fromNode.id, // Source node ID - primary identifier
+        to_node_id: props.toNode.id, // Destination node ID
         pad: -Math.abs(Number(padValue.value) || 0),
         phantom_power: phantomPowerEnabled.value,
         connection_type: connectionType.value
@@ -1475,11 +1481,14 @@ errorMsg.value = ''
     }
     
     // Save all port mappings
+    // Note: Port mappings reference the connection (which has from_node_id)
+    // This ensures we track both the source node ID and the port number
+    // The connection's from_node_id identifies which source node, from_port identifies which output port
     const portMapInserts = portMappings.value.map(m => ({
       project_id: props.projectId,
-      connection_id: parentConnId,
-      from_port: m.from_port,
-      to_port: m.to_port
+      connection_id: parentConnId, // Links to connection with from_node_id (source node ID)
+      from_port: m.from_port, // Source output port number
+      to_port: m.to_port // Destination input port number
     }))
     
     const { error: mapError } = await supabase

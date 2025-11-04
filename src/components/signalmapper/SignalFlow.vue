@@ -463,10 +463,12 @@ const needsPortMappingForSelected = computed(() => {
 })
 
 // Recursively trace source label through transformer chain
+// Always uses nodeId as primary identifier - ensures we track by ID, not just by name
 function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   if (visitedNodes.has(nodeId)) return null
   visitedNodes.add(nodeId)
   
+  // Look up node by ID (primary identifier) - name is derived from node properties
   const node = props.nodes.find(n => n.id === nodeId)
   if (!node) return null
   
@@ -1805,10 +1807,12 @@ async function addSourceNode(preset) {
       }
     }
     
+    // Create the source node - the node ID is the primary identifier
+    // The label is for display, but all connections will reference this node by ID
     const newNode = await addNode({
       project_id: props.projectId,
       type: 'source',
-      label,
+      label, // Display name (e.g., "DJ LR (1)")
       // For stems, keep a clean base name as track_name; others can omit
       track_name: (preset.key === 'mono_stem' || preset.key === 'stereo_stem') ? base : null,
       x: 0.5,
@@ -1819,8 +1823,10 @@ async function addSourceNode(preset) {
       num_inputs: 0,
       num_outputs: outCount,
       num_tracks: 0,
-      output_port_labels: outputPortLabels
+      output_port_labels: outputPortLabels // Port labels map port numbers to names (e.g., "1": "DJ L (1)")
     })
+    // newNode.id is the unique identifier - connections will use from_node_id = newNode.id
+    // This ensures tracking even if the label changes later
     emit('node-added', newNode)
     closeSourceModal()
     toast.success(`Added ${label}`)
