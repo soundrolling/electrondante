@@ -437,10 +437,16 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   if (nodeType === 'source') {
     const outCount = node?.num_outputs || node?.outputs || 0
     
-    // Check for stored output port labels first (most reliable for stereo sources)
-    if (outCount === 2 && typeof inputNum === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
+    // Check for stored output port labels first (most reliable for both mono and stereo sources)
+    if (typeof inputNum === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
       const storedLabel = node.output_port_labels[String(inputNum)] || node.output_port_labels[inputNum]
       if (storedLabel) return storedLabel
+      
+      // For mono sources, try port 1 if inputNum doesn't match
+      if ((outCount === 1 || node.outputs === 1) && inputNum !== 1) {
+        const monoLabel = node.output_port_labels['1'] || node.output_port_labels[1]
+        if (monoLabel) return monoLabel
+      }
     }
     
     // Fallback to computed labels if not stored
@@ -469,6 +475,13 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
       
       if (siblings.length >= 2) {
         return inputNum === siblings[0] ? `${baseNoNum} L${numSuffix}` : `${baseNoNum} R${numSuffix}`
+      }
+      // Use inputNum to determine port (1=L, 2=R)
+      const portNum = Number(inputNum)
+      if (portNum === 1) {
+        return `${baseNoNum} L${numSuffix}`
+      } else if (portNum === 2) {
+        return `${baseNoNum} R${numSuffix}`
       }
       return `${baseNoNum} ${inputNum % 2 === 1 ? 'L' : 'R'}${numSuffix}`
     }
@@ -549,7 +562,9 @@ function traceRecorderTrackName(recorderId, trackNumber, visitedNodes = new Set(
   }
   
   // For sources and transformers, use the existing trace function
-  const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
+  // Determine the source output port - use output_number if available, otherwise use input_number
+  const sourceOutputPort = trackConn.output_number || trackConn.input_number || 1
+  const sourceLabel = traceSourceLabel(sourceNodeId, sourceOutputPort, new Set(visitedNodes))
   return sourceLabel
 }
 
@@ -760,7 +775,9 @@ function traceRecorderTrackInput(recorderId, trackNumber, visitedNodes = new Set
   }
   
   // For sources and transformers, use the existing trace function
-  const sourceLabel = traceSourceLabel(sourceNodeId, trackConn.output_number || trackConn.input_number || 1, new Set(visitedNodes))
+  // Determine the source output port - use output_number if available, otherwise use input_number
+  const sourceOutputPort = trackConn.output_number || trackConn.input_number || 1
+  const sourceLabel = traceSourceLabel(sourceNodeId, sourceOutputPort, new Set(visitedNodes))
   return sourceLabel
 }
 

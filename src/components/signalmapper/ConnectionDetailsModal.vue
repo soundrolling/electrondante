@@ -397,7 +397,8 @@ async function buildUpstreamSourceLabels() {
             // Direct source connection - get source label with L/R based on output port
             const incoming = { 
               from_node_id: parentConn.from_node_id, 
-              input_number: parentOutputPort 
+              input_number: parentOutputPort,
+              output_number: parentOutputPort
             }
             label = getLRAwareSourceLabel(incoming)
           } else if (fromNodeType === 'transformer') {
@@ -427,7 +428,8 @@ async function buildUpstreamSourceLabels() {
         const inputNum = parentConn.input_number || 1
         const incoming = { 
           from_node_id: parentConn.from_node_id,
-          input_number: inputNum
+          input_number: inputNum,
+          output_number: inputNum
         }
         const label = getLRAwareSourceLabel(incoming)
         if (label) {
@@ -880,7 +882,12 @@ async function traceTransformerOutput(transformerId, outputPort) {
         (c.to_node_id === transformerId || c.to === transformerId) && c.input_number === outputPort
       )
       if (directInput) {
-        return getLRAwareSourceLabel(directInput)
+        // Ensure output_number is set for proper source label lookup
+        const incoming = {
+          ...directInput,
+          output_number: directInput.input_number || directInput.output_number || outputPort
+        }
+        return getLRAwareSourceLabel(incoming)
       }
       return null
     }
@@ -907,7 +914,11 @@ async function traceTransformerOutput(transformerId, outputPort) {
               const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
               if (upstreamType === 'source') {
                 // Direct source - get source label
-                const incoming = { from_node_id: upstreamNodeId, input_number: relevantMap.from_port }
+                const incoming = { 
+                  from_node_id: upstreamNodeId, 
+                  input_number: relevantMap.from_port,
+                  output_number: relevantMap.from_port
+                }
                 return getLRAwareSourceLabel(incoming)
               } else if (upstreamType === 'transformer') {
                 // Recursively trace upstream transformer's output
@@ -926,7 +937,11 @@ async function traceTransformerOutput(transformerId, outputPort) {
             if (upstreamNode) {
               const upstreamType = (upstreamNode.gear_type || upstreamNode.node_type || '').toLowerCase()
               if (upstreamType === 'source') {
-                const incoming = { from_node_id: upstreamNodeId, input_number: inputNum }
+                const incoming = { 
+                  from_node_id: upstreamNodeId, 
+                  input_number: inputNum,
+                  output_number: inputNum
+                }
                 return getLRAwareSourceLabel(incoming)
               } else if (upstreamType === 'transformer') {
                 // Recursively trace upstream transformer's corresponding output
@@ -944,7 +959,12 @@ async function traceTransformerOutput(transformerId, outputPort) {
       (c.to_node_id === transformerId || c.to === transformerId) && c.input_number === outputPort
     )
     if (directInput) {
-      return getLRAwareSourceLabel(directInput)
+      // Ensure output_number is set for proper source label lookup
+      const incoming = {
+        ...directInput,
+        output_number: directInput.input_number || directInput.output_number || outputPort
+      }
+      return getLRAwareSourceLabel(incoming)
     }
   } catch {}
   
@@ -960,6 +980,20 @@ function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   
   // If this is a source, return the source label
   if (srcType === 'source') {
+    // Check output_port_labels first (most reliable)
+    const inputNum = incoming.input_number || incoming.output_number || 1
+    if (src.output_port_labels && typeof src.output_port_labels === 'object' && typeof inputNum === 'number') {
+      const storedLabel = src.output_port_labels[String(inputNum)] || src.output_port_labels[inputNum]
+      if (storedLabel) return storedLabel
+      
+      // For mono sources, try port 1 if inputNum doesn't match
+      if ((src.num_outputs === 1 || src.outputs === 1) && inputNum !== 1) {
+        const monoLabel = src.output_port_labels['1'] || src.output_port_labels[1]
+        if (monoLabel) return monoLabel
+      }
+    }
+    
+    // Fallback to computed labels if not stored
     // Clean base: extract number from label, strip LR suffix and number suffix
     const label = src.label || ''
     const trackName = src.track_name || ''
@@ -987,7 +1021,13 @@ function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
         const first = siblings[0]
         return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
       }
-      // Fallback heuristic by parity
+      // Fallback heuristic by parity - use input_number to determine port (1=L, 2=R)
+      const portNum = Number(inputNum)
+      if (portNum === 1) {
+        return `${base} L${numSuffix}`
+      } else if (portNum === 2) {
+        return `${base} R${numSuffix}`
+      }
       return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
     }
     return `${base}${numSuffix}`
@@ -1111,7 +1151,8 @@ async function traceRecorderTrackNameForModalAsync(recorderId, trackNumber, visi
   // Create a connection-like object for tracing
   const traceConn = {
     from_node_id: sourceNodeId,
-    input_number: sourcePort
+    input_number: sourcePort,
+    output_number: sourcePort
   }
   const sourceLabel = getLRAwareSourceLabel(traceConn, visitedNodes)
   return sourceLabel
@@ -1158,7 +1199,13 @@ function traceRecorderTrackNameForModal(recorderId, trackNumber, visitedNodes = 
   }
   
   // For sources and transformers, use the existing trace function
-  const sourceLabel = getLRAwareSourceLabel(trackConn, visitedNodes)
+  // Ensure we pass the correct port information
+  const traceConn = {
+    from_node_id: sourceNodeId,
+    input_number: sourceOutputPort || trackConn.output_number || trackConn.input_number || trackNumber,
+    output_number: sourceOutputPort || trackConn.output_number || trackConn.input_number || trackNumber
+  }
+  const sourceLabel = getLRAwareSourceLabel(traceConn, visitedNodes)
   return sourceLabel
 }
 
@@ -1217,6 +1264,7 @@ function getToRecorderTrackNameDisplay(trackNumber, fromPort = null) {
   if (isRecorderFrom.value && isRecorderTo.value && fromPort) {
     // For recorder-to-recorder, we want to show the track name that will be assigned
     // This comes from tracing what's on the FROM recorder's track
+    // First try the preloaded async names, then fallback to sync version
     const sourceTrackName = recorderTrackNames.value[fromPort] || 
                            traceRecorderTrackNameForModal(props.fromNode.id, fromPort)
     if (sourceTrackName) return sourceTrackName
@@ -1225,6 +1273,7 @@ function getToRecorderTrackNameDisplay(trackNumber, fromPort = null) {
   }
   
   // For source/transformer-to-recorder: show what's currently assigned to this track
+  // First try the preloaded async names, then fallback to sync version
   return toRecorderTrackNames.value[trackNumber] || 
          traceRecorderTrackInputForModal(props.toNode.id, trackNumber) || 
          `Track ${trackNumber}`
