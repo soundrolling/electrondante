@@ -400,3 +400,65 @@ ORDER BY
     END,
     t.table_name;
 
+-- ============================================
+-- VERIFICATION QUERIES FOR OLD SIGNAL MAPPER TABLES
+-- ============================================
+
+-- 10. Check if old signal mapper tables have any data
+-- Run these to see if the tables are empty (safe to remove) or have data (check migration needed)
+SELECT 'signal_connections' as table_name, COUNT(*) as row_count FROM signal_connections
+UNION ALL
+SELECT 'signal_flow_data' as table_name, COUNT(*) as row_count FROM signal_flow_data
+UNION ALL
+SELECT 'signal_mapper_layouts' as table_name, COUNT(*) as row_count FROM signal_mapper_layouts;
+
+-- 11. Check if old signal mapper tables are referenced by foreign keys
+-- If any tables reference these, you'll need to handle those first
+SELECT 
+    tc.table_name as referencing_table,
+    kcu.column_name as referencing_column,
+    ccu.table_name as referenced_table,
+    ccu.column_name as referenced_column
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu 
+    ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage ccu 
+    ON ccu.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+  AND ccu.table_name IN ('signal_connections', 'signal_flow_data', 'signal_mapper_layouts')
+ORDER BY ccu.table_name, tc.table_name;
+
+-- 12. Check table structures to understand what they stored
+-- This helps understand if data migration might be needed
+SELECT 
+    table_name,
+    column_name,
+    data_type,
+    is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name IN ('signal_connections', 'signal_flow_data', 'signal_mapper_layouts')
+ORDER BY table_name, ordinal_position;
+
+-- 13. Sample data from old tables (if they have data)
+-- Uncomment these if you want to see what data exists before deletion
+-- SELECT * FROM signal_connections LIMIT 10;
+-- SELECT * FROM signal_flow_data LIMIT 10;
+-- SELECT * FROM signal_mapper_layouts LIMIT 10;
+
+-- ============================================
+-- CLEANUP QUERIES (Run ONLY after verification)
+-- ============================================
+
+-- 14. Delete old signal mapper tables
+-- WARNING: Only run these AFTER:
+--   1. Confirming tables are empty OR data has been migrated
+--   2. Confirming no foreign keys reference these tables
+--   3. Backing up your database
+--
+-- Uncomment these one at a time and run them:
+--
+-- DROP TABLE IF EXISTS signal_connections CASCADE;
+-- DROP TABLE IF EXISTS signal_flow_data CASCADE;
+-- DROP TABLE IF EXISTS signal_mapper_layouts CASCADE;
+
