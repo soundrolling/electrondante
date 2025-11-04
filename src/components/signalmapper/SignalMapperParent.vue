@@ -294,8 +294,14 @@ function handleConnectionUpdated(connection) {
 }
 
 function handleConnectionDeleted(connectionId) {
+  // Remove the connection from local state
   allConnections.value = allConnections.value.filter(c => c.id !== connectionId)
+  // Reload signal paths to ensure all cached data is cleared
   loadSignalPaths()
+  // Force a refresh of nodes to clear any cached connection references
+  nextTick(async () => {
+    await loadNodesAndConnections()
+  })
 }
 
 function handleTrackNameClicked(connectionId) {

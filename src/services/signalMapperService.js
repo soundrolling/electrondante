@@ -70,6 +70,23 @@ export async function updateConnection(connection) {
 }
 
 export async function deleteConnection(id) {
+  // First, delete all port mappings for this connection
+  // This must be done before deleting the connection due to foreign key constraints
+  try {
+    const { error: portMapError } = await supabase
+      .from('connection_port_map')
+      .delete()
+      .eq('connection_id', id)
+    if (portMapError) {
+      console.error('Error deleting port mappings:', portMapError)
+      // Continue with connection deletion even if port mapping deletion fails
+    }
+  } catch (err) {
+    console.error('Error deleting port mappings:', err)
+    // Continue with connection deletion
+  }
+  
+  // Then delete the connection itself
   const { error } = await supabase
     .from('connections')
     .delete()
