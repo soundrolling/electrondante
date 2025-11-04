@@ -1281,7 +1281,7 @@ async function traceRecorderTrackNameForModalAsync(recorderId, trackNumber, visi
     input_number: sourcePort,
     output_number: sourcePort
   }
-  const sourceLabel = getLRAwareSourceLabel(traceConn, visitedNodes)
+  const sourceLabel = await getLRAwareSourceLabel(traceConn, visitedNodes)
   return sourceLabel
 }
 
