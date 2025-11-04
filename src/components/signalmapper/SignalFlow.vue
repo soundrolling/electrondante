@@ -1906,18 +1906,6 @@ async function cascadeDeleteNode(nodeId) {
   }
 }
 
-async function deleteSelected() {
-  if (!selectedNode.value) return
-
-  const isSource = (selectedNode.value.gear_type || selectedNode.value.node_type) === 'source'
-  if (isSource) {
-    const isAdHoc = (selectedNode.value.type === 'source') || !selectedNode.value.gear_id
-    if (!isAdHoc) {
-      toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
-      return
-    }
-  }
-
 function handleVenueSourcesSaved() {
   // Reload nodes to get updated output counts and labels
   emit('node-updated', selectedVenueSourcesNode.value)
