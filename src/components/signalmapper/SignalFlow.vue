@@ -294,7 +294,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
-import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB, getSourceLabelFromNode } from '@/services/signalMapperService'
 import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
 const props = defineProps({
@@ -464,6 +464,7 @@ const needsPortMappingForSelected = computed(() => {
 
 // Recursively trace source label through transformer chain
 // Always uses nodeId as primary identifier - ensures we track by ID, not just by name
+// inputNum should represent the source output port (1=L, 2=R for stereo sources)
 function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   if (visitedNodes.has(nodeId)) return null
   visitedNodes.add(nodeId)
@@ -474,62 +475,13 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   
   const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
   
-  // If it's a source, return the source label
+  // If it's a source, use centralized helper to get label
   if (nodeType === 'source') {
-    const outCount = node?.num_outputs || node?.outputs || 0
-    
-    // Check for stored output port labels first (most reliable for both mono and stereo sources)
-    if (typeof inputNum === 'number' && node.output_port_labels && typeof node.output_port_labels === 'object') {
-      const storedLabel = node.output_port_labels[String(inputNum)] || node.output_port_labels[inputNum]
-      if (storedLabel) return storedLabel
-      
-      // For mono sources, try port 1 if inputNum doesn't match
-      if ((outCount === 1 || node.outputs === 1) && inputNum !== 1) {
-        const monoLabel = node.output_port_labels['1'] || node.output_port_labels[1]
-        if (monoLabel) return monoLabel
-      }
-    }
-    
-    // Fallback to computed labels if not stored
-    const label = node.label || ''
-    const trackName = node.track_name || ''
-    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-    const num = m ? m[2] : ''
-    
-    let baseNoNum
-    if (trackName) {
-      baseNoNum = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-    } else if (m) {
-      baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
-    } else {
-      baseNoNum = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-    }
-    const numSuffix = num ? ` (${num})` : ''
-    
-    if (outCount === 2 && typeof inputNum === 'number') {
-      // Check siblings to determine L/R
-      const siblings = props.connections.filter(c =>
-        (c.to_node_id === nodeId || c.to === nodeId) &&
-        (c.from_node_id === nodeId || c.from === nodeId) &&
-        typeof c.input_number === 'number'
-      ).map(c => c.input_number).sort((a,b) => a - b)
-      
-      if (siblings.length >= 2) {
-        return inputNum === siblings[0] ? `${baseNoNum} L${numSuffix}` : `${baseNoNum} R${numSuffix}`
-      }
-      // Use inputNum to determine port (1=L, 2=R)
-      const portNum = Number(inputNum)
-      if (portNum === 1) {
-        return `${baseNoNum} L${numSuffix}`
-      } else if (portNum === 2) {
-        return `${baseNoNum} R${numSuffix}`
-      }
-      return `${baseNoNum} ${inputNum % 2 === 1 ? 'L' : 'R'}${numSuffix}`
-    }
-    return `${baseNoNum}${numSuffix}`
+    // inputNum should represent the source output port (1=L, 2=R for stereo)
+    return getSourceLabelFromNode(node, inputNum)
   }
   
-  // If it's a transformer, trace back to its input
+  // For transformers, trace through to find the source
   if (nodeType === 'transformer') {
     // Find connection feeding this transformer's input
     const incoming = props.connections.find(c => 
@@ -643,34 +595,13 @@ function getFromPortDisplayForEdit(portNum) {
     return upstreamLabelsForFromNode.value[portNum]
   }
   
-  // Label stereo source ports as L/R - check stored labels first
+  // Label stereo source ports as L/R - use centralized helper
   if (fromType === 'source') {
-    // Check for stored output port labels first (most reliable)
-    if (from.output_port_labels && typeof from.output_port_labels === 'object') {
-      const storedLabel = from.output_port_labels[String(portNum)] || from.output_port_labels[portNum]
-      if (storedLabel) return storedLabel
-    }
-    
-    // Fallback to computed labels if not stored
-    const outCount = from?.num_outputs || from?.outputs || 0
-    if (outCount === 2) {
-      const label = from.label || ''
-      const trackName = from.track_name || ''
-      const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-      const num = m ? m[2] : ''
-      // Get clean base: prefer track_name (cleaned), fall back to label base
-      let baseNoNum
-      if (trackName) {
-        baseNoNum = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-      } else if (m) {
-        baseNoNum = m[1].replace(/\s*LR$/i,'').trim()
-      } else {
-        baseNoNum = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-      }
-      const numSuffix = num ? ` (${num})` : ''
-      return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
-    }
-    return trackName || label || `Output ${portNum}`
+    // portNum should represent the source output port (1=L, 2=R for stereo)
+    const label = getSourceLabelFromNode(from, portNum)
+    if (label) return label
+    // Fallback if helper returns null
+    return `Output ${portNum}`
   }
   
   // For transformers, recursively trace to source

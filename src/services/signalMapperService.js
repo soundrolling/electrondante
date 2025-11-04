@@ -128,6 +128,67 @@ export async function getSourceNodes(projectId) {
   return data
 }
 
+// Centralized function to get source label from a node
+// Always prioritizes output_port_labels (most reliable) and handles mono/stereo correctly
+export function getSourceLabelFromNode(node, outputPort) {
+  if (!node) return null
+  
+  const nodeType = (node.gear_type || node.node_type || '').toLowerCase()
+  if (nodeType !== 'source') return null
+  
+  const outCount = node?.num_outputs || node?.outputs || 0
+  const portNum = typeof outputPort === 'number' ? outputPort : 1
+  
+  // Always check output_port_labels first (most reliable)
+  if (node.output_port_labels && typeof node.output_port_labels === 'object') {
+    // Try exact port match
+    const storedLabel = node.output_port_labels[String(portNum)] || node.output_port_labels[portNum]
+    if (storedLabel) return storedLabel
+    
+    // For mono sources, try port 1 if portNum doesn't match
+    if ((outCount === 1 || node.outputs === 1) && portNum !== 1) {
+      const monoLabel = node.output_port_labels['1'] || node.output_port_labels[1]
+      if (monoLabel) return monoLabel
+    }
+  }
+  
+  // Fallback to computed labels if not stored
+  // Extract base name and number suffix consistently
+  const label = node.label || ''
+  const trackName = node.track_name || ''
+  
+  // Use consistent regex pattern: match "Name (Number)" or "Name (Letter)"
+  const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+  const num = m ? m[2] : ''
+  
+  // Get clean base name: prefer track_name (cleaned), fall back to label base
+  let base
+  if (trackName) {
+    base = trackName.replace(/ \([\dA-Z]+\)\s*$/g, '').replace(/\s*LR$/i, '').trim()
+  } else if (m) {
+    base = m[1].replace(/\s*LR$/i, '').trim()
+  } else {
+    base = label.replace(/ \([\dA-Z]+\)\s*$/g, '').replace(/\s*LR$/i, '').trim()
+  }
+  
+  const numSuffix = num ? ` (${num})` : ''
+  
+  // For stereo sources, append L/R based on port number
+  if (outCount === 2 && typeof portNum === 'number') {
+    if (portNum === 1) {
+      return `${base} L${numSuffix}`
+    } else if (portNum === 2) {
+      return `${base} R${numSuffix}`
+    } else {
+      // Fallback for other port numbers
+      return `${base}${portNum % 2 === 1 ? ' L' : ' R'}${numSuffix}`
+    }
+  }
+  
+  // For mono sources, return base with suffix
+  return `${base}${numSuffix}`
+}
+
 export async function getCompleteSignalPath(projectId) {
   // Get all nodes and connections
   const nodes = await getNodes(projectId)
@@ -299,66 +360,19 @@ function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNo
     if (!node) break
     
     if (node.gear_type === 'source' || node.node_type === 'source') {
-      // Check for stored output port labels first (for both mono and stereo sources)
-      let sourceName = null
-      if (node.output_port_labels && typeof node.output_port_labels === 'object' && typeof currentInput === 'number') {
-        // Try to get stored label for this port (works for both mono port 1 and stereo ports 1/2)
-        const storedLabel = node.output_port_labels[String(currentInput)] || node.output_port_labels[currentInput]
-        if (storedLabel) {
-          sourceName = storedLabel
+      // Use centralized helper function - ensures consistent label retrieval
+      // currentInput should represent the source output port (1=L, 2=R for stereo)
+      const sourceName = getSourceLabelFromNode(node, currentInput)
+      if (sourceName) {
+        labels.push(sourceName)
+        finalSourceNode = node
+        finalSourceLabel = sourceName
+        // Capture the source output port (1=L, 2=R) if this is a stereo source
+        if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number' && currentInput >= 1 && currentInput <= 2) {
+          sourceOutputPort = currentInput
+        } else if (node.num_outputs === 1 || node.outputs === 1) {
+          sourceOutputPort = 1 // Mono sources always use port 1
         }
-        // For mono sources, try port 1 if currentInput doesn't match
-        if (!sourceName && (node.num_outputs === 1 || node.outputs === 1)) {
-          const monoLabel = node.output_port_labels['1'] || node.output_port_labels[1]
-          if (monoLabel) {
-            sourceName = monoLabel
-          }
-        }
-      }
-      
-      // Fallback to computed labels if not stored
-      if (!sourceName) {
-        // For sources, prefer custom track_name; if the source has two outputs and
-        // we arrived carrying the source output index in currentInput, append L/R.
-        // Clean the base name to avoid duplicate numbers and LR suffix
-        const label = node.label || ''
-        const trackName = node.track_name || ''
-        const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-        const num = m ? m[2] : ''
-        let base
-        if (trackName) {
-          base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-        } else if (m) {
-          base = m[1].replace(/\s*LR$/i,'').trim()
-        } else {
-          base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-        }
-        const numSuffix = num ? ` (${num})` : ''
-        
-        sourceName = base + numSuffix
-        if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number') {
-          // currentInput should be 1 or 2 indicating source output (1=L, 2=R)
-          // Make sure we use the actual port number, not a transformer input number
-          const sourceOutput = Number(currentInput)
-          if (sourceOutput === 1) {
-            sourceName = `${base} L${numSuffix}`
-          } else if (sourceOutput === 2) {
-            sourceName = `${base} R${numSuffix}`
-          } else {
-            // Fallback: if currentInput is not 1 or 2, try to infer from context
-            // This should rarely happen if tracing is correct
-            sourceName = `${base}${sourceOutput % 2 === 1 ? ' L' : ' R'}${numSuffix}`
-          }
-        }
-      }
-      labels.push(sourceName)
-      finalSourceNode = node
-      finalSourceLabel = sourceName
-      // Capture the source output port (1=L, 2=R) if this is a stereo source
-      if ((node.num_outputs === 2 || node.outputs === 2) && typeof currentInput === 'number' && currentInput >= 1 && currentInput <= 2) {
-        sourceOutputPort = currentInput
-      } else if (node.num_outputs === 1 || node.outputs === 1) {
-        sourceOutputPort = 1 // Mono sources always use port 1
       }
       break
     }

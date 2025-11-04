@@ -172,7 +172,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { supabase } from '@/supabase'
-import { addConnection, updateConnection, deleteConnection } from '@/services/signalMapperService'
+import { addConnection, updateConnection, deleteConnection, getSourceLabelFromNode } from '@/services/signalMapperService'
 import { useToast } from 'vue-toastification'
 
 const props = defineProps({
@@ -1031,59 +1031,14 @@ function getLRAwareSourceLabel(incoming, visitedNodes = new Set()) {
   
   const srcType = (src.gear_type || src.node_type || '').toLowerCase()
   
-  // If this is a source, return the source label
+  // If this is a source, use centralized helper to get label
   if (srcType === 'source') {
-    // Check output_port_labels first (most reliable)
+    // inputNum should represent the source output port (1=L, 2=R for stereo)
     const inputNum = incoming.input_number || incoming.output_number || 1
-    if (src.output_port_labels && typeof src.output_port_labels === 'object' && typeof inputNum === 'number') {
-      const storedLabel = src.output_port_labels[String(inputNum)] || src.output_port_labels[inputNum]
-      if (storedLabel) return storedLabel
-      
-      // For mono sources, try port 1 if inputNum doesn't match
-      if ((src.num_outputs === 1 || src.outputs === 1) && inputNum !== 1) {
-        const monoLabel = src.output_port_labels['1'] || src.output_port_labels[1]
-        if (monoLabel) return monoLabel
-      }
-    }
-    
-    // Fallback to computed labels if not stored
-    // Clean base: extract number from label, strip LR suffix and number suffix
-    const label = src.label || ''
-    const trackName = src.track_name || ''
-    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
-    const num = m ? m[2] : ''
-    // Get clean base: prefer track_name (cleaned), fall back to label base
-    let base
-    if (trackName) {
-      base = trackName.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-    } else if (m) {
-      base = m[1].replace(/\s*LR$/i,'').trim()
-    } else {
-      base = label.replace(/ \([\dA-Z]+\)\s*$/g,'').replace(/\s*LR$/i,'').trim()
-    }
-    const numSuffix = num ? ` (${num})` : ''
-    const outCount = src.num_outputs || src.outputs || 0
-    if (outCount === 2) {
-      // Look for sibling connection from same source to this transformer to decide L/R
-      const siblings = (props.existingConnections || []).filter(c =>
-        (c.to_node_id === props.fromNode.id || c.to === props.fromNode.id) &&
-        (c.from_node_id === srcId || c.from === srcId) &&
-        typeof c.input_number === 'number'
-      ).map(c => c.input_number).sort((a,b)=>a-b)
-      if (siblings.length >= 2) {
-        const first = siblings[0]
-        return incoming.input_number === first ? `${base} L${numSuffix}` : `${base} R${numSuffix}`
-      }
-      // Fallback heuristic by parity - use input_number to determine port (1=L, 2=R)
-      const portNum = Number(inputNum)
-      if (portNum === 1) {
-        return `${base} L${numSuffix}`
-      } else if (portNum === 2) {
-        return `${base} R${numSuffix}`
-      }
-      return `${base} ${Number(incoming.input_number) % 2 === 1 ? 'L' : 'R'}${numSuffix}`
-    }
-    return `${base}${numSuffix}`
+    const label = getSourceLabelFromNode(src, inputNum)
+    if (label) return label
+    // Fallback if helper returns null
+    return src.track_name || src.label || 'Connected'
   }
   
   // If this is a transformer, recursively trace back to find the source
