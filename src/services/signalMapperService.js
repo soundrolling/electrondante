@@ -376,7 +376,7 @@ export async function getCompleteSignalPath(projectId) {
         // For expanded port-mapped connections, use the real connection_id, otherwise use the connection id
         connection_id: conn.connection_id || conn.id
       })
-    })
+    }
   }
   
   // Sort by track number
