@@ -357,7 +357,7 @@ if (!s) return;
 if (type === 'notes') {
   router.push({ name: 'LocationNotes', params: { id, locationId: s.id } });
 } else if (type === 'signal') {
-  router.push({ name: 'SignalMapper', params: { id }, query: { venueId: s.venue_id, stageId: s.id, locationId: s.id } });
+  router.push({ name: 'SignalMapper', params: { id, tab: 'placement' }, query: { venueId: s.venue_id, stageId: s.id, locationId: s.id } });
 } else if (type === 'gear') {
   router.push({ name: 'ProjectGear', params: { id }, query: { locationId: s.id } });
 } else if (type === 'photos') {

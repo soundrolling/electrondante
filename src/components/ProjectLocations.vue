@@ -1050,7 +1050,7 @@ setup() {
   const goToSignalMapper = (s) =>
     router.push({
       name: 'SignalMapper',
-      params: { id: route.params.id },
+      params: { id: route.params.id, tab: 'placement' },
       query: { 
         venueId: s.venue_id, 
         stageId: s.id,

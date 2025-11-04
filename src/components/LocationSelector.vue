@@ -31,7 +31,7 @@
   <!-- Proceed to Signal Mapper -->
   <div v-if="selectedLocation" class="form-actions">
     <router-link 
-      :to="{ name: 'SignalMapper', query: { venueId: selectedVenue, stageId: selectedLocation, locationId: selectedLocation } }">
+      :to="{ name: 'SignalMapper', params: { id: route.params.id || projectId, tab: 'placement' }, query: { venueId: selectedVenue, stageId: selectedLocation, locationId: selectedLocation } }">
       <button class="proceed-button">Proceed to Signal Mapper</button>
     </router-link>
   </div>
@@ -40,12 +40,20 @@
 
 <script>
 import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 // Use your offline service function instead of direct Supabase calls
 import { fetchTableData } from '../services/dataService';
 
 export default {
 name: 'LocationSelector',
-setup() {
+props: {
+  projectId: {
+    type: [String, Number],
+    default: null
+  }
+},
+setup(props) {
+  const route = useRoute();
   const venues = ref([]);
   const locations = ref([]);
   const selectedVenue = ref('');
@@ -91,6 +99,8 @@ setup() {
   });
 
   return {
+    route,
+    projectId: props.projectId,
     venues,
     locations,
     selectedVenue,
