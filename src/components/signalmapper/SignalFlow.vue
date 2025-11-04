@@ -608,14 +608,66 @@ function traceRecorderTrackName(recorderId, trackNumber, visitedNodes = new Set(
 function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
-  if (upstreamLabelsForFromNode.value[portNum]) return upstreamLabelsForFromNode.value[portNum]
+  
+  // Check if we have a cached label from buildUpstreamLabelsForEdit
+  if (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[portNum]) {
+    return upstreamLabelsForFromNode.value[portNum]
+  }
   
   const fromType = (from.gear_type || from.node_type || '').toLowerCase()
   
   // For recorders, output port corresponds to track number - use track name
   if (fromType === 'recorder') {
+    // Try to trace what's recorded on this track
     const trackName = traceRecorderTrackName(from.id, portNum)
-    if (trackName) return trackName
+    if (trackName) {
+      // Cache it for future use
+      if (upstreamLabelsForFromNode.value) {
+        upstreamLabelsForFromNode.value[portNum] = trackName
+      }
+      return trackName
+    }
+    
+    // If no connection found, check if there's a direct connection to this recorder's track
+    const trackConn = props.connections.find(c => 
+      (c.to_node_id === from.id || c.to === from.id) &&
+      (c.track_number === portNum || c.input_number === portNum)
+    )
+    
+    if (trackConn) {
+      // Trace from the source
+      const sourceNodeId = trackConn.from_node_id || trackConn.from
+      if (sourceNodeId) {
+        const sourceNode = props.nodes.find(n => n.id === sourceNodeId)
+        if (sourceNode) {
+          const sourceType = (sourceNode.gear_type || sourceNode.node_type || '').toLowerCase()
+          if (sourceType === 'recorder') {
+            // Recorder to recorder - recursively trace
+            const sourceOutputPort = trackConn.output_number || trackConn.input_number || portNum
+            const recursiveTrackName = traceRecorderTrackName(sourceNodeId, sourceOutputPort)
+            if (recursiveTrackName) {
+              // Cache it
+              if (upstreamLabelsForFromNode.value) {
+                upstreamLabelsForFromNode.value[portNum] = recursiveTrackName
+              }
+              return recursiveTrackName
+            }
+          } else {
+            // Source or transformer - trace the label
+            const sourceOutputPort = trackConn.output_number || trackConn.input_number || 1
+            const sourceLabel = traceSourceLabel(sourceNodeId, sourceOutputPort)
+            if (sourceLabel) {
+              // Cache it
+              if (upstreamLabelsForFromNode.value) {
+                upstreamLabelsForFromNode.value[portNum] = sourceLabel
+              }
+              return sourceLabel
+            }
+          }
+        }
+      }
+    }
+    
     // Fallback to track number if no source found
     return `Track ${portNum}`
   }
@@ -786,7 +838,17 @@ async function buildUpstreamLabelsForEdit() {
     } catch {}
   }
   
-  // For recorders, track names are handled dynamically in availableFromPortsForEdit via traceRecorderTrackName
+  // For recorders, build track names for all output ports (tracks)
+  if (fromType === 'recorder') {
+    const numOutputs = from?.num_outputs || from?.numoutputs || from?.outputs || from?.num_tracks || from?.tracks || from?.num_records || from?.numrecord || 0
+    for (let n = 1; n <= numOutputs; n++) {
+      // Trace what's recorded on this track
+      const trackName = traceRecorderTrackName(from.id, n)
+      if (trackName) {
+        upstreamLabelsForFromNode.value[n] = trackName
+      }
+    }
+  }
 }
 
 // Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
@@ -977,7 +1039,13 @@ watch(selectedConn, async (c) => {
     await buildUpstreamLabelsForEdit()
   } else {
     editPortMappings.value = []
-    upstreamLabelsForFromNode.value = {}
+    // Still build upstream labels for recorders even if not port-mapped
+    // (needed for display purposes)
+    if (isRecorderFrom.value) {
+      await buildUpstreamLabelsForEdit()
+    } else {
+      upstreamLabelsForFromNode.value = {}
+    }
   }
 })
 
