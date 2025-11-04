@@ -131,16 +131,42 @@
               </template>
             </div>
             <div class="port-mapping-add-edit">
-              <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
-                <option :value="null">From Port</option>
-                <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <span class="arrow">→</span>
-              <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
-                <option :value="null">To Port</option>
-                <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <button type="button" class="btn-add-small" @click="addEditPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
+              <!-- Venue Sources: Text input for feed labels -->
+              <template v-if="fromNodeType === 'venue_sources'">
+                <input 
+                  type="text" 
+                  class="form-input-small" 
+                  v-model="venueSourceLabelInput"
+                  placeholder="e.g., DJA L, DJA R, Program 1"
+                  @keyup.enter="addVenueSourcePortMapping"
+                />
+                <span class="arrow">→</span>
+                <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
+                  <option :value="null">To Port</option>
+                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <button 
+                  type="button" 
+                  class="btn-add-small" 
+                  @click="addVenueSourcePortMapping" 
+                  :disabled="!venueSourceLabelInput || !venueSourceLabelInput.trim() || !newMappingToPort"
+                >
+                  Add
+                </button>
+              </template>
+              <!-- Regular port mapping -->
+              <template v-else>
+                <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
+                  <option :value="null">From Port</option>
+                  <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <span class="arrow">→</span>
+                <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
+                  <option :value="null">To Port</option>
+                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <button type="button" class="btn-add-small" @click="addEditPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
+              </template>
             </div>
           </div>
         </div>
@@ -1066,6 +1092,8 @@ watch(selectedConn, async (c) => {
   editingIdx.value = null
   editFromPort.value = null
   editToPort.value = null
+  venueSourceLabelInput.value = ''
+  venueSourceNextPort = 1
   
   // Always ensure upstreamLabelsForFromNode is initialized
   if (!upstreamLabelsForFromNode.value) {
