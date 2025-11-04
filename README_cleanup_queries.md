@@ -21,8 +21,11 @@ This file contains SQL queries to identify and clean up orphaned connections and
 
 - **Orphaned connections**: Connections referencing nodes that were deleted
 - **Orphaned port mappings**: Port mappings referencing deleted connections
+- **Orphaned nodes**: Nodes referencing deleted gear or projects
+- **Orphaned gear assignments**: Gear assignments referencing deleted gear or locations
 - **Duplicate connections**: Multiple connections with same from/to/input
 - **Duplicate port mappings**: Multiple port mappings with same connection/from/to ports
+- **Old/unused tables**: Tables from previous signal mapper implementations
 
 ## Safe Queries (Read-only)
 
@@ -40,7 +43,29 @@ Queries 9-13 are commented out with `-- DELETE` statements. Uncomment them only 
 
 1. Run query 8 (summary) to get an overview
 2. Run queries 1-7 to see detailed issues
-3. Review and backup
-4. Run cleanup queries 9-13 in order
-5. Run query 14 to verify
+3. Run queries 15-22 to check related tables
+4. Run queries 24-26 to identify old/unused tables
+5. Review and backup
+6. Run cleanup queries 9-13, 27-32 in order (uncomment as needed)
+7. Run query 33 to verify everything is clean
+
+## Current Signal Mapper Tables (Active)
+
+- `nodes` - Signal mapper nodes (sources, transformers, recorders)
+- `connections` - Connections between nodes
+- `connection_port_map` - Port mappings for transformer/recorder connections
+
+## Related Tables (Checked for Orphaned Data)
+
+- `gear_table` - Gear items referenced by nodes
+- `gear_assignments` - Gear assignments to locations
+- `projects` - Projects that contain nodes/connections
+- `locations` - Locations referenced by gear assignments
+
+## Identifying Old Tables
+
+Queries 24-26 help identify tables that might be from old signal mapper implementations:
+- Tables with names like `signal_*`, `mapper_*`, `mic_placement_*`, etc.
+- Tables with foreign keys to old signal mapper tables
+- Check these tables manually to see if they're still in use
 
