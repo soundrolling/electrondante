@@ -12,9 +12,11 @@ export async function getNodes(projectId) {
 }
 
 export async function addNode(node) {
+  // Remove node_type if present (column doesn't exist in database)
+  const { node_type, ...nodeData } = node
   const { data, error } = await supabase
     .from('nodes')
-    .insert([node])
+    .insert([nodeData])
     .select()
   if (error) throw error
   return data[0]

@@ -1678,7 +1678,8 @@ async function addSourceNode(preset) {
     }
     
     // Create Venue Sources master node
-    const newNode = await addNode({
+    // Explicitly exclude node_type (column doesn't exist in database)
+    const nodeData = {
       project_id: props.projectId,
       type: 'venue_sources',
       label: 'Venue Sources',
@@ -1692,7 +1693,10 @@ async function addSourceNode(preset) {
       num_outputs: 0, // Will be calculated based on feeds
       num_tracks: 0,
       output_port_labels: {} // Will be populated when feeds are added
-    })
+    }
+    // Ensure node_type is not included
+    delete nodeData.node_type
+    const newNode = await addNode(nodeData)
     
     emit('node-added', newNode)
     closeSourceModal()
