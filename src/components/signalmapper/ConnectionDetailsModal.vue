@@ -71,7 +71,7 @@
                 </select>
                 <span class="arrow">→</span>
                 <select class="form-select-small" v-model.number="editToPort">
-                  <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                  <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value" :disabled="opt.disabled">{{ opt.label }}</option>
                   <option :value="mapping.to_port" v-if="!availableToPorts.find(o => o.value === mapping.to_port)">
                     {{ isRecorderTo ? getToRecorderTrackNameDisplay(mapping.to_port, editFromPort || mapping.from_port) : `Input ${mapping.to_port}` }}
                   </option>
@@ -95,9 +95,9 @@
                 <option v-for="opt in availableFromPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
               <span class="arrow">→</span>
-              <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.length === 0">
+              <select class="form-select" v-model.number="newMappingToPort" :disabled="availableToPorts.filter(o => !o.disabled).length === 0">
                 <option :value="null">Select To Port</option>
-                <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                <option v-for="opt in availableToPorts" :key="opt.value" :value="opt.value" :disabled="opt.disabled">{{ opt.label }}</option>
               </select>
               <button type="button" class="btn-add" @click="addPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
             </div>
@@ -617,7 +617,8 @@ async function loadTakenPorts() {
             const fromNodeType = (fromNode.gear_type || fromNode.node_type || '').toLowerCase()
             if (fromNodeType === 'source') {
               // Direct source connection via port map - use from_port to determine L/R
-              const label = getSourcePortLabelForNode(fromNode, Number(r.from_port))
+              // Use centralized helper from signalMapperService
+              const label = getSourceLabelFromNode(fromNode, Number(r.from_port))
               if (label) portMappedInputLabels.value[inputNum] = label
             } else {
               // Transformer→Transformer: find incoming connection to this transformer
@@ -785,37 +786,82 @@ const availableToPorts = computed(() => {
   if (isRecorderTo.value) {
     const count = (numTracks.value && numTracks.value > 0) ? numTracks.value : (numInputs.value || 0)
     for (let n = 1; n <= count; n++) {
-      if (!used.has(n)) {
-        // When falling back to inputs, we still want unique mapping per port. Also avoid listing inputs already assigned by raw connections.
-        const taken = (props.existingConnections || []).find(c =>
-          (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
-        )
-        if (!taken && !takenToPorts.value.has(n)) {
-          let label
-          // For recorder-to-recorder connections, show what track name will be assigned to this destination track
-          // The track name comes from the source recorder's track (when a mapping is made)
-          // But for the dropdown, we show what's currently assigned or will be shown after mapping
-          if (isRecorderFrom.value) {
-            // For recorder-to-recorder: if we have a selected from_port, we could show that track name
-            // But since we don't know which to_port will be selected, show current assignments
-            // The actual track name will be shown in the mapping display using getToRecorderTrackNameDisplay
-            label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
-          } else {
-            // For source/transformer-to-recorder, show what's currently assigned to that track
-            label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
-          }
-          opts.push({ value: n, label })
+      // Check if this port is already used in current mapping (allow it to be shown)
+      const isUsedInCurrentMapping = used.has(n)
+      
+      // Check if taken by direct connection
+      const takenConn = (props.existingConnections || []).find(c =>
+        (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && (c.track_number === n || c.input_number === n)
+      )
+      
+      // Check if taken by port mapping from another connection
+      const takenByPortMap = takenToPorts.value.has(n)
+      const portMapLabel = portMappedInputLabels.value[n]
+      
+      // Determine if this port should be disabled
+      // If it's used in current mapping, don't disable it (allow editing)
+      // Otherwise, disable if taken by connection or port map
+      const isDisabled = !isUsedInCurrentMapping && (!!takenConn || takenByPortMap)
+      
+      let label
+      if (isDisabled) {
+        // Port is taken - show what's using it
+        if (takenConn) {
+          const nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from) || 'Taken'
+          label = `Track ${n} (Assigned to ${nodeLabel})`
+        } else if (portMapLabel) {
+          label = `Track ${n} (Assigned to ${portMapLabel})`
+        } else {
+          label = `Track ${n} (Taken)`
+        }
+      } else {
+        // Port is available - show normal label
+        if (isRecorderFrom.value) {
+          // For recorder-to-recorder: show what track name will be assigned to this destination track
+          label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
+        } else {
+          // For source/transformer-to-recorder, show what's currently assigned to that track
+          label = toRecorderTrackNames.value[n] || traceRecorderTrackInputForModal(props.toNode.id, n) || `Track ${n}`
         }
       }
+      
+      opts.push({ value: n, label, disabled: isDisabled })
     }
   } else {
+    // Transformer or other destination - use inputs
     for (let n = 1; n <= numInputs.value; n++) {
-      if (!used.has(n)) {
-        const taken = (props.existingConnections || []).find(c =>
-          (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
-        )
-        if (!taken && !takenToPorts.value.has(n)) opts.push({ value: n, label: `Input ${n}` })
+      // Check if this port is already used in current mapping (allow it to be shown)
+      const isUsedInCurrentMapping = used.has(n)
+      
+      // Check if taken by direct connection
+      const takenConn = (props.existingConnections || []).find(c =>
+        (c.to_node_id === props.toNode.id || c.to === props.toNode.id) && c.input_number === n
+      )
+      
+      // Check if taken by port mapping from another connection
+      const takenByPortMap = takenToPorts.value.has(n)
+      const portMapLabel = portMappedInputLabels.value[n]
+      
+      // Determine if this port should be disabled
+      const isDisabled = !isUsedInCurrentMapping && (!!takenConn || takenByPortMap)
+      
+      let label
+      if (isDisabled) {
+        // Port is taken - show what's using it
+        if (takenConn) {
+          const nodeLabel = getNodeLabelById(takenConn.from_node_id || takenConn.from) || 'Taken'
+          label = `Input ${n} (Assigned to ${nodeLabel})`
+        } else if (portMapLabel) {
+          label = `Input ${n} (Assigned to ${portMapLabel})`
+        } else {
+          label = `Input ${n} (Taken)`
+        }
+      } else {
+        // Port is available
+        label = `Input ${n}`
       }
+      
+      opts.push({ value: n, label, disabled: isDisabled })
     }
   }
   return opts
@@ -823,6 +869,14 @@ const availableToPorts = computed(() => {
 
 function addPortMapping() {
   if (!newMappingFromPort.value || !newMappingToPort.value) return
+  
+  // Check if the selected to_port is disabled (taken)
+  const selectedOpt = availableToPorts.value.find(o => o.value === newMappingToPort.value)
+  if (selectedOpt && selectedOpt.disabled) {
+    toast.error('This port is already assigned to another source')
+    return
+  }
+  
   portMappings.value.push({
     from_port: newMappingFromPort.value,
     to_port: newMappingToPort.value
@@ -846,6 +900,14 @@ function startEditMapping(index) {
 
 function saveEditMapping() {
   if (editingIdx.value !== null && editFromPort.value && editToPort.value) {
+    // Check if the selected to_port is disabled (taken) - but allow if it's the current mapping's port
+    const currentMapping = portMappings.value[editingIdx.value]
+    const selectedOpt = availableToPorts.value.find(o => o.value === editToPort.value)
+    if (selectedOpt && selectedOpt.disabled && currentMapping.to_port !== editToPort.value) {
+      toast.error('This port is already assigned to another source')
+      return
+    }
+    
     portMappings.value[editingIdx.value] = {
       from_port: editFromPort.value,
       to_port: editToPort.value
