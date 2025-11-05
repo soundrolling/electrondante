@@ -296,6 +296,7 @@
     v-if="inspectorOpen && inspectorNode"
     :projectId="projectId"
     :node="inspectorNode"
+    :fromNode="inspectorFromNode"
     :elements="nodes"
     @close="inspectorOpen = false; inspectorNode = null"
   />
@@ -354,6 +355,7 @@ const selectedConnectionId = ref(null)
 // Inspector state
 const inspectorOpen = ref(false)
 const inspectorNode = ref(null)
+const inspectorFromNode = ref(null)
 // Edit models for selected connection
 const editPad = ref(0)
 const editPhantom = ref(false)
@@ -1934,8 +1936,9 @@ function onPointerDown(e) {
           linkSource.value = null
           return
         }
-        // Open inspector on target to continue mapping
+        // Open inspector on target to continue mapping; pass link source as fromNode
         inspectorNode.value = clickedNode
+        inspectorFromNode.value = linkSource.value
         inspectorOpen.value = true
         linkSource.value = null
       } else {

@@ -106,7 +106,8 @@ import { getCompleteSignalPath } from '@/services/signalMapperService'
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
   node: { type: Object, required: true },
-  elements: { type: Array, default: () => [] }
+  elements: { type: Array, default: () => [] },
+  fromNode: { type: Object, default: null }
 })
 const emit = defineEmits(['close'])
 
@@ -115,6 +116,8 @@ const inputs = computed(() => props.node.num_inputs || props.node.inputs || 0)
 const outputs = computed(() => props.node.num_outputs || props.node.outputs || 0)
 const tracks = computed(() => props.node.num_tracks || props.node.tracks || props.node.num_records || props.node.numrecord || 0)
 const tab = ref('connections')
+const fromNodeRef = computed(() => props.fromNode)
+const isIncomingMap = computed(() => !!fromNodeRef.value)
 
 const graph = ref(null)
 const upstream = ref([])
@@ -151,6 +154,7 @@ async function refresh() {
   if (type.value === 'recorder') {
     await loadTracks()
   }
+  if (isIncomingMap.value) tab.value = 'map'
 }
 
 async function loadConnections() {
@@ -203,33 +207,74 @@ async function loadLabels() {
 async function saveMappings() {
   saving.value = true
   try {
-    const toNodeId = selectedToNodeId.value
-    if (!toNodeId) return
-    let parentId
-    const { data: existing } = await supabase
-      .from('connections')
-      .select('id')
-      .eq('project_id', props.projectId)
-      .eq('from_node_id', props.node.id)
-      .eq('to_node_id', toNodeId)
-      .maybeSingle()
-    if (existing) parentId = existing.id
-    else {
-      const { data: saved } = await supabase
+    if (isIncomingMap.value) {
+      const upstream = fromNodeRef.value
+      const upstreamType = (upstream.gear_type || upstream.node_type || upstream.type || '').toLowerCase()
+      const toNodeId = props.node.id
+      const upstreamOutputs = upstream.num_outputs || upstream.outputs || 0
+      if (upstreamType === 'source' || upstreamType === 'venue_sources') {
+        if (upstreamOutputs <= 1) {
+          const chosen = draftMappings.value[1] || draftMappings.value['1']
+          if (!chosen) return
+          await supabase.from('connections').insert([{ project_id: props.projectId, from_node_id: upstream.id, to_node_id: toNodeId, input_number: Number(chosen) }])
+          await refresh()
+          return
+        }
+      }
+      let parentId
+      const { data: existing } = await supabase
         .from('connections')
-        .insert([{ project_id: props.projectId, from_node_id: props.node.id, to_node_id: toNodeId }])
-        .select()
-        .single()
-      parentId = saved.id
+        .select('id')
+        .eq('project_id', props.projectId)
+        .eq('from_node_id', upstream.id)
+        .eq('to_node_id', toNodeId)
+        .maybeSingle()
+      if (existing) parentId = existing.id
+      else {
+        const { data: saved } = await supabase
+          .from('connections')
+          .insert([{ project_id: props.projectId, from_node_id: upstream.id, to_node_id: toNodeId }])
+          .select()
+          .single()
+        parentId = saved.id
+      }
+      await supabase.from('connection_port_map').delete().eq('connection_id', parentId)
+      const inserts = Object.entries(draftMappings.value)
+        .filter(([from, to]) => Number(to) > 0)
+        .map(([from, to]) => ({ project_id: props.projectId, connection_id: parentId, from_port: Number(from), to_port: Number(to) }))
+      if (inserts.length) {
+        await supabase.from('connection_port_map').insert(inserts)
+      }
+      await refresh()
+    } else {
+      const toNodeId = selectedToNodeId.value
+      if (!toNodeId) return
+      let parentId
+      const { data: existing } = await supabase
+        .from('connections')
+        .select('id')
+        .eq('project_id', props.projectId)
+        .eq('from_node_id', props.node.id)
+        .eq('to_node_id', toNodeId)
+        .maybeSingle()
+      if (existing) parentId = existing.id
+      else {
+        const { data: saved } = await supabase
+          .from('connections')
+          .insert([{ project_id: props.projectId, from_node_id: props.node.id, to_node_id: toNodeId }])
+          .select()
+          .single()
+        parentId = saved.id
+      }
+      await supabase.from('connection_port_map').delete().eq('connection_id', parentId)
+      const inserts = Object.entries(draftMappings.value)
+        .filter(([from, to]) => Number(to) > 0)
+        .map(([from, to]) => ({ project_id: props.projectId, connection_id: parentId, from_port: Number(from), to_port: Number(to) }))
+      if (inserts.length) {
+        await supabase.from('connection_port_map').insert(inserts)
+      }
+      await refresh()
     }
-    await supabase.from('connection_port_map').delete().eq('connection_id', parentId)
-    const inserts = Object.entries(draftMappings.value)
-      .filter(([from, to]) => Number(to) > 0)
-      .map(([from, to]) => ({ project_id: props.projectId, connection_id: parentId, from_port: Number(from), to_port: Number(to) }))
-    if (inserts.length) {
-      await supabase.from('connection_port_map').insert(inserts)
-    }
-    await refresh()
   } finally {
     saving.value = false
   }
