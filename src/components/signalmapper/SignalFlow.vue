@@ -519,10 +519,38 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
     return null
   }
   
-  // If it's a source, use centralized helper to get label
+  // If it's a source, check output_port_labels first (synchronous)
   if (nodeType === 'source') {
     // inputNum should represent the source output port (1=L, 2=R for stereo)
-    return getSourceLabelFromNode(node, inputNum)
+    // Check node's output_port_labels first (most reliable, synchronous)
+    if (node.output_port_labels && typeof node.output_port_labels === 'object') {
+      const storedLabel = node.output_port_labels[String(inputNum)] || node.output_port_labels[inputNum]
+      if (storedLabel) return storedLabel
+    }
+    // Fallback: compute label synchronously from node properties
+    // Don't call async getSourceLabelFromNode here - it's used in sync contexts
+    const outCount = node?.num_outputs || node?.outputs || 0
+    const label = node.label || ''
+    const trackName = node.track_name || ''
+    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    const num = m ? m[2] : ''
+    let base
+    if (trackName) {
+      base = trackName.replace(/ \([\dA-Z]+\)\s*$/g, '').replace(/\s*LR$/i, '').trim()
+    } else if (m) {
+      base = m[1].replace(/\s*LR$/i, '').trim()
+    } else {
+      base = label.replace(/ \([\dA-Z]+\)\s*$/g, '').replace(/\s*LR$/i, '').trim()
+    }
+    const numSuffix = num ? ` (${num})` : ''
+    if (outCount === 2 && typeof inputNum === 'number') {
+      if (inputNum === 1) {
+        return `${base} L${numSuffix}`
+      } else if (inputNum === 2) {
+        return `${base} R${numSuffix}`
+      }
+    }
+    return `${base}${numSuffix}`
   }
   
   // For transformers, trace through to find the source
