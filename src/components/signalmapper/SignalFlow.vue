@@ -785,6 +785,18 @@ const availableFromPortsForEdit = computed(() => {
       }
       // Fallback to computed label if not stored
       label = getFromPortDisplayForEdit(n)
+    } else if (fromType === 'venue_sources') {
+      // For venue sources, prefer node.output_port_labels (set by custom labels)
+      if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+        const storedLabel = from.output_port_labels[String(n)] || from.output_port_labels[n]
+        if (storedLabel) {
+          label = storedLabel
+          opts.push({ value: n, label })
+          continue
+        }
+      }
+      // Fallback to any upstream cached label or generic output label
+      label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
     } else if (fromType === 'recorder') {
       // For recorders, output port corresponds to track number - use track name
       // First try the preloaded async names, then fallback to sync version
