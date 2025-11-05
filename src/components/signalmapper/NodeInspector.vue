@@ -10,9 +10,9 @@
         <button class="close-btn" @click="emit('close')">×</button>
       </div>
       <div class="meta">
-        <span>{{ inputs }} in</span>
+        <span v-if="type !== 'recorder'">{{ inputs }} in</span>
+        <span v-if="type === 'recorder'">{{ tracks || inputs }} tracks</span>
         <span>{{ outputs }} out</span>
-        <span v-if="tracks">{{ tracks }} tracks</span>
       </div>
 
     <div class="tabs">
@@ -39,12 +39,12 @@
         <!-- Other nodes: Show editable connections -->
         <div v-else>
           <div class="map-unified">
-            <!-- Upstream (Inputs) Section -->
+            <!-- Upstream (Inputs/Tracks) Section -->
             <div class="map-section">
-              <h4>Inputs</h4>
+              <h4>{{ type === 'recorder' ? 'Tracks' : 'Inputs' }}</h4>
               <div class="map-inputs">
                 <div v-for="n in inputCount" :key="`in-${n}`" class="map-io-row">
-                  <div class="map-io-label">Input {{ n }}</div>
+                  <div class="map-io-label">{{ type === 'recorder' ? 'Track' : 'Input' }} {{ n }}</div>
                   <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
                     <option :value="null">— Select source —</option>
                     <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
@@ -52,7 +52,7 @@
                   <div v-if="upstreamMap[n]" class="map-io-display">{{ getUpstreamLabel(n) }}</div>
                   <button v-if="upstreamMap[n]" class="btn-danger-small" @click="clearUpstreamConnection(n)">Clear</button>
                 </div>
-                <div v-if="!inputCount" class="muted">No inputs</div>
+                <div v-if="!inputCount" class="muted">{{ type === 'recorder' ? 'No tracks' : 'No inputs' }}</div>
               </div>
             </div>
 
@@ -134,15 +134,21 @@ async function loadAvailableUpstreamSources() {
     availableUpstreamSources.value = []
     return
   }
-  // Only show nodes that are actually connected TO this node's inputs (upstream sources)
+  // For venue sources and transformers, show ALL available nodes (not just connected ones)
+  // This allows users to connect multiple venue source feeds to different inputs/tracks
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   const connectedIds = new Set(parents.map(p => p.from_node_id).filter(Boolean))
   const sources = []
   
   for (const e of props.elements) {
     if (e.id === props.node.id) continue
-    if (!connectedIds.has(e.id)) continue // Only nodes that have connections TO this node
     const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+    
+    // For venue sources and transformers, show ALL of them (not just connected ones)
+    // This allows connecting multiple feeds/ports
+    // For regular sources, only show if already connected (for backward compatibility)
+    const isVenueOrTransformer = (eType === 'venue_sources' || eType === 'transformer')
+    if (!isVenueOrTransformer && !connectedIds.has(e.id)) continue
     
     // Only show actual sources (gear sources and venue sources) - not transformers or recorders
     if (eType === 'venue_sources') {
