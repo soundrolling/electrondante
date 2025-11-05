@@ -1279,6 +1279,38 @@ async function saveSelectedConnection() {
             console.error('Error saving venue source feeds:', feedError)
           }
         }
+        
+        // Update the venue source node's output_port_labels with all custom labels
+        // This makes the custom labels become the node's output labels
+        const outputPortLabels = {}
+        for (const mapping of editPortMappings.value) {
+          if (mapping.label && mapping.from_port) {
+            outputPortLabels[String(mapping.from_port)] = mapping.label.trim()
+          }
+        }
+        
+        // Only update if we have labels
+        if (Object.keys(outputPortLabels).length > 0) {
+          // Get current node to preserve other fields
+          const { data: currentNode } = await supabase
+            .from('nodes')
+            .select('output_port_labels')
+            .eq('id', fromNodeOfSelected.value.id)
+            .single()
+          
+          // Merge with existing labels (if any) and update
+          const existingLabels = currentNode?.output_port_labels || {}
+          const mergedLabels = { ...existingLabels, ...outputPortLabels }
+          
+          const { error: nodeError } = await supabase
+            .from('nodes')
+            .update({ output_port_labels: mergedLabels })
+            .eq('id', fromNodeOfSelected.value.id)
+          
+          if (nodeError) {
+            console.error('Error updating venue source node output_port_labels:', nodeError)
+          }
+        }
       }
       
       emit('connection-updated', { ...c, ...payload })
