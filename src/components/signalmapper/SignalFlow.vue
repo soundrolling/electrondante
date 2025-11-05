@@ -107,6 +107,9 @@
           <div class="muted" style="margin-top: 16px; padding: 12px; background: var(--bg-elevated); border-radius: 6px;">
             <p style="margin: 0; font-size: 13px;">To edit this connection, double-tap the connected nodes to open the Node Inspector.</p>
           </div>
+          <div class="detail-actions" style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
+            <button class="btn-delete" @click="deleteSelectedConnection">Delete Connection</button>
+          </div>
         </div>
       </div>
     </div>
