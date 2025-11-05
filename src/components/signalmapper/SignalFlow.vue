@@ -293,7 +293,7 @@ const graphRef = ref(null)
 // Store recorder track names (track number -> source label) for the FROM recorder when editing
 const recorderTrackNamesForEdit = ref({})
 const draggingNode = ref(null)
-let dragStart = null
+let dragStart = null // { x, y, node } or null - tracks potential drag start
 
 // Zoom state
 const zoomLevel = ref(1.0)
@@ -370,16 +370,30 @@ const portMapCache = ref(new Map()) // Map<connId, boolean>
 const selectedConnHasPortMaps = ref(false)
 
 // Async function to check if connection has port maps
+// Uses cached graph data first, then cache, then DB query as fallback
 async function checkPortMapsForConnection(connId) {
   if (!connId) {
     selectedConnHasPortMaps.value = false
     return false
   }
+  
+  // First check cache
   if (portMapCache.value.has(connId)) {
     const hasMaps = portMapCache.value.get(connId)
     selectedConnHasPortMaps.value = hasMaps
     return hasMaps
   }
+  
+  // Try to use graph cache if available
+  if (graphRef.value?.mapsByConnId) {
+    const portMaps = graphRef.value.mapsByConnId[connId] || []
+    const hasMaps = portMaps.length > 0
+    portMapCache.value.set(connId, hasMaps)
+    selectedConnHasPortMaps.value = hasMaps
+    return hasMaps
+  }
+  
+  // Fallback to DB query only if graph not available
   try {
     const { data } = await supabase
       .from('connection_port_map')
@@ -1144,6 +1158,106 @@ async function loadPortMappingsForConnection(connId) {
     editPortMappings.value = []
     return
   }
+  
+  // Try to use graph cache first (much faster)
+  if (graphRef.value?.mapsByConnId) {
+    const portMaps = graphRef.value.mapsByConnId[connId] || []
+    if (portMaps.length > 0) {
+      // Sort by from_port to match DB query behavior
+      const sortedMaps = [...portMaps].sort((a, b) => Number(a.from_port) - Number(b.from_port))
+      const data = sortedMaps.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+      
+      // Process the data (same logic as before)
+      if (data && data.length > 0) {
+      // If this is a venue sources connection, load labels from node's output_port_labels first
+      if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
+        // Build a complete list of ports so un-mapped ports also get labels
+        const totalPorts = (fromNodeOfSelected.value.num_outputs || fromNodeOfSelected.value.outputs || 0) || 0
+        const portNumbers = totalPorts > 0
+          ? Array.from({ length: totalPorts }, (_, i) => i + 1)
+          : data.map(m => m.from_port)
+        
+        // First, check node's output_port_labels (these are set from custom labels in port map)
+        const nodeLabels = {}
+        if (fromNodeOfSelected.value.output_port_labels && typeof fromNodeOfSelected.value.output_port_labels === 'object') {
+          portNumbers.forEach(portNum => {
+            const label = fromNodeOfSelected.value.output_port_labels[String(portNum)] || 
+                         fromNodeOfSelected.value.output_port_labels[portNum]
+            if (label) {
+              nodeLabels[portNum] = label
+            }
+          })
+        }
+        
+        // Fallback: Query venue_source_feeds for any ports not found in node labels
+        const missingPorts = portNumbers.filter(p => !nodeLabels[p])
+        const feedMap = { ...nodeLabels }
+        
+        if (missingPorts.length > 0) {
+          const { data: feeds } = await supabase
+            .from('venue_source_feeds')
+            .select('port_number, output_port_label, source_type, feed_identifier, channel')
+            .eq('node_id', fromNodeOfSelected.value.id)
+            .in('port_number', missingPorts)
+          
+          if (feeds) {
+            feeds.forEach(feed => {
+              if (feed.output_port_label && feed.output_port_label.trim()) {
+                feedMap[feed.port_number] = feed.output_port_label.trim()
+              } else {
+                // Construct a readable fallback from source_type/feed_identifier/channel
+                const baseType = (feed.source_type || '').replace(/_/g, ' ')
+                const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
+                let constructed = typeName
+                if (feed.feed_identifier) constructed += ` ${feed.feed_identifier}`
+                if (Number(feed.channel) === 1) constructed += ' L'
+                if (Number(feed.channel) === 2) constructed += ' R'
+                feedMap[feed.port_number] = constructed.trim()
+              }
+            })
+          }
+        }
+        
+        editPortMappings.value = data.map(m => ({
+          from_port: m.from_port,
+          to_port: m.to_port,
+          label: feedMap[m.from_port] // Include label from node or venue_source_feeds
+        }))
+        
+        // Initialize upstreamLabelsForFromNode with loaded labels
+        if (!upstreamLabelsForFromNode.value) {
+          upstreamLabelsForFromNode.value = {}
+        }
+        // Populate upstream labels for all known ports
+        portNumbers.forEach(p => {
+          if (feedMap[p]) {
+            upstreamLabelsForFromNode.value[p] = feedMap[p]
+          }
+        })
+
+        // Locally ensure the node carries labels for all ports so dropdowns show names
+        const existing = fromNodeOfSelected.value.output_port_labels || {}
+        const mergedLabels = { ...existing }
+        portNumbers.forEach(p => {
+          if (feedMap[p]) mergedLabels[String(p)] = feedMap[p]
+        })
+        fromNodeOfSelected.value.output_port_labels = mergedLabels
+        
+        // Initialize venue source port counter
+        const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
+        venueSourceNextPort = 1
+        while (usedPorts.has(venueSourceNextPort)) {
+          venueSourceNextPort++
+        }
+        return // Successfully loaded from cache
+      } else {
+        editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+        return // Successfully loaded from cache
+      }
+    }
+  }
+  
+  // Fallback to DB query if graph cache not available or empty
   try {
     const { data, error } = await supabase
       .from('connection_port_map')
@@ -1850,11 +1964,14 @@ function onPointerDown(e) {
         inspectorNode.value = clickedNode
         inspectorOpen.value = true
         selectedNode.value = null // Clear selection when opening inspector
+        // Don't set draggingNode on double-click
       } else {
         selectedNode.value = clickedNode
+        // Store potential drag start but don't enable dragging yet
+        // Dragging will only start if mouse moves beyond threshold
+        dragStart = { x, y, node: clickedNode }
+        draggingNode.value = null // Don't start dragging immediately
       }
-      draggingNode.value = clickedNode
-      dragStart = { x, y }
       selectedConnectionId.value = null // Clear connection selection when selecting a node
       
       // If Venue Sources node is clicked, open configuration modal
@@ -1876,6 +1993,9 @@ function onPointerDown(e) {
         selectedNode.value = null
         selectedConnectionId.value = null
       }
+      // Clear drag state when clicking empty space
+      dragStart = null
+      draggingNode.value = null
       drawCanvas() // Redraw to update selection state
     }
   } else if (tool.value === 'link') {
@@ -1913,6 +2033,9 @@ function onPointerDown(e) {
         linkSource.value = null
       }
     }
+    // Clear drag state in link mode
+    dragStart = null
+    draggingNode.value = null
   }
 
   drawCanvas()
@@ -1920,6 +2043,21 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
   e.preventDefault()
+  
+  // Only start dragging if we have a dragStart and mouse has moved beyond threshold
+  if (dragStart && dragStart.node && !draggingNode.value) {
+    const { x, y } = getCanvasCoords(e)
+    const dx = Math.abs(x - dragStart.x)
+    const dy = Math.abs(y - dragStart.y)
+    const threshold = 5 // pixels - only start dragging if moved more than this
+    
+    if (dx > threshold || dy > threshold) {
+      // Start dragging - user has moved mouse enough
+      draggingNode.value = dragStart.node
+    }
+  }
+  
+  // Only update position if actively dragging
   if (!draggingNode.value || !dragStart) return
 
   const { x, y } = getCanvasCoords(e)
@@ -1935,9 +2073,10 @@ async function onPointerUp(e) {
   if (draggingNode.value) {
     // Save normalized position
     await saveNodePosition(draggingNode.value)
-    draggingNode.value = null
   }
   
+  // Always clear drag state on pointer up
+  draggingNode.value = null
   dragStart = null
 }
 

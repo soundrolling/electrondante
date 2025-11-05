@@ -156,32 +156,25 @@ async function loadAvailableUpstreamSources() {
     const srcNode = props.elements.find(e => e.id === nodeId)
     const srcType = srcNode ? (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase() : ''
     
-    // Get port maps for this connection
+    // Get port maps for this connection from cached graph data (no DB query needed)
     let connectedPorts = null // null means no port map (single output source)
-    try {
-      const { data: portMaps } = await supabase
-        .from('connection_port_map')
-        .select('from_port, to_port')
-        .eq('connection_id', p.id)
-      if (portMaps && portMaps.length > 0) {
-        // Has port maps - track which ports are connected
-        connectedPorts = new Set(portMaps.map(m => Number(m.from_port)))
-      } else if (srcType === 'transformer') {
-        // For transformers without port maps, we need to show all outputs
-        // Since we don't know which specific output port was used, show all
-        // This allows transformers to pass through their sources even without explicit port maps
-        const numOutputs = srcNode.num_outputs || srcNode.outputs || 0
-        if (numOutputs > 0) {
-          connectedPorts = new Set(Array.from({ length: numOutputs }, (_, i) => i + 1))
-        } else if (p.input_number) {
-          // Fallback: if transformer has no num_outputs, infer from input_number (1:1 pass-through)
-          connectedPorts = new Set([Number(p.input_number)])
-        }
+    const portMaps = (graph.value.mapsByConnId || {})[p.id] || []
+    if (portMaps && portMaps.length > 0) {
+      // Has port maps - track which ports are connected
+      connectedPorts = new Set(portMaps.map(m => Number(m.from_port)))
+    } else if (srcType === 'transformer') {
+      // For transformers without port maps, we need to show all outputs
+      // Since we don't know which specific output port was used, show all
+      // This allows transformers to pass through their sources even without explicit port maps
+      const numOutputs = srcNode.num_outputs || srcNode.outputs || 0
+      if (numOutputs > 0) {
+        connectedPorts = new Set(Array.from({ length: numOutputs }, (_, i) => i + 1))
+      } else if (p.input_number) {
+        // Fallback: if transformer has no num_outputs, infer from input_number (1:1 pass-through)
+        connectedPorts = new Set([Number(p.input_number)])
       }
-      // If no port maps and not a transformer, connectedPorts stays null (means single output source)
-    } catch (err) {
-      console.warn('[Inspector] failed to load port maps for connection', p.id, err)
     }
+    // If no port maps and not a transformer, connectedPorts stays null (means single output source)
     
     // Store connection info
     if (!connectedNodes.has(nodeId)) {
@@ -331,6 +324,7 @@ const nextFeedPort = ref(1)
 const trackList = ref([])
 
 async function refresh() {
+  // Always rebuild graph to ensure we have latest connections and port maps
   graph.value = await buildGraph(props.projectId)
   if (type.value === 'venue_sources') {
     await hydrateVenueLabels(props.node)
@@ -338,7 +332,7 @@ async function refresh() {
   await loadConnections() // Load connections first to get the feedKeys
   await loadAvailableUpstreamSources() // Refresh available sources after connections are loaded
   await updateUpstreamLabels() // Update labels after connections and sources are loaded
-  await loadLabels()
+  await loadLabels() // Load transformer input labels
   if (type.value === 'recorder') {
     await loadTracks()
   }
@@ -362,26 +356,19 @@ async function loadConnections() {
     const inputNum = p.input_number || 1
     upstreamConnections.value[inputNum] = p.id
     
-    // Check for port map to get specific feed port
+    // Check for port map to get specific feed port from cached graph data (no DB query needed)
     // Note: For connections with multiple port maps, we get the one that matches this input_number
     let feedPort = null
-    try {
-      const { data: portMaps } = await supabase
-        .from('connection_port_map')
-        .select('from_port, to_port')
-        .eq('connection_id', p.id)
-      if (portMaps && portMaps.length > 0) {
-        // Find port map that matches this input_number
-        const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
-        if (matchingMap) {
-          feedPort = matchingMap.from_port
-        } else if (portMaps.length === 1) {
-          // If only one port map exists, use it (might be legacy data)
-          feedPort = portMaps[0].from_port
-        }
+    const portMaps = (graph.value.mapsByConnId || {})[p.id] || []
+    if (portMaps && portMaps.length > 0) {
+      // Find port map that matches this input_number
+      const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
+      if (matchingMap) {
+        feedPort = matchingMap.from_port
+      } else if (portMaps.length === 1) {
+        // If only one port map exists, use it (might be legacy data)
+        feedPort = portMaps[0].from_port
       }
-    } catch (err) {
-      console.warn('[Inspector][Map] failed to load port map', err)
     }
     
     // Build feedKey: if venue source or transformer with port map, use nodeId:port; otherwise just nodeId
@@ -724,22 +711,18 @@ async function updateUpstreamLabels() {
         const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
         const conn = parents.find(p => p.id === connId)
         if (conn) {
-          // Get port map if exists - this is the authoritative source for which port to use
+          // Get port map if exists from cached graph data (no DB query needed)
+          // This is the authoritative source for which port to use
           let feedPort = null
-          try {
-            const { data: portMaps } = await supabase
-              .from('connection_port_map')
-              .select('from_port, to_port')
-              .eq('connection_id', connId)
-            if (portMaps && portMaps.length > 0) {
-              const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
-              if (matchingMap) {
-                feedPort = matchingMap.from_port
-              } else if (portMaps.length === 1) {
-                feedPort = portMaps[0].from_port
-              }
+          const portMaps = (graph.value.mapsByConnId || {})[connId] || []
+          if (portMaps && portMaps.length > 0) {
+            const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
+            if (matchingMap) {
+              feedPort = matchingMap.from_port
+            } else if (portMaps.length === 1) {
+              feedPort = portMaps[0].from_port
             }
-          } catch {}
+          }
           
           // Find source node
           const srcNode = props.elements.find(e => e.id === conn.from_node_id)
