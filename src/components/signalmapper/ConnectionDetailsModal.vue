@@ -961,9 +961,29 @@ function addVenueSourcePortMapping() {
 }
 
 function removePortMapping(index) {
+  const removed = portMappings.value[index]
   portMappings.value.splice(index, 1)
   if (editingIdx.value === index) {
     editingIdx.value = null
+  }
+  // If a parent connection already exists, delete this specific mapping row in DB immediately
+  if (existingConnectionId.value && removed && (removed.to_port || removed.from_port)) {
+    const connId = existingConnectionId.value
+    supabase
+      .from('connection_port_map')
+      .delete()
+      .match({ connection_id: connId, from_port: removed.from_port, to_port: removed.to_port })
+      .then(() => {
+        const destLabel = isRecorderTo.value ? `Track ${removed.to_port}` : `Input ${removed.to_port}`
+        const srcLabel = removed.label || upstreamSourceLabels.value[removed.from_port] || `Output ${removed.from_port}`
+        toast.success(`Removed ${srcLabel} → ${destLabel}`)
+      })
+      .catch(() => {})
+  } else {
+    // Local-only removal (before save)
+    const destLabel = isRecorderTo.value ? `Track ${removed?.to_port}` : `Input ${removed?.to_port}`
+    const srcLabel = removed?.label || (removed?.from_port ? `Output ${removed.from_port}` : 'Mapping')
+    toast.success(`Removed ${srcLabel} → ${destLabel}`)
   }
 }
 

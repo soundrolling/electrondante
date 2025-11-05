@@ -1124,10 +1124,30 @@ function addVenueSourcePortMapping() {
 }
 
 function removeEditPortMapping(index) {
+  const removed = editPortMappings.value[index]
   editPortMappings.value.splice(index, 1)
   if (editingIdx.value === index) {
     editingIdx.value = null
   }
+  // If this mapping belongs to an existing connection, delete the row immediately
+  try {
+    if (selectedConn.value && selectedConn.value.id && removed && (removed.to_port || removed.from_port)) {
+      supabase
+        .from('connection_port_map')
+        .delete()
+        .match({ connection_id: selectedConn.value.id, from_port: removed.from_port, to_port: removed.to_port })
+        .then(() => {
+          const destLabel = toNodeType.value === 'recorder' ? `Track ${removed.to_port}` : `Input ${removed.to_port}`
+          const srcLabel = removed.label || upstreamLabelsForFromNode.value[removed.from_port] || `Output ${removed.from_port}`
+          toast.success(`Removed ${srcLabel} → ${destLabel}`)
+        })
+        .catch(() => {})
+    } else {
+      const destLabel = toNodeType.value === 'recorder' ? `Track ${removed?.to_port}` : `Input ${removed?.to_port}`
+      const srcLabel = removed?.label || (removed?.from_port ? `Output ${removed.from_port}` : 'Mapping')
+      toast.success(`Removed ${srcLabel} → ${destLabel}`)
+    }
+  } catch {}
 }
 
 function startEditMapping(index) {
