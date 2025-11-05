@@ -15,56 +15,55 @@
         <span v-if="tracks">{{ tracks }} tracks</span>
       </div>
 
-      <div class="tabs">
-        <button :class="{ active: tab==='connections' }" @click="tab='connections'">Connections</button>
-        <button v-if="type==='transformer'" :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
-        <button v-if="type==='venue_sources'" :class="{ active: tab==='feeds' }" @click="tab='feeds'">Feeds</button>
-        <button v-if="type==='recorder'" :class="{ active: tab==='tracks' }" @click="tab='tracks'">Tracks</button>
-      </div>
+    <div class="tabs">
+      <button :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
+      <button v-if="type==='venue_sources'" :class="{ active: tab==='feeds' }" @click="tab='feeds'">Feeds</button>
+      <button v-if="type==='recorder'" :class="{ active: tab==='tracks' }" @click="tab='tracks'">Tracks</button>
+    </div>
 
-      <div class="panel" v-if="tab==='connections'">
-        <h4>Upstream</h4>
-        <ul class="list">
-          <li v-for="u in upstream" :key="u.key">
-            <span class="k">Input {{ u.input }}</span>
-            <span class="arrow">←</span>
-            <span class="v">{{ u.label }}</span>
-          </li>
-          <li v-if="!upstream.length" class="muted">No upstream connections</li>
-        </ul>
-        <h4>Downstream</h4>
-        <ul class="list">
-          <li v-for="d in downstream" :key="d.key">
-            <span class="k">{{ d.kind }} {{ d.port }}</span>
-            <span class="arrow">→</span>
-            <span class="v">{{ d.toLabel }}</span>
-          </li>
-          <li v-if="!downstream.length" class="muted">No downstream connections</li>
-        </ul>
-      </div>
-
-      <div class="panel" v-else-if="tab==='map'">
-        <div v-if="type!=='transformer'" class="muted">Mapping is only for transformers</div>
-        <div v-else>
-          <div class="map-target">
-            <label>Map to:</label>
-            <select v-model="selectedToNodeId" class="select">
-              <option v-for="t in downstreamTargets" :key="t.id" :value="t.id">{{ t.label }}</option>
-            </select>
-          </div>
-          <div class="map-row" v-for="n in inputCount" :key="n">
-            <div class="map-left">Input {{ n }}</div>
-            <div class="map-mid">{{ inputLabels[n] || '—' }}</div>
-            <div class="map-right">
-              <select v-model.number="draftMappings[n]" class="select">
-                <option :value="null">To Port</option>
-                <option v-for="opt in toPortOptions" :key="opt" :value="opt">{{ opt }}</option>
-              </select>
+      <div class="panel" v-if="tab==='map'">
+        <div class="map-unified">
+          <!-- Upstream (Inputs) Section -->
+          <div class="map-section">
+            <h4>Inputs</h4>
+            <div class="map-inputs">
+              <div v-for="n in inputCount" :key="`in-${n}`" class="map-io-row">
+                <div class="map-io-label">Input {{ n }}</div>
+                <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
+                  <option :value="null">— Select source —</option>
+                  <option v-for="src in availableUpstreamSources" :key="src.id" :value="src.id">{{ src.label }}</option>
+                </select>
+                <div v-if="upstreamMap[n]" class="map-io-display">{{ getUpstreamLabel(n) }}</div>
+              </div>
             </div>
           </div>
-          <div class="actions">
-            <button class="btn" @click="saveMappings" :disabled="saving">Save Mappings</button>
+
+          <!-- Current Node (Center) -->
+          <div class="map-center">
+            <div class="map-node-badge">{{ type }}</div>
+            <div class="map-node-name">{{ node.track_name || node.label }}</div>
           </div>
+
+          <!-- Downstream (Outputs) Section -->
+          <div class="map-section">
+            <h4>Outputs</h4>
+            <div class="map-outputs">
+              <div v-for="n in outputCount" :key="`out-${n}`" class="map-io-row">
+                <div class="map-io-label">Output {{ n }}</div>
+                <select v-model="downstreamMap[n]" class="select" @change="onDownstreamChange(n)">
+                  <option :value="null">— Select target —</option>
+                  <option v-for="tgt in availableDownstreamTargets" :key="tgt.id" :value="tgt.id">{{ tgt.label }}</option>
+                </select>
+                <select v-if="downstreamMap[n]" v-model.number="downstreamPortMap[n]" class="select">
+                  <option :value="null">Port</option>
+                  <option v-for="opt in getDownstreamPortOptions(downstreamMap[n])" :key="opt" :value="opt">{{ opt }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" @click="saveMap" :disabled="saving">Save Map</button>
         </div>
       </div>
 
@@ -120,7 +119,7 @@ const type = computed(() => (props.node.gear_type || props.node.node_type || pro
 const inputs = computed(() => props.node.num_inputs || props.node.inputs || 0)
 const outputs = computed(() => props.node.num_outputs || props.node.outputs || 0)
 const tracks = computed(() => props.node.num_tracks || props.node.tracks || props.node.num_records || props.node.numrecord || 0)
-const tab = ref('connections')
+const tab = ref('map')
 const fromNodeRef = computed(() => props.fromNode)
 const isIncomingMap = computed(() => !!fromNodeRef.value)
 
@@ -129,21 +128,31 @@ const upstream = ref([])
 const downstream = ref([])
 const inputLabels = ref({})
 const inputCount = computed(() => inputs.value || 0)
-const draftMappings = ref({})
-const selectedToNodeId = ref(null)
-const downstreamTargets = computed(() => {
-  const ids = Array.from(new Set(downstream.value.map(d => d.toNodeId).filter(Boolean)))
-  return ids.map(id => ({ id, label: getNodeLabel(id) }))
+const outputCount = computed(() => outputs.value || 0)
+
+// Unified map state
+const upstreamMap = ref({}) // { inputNum: sourceNodeId }
+const downstreamMap = ref({}) // { outputNum: targetNodeId }
+const downstreamPortMap = ref({}) // { outputNum: targetPortNum }
+const upstreamConnections = ref({}) // { inputNum: connectionId }
+const downstreamConnections = ref({}) // { outputNum: connectionId }
+
+const availableUpstreamSources = computed(() => {
+  return props.elements.filter(e => {
+    const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+    const canConnect = (eType === 'source' || eType === 'venue_sources' || eType === 'transformer') && e.id !== props.node.id
+    return canConnect
+  }).map(e => ({ id: e.id, label: e.track_name || e.label }))
 })
-const toPortOptions = computed(() => {
-  const n = props.elements.find(e => e.id === selectedToNodeId.value)
-  if (!n) return []
-  const isRecorder = ((n.gear_type || n.node_type || n.type || '').toLowerCase()) === 'recorder'
-  const count = isRecorder
-    ? (n.num_tracks || n.tracks || n.num_records || n.numrecord || n.num_inputs || n.inputs || 0)
-    : (n.num_inputs || n.inputs || 0)
-  return Array.from({ length: Math.max(0, count) }, (_, i) => i + 1)
+
+const availableDownstreamTargets = computed(() => {
+  return props.elements.filter(e => {
+    const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+    const canConnect = (eType === 'transformer' || eType === 'recorder') && e.id !== props.node.id
+    return canConnect
+  }).map(e => ({ id: e.id, label: e.track_name || e.label }))
 })
+
 const saving = ref(false)
 
 // Venue sources feeds editor (independent from node.num_outputs)
@@ -168,12 +177,24 @@ async function refresh() {
 async function loadConnections() {
   upstream.value = []
   downstream.value = []
+  upstreamMap.value = {}
+  downstreamMap.value = {}
+  downstreamPortMap.value = {}
+  upstreamConnections.value = {}
+  downstreamConnections.value = {}
+  
+  // Load upstream connections
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   for (const p of parents) {
+    const inputNum = p.input_number || 1
+    upstreamMap.value[inputNum] = p.from_node_id
+    upstreamConnections.value[inputNum] = p.id
     const src = props.elements.find(e => e.id === p.from_node_id)
-    const label = src ? (await getOutputLabel(src, p.input_number || 1, graph.value)) : 'Unknown'
-    upstream.value.push({ key: p.id, input: p.input_number || 1, label })
+    const label = src ? (await getOutputLabel(src, inputNum, graph.value)) : 'Unknown'
+    upstream.value.push({ key: p.id, input: inputNum, label })
   }
+  
+  // Load downstream connections
   const children = (graph.value.connections || []).filter(c => c.from_node_id === props.node.id)
   for (const c of children) {
     let maps = []
@@ -186,14 +207,19 @@ async function loadConnections() {
     } catch {}
     if (maps.length) {
       maps.forEach(m => {
+        const outPort = m.from_port
+        downstreamMap.value[outPort] = c.to_node_id
+        downstreamPortMap.value[outPort] = m.to_port
+        downstreamConnections.value[outPort] = c.id
         downstream.value.push({ key: `${c.id}:${m.to_port}`, kind: 'Input', port: m.to_port, toLabel: getNodeLabel(c.to_node_id), toNodeId: c.to_node_id })
       })
     } else {
+      const outPort = 1 // For non-port-mapped, assume output 1
+      downstreamMap.value[outPort] = c.to_node_id
+      downstreamPortMap.value[outPort] = c.input_number || 1
+      downstreamConnections.value[outPort] = c.id
       downstream.value.push({ key: c.id, kind: 'Input', port: c.input_number || 1, toLabel: getNodeLabel(c.to_node_id), toNodeId: c.to_node_id })
     }
-  }
-  if (!selectedToNodeId.value && downstreamTargets.value.length) {
-    selectedToNodeId.value = downstreamTargets.value[0].id
   }
 }
 
@@ -414,6 +440,137 @@ function addFeed() {
 function removeFeed(port) {
   feeds.value = feeds.value.filter(f => f.port !== port)
 }
+
+// Unified map functions
+function getUpstreamLabel(inputNum) {
+  const srcId = upstreamMap.value[inputNum]
+  if (!srcId) return '—'
+  const src = props.elements.find(e => e.id === srcId)
+  return src ? (src.track_name || src.label) : 'Unknown'
+}
+
+function onUpstreamChange(inputNum) {
+  // Will be handled in saveMap
+}
+
+function onDownstreamChange(outputNum) {
+  // Clear port mapping when target changes
+  downstreamPortMap.value[outputNum] = null
+}
+
+function getDownstreamPortOptions(targetNodeId) {
+  if (!targetNodeId) return []
+  const n = props.elements.find(e => e.id === targetNodeId)
+  if (!n) return []
+  const isRecorder = ((n.gear_type || n.node_type || n.type || '').toLowerCase()) === 'recorder'
+  const count = isRecorder
+    ? (n.num_tracks || n.tracks || n.num_records || n.numrecord || n.num_inputs || n.inputs || 0)
+    : (n.num_inputs || n.inputs || 0)
+  return Array.from({ length: Math.max(0, count) }, (_, i) => i + 1)
+}
+
+async function saveMap() {
+  saving.value = true
+  try {
+    console.log('[Inspector][Map] save:start', { node_id: props.node.id })
+    
+    // Save upstream connections
+    for (const inputNum in upstreamMap.value) {
+      const srcId = upstreamMap.value[inputNum]
+      const existingConnId = upstreamConnections.value[inputNum]
+      
+      if (srcId) {
+        if (existingConnId) {
+          // Update existing connection if source changed
+          const { data: existing } = await supabase
+            .from('connections')
+            .select('from_node_id')
+            .eq('id', existingConnId)
+            .single()
+          if (existing && existing.from_node_id !== srcId) {
+            await supabase.from('connections').update({ from_node_id: srcId }).eq('id', existingConnId)
+          }
+        } else {
+          // Create new connection
+          const { data: newConn } = await supabase
+            .from('connections')
+            .insert([{
+              project_id: props.projectId,
+              from_node_id: srcId,
+              to_node_id: props.node.id,
+              input_number: Number(inputNum)
+            }])
+            .select()
+            .single()
+          if (newConn) upstreamConnections.value[inputNum] = newConn.id
+        }
+      } else if (existingConnId) {
+        // Remove connection if source cleared
+        await supabase.from('connections').delete().eq('id', existingConnId)
+        delete upstreamConnections.value[inputNum]
+      }
+    }
+    
+    // Save downstream connections
+    for (const outputNum in downstreamMap.value) {
+      const tgtId = downstreamMap.value[outputNum]
+      const tgtPort = downstreamPortMap.value[outputNum]
+      const existingConnId = downstreamConnections.value[outputNum]
+      
+      if (tgtId && tgtPort) {
+        if (existingConnId) {
+          // Update existing connection
+          const { data: existing } = await supabase
+            .from('connections')
+            .select('to_node_id')
+            .eq('id', existingConnId)
+            .single()
+          if (existing && existing.to_node_id !== tgtId) {
+            await supabase.from('connections').update({ to_node_id: tgtId }).eq('id', existingConnId)
+          }
+          // Update port map
+          await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+          await supabase.from('connection_port_map').insert([{
+            project_id: props.projectId,
+            connection_id: existingConnId,
+            from_port: Number(outputNum),
+            to_port: Number(tgtPort)
+          }])
+        } else {
+          // Create new connection with port map
+          const { data: newConn } = await supabase
+            .from('connections')
+            .insert([{
+              project_id: props.projectId,
+              from_node_id: props.node.id,
+              to_node_id: tgtId
+            }])
+            .select()
+            .single()
+          if (newConn) {
+            downstreamConnections.value[outputNum] = newConn.id
+            await supabase.from('connection_port_map').insert([{
+              project_id: props.projectId,
+              connection_id: newConn.id,
+              from_port: Number(outputNum),
+              to_port: Number(tgtPort)
+            }])
+          }
+        }
+      } else if (existingConnId) {
+        // Remove connection if target cleared
+        await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+        await supabase.from('connections').delete().eq('id', existingConnId)
+        delete downstreamConnections.value[outputNum]
+      }
+    }
+    
+    await refresh()
+    console.log('[Inspector][Map] save:done')
+  } finally {
+    saving.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -435,6 +592,16 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary, #fff); }
 .k { color: var(--text-secondary, #bbb); }
 .v { color: var(--text-primary, #fff); font-weight: 600; }
 .arrow { color: var(--accent, #4ea7ff); font-weight: 700; }
+.map-unified { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start; }
+.map-section { display: flex; flex-direction: column; }
+.map-section h4 { margin: 0 0 12px 0; color: var(--text-primary, #fff); font-size: 14px; }
+.map-inputs, .map-outputs { display: flex; flex-direction: column; gap: 8px; }
+.map-io-row { display: flex; flex-direction: column; gap: 4px; background: var(--bg-elevated, #171717); border: 1px solid var(--border-color, #262626); padding: 8px 10px; border-radius: 6px; }
+.map-io-label { color: var(--text-secondary, #bbb); font-size: 12px; font-weight: 600; }
+.map-io-display { color: var(--text-primary, #fff); font-size: 12px; margin-top: 4px; }
+.map-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: var(--bg-elevated, #2a2a2a); border: 2px solid var(--border-strong, #555); border-radius: 8px; min-width: 150px; }
+.map-node-badge { background: var(--bg-primary, #111); border: 1px solid var(--border-color, #333); padding: 4px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary, #bbb); margin-bottom: 8px; }
+.map-node-name { color: var(--text-primary, #fff); font-weight: 600; font-size: 14px; text-align: center; }
 .map-row, .feed-row { display: grid; grid-template-columns: 100px 1fr 120px; gap: 8px; align-items: center; background: var(--bg-elevated, #171717); border: 1px solid var(--border-color, #262626); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
 .map-left, .feed-left { color: var(--text-secondary, #bbb); }
 .map-mid { color: var(--text-primary, #fff); font-weight: 600; }
@@ -455,9 +622,12 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary, #fff); }
   .tabs { border-color: var(--border-color, #e5e7eb); }
   .tabs button { background: var(--bg-elevated, #f7f7f7); color: var(--text-primary, #111); border-color: var(--border-color, #e5e7eb); }
   .tabs button.active { background: var(--bg-active, #e5e7eb); border-color: var(--border-strong, #cbd5e1); }
-  .list li, .map-row, .feed-row { background: var(--bg-elevated, #f9fafb); border-color: var(--border-color, #e5e7eb); }
-  .k, .muted { color: var(--text-secondary, #666); }
-  .v { color: var(--text-primary, #111); }
+  .list li, .map-row, .feed-row, .map-io-row { background: var(--bg-elevated, #f9fafb); border-color: var(--border-color, #e5e7eb); }
+  .map-center { background: var(--bg-elevated, #f0f0f0); border-color: var(--border-strong, #cbd5e1); }
+  .map-node-badge { background: var(--bg-primary, #fff); border-color: var(--border-color, #e5e7eb); color: var(--text-secondary, #666); }
+  .map-node-name { color: var(--text-primary, #111); }
+  .map-io-label, .k, .muted { color: var(--text-secondary, #666); }
+  .map-io-display, .v { color: var(--text-primary, #111); }
   .select, .input { background: var(--bg-input, #fff); color: var(--text-primary, #111); border-color: var(--border-color, #e5e7eb); }
 }
 </style>
