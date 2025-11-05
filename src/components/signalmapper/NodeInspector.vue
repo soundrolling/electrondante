@@ -71,10 +71,15 @@
       <div class="panel" v-else-if="tab==='feeds'">
         <div v-if="type!=='venue_sources'" class="muted">Feeds only apply to Venue Sources</div>
         <div v-else>
-          <div class="feed-row" v-for="n in outputs" :key="n">
-            <div class="feed-left">Output {{ n }}</div>
-            <input class="input" :placeholder="`Label for ${n}`" v-model="feedDraft[n]" />
+          <div class="feeds-toolbar">
+            <button class="btn-secondary" @click="addFeed">Add Feed</button>
           </div>
+          <div class="feed-row" v-for="row in feeds" :key="row.port">
+            <div class="feed-left">Output {{ row.port }}</div>
+            <input class="input" :placeholder="`Label for ${row.port}`" v-model="row.label" />
+            <button class="btn-danger" @click="removeFeed(row.port)">Remove</button>
+          </div>
+          <div v-if="!feeds.length" class="muted">No feeds yet. Click "Add Feed" to create one.</div>
           <div class="actions">
             <button class="btn" @click="saveFeeds" :disabled="saving">Save Feeds</button>
           </div>
@@ -141,7 +146,9 @@ const toPortOptions = computed(() => {
 })
 const saving = ref(false)
 
-const feedDraft = ref({})
+// Venue sources feeds editor (independent from node.num_outputs)
+const feeds = ref([]) // [{ port: number, label: string }]
+const nextFeedPort = ref(1)
 const trackList = ref([])
 
 async function refresh() {
@@ -155,6 +162,7 @@ async function refresh() {
     await loadTracks()
   }
   if (isIncomingMap.value) tab.value = 'map'
+  if (type.value === 'venue_sources') await loadFeeds()
 }
 
 async function loadConnections() {
@@ -284,18 +292,15 @@ async function saveFeeds() {
   saving.value = true
   try {
     console.log('[Inspector][Feeds] save:start', { node_id: props.node.id })
-    const rows = []
-    for (let i = 1; i <= outputs.value; i++) {
-      const label = (feedDraft.value[i] || '').trim()
-      if (!label) continue
-      rows.push({ project_id: props.projectId, node_id: props.node.id, port_number: i, output_port_label: label })
-    }
-    if (rows.length) {
-      await supabase.from('venue_source_feeds').delete().eq('node_id', props.node.id)
-      await supabase.from('venue_source_feeds').insert(rows)
-      await hydrateVenueLabels(props.node)
-      await refresh()
-    }
+    const rows = feeds.value
+      .map(f => ({ project_id: props.projectId, node_id: props.node.id, port_number: Number(f.port), output_port_label: (f.label || '').trim() }))
+      .filter(r => r.output_port_label.length > 0)
+    await supabase.from('venue_source_feeds').delete().eq('node_id', props.node.id)
+    if (rows.length) await supabase.from('venue_source_feeds').insert(rows)
+    // reflect count on node (optional)
+    try { await supabase.from('nodes').update({ num_outputs: rows.length }).eq('id', props.node.id) } catch {}
+    await hydrateVenueLabels(props.node)
+    await refresh()
     console.log('[Inspector][Feeds] save:done', { count: rows.length })
   } finally {
     saving.value = false
@@ -315,34 +320,79 @@ onMounted(async () => {
   await refresh()
   console.log('[Inspector] ready')
 })
+
+async function loadFeeds() {
+  try {
+    const { data } = await supabase
+      .from('venue_source_feeds')
+      .select('port_number, output_port_label')
+      .eq('node_id', props.node.id)
+      .order('port_number')
+    const list = (data || []).map(r => ({ port: Number(r.port_number), label: r.output_port_label || '' }))
+    feeds.value = list
+    const used = new Set(list.map(f => f.port))
+    nextFeedPort.value = 1
+    while (used.has(nextFeedPort.value)) nextFeedPort.value++
+  } catch {}
+}
+
+function addFeed() {
+  const port = nextFeedPort.value
+  feeds.value.push({ port, label: '' })
+  const used = new Set(feeds.value.map(f => f.port))
+  nextFeedPort.value = 1
+  while (used.has(nextFeedPort.value)) nextFeedPort.value++
+}
+
+function removeFeed(port) {
+  feeds.value = feeds.value.filter(f => f.port !== port)
+}
 </script>
 
 <style scoped>
 .inspector-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1100; }
-.inspector { background: #111; color: #fff; width: 720px; max-width: 95vw; max-height: 85vh; overflow: auto; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); }
-.inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid #222; }
+.inspector { background: var(--bg-primary, #111); color: var(--text-primary, #fff); width: 720px; max-width: 95vw; max-height: 85vh; overflow: auto; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); }
+.inspector-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border-color, #222); }
 .title { display: flex; gap: 10px; align-items: center; }
-.badge { background: #222; border: 1px solid #333; padding: 2px 8px; border-radius: 999px; font-size: 12px; color: #bbb; }
-h3 { margin: 0; font-size: 18px; }
-.close-btn { background: transparent; border: none; color: #aaa; font-size: 22px; cursor: pointer; }
-.meta { display: flex; gap: 12px; padding: 10px 18px; color: #aaa; font-size: 12px; }
-.tabs { display: flex; gap: 6px; padding: 0 18px 8px 18px; border-bottom: 1px solid #222; }
-.tabs button { background: #181818; color: #ddd; border: 1px solid #333; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.tabs button.active { background: #2a2a2a; border-color: #555; }
+.badge { background: var(--bg-elevated, #222); border: 1px solid var(--border-color, #333); padding: 2px 8px; border-radius: 999px; font-size: 12px; color: var(--text-secondary, #bbb); }
+h3 { margin: 0; font-size: 18px; color: var(--text-primary, #fff); }
+.close-btn { background: transparent; border: none; color: var(--text-secondary, #bbb); font-size: 22px; cursor: pointer; }
+.meta { display: flex; gap: 12px; padding: 10px 18px; color: var(--text-secondary, #bbb); font-size: 12px; }
+.tabs { display: flex; gap: 6px; padding: 0 18px 8px 18px; border-bottom: 1px solid var(--border-color, #222); }
+.tabs button { background: var(--bg-elevated, #181818); color: var(--text-primary, #fff); border: 1px solid var(--border-color, #333); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.tabs button.active { background: var(--bg-active, #2a2a2a); border-color: var(--border-strong, #555); }
 .panel { padding: 14px 18px 18px; }
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
-.list li { display: flex; align-items: center; gap: 8px; background: #171717; border: 1px solid #262626; border-radius: 6px; padding: 8px 10px; }
-.muted { color: #888; font-size: 12px; padding: 8px 0; }
-.k { color: #bbb; }
-.v { color: #fff; font-weight: 600; }
-.arrow { color: #6ab3ff; font-weight: 700; }
-.map-row, .feed-row { display: grid; grid-template-columns: 100px 1fr 160px; gap: 8px; align-items: center; background: #171717; border: 1px solid #262626; padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
-.map-left, .feed-left { color: #bbb; }
-.map-mid { color: #fff; font-weight: 600; }
-.select, .input { background: #111; color: #fff; border: 1px solid #333; border-radius: 6px; padding: 6px 8px; }
+.list li { display: flex; align-items: center; gap: 8px; background: var(--bg-elevated, #171717); border: 1px solid var(--border-color, #262626); border-radius: 6px; padding: 8px 10px; }
+.muted { color: var(--text-secondary, #bbb); font-size: 12px; padding: 8px 0; }
+.k { color: var(--text-secondary, #bbb); }
+.v { color: var(--text-primary, #fff); font-weight: 600; }
+.arrow { color: var(--accent, #4ea7ff); font-weight: 700; }
+.map-row, .feed-row { display: grid; grid-template-columns: 100px 1fr 120px; gap: 8px; align-items: center; background: var(--bg-elevated, #171717); border: 1px solid var(--border-color, #262626); padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; }
+.map-left, .feed-left { color: var(--text-secondary, #bbb); }
+.map-mid { color: var(--text-primary, #fff); font-weight: 600; }
+.select, .input { background: var(--bg-input, #111); color: var(--text-primary, #fff); border: 1px solid var(--border-color, #333); border-radius: 6px; padding: 6px 8px; }
 .actions { display: flex; justify-content: flex-end; margin-top: 8px; }
 .btn { background: #16a34a; color: #fff; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
 .btn:disabled { background: #444; cursor: not-allowed; }
+.feeds-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.btn-secondary { background: transparent; color: var(--accent, #4ea7ff); border: 1px solid var(--accent, #4ea7ff); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.btn-danger { background: #b91c1c; color: #fff; border: none; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+
+/* Light theme fallbacks */
+@media (prefers-color-scheme: light) {
+  .inspector { background: var(--bg-primary, #fff); color: var(--text-primary, #111); }
+  .badge { background: var(--bg-elevated, #f7f7f7); border-color: var(--border-color, #e5e7eb); color: var(--text-secondary, #666); }
+  .close-btn { color: var(--text-secondary, #666); }
+  .meta { color: var(--text-secondary, #666); }
+  .tabs { border-color: var(--border-color, #e5e7eb); }
+  .tabs button { background: var(--bg-elevated, #f7f7f7); color: var(--text-primary, #111); border-color: var(--border-color, #e5e7eb); }
+  .tabs button.active { background: var(--bg-active, #e5e7eb); border-color: var(--border-strong, #cbd5e1); }
+  .list li, .map-row, .feed-row { background: var(--bg-elevated, #f9fafb); border-color: var(--border-color, #e5e7eb); }
+  .k, .muted { color: var(--text-secondary, #666); }
+  .v { color: var(--text-primary, #111); }
+  .select, .input { background: var(--bg-input, #fff); color: var(--text-primary, #111); border-color: var(--border-color, #e5e7eb); }
+}
 </style>
 
 

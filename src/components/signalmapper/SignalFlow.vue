@@ -1936,10 +1936,24 @@ function onPointerDown(e) {
           linkSource.value = null
           return
         }
-        // Open inspector on target to continue mapping; pass link source as fromNode
-        inspectorNode.value = clickedNode
-        inspectorFromNode.value = linkSource.value
-        inspectorOpen.value = true
+        // Create a base parent connection (anchor) and do not open inspector.
+        // Mapping/editing happens via double‑tap later.
+        (async () => {
+          try {
+            const exist = props.connections.find(c => c.from_node_id === linkSource.value.id && c.to_node_id === clickedNode.id)
+            if (!exist) {
+              const payload = { project_id: props.projectId, from_node_id: linkSource.value.id, to_node_id: clickedNode.id }
+              const saved = await addConnectionToDB(payload)
+              emit('connection-added', saved)
+              toast.success('Linked nodes')
+            } else {
+              toast.info('Nodes already linked')
+            }
+          } catch (err) {
+            console.error('Anchor link failed:', err)
+            toast.error('Failed to link nodes')
+          }
+        })()
         linkSource.value = null
       } else {
         linkSource.value = null
