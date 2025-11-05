@@ -292,6 +292,13 @@
   </div>
 
   <!-- Legacy connection modal removed: use NodeInspector instead -->
+  <NodeInspector
+    v-if="inspectorOpen && inspectorNode"
+    :projectId="projectId"
+    :node="inspectorNode"
+    :elements="nodes"
+    @close="inspectorOpen = false; inspectorNode = null"
+  />
   
   <!-- Venue Sources Configuration Modal -->
   <VenueSourcesConfigModal
@@ -313,6 +320,7 @@ import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
+import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -343,6 +351,9 @@ const tool = ref('select')
 const linkSource = ref(null)
 const selectedNode = ref(null)
 const selectedConnectionId = ref(null)
+// Inspector state
+const inspectorOpen = ref(false)
+const inspectorNode = ref(null)
 // Edit models for selected connection
 const editPad = ref(0)
 const editPhantom = ref(false)
@@ -1874,7 +1885,17 @@ function onPointerDown(e) {
   
   if (tool.value === 'select') {
     if (clickedNode) {
-      // Select the clicked node (this will automatically deselect any previously selected node)
+      // Select the clicked node
+      // Double-tap detection to open NodeInspector
+      const now = Date.now()
+      const last = (onPointerDown._lastTapTime || 0)
+      const same = (onPointerDown._lastNodeId === clickedNode.id)
+      onPointerDown._lastTapTime = now
+      onPointerDown._lastNodeId = clickedNode.id
+      if (same && now - last < 350) {
+        inspectorNode.value = clickedNode
+        inspectorOpen.value = true
+      }
       selectedNode.value = clickedNode
       draggingNode.value = clickedNode
       dragStart = { x, y }
@@ -1913,10 +1934,9 @@ function onPointerDown(e) {
           linkSource.value = null
           return
         }
-        
-        // Open connection modal
-        pendingConnection.value = { from: linkSource.value, to: clickedNode }
-        showConnectionModal.value = true
+        // Open inspector on target to continue mapping
+        inspectorNode.value = clickedNode
+        inspectorOpen.value = true
         linkSource.value = null
       } else {
         linkSource.value = null
