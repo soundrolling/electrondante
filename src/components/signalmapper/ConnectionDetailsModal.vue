@@ -540,6 +540,12 @@ function getSourceLabelParts(node){
 }
 
 function getSourcePortLabel(portNum){
+  // Prefer stored output_port_labels on the node (handles Venue Sources and custom labels)
+  if (props.fromNode?.output_port_labels && typeof props.fromNode.output_port_labels === 'object') {
+    const stored = props.fromNode.output_port_labels[String(portNum)] || props.fromNode.output_port_labels[portNum]
+    if (stored) return stored
+  }
+  // Fallback to computed labels for regular gear sources
   const { baseNoNum, numSuffix } = getSourceLabelParts(props.fromNode)
   if (numOutputs.value === 2) {
     return portNum === 1 ? `${baseNoNum} L${numSuffix}` : (portNum === 2 ? `${baseNoNum} R${numSuffix}` : `Output ${portNum}${numSuffix}`)
@@ -747,7 +753,14 @@ const availableFromPorts = computed(() => {
     }
     opts.push({ value: n, label })
   }
-  return opts
+  // De-duplicate labels for clarity: append (Output n) only to duplicates
+  const labelCounts = opts.reduce((acc, o) => { acc[o.label] = (acc[o.label] || 0) + 1; return acc }, {})
+  return opts.map(o => {
+    if (labelCounts[o.label] > 1) {
+      return { ...o, label: `${o.label} (Output ${o.value})` }
+    }
+    return o
+  })
 })
 
 // Trace what input is assigned to a recorder track (for showing in "To Port" dropdown)
