@@ -607,7 +607,7 @@ async function saveMap() {
           const feedPort = parts.length > 1 ? Number(parts[1]) : null
           
           if (existingConnId) {
-            // Update existing connection if source changed
+            // Check if source changed
             const { data: existing, error: fetchError } = await supabase
               .from('connections')
               .select('from_node_id')
@@ -616,26 +616,79 @@ async function saveMap() {
             
             if (fetchError) throw fetchError
             
+            let connId = existingConnId
+            
             if (existing && existing.from_node_id !== nodeId) {
-              const { error: updateError } = await supabase.from('connections').update({ from_node_id: nodeId }).eq('id', existingConnId)
-              if (updateError) throw updateError
+              // Source changed - check if a connection with the new source already exists
+              const { data: existingWithNewSource } = await supabase
+                .from('connections')
+                .select('id')
+                .eq('project_id', props.projectId)
+                .eq('from_node_id', nodeId)
+                .eq('to_node_id', props.node.id)
+                .eq('input_number', Number(inputNum))
+                .maybeSingle()
+              
+              if (existingWithNewSource) {
+                // Connection with new source already exists - use it and delete the old one
+                // Delete old connection and its port maps
+                await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+                await supabase.from('connections').delete().eq('id', existingConnId)
+                
+                // Use the existing connection with new source
+                connId = existingWithNewSource.id
+                upstreamConnections.value[inputNum] = connId
+                // Port map will be set up below in the common code
+              } else {
+                // No existing connection with new source - safe to update
+                const { error: updateError } = await supabase
+                  .from('connections')
+                  .update({ from_node_id: nodeId })
+                  .eq('id', existingConnId)
+                
+                if (updateError) {
+                  // If update fails with duplicate key, try to find and use existing connection
+                  if (updateError.code === '23505') {
+                    const { data: existingConn } = await supabase
+                      .from('connections')
+                      .select('id')
+                      .eq('project_id', props.projectId)
+                      .eq('from_node_id', nodeId)
+                      .eq('to_node_id', props.node.id)
+                      .eq('input_number', Number(inputNum))
+                      .maybeSingle()
+                    
+                    if (existingConn) {
+                      // Use existing connection, delete old one
+                      await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+                      await supabase.from('connections').delete().eq('id', existingConnId)
+                      connId = existingConn.id
+                      upstreamConnections.value[inputNum] = connId
+                    } else {
+                      throw updateError
+                    }
+                  } else {
+                    throw updateError
+                  }
+                }
+              }
             }
             
             // Update port map if feed port is specified
             if (feedPort !== null) {
-              const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+              const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', connId)
               if (deleteError) throw deleteError
               
               const { error: insertError } = await supabase.from('connection_port_map').insert([{
                 project_id: props.projectId,
-                connection_id: existingConnId,
+                connection_id: connId,
                 from_port: feedPort,
                 to_port: Number(inputNum)
               }])
               if (insertError) throw insertError
             } else {
               // Remove port map if no feed port
-              const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+              const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', connId)
               if (deleteError) throw deleteError
             }
             savedCount++
