@@ -146,4 +146,39 @@ function inferSourcePort(sourceNode, transformerInput, transformerParents, direc
   return transformerInput
 }
 
+// Hydrate a venue_sources node's output_port_labels from venue_source_feeds
+export async function hydrateVenueLabels(node, ports = null) {
+  const type = getNodeType(node)
+  if (type !== 'venue_sources') return
+  const total = node?.num_outputs || node?.outputs || 0
+  const needed = ports && ports.length ? ports : (total ? Array.from({ length: total }, (_, i) => i + 1) : [])
+  const existing = node.output_port_labels || {}
+  const missing = needed.filter(p => !existing[String(p)] && !existing[p])
+  if (!missing.length) return
+  try {
+    const { data } = await supabase
+      .from('venue_source_feeds')
+      .select('port_number, output_port_label, source_type, feed_identifier, channel')
+      .eq('node_id', node.id)
+      .in('port_number', missing)
+    if (!data || !data.length) return
+    const merged = { ...existing }
+    data.forEach(f => {
+      if (f.output_port_label && f.output_port_label.trim()) {
+        merged[String(f.port_number)] = f.output_port_label.trim()
+      } else {
+        const baseType = (f.source_type || '').replace(/_/g, ' ')
+        const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
+        let name = typeName
+        if (f.feed_identifier) name += ` ${f.feed_identifier}`
+        if (Number(f.channel) === 1) name += ' L'
+        if (Number(f.channel) === 2) name += ' R'
+        merged[String(f.port_number)] = name
+      }
+    })
+    await supabase.from('nodes').update({ output_port_labels: merged }).eq('id', node.id)
+    node.output_port_labels = merged
+  } catch {}
+}
+
 

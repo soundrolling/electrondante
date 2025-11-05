@@ -316,9 +316,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { buildGraph } from '@/services/signalGraph'
+import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as svcResolveTransformerInputLabel, hydrateVenueLabels } from '@/services/portLabelService'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
-import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB, getSourceLabelFromNode } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
 const props = defineProps({
@@ -375,6 +377,7 @@ const venueSourceLabelInput = ref('')
 let venueSourceNextPort = 1
 // Upstream source labels for selected connection's FROM transformer
 const upstreamLabelsForFromNode = ref({})
+const graphRef = ref(null)
 // Store recorder track names (track number -> source label) for the FROM recorder when editing
 const recorderTrackNamesForEdit = ref({})
 const draggingNode = ref(null)
@@ -832,57 +835,31 @@ async function buildUpstreamLabelsForEdit() {
   upstreamLabelsForFromNode.value = {}
   const from = fromNodeOfSelected.value
   if (!from) return
-  const fromType = (from.gear_type || from.type || '').toLowerCase()
-  
-  // For transformers, build upstream labels
-  if (fromType === 'transformer') {
-    try {
-      // Build labels for all inputs by recursively tracing to sources
-      const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
-      
-      // For direct connections (no port mapping), trace with input_number
-      incomingConns.forEach(inc => {
-        // Check if this connection has port mappings - if so, we need to handle it differently
-        // For now, trace with input_number (will be handled in port mapping section below)
-        const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
-        if (sourceLabel) {
-          upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
-        }
-      })
-    
-      // Also check for port-mapped connections
-      const { data: parentConns } = await supabase
-        .from('connections')
-        .select('id, from_node_id, to_node_id')
-        .eq('to_node_id', from.id)
-      
-      if (parentConns && parentConns.length > 0) {
-        for (const parentConn of parentConns) {
-          const { data: maps } = await supabase
-            .from('connection_port_map')
-            .select('from_port, to_port')
-            .eq('connection_id', parentConn.id)
-          
-          if (!maps || maps.length === 0) continue
-          
-          maps.forEach(m => {
-            const parentFromNode = props.nodes.find(nd => nd.id === parentConn.from_node_id)
-            if (parentFromNode) {
-              // Recursively trace source label
-              const sourceLabel = traceSourceLabel(parentConn.from_node_id, m.from_port)
-              if (sourceLabel) {
-                upstreamLabelsForFromNode.value[m.to_port] = sourceLabel
-              }
-            }
-          })
-        }
-      }
-    } catch {}
+  if (!graphRef.value) {
+    try { graphRef.value = await buildGraph(props.projectId) } catch {}
   }
-  
-  // For recorders, build track names for all output ports (tracks) asynchronously
-  if (fromType === 'recorder') {
+  const count = from?.num_outputs || from?.outputs || 0
+  const fromType = (from.gear_type || from.node_type || from.type || '').toLowerCase()
+  if (fromType === 'transformer') {
+    for (let n = 1; n <= count; n++) {
+      try {
+        const label = await svcResolveTransformerInputLabel(from, n, graphRef.value)
+        if (label) upstreamLabelsForFromNode.value[n] = label
+      } catch {}
+    }
+  } else if (fromType === 'recorder') {
     await loadRecorderTrackNamesForEdit(from.id)
+    for (let n = 1; n <= count; n++) {
+      const tn = recorderTrackNamesForEdit.value?.[n]
+      if (tn) upstreamLabelsForFromNode.value[n] = tn
+    }
+  } else {
+    for (let n = 1; n <= count; n++) {
+      try {
+        const label = await svcGetOutputLabel(from, n, graphRef.value)
+        if (label) upstreamLabelsForFromNode.value[n] = label
+      } catch {}
+    }
   }
 }
 
@@ -1322,6 +1299,16 @@ watch(selectedConn, async (c) => {
   if (!upstreamLabelsForFromNode.value) {
     upstreamLabelsForFromNode.value = {}
   }
+  // Refresh graph snapshot for deterministic label resolution
+  try { graphRef.value = await buildGraph(props.projectId) } catch {}
+  // Hydrate venue source labels when editing a connection from venue_sources
+  try {
+    const from = fromNodeOfSelected.value
+    const type = (from?.gear_type || from?.node_type || from?.type || '').toLowerCase()
+    if (type === 'venue_sources') {
+      await hydrateVenueLabels(from)
+    }
+  } catch {}
   
   // Load port mappings if this is a port-mapped connection
   if (needsPortMappingForSelected.value) {

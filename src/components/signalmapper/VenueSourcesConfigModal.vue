@@ -347,7 +347,7 @@ async function save() {
       if (insertError) throw insertError
     }
     
-    // Update node with new output count and labels
+    // Update node with new output count and labels (authoritative mirror)
     const { error: updateError } = await supabase
       .from('nodes')
       .update({
