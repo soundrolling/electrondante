@@ -302,7 +302,7 @@ async function save() {
             port_number: portNumber,
             channel: 1,
             numbering_style: typeConfig.numberingStyle,
-            output_port_labels: { "1": lLabel }
+            output_port_label: lLabel
           })
           outputPortLabels[String(portNumber)] = lLabel
           portNumber++
@@ -315,7 +315,7 @@ async function save() {
             port_number: portNumber,
             channel: 2,
             numbering_style: typeConfig.numberingStyle,
-            output_port_labels: { "1": rLabel }
+            output_port_label: rLabel
           })
           outputPortLabels[String(portNumber)] = rLabel
           portNumber++
@@ -331,7 +331,7 @@ async function save() {
             port_number: portNumber,
             channel: 1,
             numbering_style: typeConfig.numberingStyle,
-            output_port_labels: { "1": label }
+            output_port_label: label
           })
           outputPortLabels[String(portNumber)] = label
           portNumber++

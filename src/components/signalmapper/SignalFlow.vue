@@ -1417,6 +1417,7 @@ async function saveSelectedConnection() {
                   .eq('id', existing.id)
               } else {
                 venueFeedInserts.push({
+                  project_id: props.projectId,
                   node_id: fromNodeOfSelected.value.id,
                   source_type: sourceType,
                   feed_identifier: feedIdentifier,
@@ -1441,6 +1442,7 @@ async function saveSelectedConnection() {
                   .eq('id', existing.id)
               } else {
                 venueFeedInserts.push({
+                  project_id: props.projectId,
                   node_id: fromNodeOfSelected.value.id,
                   source_type: 'custom',
                   feed_identifier: String(mapping.from_port),
