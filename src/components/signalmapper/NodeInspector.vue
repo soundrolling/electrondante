@@ -451,14 +451,15 @@ async function saveFeeds() {
   saving.value = true
   try {
     console.log('[Inspector][Feeds] save:start', { node_id: props.node.id })
+    // Build rows and track identifiers to ensure uniqueness
+    const seenIdentifiers = new Map() // Map: uniqueKey -> port number
     const rows = feeds.value
       .map((f, idx) => {
         const label = (f.label || '').trim()
         if (!label) return null
         // Extract source type and identifier from label
-        // For gear sources (any label that doesn't match standard patterns), use "gear" as type
         let sourceType = 'gear'
-        let feedIdentifier = String(f.port)
+        let feedIdentifier = String(f.port) // Default to port number for uniqueness
         const m = label.match(/^([A-Z]+)\s+([A-Z0-9]+)/i)
         if (m) {
           const type = m[1].toLowerCase()
@@ -466,15 +467,35 @@ async function saveFeeds() {
             sourceType = type === 'handheld' ? 'handheld_mic' : type
             feedIdentifier = m[2]
           } else {
-            // Gear source - use first word or full label as identifier
+            // Gear source - ensure uniqueness by including port number
             sourceType = 'gear'
-            feedIdentifier = m[2] || label.substring(0, 10).replace(/\s/g, '_')
+            const baseId = m[2] || label.substring(0, 10).replace(/\s/g, '_')
+            feedIdentifier = `${baseId}_${f.port}`
           }
         } else {
-          // No pattern match - assume gear source, use label as identifier (truncated)
+          // No pattern match - assume gear source, use port number for uniqueness
           sourceType = 'gear'
-          feedIdentifier = label.substring(0, 10).replace(/\s/g, '_') || String(f.port)
+          const baseId = label.substring(0, 10).replace(/\s/g, '_') || `port${f.port}`
+          feedIdentifier = `${baseId}_${f.port}`
         }
+        
+        // Ensure uniqueness within the batch: check if this identifier already exists
+        // For standard sources (DJ/Program/Handheld), allow duplicates (they might be stereo pairs)
+        // For gear sources, ensure uniqueness by always including port
+        const uniqueKey = `${sourceType}:${feedIdentifier}:1` // channel is always 1 for now
+        if (sourceType === 'gear') {
+          // For gear sources, identifier should already include port, but double-check
+          if (!feedIdentifier.includes(`_${f.port}`) && !feedIdentifier.endsWith(String(f.port))) {
+            feedIdentifier = `${feedIdentifier}_${f.port}`
+          }
+        } else {
+          // For standard sources, if duplicate found, append port to make unique
+          if (seenIdentifiers.has(uniqueKey)) {
+            feedIdentifier = `${feedIdentifier}_${f.port}`
+          }
+        }
+        seenIdentifiers.set(`${sourceType}:${feedIdentifier}:1`, f.port)
+        
         return {
           project_id: props.projectId,
           node_id: props.node.id,
