@@ -2807,8 +2807,8 @@ function exportToPDF() {
 }
 
 .connection-details-modal {
-  background: #fff;
-  border: 1px solid #e9ecef;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   max-width: 500px;
@@ -2824,7 +2824,7 @@ function exportToPDF() {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-color);
 }
 .connection-details-header h4 {
   margin: 0;
@@ -2835,6 +2835,7 @@ function exportToPDF() {
   padding: 20px;
   overflow-y: auto;
   flex: 1;
+  color: var(--text-primary);
 }
 .detail-row {
   display: flex;
@@ -2843,8 +2844,8 @@ function exportToPDF() {
   margin: 6px 0;
   font-size: 13px;
 }
-.detail-row .label { color: #6c757d; }
-.detail-row .value { color: #212529; font-weight: 600; }
+.detail-row .label { color: var(--text-muted); }
+.detail-row .value { color: var(--text-primary); font-weight: 600; }
 .inline-select { padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; }
 .port-mapping-section { flex-direction: column; align-items: flex-start; }
 .port-mappings-list-edit { width: 100%; }
