@@ -275,9 +275,9 @@ async function refresh() {
   if (type.value === 'venue_sources') {
     await hydrateVenueLabels(props.node)
   }
-  await loadAvailableUpstreamSources()
-  await loadConnections()
-  await updateUpstreamLabels() // Update labels after connections are loaded
+  await loadConnections() // Load connections first to get the feedKeys
+  await loadAvailableUpstreamSources() // Refresh available sources after connections are loaded
+  await updateUpstreamLabels() // Update labels after connections and sources are loaded
   await loadLabels()
   if (type.value === 'recorder') {
     await loadTracks()
@@ -648,13 +648,15 @@ async function updateUpstreamLabels() {
     }
     
     // Try to find in availableUpstreamSources first (fast path)
+    // This should work after loadAvailableUpstreamSources() refreshes the list
     const src = availableUpstreamSources.value.find(s => s.feedKey === feedKey)
     if (src && src.label) {
       upstreamLabels.value[inputNum] = src.label
       continue
     }
     
-    // If not found, resolve from connection/graph (more reliable after save)
+    // If not found in available sources, resolve from connection/graph
+    // This ensures we use the exact port map that was saved
     try {
       const connId = upstreamConnections.value[inputNum]
       if (connId && graph.value) {
@@ -662,7 +664,7 @@ async function updateUpstreamLabels() {
         const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
         const conn = parents.find(p => p.id === connId)
         if (conn) {
-          // Get port map if exists
+          // Get port map if exists - this is the authoritative source for which port to use
           let feedPort = null
           try {
             const { data: portMaps } = await supabase
@@ -685,14 +687,25 @@ async function updateUpstreamLabels() {
             const srcType = (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase()
             let portForLabel = feedPort
             
-            // For transformers without port maps, infer port
-            if (srcType === 'transformer' && !feedPort && conn.input_number) {
-              portForLabel = Number(conn.input_number)
+            // For transformers: use port map if available, otherwise infer from input_number
+            // For transformers, output N corresponds to input N (1:1 pass-through)
+            if (srcType === 'transformer') {
+              if (feedPort !== null) {
+                // Use the port map - this is the transformer output port we want
+                portForLabel = feedPort
+              } else if (conn.input_number) {
+                // No port map, infer: transformer output N = input N
+                portForLabel = Number(conn.input_number)
+              } else {
+                // Fallback to inputNum as transformer output port
+                portForLabel = Number(inputNum)
+              }
             } else if (!portForLabel) {
+              // For non-transformers, use inputNum if no port map
               portForLabel = Number(inputNum)
             }
             
-            // Resolve label from graph
+            // Resolve label from graph using the determined port
             const label = await getOutputLabel(srcNode, portForLabel, graph.value)
             if (label) {
               upstreamLabels.value[inputNum] = label
@@ -702,14 +715,16 @@ async function updateUpstreamLabels() {
         }
       }
       
-      // Fallback: parse feedKey and try to resolve
+      // Fallback: parse feedKey and try to resolve directly
+      // This uses the feedKey that was saved, which should match what was selected
       if (feedKey.includes(':')) {
         const parts = feedKey.split(':')
         const nodeId = parts[0]
         const port = parts.length > 1 ? Number(parts[1]) : null
         const srcNode = props.elements.find(e => e.id === nodeId)
-        if (srcNode && graph.value) {
-          const label = await getOutputLabel(srcNode, port || Number(inputNum), graph.value)
+        if (srcNode && graph.value && port !== null) {
+          // Use the port from feedKey - this is what was selected
+          const label = await getOutputLabel(srcNode, port, graph.value)
           if (label) {
             upstreamLabels.value[inputNum] = label
             continue
