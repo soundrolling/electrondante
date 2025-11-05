@@ -47,7 +47,7 @@
                   <div class="map-io-label">Input {{ n }}</div>
                   <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
                     <option :value="null">— Select source —</option>
-                    <option v-for="src in availableUpstreamSources" :key="src.id" :value="src.id">{{ src.label }}</option>
+                    <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
                   <div v-if="upstreamMap[n]" class="map-io-display">{{ getUpstreamLabel(n) }}</div>
                   <button v-if="upstreamMap[n]" class="btn-danger-small" @click="clearUpstreamConnection(n)">Clear</button>
@@ -141,18 +141,83 @@ const downstreamPortMap = ref({}) // { outputNum: targetPortNum }
 const upstreamConnections = ref({}) // { inputNum: connectionId }
 const downstreamConnections = ref({}) // { outputNum: connectionId }
 
-const availableUpstreamSources = computed(() => {
-  if (!graph.value) return []
-  // Only show nodes that are actually connected to this node's inputs
+const availableUpstreamSources = ref([]) // [{ id: nodeId, port: portNum (for venue), label: string, feedKey: 'nodeId:port' }]
+
+async function loadAvailableUpstreamSources() {
+  if (!graph.value) {
+    availableUpstreamSources.value = []
+    return
+  }
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   const connectedIds = new Set(parents.map(p => p.from_node_id).filter(Boolean))
-  return props.elements.filter(e => {
-    if (e.id === props.node.id) return false
-    if (!connectedIds.has(e.id)) return false
+  const sources = []
+  
+  for (const e of props.elements) {
+    if (e.id === props.node.id) continue
+    if (!connectedIds.has(e.id)) continue
     const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
-    return (eType === 'source' || eType === 'venue_sources' || eType === 'transformer')
-  }).map(e => ({ id: e.id, label: e.track_name || e.label }))
-})
+    
+    if (eType === 'venue_sources') {
+      // Expand venue_sources into individual feeds
+      try {
+        const { data: feeds } = await supabase
+          .from('venue_source_feeds')
+          .select('port_number, output_port_label')
+          .eq('node_id', e.id)
+          .order('port_number')
+        if (feeds && feeds.length) {
+          for (const feed of feeds) {
+            sources.push({
+              id: e.id,
+              port: feed.port_number,
+              label: feed.output_port_label || `Output ${feed.port_number}`,
+              feedKey: `${e.id}:${feed.port_number}`
+            })
+          }
+        } else {
+          // Fallback: use output_port_labels if feeds table is empty
+          const labels = e.output_port_labels || {}
+          const numOutputs = e.num_outputs || 0
+          for (let port = 1; port <= numOutputs; port++) {
+            const label = labels[port] || `Output ${port}`
+            sources.push({
+              id: e.id,
+              port,
+              label,
+              feedKey: `${e.id}:${port}`
+            })
+          }
+          if (numOutputs === 0) {
+            // No feeds found, show node as single option
+            sources.push({
+              id: e.id,
+              port: null,
+              label: e.track_name || e.label || 'Venue Sources',
+              feedKey: e.id
+            })
+          }
+        }
+      } catch (err) {
+        console.error('[Inspector] failed to load venue feeds', err)
+        sources.push({
+          id: e.id,
+          port: null,
+          label: e.track_name || e.label || 'Venue Sources',
+          feedKey: e.id
+        })
+      }
+    } else if (eType === 'source' || eType === 'transformer') {
+      sources.push({
+        id: e.id,
+        port: null,
+        label: e.track_name || e.label,
+        feedKey: e.id
+      })
+    }
+  }
+  
+  availableUpstreamSources.value = sources
+}
 
 const availableDownstreamTargets = computed(() => {
   if (!graph.value) return []
@@ -179,6 +244,7 @@ async function refresh() {
   if (type.value === 'venue_sources') {
     await hydrateVenueLabels(props.node)
   }
+  await loadAvailableUpstreamSources()
   await loadConnections()
   await loadLabels()
   if (type.value === 'recorder') {
@@ -201,10 +267,26 @@ async function loadConnections() {
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   for (const p of parents) {
     const inputNum = p.input_number || 1
-    upstreamMap.value[inputNum] = p.from_node_id
     upstreamConnections.value[inputNum] = p.id
+    
+    // Check for port map to get specific feed port
+    let feedPort = null
+    try {
+      const { data: portMap } = await supabase
+        .from('connection_port_map')
+        .select('from_port')
+        .eq('connection_id', p.id)
+        .maybeSingle()
+      if (portMap) feedPort = portMap.from_port
+    } catch {}
+    
+    // Build feedKey: if venue source with port map, use nodeId:port; otherwise just nodeId
     const src = props.elements.find(e => e.id === p.from_node_id)
-    const label = src ? (await getOutputLabel(src, inputNum, graph.value)) : 'Unknown'
+    const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+    const feedKey = (srcType === 'venue_sources' && feedPort) ? `${p.from_node_id}:${feedPort}` : p.from_node_id
+    
+    upstreamMap.value[inputNum] = feedKey
+    const label = src ? (await getOutputLabel(src, feedPort || inputNum, graph.value)) : 'Unknown'
     upstream.value.push({ key: p.id, input: inputNum, label })
   }
   
@@ -457,10 +539,11 @@ function removeFeed(port) {
 
 // Unified map functions
 function getUpstreamLabel(inputNum) {
-  const srcId = upstreamMap.value[inputNum]
-  if (!srcId) return '—'
-  const src = props.elements.find(e => e.id === srcId)
-  return src ? (src.track_name || src.label) : 'Unknown'
+  const feedKey = upstreamMap.value[inputNum]
+  if (!feedKey) return '—'
+  // Find matching source in availableUpstreamSources
+  const src = availableUpstreamSources.value.find(s => s.feedKey === feedKey)
+  return src ? src.label : 'Unknown'
 }
 
 function onUpstreamChange(inputNum) {
@@ -501,10 +584,15 @@ async function saveMap() {
     
     // Save upstream connections
     for (const inputNum in upstreamMap.value) {
-      const srcId = upstreamMap.value[inputNum]
+      const feedKey = upstreamMap.value[inputNum] // Can be nodeId or nodeId:port
       const existingConnId = upstreamConnections.value[inputNum]
       
-      if (srcId) {
+      if (feedKey) {
+        // Parse feedKey: nodeId:port or just nodeId
+        const parts = feedKey.toString().split(':')
+        const nodeId = parts[0]
+        const feedPort = parts.length > 1 ? Number(parts[1]) : null
+        
         if (existingConnId) {
           // Update existing connection if source changed
           const { data: existing } = await supabase
@@ -512,8 +600,22 @@ async function saveMap() {
             .select('from_node_id')
             .eq('id', existingConnId)
             .single()
-          if (existing && existing.from_node_id !== srcId) {
-            await supabase.from('connections').update({ from_node_id: srcId }).eq('id', existingConnId)
+          if (existing && existing.from_node_id !== nodeId) {
+            await supabase.from('connections').update({ from_node_id: nodeId }).eq('id', existingConnId)
+          }
+          
+          // Update port map if feed port is specified
+          if (feedPort !== null) {
+            await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+            await supabase.from('connection_port_map').insert([{
+              project_id: props.projectId,
+              connection_id: existingConnId,
+              from_port: feedPort,
+              to_port: Number(inputNum)
+            }])
+          } else {
+            // Remove port map if no feed port
+            await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
           }
         } else {
           // Create new connection
@@ -521,13 +623,24 @@ async function saveMap() {
             .from('connections')
             .insert([{
               project_id: props.projectId,
-              from_node_id: srcId,
+              from_node_id: nodeId,
               to_node_id: props.node.id,
               input_number: Number(inputNum)
             }])
             .select()
             .single()
-          if (newConn) upstreamConnections.value[inputNum] = newConn.id
+          if (newConn) {
+            upstreamConnections.value[inputNum] = newConn.id
+            // Create port map if feed port is specified
+            if (feedPort !== null) {
+              await supabase.from('connection_port_map').insert([{
+                project_id: props.projectId,
+                connection_id: newConn.id,
+                from_port: feedPort,
+                to_port: Number(inputNum)
+              }])
+            }
+          }
         }
       } else if (existingConnId) {
         // Remove connection if source cleared
