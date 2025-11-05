@@ -1208,14 +1208,23 @@ async function loadPortMappingsForConnection(connId) {
         if (missingPorts.length > 0) {
           const { data: feeds } = await supabase
             .from('venue_source_feeds')
-            .select('port_number, output_port_label')
+            .select('port_number, output_port_label, source_type, feed_identifier, channel')
             .eq('node_id', fromNodeOfSelected.value.id)
             .in('port_number', missingPorts)
           
           if (feeds) {
             feeds.forEach(feed => {
-              if (feed.output_port_label) {
-                feedMap[feed.port_number] = feed.output_port_label
+              if (feed.output_port_label && feed.output_port_label.trim()) {
+                feedMap[feed.port_number] = feed.output_port_label.trim()
+              } else {
+                // Construct a readable fallback from source_type/feed_identifier/channel
+                const baseType = (feed.source_type || '').replace(/_/g, ' ')
+                const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
+                let constructed = typeName
+                if (feed.feed_identifier) constructed += ` ${feed.feed_identifier}`
+                if (Number(feed.channel) === 1) constructed += ' L'
+                if (Number(feed.channel) === 2) constructed += ' R'
+                feedMap[feed.port_number] = constructed.trim()
               }
             })
           }
@@ -1231,9 +1240,10 @@ async function loadPortMappingsForConnection(connId) {
         if (!upstreamLabelsForFromNode.value) {
           upstreamLabelsForFromNode.value = {}
         }
-        data.forEach(m => {
-          if (feedMap[m.from_port]) {
-            upstreamLabelsForFromNode.value[m.from_port] = feedMap[m.from_port]
+        // Populate upstream labels for all known ports
+        portNumbers.forEach(p => {
+          if (feedMap[p]) {
+            upstreamLabelsForFromNode.value[p] = feedMap[p]
           }
         })
 
