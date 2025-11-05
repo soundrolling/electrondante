@@ -126,6 +126,7 @@ const downstreamMap = ref({}) // { outputNum: targetNodeId }
 const downstreamPortMap = ref({}) // { outputNum: targetPortNum }
 const upstreamConnections = ref({}) // { inputNum: connectionId }
 const downstreamConnections = ref({}) // { outputNum: connectionId }
+const upstreamLabels = ref({}) // { inputNum: label } - cached labels for display
 
 const availableUpstreamSources = ref([]) // [{ id: nodeId, port: portNum (for venue), label: string, feedKey: 'nodeId:port' }]
 
@@ -276,6 +277,7 @@ async function refresh() {
   }
   await loadAvailableUpstreamSources()
   await loadConnections()
+  await updateUpstreamLabels() // Update labels after connections are loaded
   await loadLabels()
   if (type.value === 'recorder') {
     await loadTracks()
@@ -292,6 +294,7 @@ async function loadConnections() {
   downstreamPortMap.value = {}
   upstreamConnections.value = {}
   downstreamConnections.value = {}
+  upstreamLabels.value = {} // Clear cached labels
   
   // Load upstream connections
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
@@ -341,6 +344,7 @@ async function loadConnections() {
     // Use inferredPort for transformers, feedPort for venue sources, or inputNum as fallback
     const portForLabel = inferredPort || feedPort || (srcType === 'transformer' ? inputNum : null) || inputNum
     const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
+    upstreamLabels.value[inputNum] = label // Cache the label for display
     upstream.value.push({ key: p.id, input: inputNum, label })
   }
   
@@ -632,12 +636,97 @@ function removeFeed(port) {
 }
 
 // Unified map functions
+// Update labels for all inputs after connections are loaded
+async function updateUpstreamLabels() {
+  if (!graph.value) return
+  
+  for (const inputNum in upstreamMap.value) {
+    const feedKey = upstreamMap.value[inputNum]
+    if (!feedKey) {
+      upstreamLabels.value[inputNum] = '—'
+      continue
+    }
+    
+    // Try to find in availableUpstreamSources first (fast path)
+    const src = availableUpstreamSources.value.find(s => s.feedKey === feedKey)
+    if (src && src.label) {
+      upstreamLabels.value[inputNum] = src.label
+      continue
+    }
+    
+    // If not found, resolve from connection/graph (more reliable after save)
+    try {
+      const connId = upstreamConnections.value[inputNum]
+      if (connId && graph.value) {
+        // Find the connection in the graph
+        const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
+        const conn = parents.find(p => p.id === connId)
+        if (conn) {
+          // Get port map if exists
+          let feedPort = null
+          try {
+            const { data: portMaps } = await supabase
+              .from('connection_port_map')
+              .select('from_port, to_port')
+              .eq('connection_id', connId)
+            if (portMaps && portMaps.length > 0) {
+              const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
+              if (matchingMap) {
+                feedPort = matchingMap.from_port
+              } else if (portMaps.length === 1) {
+                feedPort = portMaps[0].from_port
+              }
+            }
+          } catch {}
+          
+          // Find source node
+          const srcNode = props.elements.find(e => e.id === conn.from_node_id)
+          if (srcNode) {
+            const srcType = (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase()
+            let portForLabel = feedPort
+            
+            // For transformers without port maps, infer port
+            if (srcType === 'transformer' && !feedPort && conn.input_number) {
+              portForLabel = Number(conn.input_number)
+            } else if (!portForLabel) {
+              portForLabel = Number(inputNum)
+            }
+            
+            // Resolve label from graph
+            const label = await getOutputLabel(srcNode, portForLabel, graph.value)
+            if (label) {
+              upstreamLabels.value[inputNum] = label
+              continue
+            }
+          }
+        }
+      }
+      
+      // Fallback: parse feedKey and try to resolve
+      if (feedKey.includes(':')) {
+        const parts = feedKey.split(':')
+        const nodeId = parts[0]
+        const port = parts.length > 1 ? Number(parts[1]) : null
+        const srcNode = props.elements.find(e => e.id === nodeId)
+        if (srcNode && graph.value) {
+          const label = await getOutputLabel(srcNode, port || Number(inputNum), graph.value)
+          if (label) {
+            upstreamLabels.value[inputNum] = label
+            continue
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Inspector][Map] failed to resolve label for input', inputNum, err)
+    }
+    
+    // Final fallback
+    upstreamLabels.value[inputNum] = 'Unknown'
+  }
+}
+
 function getUpstreamLabel(inputNum) {
-  const feedKey = upstreamMap.value[inputNum]
-  if (!feedKey) return '—'
-  // Find matching source in availableUpstreamSources
-  const src = availableUpstreamSources.value.find(s => s.feedKey === feedKey)
-  return src ? src.label : 'Unknown'
+  return upstreamLabels.value[inputNum] || '—'
 }
 
 function onUpstreamChange(inputNum) {
@@ -847,15 +936,28 @@ async function saveMap() {
             let existingConn = null
             
             // Try to check for existing connection, but don't fail if check fails
+            // For port-mapped connections (transformer/venue_source to recorder/transformer), 
+            // don't require input_number in the check
             try {
-              const { data, error: checkError } = await supabase
+              const src = props.elements.find(e => e.id === nodeId)
+              const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+              const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+              const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
+              const isPortMapped = (isTransformerOrVenueSource && isRecorderOrTransformer && feedPort !== null)
+              
+              let checkQuery = supabase
                 .from('connections')
                 .select('id')
                 .eq('project_id', props.projectId)
                 .eq('from_node_id', nodeId)
                 .eq('to_node_id', props.node.id)
-                .eq('input_number', Number(inputNum))
-                .maybeSingle()
+              
+              // For port-mapped connections, don't filter by input_number
+              if (!isPortMapped) {
+                checkQuery = checkQuery.eq('input_number', Number(inputNum))
+              }
+              
+              const { data, error: checkError } = await checkQuery.maybeSingle()
               
               if (!checkError && data) {
                 existingConn = data
@@ -872,14 +974,30 @@ async function saveMap() {
               upstreamConnections.value[inputNum] = connId
             } else {
               // Try to create new connection
+              // For transformers/venue_sources connecting to recorders/transformers, don't set input_number
+              // if we're using port maps (port maps handle the mapping)
+              const src = props.elements.find(e => e.id === nodeId)
+              const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+              const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+              const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
+              
+              // If this is a transformer/venue_source to recorder/transformer connection with port mapping,
+              // don't set input_number - port maps will handle it
+              const connectionData = {
+                project_id: props.projectId,
+                from_node_id: nodeId,
+                to_node_id: props.node.id
+              }
+              
+              // Only set input_number if we're NOT using port maps (for backward compatibility with simple connections)
+              // For transformers/venue_sources with port maps, we'll skip input_number
+              if (!(isTransformerOrVenueSource && isRecorderOrTransformer && feedPort !== null)) {
+                connectionData.input_number = Number(inputNum)
+              }
+              
               const { data: newConn, error: insertError } = await supabase
                 .from('connections')
-                .insert([{
-                  project_id: props.projectId,
-                  from_node_id: nodeId,
-                  to_node_id: props.node.id,
-                  input_number: Number(inputNum)
-                }])
+                .insert([connectionData])
                 .select()
                 .single()
               
@@ -889,20 +1007,15 @@ async function saveMap() {
                   try {
                     // Try to find the existing connection - the constraint might be on (from_node_id, to_node_id) 
                     // or (from_node_id, to_node_id, input_number)
-                    const { data: existing } = await supabase
-                      .from('connections')
-                      .select('id')
-                      .eq('project_id', props.projectId)
-                      .eq('from_node_id', nodeId)
-                      .eq('to_node_id', props.node.id)
-                      .eq('input_number', Number(inputNum))
-                      .maybeSingle()
+                    // For port-mapped connections, try without input_number first
+                    const src = props.elements.find(e => e.id === nodeId)
+                    const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+                    const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+                    const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
+                    const isPortMapped = (isTransformerOrVenueSource && isRecorderOrTransformer && feedPort !== null)
                     
-                    if (existing) {
-                      connId = existing.id
-                      upstreamConnections.value[inputNum] = connId
-                    } else {
-                      // Constraint might be on (from_node_id, to_node_id) only, try without input_number
+                    // For port-mapped connections, try finding without input_number first
+                    if (isPortMapped) {
                       const { data: existingWithoutInput } = await supabase
                         .from('connections')
                         .select('id')
@@ -912,22 +1025,53 @@ async function saveMap() {
                         .maybeSingle()
                       
                       if (existingWithoutInput) {
-                        // Update the existing connection with the input_number
-                        const { data: updated } = await supabase
+                        connId = existingWithoutInput.id
+                        upstreamConnections.value[inputNum] = connId
+                      } else {
+                        throw insertError
+                      }
+                    } else {
+                      // For non-port-mapped, try with input_number
+                      const { data: existing } = await supabase
+                        .from('connections')
+                        .select('id')
+                        .eq('project_id', props.projectId)
+                        .eq('from_node_id', nodeId)
+                        .eq('to_node_id', props.node.id)
+                        .eq('input_number', Number(inputNum))
+                        .maybeSingle()
+                      
+                      if (existing) {
+                        connId = existing.id
+                        upstreamConnections.value[inputNum] = connId
+                      } else {
+                        // Constraint might be on (from_node_id, to_node_id) only, try without input_number
+                        const { data: existingWithoutInput } = await supabase
                           .from('connections')
-                          .update({ input_number: Number(inputNum) })
-                          .eq('id', existingWithoutInput.id)
-                          .select()
-                          .single()
+                          .select('id')
+                          .eq('project_id', props.projectId)
+                          .eq('from_node_id', nodeId)
+                          .eq('to_node_id', props.node.id)
+                          .maybeSingle()
                         
-                        if (updated) {
-                          connId = updated.id
-                          upstreamConnections.value[inputNum] = connId
+                        if (existingWithoutInput) {
+                          // Update the existing connection with the input_number
+                          const { data: updated } = await supabase
+                            .from('connections')
+                            .update({ input_number: Number(inputNum) })
+                            .eq('id', existingWithoutInput.id)
+                            .select()
+                            .single()
+                          
+                          if (updated) {
+                            connId = updated.id
+                            upstreamConnections.value[inputNum] = connId
+                          } else {
+                            throw insertError
+                          }
                         } else {
                           throw insertError
                         }
-                      } else {
-                        throw insertError
                       }
                     }
                   } catch (fetchErr) {

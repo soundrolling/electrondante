@@ -98,10 +98,18 @@
             <span class="label">To:</span>
             <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
           </div>
-          <template v-if="selectedConn?.input_number">
+          <!-- Only show input_number if connection doesn't use port maps -->
+          <template v-if="selectedConn?.input_number && !selectedConnHasPortMaps">
             <div class="detail-row">
               <span class="label">Input:</span>
               <span class="value">{{ selectedConn.input_number }}</span>
+            </div>
+          </template>
+          <!-- Show port map info if connection uses port maps -->
+          <template v-if="selectedConnHasPortMaps">
+            <div class="detail-row">
+              <span class="label">Port Mapping:</span>
+              <span class="value">Multiple ports mapped</span>
             </div>
           </template>
           <div class="muted" style="margin-top: 16px; padding: 12px; background: var(--bg-elevated); border-radius: 6px;">
@@ -356,6 +364,47 @@ const hasVenueSourcesNode = computed(() => {
 const allNodesForModal = computed(() => props.nodes)
 
 const selectedConn = computed(() => props.connections.find(c => c.id === selectedConnectionId.value) || null)
+
+// Cache for port map checks
+const portMapCache = ref(new Map()) // Map<connId, boolean>
+const selectedConnHasPortMaps = ref(false)
+
+// Async function to check if connection has port maps
+async function checkPortMapsForConnection(connId) {
+  if (!connId) {
+    selectedConnHasPortMaps.value = false
+    return false
+  }
+  if (portMapCache.value.has(connId)) {
+    const hasMaps = portMapCache.value.get(connId)
+    selectedConnHasPortMaps.value = hasMaps
+    return hasMaps
+  }
+  try {
+    const { data } = await supabase
+      .from('connection_port_map')
+      .select('id')
+      .eq('connection_id', connId)
+      .limit(1)
+    const hasMaps = !!(data && data.length > 0)
+    portMapCache.value.set(connId, hasMaps)
+    selectedConnHasPortMaps.value = hasMaps
+    return hasMaps
+  } catch {
+    selectedConnHasPortMaps.value = false
+    return false
+  }
+}
+
+// Watch selected connection and check for port maps
+watch(selectedConnectionId, async (connId) => {
+  if (connId) {
+    await checkPortMapsForConnection(connId)
+  } else {
+    selectedConnHasPortMaps.value = false
+  }
+}, { immediate: true })
+
 const fromNodeOfSelected = computed(() => {
   const c = selectedConn.value
   if (!c) return null
@@ -1259,11 +1308,14 @@ async function saveSelectedConnection() {
       }
       
       // Update parent connection properties
+      // For port-mapped connections, clear input_number and track_number since port maps handle everything
       const payload = {
         id: c.id,
         pad: -Math.abs(Number(editPad.value) || 0),
         phantom_power: editPhantom.value,
-        connection_type: editType.value
+        connection_type: editType.value,
+        input_number: null, // Port maps handle the mapping, no need for single input_number
+        track_number: null // Port maps handle track mapping
       }
       await updateConnection(payload)
       
