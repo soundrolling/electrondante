@@ -659,7 +659,7 @@ function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   
-  const fromType = (from.gear_type || from.type || '').toLowerCase()
+  const fromType = (from.gear_type || from.node_type || from.type || '').toLowerCase()
   
   // For recorders, first check the preloaded async names, then fallback to sync version
   if (fromType === 'recorder') {
@@ -768,7 +768,7 @@ const availableFromPortsForEdit = computed(() => {
   const from = fromNodeOfSelected.value
   const count = from?.num_outputs || from?.numoutputs || from?.outputs || 0
   const opts = []
-  const fromType = (from?.gear_type || from?.type || '').toLowerCase()
+  const fromType = (from?.gear_type || from?.node_type || from?.type || '').toLowerCase()
   for (let n = 1; n <= count; n++) {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
