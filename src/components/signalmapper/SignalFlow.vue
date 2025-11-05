@@ -1097,10 +1097,12 @@ function addVenueSourcePortMapping() {
     nextPort++
   }
   
+  // Capture destination before we clear inputs
+  const destPort = newMappingToPort.value
   // Add mapping with label stored for display
   editPortMappings.value.push({
     from_port: nextPort,
-    to_port: newMappingToPort.value,
+    to_port: destPort,
     label: label // Store label for display
   })
   
@@ -1117,7 +1119,8 @@ function addVenueSourcePortMapping() {
   venueSourceLabelInput.value = ''
   newMappingToPort.value = null
   
-  toast.success(`Added ${label} → Input ${nextPort}`)
+  const destLabel = toNodeType.value === 'recorder' ? `Track ${destPort}` : `Input ${destPort}`
+  toast.success(`Added ${label} → ${destLabel}`)
 }
 
 function removeEditPortMapping(index) {

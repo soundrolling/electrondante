@@ -939,9 +939,10 @@ function addVenueSourcePortMapping() {
   }
   
   // Add mapping with label stored in a custom property for display
+  const destPort = newMappingToPort.value
   portMappings.value.push({
     from_port: nextPort,
-    to_port: newMappingToPort.value,
+    to_port: destPort,
     label: label // Store label for display
   })
   
@@ -955,7 +956,8 @@ function addVenueSourcePortMapping() {
   venueSourceLabelInput.value = ''
   newMappingToPort.value = null
   
-  toast.success(`Added ${label} → Input ${nextPort}`)
+  const destLabel = isRecorderTo.value ? `Track ${destPort}` : `Input ${destPort}`
+  toast.success(`Added ${label} → ${destLabel}`)
 }
 
 function removePortMapping(index) {
