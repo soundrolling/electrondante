@@ -291,17 +291,7 @@
     </div>
   </div>
 
-  <!-- Connection Details Modal -->
-  <ConnectionDetailsModal
-    v-if="showConnectionModal"
-    :fromNode="pendingConnection?.from"
-    :toNode="pendingConnection?.to"
-    :existingConnections="connections"
-    :elements="allNodesForModal"
-    :projectId="projectId"
-    @confirm="confirmConnection"
-    @cancel="closeConnectionModal"
-  />
+  <!-- Legacy connection modal removed: use NodeInspector instead -->
   
   <!-- Venue Sources Configuration Modal -->
   <VenueSourcesConfigModal
@@ -321,7 +311,8 @@ import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as sv
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
-import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
+// Legacy modal removed; inspector-based editing is used instead
+// import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
