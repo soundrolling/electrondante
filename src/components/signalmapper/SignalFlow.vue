@@ -78,7 +78,7 @@
         Select your first connection node
       </template>
     </div>
-    <!-- Connection Details Modal -->
+    <!-- Connection Details Modal (Read-Only) -->
     <div 
       v-if="selectedConnectionId" 
       class="modal-overlay"
@@ -90,125 +90,22 @@
           <button @click="selectedConnectionId = null" class="close-btn">×</button>
         </div>
         <div class="connection-details-body">
-      <div class="detail-row">
-        <span class="label">From:</span>
-        <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">To:</span>
-        <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
-      </div>
-      <template v-if="needsPortMappingForSelected">
-        <div class="detail-row port-mapping-section">
-          <span class="label">Port Mappings:</span>
-          <div class="port-mappings-list-edit">
-            <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
-              <template v-if="editingIdx === mapping._idx">
-                <!-- Edit mode -->
-                <select class="inline-select" v-model.number="editFromPort" style="flex: 1; min-width: 100px;">
-                  <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  <option :value="mapping.from_port" v-if="!availableFromPortsForEdit.find(o => o.value === mapping.from_port)">
-                    {{ (mapping.label || (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port)) }}
-                  </option>
-                </select>
-                <span class="arrow">→</span>
-                <select class="inline-select" v-model.number="editToPort" style="flex: 1; min-width: 100px;">
-                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  <option :value="mapping.to_port" v-if="!availableToPortsForEdit.find(o => o.value === mapping.to_port)">
-                    {{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, editFromPort || mapping.from_port) : `Input ${mapping.to_port}` }}
-                  </option>
-                </select>
-                <button type="button" class="btn-save-small" @click="saveEditMapping">✓</button>
-                <button type="button" class="btn-cancel-small" @click="cancelEditMapping">✕</button>
-              </template>
-              <template v-else>
-                <!-- Display mode -->
-                <span>{{ (mapping.label || (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port)) }}</span>
-                <span class="arrow">→</span>
-                <span>{{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, mapping.from_port) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
-                <button type="button" class="btn-edit-small" @click="startEditMapping(mapping._idx)">✎</button>
-                <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
-              </template>
-            </div>
-            <div class="port-mapping-add-edit">
-              <!-- Venue Sources: Text input for feed labels -->
-              <template v-if="fromNodeType === 'venue_sources'">
-                <input 
-                  type="text" 
-                  class="form-input-small" 
-                  v-model="venueSourceLabelInput"
-                  placeholder="e.g., DJA L, DJA R, Program 1"
-                  @keyup.enter="addVenueSourcePortMapping"
-                />
-                <span class="arrow">→</span>
-                <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
-                  <option :value="null">To Port</option>
-                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-                <button 
-                  type="button" 
-                  class="btn-add-small" 
-                  @click="addVenueSourcePortMapping" 
-                  :disabled="!venueSourceLabelInput || !venueSourceLabelInput.trim() || !newMappingToPort"
-                >
-                  Add
-                </button>
-              </template>
-              <!-- Regular port mapping -->
-              <template v-else>
-                <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
-                  <option :value="null">From Port</option>
-                  <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-                <span class="arrow">→</span>
-                <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
-                  <option :value="null">To Port</option>
-                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-                <button type="button" class="btn-add-small" @click="addEditPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
-              </template>
-            </div>
+          <div class="detail-row">
+            <span class="label">From:</span>
+            <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
           </div>
-        </div>
-      </template>
-      <template v-else-if="toNodeType !== 'recorder'">
-        <div class="detail-row">
-          <span class="label">Input:</span>
-          <select v-model.number="editInput" class="inline-select">
-            <option v-for="n in inputOptionsForSelected" :key="n" :value="n">{{ n }}</option>
-          </select>
-        </div>
-      </template>
-      <template v-else>
-        <div class="detail-row">
-          <span class="label">Input:</span>
-          <input type="number" min="1" v-model.number="editInput" class="inline-select" />
-        </div>
-      </template>
-      <div class="detail-row">
-        <span class="label">Pad (dB):</span>
-        <input type="number" min="-60" step="1" v-model.number="editPad" class="inline-select" />
-      </div>
-      <div class="detail-row">
-        <span class="label">Phantom Power:</span>
-        <input type="checkbox" v-model="editPhantom" />
-      </div>
-      <div class="detail-row">
-        <span class="label">Type:</span>
-        <select v-model="editType" class="inline-select">
-          <option>Mic</option>
-          <option>Line</option>
-          <option>Dante</option>
-          <option>Midi</option>
-          <option>Madi</option>
-        </select>
-      </div>
-          <div class="detail-actions">
-            <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
-              <span v-if="saveTick">✓ Saved</span>
-              <span v-else>Save</span>
-            </button>
-            <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
+          <div class="detail-row">
+            <span class="label">To:</span>
+            <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
+          </div>
+          <template v-if="selectedConn?.input_number">
+            <div class="detail-row">
+              <span class="label">Input:</span>
+              <span class="value">{{ selectedConn.input_number }}</span>
+            </div>
+          </template>
+          <div class="muted" style="margin-top: 16px; padding: 12px; background: var(--bg-elevated); border-radius: 6px;">
+            <p style="margin: 0; font-size: 13px;">To edit this connection, double-tap the connected nodes to open the Node Inspector.</p>
           </div>
         </div>
       </div>

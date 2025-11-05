@@ -36,19 +36,23 @@
             <button class="btn" @click="saveFeeds" :disabled="saving">Save Feeds</button>
           </div>
         </div>
-        <!-- Other nodes: Show read-only connections with delete -->
+        <!-- Other nodes: Show editable connections -->
         <div v-else>
           <div class="map-unified">
             <!-- Upstream (Inputs) Section -->
             <div class="map-section">
               <h4>Inputs</h4>
               <div class="map-inputs">
-                <div v-for="u in upstream" :key="u.key" class="map-io-row">
-                  <div class="map-io-label">Input {{ u.input }}</div>
-                  <div class="map-io-display">{{ u.label }}</div>
-                  <button class="btn-danger-small" @click="deleteUpstreamConnection(u.key)">Delete</button>
+                <div v-for="n in inputCount" :key="`in-${n}`" class="map-io-row">
+                  <div class="map-io-label">Input {{ n }}</div>
+                  <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
+                    <option :value="null">— Select source —</option>
+                    <option v-for="src in availableUpstreamSources" :key="src.id" :value="src.id">{{ src.label }}</option>
+                  </select>
+                  <div v-if="upstreamMap[n]" class="map-io-display">{{ getUpstreamLabel(n) }}</div>
+                  <button v-if="upstreamMap[n]" class="btn-danger-small" @click="clearUpstreamConnection(n)">Clear</button>
                 </div>
-                <div v-if="!upstream.length" class="muted">No upstream connections</div>
+                <div v-if="!inputCount" class="muted">No inputs</div>
               </div>
             </div>
 
@@ -62,14 +66,24 @@
             <div class="map-section">
               <h4>Outputs</h4>
               <div class="map-outputs">
-                <div v-for="d in downstream" :key="d.key" class="map-io-row">
-                  <div class="map-io-label">{{ d.kind }} {{ d.port }}</div>
-                  <div class="map-io-display">{{ d.toLabel }}</div>
-                  <button class="btn-danger-small" @click="deleteDownstreamConnection(d.key)">Delete</button>
+                <div v-for="n in outputCount" :key="`out-${n}`" class="map-io-row">
+                  <div class="map-io-label">Output {{ n }}</div>
+                  <select v-model="downstreamMap[n]" class="select" @change="onDownstreamChange(n)">
+                    <option :value="null">— Select target —</option>
+                    <option v-for="tgt in availableDownstreamTargets" :key="tgt.id" :value="tgt.id">{{ tgt.label }}</option>
+                  </select>
+                  <select v-if="downstreamMap[n]" v-model.number="downstreamPortMap[n]" class="select">
+                    <option :value="null">Port</option>
+                    <option v-for="opt in getDownstreamPortOptions(downstreamMap[n])" :key="opt" :value="opt">{{ opt }}</option>
+                  </select>
+                  <button v-if="downstreamMap[n]" class="btn-danger-small" @click="clearDownstreamConnection(n)">Clear</button>
                 </div>
-                <div v-if="!downstream.length" class="muted">No downstream connections</div>
+                <div v-if="!outputCount" class="muted">No outputs</div>
               </div>
             </div>
+          </div>
+          <div class="actions">
+            <button class="btn" @click="saveMap" :disabled="saving">Save Map</button>
           </div>
         </div>
       </div>
@@ -469,29 +483,118 @@ function getDownstreamPortOptions(targetNodeId) {
   return Array.from({ length: Math.max(0, count) }, (_, i) => i + 1)
 }
 
-async function deleteUpstreamConnection(connId) {
-  if (!confirm('Delete this upstream connection?')) return
-  try {
-    await supabase.from('connection_port_map').delete().eq('connection_id', connId)
-    await supabase.from('connections').delete().eq('id', connId)
-    await refresh()
-    console.log('[Inspector][Map] deleted upstream connection', connId)
-  } catch (err) {
-    console.error('[Inspector][Map] delete upstream failed', err)
-  }
+function clearUpstreamConnection(inputNum) {
+  upstreamMap.value[inputNum] = null
+  delete upstreamConnections.value[inputNum]
 }
 
-async function deleteDownstreamConnection(connKey) {
-  if (!confirm('Delete this downstream connection?')) return
+function clearDownstreamConnection(outputNum) {
+  downstreamMap.value[outputNum] = null
+  downstreamPortMap.value[outputNum] = null
+  delete downstreamConnections.value[outputNum]
+}
+
+async function saveMap() {
+  saving.value = true
   try {
-    const parts = connKey.split(':')
-    const connId = parts[0]
-    await supabase.from('connection_port_map').delete().eq('connection_id', connId)
-    await supabase.from('connections').delete().eq('id', connId)
+    console.log('[Inspector][Map] save:start', { node_id: props.node.id })
+    
+    // Save upstream connections
+    for (const inputNum in upstreamMap.value) {
+      const srcId = upstreamMap.value[inputNum]
+      const existingConnId = upstreamConnections.value[inputNum]
+      
+      if (srcId) {
+        if (existingConnId) {
+          // Update existing connection if source changed
+          const { data: existing } = await supabase
+            .from('connections')
+            .select('from_node_id')
+            .eq('id', existingConnId)
+            .single()
+          if (existing && existing.from_node_id !== srcId) {
+            await supabase.from('connections').update({ from_node_id: srcId }).eq('id', existingConnId)
+          }
+        } else {
+          // Create new connection
+          const { data: newConn } = await supabase
+            .from('connections')
+            .insert([{
+              project_id: props.projectId,
+              from_node_id: srcId,
+              to_node_id: props.node.id,
+              input_number: Number(inputNum)
+            }])
+            .select()
+            .single()
+          if (newConn) upstreamConnections.value[inputNum] = newConn.id
+        }
+      } else if (existingConnId) {
+        // Remove connection if source cleared
+        await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+        await supabase.from('connections').delete().eq('id', existingConnId)
+        delete upstreamConnections.value[inputNum]
+      }
+    }
+    
+    // Save downstream connections
+    for (const outputNum in downstreamMap.value) {
+      const tgtId = downstreamMap.value[outputNum]
+      const tgtPort = downstreamPortMap.value[outputNum]
+      const existingConnId = downstreamConnections.value[outputNum]
+      
+      if (tgtId && tgtPort) {
+        if (existingConnId) {
+          // Update existing connection
+          const { data: existing } = await supabase
+            .from('connections')
+            .select('to_node_id')
+            .eq('id', existingConnId)
+            .single()
+          if (existing && existing.to_node_id !== tgtId) {
+            await supabase.from('connections').update({ to_node_id: tgtId }).eq('id', existingConnId)
+          }
+          // Update port map
+          await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+          await supabase.from('connection_port_map').insert([{
+            project_id: props.projectId,
+            connection_id: existingConnId,
+            from_port: Number(outputNum),
+            to_port: Number(tgtPort)
+          }])
+        } else {
+          // Create new connection with port map
+          const { data: newConn } = await supabase
+            .from('connections')
+            .insert([{
+              project_id: props.projectId,
+              from_node_id: props.node.id,
+              to_node_id: tgtId
+            }])
+            .select()
+            .single()
+          if (newConn) {
+            downstreamConnections.value[outputNum] = newConn.id
+            await supabase.from('connection_port_map').insert([{
+              project_id: props.projectId,
+              connection_id: newConn.id,
+              from_port: Number(outputNum),
+              to_port: Number(tgtPort)
+            }])
+          }
+        }
+      } else if (existingConnId) {
+        // Remove connection if target cleared
+        await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+        await supabase.from('connections').delete().eq('id', existingConnId)
+        delete downstreamConnections.value[outputNum]
+      }
+    }
+    
     await refresh()
-    console.log('[Inspector][Map] deleted downstream connection', connId)
-  } catch (err) {
-    console.error('[Inspector][Map] delete downstream failed', err)
+    console.log('[Inspector][Map] save:done')
+  } finally {
+    saving.value = false
   }
 }
 </script>
