@@ -699,13 +699,37 @@ function getFromPortDisplayForEdit(portNum) {
     return `Output ${portNum}`
   }
   
-  // Label stereo source ports as L/R - use centralized helper
+  // Label stereo source ports as L/R - check output_port_labels first (synchronous)
   if (fromType === 'source') {
     // portNum should represent the source output port (1=L, 2=R for stereo)
-    const label = getSourceLabelFromNode(from, portNum)
-    if (label) return label
-    // Fallback if helper returns null
-    return `Output ${portNum}`
+    // Check node's output_port_labels first (most reliable, synchronous)
+    if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+      const storedLabel = from.output_port_labels[String(portNum)] || from.output_port_labels[portNum]
+      if (storedLabel) return storedLabel
+    }
+    // Fallback: compute label synchronously from node properties
+    const outCount = from?.num_outputs || from?.outputs || 0
+    const label = from.label || ''
+    const trackName = from.track_name || ''
+    const m = label.match(/^(.*) \(([A-Z0-9]+)\)$/)
+    const num = m ? m[2] : ''
+    let base
+    if (trackName) {
+      base = trackName.replace(/ \([\dA-Z]+\)\s*$/g, '').replace(/\s*LR$/i, '').trim()
+    } else if (m) {
+      base = m[1].replace(/\s*LR$/i, '').trim()
+    } else {
+      base = label.replace(/ \([\dA-Z]+\)\s*$/g, '').replace(/\s*LR$/i, '').trim()
+    }
+    const numSuffix = num ? ` (${num})` : ''
+    if (outCount === 2 && typeof portNum === 'number') {
+      if (portNum === 1) {
+        return `${base} L${numSuffix}`
+      } else if (portNum === 2) {
+        return `${base} R${numSuffix}`
+      }
+    }
+    return `${base}${numSuffix}`
   }
   
   // For transformers, recursively trace to source
