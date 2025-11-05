@@ -139,13 +139,21 @@ export async function getSourceLabelFromNode(node, outputPort) {
   
   // Handle venue_sources node type
   if (nodeType === 'venue_sources') {
-    // Query venue_source_feeds table to resolve port number to source label
+    const portNum = typeof outputPort === 'number' ? outputPort : 1
+    
+    // First check node's output_port_labels (these are set from custom labels in port map)
+    if (node.output_port_labels && typeof node.output_port_labels === 'object') {
+      const storedLabel = node.output_port_labels[String(portNum)] || node.output_port_labels[portNum]
+      if (storedLabel) return storedLabel
+    }
+    
+    // Fallback: Query venue_source_feeds table to resolve port number to source label
     try {
       const { data: feeds, error } = await supabase
         .from('venue_source_feeds')
         .select('*')
         .eq('node_id', node.id)
-        .eq('port_number', outputPort)
+        .eq('port_number', portNum)
         .maybeSingle()
       
       if (error) {
