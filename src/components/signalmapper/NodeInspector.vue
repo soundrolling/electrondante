@@ -17,59 +17,12 @@
 
     <div class="tabs">
       <button :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
-      <button v-if="type==='venue_sources'" :class="{ active: tab==='feeds' }" @click="tab='feeds'">Feeds</button>
       <button v-if="type==='recorder'" :class="{ active: tab==='tracks' }" @click="tab='tracks'">Tracks</button>
     </div>
 
       <div class="panel" v-if="tab==='map'">
-        <div class="map-unified">
-          <!-- Upstream (Inputs) Section -->
-          <div class="map-section">
-            <h4>Inputs</h4>
-            <div class="map-inputs">
-              <div v-for="n in inputCount" :key="`in-${n}`" class="map-io-row">
-                <div class="map-io-label">Input {{ n }}</div>
-                <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
-                  <option :value="null">— Select source —</option>
-                  <option v-for="src in availableUpstreamSources" :key="src.id" :value="src.id">{{ src.label }}</option>
-                </select>
-                <div v-if="upstreamMap[n]" class="map-io-display">{{ getUpstreamLabel(n) }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Current Node (Center) -->
-          <div class="map-center">
-            <div class="map-node-badge">{{ type }}</div>
-            <div class="map-node-name">{{ node.track_name || node.label }}</div>
-          </div>
-
-          <!-- Downstream (Outputs) Section -->
-          <div class="map-section">
-            <h4>Outputs</h4>
-            <div class="map-outputs">
-              <div v-for="n in outputCount" :key="`out-${n}`" class="map-io-row">
-                <div class="map-io-label">Output {{ n }}</div>
-                <select v-model="downstreamMap[n]" class="select" @change="onDownstreamChange(n)">
-                  <option :value="null">— Select target —</option>
-                  <option v-for="tgt in availableDownstreamTargets" :key="tgt.id" :value="tgt.id">{{ tgt.label }}</option>
-                </select>
-                <select v-if="downstreamMap[n]" v-model.number="downstreamPortMap[n]" class="select">
-                  <option :value="null">Port</option>
-                  <option v-for="opt in getDownstreamPortOptions(downstreamMap[n])" :key="opt" :value="opt">{{ opt }}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" @click="saveMap" :disabled="saving">Save Map</button>
-        </div>
-      </div>
-
-      <div class="panel" v-else-if="tab==='feeds'">
-        <div v-if="type!=='venue_sources'" class="muted">Feeds only apply to Venue Sources</div>
-        <div v-else>
+        <!-- Venue Sources: Show feeds in Map tab -->
+        <div v-if="type==='venue_sources'">
           <div class="feeds-toolbar">
             <button class="btn-secondary" @click="addFeed">Add Feed</button>
           </div>
@@ -83,7 +36,44 @@
             <button class="btn" @click="saveFeeds" :disabled="saving">Save Feeds</button>
           </div>
         </div>
+        <!-- Other nodes: Show read-only connections with delete -->
+        <div v-else>
+          <div class="map-unified">
+            <!-- Upstream (Inputs) Section -->
+            <div class="map-section">
+              <h4>Inputs</h4>
+              <div class="map-inputs">
+                <div v-for="u in upstream" :key="u.key" class="map-io-row">
+                  <div class="map-io-label">Input {{ u.input }}</div>
+                  <div class="map-io-display">{{ u.label }}</div>
+                  <button class="btn-danger-small" @click="deleteUpstreamConnection(u.key)">Delete</button>
+                </div>
+                <div v-if="!upstream.length" class="muted">No upstream connections</div>
+              </div>
+            </div>
+
+            <!-- Current Node (Center) -->
+            <div class="map-center">
+              <div class="map-node-badge">{{ type }}</div>
+              <div class="map-node-name">{{ node.track_name || node.label }}</div>
+            </div>
+
+            <!-- Downstream (Outputs) Section -->
+            <div class="map-section">
+              <h4>Outputs</h4>
+              <div class="map-outputs">
+                <div v-for="d in downstream" :key="d.key" class="map-io-row">
+                  <div class="map-io-label">{{ d.kind }} {{ d.port }}</div>
+                  <div class="map-io-display">{{ d.toLabel }}</div>
+                  <button class="btn-danger-small" @click="deleteDownstreamConnection(d.key)">Delete</button>
+                </div>
+                <div v-if="!downstream.length" class="muted">No downstream connections</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
 
       <div class="panel" v-else-if="tab==='tracks'">
         <div v-if="type!=='recorder'" class="muted">Tracks only apply to Recorders</div>
@@ -479,106 +469,29 @@ function getDownstreamPortOptions(targetNodeId) {
   return Array.from({ length: Math.max(0, count) }, (_, i) => i + 1)
 }
 
-async function saveMap() {
-  saving.value = true
+async function deleteUpstreamConnection(connId) {
+  if (!confirm('Delete this upstream connection?')) return
   try {
-    console.log('[Inspector][Map] save:start', { node_id: props.node.id })
-    
-    // Save upstream connections
-    for (const inputNum in upstreamMap.value) {
-      const srcId = upstreamMap.value[inputNum]
-      const existingConnId = upstreamConnections.value[inputNum]
-      
-      if (srcId) {
-        if (existingConnId) {
-          // Update existing connection if source changed
-          const { data: existing } = await supabase
-            .from('connections')
-            .select('from_node_id')
-            .eq('id', existingConnId)
-            .single()
-          if (existing && existing.from_node_id !== srcId) {
-            await supabase.from('connections').update({ from_node_id: srcId }).eq('id', existingConnId)
-          }
-        } else {
-          // Create new connection
-          const { data: newConn } = await supabase
-            .from('connections')
-            .insert([{
-              project_id: props.projectId,
-              from_node_id: srcId,
-              to_node_id: props.node.id,
-              input_number: Number(inputNum)
-            }])
-            .select()
-            .single()
-          if (newConn) upstreamConnections.value[inputNum] = newConn.id
-        }
-      } else if (existingConnId) {
-        // Remove connection if source cleared
-        await supabase.from('connections').delete().eq('id', existingConnId)
-        delete upstreamConnections.value[inputNum]
-      }
-    }
-    
-    // Save downstream connections
-    for (const outputNum in downstreamMap.value) {
-      const tgtId = downstreamMap.value[outputNum]
-      const tgtPort = downstreamPortMap.value[outputNum]
-      const existingConnId = downstreamConnections.value[outputNum]
-      
-      if (tgtId && tgtPort) {
-        if (existingConnId) {
-          // Update existing connection
-          const { data: existing } = await supabase
-            .from('connections')
-            .select('to_node_id')
-            .eq('id', existingConnId)
-            .single()
-          if (existing && existing.to_node_id !== tgtId) {
-            await supabase.from('connections').update({ to_node_id: tgtId }).eq('id', existingConnId)
-          }
-          // Update port map
-          await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
-          await supabase.from('connection_port_map').insert([{
-            project_id: props.projectId,
-            connection_id: existingConnId,
-            from_port: Number(outputNum),
-            to_port: Number(tgtPort)
-          }])
-        } else {
-          // Create new connection with port map
-          const { data: newConn } = await supabase
-            .from('connections')
-            .insert([{
-              project_id: props.projectId,
-              from_node_id: props.node.id,
-              to_node_id: tgtId
-            }])
-            .select()
-            .single()
-          if (newConn) {
-            downstreamConnections.value[outputNum] = newConn.id
-            await supabase.from('connection_port_map').insert([{
-              project_id: props.projectId,
-              connection_id: newConn.id,
-              from_port: Number(outputNum),
-              to_port: Number(tgtPort)
-            }])
-          }
-        }
-      } else if (existingConnId) {
-        // Remove connection if target cleared
-        await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
-        await supabase.from('connections').delete().eq('id', existingConnId)
-        delete downstreamConnections.value[outputNum]
-      }
-    }
-    
+    await supabase.from('connection_port_map').delete().eq('connection_id', connId)
+    await supabase.from('connections').delete().eq('id', connId)
     await refresh()
-    console.log('[Inspector][Map] save:done')
-  } finally {
-    saving.value = false
+    console.log('[Inspector][Map] deleted upstream connection', connId)
+  } catch (err) {
+    console.error('[Inspector][Map] delete upstream failed', err)
+  }
+}
+
+async function deleteDownstreamConnection(connKey) {
+  if (!confirm('Delete this downstream connection?')) return
+  try {
+    const parts = connKey.split(':')
+    const connId = parts[0]
+    await supabase.from('connection_port_map').delete().eq('connection_id', connId)
+    await supabase.from('connections').delete().eq('id', connId)
+    await refresh()
+    console.log('[Inspector][Map] deleted downstream connection', connId)
+  } catch (err) {
+    console.error('[Inspector][Map] delete downstream failed', err)
   }
 }
 </script>
@@ -606,9 +519,11 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .map-section { display: flex; flex-direction: column; }
 .map-section h4 { margin: 0 0 12px 0; color: var(--text-primary); font-size: 14px; }
 .map-inputs, .map-outputs { display: flex; flex-direction: column; gap: 8px; }
-.map-io-row { display: flex; flex-direction: column; gap: 4px; background: var(--bg-elevated); border: 1px solid var(--border-separator); padding: 8px 10px; border-radius: 6px; }
+.map-io-row { display: flex; flex-direction: column; gap: 4px; background: var(--bg-elevated); border: 1px solid var(--border-separator); padding: 8px 10px; border-radius: 6px; position: relative; }
 .map-io-label { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
-.map-io-display { color: var(--text-primary); font-size: 12px; margin-top: 4px; }
+.map-io-display { color: var(--text-primary); font-size: 12px; margin-top: 4px; flex: 1; }
+.btn-danger-small { background: var(--btn-danger-bg); color: var(--btn-danger-text); border: 1px solid var(--btn-danger-border); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; margin-top: 4px; }
+.btn-danger-small:hover { background: var(--btn-danger-hover-bg); border-color: var(--btn-danger-hover-border); }
 .map-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: var(--bg-elevated); border: 2px solid var(--border-dark); border-radius: 8px; min-width: 150px; }
 .map-node-badge { background: var(--bg-primary); border: 1px solid var(--border-medium); padding: 4px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
 .map-node-name { color: var(--text-primary); font-weight: 600; font-size: 14px; text-align: center; }
