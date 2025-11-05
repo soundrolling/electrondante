@@ -60,25 +60,8 @@
             <div class="map-center">
               <div class="map-node-badge">{{ type }}</div>
               <div class="map-node-name">{{ node.track_name || node.label }}</div>
-            </div>
-
-            <!-- Downstream (Outputs) Section -->
-            <div class="map-section">
-              <h4>Outputs</h4>
-              <div class="map-outputs">
-                <div v-for="n in outputCount" :key="`out-${n}`" class="map-io-row">
-                  <div class="map-io-label">Output {{ n }}</div>
-                  <select v-model="downstreamMap[n]" class="select" @change="onDownstreamChange(n)">
-                    <option :value="null">— Select target —</option>
-                    <option v-for="tgt in availableDownstreamTargets" :key="tgt.id" :value="tgt.id">{{ tgt.label }}</option>
-                  </select>
-                  <select v-if="downstreamMap[n]" v-model.number="downstreamPortMap[n]" class="select">
-                    <option :value="null">Port</option>
-                    <option v-for="opt in getDownstreamPortOptions(downstreamMap[n])" :key="opt" :value="opt">{{ opt }}</option>
-                  </select>
-                  <button v-if="downstreamMap[n]" class="btn-danger-small" @click="clearDownstreamConnection(n)">Clear</button>
-                </div>
-                <div v-if="!outputCount" class="muted">No outputs</div>
+              <div class="map-node-hint" style="margin-top: 8px; font-size: 11px; color: var(--text-muted); text-align: center;">
+                To route outputs, configure the receiving node's inputs
               </div>
             </div>
           </div>
@@ -703,92 +686,16 @@ async function saveMap() {
       }
     }
     
-    // Save downstream connections
-    for (const outputNum in downstreamMap.value) {
-      const tgtId = downstreamMap.value[outputNum]
-      const tgtPort = downstreamPortMap.value[outputNum]
-      const existingConnId = downstreamConnections.value[outputNum]
-      
-      try {
-        if (tgtId && tgtPort) {
-          if (existingConnId) {
-            // Update existing connection
-            const { data: existing, error: fetchError } = await supabase
-              .from('connections')
-              .select('to_node_id')
-              .eq('id', existingConnId)
-              .single()
-            
-            if (fetchError) throw fetchError
-            
-            if (existing && existing.to_node_id !== tgtId) {
-              const { error: updateError } = await supabase.from('connections').update({ to_node_id: tgtId }).eq('id', existingConnId)
-              if (updateError) throw updateError
-            }
-            
-            // Update port map
-            const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
-            if (deleteError) throw deleteError
-            
-            const { error: insertError } = await supabase.from('connection_port_map').insert([{
-              project_id: props.projectId,
-              connection_id: existingConnId,
-              from_port: Number(outputNum),
-              to_port: Number(tgtPort)
-            }])
-            if (insertError) throw insertError
-            
-            savedCount++
-          } else {
-            // Create new connection with port map
-            const { data: newConn, error: insertError } = await supabase
-              .from('connections')
-              .insert([{
-                project_id: props.projectId,
-                from_node_id: props.node.id,
-                to_node_id: tgtId
-              }])
-              .select()
-              .single()
-            
-            if (insertError) throw insertError
-            
-            if (newConn) {
-              downstreamConnections.value[outputNum] = newConn.id
-              const { error: portMapError } = await supabase.from('connection_port_map').insert([{
-                project_id: props.projectId,
-                connection_id: newConn.id,
-                from_port: Number(outputNum),
-                to_port: Number(tgtPort)
-              }])
-              if (portMapError) throw portMapError
-              savedCount++
-            }
-          }
-        } else if (existingConnId) {
-          // Remove connection if target cleared
-          const { error: portMapError } = await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
-          if (portMapError) throw portMapError
-          
-          const { error: deleteError } = await supabase.from('connections').delete().eq('id', existingConnId)
-          if (deleteError) throw deleteError
-          
-          delete downstreamConnections.value[outputNum]
-          savedCount++
-        }
-      } catch (err) {
-        console.error('[Inspector][Map] error saving downstream connection', outputNum, err)
-        errorCount++
-      }
-    }
+    // Note: Downstream connections are managed by configuring the receiving node's inputs
+    // No need to save them from this node
     
     await refresh()
     console.log('[Inspector][Map] save:done', { savedCount, errorCount })
     
     if (errorCount > 0) {
-      toast.error(`Failed to save ${errorCount} connection(s)`)
+      toast.error(`Failed to save ${errorCount} input connection(s)`)
     } else if (savedCount > 0) {
-      toast.success(`Saved ${savedCount} connection mapping(s)`)
+      toast.success(`Saved ${savedCount} input mapping(s)`)
     } else {
       toast.info('No changes to save')
     }
@@ -820,7 +727,7 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .k { color: var(--text-secondary); }
 .v { color: var(--text-primary); font-weight: 600; }
 .arrow { color: var(--text-link); font-weight: 700; }
-.map-unified { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: start; }
+.map-unified { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: start; }
 .map-section { display: flex; flex-direction: column; }
 .map-section h4 { margin: 0 0 12px 0; color: var(--text-primary); font-size: 14px; }
 .map-inputs, .map-outputs { display: flex; flex-direction: column; gap: 8px; }
