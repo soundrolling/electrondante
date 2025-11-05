@@ -641,23 +641,35 @@ async function saveMap() {
             savedCount++
           } else {
             // Check if connection already exists (might not be in our cache)
-            const { data: existingConn, error: checkError } = await supabase
-              .from('connections')
-              .select('id')
-              .eq('project_id', props.projectId)
-              .eq('from_node_id', nodeId)
-              .eq('to_node_id', props.node.id)
-              .eq('input_number', Number(inputNum))
-              .maybeSingle()
-            
             let connId = null
+            let existingConn = null
+            
+            // Try to check for existing connection, but don't fail if check fails
+            try {
+              const { data, error: checkError } = await supabase
+                .from('connections')
+                .select('id')
+                .eq('project_id', props.projectId)
+                .eq('from_node_id', nodeId)
+                .eq('to_node_id', props.node.id)
+                .eq('input_number', Number(inputNum))
+                .maybeSingle()
+              
+              if (!checkError && data) {
+                existingConn = data
+              }
+              // If checkError exists (like 406), we'll proceed to insert and catch duplicate key
+            } catch (checkErr) {
+              // Ignore check errors, we'll handle duplicates on insert
+              console.warn('[Inspector][Map] connection check failed, will try insert', checkErr)
+            }
             
             if (existingConn) {
               // Use existing connection
               connId = existingConn.id
               upstreamConnections.value[inputNum] = connId
             } else {
-              // Create new connection
+              // Try to create new connection
               const { data: newConn, error: insertError } = await supabase
                 .from('connections')
                 .insert([{
@@ -670,21 +682,57 @@ async function saveMap() {
                 .single()
               
               if (insertError) {
-                // If it's a duplicate key error, try to fetch the existing connection
+                // If it's a duplicate key error, fetch the existing connection
                 if (insertError.code === '23505') {
-                  const { data: existing } = await supabase
-                    .from('connections')
-                    .select('id')
-                    .eq('project_id', props.projectId)
-                    .eq('from_node_id', nodeId)
-                    .eq('to_node_id', props.node.id)
-                    .eq('input_number', Number(inputNum))
-                    .single()
-                  if (existing) {
-                    connId = existing.id
-                    upstreamConnections.value[inputNum] = connId
-                  } else {
-                    throw insertError
+                  try {
+                    // Try to find the existing connection - the constraint might be on (from_node_id, to_node_id) 
+                    // or (from_node_id, to_node_id, input_number)
+                    const { data: existing } = await supabase
+                      .from('connections')
+                      .select('id')
+                      .eq('project_id', props.projectId)
+                      .eq('from_node_id', nodeId)
+                      .eq('to_node_id', props.node.id)
+                      .eq('input_number', Number(inputNum))
+                      .maybeSingle()
+                    
+                    if (existing) {
+                      connId = existing.id
+                      upstreamConnections.value[inputNum] = connId
+                    } else {
+                      // Constraint might be on (from_node_id, to_node_id) only, try without input_number
+                      const { data: existingWithoutInput } = await supabase
+                        .from('connections')
+                        .select('id')
+                        .eq('project_id', props.projectId)
+                        .eq('from_node_id', nodeId)
+                        .eq('to_node_id', props.node.id)
+                        .maybeSingle()
+                      
+                      if (existingWithoutInput) {
+                        // Update the existing connection with the input_number
+                        const { data: updated } = await supabase
+                          .from('connections')
+                          .update({ input_number: Number(inputNum) })
+                          .eq('id', existingWithoutInput.id)
+                          .select()
+                          .single()
+                        
+                        if (updated) {
+                          connId = updated.id
+                          upstreamConnections.value[inputNum] = connId
+                        } else {
+                          throw insertError
+                        }
+                      } else {
+                        throw insertError
+                      }
+                    }
+                  } catch (fetchErr) {
+                    // If we can't fetch the existing connection, log but don't throw
+                    console.warn('[Inspector][Map] duplicate connection exists but could not fetch', fetchErr)
+                    // Connection exists but we can't fetch it - set connId to null to skip port map handling
+                    connId = null
                   }
                 } else {
                   throw insertError
