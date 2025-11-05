@@ -452,8 +452,8 @@ async function buildUpstreamSourceLabels() {
           const parentOutputPort = m.from_port
           const thisTransformerInput = m.to_port
           
-          if (fromNodeType === 'source') {
-            // Direct source connection - get source label with L/R based on output port
+          if (fromNodeType === 'source' || fromNodeType === 'venue_sources') {
+            // Direct source or venue source connection - get source label with L/R based on output port
             const incoming = { 
               from_node_id: parentConn.from_node_id, 
               input_number: parentOutputPort,
