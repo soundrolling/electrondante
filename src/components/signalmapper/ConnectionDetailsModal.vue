@@ -1083,8 +1083,8 @@ async function traceTransformerOutput(transformerId, outputPort) {
             const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
             if (upstreamNode) {
               const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
-              if (upstreamType === 'source') {
-                // Direct source - get source label
+              if (upstreamType === 'source' || upstreamType === 'venue_sources') {
+                // Direct source or venue source - get source label
                 const incoming = { 
                   from_node_id: upstreamNodeId, 
                   input_number: relevantMap.from_port,
@@ -1107,7 +1107,7 @@ async function traceTransformerOutput(transformerId, outputPort) {
             const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
             if (upstreamNode) {
               const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
-              if (upstreamType === 'source') {
+              if (upstreamType === 'source' || upstreamType === 'venue_sources') {
                 const incoming = { 
                   from_node_id: upstreamNodeId, 
                   input_number: inputNum,
