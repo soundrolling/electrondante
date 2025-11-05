@@ -5,6 +5,8 @@ import { getNodeType } from './signalGraph'
 // Get the human label for a node's OUTPUT port.
 // graph is the object from buildGraph() in signalGraph.js
 export async function getOutputLabel(node, portNum, graph) {
+  // Debug trace
+  // console.log('[SignalMapper][Labels] getOutputLabel', { node_id: node?.id, type: getNodeType(node), portNum })
   const type = getNodeType(node)
 
   // Prefer stored output labels if available (works for venue_sources and custom sources)
@@ -60,6 +62,7 @@ export async function getOutputLabel(node, portNum, graph) {
 
 // Resolve the label that appears on a transformer's INPUT N by looking upstream
 export async function resolveTransformerInputLabel(transformerNode, inputNum, graph, visited = new Set()) {
+  // console.log('[SignalMapper][Labels] resolveTransformerInputLabel:start', { transformer_id: transformerNode?.id, inputNum })
   if (!transformerNode || visited.has(transformerNode.id)) return `Input ${inputNum}`
   visited.add(transformerNode.id)
 
@@ -79,7 +82,9 @@ export async function resolveTransformerInputLabel(transformerNode, inputNum, gr
       if (upstreamType === 'transformer') {
         return await resolveTransformerInputLabel(upstreamNode, row.from_port, graph, visited)
       }
-      return await getOutputLabel(upstreamNode, row.from_port, graph)
+      const lbl = await getOutputLabel(upstreamNode, row.from_port, graph)
+      // console.log('[SignalMapper][Labels] resolveTransformerInputLabel:map-hit', { transformer_id: transformerNode?.id, inputNum, upstream_id: upstreamNode?.id, from_port: row.from_port, label: lbl })
+      return lbl
     }
   }
 
@@ -106,7 +111,9 @@ export async function resolveTransformerInputLabel(transformerNode, inputNum, gr
       if (upstreamType === 'transformer') {
         return await resolveTransformerInputLabel(upstreamNode, anyParent.input_number || 1, graph, visited)
       }
-      return await getOutputLabel(upstreamNode, anyParent.input_number || 1, graph)
+      const lbl = await getOutputLabel(upstreamNode, anyParent.input_number || 1, graph)
+      // console.log('[SignalMapper][Labels] resolveTransformerInputLabel:fallback-parent', { transformer_id: transformerNode?.id, inputNum, upstream_id: upstreamNode?.id, label: lbl })
+      return lbl
     }
   }
 

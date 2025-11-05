@@ -1092,6 +1092,13 @@ function addVenueSourcePortMapping() {
     to_port: destPort,
     label: label // Store label for display
   })
+  console.log('[SignalMapper][Flow] Added venue mapping (pending save)', {
+    from_node_id: fromNodeOfSelected.value?.id,
+    to_node_id: toNodeOfSelected.value?.id,
+    label,
+    from_port: nextPort,
+    to_port: destPort
+  })
   
   // Update upstreamLabelsForFromNode for display
   if (!upstreamLabelsForFromNode.value) {
