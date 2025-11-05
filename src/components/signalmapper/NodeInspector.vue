@@ -202,8 +202,42 @@ async function loadAvailableUpstreamSources() {
         label: e.track_name || e.label,
         feedKey: e.id
       })
+    } else if (eType === 'transformer') {
+      // Transformers pass through their inputs as outputs - show all outputs
+      const numOutputs = e.num_outputs || e.outputs || 0
+      if (numOutputs > 0) {
+        // For transformers, each output corresponds to an input (1:1 pass-through)
+        for (let port = 1; port <= numOutputs; port++) {
+          // Get the label for this transformer output (which traces back to source)
+          try {
+            const label = await getOutputLabel(e, port, graph.value)
+            sources.push({
+              id: e.id,
+              port,
+              label,
+              feedKey: `${e.id}:${port}`
+            })
+          } catch (err) {
+            // Fallback if label resolution fails
+            sources.push({
+              id: e.id,
+              port,
+              label: `${e.track_name || e.label || 'Transformer'} Output ${port}`,
+              feedKey: `${e.id}:${port}`
+            })
+          }
+        }
+      } else {
+        // Fallback for transformers without num_outputs defined
+        sources.push({
+          id: e.id,
+          port: null,
+          label: e.track_name || e.label || 'Transformer',
+          feedKey: e.id
+        })
+      }
     }
-    // Explicitly exclude transformers and recorders from upstream sources
+    // Recorders are excluded - they don't output to other nodes
   }
   
   availableUpstreamSources.value = sources
@@ -270,13 +304,26 @@ async function loadConnections() {
       if (portMap) feedPort = portMap.from_port
     } catch {}
     
-    // Build feedKey: if venue source with port map, use nodeId:port; otherwise just nodeId
+    // Build feedKey: if venue source or transformer with port map, use nodeId:port; otherwise just nodeId
     const src = props.elements.find(e => e.id === p.from_node_id)
     const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
-    const feedKey = (srcType === 'venue_sources' && feedPort) ? `${p.from_node_id}:${feedPort}` : p.from_node_id
+    
+    // For transformers without port maps, infer port from input_number (1:1 pass-through)
+    // For transformers, output N typically corresponds to input N
+    let inferredPort = feedPort
+    if (srcType === 'transformer' && !feedPort && p.input_number) {
+      inferredPort = Number(p.input_number)
+    }
+    
+    // For venue_sources and transformers, use port in feedKey
+    // For regular sources, don't use port (they typically have single output)
+    const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer') && inferredPort
+    const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
     
     upstreamMap.value[inputNum] = feedKey
-    const label = src ? (await getOutputLabel(src, feedPort || inputNum, graph.value)) : 'Unknown'
+    // Use inferredPort for transformers, feedPort for venue sources, or inputNum as fallback
+    const portForLabel = inferredPort || feedPort || (srcType === 'transformer' ? inputNum : null) || inputNum
+    const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
     upstream.value.push({ key: p.id, input: inputNum, label })
   }
   
