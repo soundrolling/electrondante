@@ -505,6 +505,20 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
   
   const nodeType = (node.gear_type || node.type || '').toLowerCase()
   
+  // If it's a venue_sources node, use centralized helper to get label
+  if (nodeType === 'venue_sources') {
+    // inputNum should represent the venue source output port
+    // Check node's output_port_labels first (these are set from custom labels)
+    if (node.output_port_labels && typeof node.output_port_labels === 'object') {
+      const storedLabel = node.output_port_labels[String(inputNum)] || node.output_port_labels[inputNum]
+      if (storedLabel) return storedLabel
+    }
+    // Fallback to async helper (which queries venue_source_feeds)
+    // Note: This is a sync function, so we can't await, but getSourceLabelFromNode
+    // will be called async elsewhere. For now, return null to let the fallback work.
+    return null
+  }
+  
   // If it's a source, use centralized helper to get label
   if (nodeType === 'source') {
     // inputNum should represent the source output port (1=L, 2=R for stereo)
@@ -525,29 +539,51 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
       if (parentNode) {
         const parentType = (parentNode.gear_type || parentNode.type || '').toLowerCase()
         
-        // For port-mapped connections, we might need to trace through the port mapping
-        // But for direct connections, if transformer input 1 is connected from parent output X,
-        // then transformer output 1 should show what's coming from parent output X
-        // We trace from the parent node - if it's a source, get its label
-        // If it's another transformer, recursively trace from it
+        // For venue sources, check node's output_port_labels first
+        // This works even if the connection is port-mapped because venue sources
+        // store labels by port number in output_port_labels
+        if (parentType === 'venue_sources') {
+          // Check if venue sources has output_port_labels for this port
+          if (parentNode.output_port_labels && typeof parentNode.output_port_labels === 'object') {
+            const storedLabel = parentNode.output_port_labels[String(inputNum)] || parentNode.output_port_labels[inputNum]
+            if (storedLabel) return storedLabel
+          }
+          // Fallback: trace recursively (will check output_port_labels in venue_sources handler)
+          return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+        }
         
-        // For now, trace from parent with the same port number (1:1 mapping assumption)
-        // In reality, port mappings handle this, but for direct connections this works
+        // For other node types, trace from parent with the same port number
         return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
       }
     }
     
-    // Also check for port-mapped connections (transformer to transformer)
+    // Also check for port-mapped connections (transformer to transformer or venue sources)
     // Find any connection to this transformer
     const anyIncoming = props.connections.find(c => 
       (c.to_node_id === nodeId || c.to === nodeId)
     )
     
     if (anyIncoming) {
-      // Check if this connection has port mappings
-      // For port mappings, we'd need to query the port_map table
-      // But for now, trace from the parent with inputNum as a hint
       const parentNodeId = anyIncoming.from_node_id || anyIncoming.from
+      const parentNode = props.nodes.find(n => n.id === parentNodeId)
+      
+      if (parentNode) {
+        const parentType = (parentNode.gear_type || parentNode.type || '').toLowerCase()
+        
+        // For venue sources, check output_port_labels using inputNum
+        // Note: For port-mapped connections, inputNum might not match the venue source port,
+        // but we'll check anyway - the port mapping section in buildUpstreamLabelsForEdit
+        // handles this correctly by using the from_port from the mapping
+        if (parentType === 'venue_sources') {
+          if (parentNode.output_port_labels && typeof parentNode.output_port_labels === 'object') {
+            const storedLabel = parentNode.output_port_labels[String(inputNum)] || parentNode.output_port_labels[inputNum]
+            if (storedLabel) return storedLabel
+          }
+          return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+        }
+      }
+      
+      // Fallback: trace from parent with inputNum as a hint
       return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
     }
   }
@@ -740,7 +776,10 @@ async function buildUpstreamLabelsForEdit() {
       // Build labels for all inputs by recursively tracing to sources
       const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
       
+      // For direct connections (no port mapping), trace with input_number
       incomingConns.forEach(inc => {
+        // Check if this connection has port mappings - if so, we need to handle it differently
+        // For now, trace with input_number (will be handled in port mapping section below)
         const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
         if (sourceLabel) {
           upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
