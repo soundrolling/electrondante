@@ -141,7 +141,11 @@ function inferSourcePort(sourceNode, transformerInput, transformerParents, direc
         .map(c => Number(c.input_number)).sort((a,b) => a - b)
       if (siblings.length >= 2) {
         const index = siblings.indexOf(Number(transformerInput))
-        return index === 0 ? 1 : 2
+        if (index >= 0) {
+          return index === 0 ? 1 : 2
+        }
+        // If this input isn't among the connected siblings, fall back by parity
+        return Number(transformerInput) % 2 === 1 ? 1 : 2
       }
       // fallback by parity
       return Number(transformerInput) % 2 === 1 ? 1 : 2
