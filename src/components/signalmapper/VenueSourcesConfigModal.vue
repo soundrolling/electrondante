@@ -302,7 +302,7 @@ async function save() {
             port_number: portNumber,
             channel: 1,
             numbering_style: typeConfig.numberingStyle,
-            output_port_labels: { "1": lLabel }
+            output_port_label: lLabel
           })
           outputPortLabels[String(portNumber)] = lLabel
           portNumber++
@@ -315,7 +315,7 @@ async function save() {
             port_number: portNumber,
             channel: 2,
             numbering_style: typeConfig.numberingStyle,
-            output_port_labels: { "1": rLabel }
+            output_port_label: rLabel
           })
           outputPortLabels[String(portNumber)] = rLabel
           portNumber++
@@ -331,7 +331,7 @@ async function save() {
             port_number: portNumber,
             channel: 1,
             numbering_style: typeConfig.numberingStyle,
-            output_port_labels: { "1": label }
+            output_port_label: label
           })
           outputPortLabels[String(portNumber)] = label
           portNumber++
@@ -347,7 +347,7 @@ async function save() {
       if (insertError) throw insertError
     }
     
-    // Update node with new output count and labels
+    // Update node with new output count and labels (authoritative mirror)
     const { error: updateError } = await supabase
       .from('nodes')
       .update({
@@ -397,10 +397,12 @@ onMounted(() => {
 }
 
 .source-type-item {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-light);
   border-radius: 4px;
   padding: 1rem;
   margin-bottom: 1rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .source-type-header {
@@ -413,15 +415,19 @@ onMounted(() => {
 .source-type-name {
   flex: 1;
   padding: 0.5rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-medium);
   border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .numbering-style-select,
 .channels-select {
   padding: 0.5rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-medium);
   border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .feeds-section {
@@ -450,18 +456,20 @@ onMounted(() => {
 .feed-identifier {
   width: 60px;
   padding: 0.25rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-medium);
   border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .feed-channels {
   flex: 1;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.9em;
 }
 
 .preview-section {
-  border-top: 2px solid #ddd;
+  border-top: 2px solid var(--border-light);
   padding-top: 1rem;
   margin-top: 2rem;
 }
@@ -469,10 +477,12 @@ onMounted(() => {
 .port-preview {
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-light);
   border-radius: 4px;
   padding: 0.5rem;
   margin: 0.5rem 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .port-preview-item {
@@ -489,6 +499,7 @@ onMounted(() => {
 .total-ports {
   margin-top: 0.5rem;
   text-align: right;
+  color: var(--text-secondary);
 }
 
 .btn-add-small,

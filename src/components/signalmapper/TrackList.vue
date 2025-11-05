@@ -88,7 +88,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { buildGraph } from '@/services/signalGraph'
+import { resolveTransformerInputLabel as svcResolveTransformerInputLabel, getOutputLabel as svcGetOutputLabel } from '@/services/portLabelService'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -97,6 +99,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['track-name-clicked'])
+const graphRef = ref(null)
 
 function handleTrackNameClick(connectionId) {
   emit('track-name-clicked', connectionId)
@@ -141,6 +144,11 @@ function reversedPath(path) {
   if (!Array.isArray(path)) return []
   return [...path].reverse()
 }
+
+// Optional: if later we compute paths locally, we will use the services.
+onMounted(async () => {
+  try { graphRef.value = await buildGraph(props.projectId) } catch {}
+})
 
 // Smart track number sorting that handles numbers, letters, and alphanumeric combinations
 // Examples: 1, 2, 3, A, B, C, 1L, 1R, 2L, 2R, 10A, 10B

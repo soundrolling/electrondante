@@ -1,5 +1,7 @@
 // src/services/signalMapperService.js
 import { supabase } from '../supabase'
+import { buildGraph, getNodeType } from './signalGraph'
+import { getOutputLabel as svcGetOutputLabel } from './portLabelService'
 
 // --- CRUD for Nodes ---
 export async function getNodes(projectId) {
@@ -250,6 +252,7 @@ export async function getSourceLabelFromNode(node, outputPort) {
 }
 
 export async function getCompleteSignalPath(projectId) {
+  const graph = await buildGraph(projectId)
   // Get all nodes and connections
   const nodes = await getNodes(projectId)
   const connections = await getConnections(projectId)
@@ -376,15 +379,25 @@ export async function getCompleteSignalPath(projectId) {
       // Get source gear name if the source node has a gear_id
       const sourceGearName = finalSourceNode?.gear_id ? gearMap[finalSourceNode.gear_id] : null
 
+      // Resolve final source label using unified service if possible
+      let finalLabel = finalSourceLabel
+      if (finalSourceNode) {
+        try {
+          const sourcePort = sourceOutputPort || 1
+          const lbl = await svcGetOutputLabel(finalSourceNode, sourcePort, graph)
+          if (lbl) finalLabel = lbl
+        } catch {}
+      }
+
       signalPaths.push({
         recorder_id: recorder.id,
         recorder_label: recorder.label,
         // Use recorder connection input as the track number shown to the user
         track_number: conn.input_number || conn.track_number,
         source_id: finalSourceNode?.id || null,
-        // Prefer computed source label (includes L/R for stereo ad-hoc sources)
-        source_label: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
-        track_name: finalSourceLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
+        // Prefer unified label resolver
+        source_label: finalLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
+        track_name: finalLabel || finalSourceNode?.track_name || finalSourceNode?.label || null,
         source_gear_name: sourceGearName,
         path: labels,
         pad: typeof conn.pad === 'number' ? conn.pad : (conn.pad ? 1 : 0),

@@ -1546,13 +1546,14 @@ defineExpose({ getCanvasDataURL })
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   max-width: 600px;
   width: 90%;
   max-height: 80vh;
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 .modal-header {
@@ -1560,7 +1561,8 @@ defineExpose({ getCanvasDataURL })
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-primary);
 }
 
 .modal-header h3 {
@@ -1592,6 +1594,8 @@ defineExpose({ getCanvasDataURL })
   padding: 20px;
   max-height: 60vh;
   overflow-y: auto;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .gear-list {
@@ -1604,10 +1608,11 @@ defineExpose({ getCanvasDataURL })
   align-items: center;
   gap: 15px;
   padding: 15px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
+  background: var(--bg-primary);
 }
 
 .gear-item:hover {
@@ -1693,20 +1698,22 @@ defineExpose({ getCanvasDataURL })
 .track-name-input-field {
   width: 100%;
   padding: 10px 12px;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border-medium);
   border-radius: 6px;
   font-size: 16px;
   transition: border-color 0.2s;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .track-name-input-field:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--color-primary-500);
 }
 
 .orientation-picker-label {
   font-weight: 500;
-  color: #495057;
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 

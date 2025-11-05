@@ -51,81 +51,7 @@
         Select your first connection node
       </template>
     </div>
-    <div v-if="selectedConnectionId" class="connection-details" :style="detailsStyle">
-      <h4>Connection Details</h4>
-      <div class="detail-row">
-        <span class="label">From:</span>
-        <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">To:</span>
-        <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
-      </div>
-      <template v-if="needsPortMappingForSelected">
-        <div class="detail-row port-mapping-section">
-          <span class="label">Port Mappings:</span>
-          <div class="port-mappings-list-edit">
-            <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
-              <span>{{ getFromPortDisplayForEdit(mapping.from_port) }}</span>
-              <span class="arrow">→</span>
-              <span>{{ toNodeOfSelected?.label }} {{ toNodeType === 'recorder' ? 'Track' : 'Input' }} {{ mapping.to_port }}</span>
-              <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
-            </div>
-            <div class="port-mapping-add-edit">
-              <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
-                <option :value="null">From Port</option>
-                <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <span class="arrow">→</span>
-              <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
-                <option :value="null">To Port</option>
-                <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <button type="button" class="btn-add-small" @click="addEditPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
-            </div>
-          </div>
-        </div>
-      </template>
-      <template v-else-if="toNodeType !== 'recorder'">
-        <div class="detail-row">
-          <span class="label">Input:</span>
-          <select v-model.number="editInput" class="inline-select">
-            <option v-for="n in inputOptionsForSelected" :key="n" :value="n">{{ n }}</option>
-          </select>
-        </div>
-      </template>
-      <template v-else>
-        <div class="detail-row">
-          <span class="label">Input:</span>
-          <input type="number" min="1" v-model.number="editInput" class="inline-select" />
-        </div>
-      </template>
-      <div class="detail-row">
-        <span class="label">Pad (dB):</span>
-        <input type="number" min="-60" step="1" v-model.number="editPad" class="inline-select" />
-      </div>
-      <div class="detail-row">
-        <span class="label">Phantom Power:</span>
-        <input type="checkbox" v-model="editPhantom" />
-      </div>
-      <div class="detail-row">
-        <span class="label">Type:</span>
-        <select v-model="editType" class="inline-select">
-          <option>Mic</option>
-          <option>Line</option>
-          <option>Dante</option>
-          <option>Midi</option>
-          <option>Madi</option>
-        </select>
-      </div>
-      <div class="detail-actions">
-        <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
-          <span v-if="saveTick">✓ Saved</span>
-          <span v-else>Save</span>
-        </button>
-        <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
-      </div>
-    </div>
+    <!-- Connection inline panel removed in favor of NodeInspector (node-centric editing) -->
   </div>
 
   <!-- Gear Selection Modal -->
@@ -208,16 +134,13 @@
     </div>
   </div>
 
-  <!-- Connection Details Modal -->
-  <ConnectionDetailsModal
-    v-if="showConnectionModal"
-    :fromNode="pendingConnection?.from"
-    :toNode="pendingConnection?.to"
-    :existingConnections="connections"
-    :elements="allNodesForModal"
+  <!-- Node Inspector -->
+  <NodeInspector
+    v-if="inspectorOpen && inspectorNode"
     :projectId="projectId"
-    @confirm="confirmConnection"
-    @cancel="closeConnectionModal"
+    :node="inspectorNode"
+    :elements="nodes"
+    @close="inspectorOpen = false; inspectorNode = null"
   />
 </div>
 </template>
@@ -227,7 +150,9 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
-import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
+// Legacy modal removed; node-centric inspector is used instead
+// import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
+import NodeInspector from './NodeInspector.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -281,8 +206,10 @@ let dragStart = null
 // Modal state
 const showGearModal = ref(false)
 const showSourceModal = ref(false)
-const showConnectionModal = ref(false)
-const pendingConnection = ref(null)
+const showConnectionModal = ref(false) // deprecated
+const pendingConnection = ref(null) // deprecated
+const inspectorOpen = ref(false)
+const inspectorNode = ref(null)
 const gearFilter = ref('Transformers')
 const sourceFilter = ref('Stereo')
 const submittingConnection = ref(false)
@@ -835,6 +762,16 @@ function onPointerDown(e) {
 
   if (tool.value === 'select') {
     if (clickedNode) {
+      // Double-tap detection: open NodeInspector
+      const now = Date.now()
+      const last = (onPointerDown._lastTapTime || 0)
+      const same = (onPointerDown._lastNodeId === clickedNode.id)
+      onPointerDown._lastTapTime = now
+      onPointerDown._lastNodeId = clickedNode.id
+      if (same && now - last < 350) {
+        inspectorNode.value = clickedNode
+        inspectorOpen.value = true
+      }
       selectedNode.value = clickedNode
       draggingNode.value = clickedNode
       dragStart = { x, y }
@@ -854,9 +791,9 @@ function onPointerDown(e) {
           return
         }
         
-        // Open connection modal
-        pendingConnection.value = { from: linkSource.value, to: clickedNode }
-        showConnectionModal.value = true
+        // Node-centric flow: open inspector on the target for mapping
+        inspectorNode.value = clickedNode
+        inspectorOpen.value = true
         linkSource.value = null
       } else {
         linkSource.value = null

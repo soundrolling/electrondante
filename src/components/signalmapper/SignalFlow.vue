@@ -291,17 +291,7 @@
     </div>
   </div>
 
-  <!-- Connection Details Modal -->
-  <ConnectionDetailsModal
-    v-if="showConnectionModal"
-    :fromNode="pendingConnection?.from"
-    :toNode="pendingConnection?.to"
-    :existingConnections="connections"
-    :elements="allNodesForModal"
-    :projectId="projectId"
-    @confirm="confirmConnection"
-    @cancel="closeConnectionModal"
-  />
+  <!-- Legacy connection modal removed: use NodeInspector instead -->
   
   <!-- Venue Sources Configuration Modal -->
   <VenueSourcesConfigModal
@@ -316,10 +306,13 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { buildGraph } from '@/services/signalGraph'
+import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as svcResolveTransformerInputLabel, hydrateVenueLabels } from '@/services/portLabelService'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
-import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB, getSourceLabelFromNode } from '@/services/signalMapperService'
-import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
+import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+// Legacy modal removed; inspector-based editing is used instead
+// import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -375,6 +368,7 @@ const venueSourceLabelInput = ref('')
 let venueSourceNextPort = 1
 // Upstream source labels for selected connection's FROM transformer
 const upstreamLabelsForFromNode = ref({})
+const graphRef = ref(null)
 // Store recorder track names (track number -> source label) for the FROM recorder when editing
 const recorderTrackNamesForEdit = ref({})
 const draggingNode = ref(null)
@@ -659,7 +653,7 @@ function getFromPortDisplayForEdit(portNum) {
   const from = fromNodeOfSelected.value
   if (!from) return `Output ${portNum}`
   
-  const fromType = (from.gear_type || from.type || '').toLowerCase()
+  const fromType = (from.gear_type || from.node_type || from.type || '').toLowerCase()
   
   // For recorders, first check the preloaded async names, then fallback to sync version
   if (fromType === 'recorder') {
@@ -768,7 +762,7 @@ const availableFromPortsForEdit = computed(() => {
   const from = fromNodeOfSelected.value
   const count = from?.num_outputs || from?.numoutputs || from?.outputs || 0
   const opts = []
-  const fromType = (from?.gear_type || from?.type || '').toLowerCase()
+  const fromType = (from?.gear_type || from?.node_type || from?.type || '').toLowerCase()
   for (let n = 1; n <= count; n++) {
     if (used.has(n)) continue
     let label = upstreamLabelsForFromNode.value[n] || `Output ${n}`
@@ -832,57 +826,31 @@ async function buildUpstreamLabelsForEdit() {
   upstreamLabelsForFromNode.value = {}
   const from = fromNodeOfSelected.value
   if (!from) return
-  const fromType = (from.gear_type || from.type || '').toLowerCase()
-  
-  // For transformers, build upstream labels
-  if (fromType === 'transformer') {
-    try {
-      // Build labels for all inputs by recursively tracing to sources
-      const incomingConns = props.connections.filter(c => c.to_node_id === from.id)
-      
-      // For direct connections (no port mapping), trace with input_number
-      incomingConns.forEach(inc => {
-        // Check if this connection has port mappings - if so, we need to handle it differently
-        // For now, trace with input_number (will be handled in port mapping section below)
-        const sourceLabel = traceSourceLabel(inc.from_node_id || inc.from, inc.input_number || 1)
-        if (sourceLabel) {
-          upstreamLabelsForFromNode.value[inc.input_number] = sourceLabel
-        }
-      })
-    
-      // Also check for port-mapped connections
-      const { data: parentConns } = await supabase
-        .from('connections')
-        .select('id, from_node_id, to_node_id')
-        .eq('to_node_id', from.id)
-      
-      if (parentConns && parentConns.length > 0) {
-        for (const parentConn of parentConns) {
-          const { data: maps } = await supabase
-            .from('connection_port_map')
-            .select('from_port, to_port')
-            .eq('connection_id', parentConn.id)
-          
-          if (!maps || maps.length === 0) continue
-          
-          maps.forEach(m => {
-            const parentFromNode = props.nodes.find(nd => nd.id === parentConn.from_node_id)
-            if (parentFromNode) {
-              // Recursively trace source label
-              const sourceLabel = traceSourceLabel(parentConn.from_node_id, m.from_port)
-              if (sourceLabel) {
-                upstreamLabelsForFromNode.value[m.to_port] = sourceLabel
-              }
-            }
-          })
-        }
-      }
-    } catch {}
+  if (!graphRef.value) {
+    try { graphRef.value = await buildGraph(props.projectId) } catch {}
   }
-  
-  // For recorders, build track names for all output ports (tracks) asynchronously
-  if (fromType === 'recorder') {
+  const count = from?.num_outputs || from?.outputs || 0
+  const fromType = (from.gear_type || from.node_type || from.type || '').toLowerCase()
+  if (fromType === 'transformer') {
+    for (let n = 1; n <= count; n++) {
+      try {
+        const label = await svcResolveTransformerInputLabel(from, n, graphRef.value)
+        if (label) upstreamLabelsForFromNode.value[n] = label
+      } catch {}
+    }
+  } else if (fromType === 'recorder') {
     await loadRecorderTrackNamesForEdit(from.id)
+    for (let n = 1; n <= count; n++) {
+      const tn = recorderTrackNamesForEdit.value?.[n]
+      if (tn) upstreamLabelsForFromNode.value[n] = tn
+    }
+  } else {
+    for (let n = 1; n <= count; n++) {
+      try {
+        const label = await svcGetOutputLabel(from, n, graphRef.value)
+        if (label) upstreamLabelsForFromNode.value[n] = label
+      } catch {}
+    }
   }
 }
 
@@ -1078,9 +1046,19 @@ function addEditPortMapping() {
 // Add venue source port mapping from text input
 function addVenueSourcePortMapping() {
   const label = venueSourceLabelInput.value?.trim()
-  if (!label || !newMappingToPort.value) {
-    toast.error('Please enter a label and select a destination port')
+  if (!label) {
+    toast.error('Please enter a label')
     return
+  }
+  // Auto-select first free destination if none chosen
+  if (!newMappingToPort.value) {
+    const firstFree = (availableToPortsForEdit.value || []).find(o => !o.disabled)
+    if (firstFree) {
+      newMappingToPort.value = firstFree.value
+    } else {
+      toast.error('No available destination inputs')
+      return
+    }
   }
   
   // Check if destination port is already in use
@@ -1097,11 +1075,20 @@ function addVenueSourcePortMapping() {
     nextPort++
   }
   
+  // Capture destination before we clear inputs
+  const destPort = newMappingToPort.value
   // Add mapping with label stored for display
   editPortMappings.value.push({
     from_port: nextPort,
-    to_port: newMappingToPort.value,
+    to_port: destPort,
     label: label // Store label for display
+  })
+  console.log('[SignalMapper][Flow] Added venue mapping (pending save)', {
+    from_node_id: fromNodeOfSelected.value?.id,
+    to_node_id: toNodeOfSelected.value?.id,
+    label,
+    from_port: nextPort,
+    to_port: destPort
   })
   
   // Update upstreamLabelsForFromNode for display
@@ -1117,14 +1104,35 @@ function addVenueSourcePortMapping() {
   venueSourceLabelInput.value = ''
   newMappingToPort.value = null
   
-  toast.success(`Added ${label} → Input ${nextPort}`)
+  const destLabel = toNodeType.value === 'recorder' ? `Track ${destPort}` : `Input ${destPort}`
+  toast.success(`Added ${label} → ${destLabel}`)
 }
 
 function removeEditPortMapping(index) {
+  const removed = editPortMappings.value[index]
   editPortMappings.value.splice(index, 1)
   if (editingIdx.value === index) {
     editingIdx.value = null
   }
+  // If this mapping belongs to an existing connection, delete the row immediately
+  try {
+    if (selectedConn.value && selectedConn.value.id && removed && (removed.to_port || removed.from_port)) {
+      supabase
+        .from('connection_port_map')
+        .delete()
+        .match({ connection_id: selectedConn.value.id, from_port: removed.from_port, to_port: removed.to_port })
+        .then(() => {
+          const destLabel = toNodeType.value === 'recorder' ? `Track ${removed.to_port}` : `Input ${removed.to_port}`
+          const srcLabel = removed.label || upstreamLabelsForFromNode.value[removed.from_port] || `Output ${removed.from_port}`
+          toast.success(`Removed ${srcLabel} → ${destLabel}`)
+        })
+        .catch(() => {})
+    } else {
+      const destLabel = toNodeType.value === 'recorder' ? `Track ${removed?.to_port}` : `Input ${removed?.to_port}`
+      const srcLabel = removed?.label || (removed?.from_port ? `Output ${removed.from_port}` : 'Mapping')
+      toast.success(`Removed ${srcLabel} → ${destLabel}`)
+    }
+  } catch {}
 }
 
 function startEditMapping(index) {
@@ -1183,7 +1191,11 @@ async function loadPortMappingsForConnection(connId) {
     if (!error && data) {
       // If this is a venue sources connection, load labels from node's output_port_labels first
       if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
-        const portNumbers = data.map(m => m.from_port)
+        // Build a complete list of ports so un-mapped ports also get labels
+        const totalPorts = (fromNodeOfSelected.value.num_outputs || fromNodeOfSelected.value.outputs || 0) || 0
+        const portNumbers = totalPorts > 0
+          ? Array.from({ length: totalPorts }, (_, i) => i + 1)
+          : data.map(m => m.from_port)
         
         // First, check node's output_port_labels (these are set from custom labels in port map)
         const nodeLabels = {}
@@ -1204,14 +1216,23 @@ async function loadPortMappingsForConnection(connId) {
         if (missingPorts.length > 0) {
           const { data: feeds } = await supabase
             .from('venue_source_feeds')
-            .select('port_number, output_port_label')
+            .select('port_number, output_port_label, source_type, feed_identifier, channel')
             .eq('node_id', fromNodeOfSelected.value.id)
             .in('port_number', missingPorts)
           
           if (feeds) {
             feeds.forEach(feed => {
-              if (feed.output_port_label) {
-                feedMap[feed.port_number] = feed.output_port_label
+              if (feed.output_port_label && feed.output_port_label.trim()) {
+                feedMap[feed.port_number] = feed.output_port_label.trim()
+              } else {
+                // Construct a readable fallback from source_type/feed_identifier/channel
+                const baseType = (feed.source_type || '').replace(/_/g, ' ')
+                const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
+                let constructed = typeName
+                if (feed.feed_identifier) constructed += ` ${feed.feed_identifier}`
+                if (Number(feed.channel) === 1) constructed += ' L'
+                if (Number(feed.channel) === 2) constructed += ' R'
+                feedMap[feed.port_number] = constructed.trim()
               }
             })
           }
@@ -1227,11 +1248,20 @@ async function loadPortMappingsForConnection(connId) {
         if (!upstreamLabelsForFromNode.value) {
           upstreamLabelsForFromNode.value = {}
         }
-        data.forEach(m => {
-          if (feedMap[m.from_port]) {
-            upstreamLabelsForFromNode.value[m.from_port] = feedMap[m.from_port]
+        // Populate upstream labels for all known ports
+        portNumbers.forEach(p => {
+          if (feedMap[p]) {
+            upstreamLabelsForFromNode.value[p] = feedMap[p]
           }
         })
+
+        // Locally ensure the node carries labels for all ports so dropdowns show names
+        const existing = fromNodeOfSelected.value.output_port_labels || {}
+        const mergedLabels = { ...existing }
+        portNumbers.forEach(p => {
+          if (feedMap[p]) mergedLabels[String(p)] = feedMap[p]
+        })
+        fromNodeOfSelected.value.output_port_labels = mergedLabels
         
         // Initialize venue source port counter
         const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
@@ -1277,6 +1307,16 @@ watch(selectedConn, async (c) => {
   if (!upstreamLabelsForFromNode.value) {
     upstreamLabelsForFromNode.value = {}
   }
+  // Refresh graph snapshot for deterministic label resolution
+  try { graphRef.value = await buildGraph(props.projectId) } catch {}
+  // Hydrate venue source labels when editing a connection from venue_sources
+  try {
+    const from = fromNodeOfSelected.value
+    const type = (from?.gear_type || from?.node_type || from?.type || '').toLowerCase()
+    if (type === 'venue_sources') {
+      await hydrateVenueLabels(from)
+    }
+  } catch {}
   
   // Load port mappings if this is a port-mapped connection
   if (needsPortMappingForSelected.value) {
@@ -1368,6 +1408,7 @@ async function saveSelectedConnection() {
                   .eq('id', existing.id)
               } else {
                 venueFeedInserts.push({
+                  project_id: props.projectId,
                   node_id: fromNodeOfSelected.value.id,
                   source_type: sourceType,
                   feed_identifier: feedIdentifier,
@@ -1392,6 +1433,7 @@ async function saveSelectedConnection() {
                   .eq('id', existing.id)
               } else {
                 venueFeedInserts.push({
+                  project_id: props.projectId,
                   node_id: fromNodeOfSelected.value.id,
                   source_type: 'custom',
                   feed_identifier: String(mapping.from_port),
