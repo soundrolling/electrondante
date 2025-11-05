@@ -293,8 +293,41 @@ async function saveFeeds() {
   try {
     console.log('[Inspector][Feeds] save:start', { node_id: props.node.id })
     const rows = feeds.value
-      .map(f => ({ project_id: props.projectId, node_id: props.node.id, port_number: Number(f.port), output_port_label: (f.label || '').trim() }))
-      .filter(r => r.output_port_label.length > 0)
+      .map((f, idx) => {
+        const label = (f.label || '').trim()
+        if (!label) return null
+        // Extract source type and identifier from label
+        // For gear sources (any label that doesn't match standard patterns), use "gear" as type
+        let sourceType = 'gear'
+        let feedIdentifier = String(f.port)
+        const m = label.match(/^([A-Z]+)\s+([A-Z0-9]+)/i)
+        if (m) {
+          const type = m[1].toLowerCase()
+          if (['dj', 'program', 'handheld'].includes(type)) {
+            sourceType = type === 'handheld' ? 'handheld_mic' : type
+            feedIdentifier = m[2]
+          } else {
+            // Gear source - use first word or full label as identifier
+            sourceType = 'gear'
+            feedIdentifier = m[2] || label.substring(0, 10).replace(/\s/g, '_')
+          }
+        } else {
+          // No pattern match - assume gear source, use label as identifier (truncated)
+          sourceType = 'gear'
+          feedIdentifier = label.substring(0, 10).replace(/\s/g, '_') || String(f.port)
+        }
+        return {
+          project_id: props.projectId,
+          node_id: props.node.id,
+          source_type: sourceType,
+          feed_identifier: feedIdentifier,
+          port_number: Number(f.port),
+          channel: 1,
+          numbering_style: 'numbers',
+          output_port_label: label
+        }
+      })
+      .filter(r => r !== null && r.output_port_label && r.output_port_label.length > 0)
     await supabase.from('venue_source_feeds').delete().eq('node_id', props.node.id)
     if (rows.length) await supabase.from('venue_source_feeds').insert(rows)
     // reflect count on node (optional)
@@ -333,6 +366,40 @@ async function loadFeeds() {
     const used = new Set(list.map(f => f.port))
     nextFeedPort.value = 1
     while (used.has(nextFeedPort.value)) nextFeedPort.value++
+    // Auto-generate feeds from connected gear source nodes
+    await autoGenerateFeedsFromGearSources()
+  } catch {}
+}
+
+async function autoGenerateFeedsFromGearSources() {
+  try {
+    if (!graph.value) return
+    // Find all gear source nodes connected to this venue_sources node
+    const parents = (graph.value?.parentsByToNode || {})[props.node.id] || []
+    const gearSources = []
+    for (const p of parents) {
+      const src = props.elements.find(e => e.id === p.from_node_id)
+      if (src && (src.gear_type || src.node_type || src.type) === 'source' && src.gear_id) {
+        gearSources.push({ conn: p, node: src })
+      }
+    }
+    if (!gearSources.length) return
+    // For each gear source, create/update a feed if not already present
+    for (const { conn, node } of gearSources) {
+      const port = conn.input_number || 1
+      const existing = feeds.value.find(f => f.port === port)
+      if (!existing) {
+        const gearName = node.label || node.track_name || 'Gear Source'
+        feeds.value.push({ port, label: gearName })
+        const used = new Set(feeds.value.map(f => f.port))
+        nextFeedPort.value = 1
+        while (used.has(nextFeedPort.value)) nextFeedPort.value++
+      } else if (!existing.label) {
+        // Update existing feed with gear name if label is empty
+        const gearName = node.label || node.track_name || 'Gear Source'
+        existing.label = gearName
+      }
+    }
   } catch {}
 }
 
