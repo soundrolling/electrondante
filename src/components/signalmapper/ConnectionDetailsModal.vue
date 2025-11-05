@@ -1860,9 +1860,7 @@ errorMsg.value = ''
 }
 }
 
-const isTransformerToRecorder = computed(() =>
-((props.fromNode.gearType || props.fromNode.type) === 'transformer' && (props.toNode.gearType || props.toNode.type) === 'recorder')
-)
+const isTransformerToRecorder = computed(() => false)
 
 function confirmTransformerToRecorder() {
 loading.value = true
@@ -1940,17 +1938,7 @@ onMounted(async () => {
   // Check for existing connection
   await checkExistingConnection()
   
-  const fromType = props.fromNode.gearType || props.fromNode.type
-  const toType = props.toNode.gearType || props.toNode.type
-  if (fromType === 'transformer' && toType === 'recorder') {
-    // Immediately emit confirm and do not render modal
-    emit('confirm', {
-      project_id: props.projectId,
-      from_node_id: props.fromNode.id,
-      to_node_id: props.toNode.id
-    })
-    return
-  }
+  // Always render the create connection UI; no auto-confirm fast path
   
   // If default input is already taken in this session context, pick first free
   try {
