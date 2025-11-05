@@ -128,10 +128,17 @@ async function loadAvailableUpstreamSources() {
     return
   }
   
-  // Get all connections to this node
+  // For recorders, show ALL available sources (not just connected ones)
+  // This allows users to assign any source to any track
+  const isRecorder = type.value === 'recorder'
+  
+  // Get all connections to this node (used to track which ports are connected)
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
-  if (parents.length === 0) {
-    // No connections, show empty list
+  
+  // For recorders, we show all sources even if not connected
+  // For other nodes, only show connected sources
+  if (!isRecorder && parents.length === 0) {
+    // No connections, show empty list (for non-recorders)
     availableUpstreamSources.value = []
     return
   }
@@ -196,23 +203,24 @@ async function loadAvailableUpstreamSources() {
   
   const sources = []
   
-  // Only iterate through connected nodes
-  for (const [nodeId, connectedPortsSet] of connectedNodes) {
-    const e = props.elements.find(el => el.id === nodeId)
+  // For recorders: show ALL available sources (not just connected ones)
+  // For other nodes: only show connected sources
+  const nodesToProcess = isRecorder 
+    ? props.elements.filter(e => e.id !== props.node.id) // All nodes except this one
+    : Array.from(connectedNodes.keys()).map(nodeId => props.elements.find(e => e.id === nodeId)).filter(Boolean)
+  
+  for (const e of nodesToProcess) {
     if (!e || e.id === props.node.id) continue
     
     const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
     
-    // Only show actual sources (gear sources, venue sources, transformers)
+    // Get connected ports for this node (if connected)
+    const connectedPortsSet = connectedNodes.get(e.id) || null
+    
+    // Show all source types (gear sources, venue sources, transformers, recorders)
     if (eType === 'venue_sources') {
-      // For venue sources, we need port maps to know which feeds are connected
-      // If no port maps, we can't determine which feed is connected, so skip
-      if (connectedPortsSet === null) {
-        // No port maps - can't determine which feed is connected, skip this venue source
-        continue
-      }
-      
-      // Only show feeds that are actually connected (have port maps)
+      // For recorders: show ALL venue source feeds
+      // For other nodes: only show connected feeds
       try {
         const { data: feeds } = await supabase
           .from('venue_source_feeds')
@@ -223,8 +231,8 @@ async function loadAvailableUpstreamSources() {
         if (feeds && feeds.length) {
           for (const feed of feeds) {
             const port = feed.port_number
-            // Only include if this port is in the connected set
-            if (connectedPortsSet.has(port)) {
+            // For recorders: show all feeds. For others: only show connected feeds
+            if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
               sources.push({
                 id: e.id,
                 port,
@@ -238,8 +246,8 @@ async function loadAvailableUpstreamSources() {
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            // Only include if this port is in the connected set
-            if (connectedPortsSet.has(port)) {
+            // For recorders: show all outputs. For others: only show connected outputs
+            if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
               const label = labels[port] || `Output ${port}`
               sources.push({
                 id: e.id,
@@ -255,27 +263,24 @@ async function loadAvailableUpstreamSources() {
         // Skip on error
       }
     } else if (eType === 'source') {
-      // Regular gear sources - only show if connected
-      // (connectedPortsSet will be null for regular sources)
-      sources.push({
-        id: e.id,
-        port: null,
-        label: e.track_name || e.label,
-        feedKey: e.id
-      })
-    } else if (eType === 'transformer') {
-      // Only show transformer outputs that are actually connected
-      // If connectedPortsSet is null, we couldn't determine which port (shouldn't happen for transformers)
-      if (connectedPortsSet === null) {
-        // No port maps and couldn't infer - skip this transformer
-        continue
+      // Regular gear sources
+      // For recorders: show all sources. For others: only show if connected
+      if (isRecorder || connectedPortsSet !== null) {
+        sources.push({
+          id: e.id,
+          port: null,
+          label: e.track_name || e.label,
+          feedKey: e.id
+        })
       }
-      
+    } else if (eType === 'transformer') {
+      // For recorders: show ALL transformer outputs
+      // For other nodes: only show connected outputs
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
         for (let port = 1; port <= numOutputs; port++) {
-          // Only include if this port is in the connected set
-          if (connectedPortsSet.has(port)) {
+          // For recorders: show all outputs. For others: only show connected outputs
+          if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
             // Get the label for this transformer output (which traces back to source)
             try {
               const label = await getOutputLabel(e, port, graph.value)
@@ -299,17 +304,13 @@ async function loadAvailableUpstreamSources() {
       }
     } else if (eType === 'recorder') {
       // Recorders can output to other nodes (recorder-to-recorder or recorder-to-transformer)
-      // Only show tracks that are actually connected
-      if (connectedPortsSet === null) {
-        // No port maps - can't determine which track is connected, skip this recorder
-        continue
-      }
-      
+      // For recorders: show ALL tracks from other recorders
+      // For other nodes: only show connected tracks
       const numTracks = e.num_tracks || e.tracks || e.num_records || e.numrecord || 0
       if (numTracks > 0) {
         for (let port = 1; port <= numTracks; port++) {
-          // Only include if this track is in the connected set
-          if (connectedPortsSet.has(port)) {
+          // For recorders: show all tracks. For others: only show connected tracks
+          if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
             // Get the label for this recorder track output
             try {
               const label = await getOutputLabel(e, port, graph.value)
