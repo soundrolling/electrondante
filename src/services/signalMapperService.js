@@ -139,7 +139,7 @@ export async function getSourceLabelFromNode(node, outputPort) {
   
   // Handle venue_sources node type
   if (nodeType === 'venue_sources') {
-    // Query venue_source_feeds table to resolve port number to source type + feed
+    // Query venue_source_feeds table to resolve port number to source label
     try {
       const { data: feeds, error } = await supabase
         .from('venue_source_feeds')
@@ -154,6 +154,12 @@ export async function getSourceLabelFromNode(node, outputPort) {
       }
       
       if (feeds) {
+        // Prioritize output_port_label if it exists (e.g., "DJA L", "Program 1")
+        if (feeds.output_port_label) {
+          return feeds.output_port_label
+        }
+        
+        // Fallback: construct label from source_type and feed_identifier
         const sourceTypeName = feeds.source_type.charAt(0).toUpperCase() + feeds.source_type.slice(1).replace(/_/g, ' ')
         if (feeds.channel === 2) {
           return `${sourceTypeName} ${feeds.feed_identifier} R`
