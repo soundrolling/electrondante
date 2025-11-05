@@ -166,10 +166,17 @@ async function loadAvailableUpstreamSources() {
       if (portMaps && portMaps.length > 0) {
         // Has port maps - track which ports are connected
         connectedPorts = new Set(portMaps.map(m => Number(m.from_port)))
-      } else if (srcType === 'transformer' && p.input_number) {
-        // For transformers without port maps, infer port from input_number (1:1 pass-through)
-        // Transformer output N corresponds to input N
-        connectedPorts = new Set([Number(p.input_number)])
+      } else if (srcType === 'transformer') {
+        // For transformers without port maps, we need to show all outputs
+        // Since we don't know which specific output port was used, show all
+        // This allows transformers to pass through their sources even without explicit port maps
+        const numOutputs = srcNode.num_outputs || srcNode.outputs || 0
+        if (numOutputs > 0) {
+          connectedPorts = new Set(Array.from({ length: numOutputs }, (_, i) => i + 1))
+        } else if (p.input_number) {
+          // Fallback: if transformer has no num_outputs, infer from input_number (1:1 pass-through)
+          connectedPorts = new Set([Number(p.input_number)])
+        }
       }
       // If no port maps and not a transformer, connectedPorts stays null (means single output source)
     } catch (err) {

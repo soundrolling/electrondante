@@ -1849,8 +1849,10 @@ function onPointerDown(e) {
       if (same && now - last < 350) {
         inspectorNode.value = clickedNode
         inspectorOpen.value = true
+        selectedNode.value = null // Clear selection when opening inspector
+      } else {
+        selectedNode.value = clickedNode
       }
-      selectedNode.value = clickedNode
       draggingNode.value = clickedNode
       dragStart = { x, y }
       selectedConnectionId.value = null // Clear connection selection when selecting a node
