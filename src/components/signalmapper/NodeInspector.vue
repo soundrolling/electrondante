@@ -1,98 +1,99 @@
 <template>
-<div class="inspector-overlay" @click="emit('close')">
-  <div class="inspector" @click.stop>
-    <div class="inspector-header">
-      <div class="title">
-        <span class="badge">{{ type }}</span>
-        <h3>{{ node.track_name || node.label }}</h3>
-      </div>
-      <button class="close-btn" @click="emit('close')">×</button>
-    </div>
-    <div class="meta">
-      <span>{{ inputs }} in</span>
-      <span>{{ outputs }} out</span>
-      <span v-if="tracks">{{ tracks }} tracks</span>
-    </div>
-
-    <div class="tabs">
-      <button :class="{ active: tab==='connections' }" @click="tab='connections'">Connections</button>
-      <button v-if="type==='transformer'" :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
-      <button v-if="type==='venue_sources'" :class="{ active: tab==='feeds' }" @click="tab='feeds'">Feeds</button>
-      <button v-if="type==='recorder'" :class="{ active: tab==='tracks' }" @click="tab='tracks'">Tracks</button>
-    </div>
-
-    <div class="panel" v-if="tab==='connections'">
-      <h4>Upstream</h4>
-      <ul class="list">
-        <li v-for="u in upstream" :key="u.key">
-          <span class="k">Input {{ u.input }}</span>
-          <span class="arrow">←</span>
-          <span class="v">{{ u.label }}</span>
-        </li>
-        <li v-if="!upstream.length" class="muted">No upstream connections</li>
-      </ul>
-      <h4>Downstream</h4>
-      <ul class="list">
-        <li v-for="d in downstream" :key="d.key">
-          <span class="k">{{ d.kind }} {{ d.port }}</span>
-          <span class="arrow">→</span>
-          <span class="v">{{ d.toLabel }}</span>
-        </li>
-        <li v-if="!downstream.length" class="muted">No downstream connections</li>
-      </ul>
-    </div>
-
-    <div class="panel" v-else-if="tab==='map'">
-      <div v-if="type!=='transformer'" class="muted">Mapping is only for transformers</div>
-      <div v-else>
-        <div class="map-target">
-          <label>Map to:</label>
-          <select v-model="selectedToNodeId" class="select">
-            <option v-for="t in downstreamTargets" :key="t.id" :value="t.id">{{ t.label }}</option>
-          </select>
+  <!-- copied from components/signalmapper/NodeInspector.vue (consolidated under src/components) -->
+  <div class="inspector-overlay" @click="emit('close')">
+    <div class="inspector" @click.stop>
+      <div class="inspector-header">
+        <div class="title">
+          <span class="badge">{{ type }}</span>
+          <h3>{{ node.track_name || node.label }}</h3>
         </div>
-        <div class="map-row" v-for="n in inputCount" :key="n">
-          <div class="map-left">Input {{ n }}</div>
-          <div class="map-mid">{{ inputLabels[n] || '—' }}</div>
-          <div class="map-right">
-            <select v-model.number="draftMappings[n]" class="select">
-              <option :value="null">To Port</option>
-              <option v-for="opt in toPortOptions" :key="opt" :value="opt">{{ opt }}</option>
+        <button class="close-btn" @click="emit('close')">×</button>
+      </div>
+      <div class="meta">
+        <span>{{ inputs }} in</span>
+        <span>{{ outputs }} out</span>
+        <span v-if="tracks">{{ tracks }} tracks</span>
+      </div>
+
+      <div class="tabs">
+        <button :class="{ active: tab==='connections' }" @click="tab='connections'">Connections</button>
+        <button v-if="type==='transformer'" :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
+        <button v-if="type==='venue_sources'" :class="{ active: tab==='feeds' }" @click="tab='feeds'">Feeds</button>
+        <button v-if="type==='recorder'" :class="{ active: tab==='tracks' }" @click="tab='tracks'">Tracks</button>
+      </div>
+
+      <div class="panel" v-if="tab==='connections'">
+        <h4>Upstream</h4>
+        <ul class="list">
+          <li v-for="u in upstream" :key="u.key">
+            <span class="k">Input {{ u.input }}</span>
+            <span class="arrow">←</span>
+            <span class="v">{{ u.label }}</span>
+          </li>
+          <li v-if="!upstream.length" class="muted">No upstream connections</li>
+        </ul>
+        <h4>Downstream</h4>
+        <ul class="list">
+          <li v-for="d in downstream" :key="d.key">
+            <span class="k">{{ d.kind }} {{ d.port }}</span>
+            <span class="arrow">→</span>
+            <span class="v">{{ d.toLabel }}</span>
+          </li>
+          <li v-if="!downstream.length" class="muted">No downstream connections</li>
+        </ul>
+      </div>
+
+      <div class="panel" v-else-if="tab==='map'">
+        <div v-if="type!=='transformer'" class="muted">Mapping is only for transformers</div>
+        <div v-else>
+          <div class="map-target">
+            <label>Map to:</label>
+            <select v-model="selectedToNodeId" class="select">
+              <option v-for="t in downstreamTargets" :key="t.id" :value="t.id">{{ t.label }}</option>
             </select>
           </div>
-        </div>
-        <div class="actions">
-          <button class="btn" @click="saveMappings" :disabled="saving">Save Mappings</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel" v-else-if="tab==='feeds'">
-      <div v-if="type!=='venue_sources'" class="muted">Feeds only apply to Venue Sources</div>
-      <div v-else>
-        <div class="feed-row" v-for="n in outputs" :key="n">
-          <div class="feed-left">Output {{ n }}</div>
-          <input class="input" :placeholder="`Label for ${n}`" v-model="feedDraft[n]" />
-        </div>
-        <div class="actions">
-          <button class="btn" @click="saveFeeds" :disabled="saving">Save Feeds</button>
+          <div class="map-row" v-for="n in inputCount" :key="n">
+            <div class="map-left">Input {{ n }}</div>
+            <div class="map-mid">{{ inputLabels[n] || '—' }}</div>
+            <div class="map-right">
+              <select v-model.number="draftMappings[n]" class="select">
+                <option :value="null">To Port</option>
+                <option v-for="opt in toPortOptions" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn" @click="saveMappings" :disabled="saving">Save Mappings</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="panel" v-else-if="tab==='tracks'">
-      <div v-if="type!=='recorder'" class="muted">Tracks only apply to Recorders</div>
-      <ul v-else class="list">
-        <li v-for="row in trackList" :key="row.key">
-          <span class="k">Track {{ row.track }}</span>
-          <span class="arrow">←</span>
-          <span class="v">{{ row.source }}</span>
-        </li>
-        <li v-if="!trackList.length" class="muted">No tracks</li>
-      </ul>
+      <div class="panel" v-else-if="tab==='feeds'">
+        <div v-if="type!=='venue_sources'" class="muted">Feeds only apply to Venue Sources</div>
+        <div v-else>
+          <div class="feed-row" v-for="n in outputs" :key="n">
+            <div class="feed-left">Output {{ n }}</div>
+            <input class="input" :placeholder="`Label for ${n}`" v-model="feedDraft[n]" />
+          </div>
+          <div class="actions">
+            <button class="btn" @click="saveFeeds" :disabled="saving">Save Feeds</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" v-else-if="tab==='tracks'">
+        <div v-if="type!=='recorder'" class="muted">Tracks only apply to Recorders</div>
+        <ul v-else class="list">
+          <li v-for="row in trackList" :key="row.key">
+            <span class="k">Track {{ row.track }}</span>
+            <span class="arrow">←</span>
+            <span class="v">{{ row.source }}</span>
+          </li>
+          <li v-if="!trackList.length" class="muted">No tracks</li>
+        </ul>
+      </div>
     </div>
   </div>
-</div>
 </template>
 
 <script setup>
@@ -127,7 +128,6 @@ const downstreamTargets = computed(() => {
   return ids.map(id => ({ id, label: getNodeLabel(id) }))
 })
 const toPortOptions = computed(() => {
-  // Build options from selected downstream node's inputs/tracks
   const n = props.elements.find(e => e.id === selectedToNodeId.value)
   if (!n) return []
   const isRecorder = ((n.gear_type || n.node_type || n.type || '').toLowerCase()) === 'recorder'
@@ -156,17 +156,14 @@ async function refresh() {
 async function loadConnections() {
   upstream.value = []
   downstream.value = []
-  // parents
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   for (const p of parents) {
     const src = props.elements.find(e => e.id === p.from_node_id)
     const label = src ? (await getOutputLabel(src, p.input_number || 1, graph.value)) : 'Unknown'
     upstream.value.push({ key: p.id, input: p.input_number || 1, label })
   }
-  // children
   const children = (graph.value.connections || []).filter(c => c.from_node_id === props.node.id)
   for (const c of children) {
-    // Check port maps for detailed to_port
     let maps = []
     try {
       const { data } = await supabase
@@ -183,7 +180,6 @@ async function loadConnections() {
       downstream.value.push({ key: c.id, kind: 'Input', port: c.input_number || 1, toLabel: getNodeLabel(c.to_node_id), toNodeId: c.to_node_id })
     }
   }
-  // Default selected target
   if (!selectedToNodeId.value && downstreamTargets.value.length) {
     selectedToNodeId.value = downstreamTargets.value[0].id
   }
@@ -207,10 +203,8 @@ async function loadLabels() {
 async function saveMappings() {
   saving.value = true
   try {
-    // Ensure parent connection exists between this transformer and the selected downstream node
     const toNodeId = selectedToNodeId.value
     if (!toNodeId) return
-    // Get/create parent connection
     let parentId
     const { data: existing } = await supabase
       .from('connections')
@@ -228,7 +222,6 @@ async function saveMappings() {
         .single()
       parentId = saved.id
     }
-    // Replace port maps
     await supabase.from('connection_port_map').delete().eq('connection_id', parentId)
     const inserts = Object.entries(draftMappings.value)
       .filter(([from, to]) => Number(to) > 0)
@@ -253,7 +246,6 @@ async function saveFeeds() {
       rows.push({ project_id: props.projectId, node_id: props.node.id, port_number: i, output_port_label: label })
     }
     if (rows.length) {
-      // Upsert style: delete then insert for now
       await supabase.from('venue_source_feeds').delete().eq('node_id', props.node.id)
       await supabase.from('venue_source_feeds').insert(rows)
       await hydrateVenueLabels(props.node)
