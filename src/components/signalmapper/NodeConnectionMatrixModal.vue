@@ -273,19 +273,20 @@ box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 margin-top: 12px;
 }
 .matrix-table {
-width: 100%;
-border-collapse: separate;
-border-spacing: 0;
-background: white;
-border-radius: 8px;
-overflow: hidden;
-border: 1px solid #e9ecef;
-font-size: 15px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  font-size: 15px;
 }
 .matrix-table th, .matrix-table td {
-padding: 12px 14px;
-border-bottom: 1px solid #e9ecef;
-font-size: 15px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 15px;
+  color: var(--text-primary);
 }
 .matrix-table th {
 background: var(--bg-secondary);
