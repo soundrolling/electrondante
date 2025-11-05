@@ -625,6 +625,16 @@ function getFromPortDisplayForEdit(portNum) {
     return upstreamLabelsForFromNode.value[portNum]
   }
   
+  // For venue_sources, check node's output_port_labels first (these are set from custom labels)
+  if (fromType === 'venue_sources') {
+    if (from.output_port_labels && typeof from.output_port_labels === 'object') {
+      const storedLabel = from.output_port_labels[String(portNum)] || from.output_port_labels[portNum]
+      if (storedLabel) return storedLabel
+    }
+    // Fallback to venue_source_feeds if node labels not available
+    return `Output ${portNum}`
+  }
+  
   // Label stereo source ports as L/R - use centralized helper
   if (fromType === 'source') {
     // portNum should represent the source output port (1=L, 2=R for stereo)
@@ -1068,26 +1078,46 @@ async function loadPortMappingsForConnection(connId) {
       .eq('connection_id', connId)
       .order('from_port')
     if (!error && data) {
-      // If this is a venue sources connection, load labels from venue_source_feeds
+      // If this is a venue sources connection, load labels from node's output_port_labels first
       if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
         const portNumbers = data.map(m => m.from_port)
-        const { data: feeds } = await supabase
-          .from('venue_source_feeds')
-          .select('port_number, output_port_label')
-          .eq('node_id', fromNodeOfSelected.value.id)
-          .in('port_number', portNumbers)
         
-        const feedMap = {}
-        if (feeds) {
-          feeds.forEach(feed => {
-            feedMap[feed.port_number] = feed.output_port_label
+        // First, check node's output_port_labels (these are set from custom labels in port map)
+        const nodeLabels = {}
+        if (fromNodeOfSelected.value.output_port_labels && typeof fromNodeOfSelected.value.output_port_labels === 'object') {
+          portNumbers.forEach(portNum => {
+            const label = fromNodeOfSelected.value.output_port_labels[String(portNum)] || 
+                         fromNodeOfSelected.value.output_port_labels[portNum]
+            if (label) {
+              nodeLabels[portNum] = label
+            }
           })
+        }
+        
+        // Fallback: Query venue_source_feeds for any ports not found in node labels
+        const missingPorts = portNumbers.filter(p => !nodeLabels[p])
+        const feedMap = { ...nodeLabels }
+        
+        if (missingPorts.length > 0) {
+          const { data: feeds } = await supabase
+            .from('venue_source_feeds')
+            .select('port_number, output_port_label')
+            .eq('node_id', fromNodeOfSelected.value.id)
+            .in('port_number', missingPorts)
+          
+          if (feeds) {
+            feeds.forEach(feed => {
+              if (feed.output_port_label) {
+                feedMap[feed.port_number] = feed.output_port_label
+              }
+            })
+          }
         }
         
         editPortMappings.value = data.map(m => ({
           from_port: m.from_port,
           to_port: m.to_port,
-          label: feedMap[m.from_port] // Include label from venue_source_feeds
+          label: feedMap[m.from_port] // Include label from node or venue_source_feeds
         }))
         
         // Initialize upstreamLabelsForFromNode with loaded labels
