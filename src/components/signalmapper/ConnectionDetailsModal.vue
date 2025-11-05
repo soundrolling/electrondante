@@ -1747,6 +1747,10 @@ errorMsg.value = ''
         
         if (nodeError) {
           console.error('Error updating venue source node output_port_labels:', nodeError)
+        } else {
+          // Update the local node reference with the new output_port_labels
+          // so the modal shows the updated labels immediately
+          props.fromNode.output_port_labels = mergedLabels
         }
       }
     }

@@ -1339,6 +1339,17 @@ async function saveSelectedConnection() {
           
           if (nodeError) {
             console.error('Error updating venue source node output_port_labels:', nodeError)
+          } else {
+            // Update the local node reference with the new output_port_labels
+            // so the Connection Details modal shows the updated labels immediately
+            if (fromNodeOfSelected.value) {
+              fromNodeOfSelected.value.output_port_labels = mergedLabels
+            }
+            // Also update it in the props.nodes array if it exists there
+            const nodeIndex = props.nodes.findIndex(n => n.id === fromNodeOfSelected.value.id)
+            if (nodeIndex !== -1) {
+              props.nodes[nodeIndex].output_port_labels = mergedLabels
+            }
           }
         }
       }
