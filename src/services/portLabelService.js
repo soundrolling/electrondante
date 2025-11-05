@@ -152,7 +152,9 @@ function inferSourcePort(sourceNode, transformerInput, transformerParents, direc
     }
     return 1
   }
+  // For recorders, transformers, and venue_sources: output port N corresponds to input N (1:1 pass-through)
   if (type === 'recorder') return transformerInput
+  if (type === 'transformer') return transformerInput
   if (type === 'venue_sources') return transformerInput
   return transformerInput
 }

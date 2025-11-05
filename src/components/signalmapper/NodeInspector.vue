@@ -17,7 +17,6 @@
 
     <div class="tabs">
       <button :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
-      <button v-if="type==='recorder'" :class="{ active: tab==='tracks' }" @click="tab='tracks'">Tracks</button>
     </div>
 
       <div class="panel" v-if="tab==='map'">
@@ -70,19 +69,6 @@
           </div>
         </div>
       </div>
-
-
-      <div class="panel" v-else-if="tab==='tracks'">
-        <div v-if="type!=='recorder'" class="muted">Tracks only apply to Recorders</div>
-        <ul v-else class="list">
-          <li v-for="row in trackList" :key="row.key">
-            <span class="k">Track {{ row.track }}</span>
-            <span class="arrow">←</span>
-            <span class="v">{{ row.source }}</span>
-          </li>
-          <li v-if="!trackList.length" class="muted">No tracks</li>
-        </ul>
-      </div>
     </div>
   </div>
 </template>
@@ -117,7 +103,13 @@ const graph = ref(null)
 const upstream = ref([])
 const downstream = ref([])
 const inputLabels = ref({})
-const inputCount = computed(() => inputs.value || 0)
+// For recorders, use tracks count instead of inputs count
+const inputCount = computed(() => {
+  if (type.value === 'recorder') {
+    return tracks.value || 0
+  }
+  return inputs.value || 0
+})
 const outputCount = computed(() => outputs.value || 0)
 
 // Unified map state
@@ -173,8 +165,17 @@ async function loadAvailableUpstreamSources() {
         // Fallback: if transformer has no num_outputs, infer from input_number (1:1 pass-through)
         connectedPorts = new Set([Number(p.input_number)])
       }
+    } else if (srcType === 'recorder') {
+      // For recorders without port maps, infer from input_number (1:1 pass-through)
+      // Recorder output track N corresponds to input track N
+      if (p.input_number) {
+        connectedPorts = new Set([Number(p.input_number)])
+      } else {
+        // No input_number, can't determine which track - skip
+        continue
+      }
     }
-    // If no port maps and not a transformer, connectedPorts stays null (means single output source)
+    // If no port maps and not a transformer/recorder, connectedPorts stays null (means single output source)
     
     // Store connection info
     if (!connectedNodes.has(nodeId)) {
@@ -296,8 +297,41 @@ async function loadAvailableUpstreamSources() {
           }
         }
       }
+    } else if (eType === 'recorder') {
+      // Recorders can output to other nodes (recorder-to-recorder or recorder-to-transformer)
+      // Only show tracks that are actually connected
+      if (connectedPortsSet === null) {
+        // No port maps - can't determine which track is connected, skip this recorder
+        continue
+      }
+      
+      const numTracks = e.num_tracks || e.tracks || e.num_records || e.numrecord || 0
+      if (numTracks > 0) {
+        for (let port = 1; port <= numTracks; port++) {
+          // Only include if this track is in the connected set
+          if (connectedPortsSet.has(port)) {
+            // Get the label for this recorder track output
+            try {
+              const label = await getOutputLabel(e, port, graph.value)
+              sources.push({
+                id: e.id,
+                port,
+                label,
+                feedKey: `${e.id}:${port}`
+              })
+            } catch (err) {
+              // Fallback if label resolution fails
+              sources.push({
+                id: e.id,
+                port,
+                label: `${e.track_name || e.label || 'Recorder'} Track ${port}`,
+                feedKey: `${e.id}:${port}`
+              })
+            }
+          }
+        }
+      }
     }
-    // Recorders are excluded - they don't output to other nodes
   }
   
   availableUpstreamSources.value = sources
@@ -325,17 +359,16 @@ const trackList = ref([])
 
 async function refresh() {
   // Always rebuild graph to ensure we have latest connections and port maps
+  // This ensures we fetch all connected sources and their current state
   graph.value = await buildGraph(props.projectId)
   if (type.value === 'venue_sources') {
     await hydrateVenueLabels(props.node)
   }
   await loadConnections() // Load connections first to get the feedKeys
-  await loadAvailableUpstreamSources() // Refresh available sources after connections are loaded
+  await loadAvailableUpstreamSources() // Refresh available sources after connections are loaded - fetches connected sources
   await updateUpstreamLabels() // Update labels after connections and sources are loaded
   await loadLabels() // Load transformer input labels
-  if (type.value === 'recorder') {
-    await loadTracks()
-  }
+  // Removed loadTracks() - tracks are now shown in Map tab, not separate tab
   if (isIncomingMap.value) tab.value = 'map'
   if (type.value === 'venue_sources') await loadFeeds()
 }
@@ -375,21 +408,22 @@ async function loadConnections() {
     const src = props.elements.find(e => e.id === p.from_node_id)
     const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
     
-    // For transformers without port maps, infer port from input_number (1:1 pass-through)
-    // For transformers, output N typically corresponds to input N
+    // For transformers and recorders without port maps, infer port from input_number (1:1 pass-through)
+    // For transformers, output N corresponds to input N
+    // For recorders, output track N corresponds to input track N
     let inferredPort = feedPort
-    if (srcType === 'transformer' && !feedPort && p.input_number) {
+    if ((srcType === 'transformer' || srcType === 'recorder') && !feedPort && p.input_number) {
       inferredPort = Number(p.input_number)
     }
     
-    // For venue_sources and transformers, use port in feedKey
+    // For venue_sources, transformers, and recorders, use port in feedKey
     // For regular sources, don't use port (they typically have single output)
-    const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer') && inferredPort
+    const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
     const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
     
     upstreamMap.value[inputNum] = feedKey
-    // Use inferredPort for transformers, feedPort for venue sources, or inputNum as fallback
-    const portForLabel = inferredPort || feedPort || (srcType === 'transformer' ? inputNum : null) || inputNum
+    // Use inferredPort for transformers/recorders, feedPort for venue sources, or inputNum as fallback
+    const portForLabel = inferredPort || feedPort || ((srcType === 'transformer' || srcType === 'recorder') ? inputNum : null) || inputNum
     const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
     upstreamLabels.value[inputNum] = label // Cache the label for display
     upstream.value.push({ key: p.id, input: inputNum, label })
@@ -617,6 +651,8 @@ async function loadTracks() {
 
 onMounted(async () => {
   console.log('[Inspector] open', { node_id: props.node.id, type: type.value })
+  // Force refresh of graph and all connected sources when inspector opens
+  graph.value = null // Clear any stale graph
   await refresh()
   console.log('[Inspector] ready')
 })
@@ -1148,15 +1184,15 @@ async function saveMap() {
             }
             
             // Create/update port map if feed port is specified
-            // For transformers and venue_sources, ALWAYS create port maps to preserve feed tracking
+            // For transformers, venue_sources, and recorders, ALWAYS create port maps to preserve feed tracking
             if (connId) {
               const src = props.elements.find(e => e.id === nodeId)
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
-              const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+              const isTransformerOrVenueSourceOrRecorder = (srcType === 'transformer' || srcType === 'venue_sources' || srcType === 'recorder')
               
-              // For transformers and venue_sources, always use port maps (even if feedPort wasn't explicitly set)
-              // This ensures we can track individual feeds through the chain
-              const portToUse = feedPort !== null ? feedPort : (isTransformerOrVenueSource ? Number(inputNum) : null)
+              // For transformers, venue_sources, and recorders, always use port maps (even if feedPort wasn't explicitly set)
+              // This ensures we can track individual feeds/tracks through the chain
+              const portToUse = feedPort !== null ? feedPort : (isTransformerOrVenueSourceOrRecorder ? Number(inputNum) : null)
               
               if (portToUse !== null) {
                 // Validate port numbers are valid
