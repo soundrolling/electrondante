@@ -321,7 +321,7 @@ function centerModal() {
 }
 
 function getType(node){
-  return (node?.gearType || node?.gear_type || node?.type || '').toLowerCase()
+  return (node?.gearType || node?.gear_type || node?.node_type || node?.type || '').toLowerCase()
 }
 const isSource = computed(() => getType(props.fromNode) === 'source')
 const isVenueSources = computed(() => {
