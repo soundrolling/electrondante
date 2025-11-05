@@ -1169,90 +1169,91 @@ async function loadPortMappingsForConnection(connId) {
       
       // Process the data (same logic as before)
       if (data && data.length > 0) {
-      // If this is a venue sources connection, load labels from node's output_port_labels first
-      if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
-        // Build a complete list of ports so un-mapped ports also get labels
-        const totalPorts = (fromNodeOfSelected.value.num_outputs || fromNodeOfSelected.value.outputs || 0) || 0
-        const portNumbers = totalPorts > 0
-          ? Array.from({ length: totalPorts }, (_, i) => i + 1)
-          : data.map(m => m.from_port)
-        
-        // First, check node's output_port_labels (these are set from custom labels in port map)
-        const nodeLabels = {}
-        if (fromNodeOfSelected.value.output_port_labels && typeof fromNodeOfSelected.value.output_port_labels === 'object') {
-          portNumbers.forEach(portNum => {
-            const label = fromNodeOfSelected.value.output_port_labels[String(portNum)] || 
-                         fromNodeOfSelected.value.output_port_labels[portNum]
-            if (label) {
-              nodeLabels[portNum] = label
-            }
-          })
-        }
-        
-        // Fallback: Query venue_source_feeds for any ports not found in node labels
-        const missingPorts = portNumbers.filter(p => !nodeLabels[p])
-        const feedMap = { ...nodeLabels }
-        
-        if (missingPorts.length > 0) {
-          const { data: feeds } = await supabase
-            .from('venue_source_feeds')
-            .select('port_number, output_port_label, source_type, feed_identifier, channel')
-            .eq('node_id', fromNodeOfSelected.value.id)
-            .in('port_number', missingPorts)
+        // If this is a venue sources connection, load labels from node's output_port_labels first
+        if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
+          // Build a complete list of ports so un-mapped ports also get labels
+          const totalPorts = (fromNodeOfSelected.value.num_outputs || fromNodeOfSelected.value.outputs || 0) || 0
+          const portNumbers = totalPorts > 0
+            ? Array.from({ length: totalPorts }, (_, i) => i + 1)
+            : data.map(m => m.from_port)
           
-          if (feeds) {
-            feeds.forEach(feed => {
-              if (feed.output_port_label && feed.output_port_label.trim()) {
-                feedMap[feed.port_number] = feed.output_port_label.trim()
-              } else {
-                // Construct a readable fallback from source_type/feed_identifier/channel
-                const baseType = (feed.source_type || '').replace(/_/g, ' ')
-                const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
-                let constructed = typeName
-                if (feed.feed_identifier) constructed += ` ${feed.feed_identifier}`
-                if (Number(feed.channel) === 1) constructed += ' L'
-                if (Number(feed.channel) === 2) constructed += ' R'
-                feedMap[feed.port_number] = constructed.trim()
+          // First, check node's output_port_labels (these are set from custom labels in port map)
+          const nodeLabels = {}
+          if (fromNodeOfSelected.value.output_port_labels && typeof fromNodeOfSelected.value.output_port_labels === 'object') {
+            portNumbers.forEach(portNum => {
+              const label = fromNodeOfSelected.value.output_port_labels[String(portNum)] || 
+                           fromNodeOfSelected.value.output_port_labels[portNum]
+              if (label) {
+                nodeLabels[portNum] = label
               }
             })
           }
-        }
-        
-        editPortMappings.value = data.map(m => ({
-          from_port: m.from_port,
-          to_port: m.to_port,
-          label: feedMap[m.from_port] // Include label from node or venue_source_feeds
-        }))
-        
-        // Initialize upstreamLabelsForFromNode with loaded labels
-        if (!upstreamLabelsForFromNode.value) {
-          upstreamLabelsForFromNode.value = {}
-        }
-        // Populate upstream labels for all known ports
-        portNumbers.forEach(p => {
-          if (feedMap[p]) {
-            upstreamLabelsForFromNode.value[p] = feedMap[p]
+          
+          // Fallback: Query venue_source_feeds for any ports not found in node labels
+          const missingPorts = portNumbers.filter(p => !nodeLabels[p])
+          const feedMap = { ...nodeLabels }
+          
+          if (missingPorts.length > 0) {
+            const { data: feeds } = await supabase
+              .from('venue_source_feeds')
+              .select('port_number, output_port_label, source_type, feed_identifier, channel')
+              .eq('node_id', fromNodeOfSelected.value.id)
+              .in('port_number', missingPorts)
+            
+            if (feeds) {
+              feeds.forEach(feed => {
+                if (feed.output_port_label && feed.output_port_label.trim()) {
+                  feedMap[feed.port_number] = feed.output_port_label.trim()
+                } else {
+                  // Construct a readable fallback from source_type/feed_identifier/channel
+                  const baseType = (feed.source_type || '').replace(/_/g, ' ')
+                  const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
+                  let constructed = typeName
+                  if (feed.feed_identifier) constructed += ` ${feed.feed_identifier}`
+                  if (Number(feed.channel) === 1) constructed += ' L'
+                  if (Number(feed.channel) === 2) constructed += ' R'
+                  feedMap[feed.port_number] = constructed.trim()
+                }
+              })
+            }
           }
-        })
+          
+          editPortMappings.value = data.map(m => ({
+            from_port: m.from_port,
+            to_port: m.to_port,
+            label: feedMap[m.from_port] // Include label from node or venue_source_feeds
+          }))
+          
+          // Initialize upstreamLabelsForFromNode with loaded labels
+          if (!upstreamLabelsForFromNode.value) {
+            upstreamLabelsForFromNode.value = {}
+          }
+          // Populate upstream labels for all known ports
+          portNumbers.forEach(p => {
+            if (feedMap[p]) {
+              upstreamLabelsForFromNode.value[p] = feedMap[p]
+            }
+          })
 
-        // Locally ensure the node carries labels for all ports so dropdowns show names
-        const existing = fromNodeOfSelected.value.output_port_labels || {}
-        const mergedLabels = { ...existing }
-        portNumbers.forEach(p => {
-          if (feedMap[p]) mergedLabels[String(p)] = feedMap[p]
-        })
-        fromNodeOfSelected.value.output_port_labels = mergedLabels
-        
-        // Initialize venue source port counter
-        const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
-        venueSourceNextPort = 1
-        while (usedPorts.has(venueSourceNextPort)) {
-          venueSourceNextPort++
+          // Locally ensure the node carries labels for all ports so dropdowns show names
+          const existing = fromNodeOfSelected.value.output_port_labels || {}
+          const mergedLabels = { ...existing }
+          portNumbers.forEach(p => {
+            if (feedMap[p]) mergedLabels[String(p)] = feedMap[p]
+          })
+          fromNodeOfSelected.value.output_port_labels = mergedLabels
+          
+          // Initialize venue source port counter
+          const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
+          venueSourceNextPort = 1
+          while (usedPorts.has(venueSourceNextPort)) {
+            venueSourceNextPort++
+          }
+          return // Successfully loaded from cache
+        } else {
+          editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+          return // Successfully loaded from cache
         }
-        return // Successfully loaded from cache
-      } else {
-        editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
-        return // Successfully loaded from cache
       }
     }
   }
