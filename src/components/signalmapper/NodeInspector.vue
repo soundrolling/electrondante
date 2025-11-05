@@ -294,15 +294,26 @@ async function loadConnections() {
     upstreamConnections.value[inputNum] = p.id
     
     // Check for port map to get specific feed port
+    // Note: For connections with multiple port maps, we get the one that matches this input_number
     let feedPort = null
     try {
-      const { data: portMap } = await supabase
+      const { data: portMaps } = await supabase
         .from('connection_port_map')
-        .select('from_port')
+        .select('from_port, to_port')
         .eq('connection_id', p.id)
-        .maybeSingle()
-      if (portMap) feedPort = portMap.from_port
-    } catch {}
+      if (portMaps && portMaps.length > 0) {
+        // Find port map that matches this input_number
+        const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
+        if (matchingMap) {
+          feedPort = matchingMap.from_port
+        } else if (portMaps.length === 1) {
+          // If only one port map exists, use it (might be legacy data)
+          feedPort = portMaps[0].from_port
+        }
+      }
+    } catch (err) {
+      console.warn('[Inspector][Map] failed to load port map', err)
+    }
     
     // Build feedKey: if venue source or transformer with port map, use nodeId:port; otherwise just nodeId
     const src = props.elements.find(e => e.id === p.from_node_id)
@@ -674,6 +685,21 @@ async function saveMap() {
           const nodeId = parts[0]
           const feedPort = parts.length > 1 ? Number(parts[1]) : null
           
+          // Validate that source node exists
+          const srcNode = props.elements.find(e => e.id === nodeId)
+          if (!srcNode) {
+            console.warn('[Inspector][Map] source node not found', nodeId)
+            errorCount++
+            continue
+          }
+          
+          // Validate that target node (this node) exists
+          if (!props.node.id) {
+            console.warn('[Inspector][Map] target node has no ID')
+            errorCount++
+            continue
+          }
+          
           if (existingConnId) {
             // Check if source changed
             const { data: existing, error: fetchError } = await supabase
@@ -688,14 +714,22 @@ async function saveMap() {
             
             if (existing && existing.from_node_id !== nodeId) {
               // Source changed - check if a connection with the new source already exists
-              const { data: existingWithNewSource } = await supabase
-                .from('connections')
-                .select('id')
-                .eq('project_id', props.projectId)
-                .eq('from_node_id', nodeId)
-                .eq('to_node_id', props.node.id)
-                .eq('input_number', Number(inputNum))
-                .maybeSingle()
+              // Try multiple queries to be thorough
+              let existingWithNewSource = null
+              try {
+                const { data } = await supabase
+                  .from('connections')
+                  .select('id')
+                  .eq('project_id', props.projectId)
+                  .eq('from_node_id', nodeId)
+                  .eq('to_node_id', props.node.id)
+                  .eq('input_number', Number(inputNum))
+                  .maybeSingle()
+                existingWithNewSource = data
+              } catch (checkErr) {
+                // If check fails, we'll try to update and catch the error
+                console.warn('[Inspector][Map] connection check failed', checkErr)
+              }
               
               if (existingWithNewSource) {
                 // Connection with new source already exists - use it and delete the old one
@@ -708,32 +742,42 @@ async function saveMap() {
                 upstreamConnections.value[inputNum] = connId
                 // Port map will be set up below in the common code
               } else {
-                // No existing connection with new source - safe to update
+                // No existing connection found - try to update, but handle duplicate key gracefully
                 const { error: updateError } = await supabase
                   .from('connections')
                   .update({ from_node_id: nodeId })
                   .eq('id', existingConnId)
                 
                 if (updateError) {
-                  // If update fails with duplicate key, try to find and use existing connection
-                  if (updateError.code === '23505') {
-                    const { data: existingConn } = await supabase
-                      .from('connections')
-                      .select('id')
-                      .eq('project_id', props.projectId)
-                      .eq('from_node_id', nodeId)
-                      .eq('to_node_id', props.node.id)
-                      .eq('input_number', Number(inputNum))
-                      .maybeSingle()
-                    
-                    if (existingConn) {
-                      // Use existing connection, delete old one
-                      await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
-                      await supabase.from('connections').delete().eq('id', existingConnId)
-                      connId = existingConn.id
-                      upstreamConnections.value[inputNum] = connId
-                    } else {
-                      throw updateError
+                  // If update fails with duplicate key, find and use existing connection
+                  if (updateError.code === '23505' || updateError.code === 'PGRST116') {
+                    // Try to find the existing connection (might have been created between check and update)
+                    try {
+                      const { data: existingConn } = await supabase
+                        .from('connections')
+                        .select('id')
+                        .eq('project_id', props.projectId)
+                        .eq('from_node_id', nodeId)
+                        .eq('to_node_id', props.node.id)
+                        .eq('input_number', Number(inputNum))
+                        .maybeSingle()
+                      
+                      if (existingConn) {
+                        // Use existing connection, delete old one
+                        await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+                        await supabase.from('connections').delete().eq('id', existingConnId)
+                        connId = existingConn.id
+                        upstreamConnections.value[inputNum] = connId
+                      } else {
+                        // Couldn't find existing connection - log and skip this connection
+                        console.warn('[Inspector][Map] duplicate key error but could not find existing connection', updateError)
+                        // Set connId to null to skip port map update
+                        connId = null
+                      }
+                    } catch (fetchErr) {
+                      console.warn('[Inspector][Map] failed to fetch existing connection after duplicate key', fetchErr)
+                      // Set connId to null to skip port map update
+                      connId = null
                     }
                   } else {
                     throw updateError
@@ -742,24 +786,55 @@ async function saveMap() {
               }
             }
             
-            // Update port map if feed port is specified
-            if (feedPort !== null) {
-              const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', connId)
-              if (deleteError) throw deleteError
+            // Update port map if feed port is specified (only if we have a valid connId)
+            // For transformers and venue_sources, ALWAYS create port maps to preserve feed tracking
+            if (connId) {
+              const src = props.elements.find(e => e.id === nodeId)
+              const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+              const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
               
-              const { error: insertError } = await supabase.from('connection_port_map').insert([{
-                project_id: props.projectId,
-                connection_id: connId,
-                from_port: feedPort,
-                to_port: Number(inputNum)
-              }])
-              if (insertError) throw insertError
-            } else {
-              // Remove port map if no feed port
-              const { error: deleteError } = await supabase.from('connection_port_map').delete().eq('connection_id', connId)
-              if (deleteError) throw deleteError
+              // For transformers and venue_sources, always use port maps (even if feedPort wasn't explicitly set)
+              // This ensures we can track individual feeds through the chain
+              const portToUse = feedPort !== null ? feedPort : (isTransformerOrVenueSource ? Number(inputNum) : null)
+              
+              if (portToUse !== null) {
+                // Validate port numbers are valid
+                if (isNaN(portToUse) || portToUse < 1 || isNaN(Number(inputNum)) || Number(inputNum) < 1) {
+                  console.warn('[Inspector][Map] invalid port numbers', { from_port: portToUse, to_port: inputNum })
+                  errorCount++
+                  continue
+                }
+                
+                // Delete existing port maps for this connection and input_number (to_port)
+                // This ensures we don't have duplicate port maps
+                const { error: deleteError } = await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('to_port', Number(inputNum))
+                if (deleteError) throw deleteError
+                
+                const { error: insertError } = await supabase.from('connection_port_map').insert([{
+                  project_id: props.projectId,
+                  connection_id: connId,
+                  from_port: portToUse,
+                  to_port: Number(inputNum)
+                }])
+                if (insertError) {
+                  console.error('[Inspector][Map] failed to save port map', insertError)
+                  throw insertError
+                }
+              } else {
+                // Only remove port map if it's not a transformer or venue source
+                // For regular sources, port maps aren't needed
+                // But only remove port maps for this specific to_port to avoid affecting other mappings
+                const { error: deleteError } = await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('to_port', Number(inputNum))
+                if (deleteError) throw deleteError
+              }
+              savedCount++
             }
-            savedCount++
           } else {
             // Check if connection already exists (might not be in our cache)
             let connId = null
@@ -865,21 +940,50 @@ async function saveMap() {
             }
             
             // Create/update port map if feed port is specified
+            // For transformers and venue_sources, ALWAYS create port maps to preserve feed tracking
             if (connId) {
-              if (feedPort !== null) {
-                // Delete existing port map first
-                await supabase.from('connection_port_map').delete().eq('connection_id', connId)
+              const src = props.elements.find(e => e.id === nodeId)
+              const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+              const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+              
+              // For transformers and venue_sources, always use port maps (even if feedPort wasn't explicitly set)
+              // This ensures we can track individual feeds through the chain
+              const portToUse = feedPort !== null ? feedPort : (isTransformerOrVenueSource ? Number(inputNum) : null)
+              
+              if (portToUse !== null) {
+                // Validate port numbers are valid
+                if (isNaN(portToUse) || portToUse < 1 || isNaN(Number(inputNum)) || Number(inputNum) < 1) {
+                  console.warn('[Inspector][Map] invalid port numbers', { from_port: portToUse, to_port: inputNum })
+                  errorCount++
+                  continue
+                }
+                
+                // Delete existing port maps for this connection and input_number (to_port)
+                // This ensures we don't have duplicate port maps
+                await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('to_port', Number(inputNum))
+                
                 // Insert new port map
                 const { error: portMapError } = await supabase.from('connection_port_map').insert([{
                   project_id: props.projectId,
                   connection_id: connId,
-                  from_port: feedPort,
+                  from_port: portToUse,
                   to_port: Number(inputNum)
                 }])
-                if (portMapError) throw portMapError
+                if (portMapError) {
+                  console.error('[Inspector][Map] failed to save port map', portMapError)
+                  throw portMapError
+                }
               } else {
-                // Remove port map if no feed port
-                await supabase.from('connection_port_map').delete().eq('connection_id', connId)
+                // Only remove port map if it's not a transformer or venue source
+                // For regular sources, port maps aren't needed
+                // But only remove port maps for this specific to_port to avoid affecting other mappings
+                await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('to_port', Number(inputNum))
               }
               savedCount++
             }
