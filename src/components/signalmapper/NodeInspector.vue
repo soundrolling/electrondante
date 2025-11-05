@@ -135,74 +135,127 @@ async function loadAvailableUpstreamSources() {
     availableUpstreamSources.value = []
     return
   }
-  // For venue sources and transformers, show ALL available nodes (not just connected ones)
-  // This allows users to connect multiple venue source feeds to different inputs/tracks
+  
+  // Get all connections to this node
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
-  const connectedIds = new Set(parents.map(p => p.from_node_id).filter(Boolean))
+  if (parents.length === 0) {
+    // No connections, show empty list
+    availableUpstreamSources.value = []
+    return
+  }
+  
+  // Build a map of connected node IDs and their connected ports
+  // Format: { nodeId: Set<port> } or { nodeId: null } for non-port-mapped sources
+  const connectedNodes = new Map()
+  
+  for (const p of parents) {
+    const nodeId = p.from_node_id
+    if (!nodeId) continue
+    
+    // Find the source node to determine its type
+    const srcNode = props.elements.find(e => e.id === nodeId)
+    const srcType = srcNode ? (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase() : ''
+    
+    // Get port maps for this connection
+    let connectedPorts = null // null means no port map (single output source)
+    try {
+      const { data: portMaps } = await supabase
+        .from('connection_port_map')
+        .select('from_port, to_port')
+        .eq('connection_id', p.id)
+      if (portMaps && portMaps.length > 0) {
+        // Has port maps - track which ports are connected
+        connectedPorts = new Set(portMaps.map(m => Number(m.from_port)))
+      } else if (srcType === 'transformer' && p.input_number) {
+        // For transformers without port maps, infer port from input_number (1:1 pass-through)
+        // Transformer output N corresponds to input N
+        connectedPorts = new Set([Number(p.input_number)])
+      }
+      // If no port maps and not a transformer, connectedPorts stays null (means single output source)
+    } catch (err) {
+      console.warn('[Inspector] failed to load port maps for connection', p.id, err)
+    }
+    
+    // Store connection info
+    if (!connectedNodes.has(nodeId)) {
+      connectedNodes.set(nodeId, connectedPorts)
+    } else {
+      // Merge port sets if both are sets
+      const existing = connectedNodes.get(nodeId)
+      if (existing instanceof Set && connectedPorts instanceof Set) {
+        // Merge sets
+        connectedPorts.forEach(port => existing.add(port))
+      } else if (connectedPorts instanceof Set) {
+        // Replace null with set
+        connectedNodes.set(nodeId, connectedPorts)
+      }
+      // If both are null, keep null (regular source with single output)
+    }
+  }
+  
   const sources = []
   
-  for (const e of props.elements) {
-    if (e.id === props.node.id) continue
+  // Only iterate through connected nodes
+  for (const [nodeId, connectedPortsSet] of connectedNodes) {
+    const e = props.elements.find(el => el.id === nodeId)
+    if (!e || e.id === props.node.id) continue
+    
     const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
     
-    // For venue sources and transformers, show ALL of them (not just connected ones)
-    // This allows connecting multiple feeds/ports
-    // For regular sources, only show if already connected (for backward compatibility)
-    const isVenueOrTransformer = (eType === 'venue_sources' || eType === 'transformer')
-    if (!isVenueOrTransformer && !connectedIds.has(e.id)) continue
-    
-    // Only show actual sources (gear sources and venue sources) - not transformers or recorders
+    // Only show actual sources (gear sources, venue sources, transformers)
     if (eType === 'venue_sources') {
-      // Expand venue_sources into individual feeds
+      // For venue sources, we need port maps to know which feeds are connected
+      // If no port maps, we can't determine which feed is connected, so skip
+      if (connectedPortsSet === null) {
+        // No port maps - can't determine which feed is connected, skip this venue source
+        continue
+      }
+      
+      // Only show feeds that are actually connected (have port maps)
       try {
         const { data: feeds } = await supabase
           .from('venue_source_feeds')
           .select('port_number, output_port_label')
           .eq('node_id', e.id)
           .order('port_number')
+        
         if (feeds && feeds.length) {
           for (const feed of feeds) {
-            sources.push({
-              id: e.id,
-              port: feed.port_number,
-              label: feed.output_port_label || `Output ${feed.port_number}`,
-              feedKey: `${e.id}:${feed.port_number}`
-            })
+            const port = feed.port_number
+            // Only include if this port is in the connected set
+            if (connectedPortsSet.has(port)) {
+              sources.push({
+                id: e.id,
+                port,
+                label: feed.output_port_label || `Output ${port}`,
+                feedKey: `${e.id}:${port}`
+              })
+            }
           }
         } else {
           // Fallback: use output_port_labels if feeds table is empty
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            const label = labels[port] || `Output ${port}`
-            sources.push({
-              id: e.id,
-              port,
-              label,
-              feedKey: `${e.id}:${port}`
-            })
-          }
-          if (numOutputs === 0) {
-            // No feeds found, show node as single option
-            sources.push({
-              id: e.id,
-              port: null,
-              label: e.track_name || e.label || 'Venue Sources',
-              feedKey: e.id
-            })
+            // Only include if this port is in the connected set
+            if (connectedPortsSet.has(port)) {
+              const label = labels[port] || `Output ${port}`
+              sources.push({
+                id: e.id,
+                port,
+                label,
+                feedKey: `${e.id}:${port}`
+              })
+            }
           }
         }
       } catch (err) {
         console.error('[Inspector] failed to load venue feeds', err)
-        sources.push({
-          id: e.id,
-          port: null,
-          label: e.track_name || e.label || 'Venue Sources',
-          feedKey: e.id
-        })
+        // Skip on error
       }
     } else if (eType === 'source') {
-      // Only show gear sources, not transformers or recorders
+      // Regular gear sources - only show if connected
+      // (connectedPortsSet will be null for regular sources)
       sources.push({
         id: e.id,
         port: null,
@@ -210,38 +263,38 @@ async function loadAvailableUpstreamSources() {
         feedKey: e.id
       })
     } else if (eType === 'transformer') {
-      // Transformers pass through their inputs as outputs - show all outputs
+      // Only show transformer outputs that are actually connected
+      // If connectedPortsSet is null, we couldn't determine which port (shouldn't happen for transformers)
+      if (connectedPortsSet === null) {
+        // No port maps and couldn't infer - skip this transformer
+        continue
+      }
+      
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
-        // For transformers, each output corresponds to an input (1:1 pass-through)
         for (let port = 1; port <= numOutputs; port++) {
-          // Get the label for this transformer output (which traces back to source)
-          try {
-            const label = await getOutputLabel(e, port, graph.value)
-            sources.push({
-              id: e.id,
-              port,
-              label,
-              feedKey: `${e.id}:${port}`
-            })
-          } catch (err) {
-            // Fallback if label resolution fails
-            sources.push({
-              id: e.id,
-              port,
-              label: `${e.track_name || e.label || 'Transformer'} Output ${port}`,
-              feedKey: `${e.id}:${port}`
-            })
+          // Only include if this port is in the connected set
+          if (connectedPortsSet.has(port)) {
+            // Get the label for this transformer output (which traces back to source)
+            try {
+              const label = await getOutputLabel(e, port, graph.value)
+              sources.push({
+                id: e.id,
+                port,
+                label,
+                feedKey: `${e.id}:${port}`
+              })
+            } catch (err) {
+              // Fallback if label resolution fails
+              sources.push({
+                id: e.id,
+                port,
+                label: `${e.track_name || e.label || 'Transformer'} Output ${port}`,
+                feedKey: `${e.id}:${port}`
+              })
+            }
           }
         }
-      } else {
-        // Fallback for transformers without num_outputs defined
-        sources.push({
-          id: e.id,
-          port: null,
-          label: e.track_name || e.label || 'Transformer',
-          feedKey: e.id
-        })
       }
     }
     // Recorders are excluded - they don't output to other nodes
