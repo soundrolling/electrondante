@@ -1949,6 +1949,34 @@ onMounted(async () => {
   
   // Load already-taken mapped ports for source and target across existing connections
   await loadTakenPorts()
+
+  // Ensure venue source labels are present locally for all ports so dropdowns use them
+  if (isVenueSources.value) {
+    try {
+      const total = props.fromNode.num_outputs || props.fromNode.outputs || 0
+      const portNumbers = total ? Array.from({ length: total }, (_, i) => i + 1) : []
+      const existing = props.fromNode.output_port_labels || {}
+
+      // Query feeds for any missing ports
+      const missing = portNumbers.filter(p => !existing[String(p)] && !existing[p])
+      if (missing.length > 0) {
+        const { data: feeds } = await supabase
+          .from('venue_source_feeds')
+          .select('port_number, output_port_label')
+          .eq('node_id', props.fromNode.id)
+          .in('port_number', missing)
+
+        if (feeds && feeds.length) {
+          const merged = { ...existing }
+          feeds.forEach(f => {
+            if (f.output_port_label) merged[String(f.port_number)] = f.output_port_label
+          })
+          // Update local node reference so UI immediately shows labels
+          props.fromNode.output_port_labels = merged
+        }
+      }
+    } catch {}
+  }
   
   // Initialize venue source port counter
   if (isVenueSources.value) {

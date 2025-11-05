@@ -1183,7 +1183,11 @@ async function loadPortMappingsForConnection(connId) {
     if (!error && data) {
       // If this is a venue sources connection, load labels from node's output_port_labels first
       if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
-        const portNumbers = data.map(m => m.from_port)
+        // Build a complete list of ports so un-mapped ports also get labels
+        const totalPorts = (fromNodeOfSelected.value.num_outputs || fromNodeOfSelected.value.outputs || 0) || 0
+        const portNumbers = totalPorts > 0
+          ? Array.from({ length: totalPorts }, (_, i) => i + 1)
+          : data.map(m => m.from_port)
         
         // First, check node's output_port_labels (these are set from custom labels in port map)
         const nodeLabels = {}
@@ -1232,6 +1236,14 @@ async function loadPortMappingsForConnection(connId) {
             upstreamLabelsForFromNode.value[m.from_port] = feedMap[m.from_port]
           }
         })
+
+        // Locally ensure the node carries labels for all ports so dropdowns show names
+        const existing = fromNodeOfSelected.value.output_port_labels || {}
+        const mergedLabels = { ...existing }
+        portNumbers.forEach(p => {
+          if (feedMap[p]) mergedLabels[String(p)] = feedMap[p]
+        })
+        fromNodeOfSelected.value.output_port_labels = mergedLabels
         
         // Initialize venue source port counter
         const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
