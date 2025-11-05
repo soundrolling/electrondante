@@ -151,15 +151,17 @@ async function loadAvailableUpstreamSources() {
     availableUpstreamSources.value = []
     return
   }
+  // Only show nodes that are actually connected TO this node's inputs (upstream sources)
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   const connectedIds = new Set(parents.map(p => p.from_node_id).filter(Boolean))
   const sources = []
   
   for (const e of props.elements) {
     if (e.id === props.node.id) continue
-    if (!connectedIds.has(e.id)) continue
+    if (!connectedIds.has(e.id)) continue // Only nodes that have connections TO this node
     const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
     
+    // Only show actual sources (gear sources and venue sources) - not transformers or recorders
     if (eType === 'venue_sources') {
       // Expand venue_sources into individual feeds
       try {
@@ -209,7 +211,8 @@ async function loadAvailableUpstreamSources() {
           feedKey: e.id
         })
       }
-    } else if (eType === 'source' || eType === 'transformer') {
+    } else if (eType === 'source') {
+      // Only show gear sources, not transformers or recorders
       sources.push({
         id: e.id,
         port: null,
@@ -217,6 +220,7 @@ async function loadAvailableUpstreamSources() {
         feedKey: e.id
       })
     }
+    // Explicitly exclude transformers and recorders from upstream sources
   }
   
   availableUpstreamSources.value = sources
