@@ -1055,9 +1055,19 @@ function addEditPortMapping() {
 // Add venue source port mapping from text input
 function addVenueSourcePortMapping() {
   const label = venueSourceLabelInput.value?.trim()
-  if (!label || !newMappingToPort.value) {
-    toast.error('Please enter a label and select a destination port')
+  if (!label) {
+    toast.error('Please enter a label')
     return
+  }
+  // Auto-select first free destination if none chosen
+  if (!newMappingToPort.value) {
+    const firstFree = (availableToPortsForEdit.value || []).find(o => !o.disabled)
+    if (firstFree) {
+      newMappingToPort.value = firstFree.value
+    } else {
+      toast.error('No available destination inputs')
+      return
+    }
   }
   
   // Check if destination port is already in use
