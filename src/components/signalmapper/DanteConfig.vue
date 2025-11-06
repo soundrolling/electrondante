@@ -46,7 +46,7 @@
         <div class="config-header">
           <h5>{{ config.name }}</h5>
           <div class="config-actions">
-            <button @click="loadConfiguration(config)" class="btn-load">Load</button>
+            <button @click="downloadConfiguration(config)" class="btn-download">Download</button>
             <button @click="editConfiguration(config)" class="btn-edit">Edit</button>
             <button @click="deleteConfiguration(config.id)" class="btn-delete">Delete</button>
           </div>
@@ -319,31 +319,44 @@ async function loadConfigurations() {
   }
 }
 
-async function loadConfiguration(config) {
+function downloadConfiguration(config) {
   try {
-    // Parse file content
+    // Get file content
     let content = config.file_content
+    let mimeType = 'text/plain'
+    let fileExtension = '.txt'
+    
+    // Determine MIME type and extension based on file type
     if (config.file_type === 'json') {
+      mimeType = 'application/json'
+      fileExtension = '.json'
+      // Ensure content is properly formatted JSON
       try {
-        content = JSON.parse(config.file_content)
+        const parsed = JSON.parse(content)
+        content = JSON.stringify(parsed, null, 2)
       } catch {
         // If not valid JSON, use as-is
       }
+    } else if (config.file_type === 'xml') {
+      mimeType = 'application/xml'
+      fileExtension = '.xml'
     }
-
-    // Show configuration details
-    toast.success(`Loaded: ${config.name}`)
     
-    // Here you could emit an event to apply the configuration
-    // For now, we'll just show the content
-    fileContent.value = content
-    selectedFile.value = { name: config.file_name || 'Loaded Configuration' }
-    fileType.value = config.file_type
-
-    // TODO: Apply stagebox settings to signal mapper if needed
+    // Create blob and download
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = config.file_name || `${config.name}${fileExtension}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    
+    toast.success(`Downloaded: ${config.name}`)
   } catch (err) {
-    console.error('Error loading configuration:', err)
-    toast.error('Failed to load configuration')
+    console.error('Error downloading configuration:', err)
+    toast.error('Failed to download configuration')
   }
 }
 
@@ -577,7 +590,7 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.btn-load,
+.btn-download,
 .btn-edit,
 .btn-delete {
   padding: 6px 12px;
@@ -589,12 +602,12 @@ onMounted(async () => {
   transition: background-color 0.2s;
 }
 
-.btn-load {
+.btn-download {
   background: var(--color-primary-500);
   color: white;
 }
 
-.btn-load:hover {
+.btn-download:hover {
   background: var(--color-primary-600);
 }
 
