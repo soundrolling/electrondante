@@ -112,7 +112,8 @@ const inputLabels = ref({})
 // For recorders, use tracks count instead of inputs count
 const inputCount = computed(() => {
   if (type.value === 'recorder') {
-    return tracks.value || 0
+    // Some recorders only set num_inputs; use it as a fallback for track count
+    return tracks.value || inputs.value || 0
   }
   return inputs.value || 0
 })
@@ -271,9 +272,10 @@ async function loadAvailableUpstreamSources() {
         // Skip on error
       }
     } else if (eType === 'source') {
-      // Regular gear sources
-      // For recorders: show all sources. For others: only show if connected
-      if (isRecorder || connectedPortsSet !== null) {
+      // Regular gear sources: often have a single output and no port maps
+      // Treat "null" connectedPortsSet as connected (single-output), and include them
+      // Show all sources for recorders; for others, include when this node is connected (undefined means not connected)
+      if (isRecorder || connectedPortsSet !== undefined) {
         sources.push({
           id: e.id,
           port: null,
@@ -1003,12 +1005,17 @@ async function saveMap() {
                   continue
                 }
                 
-                // Delete existing port maps for this connection and input_number (to_port)
-                // This ensures we don't have duplicate port maps
-                const { error: deleteError } = await supabase.from('connection_port_map')
+                // Delete any existing mapping that targets this to_port OR uses this from_port
+                // This avoids violating the unique (connection_id, from_port) constraint and keeps 1:1 mapping
+                let { error: deleteError } = await supabase.from('connection_port_map')
                   .delete()
                   .eq('connection_id', connId)
                   .eq('to_port', Number(inputNum))
+                if (deleteError) throw deleteError
+                ;({ error: deleteError } = await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('from_port', Number(portToUse)))
                 if (deleteError) throw deleteError
                 
                 const { error: insertError } = await supabase.from('connection_port_map').insert([{
@@ -1211,12 +1218,15 @@ async function saveMap() {
                   continue
                 }
                 
-                // Delete existing port maps for this connection and input_number (to_port)
-                // This ensures we don't have duplicate port maps
+                // Delete any existing mapping that targets this to_port OR uses this from_port
                 await supabase.from('connection_port_map')
                   .delete()
                   .eq('connection_id', connId)
                   .eq('to_port', Number(inputNum))
+                await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('from_port', Number(portToUse))
                 
                 // Insert new port map
                 const { error: portMapError } = await supabase.from('connection_port_map').insert([{
