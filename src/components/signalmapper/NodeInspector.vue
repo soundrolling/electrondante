@@ -40,16 +40,22 @@
           <div class="map-unified">
             <!-- Upstream (Inputs/Tracks) Section -->
             <div class="map-section">
-              <h4>{{ type === 'recorder' ? 'Tracks' : 'Inputs' }}</h4>
+              <h4>{{ type === 'recorder' ? 'Record Tracks' : 'Inputs' }}</h4>
               <div class="map-inputs">
                 <div v-for="n in inputCount" :key="`in-${n}`" class="map-io-row">
-                  <div class="map-io-label">{{ type === 'recorder' ? 'Track' : 'Input' }} {{ n }}</div>
+                  <div class="map-io-label">
+                    {{ type === 'recorder' ? 'Track' : 'Input' }} {{ n }}
+                    <button
+                      v-if="upstreamMap[n]"
+                      class="clear-x-btn"
+                      title="Clear"
+                      @click="clearUpstreamConnection(n)"
+                    >×</button>
+                  </div>
                   <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
                     <option :value="null">— Select source —</option>
                     <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
-                  <div v-if="upstreamMap[n]" class="map-io-display">{{ getUpstreamLabel(n) }}</div>
-                  <button v-if="upstreamMap[n]" class="btn-danger-small" @click="clearUpstreamConnection(n)">Clear</button>
                 </div>
                 <div v-if="!inputCount" class="muted">{{ type === 'recorder' ? 'No tracks' : 'No inputs' }}</div>
               </div>
@@ -231,8 +237,10 @@ async function loadAvailableUpstreamSources() {
         if (feeds && feeds.length) {
           for (const feed of feeds) {
             const port = feed.port_number
-            // For recorders: show all feeds. For others: only show connected feeds
-            if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
+            // For recorders: show all feeds.
+            // For transformers/others: if no port maps yet (connectedPortsSet === null), show ALL feeds so user can map multiple.
+            // Otherwise, only show connected feeds.
+            if (isRecorder || connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
               sources.push({
                 id: e.id,
                 port,
@@ -246,8 +254,8 @@ async function loadAvailableUpstreamSources() {
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            // For recorders: show all outputs. For others: only show connected outputs
-            if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
+            // For recorders: show all outputs. For others: show all if no port maps yet; else only connected
+            if (isRecorder || connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
               const label = labels[port] || `Output ${port}`
               sources.push({
                 id: e.id,
@@ -1300,6 +1308,8 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .map-io-display { color: var(--text-primary); font-size: 12px; margin-top: 4px; flex: 1; }
 .btn-danger-small { background: var(--btn-danger-bg); color: var(--btn-danger-text); border: 1px solid var(--btn-danger-border); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; margin-top: 4px; }
 .btn-danger-small:hover { background: var(--btn-danger-hover-bg); border-color: var(--btn-danger-hover-border); }
+.clear-x-btn { background: transparent; border: none; color: #d33; margin-left: 8px; font-size: 14px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.clear-x-btn:hover { color: #b00; }
 .map-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: var(--bg-elevated); border: 2px solid var(--border-dark); border-radius: 8px; min-width: 150px; }
 .map-node-badge { background: var(--bg-primary); border: 1px solid var(--border-medium); padding: 4px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
 .map-node-name { color: var(--text-primary); font-weight: 600; font-size: 14px; text-align: center; }
