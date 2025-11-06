@@ -1069,7 +1069,6 @@ async function deleteSelected() {
   }
   
   const micLabel = selectedMic.value.track_name || selectedMic.value.label
-  if (!confirm(`Delete ${micLabel} and all its connections?`)) return
 
   try {
     await cascadeDeleteNode(selectedMic.value.id)
@@ -1141,7 +1140,6 @@ async function deleteMicFromContextMenu() {
   }
   
   const micLabel = selectedMic.value.track_name || selectedMic.value.label
-  if (!confirm(`Delete ${micLabel} and all its connections?`)) return
 
   try {
     await cascadeDeleteNode(selectedMic.value.id)
