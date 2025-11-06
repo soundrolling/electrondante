@@ -13,7 +13,13 @@
       <div class="legend-block">
         <strong>Event Categories:</strong>
         <div class="legend-items">
-          <span class="legend-item" v-for="category in categories" :key="category.id">
+          <label class="legend-item" v-for="category in categories" :key="category.id">
+            <input 
+              type="checkbox" 
+              :checked="enabledCategories[category.id] !== false"
+              @change="toggleCategory(category.id)"
+              class="category-toggle"
+            />
             <span class="legend-icon">{{ category.icon }}</span>
             {{ category.label }}
             <!-- Stage hours under Recording -->
@@ -28,7 +34,7 @@
                 </div>
               </div>
             </template>
-          </span>
+          </label>
         </div>
         <div class="legend-note">
           <small>Note: Stage hours appear as "Recording" events with green borders</small>
@@ -50,13 +56,25 @@ props: {
   stageHours: {
     type: Object,
     default: () => ({})
+  },
+  enabledCategories: {
+    type: Object,
+    default: () => ({})
   }
 },
+emits: ['update:enabledCategories'],
 data() {
   return {
     collapsed: true
   }
 },
+methods: {
+  toggleCategory(categoryId) {
+    const updated = { ...this.enabledCategories };
+    updated[categoryId] = !updated[categoryId];
+    this.$emit('update:enabledCategories', updated);
+  }
+}
 }
 </script>
 
@@ -106,6 +124,14 @@ align-items: center;
 gap: 0.5rem;
 font-size: 0.9rem;
 color: var(--text-primary);
+cursor: pointer;
+}
+.category-toggle {
+margin-right: 0.3rem;
+cursor: pointer;
+width: 16px;
+height: 16px;
+accent-color: var(--color-primary-500);
 }
 .legend-icon {
   font-size: 1.2em;

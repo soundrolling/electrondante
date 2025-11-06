@@ -33,6 +33,8 @@
   <CalendarLegend 
     :categories="eventCategories"
     :stage-hours="getFilteredStageHoursForDay(currentDateString)"
+    :enabledCategories="enabledCategories"
+    @update:enabledCategories="updateEnabledCategories"
   />
 
   <!-- ERRORS / LOADING -->
@@ -221,6 +223,7 @@ setup() {
   const eventCategories = [
     { id: 'calltimes', label: 'Call Times', icon: '⏰' },
     { id: 'wraptimes', label: 'Wrap Times', icon: '🔚' },
+    { id: 'artisttimes', label: 'Artist Times', icon: '🎨' },
     { id: 'deliveries', label: 'Deliveries', icon: '📦' },
     { id: 'recording', label: 'Recording', icon: '🎤' },
     { id: 'meeting', label: 'Meeting', icon: '👥' },
@@ -229,6 +232,17 @@ setup() {
     { id: 'travel', label: 'Travel', icon: '✈️' },
     { id: 'other', label: 'Other', icon: '❓' }
   ];
+
+  // Initialize enabledCategories with all categories enabled by default
+  const initializeEnabledCategories = () => {
+    const defaultEnabled = {};
+    eventCategories.forEach(cat => {
+      defaultEnabled[cat.id] = true;
+    });
+    return defaultEnabled;
+  };
+
+  const enabledCategories = ref(initializeEnabledCategories());
 
   // DETAILS MODAL STATE
   const showDetailsModal = ref(false);
@@ -573,6 +587,12 @@ setup() {
   // FILTER & SORT
   const filteredEvents = computed(() => {
     let arr = allEvents.value.slice();
+    
+    // Filter by enabled categories first
+    arr = arr.filter(e => {
+      const categoryEnabled = enabledCategories.value[e.category] !== false;
+      return categoryEnabled;
+    });
     
     // Filter by date range - check if event overlaps with the filter range
     if (filters.value.dateStart || filters.value.dateEnd) {
@@ -1010,6 +1030,47 @@ setup() {
     });
   }
 
+  // Load enabled categories from user preferences
+  async function loadEnabledCategories() {
+    try {
+      await userStore.fetchUserProfile();
+      if (userStore.userProfile && userStore.userProfile.calendar_event_toggles) {
+        const savedToggles = userStore.userProfile.calendar_event_toggles;
+        // Merge saved toggles with defaults (in case new categories were added)
+        const merged = initializeEnabledCategories();
+        Object.keys(savedToggles).forEach(catId => {
+          if (merged.hasOwnProperty(catId)) {
+            merged[catId] = savedToggles[catId];
+          }
+        });
+        enabledCategories.value = merged;
+      }
+    } catch (e) {
+      console.error('Failed to load enabled categories:', e);
+      // Use defaults on error
+    }
+  }
+
+  // Save enabled categories to user preferences
+  async function saveEnabledCategories() {
+    try {
+      const currentProfile = userStore.userProfile || {};
+      await userStore.upsertUserProfile({
+        ...currentProfile,
+        calendar_event_toggles: enabledCategories.value
+      });
+    } catch (e) {
+      console.error('Failed to save enabled categories:', e);
+      toast.error('Failed to save event visibility preferences');
+    }
+  }
+
+  // Handle enabled categories update from CalendarLegend
+  async function updateEnabledCategories(newEnabledCategories) {
+    enabledCategories.value = newEnabledCategories;
+    await saveEnabledCategories();
+  }
+
   // --- NEW: Sync filters and view from route query ---
   function syncFromRoute() {
     const q = route.query;
@@ -1023,7 +1084,8 @@ setup() {
       filters.value.location = q.locationId;
     }
   }
-  onMounted(() => {
+  onMounted(async () => {
+    await loadEnabledCategories();
     fetchAll();
     syncFromRoute();
   });
@@ -1109,6 +1171,7 @@ setup() {
     todayDate,
     onEditEvent, onDeleteEvent,
     forceRefresh,
+    enabledCategories, updateEnabledCategories,
     
   };
 }
