@@ -91,9 +91,35 @@ export async function resolveTransformerInputLabel(transformerNode, inputNum, gr
     }
   }
 
-  // If there is no explicit port map for this input, treat it as intentionally unassigned
-  // so that downstream nodes do not infer a connection. Return an empty label.
-  return ''
+  // No port map: find a parent with input_number === inputNum
+  const directParent = parents.find(p => Number(p.input_number) === Number(inputNum))
+  if (directParent) {
+    const upstreamNode = graph.nodeMap[directParent.from_node_id]
+    if (!upstreamNode) return `Input ${inputNum}`
+    const upstreamType = getNodeType(upstreamNode)
+    if (upstreamType === 'transformer') {
+      // For 1:1 transformers, output N corresponds to input N
+      return await resolveTransformerInputLabel(upstreamNode, inputNum, graph, visited)
+    }
+    // For sources/venue_sources/recorders
+    return await getOutputLabel(upstreamNode, inferSourcePort(upstreamNode, inputNum, parents, directParent), graph)
+  }
+
+  // Fallback: trace from any parent (best-effort)
+  const anyParent = parents[0]
+  if (anyParent) {
+    const upstreamNode = graph.nodeMap[anyParent.from_node_id]
+    if (upstreamNode) {
+      const upstreamType = getNodeType(upstreamNode)
+      if (upstreamType === 'transformer') {
+        return await resolveTransformerInputLabel(upstreamNode, anyParent.input_number || 1, graph, visited)
+      }
+      const lbl = await getOutputLabel(upstreamNode, anyParent.input_number || 1, graph)
+      return lbl
+    }
+  }
+
+  return `Input ${inputNum}`
 }
 
 function getBaseName(node) {
