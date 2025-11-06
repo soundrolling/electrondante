@@ -228,10 +228,6 @@ async function cascadeDeleteNode(nodeId) {
 }
 
 async function handleDelete() {
-  if (!confirm(`Delete "${props.node.track_name || props.node.label}" and all its connections?`)) {
-    return
-  }
-
   // Check deletion restrictions based on view type
   if (props.viewType === 'signal-flow') {
     // In signal flow, don't allow deleting gear source nodes

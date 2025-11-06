@@ -2382,7 +2382,6 @@ async function deleteSelected() {
   // - Ad-hoc sources (type === 'source' without gear_id)
   // - Venue sources (gear_type === 'venue_sources')
   const nodeLabel = selectedNode.value.label
-  if (!confirm(`Delete ${nodeLabel} and all its connections?`)) return
 
   try {
     await cascadeDeleteNode(selectedNode.value.id)
