@@ -23,15 +23,34 @@ if [[ -n $(git status -s) ]]; then
     echo -e "${BLUE}Pushing to remote...${NC}"
     CURRENT_BRANCH=$(git branch --show-current)
     
-    # Check if upstream is set, if not set it
+    # Push current branch first
     if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} > /dev/null 2>&1; then
-        echo -e "${BLUE}Setting upstream branch...${NC}"
+        echo -e "${BLUE}Setting upstream branch for $CURRENT_BRANCH...${NC}"
         git push --set-upstream origin "$CURRENT_BRANCH"
     else
+        echo -e "${BLUE}Pushing $CURRENT_BRANCH...${NC}"
         git push
     fi
     
-    echo -e "${GREEN}✓ Changes pushed successfully!${NC}"
+    # Also push to main
+    if [ "$CURRENT_BRANCH" != "main" ]; then
+        echo -e "${BLUE}Switching to main branch...${NC}"
+        git checkout main
+        
+        echo -e "${BLUE}Merging $CURRENT_BRANCH into main...${NC}"
+        git merge "$CURRENT_BRANCH" --no-edit
+        
+        echo -e "${BLUE}Pushing main to remote...${NC}"
+        git push origin main
+        
+        echo -e "${BLUE}Switching back to $CURRENT_BRANCH...${NC}"
+        git checkout "$CURRENT_BRANCH"
+    else
+        echo -e "${BLUE}Already on main branch, pushing...${NC}"
+        git push origin main
+    fi
+    
+    echo -e "${GREEN}✓ Changes pushed successfully to both $CURRENT_BRANCH and main!${NC}"
 else
     echo -e "${GREEN}No changes to commit.${NC}"
 fi
