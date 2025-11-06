@@ -18,6 +18,7 @@
     <div class="tabs">
       <button :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
       <button v-if="type==='source'" :class="{ active: tab==='settings' }" @click="tab='settings'">Settings</button>
+      <button :class="{ active: tab==='delete' }" @click="tab='delete'" class="tab-delete">🗑️ Delete</button>
     </div>
 
       <div class="panel" v-if="tab==='map'">
@@ -103,6 +104,21 @@
           <button class="btn" @click="saveSourceSettings" :disabled="saving">Save Settings</button>
         </div>
       </div>
+      <!-- Delete tab -->
+      <div class="panel" v-if="tab==='delete'">
+        <div class="delete-warning">
+          <p><strong>⚠️ Warning:</strong> This will permanently delete this node and all its connections.</p>
+          <p style="margin-top: 8px; color: var(--text-muted);">
+            Node: <strong>{{ node.track_name || node.label }}</strong>
+          </p>
+        </div>
+        <div class="actions" style="margin-top: 20px;">
+          <button class="btn btn-danger" @click="handleDelete" :disabled="deleting">
+            {{ deleting ? 'Deleting...' : '🗑️ Delete Node' }}
+          </button>
+          <button class="btn btn-secondary" @click="tab='map'" style="margin-left: 8px;">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -113,7 +129,7 @@ import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { buildGraph } from '@/services/signalGraph'
 import { hydrateVenueLabels, getOutputLabel, resolveTransformerInputLabel } from '@/services/portLabelService'
-import { getCompleteSignalPath } from '@/services/signalMapperService'
+import { getCompleteSignalPath, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import { updateNode } from '@/services/signalMapperService'
 
 const toast = useToast()
@@ -122,9 +138,11 @@ const props = defineProps({
   projectId: { type: [String, Number], required: true },
   node: { type: Object, required: true },
   elements: { type: Array, default: () => [] },
-  fromNode: { type: Object, default: null }
+  fromNode: { type: Object, default: null },
+  // Optional: if provided, will check if node can be deleted from this view
+  viewType: { type: String, default: null } // 'signal-flow' or 'mic-placement'
 })
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'node-deleted'])
 
 const type = computed(() => (props.node.gear_type || props.node.node_type || props.node.type || '').toLowerCase())
 const inputs = computed(() => props.node.num_inputs || props.node.inputs || 0)
@@ -139,6 +157,8 @@ const graph = ref(null)
 const sourcePadDb = ref(0)
 // Transformer input gain tracking
 const inputGain = ref({}) // { inputNumber: gainDb }
+// Delete state
+const deleting = ref(false)
 
 onMounted(async () => {
   // Initialize sourcePadDb from node if present
@@ -162,6 +182,83 @@ async function saveSourceSettings() {
   } catch (e) {
     console.error('[Inspector][Settings] failed to save source settings', e)
     toast.error('Failed to save settings')
+  }
+}
+
+async function cascadeDeleteNode(nodeId) {
+  // Fetch all connections for this project
+  const allConnections = await getConnections(props.projectId)
+  
+  // Find all connections FROM this node (outgoing)
+  const outgoingConns = allConnections.filter(c => c.from_node_id === nodeId)
+  
+  // Find all connections TO this node (incoming)
+  const incomingConns = allConnections.filter(c => c.to_node_id === nodeId)
+
+  // Delete all port mappings for these connections
+  const allConnIds = [...outgoingConns.map(c => c.id), ...incomingConns.map(c => c.id)]
+  if (allConnIds.length > 0) {
+    try {
+      await supabase
+        .from('connection_port_map')
+        .delete()
+        .in('connection_id', allConnIds)
+    } catch (err) {
+      console.error('Error deleting port mappings:', err)
+    }
+  }
+
+  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
+  for (const conn of [...outgoingConns, ...incomingConns]) {
+    try {
+      await deleteConnectionFromDB(conn.id)
+    } catch (err) {
+      console.error('Error deleting connection:', err)
+    }
+  }
+
+  // Finally, delete the node itself
+  try {
+    await deleteNode(nodeId)
+    emit('node-deleted', nodeId)
+  } catch (err) {
+    console.error('Error deleting node:', err)
+    throw err
+  }
+}
+
+async function handleDelete() {
+  if (!confirm(`Delete "${props.node.track_name || props.node.label}" and all its connections?`)) {
+    return
+  }
+
+  // Check deletion restrictions based on view type
+  if (props.viewType === 'signal-flow') {
+    // In signal flow, don't allow deleting gear source nodes
+    const isGearSource = (props.node.gear_type || props.node.type) === 'source' && props.node.gear_id
+    if (isGearSource) {
+      toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
+      return
+    }
+  } else if (props.viewType === 'mic-placement') {
+    // In mic placement, only allow deleting gear source nodes
+    const isGearSource = props.node.gear_id && props.node.gear_type === 'source'
+    if (!isGearSource) {
+      toast.error('Only gear source nodes can be deleted from Mic Placement view.')
+      return
+    }
+  }
+
+  deleting.value = true
+  try {
+    await cascadeDeleteNode(props.node.id)
+    toast.success('Node deleted successfully')
+    emit('close')
+  } catch (err) {
+    console.error('Error deleting node:', err)
+    toast.error('Failed to delete node')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -1462,6 +1559,16 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .tabs { display: flex; gap: 6px; padding: 0 18px 8px 18px; border-bottom: 1px solid var(--border-separator); }
 .tabs button { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-medium); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 .tabs button.active { background: var(--bg-secondary); border-color: var(--border-dark); }
+.tabs button.tab-delete { color: #dc2626; border-color: #dc2626; }
+.tabs button.tab-delete:hover { background: #fee2e2; }
+.tabs button.tab-delete.active { background: #fee2e2; border-color: #dc2626; }
+.delete-warning { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; }
+.delete-warning p { margin: 0; }
+.btn-danger { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.btn-danger:hover:not(:disabled) { background: #b91c1c; }
+.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-medium); padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+.btn-secondary:hover { background: var(--bg-elevated); }
 .panel { padding: 14px 18px 18px; }
 .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .list li { display: flex; align-items: center; gap: 8px; background: var(--bg-elevated); border: 1px solid var(--border-separator); border-radius: 6px; padding: 8px 10px; }

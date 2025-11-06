@@ -215,7 +215,9 @@
     :node="inspectorNode"
     :fromNode="inspectorFromNode"
     :elements="nodes"
+    viewType="signal-flow"
     @close="inspectorOpen = false; inspectorNode = null"
+    @node-deleted="handleInspectorNodeDeleted"
   />
   
   <!-- Venue Sources Configuration Modal -->
@@ -2353,6 +2355,15 @@ function handleVenueSourcesSaved() {
   // Reload nodes to get updated output counts and labels
   emit('node-updated', selectedVenueSourcesNode.value)
   // The parent will reload nodes and connections
+}
+
+function handleInspectorNodeDeleted(nodeId) {
+  // Close inspector and emit node-deleted event
+  inspectorOpen.value = false
+  inspectorNode.value = null
+  selectedNode.value = null
+  emit('node-deleted', nodeId)
+  nextTick(drawCanvas)
 }
 
 async function deleteSelected() {

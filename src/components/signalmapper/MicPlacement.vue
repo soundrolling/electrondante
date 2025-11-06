@@ -30,9 +30,6 @@
     </div>
     <div class="center-group mobile-stack">
       <button @click="openGearModal" class="btn-primary">➕ Add Microphone</button>
-      <button @click="deleteSelected" :disabled="!selectedMic" class="btn-danger">
-        🗑️ Delete Selected
-      </button>
     </div>
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
