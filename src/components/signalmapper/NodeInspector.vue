@@ -234,34 +234,29 @@ async function loadAvailableUpstreamSources() {
           .order('port_number')
         
         if (feeds && feeds.length) {
+          // When a Venue Sources node is connected, always expose ALL feeds
           for (const feed of feeds) {
             const port = feed.port_number
-            // If no port maps yet (connectedPortsSet === null), show ALL feeds so user can map multiple.
-            // Otherwise, only show connected feeds.
-            if (connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
-              sources.push({
-                id: e.id,
-                port,
-                label: `${feed.output_port_label || `Output ${port}`} (Venue)`,
-                feedKey: `${e.id}:${port}`
-              })
-            }
+            sources.push({
+              id: e.id,
+              port,
+              label: `${feed.output_port_label || `Output ${port}`} (Venue)`,
+              feedKey: `${e.id}:${port}`
+            })
           }
         } else {
           // Fallback: use output_port_labels if feeds table is empty
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            // Show all if no port maps yet; else only connected
-            if (connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
-              const label = labels[port] || `Output ${port}`
-              sources.push({
-                id: e.id,
-                port,
-                label: `${label} (Venue)`,
-                feedKey: `${e.id}:${port}`
-              })
-            }
+            // If feeds table is empty, expose all labeled outputs
+            const label = labels[port] || `Output ${port}`
+            sources.push({
+              id: e.id,
+              port,
+              label: `${label} (Venue)`,
+              feedKey: `${e.id}:${port}`
+            })
           }
         }
       } catch (err) {
