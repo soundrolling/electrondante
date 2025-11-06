@@ -1776,25 +1776,19 @@ function drawCanvas() {
   ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
   ctx.scale(dpr, dpr)
   
-  // Apply zoom transformation
-  ctx.save()
-  ctx.scale(zoomLevel.value, zoomLevel.value)
-
-  // Background (scaled)
+  // Background (not scaled - canvas stays same size)
   ctx.fillStyle = '#f8f9fa'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw connections (will be scaled by zoom)
+  // Draw connections (elements will be scaled by zoom, but canvas stays same)
   props.connections.forEach(conn => {
     drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
   })
 
-  // Draw nodes (will be scaled by zoom)
+  // Draw nodes (elements will be scaled by zoom, but canvas stays same)
   props.nodes.forEach(node => {
     drawNode(ctx, node)
   })
-  
-  ctx.restore()
 }
 
 function drawNode(ctx, node) {
@@ -1806,9 +1800,13 @@ function drawNode(ctx, node) {
   
   ctx.save()
   
-  // Node circle
+  // Apply zoom to node size only (not position)
+  const nodeRadius = 35 * zoomLevel.value
+  const lineWidth = (isSelected ? 4 : 2) * zoomLevel.value
+  
+  // Node circle (scaled size)
   ctx.beginPath()
-  ctx.arc(pos.x, pos.y, 35, 0, 2 * Math.PI)
+  ctx.arc(pos.x, pos.y, nodeRadius, 0, 2 * Math.PI)
   
   // Color based on type
   const colors = {
@@ -1822,65 +1820,66 @@ function drawNode(ctx, node) {
   // Venue Sources should be solid purple regardless of selection
   ctx.fillStyle = isVenueSources ? '#6d28d9' : (isSelected ? color : '#fff')
   ctx.strokeStyle = color
-  ctx.lineWidth = isSelected ? 4 : 2
+  ctx.lineWidth = lineWidth
   ctx.fill()
   ctx.stroke()
 
-  // Selection indicator - enhanced visibility that persists
+  // Selection indicator - enhanced visibility that persists (scaled)
   if (isSelected) {
     // Outer glow ring (subtle background)
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 50, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 50 * zoomLevel.value, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 1
+    ctx.lineWidth = 1 * zoomLevel.value
     ctx.globalAlpha = 0.2
     ctx.stroke()
     ctx.globalAlpha = 1.0
     
     // Main dashed selection ring
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 45, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 45 * zoomLevel.value, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 3 // Thicker for better visibility
-    ctx.setLineDash([8, 4]) // More pronounced dashed pattern
+    ctx.lineWidth = 3 * zoomLevel.value // Thicker for better visibility
+    ctx.setLineDash([8 * zoomLevel.value, 4 * zoomLevel.value]) // More pronounced dashed pattern
     ctx.stroke()
     ctx.setLineDash([])
     
-    // Inner accent ring for extra emphasis
+    // Inner accent ring for extra emphasis (scaled)
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 40, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 40 * zoomLevel.value, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 1
+    ctx.lineWidth = 1 * zoomLevel.value
     ctx.globalAlpha = 0.5
     ctx.stroke()
     ctx.globalAlpha = 1.0
   }
 
-  // Label
+  // Label (scaled font size)
   ctx.fillStyle = '#222'
-  ctx.font = 'bold 12px sans-serif'
+  const fontSize = 12 * zoomLevel.value
+  ctx.font = `bold ${fontSize}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   
   // For sources, show track name if available
   const label = isSource && node.track_name ? node.track_name : node.label
-  ctx.fillText(label, pos.x, pos.y + 40)
+  ctx.fillText(label, pos.x, pos.y + 40 * zoomLevel.value)
 
-  // Draw an icon inside for ad-hoc sources
+  // Draw an icon inside for ad-hoc sources (scaled)
   if (isAdHocSource) {
     ctx.fillStyle = '#6d28d9'
-    ctx.font = '20px sans-serif'
+    ctx.font = `${20 * zoomLevel.value}px sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🎚️', pos.x, pos.y)
   } else if (isSource && node.gear_id) {
-    // Draw gear name inside circle for source mics (first 6 characters)
+    // Draw gear name inside circle for source mics (first 6 characters, scaled)
     const gear = props.gearList.find(g => g.id === node.gear_id)
     if (gear && gear.gear_name) {
       const gearNameText = gear.gear_name.length > 6 
         ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
         : gear.gear_name.toUpperCase()
-      ctx.font = 'bold 11px sans-serif'
+      ctx.font = `bold ${11 * zoomLevel.value}px sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = isSelected ? '#fff' : '#495057'
@@ -1890,27 +1889,28 @@ function drawNode(ctx, node) {
 
   ctx.restore()
 
-  // Draw full gear name above node when dragging (for source mics)
+  // Draw full gear name above node when dragging (for source mics, scaled)
   if (draggingNode.value === node && isSource && node.gear_id) {
     const gear = props.gearList.find(g => g.id === node.gear_id)
     if (gear && gear.gear_name) {
       const gearNameText = gear.gear_name
       
-      // Set font before measuring
-      ctx.font = 'bold 12px sans-serif'
+      // Set font before measuring (scaled)
+      const dragFontSize = 12 * zoomLevel.value
+      ctx.font = `bold ${dragFontSize}px sans-serif`
       ctx.textAlign = 'center'
       const textMetrics = ctx.measureText(gearNameText)
       
-      const padX = 8
-      const padY = 4
+      const padX = 8 * zoomLevel.value
+      const padY = 4 * zoomLevel.value
       const bgW = Math.ceil(textMetrics.width) + padX * 2
-      const bgH = 18 + padY * 2
-      const labelY = pos.y - 55 // Position above the node
+      const bgH = 18 * zoomLevel.value + padY * 2
+      const labelY = pos.y - 55 * zoomLevel.value // Position above the node
       
-      // Background with border
+      // Background with border (scaled)
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1 * zoomLevel.value
       ctx.beginPath()
       ctx.rect(pos.x - bgW / 2, labelY - padY, bgW, bgH)
       ctx.fill()
@@ -1941,8 +1941,9 @@ function drawConnection(ctx, conn, isSelected = false) {
 
   ctx.save()
   ctx.strokeStyle = strokeColor
-  ctx.lineWidth = isSelected ? 4 : 3
-  ctx.setLineDash(isSelected ? [4, 4] : [8, 4])
+  // Scale line width with zoom
+  ctx.lineWidth = (isSelected ? 4 : 3) * zoomLevel.value
+  ctx.setLineDash(isSelected ? [4 * zoomLevel.value, 4 * zoomLevel.value] : [8 * zoomLevel.value, 4 * zoomLevel.value])
 
   ctx.beginPath()
   ctx.moveTo(fromPos.x, fromPos.y)
@@ -1951,18 +1952,19 @@ function drawConnection(ctx, conn, isSelected = false) {
 
   ctx.setLineDash([])
 
-  // Arrow at midpoint
+  // Arrow at midpoint (scaled)
   const mx = (fromPos.x + toPos.x) / 2
   const my = (fromPos.y + toPos.y) / 2
   const angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x)
+  const arrowSize = 12 * zoomLevel.value
 
   ctx.beginPath()
   ctx.moveTo(mx, my)
-  ctx.lineTo(mx - 12 * Math.cos(angle - Math.PI / 6), my - 12 * Math.sin(angle - Math.PI / 6))
+  ctx.lineTo(mx - arrowSize * Math.cos(angle - Math.PI / 6), my - arrowSize * Math.sin(angle - Math.PI / 6))
   ctx.moveTo(mx, my)
-  ctx.lineTo(mx - 12 * Math.cos(angle + Math.PI / 6), my - 12 * Math.sin(angle + Math.PI / 6))
+  ctx.lineTo(mx - arrowSize * Math.cos(angle + Math.PI / 6), my - arrowSize * Math.sin(angle + Math.PI / 6))
   ctx.strokeStyle = strokeColor
-  ctx.lineWidth = 2
+  ctx.lineWidth = 2 * zoomLevel.value
   ctx.stroke()
 
   ctx.restore()
@@ -2107,10 +2109,11 @@ function getCanvasCoords(e) {
   const rect = canvas.value.getBoundingClientRect()
   const scaleX = canvas.value.width / rect.width
   const scaleY = canvas.value.height / rect.height
-  // Account for zoom level - pointer coordinates need to be divided by zoom
+  // No need to divide by zoom since we're not scaling the canvas coordinates anymore
+  // Positions stay the same, only element sizes scale
   return {
-    x: (e.clientX - rect.left) * scaleX / dpr / zoomLevel.value,
-    y: (e.clientY - rect.top) * scaleY / dpr / zoomLevel.value
+    x: (e.clientX - rect.left) * scaleX / dpr,
+    y: (e.clientY - rect.top) * scaleY / dpr
   }
 }
 
@@ -2417,25 +2420,19 @@ async function confirmConnection(connectionData) {
       ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
       ctx.scale(dpr, dpr)
       
-      // Apply zoom transformation
-      ctx.save()
-      ctx.scale(zoomLevel.value, zoomLevel.value)
-
-      // Background (scaled)
+      // Background (not scaled - canvas stays same size)
       ctx.fillStyle = '#f8f9fa'
       ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-      // Draw connections (including the new one)
+      // Draw connections (including the new one) - elements will be scaled by zoom
       optimisticConnections.forEach(conn => {
         drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
       })
 
-      // Draw nodes
+      // Draw nodes - elements will be scaled by zoom
       props.nodes.forEach(node => {
         drawNode(ctx, node)
       })
-      
-      ctx.restore()
       
       // Redraw again after props are updated (watcher will handle this, but ensure it happens)
       setTimeout(() => drawCanvas(), 50)
