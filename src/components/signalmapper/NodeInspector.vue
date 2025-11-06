@@ -135,17 +135,14 @@ async function loadAvailableUpstreamSources() {
     return
   }
   
-  // For recorders, show ALL available sources (not just connected ones)
-  // This allows users to assign any source to any track
+  // Recorders should only list sources from nodes that are actually connected upstream
   const isRecorder = type.value === 'recorder'
   
   // Get all connections to this node (used to track which ports are connected)
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   
-  // For recorders, we show all sources even if not connected
-  // For other nodes, only show connected sources
-  if (!isRecorder && parents.length === 0) {
-    // No connections, show empty list (for non-recorders)
+  // Only show connected sources; if there are no incoming connections, nothing to select
+  if (parents.length === 0) {
     availableUpstreamSources.value = []
     return
   }
@@ -210,11 +207,10 @@ async function loadAvailableUpstreamSources() {
   
   const sources = []
   
-  // For recorders: show ALL available sources (not just connected ones)
-  // For other nodes: only show connected sources
-  const nodesToProcess = isRecorder 
-    ? props.elements.filter(e => e.id !== props.node.id) // All nodes except this one
-    : Array.from(connectedNodes.keys()).map(nodeId => props.elements.find(e => e.id === nodeId)).filter(Boolean)
+  // Only process nodes that are actually connected upstream to this node
+  const nodesToProcess = Array.from(connectedNodes.keys())
+    .map(nodeId => props.elements.find(e => e.id === nodeId))
+    .filter(Boolean)
   
   for (const e of nodesToProcess) {
     if (!e || e.id === props.node.id) continue
@@ -238,14 +234,13 @@ async function loadAvailableUpstreamSources() {
         if (feeds && feeds.length) {
           for (const feed of feeds) {
             const port = feed.port_number
-            // For recorders: show all feeds.
-            // For transformers/others: if no port maps yet (connectedPortsSet === null), show ALL feeds so user can map multiple.
+            // If no port maps yet (connectedPortsSet === null), show ALL feeds so user can map multiple.
             // Otherwise, only show connected feeds.
-            if (isRecorder || connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
+            if (connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
               sources.push({
                 id: e.id,
                 port,
-                label: feed.output_port_label || `Output ${port}`,
+                label: `${feed.output_port_label || `Output ${port}`} (Venue)`,
                 feedKey: `${e.id}:${port}`
               })
             }
@@ -255,13 +250,13 @@ async function loadAvailableUpstreamSources() {
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            // For recorders: show all outputs. For others: show all if no port maps yet; else only connected
-            if (isRecorder || connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
+            // Show all if no port maps yet; else only connected
+            if (connectedPortsSet === null || (connectedPortsSet && connectedPortsSet.has(port))) {
               const label = labels[port] || `Output ${port}`
               sources.push({
                 id: e.id,
                 port,
-                label,
+                label: `${label} (Venue)`,
                 feedKey: `${e.id}:${port}`
               })
             }
@@ -273,13 +268,12 @@ async function loadAvailableUpstreamSources() {
       }
     } else if (eType === 'source') {
       // Regular gear sources: often have a single output and no port maps
-      // Treat "null" connectedPortsSet as connected (single-output), and include them
-      // Show all sources for recorders; for others, include when this node is connected (undefined means not connected)
-      if (isRecorder || connectedPortsSet !== undefined) {
+      // Treat "null" connectedPortsSet as connected (single-output). Include only if connected (undefined means not connected)
+      if (connectedPortsSet !== undefined) {
         sources.push({
           id: e.id,
           port: null,
-          label: e.track_name || e.label,
+          label: `${e.track_name || e.label} (Direct)`,
           feedKey: e.id
         })
       }
@@ -289,15 +283,15 @@ async function loadAvailableUpstreamSources() {
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
         for (let port = 1; port <= numOutputs; port++) {
-          // For recorders: show all outputs. For others: only show connected outputs
-          if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
+          // Only show connected outputs
+          if (connectedPortsSet && connectedPortsSet.has(port)) {
             // Get the label for this transformer output (which traces back to source)
             try {
               const label = await getOutputLabel(e, port, graph.value)
               sources.push({
                 id: e.id,
                 port,
-                label,
+                label: `${label} (Transformer ${e.track_name || e.label || ''})`.trim(),
                 feedKey: `${e.id}:${port}`
               })
             } catch (err) {
@@ -305,7 +299,7 @@ async function loadAvailableUpstreamSources() {
               sources.push({
                 id: e.id,
                 port,
-                label: `${e.track_name || e.label || 'Transformer'} Output ${port}`,
+                label: `${e.track_name || e.label || 'Transformer'} Output ${port} (Transformer)`,
                 feedKey: `${e.id}:${port}`
               })
             }
@@ -319,15 +313,15 @@ async function loadAvailableUpstreamSources() {
       const numTracks = e.num_tracks || e.tracks || e.num_records || e.numrecord || 0
       if (numTracks > 0) {
         for (let port = 1; port <= numTracks; port++) {
-          // For recorders: show all tracks. For others: only show connected tracks
-          if (isRecorder || (connectedPortsSet && connectedPortsSet.has(port))) {
+          // Only show connected tracks
+          if (connectedPortsSet && connectedPortsSet.has(port)) {
             // Get the label for this recorder track output
             try {
               const label = await getOutputLabel(e, port, graph.value)
               sources.push({
                 id: e.id,
                 port,
-                label,
+                label: `${label} (Recorder ${e.track_name || e.label || ''})`.trim(),
                 feedKey: `${e.id}:${port}`
               })
             } catch (err) {
@@ -335,7 +329,7 @@ async function loadAvailableUpstreamSources() {
               sources.push({
                 id: e.id,
                 port,
-                label: `${e.track_name || e.label || 'Recorder'} Track ${port}`,
+                label: `${e.track_name || e.label || 'Recorder'} Track ${port} (Recorder)`,
                 feedKey: `${e.id}:${port}`
               })
             }
