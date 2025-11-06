@@ -16,6 +16,8 @@ export async function getOutputLabel(node, portNum, graph) {
   }
 
   if (type === 'venue_sources') {
+    // If we don't know which port, don't query (avoids eq.null errors)
+    if (portNum === null || portNum === undefined) return ''
     // Fallback to venue_source_feeds
     try {
       const { data } = await supabase
@@ -35,7 +37,7 @@ export async function getOutputLabel(node, portNum, graph) {
         return label.trim()
       }
     } catch {}
-    return `Output ${portNum}`
+    return ''
   }
 
   if (type === 'source') {

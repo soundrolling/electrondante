@@ -812,9 +812,11 @@ function getUpstreamLabel(inputNum) {
 async function onUpstreamChange(inputNum) {
   // Autosave per-input for transformers and recorders; keeps UI in sync
   try {
-    await saveMap(inputNum, true)
-    saveStatus.value[inputNum] = 'saved'
-    setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
+    const result = await saveMap(inputNum, true)
+    if (result && result.savedCount > 0 && result.errorCount === 0) {
+      saveStatus.value[inputNum] = 'saved'
+      setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
+    }
   } catch {}
 }
 
@@ -1260,9 +1262,11 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
         toast.info('No changes to save')
       }
     }
+    return { savedCount, errorCount }
   } catch (err) {
     console.error('[Inspector][Map] save failed', err)
     toast.error('Failed to save map: ' + (err.message || 'Unknown error'))
+    return { savedCount: 0, errorCount: 1 }
   } finally {
     saving.value = false
   }
