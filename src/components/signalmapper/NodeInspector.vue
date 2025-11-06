@@ -57,6 +57,21 @@
                     <option :value="'__NO_SOURCE__'">-- No source --</option>
                     <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
+                  <!-- Gain field for transformer inputs (only show when input is assigned) -->
+                  <div v-if="type === 'transformer' && upstreamMap[n] && upstreamMap[n] !== '__NO_SOURCE__'" style="display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; margin-top: 8px;">
+                    <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary);">Gain (dB):</label>
+                    <input 
+                      type="number" 
+                      v-model.number="inputGain[n]" 
+                      @blur="saveInputGain(n)"
+                      step="0.5" 
+                      min="-60" 
+                      max="60" 
+                      placeholder="0.0"
+                      class="input"
+                      style="padding: 6px 8px; font-size: 13px;"
+                    />
+                  </div>
                   <div v-if="saveStatus[n] === 'saved'" class="save-indicator">✓ Saved</div>
                   <div v-else-if="saveStatus[n] === 'cleared'" class="save-indicator">✓ Cleared</div>
                 </div>
@@ -122,12 +137,18 @@ const isIncomingMap = computed(() => !!fromNodeRef.value)
 const graph = ref(null)
 // Source settings
 const sourcePadDb = ref(0)
+// Transformer input gain tracking
+const inputGain = ref({}) // { inputNumber: gainDb }
 
-onMounted(() => {
+onMounted(async () => {
   // Initialize sourcePadDb from node if present
   if (type.value === 'source') {
     const pad = props.node?.pad_db
     sourcePadDb.value = typeof pad === 'number' ? pad : 0
+  }
+  // Load transformer input gain values
+  if (type.value === 'transformer') {
+    await loadInputGain()
   }
 })
 
@@ -141,6 +162,71 @@ async function saveSourceSettings() {
   } catch (e) {
     console.error('[Inspector][Settings] failed to save source settings', e)
     toast.error('Failed to save settings')
+  }
+}
+
+// Load gain values for transformer inputs
+async function loadInputGain() {
+  if (type.value !== 'transformer') return
+  
+  try {
+    const { data, error } = await supabase
+      .from('transformer_input_gain')
+      .select('input_number, gain_db')
+      .eq('node_id', props.node.id)
+    
+    if (error) throw error
+    
+    // Initialize all inputs to 0, then update with loaded values
+    const gainMap = {}
+    for (let i = 1; i <= inputCount.value; i++) {
+      gainMap[i] = 0
+    }
+    
+    if (data) {
+      data.forEach(row => {
+        gainMap[row.input_number] = Number(row.gain_db) || 0
+      })
+    }
+    
+    inputGain.value = gainMap
+  } catch (e) {
+    console.error('[Inspector] failed to load input gain', e)
+    // Initialize with default values on error
+    const gainMap = {}
+    for (let i = 1; i <= inputCount.value; i++) {
+      gainMap[i] = 0
+    }
+    inputGain.value = gainMap
+  }
+}
+
+// Save gain value for a specific transformer input
+async function saveInputGain(inputNum) {
+  if (type.value !== 'transformer') return
+  
+  const gainValue = Number(inputGain.value[inputNum]) || 0
+  
+  try {
+    // Use upsert to insert or update
+    const { error } = await supabase
+      .from('transformer_input_gain')
+      .upsert({
+        node_id: props.node.id,
+        project_id: props.projectId,
+        input_number: Number(inputNum),
+        gain_db: gainValue
+      }, {
+        onConflict: 'node_id,input_number'
+      })
+    
+    if (error) throw error
+    
+    // Show subtle feedback (optional - can remove if too noisy)
+    // toast.success(`Gain for Input ${inputNum} saved`)
+  } catch (e) {
+    console.error('[Inspector] failed to save input gain', e)
+    toast.error(`Failed to save gain for Input ${inputNum}`)
   }
 }
 const upstream = ref([])
@@ -894,6 +980,22 @@ function getDownstreamPortOptions(targetNodeId) {
 async function clearUpstreamConnection(inputNum) {
   upstreamMap.value[inputNum] = '__NO_SOURCE__'
   delete upstreamConnections.value[inputNum]
+  
+  // Also clear gain value for transformer inputs
+  if (type.value === 'transformer') {
+    delete inputGain.value[inputNum]
+    // Delete from database
+    try {
+      await supabase
+        .from('transformer_input_gain')
+        .delete()
+        .eq('node_id', props.node.id)
+        .eq('input_number', Number(inputNum))
+    } catch (e) {
+      console.warn('[Inspector] failed to delete input gain', e)
+    }
+  }
+  
   try {
     const result = await saveMap(inputNum, true)
     await loadAvailableUpstreamSources()
