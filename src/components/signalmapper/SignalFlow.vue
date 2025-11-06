@@ -1799,6 +1799,7 @@ function drawCanvas() {
 
 function drawNode(ctx, node) {
   const isSource = (node.gear_type || node.type) === 'source'
+  const isVenueSources = (node.gear_type || node.type) === 'venue_sources'
   const isAdHocSource = isSource && ((node.type === 'source') || !node.gear_id)
   const isSelected = node === selectedNode.value
   const pos = getCanvasPos(node)
@@ -1816,9 +1817,10 @@ function drawNode(ctx, node) {
     recorder: '#dc3545'
   }
   // Ad-hoc sources use purple for extra clarity
-  const color = isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.type] || '#6c757d')
+  const color = isVenueSources ? '#6d28d9' : (isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.type] || '#6c757d'))
   
-  ctx.fillStyle = isSelected ? color : '#fff'
+  // Venue Sources should be solid purple regardless of selection
+  ctx.fillStyle = isVenueSources ? '#6d28d9' : (isSelected ? color : '#fff')
   ctx.strokeStyle = color
   ctx.lineWidth = isSelected ? 4 : 2
   ctx.fill()
