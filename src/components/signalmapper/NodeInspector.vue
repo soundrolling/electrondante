@@ -411,13 +411,9 @@ async function loadConnections() {
     const src = props.elements.find(e => e.id === p.from_node_id)
     const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
     
-    // For transformers and recorders without port maps, infer port from input_number (1:1 pass-through)
-    // For transformers, output N corresponds to input N
-    // For recorders, output track N corresponds to input track N
-    let inferredPort = feedPort
-    if ((srcType === 'transformer' || srcType === 'recorder') && !feedPort && p.input_number) {
-      inferredPort = Number(p.input_number)
-    }
+  // Do not infer ports for transformers/recorders when no port maps exist.
+  // We only consider explicit port maps; otherwise leave unassigned until user selects.
+  let inferredPort = feedPort
     
     // For venue_sources, transformers, and recorders, use port in feedKey
     // For regular sources, don't use port (they typically have single output)
@@ -425,8 +421,8 @@ async function loadConnections() {
     const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
     
     upstreamMap.value[inputNum] = feedKey
-    // Use inferredPort for transformers/recorders, feedPort for venue sources, or inputNum as fallback
-    const portForLabel = inferredPort || feedPort || ((srcType === 'transformer' || srcType === 'recorder') ? inputNum : null) || inputNum
+  // Only use explicit port maps for label resolution; otherwise leave blank
+  const portForLabel = inferredPort || feedPort || null
     const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
     upstreamLabels.value[inputNum] = label // Cache the label for display
     upstream.value.push({ key: p.id, input: inputNum, label })
@@ -769,22 +765,9 @@ async function updateUpstreamLabels() {
             const srcType = (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase()
             let portForLabel = feedPort
             
-            // For transformers: use port map if available, otherwise infer from input_number
-            // For transformers, output N corresponds to input N (1:1 pass-through)
-            if (srcType === 'transformer') {
-              if (feedPort !== null) {
-                // Use the port map - this is the transformer output port we want
-                portForLabel = feedPort
-              } else if (conn.input_number) {
-                // No port map, infer: transformer output N = input N
-                portForLabel = Number(conn.input_number)
-              } else {
-                // Fallback to inputNum as transformer output port
-                portForLabel = Number(inputNum)
-              }
-            } else if (!portForLabel) {
-              // For non-transformers, use inputNum if no port map
-              portForLabel = Number(inputNum)
+            // Only use explicit port maps for label resolution; avoid inferring when none exists
+            if (feedPort !== null) {
+              portForLabel = feedPort
             }
             
             // Resolve label from graph using the determined port
@@ -991,9 +974,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
               const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
               
-              // For transformers and venue_sources, always use port maps (even if feedPort wasn't explicitly set)
-              // This ensures we can track individual feeds through the chain
-              const portToUse = feedPort !== null ? feedPort : (isTransformerOrVenueSource ? Number(inputNum) : null)
+              // Only create a port map when an explicit from_port (feedPort) is selected
+              const portToUse = (feedPort !== null) ? feedPort : null
               
               if (portToUse !== null) {
                 // Validate port numbers are valid
@@ -1089,17 +1071,16 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
               const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
               
-              // If this is a transformer/venue_source to recorder/transformer connection with port mapping,
-              // don't set input_number - port maps will handle it
+              // For transformer/venue_source -> recorder/transformer connections, do NOT set input_number
+              // even if feedPort is null. We want an unassigned connection until the user selects a port.
               const connectionData = {
                 project_id: props.projectId,
                 from_node_id: nodeId,
                 to_node_id: props.node.id
               }
               
-              // Only set input_number if we're NOT using port maps (for backward compatibility with simple connections)
-              // For transformers/venue_sources with port maps, we'll skip input_number
-              if (!(isTransformerOrVenueSource && isRecorderOrTransformer && feedPort !== null)) {
+              // Only set input_number for simple source -> non-structured targets
+              if (!(isTransformerOrVenueSource && isRecorderOrTransformer)) {
                 connectionData.input_number = Number(inputNum)
               }
               
@@ -1204,9 +1185,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
               const isTransformerOrVenueSourceOrRecorder = (srcType === 'transformer' || srcType === 'venue_sources' || srcType === 'recorder')
               
-              // For transformers, venue_sources, and recorders, always use port maps (even if feedPort wasn't explicitly set)
-              // This ensures we can track individual feeds/tracks through the chain
-              const portToUse = feedPort !== null ? feedPort : (isTransformerOrVenueSourceOrRecorder ? Number(inputNum) : null)
+              // Only create a port map when an explicit from_port (feedPort) is selected
+              const portToUse = (feedPort !== null) ? feedPort : null
               
               if (portToUse !== null) {
                 // Validate port numbers are valid
