@@ -732,15 +732,6 @@ try {
 }
 
 async function deleteNote(id) {
-const { isConfirmed } = await Swal.fire({
-  title: 'Delete this note?',
-  text: 'Cannot undo.',
-  icon: 'warning',
-  showCancelButton: true,
-  confirmButtonColor: '#ef4444'
-});
-if (!isConfirmed) return;
-
 try {
   await mutateTableData('notes', 'delete', { id });
   toast.success(isOnline.value ? 'Note deleted' : 'Note deleted offline');
