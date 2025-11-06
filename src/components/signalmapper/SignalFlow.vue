@@ -2358,15 +2358,21 @@ function handleVenueSourcesSaved() {
 async function deleteSelected() {
   if (!selectedNode.value) return
 
-  const isSource = (selectedNode.value.gear_type || selectedNode.value.type) === 'source'
-  if (isSource) {
-    const isAdHoc = (selectedNode.value.type === 'source') || !selectedNode.value.gear_id
-    if (!isAdHoc) {
-      toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
-      return
-    }
+  // Check if this is a gear source node (from mic placement)
+  // These should only be deleted from the Mic Placement tab
+  const isGearSource = (selectedNode.value.gear_type || selectedNode.value.type) === 'source' && 
+                       selectedNode.value.gear_id
+  
+  if (isGearSource) {
+    toast.error('Cannot delete mic-placement sources here. Delete from Mic Placement tab.')
+    return
   }
 
+  // Allow deletion of:
+  // - Transformers (gear_type === 'transformer')
+  // - Recorders (gear_type === 'recorder')
+  // - Ad-hoc sources (type === 'source' without gear_id)
+  // - Venue sources (gear_type === 'venue_sources')
   const nodeLabel = selectedNode.value.label
   if (!confirm(`Delete ${nodeLabel} and all its connections?`)) return
 
@@ -2460,6 +2466,16 @@ watch([() => props.nodes, () => props.connections, zoomLevel], () => {
 }, { deep: true, immediate: false })
 
 // Lifecycle
+// Keyboard handler for Delete key
+function handleKeyDown(e) {
+  // Handle Delete or Backspace key
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNode.value) {
+    // Prevent default browser behavior (e.g., going back in history)
+    e.preventDefault()
+    deleteSelected()
+  }
+}
+
 onMounted(() => {
   if (canvas.value) {
     canvas.value.width = canvasWidth.value * dpr
@@ -2469,6 +2485,11 @@ onMounted(() => {
   // Note: All scroll/wheel blocking has been removed to allow normal page scrolling.
   // Zoom is ONLY controlled via the +/- buttons with preset intervals (25% steps).
   // Scrolling will NOT trigger zoom changes.
+  window.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
 })
 // Prompt when entering Link mode
 watch(tool, (v, prev) => {

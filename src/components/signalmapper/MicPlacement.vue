@@ -1104,6 +1104,15 @@ async function cascadeDeleteNode(nodeId) {
 async function deleteSelected() {
   if (!selectedMic.value) return
   
+  // Only allow deleting gear source nodes in mic placement view
+  // Gear source nodes have gear_id and gear_type === 'source'
+  const isGearSource = selectedMic.value.gear_id && selectedMic.value.gear_type === 'source'
+  
+  if (!isGearSource) {
+    toast.error('Only gear source nodes can be deleted from Mic Placement view.')
+    return
+  }
+  
   const micLabel = selectedMic.value.track_name || selectedMic.value.label
   if (!confirm(`Delete ${micLabel} and all its connections?`)) return
 
@@ -1154,6 +1163,16 @@ async function updateMicFromContextMenu() {
 async function deleteMicFromContextMenu() {
   if (!selectedMic.value) return
   
+  // Only allow deleting gear source nodes in mic placement view
+  // Gear source nodes have gear_id and gear_type === 'source'
+  const isGearSource = selectedMic.value.gear_id && selectedMic.value.gear_type === 'source'
+  
+  if (!isGearSource) {
+    toast.error('Only gear source nodes can be deleted from Mic Placement view.')
+    closeContextMenu()
+    return
+  }
+  
   const micLabel = selectedMic.value.track_name || selectedMic.value.label
   if (!confirm(`Delete ${micLabel} and all its connections?`)) return
 
@@ -1176,10 +1195,16 @@ watch(() => props.nodes, () => nextTick(drawCanvas))
 // Persist opacity changes
 // no-op: opacity changes are not persisted locally
 
-// Keyboard handler for context menu
+// Keyboard handler for context menu and delete
 function handleKeyDown(e) {
   if (e.key === 'Escape' && showContextMenu.value) {
     closeContextMenu()
+  }
+  // Handle Delete or Backspace key
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedMic.value && !showContextMenu.value) {
+    // Prevent default browser behavior (e.g., going back in history)
+    e.preventDefault()
+    deleteSelected()
   }
 }
 
