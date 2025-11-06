@@ -1626,7 +1626,6 @@ async function saveSelectedConnection() {
 async function deleteSelectedConnection() {
   const c = selectedConn.value
   if (!c) return
-  if (!confirm('Delete this connection?')) return
   try {
     // Always delete port mappings first (deleteConnection will do this, but we do it explicitly here too)
     // to ensure cleanup happens before cascade logic
