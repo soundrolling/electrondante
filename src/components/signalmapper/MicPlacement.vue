@@ -38,37 +38,6 @@
     </div>
   </div>
 
-  <!-- Properties Panel (always rendered; disabled when no selection) -->
-  <div class="properties-panel" :class="{ disabled: !selectedMic }">
-    <h4>Mic Properties</h4>
-    <div class="property-row">
-      <label>Track Name:</label>
-      <input 
-        v-model="trackNameProxy" 
-        @change="updateSelectedMic"
-        :disabled="!selectedMic"
-        type="text"
-        placeholder="e.g. Stage L"
-      />
-    </div>
-    <div class="property-row">
-      <label>Rotation (degrees):</label>
-      <input 
-        v-model.number="rotationProxy" 
-        @change="updateSelectedMic"
-        :disabled="!selectedMic"
-        type="number"
-        min="0"
-        max="360"
-        step="1"
-      />
-    </div>
-    <div class="property-row">
-      <label>Label:</label>
-      <span>{{ selectedMic ? selectedMic.label : '—' }}</span>
-    </div>
-  </div>
-
   <!-- Canvas -->
   <div class="canvas-wrapper" ref="canvasWrapper">
     <canvas 
@@ -132,6 +101,9 @@
         <div class="context-menu-actions">
           <button @click="deleteMicFromContextMenu" class="btn-danger context-menu-btn">
             🗑️ Delete
+          </button>
+          <button @click="saveAndCloseContextMenu" class="btn-primary context-menu-btn">
+            Save
           </button>
           <button @click="closeContextMenu" class="btn-secondary context-menu-btn">
             Close
@@ -353,15 +325,6 @@ function saveImageState() {
 const selectedMic = ref(null)
 
 // Safe two-way bindings so inputs remain mounted when nothing is selected
-const trackNameProxy = computed({
-  get() { return selectedMic.value?.track_name || '' },
-  set(val) { if (selectedMic.value) { selectedMic.value.track_name = val } }
-})
-
-const rotationProxy = computed({
-  get() { return selectedMic.value?.rotation ?? 0 },
-  set(val) { if (selectedMic.value) { selectedMic.value.rotation = Number(val) || 0 } }
-})
 const draggingMic = ref(null)
 const rotatingMic = ref(null)
 const rotationMode = ref(false) // stays enabled until user clicks off
@@ -1035,11 +998,6 @@ async function placeMic() {
   }
 }
 
-async function updateSelectedMic() {
-  if (!selectedMic.value) return
-  await saveMicUpdate(selectedMic.value)
-}
-
 async function saveMicUpdate(mic) {
   try {
     await updateNode({
@@ -1155,6 +1113,18 @@ async function updateMicFromContextMenu() {
   
   await saveMicUpdate(selectedMic.value)
   drawCanvas()
+}
+
+async function saveAndCloseContextMenu() {
+  if (!selectedMic.value) return
+  
+  // Ensure all current values are saved
+  selectedMic.value.track_name = contextMenuTrackName.value
+  selectedMic.value.rotation = contextMenuRotation.value
+  
+  await saveMicUpdate(selectedMic.value)
+  drawCanvas()
+  closeContextMenu()
 }
 
 async function deleteMicFromContextMenu() {
@@ -1631,49 +1601,6 @@ defineExpose({ getCanvasDataURL })
   cursor: not-allowed;
 }
 
-.properties-panel {
-  padding: 12px 15px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.properties-panel.disabled { opacity: 0.6; }
-
-.properties-panel h4 {
-  margin: 0;
-  font-size: 16px;
-  color: #495057;
-}
-
-.property-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.property-row label {
-  min-width: 150px;
-  font-weight: 500;
-  color: #495057;
-}
-
-.property-row input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-}
-
-.property-row input:disabled {
-  background: var(--border-light);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-}
 
 .canvas-wrapper {
   display: flex;
@@ -1978,12 +1905,6 @@ defineExpose({ getCanvasDataURL })
   .inline-setting { grid-column: span 2; }
   .center-group.mobile-stack { display:grid; grid-template-columns: 1fr; gap:8px; }
   .canvas-wrapper { padding: 8px 12px; }
-  /* Stack mic properties on mobile */
-  .properties-panel { flex-direction: column; align-items: stretch; gap: 12px; }
-  .properties-panel h4 { margin-bottom: 4px; }
-  .property-row { flex-direction: column; align-items: stretch; gap: 6px; }
-  .property-row label { min-width: 0; }
-  .property-row input { width: 100%; }
 }
 
 /* Context Menu Styles */
@@ -2139,6 +2060,15 @@ defineExpose({ getCanvasDataURL })
 
 .context-menu-btn.btn-danger:hover {
   background: var(--color-error-600);
+}
+
+.context-menu-btn.btn-primary {
+  background: var(--color-primary-500);
+  color: white;
+}
+
+.context-menu-btn.btn-primary:hover {
+  background: var(--color-primary-600);
 }
 
 .context-menu-btn.btn-secondary {
