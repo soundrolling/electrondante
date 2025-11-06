@@ -281,8 +281,8 @@ async function loadAvailableUpstreamSources() {
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
         for (let port = 1; port <= numOutputs; port++) {
-          // Only show connected outputs
-          if (connectedPortsSet && connectedPortsSet.has(port)) {
+          // When a transformer is connected, expose ALL of its outputs so multiple
+          // outputs can be mapped to different recorder tracks
             // Resolve label for this transformer output; if we cannot resolve to a real upstream label, skip it
             try {
               const label = await getOutputLabel(e, port, graph.value)
@@ -297,7 +297,6 @@ async function loadAvailableUpstreamSources() {
             } catch (err) {
               // If label resolution fails, ignore this port (no saved upstream connection)
             }
-          }
         }
       }
     } else if (eType === 'recorder') {
