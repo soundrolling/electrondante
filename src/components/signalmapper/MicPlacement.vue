@@ -88,6 +88,62 @@
     />
   </div>
 
+  <!-- Mic Context Menu -->
+  <div v-if="showContextMenu" class="context-menu-overlay" @click="closeContextMenu">
+    <div class="context-menu" :style="contextMenuStyle" @click.stop>
+      <div class="context-menu-header">
+        <h4>{{ selectedMic?.track_name || selectedMic?.label || 'Mic' }}</h4>
+        <button @click="closeContextMenu" class="close-btn">×</button>
+      </div>
+      <div class="context-menu-body">
+        <div class="context-menu-section">
+          <label>Track Name:</label>
+          <input 
+            v-model="contextMenuTrackName" 
+            @change="updateMicFromContextMenu"
+            type="text"
+            placeholder="e.g. Stage L"
+            class="context-menu-input"
+          />
+        </div>
+        <div class="context-menu-section">
+          <label>Rotation (degrees):</label>
+          <div class="rotation-controls">
+            <input 
+              v-model.number="contextMenuRotation" 
+              @change="updateMicFromContextMenu"
+              type="number"
+              min="0"
+              max="360"
+              step="1"
+              class="context-menu-input rotation-input"
+            />
+            <div class="quick-rotation-buttons">
+              <button 
+                v-for="angle in [0, 45, 90, 135, 180, 225, 270, 315]"
+                :key="angle"
+                @click="setQuickRotation(angle)"
+                class="quick-rotation-btn"
+                :class="{ active: Math.abs((contextMenuRotation % 360) - angle) < 1 }"
+                :title="`${angle}°`"
+              >
+                {{ angle }}°
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="context-menu-actions">
+          <button @click="deleteMicFromContextMenu" class="btn-danger context-menu-btn">
+            🗑️ Delete
+          </button>
+          <button @click="closeContextMenu" class="btn-secondary context-menu-btn">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Gear Selection Modal -->
   <div v-if="showGearModal" class="modal-overlay" @click="closeGearModal">
     <div class="modal-content" @click.stop>
@@ -330,6 +386,12 @@ const selectedMicForOrientation = ref(null)
 const selectedOrientation = ref(null)
 const trackNameInput = ref('')
 
+// Context menu state
+const showContextMenu = ref(false)
+const contextMenuStyle = ref({})
+const contextMenuTrackName = ref('')
+const contextMenuRotation = ref(0)
+
 // Available mics (sources only)
 const availableMics = computed(() => {
   return props.gearList.filter(g => 
@@ -402,11 +464,21 @@ function drawMic(ctx, mic) {
   ctx.fillStyle = mic === selectedMic.value ? '#007bff' : '#495057'
   ctx.fill()
 
-  // Selection indicator
+  // Selection indicator - enhanced highlighting
   if (mic === selectedMic.value) {
+    // Outer glow ring
+    ctx.beginPath()
+    ctx.arc(0, 0, 35, 0, 2 * Math.PI)
+    ctx.strokeStyle = '#007bff'
+    ctx.lineWidth = 3
+    ctx.setLineDash([8, 4])
+    ctx.stroke()
+    ctx.setLineDash([])
+    
+    // Inner selection ring
     ctx.beginPath()
     ctx.arc(0, 0, 30, 0, 2 * Math.PI)
-    ctx.strokeStyle = '#007bff'
+    ctx.strokeStyle = '#0056b3'
     ctx.lineWidth = 2
     ctx.setLineDash([5, 5])
     ctx.stroke()
@@ -835,26 +907,24 @@ function getMicAt(imgX, imgY) {
   return null
 }
 
-// Double-click handler for auto-rotation
+// Double-click handler for context menu
 function onDoubleClick(e) {
   const { x, y } = getCanvasCoords(e)
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
   
-  // Only start auto-rotation if double-clicking on the selected mic
-  if (clickedMic && selectedMic.value && clickedMic.id === selectedMic.value.id) {
+  if (clickedMic) {
     // Check if not clicking on rotation handle
     const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
     const handleY = micY - 35
     const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
     
     if (dist >= 14) {
-      // Toggle auto-rotation
-      if (autoRotatingMic.value && autoRotatingMic.value.id === clickedMic.id) {
-        stopAutoRotation()
-      } else {
-        startAutoRotation(clickedMic)
-      }
+      // Stop any auto-rotation
+      stopAutoRotation()
+      // Select the mic and show context menu
+      selectedMic.value = clickedMic
+      openContextMenu(e)
     }
   }
 }
@@ -1041,7 +1111,81 @@ async function deleteSelected() {
   try {
     await cascadeDeleteNode(selectedMic.value.id)
     selectedMic.value = null
+    closeContextMenu()
     toast.success(`${micLabel} and connections deleted`)
+    nextTick(drawCanvas)
+  } catch (err) {
+    console.error('Error deleting mic:', err)
+    toast.error('Failed to delete microphone')
+  }
+}
+
+// Context menu functions
+function openContextMenu(e) {
+  if (!selectedMic.value) return
+  
+  // Set the context menu values
+  contextMenuTrackName.value = selectedMic.value.track_name || ''
+  contextMenuRotation.value = selectedMic.value.rotation || 0
+  
+  // Position the menu near the click, but keep it on screen
+  const rect = canvas.value.getBoundingClientRect()
+  const menuWidth = 320
+  const menuHeight = 400
+  let menuX = e.clientX
+  let menuY = e.clientY
+  
+  // Adjust if menu would go off screen
+  if (menuX + menuWidth > window.innerWidth) {
+    menuX = window.innerWidth - menuWidth - 10
+  }
+  if (menuY + menuHeight > window.innerHeight) {
+    menuY = window.innerHeight - menuHeight - 10
+  }
+  if (menuX < 10) menuX = 10
+  if (menuY < 10) menuY = 10
+  
+  contextMenuStyle.value = {
+    left: `${menuX}px`,
+    top: `${menuY}px`
+  }
+  
+  showContextMenu.value = true
+}
+
+function closeContextMenu() {
+  showContextMenu.value = false
+  contextMenuTrackName.value = ''
+  contextMenuRotation.value = 0
+}
+
+function setQuickRotation(angle) {
+  contextMenuRotation.value = angle
+  updateMicFromContextMenu()
+}
+
+async function updateMicFromContextMenu() {
+  if (!selectedMic.value) return
+  
+  selectedMic.value.track_name = contextMenuTrackName.value
+  selectedMic.value.rotation = contextMenuRotation.value
+  
+  await saveMicUpdate(selectedMic.value)
+  drawCanvas()
+}
+
+async function deleteMicFromContextMenu() {
+  if (!selectedMic.value) return
+  
+  const micLabel = selectedMic.value.track_name || selectedMic.value.label
+  if (!confirm(`Delete ${micLabel} and all its connections?`)) return
+
+  try {
+    await cascadeDeleteNode(selectedMic.value.id)
+    const deletedLabel = micLabel
+    selectedMic.value = null
+    closeContextMenu()
+    toast.success(`${deletedLabel} and connections deleted`)
     nextTick(drawCanvas)
   } catch (err) {
     console.error('Error deleting mic:', err)
@@ -1055,10 +1199,18 @@ watch(() => props.nodes, () => nextTick(drawCanvas))
 // Persist opacity changes
 // no-op: opacity changes are not persisted locally
 
+// Keyboard handler for context menu
+function handleKeyDown(e) {
+  if (e.key === 'Escape' && showContextMenu.value) {
+    closeContextMenu()
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   checkScreenSize()
   window.addEventListener('resize', checkScreenSize)
+  window.addEventListener('keydown', handleKeyDown)
   if (canvas.value) {
     canvas.value.width = canvasWidth.value * dpr
     canvas.value.height = canvasHeight.value * dpr
@@ -1074,6 +1226,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
+  window.removeEventListener('keydown', handleKeyDown)
   stopAutoRotation()
 })
 
@@ -1832,6 +1985,157 @@ defineExpose({ getCanvasDataURL })
   .property-row { flex-direction: column; align-items: stretch; gap: 6px; }
   .property-row label { min-width: 0; }
   .property-row input { width: 100%; }
+}
+
+/* Context Menu Styles */
+.context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  background: transparent;
+}
+
+.context-menu {
+  position: fixed;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  min-width: 320px;
+  max-width: 400px;
+  border: 1px solid var(--border-light);
+  z-index: 1002;
+}
+
+.context-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-secondary);
+  border-radius: 12px 12px 0 0;
+}
+
+.context-menu-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.context-menu-body {
+  padding: 20px;
+}
+
+.context-menu-section {
+  margin-bottom: 20px;
+}
+
+.context-menu-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.context-menu-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.context-menu-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+}
+
+.rotation-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rotation-input {
+  width: 100%;
+}
+
+.quick-rotation-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.quick-rotation-btn {
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-medium);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.quick-rotation-btn:hover {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-300);
+  transform: translateY(-1px);
+}
+
+.quick-rotation-btn.active {
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-600);
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.context-menu-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+}
+
+.context-menu-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: none;
+}
+
+.context-menu-btn.btn-danger {
+  background: var(--color-error-500);
+  color: white;
+}
+
+.context-menu-btn.btn-danger:hover {
+  background: var(--color-error-600);
+}
+
+.context-menu-btn.btn-secondary {
+  background: var(--color-secondary-500);
+  color: white;
+}
+
+.context-menu-btn.btn-secondary:hover {
+  background: var(--color-secondary-600);
 }
 </style>
 

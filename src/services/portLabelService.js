@@ -16,6 +16,8 @@ export async function getOutputLabel(node, portNum, graph) {
   }
 
   if (type === 'venue_sources') {
+    // If we don't know which port, don't query (avoids eq.null errors)
+    if (portNum === null || portNum === undefined) return ''
     // Fallback to venue_source_feeds
     try {
       const { data } = await supabase
@@ -35,10 +37,11 @@ export async function getOutputLabel(node, portNum, graph) {
         return label.trim()
       }
     } catch {}
-    return `Output ${portNum}`
+    return ''
   }
 
   if (type === 'source') {
+    if (portNum === null || portNum === undefined) return ''
     const outCount = node?.num_outputs || node?.outputs || 0
     const base = getBaseName(node)
     if (outCount === 2) {
@@ -112,7 +115,6 @@ export async function resolveTransformerInputLabel(transformerNode, inputNum, gr
         return await resolveTransformerInputLabel(upstreamNode, anyParent.input_number || 1, graph, visited)
       }
       const lbl = await getOutputLabel(upstreamNode, anyParent.input_number || 1, graph)
-      // console.log('[SignalMapper][Labels] resolveTransformerInputLabel:fallback-parent', { transformer_id: transformerNode?.id, inputNum, upstream_id: upstreamNode?.id, label: lbl })
       return lbl
     }
   }
@@ -152,7 +154,9 @@ function inferSourcePort(sourceNode, transformerInput, transformerParents, direc
     }
     return 1
   }
+  // For recorders, transformers, and venue_sources: output port N corresponds to input N (1:1 pass-through)
   if (type === 'recorder') return transformerInput
+  if (type === 'transformer') return transformerInput
   if (type === 'venue_sources') return transformerInput
   return transformerInput
 }

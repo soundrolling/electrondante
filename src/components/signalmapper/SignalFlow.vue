@@ -78,7 +78,7 @@
         Select your first connection node
       </template>
     </div>
-    <!-- Connection Details Modal -->
+    <!-- Connection Details Modal (Read-Only) -->
     <div 
       v-if="selectedConnectionId" 
       class="modal-overlay"
@@ -90,125 +90,42 @@
           <button @click="selectedConnectionId = null" class="close-btn">×</button>
         </div>
         <div class="connection-details-body">
-      <div class="detail-row">
-        <span class="label">From:</span>
-        <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
-      </div>
-      <div class="detail-row">
-        <span class="label">To:</span>
-        <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
-      </div>
-      <template v-if="needsPortMappingForSelected">
-        <div class="detail-row port-mapping-section">
-          <span class="label">Port Mappings:</span>
-          <div class="port-mappings-list-edit">
-            <div v-for="mapping in displayedEditPortMappings" :key="mapping._idx" class="port-mapping-row-edit">
-              <template v-if="editingIdx === mapping._idx">
-                <!-- Edit mode -->
-                <select class="inline-select" v-model.number="editFromPort" style="flex: 1; min-width: 100px;">
-                  <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  <option :value="mapping.from_port" v-if="!availableFromPortsForEdit.find(o => o.value === mapping.from_port)">
-                    {{ (mapping.label || (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port)) }}
-                  </option>
-                </select>
-                <span class="arrow">→</span>
-                <select class="inline-select" v-model.number="editToPort" style="flex: 1; min-width: 100px;">
-                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                  <option :value="mapping.to_port" v-if="!availableToPortsForEdit.find(o => o.value === mapping.to_port)">
-                    {{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, editFromPort || mapping.from_port) : `Input ${mapping.to_port}` }}
-                  </option>
-                </select>
-                <button type="button" class="btn-save-small" @click="saveEditMapping">✓</button>
-                <button type="button" class="btn-cancel-small" @click="cancelEditMapping">✕</button>
-              </template>
-              <template v-else>
-                <!-- Display mode -->
-                <span>{{ (mapping.label || (upstreamLabelsForFromNode.value && upstreamLabelsForFromNode.value[mapping.from_port]) || getFromPortDisplayForEdit(mapping.from_port)) }}</span>
-                <span class="arrow">→</span>
-                <span>{{ toNodeType === 'recorder' ? getToRecorderTrackNameDisplayForEdit(mapping.to_port, mapping.from_port) : `${toNodeOfSelected?.label} Input ${mapping.to_port}` }}</span>
-                <button type="button" class="btn-edit-small" @click="startEditMapping(mapping._idx)">✎</button>
-                <button type="button" class="btn-remove-small" @click="removeEditPortMapping(mapping._idx)">×</button>
-              </template>
-            </div>
-            <div class="port-mapping-add-edit">
-              <!-- Venue Sources: Text input for feed labels -->
-              <template v-if="fromNodeType === 'venue_sources'">
-                <input 
-                  type="text" 
-                  class="form-input-small" 
-                  v-model="venueSourceLabelInput"
-                  placeholder="e.g., DJA L, DJA R, Program 1"
-                  @keyup.enter="addVenueSourcePortMapping"
-                />
-                <span class="arrow">→</span>
-                <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
-                  <option :value="null">To Port</option>
-                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-                <button 
-                  type="button" 
-                  class="btn-add-small" 
-                  @click="addVenueSourcePortMapping" 
-                  :disabled="!venueSourceLabelInput || !venueSourceLabelInput.trim() || !newMappingToPort"
-                >
-                  Add
-                </button>
-              </template>
-              <!-- Regular port mapping -->
-              <template v-else>
-                <select v-model.number="newMappingFromPort" class="inline-select" :disabled="availableFromPortsForEdit.length === 0">
-                  <option :value="null">From Port</option>
-                  <option v-for="opt in availableFromPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-                <span class="arrow">→</span>
-                <select v-model.number="newMappingToPort" class="inline-select" :disabled="availableToPortsForEdit.length === 0">
-                  <option :value="null">To Port</option>
-                  <option v-for="opt in availableToPortsForEdit" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                </select>
-                <button type="button" class="btn-add-small" @click="addEditPortMapping" :disabled="!newMappingFromPort || !newMappingToPort">Add</button>
-              </template>
-            </div>
+          <div class="detail-row">
+            <span class="label">From:</span>
+            <span class="value">{{ getNodeLabelById(selectedConn?.from_node_id) }}</span>
           </div>
-        </div>
-      </template>
-      <template v-else-if="toNodeType !== 'recorder'">
-        <div class="detail-row">
-          <span class="label">Input:</span>
-          <select v-model.number="editInput" class="inline-select">
-            <option v-for="n in inputOptionsForSelected" :key="n" :value="n">{{ n }}</option>
-          </select>
-        </div>
-      </template>
-      <template v-else>
-        <div class="detail-row">
-          <span class="label">Input:</span>
-          <input type="number" min="1" v-model.number="editInput" class="inline-select" />
-        </div>
-      </template>
-      <div class="detail-row">
-        <span class="label">Pad (dB):</span>
-        <input type="number" min="-60" step="1" v-model.number="editPad" class="inline-select" />
-      </div>
-      <div class="detail-row">
-        <span class="label">Phantom Power:</span>
-        <input type="checkbox" v-model="editPhantom" />
-      </div>
-      <div class="detail-row">
-        <span class="label">Type:</span>
-        <select v-model="editType" class="inline-select">
-          <option>Mic</option>
-          <option>Line</option>
-          <option>Dante</option>
-          <option>Midi</option>
-          <option>Madi</option>
-        </select>
-      </div>
-          <div class="detail-actions">
-            <button class="btn-save" :class="{ success: saveTick }" @click="saveSelectedConnection">
-              <span v-if="saveTick">✓ Saved</span>
-              <span v-else>Save</span>
-            </button>
-            <button class="btn-delete" @click="deleteSelectedConnection">Delete</button>
+          <div class="detail-row">
+            <span class="label">To:</span>
+            <span class="value">{{ getNodeLabelById(selectedConn?.to_node_id) }}</span>
+          </div>
+          <!-- Only show input_number if connection doesn't use port maps -->
+          <template v-if="selectedConn?.input_number && !selectedConnHasPortMaps">
+            <div class="detail-row">
+              <span class="label">Input:</span>
+              <span class="value">{{ selectedConn.input_number }}</span>
+            </div>
+          </template>
+          <!-- Show port map info if connection uses port maps -->
+          <template v-if="selectedConnHasPortMaps">
+            <div class="detail-row">
+              <span class="label">Port Mapping:</span>
+              <span class="value">Multiple ports mapped</span>
+            </div>
+          </template>
+          <!-- Signal Type Selector -->
+          <div style="margin-top: 16px; display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px;">
+            <label style="font-weight: 600; color: var(--text-secondary);">Signal Type</label>
+            <select v-model="editType" class="select" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);"><option v-for="t in connectionTypes" :key="t" :value="t">{{ t }}</option></select>
+          </div>
+          <div class="detail-actions" style="margin-top: 16px; display: flex; gap: 8px; justify-content: space-between; align-items: center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:12px; color: var(--text-muted);">Legend color:</span>
+              <span :style="{ width: '16px', height: '16px', backgroundColor: getConnectionColor(editType), display: 'inline-block', borderRadius: '3px', border: '1px solid rgba(0,0,0,0.1)'}"></span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn" @click="saveSelectedConnection">Save</button>
+              <button class="btn-delete" @click="deleteSelectedConnection">Delete Connection</button>
+            </div>
           </div>
         </div>
       </div>
@@ -296,6 +213,7 @@
     v-if="inspectorOpen && inspectorNode"
     :projectId="projectId"
     :node="inspectorNode"
+    :fromNode="inspectorFromNode"
     :elements="nodes"
     @close="inspectorOpen = false; inspectorNode = null"
   />
@@ -318,6 +236,7 @@ import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as sv
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+import { jsPDF } from 'jspdf'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
@@ -354,6 +273,7 @@ const selectedConnectionId = ref(null)
 // Inspector state
 const inspectorOpen = ref(false)
 const inspectorNode = ref(null)
+const inspectorFromNode = ref(null)
 // Edit models for selected connection
 const editPad = ref(0)
 const editPhantom = ref(false)
@@ -383,7 +303,7 @@ const graphRef = ref(null)
 // Store recorder track names (track number -> source label) for the FROM recorder when editing
 const recorderTrackNamesForEdit = ref({})
 const draggingNode = ref(null)
-let dragStart = null
+let dragStart = null // { x, y, node } or null - tracks potential drag start
 
 // Zoom state
 const zoomLevel = ref(1.0)
@@ -454,6 +374,61 @@ const hasVenueSourcesNode = computed(() => {
 const allNodesForModal = computed(() => props.nodes)
 
 const selectedConn = computed(() => props.connections.find(c => c.id === selectedConnectionId.value) || null)
+
+// Cache for port map checks
+const portMapCache = ref(new Map()) // Map<connId, boolean>
+const selectedConnHasPortMaps = ref(false)
+
+// Async function to check if connection has port maps
+// Uses cached graph data first, then cache, then DB query as fallback
+async function checkPortMapsForConnection(connId) {
+  if (!connId) {
+    selectedConnHasPortMaps.value = false
+    return false
+  }
+  
+  // First check cache
+  if (portMapCache.value.has(connId)) {
+    const hasMaps = portMapCache.value.get(connId)
+    selectedConnHasPortMaps.value = hasMaps
+    return hasMaps
+  }
+  
+  // Try to use graph cache if available
+  if (graphRef.value?.mapsByConnId) {
+    const portMaps = graphRef.value.mapsByConnId[connId] || []
+    const hasMaps = portMaps.length > 0
+    portMapCache.value.set(connId, hasMaps)
+    selectedConnHasPortMaps.value = hasMaps
+    return hasMaps
+  }
+  
+  // Fallback to DB query only if graph not available
+  try {
+    const { data } = await supabase
+      .from('connection_port_map')
+      .select('id')
+      .eq('connection_id', connId)
+      .limit(1)
+    const hasMaps = !!(data && data.length > 0)
+    portMapCache.value.set(connId, hasMaps)
+    selectedConnHasPortMaps.value = hasMaps
+    return hasMaps
+  } catch {
+    selectedConnHasPortMaps.value = false
+    return false
+  }
+}
+
+// Watch selected connection and check for port maps
+watch(selectedConnectionId, async (connId) => {
+  if (connId) {
+    await checkPortMapsForConnection(connId)
+  } else {
+    selectedConnHasPortMaps.value = false
+  }
+}, { immediate: true })
+
 const fromNodeOfSelected = computed(() => {
   const c = selectedConn.value
   if (!c) return null
@@ -1193,6 +1168,107 @@ async function loadPortMappingsForConnection(connId) {
     editPortMappings.value = []
     return
   }
+  
+  // Try to use graph cache first (much faster)
+  if (graphRef.value?.mapsByConnId) {
+    const portMaps = graphRef.value.mapsByConnId[connId] || []
+    if (portMaps.length > 0) {
+      // Sort by from_port to match DB query behavior
+      const sortedMaps = [...portMaps].sort((a, b) => Number(a.from_port) - Number(b.from_port))
+      const data = sortedMaps.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+      
+      // Process the data (same logic as before)
+      if (data && data.length > 0) {
+        // If this is a venue sources connection, load labels from node's output_port_labels first
+        if (fromNodeType.value === 'venue_sources' && fromNodeOfSelected.value) {
+          // Build a complete list of ports so un-mapped ports also get labels
+          const totalPorts = (fromNodeOfSelected.value.num_outputs || fromNodeOfSelected.value.outputs || 0) || 0
+          const portNumbers = totalPorts > 0
+            ? Array.from({ length: totalPorts }, (_, i) => i + 1)
+            : data.map(m => m.from_port)
+          
+          // First, check node's output_port_labels (these are set from custom labels in port map)
+          const nodeLabels = {}
+          if (fromNodeOfSelected.value.output_port_labels && typeof fromNodeOfSelected.value.output_port_labels === 'object') {
+            portNumbers.forEach(portNum => {
+              const label = fromNodeOfSelected.value.output_port_labels[String(portNum)] || 
+                           fromNodeOfSelected.value.output_port_labels[portNum]
+              if (label) {
+                nodeLabels[portNum] = label
+              }
+            })
+          }
+          
+          // Fallback: Query venue_source_feeds for any ports not found in node labels
+          const missingPorts = portNumbers.filter(p => !nodeLabels[p])
+          const feedMap = { ...nodeLabels }
+          
+          if (missingPorts.length > 0) {
+            const { data: feeds } = await supabase
+              .from('venue_source_feeds')
+              .select('port_number, output_port_label, source_type, feed_identifier, channel')
+              .eq('node_id', fromNodeOfSelected.value.id)
+              .in('port_number', missingPorts)
+            
+            if (feeds) {
+              feeds.forEach(feed => {
+                if (feed.output_port_label && feed.output_port_label.trim()) {
+                  feedMap[feed.port_number] = feed.output_port_label.trim()
+                } else {
+                  // Construct a readable fallback from source_type/feed_identifier/channel
+                  const baseType = (feed.source_type || '').replace(/_/g, ' ')
+                  const typeName = baseType ? (baseType.charAt(0).toUpperCase() + baseType.slice(1)) : 'Source'
+                  let constructed = typeName
+                  if (feed.feed_identifier) constructed += ` ${feed.feed_identifier}`
+                  if (Number(feed.channel) === 1) constructed += ' L'
+                  if (Number(feed.channel) === 2) constructed += ' R'
+                  feedMap[feed.port_number] = constructed.trim()
+                }
+              })
+            }
+          }
+          
+          editPortMappings.value = data.map(m => ({
+            from_port: m.from_port,
+            to_port: m.to_port,
+            label: feedMap[m.from_port] // Include label from node or venue_source_feeds
+          }))
+          
+          // Initialize upstreamLabelsForFromNode with loaded labels
+          if (!upstreamLabelsForFromNode.value) {
+            upstreamLabelsForFromNode.value = {}
+          }
+          // Populate upstream labels for all known ports
+          portNumbers.forEach(p => {
+            if (feedMap[p]) {
+              upstreamLabelsForFromNode.value[p] = feedMap[p]
+            }
+          })
+
+          // Locally ensure the node carries labels for all ports so dropdowns show names
+          const existing = fromNodeOfSelected.value.output_port_labels || {}
+          const mergedLabels = { ...existing }
+          portNumbers.forEach(p => {
+            if (feedMap[p]) mergedLabels[String(p)] = feedMap[p]
+          })
+          fromNodeOfSelected.value.output_port_labels = mergedLabels
+          
+          // Initialize venue source port counter
+          const usedPorts = new Set(data.map(m => m.from_port).filter(Boolean))
+          venueSourceNextPort = 1
+          while (usedPorts.has(venueSourceNextPort)) {
+            venueSourceNextPort++
+          }
+          return // Successfully loaded from cache
+        } else {
+          editPortMappings.value = data.map(m => ({ from_port: m.from_port, to_port: m.to_port }))
+          return // Successfully loaded from cache
+        }
+      }
+    }
+  }
+  
+  // Fallback to DB query if graph cache not available or empty
   try {
     const { data, error } = await supabase
       .from('connection_port_map')
@@ -1351,17 +1427,30 @@ async function saveSelectedConnection() {
   try {
     // Handle port mapping connections
     if (needsPortMappingForSelected.value) {
+      // If there are no port maps to save, allow updating connection metadata only
       if (editPortMappings.value.length === 0) {
-        toast.error('Please add at least one port mapping.')
+        const payload = {
+          id: c.id,
+          pad: -Math.abs(Number(editPad.value) || 0),
+          phantom_power: editPhantom.value,
+          connection_type: editType.value
+        }
+        const updatedMeta = await updateConnection(payload)
+        emit('connection-updated', updatedMeta)
+        toast.success('Connection saved successfully')
+        selectedConnectionId.value = null // Close modal after successful save
         return
       }
       
       // Update parent connection properties
+      // For port-mapped connections, clear input_number and track_number since port maps handle everything
       const payload = {
         id: c.id,
         pad: -Math.abs(Number(editPad.value) || 0),
         phantom_power: editPhantom.value,
-        connection_type: editType.value
+        connection_type: editType.value,
+        input_number: null, // Port maps handle the mapping, no need for single input_number
+        track_number: null // Port maps handle track mapping
       }
       await updateConnection(payload)
       
@@ -1687,38 +1776,37 @@ function drawCanvas() {
   ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
   ctx.scale(dpr, dpr)
   
-  // Apply zoom transformation
-  ctx.save()
-  ctx.scale(zoomLevel.value, zoomLevel.value)
-
-  // Background (scaled)
+  // Background (not scaled - canvas stays same size)
   ctx.fillStyle = '#f8f9fa'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw connections (will be scaled by zoom)
+  // Draw connections (elements will be scaled by zoom, but canvas stays same)
   props.connections.forEach(conn => {
     drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
   })
 
-  // Draw nodes (will be scaled by zoom)
+  // Draw nodes (elements will be scaled by zoom, but canvas stays same)
   props.nodes.forEach(node => {
     drawNode(ctx, node)
   })
-  
-  ctx.restore()
 }
 
 function drawNode(ctx, node) {
   const isSource = (node.gear_type || node.type) === 'source'
+  const isVenueSources = (node.gear_type || node.type) === 'venue_sources'
   const isAdHocSource = isSource && ((node.type === 'source') || !node.gear_id)
   const isSelected = node === selectedNode.value
   const pos = getCanvasPos(node)
   
   ctx.save()
   
-  // Node circle
+  // Apply zoom to node size only (not position)
+  const nodeRadius = 35 * zoomLevel.value
+  const lineWidth = (isSelected ? 4 : 2) * zoomLevel.value
+  
+  // Node circle (scaled size)
   ctx.beginPath()
-  ctx.arc(pos.x, pos.y, 35, 0, 2 * Math.PI)
+  ctx.arc(pos.x, pos.y, nodeRadius, 0, 2 * Math.PI)
   
   // Color based on type
   const colors = {
@@ -1727,69 +1815,71 @@ function drawNode(ctx, node) {
     recorder: '#dc3545'
   }
   // Ad-hoc sources use purple for extra clarity
-  const color = isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.type] || '#6c757d')
+  const color = isVenueSources ? '#6d28d9' : (isAdHocSource ? '#6d28d9' : (colors[node.gear_type || node.type] || '#6c757d'))
   
-  ctx.fillStyle = isSelected ? color : '#fff'
+  // Venue Sources should be solid purple regardless of selection
+  ctx.fillStyle = isVenueSources ? '#6d28d9' : (isSelected ? color : '#fff')
   ctx.strokeStyle = color
-  ctx.lineWidth = isSelected ? 4 : 2
+  ctx.lineWidth = lineWidth
   ctx.fill()
   ctx.stroke()
 
-  // Selection indicator - enhanced visibility that persists
+  // Selection indicator - enhanced visibility that persists (scaled)
   if (isSelected) {
     // Outer glow ring (subtle background)
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 50, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 50 * zoomLevel.value, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 1
+    ctx.lineWidth = 1 * zoomLevel.value
     ctx.globalAlpha = 0.2
     ctx.stroke()
     ctx.globalAlpha = 1.0
     
     // Main dashed selection ring
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 45, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 45 * zoomLevel.value, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 3 // Thicker for better visibility
-    ctx.setLineDash([8, 4]) // More pronounced dashed pattern
+    ctx.lineWidth = 3 * zoomLevel.value // Thicker for better visibility
+    ctx.setLineDash([8 * zoomLevel.value, 4 * zoomLevel.value]) // More pronounced dashed pattern
     ctx.stroke()
     ctx.setLineDash([])
     
-    // Inner accent ring for extra emphasis
+    // Inner accent ring for extra emphasis (scaled)
     ctx.beginPath()
-    ctx.arc(pos.x, pos.y, 40, 0, 2 * Math.PI)
+    ctx.arc(pos.x, pos.y, 40 * zoomLevel.value, 0, 2 * Math.PI)
     ctx.strokeStyle = color
-    ctx.lineWidth = 1
+    ctx.lineWidth = 1 * zoomLevel.value
     ctx.globalAlpha = 0.5
     ctx.stroke()
     ctx.globalAlpha = 1.0
   }
 
-  // Label
+  // Label (scaled font size)
   ctx.fillStyle = '#222'
-  ctx.font = 'bold 12px sans-serif'
+  const fontSize = 12 * zoomLevel.value
+  ctx.font = `bold ${fontSize}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   
   // For sources, show track name if available
   const label = isSource && node.track_name ? node.track_name : node.label
-  ctx.fillText(label, pos.x, pos.y + 40)
+  ctx.fillText(label, pos.x, pos.y + 40 * zoomLevel.value)
 
-  // Draw an icon inside for ad-hoc sources
+  // Draw an icon inside for ad-hoc sources (scaled)
   if (isAdHocSource) {
     ctx.fillStyle = '#6d28d9'
-    ctx.font = '20px sans-serif'
+    ctx.font = `${20 * zoomLevel.value}px sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('🎚️', pos.x, pos.y)
   } else if (isSource && node.gear_id) {
-    // Draw gear name inside circle for source mics (first 6 characters)
+    // Draw gear name inside circle for source mics (first 6 characters, scaled)
     const gear = props.gearList.find(g => g.id === node.gear_id)
     if (gear && gear.gear_name) {
       const gearNameText = gear.gear_name.length > 6 
         ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
         : gear.gear_name.toUpperCase()
-      ctx.font = 'bold 11px sans-serif'
+      ctx.font = `bold ${11 * zoomLevel.value}px sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = isSelected ? '#fff' : '#495057'
@@ -1799,27 +1889,28 @@ function drawNode(ctx, node) {
 
   ctx.restore()
 
-  // Draw full gear name above node when dragging (for source mics)
+  // Draw full gear name above node when dragging (for source mics, scaled)
   if (draggingNode.value === node && isSource && node.gear_id) {
     const gear = props.gearList.find(g => g.id === node.gear_id)
     if (gear && gear.gear_name) {
       const gearNameText = gear.gear_name
       
-      // Set font before measuring
-      ctx.font = 'bold 12px sans-serif'
+      // Set font before measuring (scaled)
+      const dragFontSize = 12 * zoomLevel.value
+      ctx.font = `bold ${dragFontSize}px sans-serif`
       ctx.textAlign = 'center'
       const textMetrics = ctx.measureText(gearNameText)
       
-      const padX = 8
-      const padY = 4
+      const padX = 8 * zoomLevel.value
+      const padY = 4 * zoomLevel.value
       const bgW = Math.ceil(textMetrics.width) + padX * 2
-      const bgH = 18 + padY * 2
-      const labelY = pos.y - 55 // Position above the node
+      const bgH = 18 * zoomLevel.value + padY * 2
+      const labelY = pos.y - 55 * zoomLevel.value // Position above the node
       
-      // Background with border
+      // Background with border (scaled)
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1 * zoomLevel.value
       ctx.beginPath()
       ctx.rect(pos.x - bgW / 2, labelY - padY, bgW, bgH)
       ctx.fill()
@@ -1850,8 +1941,9 @@ function drawConnection(ctx, conn, isSelected = false) {
 
   ctx.save()
   ctx.strokeStyle = strokeColor
-  ctx.lineWidth = isSelected ? 4 : 3
-  ctx.setLineDash(isSelected ? [4, 4] : [8, 4])
+  // Scale line width with zoom
+  ctx.lineWidth = (isSelected ? 4 : 3) * zoomLevel.value
+  ctx.setLineDash(isSelected ? [4 * zoomLevel.value, 4 * zoomLevel.value] : [8 * zoomLevel.value, 4 * zoomLevel.value])
 
   ctx.beginPath()
   ctx.moveTo(fromPos.x, fromPos.y)
@@ -1860,18 +1952,19 @@ function drawConnection(ctx, conn, isSelected = false) {
 
   ctx.setLineDash([])
 
-  // Arrow at midpoint
+  // Arrow at midpoint (scaled)
   const mx = (fromPos.x + toPos.x) / 2
   const my = (fromPos.y + toPos.y) / 2
   const angle = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x)
+  const arrowSize = 12 * zoomLevel.value
 
   ctx.beginPath()
   ctx.moveTo(mx, my)
-  ctx.lineTo(mx - 12 * Math.cos(angle - Math.PI / 6), my - 12 * Math.sin(angle - Math.PI / 6))
+  ctx.lineTo(mx - arrowSize * Math.cos(angle - Math.PI / 6), my - arrowSize * Math.sin(angle - Math.PI / 6))
   ctx.moveTo(mx, my)
-  ctx.lineTo(mx - 12 * Math.cos(angle + Math.PI / 6), my - 12 * Math.sin(angle + Math.PI / 6))
+  ctx.lineTo(mx - arrowSize * Math.cos(angle + Math.PI / 6), my - arrowSize * Math.sin(angle + Math.PI / 6))
   ctx.strokeStyle = strokeColor
-  ctx.lineWidth = 2
+  ctx.lineWidth = 2 * zoomLevel.value
   ctx.stroke()
 
   ctx.restore()
@@ -1895,10 +1988,15 @@ function onPointerDown(e) {
       if (same && now - last < 350) {
         inspectorNode.value = clickedNode
         inspectorOpen.value = true
+        selectedNode.value = null // Clear selection when opening inspector
+        // Don't set draggingNode on double-click
+      } else {
+        selectedNode.value = clickedNode
+        // Store potential drag start but don't enable dragging yet
+        // Dragging will only start if mouse moves beyond threshold
+        dragStart = { x, y, node: clickedNode }
+        draggingNode.value = null // Don't start dragging immediately
       }
-      selectedNode.value = clickedNode
-      draggingNode.value = clickedNode
-      dragStart = { x, y }
       selectedConnectionId.value = null // Clear connection selection when selecting a node
       
       // If Venue Sources node is clicked, open configuration modal
@@ -1920,6 +2018,9 @@ function onPointerDown(e) {
         selectedNode.value = null
         selectedConnectionId.value = null
       }
+      // Clear drag state when clicking empty space
+      dragStart = null
+      draggingNode.value = null
       drawCanvas() // Redraw to update selection state
     }
   } else if (tool.value === 'link') {
@@ -1934,14 +2035,32 @@ function onPointerDown(e) {
           linkSource.value = null
           return
         }
-        // Open inspector on target to continue mapping
-        inspectorNode.value = clickedNode
-        inspectorOpen.value = true
+        // Create a base parent connection (anchor) and do not open inspector.
+        // Mapping/editing happens via double‑tap later.
+        (async () => {
+          try {
+            const exist = props.connections.find(c => c.from_node_id === linkSource.value.id && c.to_node_id === clickedNode.id)
+            if (!exist) {
+              const payload = { project_id: props.projectId, from_node_id: linkSource.value.id, to_node_id: clickedNode.id }
+              const saved = await addConnectionToDB(payload)
+              emit('connection-added', saved)
+              toast.success('Linked nodes')
+            } else {
+              toast.info('Nodes already linked')
+            }
+          } catch (err) {
+            console.error('Anchor link failed:', err)
+            toast.error('Failed to link nodes')
+          }
+        })()
         linkSource.value = null
       } else {
         linkSource.value = null
       }
     }
+    // Clear drag state in link mode
+    dragStart = null
+    draggingNode.value = null
   }
 
   drawCanvas()
@@ -1949,6 +2068,21 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
   e.preventDefault()
+  
+  // Only start dragging if we have a dragStart and mouse has moved beyond threshold
+  if (dragStart && dragStart.node && !draggingNode.value) {
+    const { x, y } = getCanvasCoords(e)
+    const dx = Math.abs(x - dragStart.x)
+    const dy = Math.abs(y - dragStart.y)
+    const threshold = 5 // pixels - only start dragging if moved more than this
+    
+    if (dx > threshold || dy > threshold) {
+      // Start dragging - user has moved mouse enough
+      draggingNode.value = dragStart.node
+    }
+  }
+  
+  // Only update position if actively dragging
   if (!draggingNode.value || !dragStart) return
 
   const { x, y } = getCanvasCoords(e)
@@ -1964,9 +2098,10 @@ async function onPointerUp(e) {
   if (draggingNode.value) {
     // Save normalized position
     await saveNodePosition(draggingNode.value)
-    draggingNode.value = null
   }
   
+  // Always clear drag state on pointer up
+  draggingNode.value = null
   dragStart = null
 }
 
@@ -1974,10 +2109,11 @@ function getCanvasCoords(e) {
   const rect = canvas.value.getBoundingClientRect()
   const scaleX = canvas.value.width / rect.width
   const scaleY = canvas.value.height / rect.height
-  // Account for zoom level - pointer coordinates need to be divided by zoom
+  // No need to divide by zoom since we're not scaling the canvas coordinates anymore
+  // Positions stay the same, only element sizes scale
   return {
-    x: (e.clientX - rect.left) * scaleX / dpr / zoomLevel.value,
-    y: (e.clientY - rect.top) * scaleY / dpr / zoomLevel.value
+    x: (e.clientX - rect.left) * scaleX / dpr,
+    y: (e.clientY - rect.top) * scaleY / dpr
   }
 }
 
@@ -2284,25 +2420,19 @@ async function confirmConnection(connectionData) {
       ctx.clearRect(0, 0, canvasWidth.value * dpr, canvasHeight.value * dpr)
       ctx.scale(dpr, dpr)
       
-      // Apply zoom transformation
-      ctx.save()
-      ctx.scale(zoomLevel.value, zoomLevel.value)
-
-      // Background (scaled)
+      // Background (not scaled - canvas stays same size)
       ctx.fillStyle = '#f8f9fa'
       ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-      // Draw connections (including the new one)
+      // Draw connections (including the new one) - elements will be scaled by zoom
       optimisticConnections.forEach(conn => {
         drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
       })
 
-      // Draw nodes
+      // Draw nodes - elements will be scaled by zoom
       props.nodes.forEach(node => {
         drawNode(ctx, node)
       })
-      
-      ctx.restore()
       
       // Redraw again after props are updated (watcher will handle this, but ensure it happens)
       setTimeout(() => drawCanvas(), 50)
@@ -2499,110 +2629,56 @@ function exportToPDF() {
   }
   
   try {
-    
-    // Create a clean print preview window with just the canvas image
-    const printWindow = window.open('', '_blank', 'width=800,height=600')
-    if (!printWindow) {
-      toast.error('Please allow popups to export')
-      return
+    // Prompt for filename
+    const defaultName = `signal-flow-${Date.now()}`
+    const fileName = prompt('Enter filename for PDF export:', defaultName) || defaultName
+    if (!fileName) {
+      return // User cancelled
     }
     
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Signal Flow - Print Preview</title>
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              background: var(--bg-secondary);
-              font-family: system-ui, -apple-system, sans-serif;
-            }
-            .print-content {
-              background: white;
-              padding: 20px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              max-width: 100%;
-            }
-            .print-content img {
-              display: block;
-              max-width: 100%;
-              height: auto;
-            }
-            .print-actions {
-              text-align: center;
-              margin-top: 20px;
-              padding: 15px;
-            }
-            .print-actions button {
-              padding: 10px 20px;
-              margin: 0 5px;
-              background: var(--color-primary-500);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .print-actions button:hover {
-              background: var(--color-primary-600);
-            }
-            .print-actions button.secondary {
-              background: var(--color-secondary-500);
-            }
-            .print-actions button.secondary:hover {
-              background: var(--color-secondary-600);
-            }
-            @media print {
-              body {
-                background: white;
-                padding: 0;
-              }
-              .print-actions {
-                display: none;
-              }
-              .print-content {
-                padding: 0;
-                box-shadow: none;
-              }
-              .print-content img {
-                width: 100%;
-                height: auto;
-                page-break-inside: avoid;
-              }
-            }
-            @page {
-              margin: 0;
-              size: auto;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-content">
-            <img src="${dataURL}" alt="Signal Flow" />
-          </div>
-          <div class="print-actions">
-            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-            <button class="secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    // Ensure filename has .pdf extension
+    const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
     
-    // Wait for image to load
-    printWindow.onload = () => {
-      // Focus the window to bring it to front
-      printWindow.focus()
+    // Create PDF
+    const pdf = new jsPDF({
+      orientation: exportW > exportH ? 'landscape' : 'portrait',
+      unit: 'px',
+      format: [exportW, exportH]
+    })
+    
+    // Add image to PDF (scale to fit)
+    pdf.addImage(dataURL, 'PNG', 0, 0, exportW, exportH)
+    
+    // Download PDF with iOS-compatible blob approach
+    try {
+      const pdfBlob = pdf.output('blob')
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = finalFileName
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+      toast.success('PDF exported successfully')
+    } catch (blobError) {
+      // Fallback: try using data URI
+      try {
+        const pdfDataUri = pdf.output('datauristring')
+        const link = document.createElement('a')
+        link.href = pdfDataUri
+        link.download = finalFileName
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        toast.success('PDF exported successfully')
+      } catch (dataUriError) {
+        // Final fallback: use jsPDF's save method
+        pdf.save(finalFileName)
+        toast.success('PDF exported successfully')
+      }
     }
   } catch (e) {
     console.error('Error exporting canvas:', e)
@@ -2890,8 +2966,8 @@ function exportToPDF() {
 }
 
 .connection-details-modal {
-  background: #fff;
-  border: 1px solid #e9ecef;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   max-width: 500px;
@@ -2907,7 +2983,7 @@ function exportToPDF() {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-color);
 }
 .connection-details-header h4 {
   margin: 0;
@@ -2918,6 +2994,7 @@ function exportToPDF() {
   padding: 20px;
   overflow-y: auto;
   flex: 1;
+  color: var(--text-primary);
 }
 .detail-row {
   display: flex;
@@ -2926,8 +3003,8 @@ function exportToPDF() {
   margin: 6px 0;
   font-size: 13px;
 }
-.detail-row .label { color: #6c757d; }
-.detail-row .value { color: #212529; font-weight: 600; }
+.detail-row .label { color: var(--text-muted); }
+.detail-row .value { color: var(--text-primary); font-weight: 600; }
 .inline-select { padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 6px; }
 .port-mapping-section { flex-direction: column; align-items: flex-start; }
 .port-mappings-list-edit { width: 100%; }
