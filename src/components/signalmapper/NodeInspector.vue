@@ -280,13 +280,21 @@ async function loadAvailableUpstreamSources() {
       // For other nodes: only show connected outputs
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
-        // Only include transformer outputs whose corresponding input has a saved upstream mapping
+        // Include ALL transformer outputs that have a valid upstream source
+        // Exclude outputs where the corresponding input is "-- No source --"
         const parentsOfTransformer = (graph.value.parentsByToNode || {})[e.id] || []
         const mappedInputs = new Set()
         for (const p of parentsOfTransformer) {
           const maps = (graph.value.mapsByConnId || {})[p.id] || []
+          // Only include inputs that have explicit port maps (not cleared)
           maps.forEach(m => mappedInputs.add(Number(m.to_port)))
+          // For connections without port maps, check if input_number is set
+          // This handles direct sources, but only if there's no port map (meaning it's not cleared)
+          if (maps.length === 0 && p.input_number) {
+            mappedInputs.add(Number(p.input_number))
+          }
         }
+        // Show all outputs that correspond to mapped inputs
         for (let port = 1; port <= numOutputs; port++) {
           if (!mappedInputs.has(port)) continue
           try {
