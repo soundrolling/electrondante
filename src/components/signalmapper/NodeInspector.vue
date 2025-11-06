@@ -53,7 +53,7 @@
                     >×</button>
                   </div>
                   <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
-                    <option :value="null">-- No source --</option>
+                    <option :value="'__NO_SOURCE__'">-- No source --</option>
                     <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
                   <div v-if="saveStatus[n] === 'saved'" class="save-indicator">✓ Saved</div>
@@ -421,6 +421,14 @@ async function loadConnections() {
       upstream.value.push({ key: p.id, input: inputNum, label })
     }
   }
+  // Initialize any unmapped inputs/tracks to explicit "No Source" sentinel
+  const totalInputs = inputCount.value
+  for (let i = 1; i <= totalInputs; i++) {
+    if (typeof upstreamMap.value[i] === 'undefined' || upstreamMap.value[i] === null) {
+      upstreamMap.value[i] = '__NO_SOURCE__'
+      upstreamLabels.value[i] = '—'
+    }
+  }
   
   // Load downstream connections
   const children = (graph.value.connections || []).filter(c => c.from_node_id === props.node.id)
@@ -718,7 +726,7 @@ async function updateUpstreamLabels() {
   
   for (const inputNum in upstreamMap.value) {
     const feedKey = upstreamMap.value[inputNum]
-    if (!feedKey) {
+    if (!feedKey || feedKey === '__NO_SOURCE__') {
       upstreamLabels.value[inputNum] = '—'
       continue
     }
@@ -834,7 +842,7 @@ function getDownstreamPortOptions(targetNodeId) {
 }
 
 async function clearUpstreamConnection(inputNum) {
-  upstreamMap.value[inputNum] = null
+  upstreamMap.value[inputNum] = '__NO_SOURCE__'
   delete upstreamConnections.value[inputNum]
   try {
     const result = await saveMap(inputNum, true)
@@ -864,11 +872,11 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
     // Save upstream connections
     for (const inputNum in upstreamMap.value) {
       if (onlyInputNum !== null && Number(inputNum) !== Number(onlyInputNum)) continue
-      const feedKey = upstreamMap.value[inputNum] // Can be nodeId or nodeId:port
+      const feedKey = upstreamMap.value[inputNum] // Can be nodeId or nodeId:port or '__NO_SOURCE__'
       const existingConnId = upstreamConnections.value[inputNum]
       
       try {
-        if (feedKey) {
+        if (feedKey && feedKey !== '__NO_SOURCE__') {
           // Parse feedKey: nodeId:port or just nodeId
           const parts = feedKey.toString().split(':')
           const nodeId = parts[0]
