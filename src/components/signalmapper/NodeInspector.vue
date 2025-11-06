@@ -57,6 +57,7 @@
                     <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
                   <div v-if="saveStatus[n] === 'saved'" class="save-indicator">✓ Saved</div>
+                  <div v-else-if="saveStatus[n] === 'cleared'" class="save-indicator">✓ Cleared</div>
                 </div>
                 <div v-if="!inputCount" class="muted">{{ type === 'recorder' ? 'No tracks' : 'No inputs' }}</div>
               </div>
@@ -384,43 +385,41 @@ async function loadConnections() {
   // Load upstream connections
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   for (const p of parents) {
-    const inputNum = p.input_number || 1
-    upstreamConnections.value[inputNum] = p.id
-    
-    // Check for port map to get specific feed port from cached graph data (no DB query needed)
-    // Note: For connections with multiple port maps, we get the one that matches this input_number
-    let feedPort = null
-    const portMaps = (graph.value.mapsByConnId || {})[p.id] || []
-    if (portMaps && portMaps.length > 0) {
-      // Find port map that matches this input_number
-      const matchingMap = portMaps.find(m => Number(m.to_port) === Number(inputNum))
-      if (matchingMap) {
-        feedPort = matchingMap.from_port
-      } else if (portMaps.length === 1) {
-        // If only one port map exists, use it (might be legacy data)
-        feedPort = portMaps[0].from_port
-      }
-    }
-    
-    // Build feedKey: if venue source or transformer with port map, use nodeId:port; otherwise just nodeId
     const src = props.elements.find(e => e.id === p.from_node_id)
     const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
-    
-  // Do not infer ports for transformers/recorders when no port maps exist.
-  // We only consider explicit port maps; otherwise leave unassigned until user selects.
-  let inferredPort = feedPort
-    
-    // For venue_sources, transformers, and recorders, use port in feedKey
-    // For regular sources, don't use port (they typically have single output)
-    const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
-    const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
-    
-    upstreamMap.value[inputNum] = feedKey
-  // Only use explicit port maps for label resolution; otherwise leave blank
-  const portForLabel = inferredPort || feedPort || null
-    const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
-    upstreamLabels.value[inputNum] = label // Cache the label for display
-    upstream.value.push({ key: p.id, input: inputNum, label })
+    const portMaps = (graph.value.mapsByConnId || {})[p.id] || []
+
+    if (portMaps && portMaps.length > 0) {
+      // Map each to_port explicitly for connections that use port maps
+      for (const m of portMaps) {
+        const inputNum = Number(m.to_port)
+        if (!inputNum) continue
+        upstreamConnections.value[inputNum] = p.id
+        const inferredPort = m.from_port
+        const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
+        const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
+        upstreamMap.value[inputNum] = feedKey
+        const portForLabel = inferredPort || null
+        const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
+        upstreamLabels.value[inputNum] = label
+        upstream.value.push({ key: `${p.id}:${inputNum}`, input: inputNum, label })
+      }
+      continue
+    }
+
+    // No port maps: only assign to a concrete input when input_number is present
+    if (p.input_number) {
+      const inputNum = Number(p.input_number)
+      upstreamConnections.value[inputNum] = p.id
+      const inferredPort = null
+      const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
+      const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
+      upstreamMap.value[inputNum] = feedKey
+      const portForLabel = null
+      const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
+      upstreamLabels.value[inputNum] = label
+      upstream.value.push({ key: p.id, input: inputNum, label })
+    }
   }
   
   // Load downstream connections
@@ -834,9 +833,18 @@ function getDownstreamPortOptions(targetNodeId) {
   return Array.from({ length: Math.max(0, count) }, (_, i) => i + 1)
 }
 
-function clearUpstreamConnection(inputNum) {
+async function clearUpstreamConnection(inputNum) {
   upstreamMap.value[inputNum] = null
   delete upstreamConnections.value[inputNum]
+  try {
+    const result = await saveMap(inputNum, true)
+    await loadAvailableUpstreamSources()
+    await updateUpstreamLabels()
+    if (result && result.errorCount === 0) {
+      saveStatus.value[inputNum] = 'cleared'
+      setTimeout(() => { if (saveStatus.value[inputNum] === 'cleared') delete saveStatus.value[inputNum] }, 2000)
+    }
+  } catch {}
 }
 
 function clearDownstreamConnection(outputNum) {
