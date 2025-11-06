@@ -1008,6 +1008,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                   console.error('[Inspector][Map] failed to save port map', insertError)
                   throw insertError
                 }
+                // Optimistically set the selected feedKey so the dropdown shows the saved value
+                upstreamMap.value[inputNum] = `${nodeId}:${portToUse}`
               } else {
                 // Only remove port map if it's not a transformer or venue source
                 // For regular sources, port maps aren't needed
@@ -1217,6 +1219,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                   console.error('[Inspector][Map] failed to save port map', portMapError)
                   throw portMapError
                 }
+                // Optimistically set the selected feedKey so the dropdown shows the saved value
+                upstreamMap.value[inputNum] = `${nodeId}:${portToUse}`
               } else {
                 // Only remove port map if it's not a transformer or venue source
                 // For regular sources, port maps aren't needed
