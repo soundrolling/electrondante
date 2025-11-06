@@ -155,6 +155,17 @@
       </div>
     </div>
   </div>
+
+  <!-- Confirmation Modal -->
+  <ConfirmationModal
+    :show="showConfirmationModal"
+    :title="confirmationConfig.title"
+    :message="confirmationConfig.message"
+    :confirm-text="confirmationConfig.confirmText"
+    :cancel-text="confirmationConfig.cancelText"
+    @confirm="handleConfirm"
+    @cancel="cancelConfirmation"
+  />
 </div>
 </template>
 
@@ -175,6 +186,7 @@ import CalendarTimelineView from "./CalendarTimelineView.vue";
 import CalendarGridView from "./CalendarGridView.vue";
 import EventDetailsModal from "./EventDetailsModal.vue";
 import NewEventModal from "./NewEventModal.vue";
+import ConfirmationModal from "./ConfirmationModal.vue";
 
 
 export default {
@@ -187,7 +199,8 @@ components: {
   CalendarTimelineView,
   CalendarGridView,
   EventDetailsModal,
-  NewEventModal
+  NewEventModal,
+  ConfirmationModal
 },
 setup() {
   const userStore = useUserStore();
@@ -262,6 +275,16 @@ setup() {
   // NEW EVENT MODAL STATE
   const showNewModal = ref(false);
   const showStageHoursModal = ref(false);
+
+  // CONFIRMATION MODAL STATE
+  const showConfirmationModal = ref(false);
+  const confirmationConfig = ref({
+    title: 'Confirm Action',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    onConfirm: null
+  });
 
   // FETCH ALL DATA FROM SUPABASE
   async function fetchAll() {
@@ -830,6 +853,46 @@ setup() {
   function closeDetailsModal() {
     showDetailsModal.value = false;
   }
+  // Show confirmation modal
+  function showConfirmation(title, message, confirmText = 'Confirm', cancelText = 'Cancel') {
+    return new Promise((resolve) => {
+      let resolved = false;
+      confirmationConfig.value = {
+        title,
+        message,
+        confirmText,
+        cancelText,
+        onConfirm: () => {
+          if (!resolved) {
+            resolved = true;
+            showConfirmationModal.value = false;
+            resolve(true);
+          }
+        },
+        onCancel: () => {
+          if (!resolved) {
+            resolved = true;
+            showConfirmationModal.value = false;
+            resolve(false);
+          }
+        }
+      };
+      showConfirmationModal.value = true;
+    });
+  }
+
+  function handleConfirm() {
+    if (confirmationConfig.value.onConfirm) {
+      confirmationConfig.value.onConfirm();
+    }
+  }
+
+  function cancelConfirmation() {
+    if (confirmationConfig.value.onCancel) {
+      confirmationConfig.value.onCancel();
+    }
+  }
+
   async function confirmDelete() {
     // Don't allow deleting synthetic events (travel, build days)
     if (detailsEvent.value.isSynthetic) {
@@ -843,7 +906,16 @@ setup() {
     }
     
     if (!detailsEvent.value.id) { toast.error("Missing ID"); return; }
-    if (!confirm("Delete this event?")) return;
+    
+    const confirmed = await showConfirmation(
+      "Delete Event",
+      "Are you sure you want to delete this event? This action cannot be undone.",
+      "Delete",
+      "Cancel"
+    );
+    
+    if (!confirmed) return;
+    
     const { error } = await supabase.from("calendar_events")
       .delete().eq("id", detailsEvent.value.id);
     if (error) {
@@ -941,26 +1013,33 @@ setup() {
   }
 
   async function deleteStageHour(hour) {
-    if (confirm('Are you sure you want to delete this stage hour?')) {
-      try {
-        const { error } = await supabase
-          .from('stage_hours')
-          .delete()
-          .eq('id', hour.id);
-        
-        if (error) throw error;
-        
-        // Remove from local state
-        const index = stageHours.value.findIndex(h => h.id === hour.id);
-        if (index > -1) {
-          stageHours.value.splice(index, 1);
-        }
-        
-        toast.success('Stage hour deleted successfully');
-      } catch (error) {
-        console.error('Error deleting stage hour:', error);
-        toast.error('Failed to delete stage hour');
+    const confirmed = await showConfirmation(
+      "Delete Stage Hour",
+      "Are you sure you want to delete this stage hour? This action cannot be undone.",
+      "Delete",
+      "Cancel"
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      const { error } = await supabase
+        .from('stage_hours')
+        .delete()
+        .eq('id', hour.id);
+      
+      if (error) throw error;
+      
+      // Remove from local state
+      const index = stageHours.value.findIndex(h => h.id === hour.id);
+      if (index > -1) {
+        stageHours.value.splice(index, 1);
       }
+      
+      toast.success('Stage hour deleted successfully');
+    } catch (error) {
+      console.error('Error deleting stage hour:', error);
+      toast.error('Failed to delete stage hour');
     }
   }
   
@@ -1138,7 +1217,16 @@ setup() {
     }
     
     if (!event.id) { toast.error("Missing event ID"); return; }
-    if (!confirm("Delete this event?")) return;
+    
+    const confirmed = await showConfirmation(
+      "Delete Event",
+      "Are you sure you want to delete this event? This action cannot be undone.",
+      "Delete",
+      "Cancel"
+    );
+    
+    if (!confirmed) return;
+    
     const { error } = await supabase
       .from("calendar_events")
       .delete()

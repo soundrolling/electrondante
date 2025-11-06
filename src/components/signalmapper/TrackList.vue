@@ -87,6 +87,20 @@
       <span class="summary-value">{{ Object.keys(groupedByRecorder).length }}</span>
     </div>
   </div>
+
+  <!-- Input Modal -->
+  <InputModal
+    :show="showInputModal"
+    :title="inputModalConfig.title"
+    :message="inputModalConfig.message"
+    :label="inputModalConfig.label"
+    v-model="inputModalValue"
+    :placeholder="inputModalConfig.placeholder"
+    :confirm-text="inputModalConfig.confirmText"
+    :cancel-text="inputModalConfig.cancelText"
+    @confirm="handleInputConfirm"
+    @cancel="handleInputCancel"
+  />
 </div>
 </template>
 
@@ -96,6 +110,7 @@ import { buildGraph } from '@/services/signalGraph'
 import { resolveTransformerInputLabel as svcResolveTransformerInputLabel, getOutputLabel as svcGetOutputLabel } from '@/services/portLabelService'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import InputModal from '@/components/signalmapper/InputModal.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -105,6 +120,62 @@ const props = defineProps({
 
 const emit = defineEmits(['track-name-clicked', 'refetch-paths'])
 const graphRef = ref(null)
+
+// Input modal state
+const showInputModal = ref(false)
+const inputModalValue = ref('')
+const inputModalConfig = ref({
+  title: 'Enter Value',
+  message: '',
+  label: '',
+  placeholder: '',
+  confirmText: 'Confirm',
+  cancelText: 'Cancel',
+  onConfirm: null
+})
+
+// Show input modal helper
+function showInput(title, message, defaultValue = '', label = '', placeholder = '') {
+  return new Promise((resolve) => {
+    let resolved = false
+    inputModalConfig.value = {
+      title,
+      message,
+      label,
+      placeholder,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      onConfirm: (value) => {
+        if (!resolved) {
+          resolved = true
+          showInputModal.value = false
+          resolve(value)
+        }
+      },
+      onCancel: () => {
+        if (!resolved) {
+          resolved = true
+          showInputModal.value = false
+          resolve(null)
+        }
+      }
+    }
+    inputModalValue.value = defaultValue
+    showInputModal.value = true
+  })
+}
+
+function handleInputConfirm() {
+  if (inputModalConfig.value.onConfirm && inputModalValue.value.trim()) {
+    inputModalConfig.value.onConfirm(inputModalValue.value.trim())
+  }
+}
+
+function handleInputCancel() {
+  if (inputModalConfig.value.onCancel) {
+    inputModalConfig.value.onCancel()
+  }
+}
 
 function handleTrackNameClick(connectionId) {
   emit('track-name-clicked', connectionId)
@@ -431,7 +502,13 @@ function exportToPDF() {
   try {
     // Prompt for filename
     const defaultName = `track-list-${Date.now()}`
-    const fileName = prompt('Enter filename for PDF export:', defaultName) || defaultName
+    const fileName = await showInput(
+      'Export PDF',
+      'Enter a filename for the PDF export:',
+      defaultName,
+      'Filename',
+      'Enter filename...'
+    ) || defaultName
     if (!fileName) {
       return // User cancelled
     }

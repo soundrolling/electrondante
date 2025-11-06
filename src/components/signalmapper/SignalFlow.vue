@@ -225,6 +225,20 @@
     @saved="handleVenueSourcesSaved"
     @close="showVenueSourcesConfig = false"
   />
+
+  <!-- Input Modal -->
+  <InputModal
+    :show="showInputModal"
+    :title="inputModalConfig.title"
+    :message="inputModalConfig.message"
+    :label="inputModalConfig.label"
+    v-model="inputModalValue"
+    :placeholder="inputModalConfig.placeholder"
+    :confirm-text="inputModalConfig.confirmText"
+    :cancel-text="inputModalConfig.cancelText"
+    @confirm="handleInputConfirm"
+    @cancel="handleInputCancel"
+  />
 </div>
 </template>
 
@@ -239,6 +253,7 @@ import { jsPDF } from 'jspdf'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
+import InputModal from '@/components/signalmapper/InputModal.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -319,6 +334,19 @@ const selectedVenueSourcesNode = ref(null)
 const pendingConnection = ref(null)
 const gearFilter = ref('Transformers')
 const submittingConnection = ref(false)
+
+// Input modal state
+const showInputModal = ref(false)
+const inputModalValue = ref('')
+const inputModalConfig = ref({
+  title: 'Enter Value',
+  message: '',
+  label: '',
+  placeholder: '',
+  confirmText: 'Confirm',
+  cancelText: 'Cancel',
+  onConfirm: null
+})
 
 // Connection type colors - chosen for good contrast with light background (#f8f9fa)
 const connectionTypeColors = {
@@ -2204,9 +2232,58 @@ function closeSourceModal() {
   showSourceModal.value = false
 }
 
+// Show input modal helper
+function showInput(title, message, defaultValue = '', label = '', placeholder = '') {
+  return new Promise((resolve) => {
+    let resolved = false
+    inputModalConfig.value = {
+      title,
+      message,
+      label,
+      placeholder,
+      confirmText: 'Confirm',
+      cancelText: 'Cancel',
+      onConfirm: (value) => {
+        if (!resolved) {
+          resolved = true
+          showInputModal.value = false
+          resolve(value)
+        }
+      },
+      onCancel: () => {
+        if (!resolved) {
+          resolved = true
+          showInputModal.value = false
+          resolve(null)
+        }
+      }
+    }
+    inputModalValue.value = defaultValue
+    showInputModal.value = true
+  })
+}
+
+function handleInputConfirm() {
+  if (inputModalConfig.value.onConfirm && inputModalValue.value.trim()) {
+    inputModalConfig.value.onConfirm(inputModalValue.value.trim())
+  }
+}
+
+function handleInputCancel() {
+  if (inputModalConfig.value.onCancel) {
+    inputModalConfig.value.onCancel()
+  }
+}
+
 async function addGearNode(gear) {
   try {
-    const label = prompt('Enter label for this node:', gear.gear_name)
+    const label = await showInput(
+      'Enter Label',
+      'Enter a label for this gear node:',
+      gear.gear_name,
+      'Node Label',
+      'Enter label...'
+    )
     if (!label) return
 
     const newNode = await addNode({
@@ -2658,7 +2735,13 @@ function exportToPDF() {
   try {
     // Prompt for filename
     const defaultName = `signal-flow-${Date.now()}`
-    const fileName = prompt('Enter filename for PDF export:', defaultName) || defaultName
+    const fileName = await showInput(
+      'Export PDF',
+      'Enter a filename for the PDF export:',
+      defaultName,
+      'Filename',
+      'Enter filename...'
+    ) || defaultName
     if (!fileName) {
       return // User cancelled
     }
