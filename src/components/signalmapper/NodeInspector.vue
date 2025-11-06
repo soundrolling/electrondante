@@ -808,6 +808,9 @@ async function onUpstreamChange(inputNum) {
   // Autosave per-input for transformers and recorders; keeps UI in sync
   try {
     const result = await saveMap(inputNum, true)
+    // After save/refresh, force a focused reload of upstream sources and labels to update the dropdown text
+    await loadAvailableUpstreamSources()
+    await updateUpstreamLabels()
     if (result && result.savedCount > 0 && result.errorCount === 0) {
       saveStatus.value[inputNum] = 'saved'
       setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
