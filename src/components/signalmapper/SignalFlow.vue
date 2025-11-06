@@ -112,11 +112,20 @@
               <span class="value">Multiple ports mapped</span>
             </div>
           </template>
-          <div class="muted" style="margin-top: 16px; padding: 12px; background: var(--bg-elevated); border-radius: 6px;">
-            <p style="margin: 0; font-size: 13px;">To edit this connection, double-tap the connected nodes to open the Node Inspector.</p>
+          <!-- Signal Type Selector -->
+          <div style="margin-top: 16px; display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px;">
+            <label style="font-weight: 600; color: var(--text-secondary);">Signal Type</label>
+            <select v-model="editType" class="select" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);"><option v-for="t in connectionTypes" :key="t" :value="t">{{ t }}</option></select>
           </div>
-          <div class="detail-actions" style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
-            <button class="btn-delete" @click="deleteSelectedConnection">Delete Connection</button>
+          <div class="detail-actions" style="margin-top: 16px; display: flex; gap: 8px; justify-content: space-between; align-items: center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:12px; color: var(--text-muted);">Legend color:</span>
+              <span :style="{ width: '16px', height: '16px', backgroundColor: getConnectionColor(editType), display: 'inline-block', borderRadius: '3px', border: '1px solid rgba(0,0,0,0.1)'}"></span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn" @click="saveSelectedConnection">Save</button>
+              <button class="btn-delete" @click="deleteSelectedConnection">Delete Connection</button>
+            </div>
           </div>
         </div>
       </div>

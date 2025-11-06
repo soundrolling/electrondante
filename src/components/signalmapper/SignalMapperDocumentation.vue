@@ -418,7 +418,7 @@ return connections.value.map(conn => {
     id: conn.id || `conn_${Date.now()}`,
     source: fromNode?.label || 'Unknown',
     destination: toNode?.label || 'Unknown',
-    route: `${fromNode?.label || 'Unknown'} → ${toNode?.label || 'Unknown'}`,
+    route: `${fromNode?.label || 'Unknown'} // ${toNode?.label || 'Unknown'}`,
     tracks: Array.isArray(conn.track_number) ? conn.track_number : (conn.track_number ? [conn.track_number] : []),
     pad: conn.pad || false,
     phantom_power: conn.phantom_power || false
@@ -535,7 +535,8 @@ doc.setFontSize(10)
 connections.value.forEach(conn => {
   const fromNode = getNodeLabel(conn.from_node_id)
   const toNode = getNodeLabel(conn.to_node_id)
-  const text = `${fromNode} → ${toNode} (In: ${conn.input_number || '—'}, Out: ${conn.output_number || '—'})`
+  // Use "//" instead of "→" for PDF compatibility
+  const text = `${fromNode} // ${toNode} (In: ${conn.input_number || '—'}, Out: ${conn.output_number || '—'})`
   doc.text(text, 30, yPos)
   yPos += 6
 })
@@ -592,7 +593,8 @@ signalPaths.value.forEach((path, index) => {
   }
   
   doc.setFontSize(14)
-  doc.text(`Path ${index + 1}: ${path.source} → ${path.destination}`, 20, yPos)
+  // Use "//" instead of "→" for PDF compatibility
+  doc.text(`Path ${index + 1}: ${path.source} // ${path.destination}`, 20, yPos)
   yPos += 10
   
   doc.setFontSize(10)

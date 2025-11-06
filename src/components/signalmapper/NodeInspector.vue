@@ -17,6 +17,7 @@
 
     <div class="tabs">
       <button :class="{ active: tab==='map' }" @click="tab='map'">Map</button>
+      <button v-if="type==='source'" :class="{ active: tab==='settings' }" @click="tab='settings'">Settings</button>
     </div>
 
       <div class="panel" v-if="tab==='map'">
@@ -77,6 +78,16 @@
           </div>
         </div>
       </div>
+      <!-- Settings tab for Source nodes -->
+      <div class="panel" v-if="tab==='settings' && type==='source'">
+        <div style="display:grid; grid-template-columns: 160px 1fr; align-items:center; gap:10px;">
+          <label style="font-weight:600; color: var(--text-secondary);">Pad (dB)</label>
+          <input class="input" type="number" v-model.number="sourcePadDb" step="1" min="-60" max="0" placeholder="0" />
+        </div>
+        <div class="actions">
+          <button class="btn" @click="saveSourceSettings" :disabled="saving">Save Settings</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -88,6 +99,7 @@ import { supabase } from '@/supabase'
 import { buildGraph } from '@/services/signalGraph'
 import { hydrateVenueLabels, getOutputLabel, resolveTransformerInputLabel } from '@/services/portLabelService'
 import { getCompleteSignalPath } from '@/services/signalMapperService'
+import { updateNode } from '@/services/signalMapperService'
 
 const toast = useToast()
 
@@ -108,6 +120,29 @@ const fromNodeRef = computed(() => props.fromNode)
 const isIncomingMap = computed(() => !!fromNodeRef.value)
 
 const graph = ref(null)
+// Source settings
+const sourcePadDb = ref(0)
+
+onMounted(() => {
+  // Initialize sourcePadDb from node if present
+  if (type.value === 'source') {
+    const pad = props.node?.pad_db
+    sourcePadDb.value = typeof pad === 'number' ? pad : 0
+  }
+})
+
+async function saveSourceSettings() {
+  try {
+    const padDb = Number(sourcePadDb.value) || 0
+    await updateNode({ id: props.node.id, pad_db: padDb })
+    // Optimistically update local node
+    props.node.pad_db = padDb
+    toast.success('Source settings saved')
+  } catch (e) {
+    console.error('[Inspector][Settings] failed to save source settings', e)
+    toast.error('Failed to save settings')
+  }
+}
 const upstream = ref([])
 const downstream = ref([])
 const inputLabels = ref({})

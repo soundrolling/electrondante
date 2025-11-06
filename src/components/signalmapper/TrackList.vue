@@ -468,7 +468,8 @@ function exportToPDF() {
       const tableData = tracks.map(path => {
         const trackNum = path.track_number || '—'
         const sourceName = path.track_name || path.source_label || '—'
-        const signalPath = reversedPath(path.path).join(' → ')
+        // Use "//" instead of "→" for PDF compatibility
+        const signalPath = reversedPath(path.path).join(' // ')
         return [trackNum, sourceName, signalPath]
       })
       
