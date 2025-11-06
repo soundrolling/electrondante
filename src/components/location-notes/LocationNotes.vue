@@ -71,21 +71,21 @@
         <label>Date</label>
         <input type="date" v-model="recordingDate" required />
         <label>Recording Day:</label>
-        <select v-model="selectedStageHourId" class="recording-day-select">
-          <option value="">None/Unassigned</option>
-          <option 
-            v-for="stageHour in stageHours" 
-            :key="stageHour.id" 
-            :value="stageHour.id"
-          >
-            {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
-          </option>
-          <option v-if="stageHours.length === 0" value="" disabled>
-            No recording days created yet
-          </option>
-        </select>
-        <div v-if="stageHours.length === 0" class="help-text">
-          <small>To create recording days, go to <router-link :to="{ name: 'ProjectLocations', params: { id: store.getCurrentProject?.id } }">Project Locations</router-link> and add stage hours for this location.</small>
+        <div class="recording-day-input-group">
+          <select v-model="selectedStageHourId" class="recording-day-select">
+            <option value="">None/Unassigned</option>
+            <option 
+              v-for="stageHour in stageHours" 
+              :key="stageHour.id" 
+              :value="stageHour.id"
+            >
+              {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+            </option>
+            <option v-if="stageHours.length === 0" value="" disabled>
+              No recording days created yet
+            </option>
+          </select>
+          <a href="#" class="helper-link" @click.prevent="showRecordingDayHelp = true">Don't see options?</a>
         </div>
         <label>Note</label>
         <textarea v-model="newNote" rows="4" required />
@@ -96,6 +96,41 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Recording Day Help Modal -->
+  <div v-if="showRecordingDayHelp" class="modal-overlay" @click.self="showRecordingDayHelp = false">
+    <div class="modal-content recording-day-help-modal">
+      <div class="modal-header">
+        <h3>Recording Day Options</h3>
+        <button class="btn btn-warning modal-close" @click="showRecordingDayHelp = false">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="help-content">
+          <p>To see options in the Recording Day dropdown, you need to add time slots (stage hours) for shows.</p>
+          <div class="help-steps">
+            <h4>How to add Recording Days:</h4>
+            <ol>
+              <li>Go to <router-link :to="{ name: 'ProjectLocations', params: { id: store.getCurrentProject?.id } }" @click="showRecordingDayHelp = false">Project Locations</router-link> and select this location</li>
+              <li>Add time slots for each show or recording session</li>
+              <li>Name them "Day 1", "Day 2", "Day 3", etc. (or any name you prefer)</li>
+              <li>Set the start and end date/time for each slot</li>
+            </ol>
+            <p class="help-note">Once you've added stage hours with names, they will appear as options in the Recording Day dropdown.</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-warning" @click="showRecordingDayHelp = false">Close</button>
+          <router-link 
+            :to="{ name: 'ProjectLocations', params: { id: store.getCurrentProject?.id } }" 
+            class="btn btn-primary"
+            @click="showRecordingDayHelp = false"
+          >
+            Go to Project Locations
+          </router-link>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -142,6 +177,7 @@ const copiedTimecode = ref('');
 const recordingDate = ref(new Date().toISOString().slice(0, 10));
 const selectedStageHourId = ref('');
 const stageHours = ref([]);
+const showRecordingDayHelp = ref(false);
 const isSubmitting = ref(false);
 const hasPendingSync = ref(false);
 const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -829,9 +865,72 @@ background: var(--bg-primary);
 color: var(--text-primary);
 }
 
+.recording-day-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.helper-link {
+  color: var(--primary-color, #007bff);
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.helper-link:hover {
+  text-decoration: underline;
+}
+
 .recording-day-select {
   background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.recording-day-help-modal {
+  max-width: 520px;
+}
+
+.help-content {
+  margin-bottom: 20px;
+}
+
+.help-content p {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.help-steps {
+  background: var(--bg-secondary, #f8f9fa);
+  padding: 16px;
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.help-steps h4 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.help-steps ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-primary);
+}
+
+.help-steps li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.help-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-medium);
+  font-style: italic;
+  color: var(--text-secondary);
 }
 
 .help-text {

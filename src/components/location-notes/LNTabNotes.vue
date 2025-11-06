@@ -166,16 +166,19 @@
         />
         <div class="recording-day-row">
           <label class="label">Recording Day:</label>
-          <select v-model="draft.stage_hour_id" class="recording-day-select">
-            <option value="">None/Unassigned</option>
-            <option 
-              v-for="stageHour in stageHours" 
-              :key="stageHour.id" 
-              :value="stageHour.id"
-            >
-              {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
-            </option>
-          </select>
+          <div class="recording-day-input-group">
+            <select v-model="draft.stage_hour_id" class="recording-day-select">
+              <option value="">None/Unassigned</option>
+              <option 
+                v-for="stageHour in stageHours" 
+                :key="stageHour.id" 
+                :value="stageHour.id"
+              >
+                {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+              </option>
+            </select>
+            <a href="#" class="helper-link" @click.prevent="showRecordingDayHelp = true">Don't see options?</a>
+          </div>
         </div>
       </div>
       <textarea
@@ -312,6 +315,35 @@
       </div>
     </div>
   </div>
+
+  <!-- Recording Day Help Modal -->
+  <div v-if="showRecordingDayHelp" class="modal-overlay" @click.self="showRecordingDayHelp = false">
+    <div class="modal-content recording-day-help-modal">
+      <div class="modal-header">
+        <h3>Recording Day Options</h3>
+        <button class="btn btn-warning modal-close" @click="showRecordingDayHelp = false">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="help-content">
+          <p>To see options in the Recording Day dropdown, you need to add time slots (stage hours) for shows.</p>
+          <div class="help-steps">
+            <h4>How to add Recording Days:</h4>
+            <ol>
+              <li>Click the "Manage Hours" button below to open the Stage Hours manager</li>
+              <li>Add time slots for each show or recording session</li>
+              <li>Name them "Day 1", "Day 2", "Day 3", etc. (or any name you prefer)</li>
+              <li>Set the start and end date/time for each slot</li>
+            </ol>
+            <p class="help-note">Once you've added stage hours with names, they will appear as options in the Recording Day dropdown.</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-warning" @click="showRecordingDayHelp = false">Close</button>
+          <button class="btn btn-primary" @click="openStageHoursFromHelp">Manage Hours</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -426,6 +458,7 @@ const EXPORT_PREF_KEY = 'ln_notes_export_prefs';
 
 // Stage Hours Modal
 const showStageHoursModal = ref(false);
+const showRecordingDayHelp = ref(false);
 const editingStageHour = ref(null);
 const isSavingStageHour = ref(false);
 const location = ref(null);
@@ -796,6 +829,11 @@ function openStageHoursModal() {
 function closeStageHoursModal() {
   showStageHoursModal.value = false;
   editingStageHour.value = null;
+}
+
+function openStageHoursFromHelp() {
+  showRecordingDayHelp.value = false;
+  openStageHoursModal();
 }
 
 function editStageHour(stageHour) {
@@ -1888,6 +1926,24 @@ opacity: 0.6;
   gap: 4px;
 }
 
+.recording-day-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.helper-link {
+  color: var(--primary-color, #007bff);
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.helper-link:hover {
+  text-decoration: underline;
+}
+
 .recording-day-select {
   width: 100%;
   border: 1px solid var(--border-medium);
@@ -2262,6 +2318,51 @@ opacity: 0.6;
   padding-top: 16px;
   border-top: 1px solid var(--border-medium);
   text-align: center;
+}
+
+.recording-day-help-modal {
+  max-width: 520px;
+}
+
+.help-content {
+  margin-bottom: 20px;
+}
+
+.help-content p {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.help-steps {
+  background: var(--bg-secondary, #f8f9fa);
+  padding: 16px;
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.help-steps h4 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.help-steps ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-primary);
+}
+
+.help-steps li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.help-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-medium);
+  font-style: italic;
+  color: var(--text-secondary);
 }
 
 .empty-state {
