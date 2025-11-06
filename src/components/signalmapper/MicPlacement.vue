@@ -90,7 +90,7 @@
 
   <!-- Mic Context Menu -->
   <div v-if="showContextMenu" class="context-menu-overlay" @click="closeContextMenu">
-    <div class="context-menu" :style="contextMenuStyle" @click.stop>
+    <div class="context-menu" @click.stop>
       <div class="context-menu-header">
         <h4>{{ selectedMic?.track_name || selectedMic?.label || 'Mic' }}</h4>
         <button @click="closeContextMenu" class="close-btn">×</button>
@@ -388,7 +388,6 @@ const trackNameInput = ref('')
 
 // Context menu state
 const showContextMenu = ref(false)
-const contextMenuStyle = ref({})
 const contextMenuTrackName = ref('')
 const contextMenuRotation = ref(0)
 
@@ -1127,28 +1126,6 @@ function openContextMenu(e) {
   // Set the context menu values
   contextMenuTrackName.value = selectedMic.value.track_name || ''
   contextMenuRotation.value = selectedMic.value.rotation || 0
-  
-  // Position the menu near the click, but keep it on screen
-  const rect = canvas.value.getBoundingClientRect()
-  const menuWidth = 320
-  const menuHeight = 400
-  let menuX = e.clientX
-  let menuY = e.clientY
-  
-  // Adjust if menu would go off screen
-  if (menuX + menuWidth > window.innerWidth) {
-    menuX = window.innerWidth - menuWidth - 10
-  }
-  if (menuY + menuHeight > window.innerHeight) {
-    menuY = window.innerHeight - menuHeight - 10
-  }
-  if (menuX < 10) menuX = 10
-  if (menuY < 10) menuY = 10
-  
-  contextMenuStyle.value = {
-    left: `${menuX}px`,
-    top: `${menuY}px`
-  }
   
   showContextMenu.value = true
 }
@@ -1995,18 +1972,28 @@ defineExpose({ getCanvasDataURL })
   right: 0;
   bottom: 0;
   z-index: 1001;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 20px;
 }
 
 .context-menu {
-  position: fixed;
+  position: relative;
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   min-width: 320px;
   max-width: 400px;
+  width: 100%;
+  max-height: 90vh;
   border: 1px solid var(--border-light);
   z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
 }
 
 .context-menu-header {
@@ -2017,6 +2004,7 @@ defineExpose({ getCanvasDataURL })
   border-bottom: 1px solid var(--border-light);
   background: var(--bg-secondary);
   border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .context-menu-header h4 {
@@ -2028,6 +2016,8 @@ defineExpose({ getCanvasDataURL })
 
 .context-menu-body {
   padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .context-menu-section {
