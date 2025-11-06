@@ -285,23 +285,19 @@ async function loadAvailableUpstreamSources() {
         for (let port = 1; port <= numOutputs; port++) {
           // Only show connected outputs
           if (connectedPortsSet && connectedPortsSet.has(port)) {
-            // Get the label for this transformer output (which traces back to source)
+            // Resolve label for this transformer output; if we cannot resolve to a real upstream label, skip it
             try {
               const label = await getOutputLabel(e, port, graph.value)
-              sources.push({
-                id: e.id,
-                port,
-                label: `${label} (Transformer ${e.track_name || e.label || ''})`.trim(),
-                feedKey: `${e.id}:${port}`
-              })
+              if (label && String(label).trim().length > 0) {
+                sources.push({
+                  id: e.id,
+                  port,
+                  label: `${label} (Transformer ${e.track_name || e.label || ''})`.trim(),
+                  feedKey: `${e.id}:${port}`
+                })
+              }
             } catch (err) {
-              // Fallback if label resolution fails
-              sources.push({
-                id: e.id,
-                port,
-                label: `${e.track_name || e.label || 'Transformer'} Output ${port} (Transformer)`,
-                feedKey: `${e.id}:${port}`
-              })
+              // If label resolution fails, ignore this port (no saved upstream connection)
             }
           }
         }
