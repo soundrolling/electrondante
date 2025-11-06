@@ -824,7 +824,7 @@ border-radius: 2px 2px 0 0;
 .note-modal {
 position: fixed;
 inset: 0;
-z-index: 100;
+z-index: var(--z-modal, 1050);
 display: flex;
 align-items: center;
 justify-content: center;
