@@ -227,6 +227,7 @@ import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as sv
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+import { jsPDF } from 'jspdf'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
@@ -2610,110 +2611,56 @@ function exportToPDF() {
   }
   
   try {
-    
-    // Create a clean print preview window with just the canvas image
-    const printWindow = window.open('', '_blank', 'width=800,height=600')
-    if (!printWindow) {
-      toast.error('Please allow popups to export')
-      return
+    // Prompt for filename
+    const defaultName = `signal-flow-${Date.now()}`
+    const fileName = prompt('Enter filename for PDF export:', defaultName) || defaultName
+    if (!fileName) {
+      return // User cancelled
     }
     
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Signal Flow - Print Preview</title>
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              background: var(--bg-secondary);
-              font-family: system-ui, -apple-system, sans-serif;
-            }
-            .print-content {
-              background: white;
-              padding: 20px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              max-width: 100%;
-            }
-            .print-content img {
-              display: block;
-              max-width: 100%;
-              height: auto;
-            }
-            .print-actions {
-              text-align: center;
-              margin-top: 20px;
-              padding: 15px;
-            }
-            .print-actions button {
-              padding: 10px 20px;
-              margin: 0 5px;
-              background: var(--color-primary-500);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .print-actions button:hover {
-              background: var(--color-primary-600);
-            }
-            .print-actions button.secondary {
-              background: var(--color-secondary-500);
-            }
-            .print-actions button.secondary:hover {
-              background: var(--color-secondary-600);
-            }
-            @media print {
-              body {
-                background: white;
-                padding: 0;
-              }
-              .print-actions {
-                display: none;
-              }
-              .print-content {
-                padding: 0;
-                box-shadow: none;
-              }
-              .print-content img {
-                width: 100%;
-                height: auto;
-                page-break-inside: avoid;
-              }
-            }
-            @page {
-              margin: 0;
-              size: auto;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-content">
-            <img src="${dataURL}" alt="Signal Flow" />
-          </div>
-          <div class="print-actions">
-            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-            <button class="secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    // Ensure filename has .pdf extension
+    const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
     
-    // Wait for image to load
-    printWindow.onload = () => {
-      // Focus the window to bring it to front
-      printWindow.focus()
+    // Create PDF
+    const pdf = new jsPDF({
+      orientation: exportW > exportH ? 'landscape' : 'portrait',
+      unit: 'px',
+      format: [exportW, exportH]
+    })
+    
+    // Add image to PDF (scale to fit)
+    pdf.addImage(dataURL, 'PNG', 0, 0, exportW, exportH)
+    
+    // Download PDF with iOS-compatible blob approach
+    try {
+      const pdfBlob = pdf.output('blob')
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = finalFileName
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+      toast.success('PDF exported successfully')
+    } catch (blobError) {
+      // Fallback: try using data URI
+      try {
+        const pdfDataUri = pdf.output('datauristring')
+        const link = document.createElement('a')
+        link.href = pdfDataUri
+        link.download = finalFileName
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        toast.success('PDF exported successfully')
+      } catch (dataUriError) {
+        // Final fallback: use jsPDF's save method
+        pdf.save(finalFileName)
+        toast.success('PDF exported successfully')
+      }
     }
   } catch (e) {
     console.error('Error exporting canvas:', e)

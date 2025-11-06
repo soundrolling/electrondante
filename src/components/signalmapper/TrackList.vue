@@ -91,6 +91,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { buildGraph } from '@/services/signalGraph'
 import { resolveTransformerInputLabel as svcResolveTransformerInputLabel, getOutputLabel as svcGetOutputLabel } from '@/services/portLabelService'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -413,103 +415,123 @@ function getPrintStyles() {
   `
 }
 
-// Export/Print track list with print preview (grouped by recorder)
+// Export/Print track list as PDF (grouped by recorder)
 function exportToPDF() {
   if (props.signalPaths.length === 0) {
     return
   }
   
   try {
-    const printWindow = window.open('', '_blank', 'width=900,height=700')
-    if (!printWindow) {
-      return
+    // Prompt for filename
+    const defaultName = `track-list-${Date.now()}`
+    const fileName = prompt('Enter filename for PDF export:', defaultName) || defaultName
+    if (!fileName) {
+      return // User cancelled
     }
     
-    const buildTableHTML = () => {
-      let html = ''
+    // Ensure filename has .pdf extension
+    const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
+    
+    // Create PDF
+    const doc = new jsPDF('portrait', 'mm', 'a4')
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 15
+    let yPos = margin
+    
+    // Add header
+    doc.setFontSize(18)
+    doc.text('Track List', pageWidth / 2, yPos, { align: 'center' })
+    yPos += 8
+    
+    doc.setFontSize(12)
+    doc.text('Complete signal routing from source to recorder tracks', pageWidth / 2, yPos, { align: 'center' })
+    yPos += 15
+    
+    // Group by recorder and create tables
+    const recorderNames = Object.keys(groupedByRecorder.value).sort()
+    
+    recorderNames.forEach((recorderName, index) => {
+      // Add new page if not first recorder and we're near the bottom
+      if (index > 0 && yPos > doc.internal.pageSize.getHeight() - 60) {
+        doc.addPage()
+        yPos = margin
+      }
       
-      Object.keys(groupedByRecorder.value).sort().forEach(recorderName => {
-        const tracks = groupedByRecorder.value[recorderName]
-        
-        html += `
-          <div class="recorder-group-section">
-            <h3 class="recorder-section-header">${recorderName}</h3>
-            <table class="track-list-table">
-              <thead>
-                <tr>
-                  <th>Track #</th>
-                  <th>Source Name</th>
-                  <th>Signal Path</th>
-                </tr>
-              </thead>
-              <tbody>
-        `
-        
-        tracks.forEach(path => {
-          const trackNum = path.track_number || '—'
-          const sourceName = path.track_name || path.source_label || '—'
-          const signalPath = reversedPath(path.path).join(' → ')
-          
-          html += `
-            <tr>
-              <td>${trackNum}</td>
-              <td><strong>${sourceName}</strong></td>
-              <td>${signalPath}</td>
-            </tr>
-          `
-        })
-        
-        html += `
-              </tbody>
-            </table>
-          </div>
-        `
+      // Add recorder header
+      doc.setFontSize(14)
+      doc.setTextColor(37, 99, 235) // Blue color
+      doc.text(recorderName, margin, yPos)
+      yPos += 8
+      
+      // Prepare table data
+      const tracks = groupedByRecorder.value[recorderName]
+      const tableData = tracks.map(path => {
+        const trackNum = path.track_number || '—'
+        const sourceName = path.track_name || path.source_label || '—'
+        const signalPath = reversedPath(path.path).join(' → ')
+        return [trackNum, sourceName, signalPath]
       })
       
-      return html
+      // Add table
+      autoTable(doc, {
+        head: [['Track #', 'Source Name', 'Signal Path']],
+        body: tableData,
+        startY: yPos,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 249, 250] }
+      })
+      
+      // Update yPos after table
+      yPos = doc.lastAutoTable.finalY + 10
+      doc.setTextColor(0, 0, 0) // Reset to black
+    })
+    
+    // Add summary on new page if needed
+    if (yPos > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage()
+      yPos = margin
+    } else {
+      yPos += 10
     }
     
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Track List - Print Preview</title>
-          <style>
-            ${getPrintStyles()}
-          </style>
-        </head>
-        <body>
-          <div class="print-content">
-            <div class="print-header">
-              <h3>Track List</h3>
-              <p>Complete signal routing from source to recorder tracks</p>
-            </div>
-            ${buildTableHTML()}
-            <div class="track-list-summary">
-              <div class="summary-item">
-                <span class="summary-label">Total Tracks:</span>
-                <span class="summary-value">${props.signalPaths.length}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Recorders:</span>
-                <span class="summary-value">${Object.keys(groupedByRecorder.value).length}</span>
-              </div>
-            </div>
-          </div>
-          <div class="print-actions">
-            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-            <button class="secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    doc.setFontSize(12)
+    doc.text(`Total Tracks: ${props.signalPaths.length}`, margin, yPos)
+    yPos += 7
+    doc.text(`Recorders: ${recorderNames.length}`, margin, yPos)
     
-    printWindow.onload = () => {
-      printWindow.focus()
+    // Download PDF with iOS-compatible blob approach
+    try {
+      const pdfBlob = doc.output('blob')
+      const url = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = finalFileName
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch (blobError) {
+      // Fallback: try using data URI
+      try {
+        const pdfDataUri = doc.output('datauristring')
+        const link = document.createElement('a')
+        link.href = pdfDataUri
+        link.download = finalFileName
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } catch (dataUriError) {
+        // Final fallback: use jsPDF's save method
+        doc.save(finalFileName)
+      }
     }
   } catch (e) {
     console.error('Error exporting track list:', e)
+    alert('Failed to export track list. Please try again.')
   }
 }
 </script>
