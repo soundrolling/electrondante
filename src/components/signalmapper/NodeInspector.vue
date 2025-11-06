@@ -366,7 +366,10 @@ async function refresh() {
   await loadAvailableUpstreamSources() // Refresh available sources after connections are loaded - fetches connected sources
   await updateUpstreamLabels() // Update labels after connections and sources are loaded
   await loadLabels() // Load transformer input labels
-  // Removed loadTracks() - tracks are now shown in Map tab, not separate tab
+  // Populate recorder track list mapping from sources → recorder for tracking view
+  if (type.value === 'recorder') {
+    await loadTracks()
+  }
   if (isIncomingMap.value) tab.value = 'map'
   if (type.value === 'venue_sources') await loadFeeds()
 }
