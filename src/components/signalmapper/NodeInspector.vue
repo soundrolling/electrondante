@@ -280,23 +280,28 @@ async function loadAvailableUpstreamSources() {
       // For other nodes: only show connected outputs
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
+        // Only include transformer outputs whose corresponding input has a saved upstream mapping
+        const parentsOfTransformer = (graph.value.parentsByToNode || {})[e.id] || []
+        const mappedInputs = new Set()
+        for (const p of parentsOfTransformer) {
+          const maps = (graph.value.mapsByConnId || {})[p.id] || []
+          maps.forEach(m => mappedInputs.add(Number(m.to_port)))
+        }
         for (let port = 1; port <= numOutputs; port++) {
-          // When a transformer is connected, expose ALL of its outputs so multiple
-          // outputs can be mapped to different recorder tracks
-            // Resolve label for this transformer output; if we cannot resolve to a real upstream label, skip it
-            try {
-              const label = await getOutputLabel(e, port, graph.value)
-              if (label && String(label).trim().length > 0) {
-                sources.push({
-                  id: e.id,
-                  port,
-                  label: `${label} (Transformer ${e.track_name || e.label || ''})`.trim(),
-                  feedKey: `${e.id}:${port}`
-                })
-              }
-            } catch (err) {
-              // If label resolution fails, ignore this port (no saved upstream connection)
+          if (!mappedInputs.has(port)) continue
+          try {
+            const label = await getOutputLabel(e, port, graph.value)
+            if (label && String(label).trim().length > 0) {
+              sources.push({
+                id: e.id,
+                port,
+                label: `${label} (Transformer ${e.track_name || e.label || ''})`.trim(),
+                feedKey: `${e.id}:${port}`
+              })
             }
+          } catch (err) {
+            // skip unmapped/unknown
+          }
         }
       }
     } else if (eType === 'recorder') {
@@ -1252,14 +1257,21 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
             }
           }
         } else if (existingConnId) {
-          // Remove connection if source cleared
-          const { error: portMapError } = await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
-          if (portMapError) throw portMapError
-          
-          const { error: deleteError } = await supabase.from('connections').delete().eq('id', existingConnId)
-          if (deleteError) throw deleteError
-          
-          delete upstreamConnections.value[inputNum]
+          // Clear only this input's mapping. Delete the connection only if no maps remain.
+          await supabase.from('connection_port_map')
+            .delete()
+            .eq('connection_id', existingConnId)
+            .eq('to_port', Number(inputNum))
+          // Check if any port maps remain for this connection
+          const { data: remainingMaps } = await supabase
+            .from('connection_port_map')
+            .select('id')
+            .eq('connection_id', existingConnId)
+            .limit(1)
+          if (!remainingMaps || remainingMaps.length === 0) {
+            await supabase.from('connections').delete().eq('id', existingConnId)
+            delete upstreamConnections.value[inputNum]
+          }
           savedCount++
         }
       } catch (err) {
