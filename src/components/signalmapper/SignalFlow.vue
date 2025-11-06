@@ -2623,7 +2623,7 @@ function selectConnection(connectionId) {
 defineExpose({ getCanvasDataURL, selectConnection })
 
 // Export/Print the current signal flow canvas with print preview (PDF default)
-function exportToPDF() {
+async function exportToPDF() {
   if (!canvas.value) return
   
   // Build an export canvas that fits all nodes and connections with padding

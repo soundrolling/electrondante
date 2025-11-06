@@ -494,7 +494,7 @@ function getPrintStyles() {
 }
 
 // Export/Print track list as PDF (grouped by recorder)
-function exportToPDF() {
+async function exportToPDF() {
   if (props.signalPaths.length === 0) {
     return
   }
