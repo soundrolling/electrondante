@@ -78,6 +78,7 @@
       :signalPaths="signalPaths"
       :loading="loadingPaths"
       @track-name-clicked="handleTrackNameClicked"
+      @refetch-paths="loadSignalPaths"
     />
 
     <DanteConfig

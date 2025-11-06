@@ -7,6 +7,9 @@
 
   <!-- Export Buttons -->
   <div class="track-list-actions">
+    <button @click="refetchSignalPaths" class="btn-refetch" :disabled="loading">
+      🔄 {{ loading ? 'Refreshing...' : 'Refetch Signal Paths' }}
+    </button>
     <button @click="exportToPDF" class="btn-export">
       🖨️ Print / Export PDF
     </button>
@@ -100,11 +103,15 @@ const props = defineProps({
   loading: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['track-name-clicked'])
+const emit = defineEmits(['track-name-clicked', 'refetch-paths'])
 const graphRef = ref(null)
 
 function handleTrackNameClick(connectionId) {
   emit('track-name-clicked', connectionId)
+}
+
+function refetchSignalPaths() {
+  emit('refetch-paths')
 }
 
 // Group paths by recorder, then sort by track number within each group
@@ -563,6 +570,27 @@ function exportToPDF() {
   gap: 10px;
   margin-bottom: 20px;
   justify-content: center;
+}
+
+.btn-refetch {
+  padding: 10px 20px;
+  background: var(--color-secondary-500);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-refetch:hover:not(:disabled) {
+  background: var(--color-secondary-600);
+}
+
+.btn-refetch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-export,
