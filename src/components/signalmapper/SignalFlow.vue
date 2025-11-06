@@ -19,9 +19,6 @@
     <button @click="openSourceModal" class="btn-add">
       ➕ Add Venue Sources
     </button>
-    <button @click="deleteSelected" :disabled="!selectedNode" class="btn-danger">
-      🗑️ Delete
-    </button>
     <div class="toolbar-divider"></div>
     <span class="node-count">
       Sources: {{ sourceCount }} | Transformers: {{ transformerCount }} | Recorders: {{ recorderCount }}

@@ -1564,9 +1564,9 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .tabs button.tab-delete.active { background: #fee2e2; border-color: #dc2626; }
 .delete-warning { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; }
 .delete-warning p { margin: 0; }
-.btn-danger { background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
-.btn-danger:hover:not(:disabled) { background: #b91c1c; }
-.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-danger { background: #dc2626 !important; color: white !important; border: 1px solid #dc2626 !important; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+.btn-danger:hover:not(:disabled) { background: #b91c1c !important; border-color: #b91c1c !important; }
+.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; background: #dc2626 !important; }
 .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-medium); padding: 8px 16px; border-radius: 6px; cursor: pointer; }
 .btn-secondary:hover { background: var(--bg-elevated); }
 .panel { padding: 14px 18px 18px; }
@@ -1601,8 +1601,8 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .btn:disabled { background: var(--bg-tertiary); color: var(--text-tertiary); cursor: not-allowed; }
 .feeds-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .btn-secondary { background: transparent; color: var(--text-link); border: 1px solid var(--text-link); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-.btn-danger { background: var(--btn-danger-bg); color: var(--btn-danger-text); border: 1px solid var(--btn-danger-border); border-radius: 6px; padding: 6px 8px; cursor: pointer; }
-.btn-danger:hover { background: var(--btn-danger-hover-bg); border-color: var(--btn-danger-hover-border); }
+.btn-danger { background: #dc2626 !important; color: white !important; border: 1px solid #dc2626 !important; border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+.btn-danger:hover { background: #b91c1c !important; border-color: #b91c1c !important; }
 </style>
 
 
