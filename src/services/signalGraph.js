@@ -1,24 +1,44 @@
 // src/services/signalGraph.js
 import { supabase } from '../supabase'
 import { getNodes, getConnections } from './signalMapperService'
+import { getCached, setCached, invalidateTableCache } from './cacheService'
 
 // Build an in-memory graph snapshot for a project.
 // Returns { nodes, nodeMap, connections, mapsByConnId, parentsByToNode }
 export async function buildGraph(projectId) {
+  const cacheKey = `graph:${projectId}`
+  
+  // Check cache first
+  const cached = getCached(cacheKey)
+  if (cached !== null) {
+    return cached
+  }
+  
+  // Fetch nodes and connections (these are already cached individually)
   const nodes = await getNodes(projectId)
   const connections = await getConnections(projectId)
 
+  // Cache port maps separately
   const connIds = connections.map(c => c.id)
   let allPortMaps = []
   if (connIds.length) {
-    try {
-      const { data } = await supabase
-        .from('connection_port_map')
-        .select('connection_id, from_port, to_port')
-        .in('connection_id', connIds)
-      allPortMaps = data || []
-    } catch {
-      allPortMaps = []
+    const portMapCacheKey = `port_maps:${projectId}:${connIds.sort().join(',')}`
+    const cachedPortMaps = getCached(portMapCacheKey)
+    
+    if (cachedPortMaps !== null) {
+      allPortMaps = cachedPortMaps
+    } else {
+      try {
+        const { data } = await supabase
+          .from('connection_port_map')
+          .select('connection_id, from_port, to_port')
+          .in('connection_id', connIds)
+        allPortMaps = data || []
+        // Cache port maps for 30 seconds
+        setCached(portMapCacheKey, allPortMaps, 30000)
+      } catch {
+        allPortMaps = []
+      }
     }
   }
 
@@ -35,7 +55,12 @@ export async function buildGraph(projectId) {
   const nodeMap = {}
   nodes.forEach(n => { nodeMap[n.id] = n })
 
-  return { nodes, nodeMap, connections, mapsByConnId, parentsByToNode }
+  const graph = { nodes, nodeMap, connections, mapsByConnId, parentsByToNode }
+  
+  // Cache the complete graph for 30 seconds
+  setCached(cacheKey, graph, 30000)
+  
+  return graph
 }
 
 export function getParents(graph, toNodeId) {

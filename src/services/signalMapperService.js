@@ -2,14 +2,27 @@
 import { supabase } from '../supabase'
 import { buildGraph, getNodeType } from './signalGraph'
 import { getOutputLabel as svcGetOutputLabel } from './portLabelService'
+import { getCached, setCached, invalidateTableCache, invalidateProjectCache } from './cacheService'
 
 // --- CRUD for Nodes ---
 export async function getNodes(projectId) {
+  const cacheKey = `nodes:${projectId}`
+  
+  // Check cache first
+  const cached = getCached(cacheKey)
+  if (cached !== null) {
+    return cached
+  }
+  
+  // Fetch from database
   const { data, error } = await supabase
     .from('nodes')
     .select('*')
     .eq('project_id', projectId)
   if (error) throw error
+  
+  // Cache for 30 seconds
+  setCached(cacheKey, data, 30000)
   return data
 }
 
@@ -21,6 +34,13 @@ export async function addNode(node) {
     .insert([nodeData])
     .select()
   if (error) throw error
+  
+  // Invalidate cache for this project
+  if (nodeData.project_id) {
+    invalidateTableCache('nodes', nodeData.project_id)
+    invalidateTableCache('graph', nodeData.project_id) // Also invalidate graph cache
+  }
+  
   return data[0]
 }
 
@@ -32,24 +52,56 @@ export async function updateNode(node) {
     .eq('id', id)
     .select()
   if (error) throw error
+  
+  // Invalidate cache - need to get project_id from the updated node
+  if (data[0]?.project_id) {
+    invalidateTableCache('nodes', data[0].project_id)
+    invalidateTableCache('graph', data[0].project_id)
+  }
+  
   return data[0]
 }
 
 export async function deleteNode(id) {
+  // Get project_id before deleting (for cache invalidation)
+  const { data: nodeData } = await supabase
+    .from('nodes')
+    .select('project_id')
+    .eq('id', id)
+    .single()
+  
   const { error } = await supabase
     .from('nodes')
     .delete()
     .eq('id', id)
   if (error) throw error
+  
+  // Invalidate cache
+  if (nodeData?.project_id) {
+    invalidateTableCache('nodes', nodeData.project_id)
+    invalidateTableCache('graph', nodeData.project_id)
+  }
 }
 
 // --- CRUD for Connections ---
 export async function getConnections(projectId) {
+  const cacheKey = `connections:${projectId}`
+  
+  // Check cache first
+  const cached = getCached(cacheKey)
+  if (cached !== null) {
+    return cached
+  }
+  
+  // Fetch from database
   const { data, error } = await supabase
     .from('connections')
     .select('*')
     .eq('project_id', projectId)
   if (error) throw error
+  
+  // Cache for 30 seconds
+  setCached(cacheKey, data, 30000)
   return data
 }
 
@@ -59,6 +111,14 @@ export async function addConnection(connection) {
     .insert([connection])
     .select()
   if (error) throw error
+  
+  // Invalidate cache for this project
+  if (connection.project_id) {
+    invalidateTableCache('connections', connection.project_id)
+    invalidateTableCache('graph', connection.project_id)
+    invalidateTableCache('port_maps', connection.project_id)
+  }
+  
   return data[0]
 }
 
@@ -70,10 +130,25 @@ export async function updateConnection(connection) {
     .eq('id', id)
     .select()
   if (error) throw error
+  
+  // Invalidate cache
+  if (data[0]?.project_id) {
+    invalidateTableCache('connections', data[0].project_id)
+    invalidateTableCache('graph', data[0].project_id)
+    invalidateTableCache('port_maps', data[0].project_id)
+  }
+  
   return data[0]
 }
 
 export async function deleteConnection(id) {
+  // Get project_id before deleting (for cache invalidation)
+  const { data: connData } = await supabase
+    .from('connections')
+    .select('project_id')
+    .eq('id', id)
+    .single()
+  
   // First, delete all port mappings for this connection
   // This must be done before deleting the connection due to foreign key constraints
   try {
@@ -96,6 +171,13 @@ export async function deleteConnection(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  
+  // Invalidate cache
+  if (connData?.project_id) {
+    invalidateTableCache('connections', connData.project_id)
+    invalidateTableCache('graph', connData.project_id)
+    invalidateTableCache('port_maps', connData.project_id)
+  }
 }
 
 // --- Real-time Subscriptions ---
@@ -105,7 +187,12 @@ export function subscribeToNodes(projectId, callback) {
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'nodes', filter: `project_id=eq.${projectId}` },
-      payload => callback(payload)
+      payload => {
+        // Invalidate cache on any node change
+        invalidateTableCache('nodes', projectId)
+        invalidateTableCache('graph', projectId)
+        callback(payload)
+      }
     )
     .subscribe()
 }
@@ -116,20 +203,22 @@ export function subscribeToConnections(projectId, callback) {
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'connections', filter: `project_id=eq.${projectId}` },
-      payload => callback(payload)
+      payload => {
+        // Invalidate cache on any connection change
+        invalidateTableCache('connections', projectId)
+        invalidateTableCache('graph', projectId)
+        invalidateTableCache('port_maps', projectId)
+        callback(payload)
+      }
     )
     .subscribe()
 }
 
 // --- Helper Functions ---
 export async function getSourceNodes(projectId) {
-  const { data, error } = await supabase
-    .from('nodes')
-    .select('*')
-    .eq('project_id', projectId)
-    .eq('gear_type', 'source')
-  if (error) throw error
-  return data
+  // Use cached getNodes and filter, rather than separate query
+  const allNodes = await getNodes(projectId)
+  return allNodes.filter(node => node.gear_type === 'source')
 }
 
 // Centralized function to get source label from a node
