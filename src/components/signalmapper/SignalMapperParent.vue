@@ -32,6 +32,12 @@
     >
       📊 Track List
     </button>
+    <button 
+      :class="['tab-btn', { active: activeTab === 'dante' }]"
+      @click="setActiveTab('dante')"
+    >
+      🎛️ Dante
+    </button>
   </div>
 
   
@@ -74,6 +80,12 @@
       @track-name-clicked="handleTrackNameClicked"
     />
 
+    <DanteConfig
+      v-if="activeTab === 'dante'"
+      :projectId="projectId"
+      :locationId="effectiveLocationId"
+    />
+
   </div>
 </div>
 </template>
@@ -95,6 +107,7 @@ import { fetchTableData } from '@/services/dataService'
 import MicPlacement from './MicPlacement.vue'
 import SignalFlow from './SignalFlow.vue'
 import TrackList from './TrackList.vue'
+import DanteConfig from './DanteConfig.vue'
 
 const props = defineProps({
   projectId: {
@@ -108,7 +121,7 @@ const props = defineProps({
   tab: {
     type: String,
     default: 'placement',
-    validator: (value) => ['placement', 'flow', 'tracklist'].includes(value)
+    validator: (value) => ['placement', 'flow', 'tracklist', 'dante'].includes(value)
   }
 })
 
@@ -350,13 +363,13 @@ function setupRealtimeSubscriptions() {
 
 // Watch for route changes to update active tab (both params and query for backward compatibility)
 watch(() => route.params.tab || route.query.tab, (newTab) => {
-  if (newTab && ['placement', 'flow', 'tracklist'].includes(newTab)) {
+  if (newTab && ['placement', 'flow', 'tracklist', 'dante'].includes(newTab)) {
     activeTab.value = newTab
   } else if (!newTab) {
     // Default to placement if no tab in URL
     activeTab.value = 'placement'
     // Redirect to placement tab if invalid/missing
-    if (route.params.tab && !['placement', 'flow', 'tracklist'].includes(route.params.tab)) {
+    if (route.params.tab && !['placement', 'flow', 'tracklist', 'dante'].includes(route.params.tab)) {
       setActiveTab('placement')
     }
   }
@@ -366,7 +379,7 @@ watch(() => route.params.tab || route.query.tab, (newTab) => {
 onMounted(async () => {
   // Initialize tab from route param (preferred) or query param (backward compatibility)
   const tabFromUrl = route.params.tab || route.query.tab
-  if (tabFromUrl && ['placement', 'flow', 'tracklist'].includes(tabFromUrl)) {
+  if (tabFromUrl && ['placement', 'flow', 'tracklist', 'dante'].includes(tabFromUrl)) {
     activeTab.value = tabFromUrl
     // If we're using query param, migrate to route param
     if (route.query.tab && !route.params.tab) {

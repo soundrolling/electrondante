@@ -1427,8 +1427,18 @@ async function saveSelectedConnection() {
   try {
     // Handle port mapping connections
     if (needsPortMappingForSelected.value) {
+      // If there are no port maps to save, allow updating connection metadata only
       if (editPortMappings.value.length === 0) {
-        toast.error('Please add at least one port mapping.')
+        const payload = {
+          id: c.id,
+          pad: -Math.abs(Number(editPad.value) || 0),
+          phantom_power: editPhantom.value,
+          connection_type: editType.value
+        }
+        const updatedMeta = await updateConnection(payload)
+        emit('connection-updated', updatedMeta)
+        toast.success('Connection saved successfully')
+        selectedConnectionId.value = null // Close modal after successful save
         return
       }
       
