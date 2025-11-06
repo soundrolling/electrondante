@@ -53,9 +53,10 @@
                     >×</button>
                   </div>
                   <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
-                    <option :value="null">— Select source —</option>
+                    <option :value="null">-- No source --</option>
                     <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
+                  <div v-if="saveStatus[n] === 'saved'" class="save-indicator">✓ Saved</div>
                 </div>
                 <div v-if="!inputCount" class="muted">{{ type === 'recorder' ? 'No tracks' : 'No inputs' }}</div>
               </div>
@@ -126,6 +127,7 @@ const downstreamPortMap = ref({}) // { outputNum: targetPortNum }
 const upstreamConnections = ref({}) // { inputNum: connectionId }
 const downstreamConnections = ref({}) // { outputNum: connectionId }
 const upstreamLabels = ref({}) // { inputNum: label } - cached labels for display
+const saveStatus = ref({}) // { inputNum: 'saved' | 'error' }
 
 const availableUpstreamSources = ref([]) // [{ id: nodeId, port: portNum (for venue), label: string, feedKey: 'nodeId:port' }]
 
@@ -824,8 +826,13 @@ function getUpstreamLabel(inputNum) {
   return upstreamLabels.value[inputNum] || '—'
 }
 
-function onUpstreamChange(inputNum) {
-  // Will be handled in saveMap
+async function onUpstreamChange(inputNum) {
+  // Autosave per-input for transformers and recorders; keeps UI in sync
+  try {
+    await saveMap(inputNum, true)
+    saveStatus.value[inputNum] = 'saved'
+    setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
+  } catch {}
 }
 
 function onDownstreamChange(outputNum) {
@@ -855,7 +862,7 @@ function clearDownstreamConnection(outputNum) {
   delete downstreamConnections.value[outputNum]
 }
 
-async function saveMap() {
+async function saveMap(onlyInputNum = null, suppressToasts = false) {
   saving.value = true
   try {
     console.log('[Inspector][Map] save:start', { node_id: props.node.id })
@@ -865,6 +872,7 @@ async function saveMap() {
     
     // Save upstream connections
     for (const inputNum in upstreamMap.value) {
+      if (onlyInputNum !== null && Number(inputNum) !== Number(onlyInputNum)) continue
       const feedKey = upstreamMap.value[inputNum] // Can be nodeId or nodeId:port
       const existingConnId = upstreamConnections.value[inputNum]
       
@@ -1262,14 +1270,15 @@ async function saveMap() {
     // No need to save them from this node
     
     await refresh()
-    console.log('[Inspector][Map] save:done', { savedCount, errorCount })
-    
-    if (errorCount > 0) {
-      toast.error(`Failed to save ${errorCount} input connection(s)`)
-    } else if (savedCount > 0) {
-      toast.success(`Saved ${savedCount} input mapping(s)`)
-    } else {
-      toast.info('No changes to save')
+    console.log('[Inspector][Map] save:done', { savedCount, errorCount, onlyInputNum })
+    if (!suppressToasts) {
+      if (errorCount > 0) {
+        toast.error(`Failed to save ${errorCount} input connection(s)`) 
+      } else if (savedCount > 0) {
+        toast.success(`Saved ${savedCount} input mapping(s)`) 
+      } else {
+        toast.info('No changes to save')
+      }
     }
   } catch (err) {
     console.error('[Inspector][Map] save failed', err)
@@ -1310,6 +1319,7 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .btn-danger-small:hover { background: var(--btn-danger-hover-bg); border-color: var(--btn-danger-hover-border); }
 .clear-x-btn { background: transparent; border: none; color: #d33; margin-left: 8px; font-size: 14px; line-height: 1; cursor: pointer; padding: 0 4px; }
 .clear-x-btn:hover { color: #b00; }
+.save-indicator { color: #2e7d32; font-size: 11px; margin-top: 4px; }
 .map-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: var(--bg-elevated); border: 2px solid var(--border-dark); border-radius: 8px; min-width: 150px; }
 .map-node-badge { background: var(--bg-primary); border: 1px solid var(--border-medium); padding: 4px 12px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
 .map-node-name { color: var(--text-primary); font-weight: 600; font-size: 14px; text-align: center; }
