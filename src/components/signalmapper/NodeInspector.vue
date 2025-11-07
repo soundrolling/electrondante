@@ -358,8 +358,12 @@ async function loadAvailableUpstreamSources() {
   // Get all connections to this node (used to track which ports are connected)
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   
-  // Only show connected sources; if there are no incoming connections, nothing to select
-  if (parents.length === 0) {
+  // For recorders, we want to show ALL recorders as potential sources (for recorder→recorder connections)
+  // For other node types, only show connected sources
+  const showAllRecorders = isRecorder
+  
+  // Only show connected sources for non-recorders; if there are no incoming connections, nothing to select
+  if (!showAllRecorders && parents.length === 0) {
     availableUpstreamSources.value = []
     return
   }
@@ -424,10 +428,27 @@ async function loadAvailableUpstreamSources() {
   
   const sources = []
   
-  // Only process nodes that are actually connected upstream to this node
-  const nodesToProcess = Array.from(connectedNodes.keys())
+  // For recorders, show ALL recorders as potential sources (not just connected ones)
+  // For other nodes, only show connected sources
+  let nodesToProcess = Array.from(connectedNodes.keys())
     .map(nodeId => props.elements.find(e => e.id === nodeId))
     .filter(Boolean)
+  
+  if (showAllRecorders) {
+    // Add all recorders that aren't already in the connected nodes list
+    const allRecorders = props.elements.filter(e => {
+      const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+      return eType === 'recorder' && e.id !== props.node.id // Don't include self
+    })
+    
+    for (const recorder of allRecorders) {
+      if (!connectedNodes.has(recorder.id)) {
+        // Add to nodesToProcess and set connectedPorts to null (will show all tracks)
+        connectedNodes.set(recorder.id, null) // null means show all outputs
+        nodesToProcess.push(recorder)
+      }
+    }
+  }
   
   for (const e of nodesToProcess) {
     if (!e || e.id === props.node.id) continue
@@ -534,8 +555,15 @@ async function loadAvailableUpstreamSources() {
       const numOutputs = e.num_outputs || e.outputs || numTracks // Use num_outputs if set, otherwise tracks
       const tracksToShow = Math.max(numTracks, numOutputs) // Show all available tracks/outputs
       
-      if (tracksToShow > 0) {
-        for (let port = 1; port <= tracksToShow; port++) {
+      // If this recorder is connected, only show connected ports
+      // If not connected (showAllRecorders), show all tracks
+      const shouldShowAll = showAllRecorders && connectedPortsSet === null
+      const portsToShow = shouldShowAll 
+        ? Array.from({ length: tracksToShow }, (_, i) => i + 1)
+        : (connectedPortsSet ? Array.from(connectedPortsSet) : [])
+      
+      if (portsToShow.length > 0) {
+        for (const port of portsToShow) {
           // Get the label for this recorder track output
           try {
             const label = await getOutputLabel(e, port, graph.value)

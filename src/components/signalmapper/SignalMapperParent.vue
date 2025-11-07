@@ -311,13 +311,10 @@ function handleConnectionUpdated(connection) {
 function handleConnectionDeleted(connectionId) {
   // Remove the connection from local state immediately (synchronous update)
   allConnections.value = allConnections.value.filter(c => c.id !== connectionId)
-  // Reload signal paths to ensure all cached data is cleared
+  // Reload signal paths to ensure all cached data is cleared (async, non-blocking)
   loadSignalPaths()
-  // Force a refresh of nodes to clear any cached connection references
-  // Use nextTick to ensure Vue reactivity has processed the connection removal
-  nextTick(async () => {
-    await loadNodesAndConnections()
-  })
+  // Don't reload all nodes/connections - just let the canvas redraw with the updated connections array
+  // The watcher in SignalFlow will handle the canvas redraw automatically
 }
 
 function handleTrackNameClicked(connectionId) {
