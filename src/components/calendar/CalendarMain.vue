@@ -1250,6 +1250,7 @@ setup() {
     displayCalendarDays, hasEvents, getEventsForDay,
     showDetailsModal, detailsMode, detailsEvent,
     showNewModal,
+    showConfirmationModal, confirmationConfig, handleConfirm, cancelConfirmation,
     openDetailsModal, closeDetailsModal, confirmDelete, saveDetails,
     openNewEventModal, closeNewEventModal, createNewEvent,
     previousDay, nextDay, previousPeriod, nextPeriod,
@@ -1260,6 +1261,8 @@ setup() {
     onEditEvent, onDeleteEvent,
     forceRefresh,
     enabledCategories, updateEnabledCategories,
+    showStageHoursModal, openStageHoursModal, closeStageHoursModal,
+    getStageHoursForStage, formatDateTime, editStageHour, addStageHour, deleteStageHour,
     
   };
 }

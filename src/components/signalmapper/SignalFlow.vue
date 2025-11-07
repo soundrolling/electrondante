@@ -487,14 +487,14 @@ const needsPortMappingForSelected = computed(() => {
   const toType = toNodeType.value
   // Allow mapping when:
   // - transformer → transformer/recorder
-  // - recorder → recorder
+  // - recorder → recorder/transformer
   // - multi-output source (e.g., stereo) → transformer/recorder
   // - venue_sources → transformer/recorder (can have unlimited source tracks)
   const fromNode = fromNodeOfSelected.value
   const isMultiOutputSource = (fromType === 'source') && ((fromNode?.num_outputs || fromNode?.outputs || 0) > 1)
   const isVenueSources = fromType === 'venue_sources'
   return (fromType === 'transformer' && (toType === 'transformer' || toType === 'recorder')) ||
-         (fromType === 'recorder' && toType === 'recorder') ||
+         (fromType === 'recorder' && (toType === 'recorder' || toType === 'transformer')) || // Recorder→Recorder or Recorder→Transformer
          (isMultiOutputSource && (toType === 'transformer' || toType === 'recorder')) ||
          (isVenueSources && (toType === 'transformer' || toType === 'recorder'))
 })

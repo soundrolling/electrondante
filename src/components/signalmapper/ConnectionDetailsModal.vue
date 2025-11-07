@@ -340,13 +340,13 @@ const isTransformerTo = computed(() => getType(props.toNode) === 'transformer')
 const isTransformerFrom = computed(() => getType(props.fromNode) === 'transformer')
 
 // Use port mapping when neither side is a source and a transformer is involved,
-// or recorder→recorder, or when the from side is a multi-output source going to
+// or recorder→recorder, or recorder→transformer, or when the from side is a multi-output source going to
 // a transformer/recorder (e.g., stereo source mapping L/R), or venue_sources node.
 const needsPortMapping = computed(() => {
   const multiOutputSource = isSource.value && ((numOutputs.value || 0) > 1) && (isTransformerTo.value || isRecorderTo.value)
   return isVenueSources.value || // Venue Sources always requires port mapping
          (!isSource.value && (isTransformerFrom.value || isTransformerTo.value)) ||
-         (isRecorderFrom.value && isRecorderTo.value) ||
+         (isRecorderFrom.value && (isRecorderTo.value || isTransformerTo.value)) || // Recorder→Recorder or Recorder→Transformer
          multiOutputSource
 })
 
@@ -671,7 +671,13 @@ async function loadRecorderTrackNames() {
   }
   
   const trackNames = {}
-  const count = numOutputs.value || 0
+  // Use numOutputs computed, but also check node directly as fallback
+  let count = numOutputs.value || 0
+  if (count === 0) {
+    // Fallback: check node directly for tracks if computed value is 0
+    count = props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
+            props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
+  }
   
   // Load all track names in parallel
   const promises = []
@@ -735,9 +741,17 @@ const availableFromPorts = computed(() => {
     return []
   }
   
+  // For recorders, ensure we use tracks if num_outputs isn't set
+  let outputCount = numOutputs.value || 0
+  if (isRecorderFrom.value && outputCount === 0) {
+    // Fallback: check node directly for tracks if computed value is 0
+    outputCount = props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
+                  props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
+  }
+  
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
   const opts = []
-  for (let n = 1; n <= numOutputs.value; n++) {
+  for (let n = 1; n <= outputCount; n++) {
     if (used.has(n)) continue
     if (takenFromPorts.value.has(n)) continue
     let label
@@ -2015,6 +2029,16 @@ onMounted(async () => {
   }
   
   // Load recorder track names if FROM node is a recorder
+  // Ensure we load even if num_outputs isn't set yet (fallback to num_tracks)
+  if (isRecorderFrom.value) {
+    // Force update numOutputs by checking the node directly
+    const recorderOutputs = props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
+                            props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
+    if (recorderOutputs > 0 && (numOutputs.value || 0) === 0) {
+      // If numOutputs computed is 0 but we have tracks, the node might need normalization
+      console.warn('Recorder node missing num_outputs:', props.fromNode.id, 'tracks:', recorderOutputs)
+    }
+  }
   await loadRecorderTrackNames()
   // Load recorder track names if TO node is a recorder
   await loadToRecorderTrackNames()
