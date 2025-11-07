@@ -555,9 +555,10 @@ async function loadAvailableUpstreamSources() {
       const numOutputs = e.num_outputs || e.outputs || numTracks // Use num_outputs if set, otherwise tracks
       const tracksToShow = Math.max(numTracks, numOutputs) // Show all available tracks/outputs
       
-      // If this recorder is connected, only show connected ports
-      // If not connected (showAllRecorders), show all tracks
-      const shouldShowAll = showAllRecorders && connectedPortsSet === null
+      // For recorder→recorder connections, ALWAYS show all tracks (multi-source support)
+      // This allows adding multiple tracks from the same source recorder
+      // For other node types, only show connected ports
+      const shouldShowAll = showAllRecorders // Always show all tracks when target is a recorder
       const portsToShow = shouldShowAll 
         ? Array.from({ length: tracksToShow }, (_, i) => i + 1)
         : (connectedPortsSet ? Array.from(connectedPortsSet) : [])
