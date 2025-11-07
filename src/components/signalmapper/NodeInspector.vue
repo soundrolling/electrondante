@@ -564,21 +564,32 @@ async function loadAvailableUpstreamSources() {
       
       if (portsToShow.length > 0) {
         for (const port of portsToShow) {
-          // Get the label for this recorder track output
+          // Get the label for this recorder track output (traces back to original source)
           try {
             const label = await getOutputLabel(e, port, graph.value)
-            sources.push({
-              id: e.id,
-              port,
-              label: `${label} (Recorder ${e.track_name || e.label || ''})`.trim(),
-              feedKey: `${e.id}:${port}`
-            })
+            // If we got a traced source name, use it directly; otherwise show track number
+            if (label && label !== `Track ${port}`) {
+              sources.push({
+                id: e.id,
+                port,
+                label: label, // Show original source name (e.g., "Microphone 1", "Guitar L")
+                feedKey: `${e.id}:${port}`
+              })
+            } else {
+              // Fallback: no source traced, show track number with recorder name
+              sources.push({
+                id: e.id,
+                port,
+                label: `Track ${port} (${e.track_name || e.label || 'Recorder'})`,
+                feedKey: `${e.id}:${port}`
+              })
+            }
           } catch (err) {
             // Fallback if label resolution fails
             sources.push({
               id: e.id,
               port,
-              label: `${e.track_name || e.label || 'Recorder'} Track ${port} (Recorder)`,
+              label: `Track ${port} (${e.track_name || e.label || 'Recorder'})`,
               feedKey: `${e.id}:${port}`
             })
           }

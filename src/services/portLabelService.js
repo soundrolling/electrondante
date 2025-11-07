@@ -53,7 +53,9 @@ export async function getOutputLabel(node, portNum, graph) {
   }
 
   if (type === 'recorder') {
-    return `Track ${portNum}`
+    // For recorders, trace back to find what's feeding this track (output port)
+    // This allows us to show the original source name instead of just "Track X"
+    return await resolveRecorderTrackLabel(node, portNum, graph)
   }
 
   if (type === 'transformer') {
@@ -194,6 +196,55 @@ export async function hydrateVenueLabels(node, ports = null) {
     await supabase.from('nodes').update({ output_port_labels: merged }).eq('id', node.id)
     node.output_port_labels = merged
   } catch {}
+}
+
+// Resolve the label for a recorder's track (output port) by tracing back to the original source
+async function resolveRecorderTrackLabel(recorderNode, trackNum, graph, visited = new Set()) {
+  if (!recorderNode || visited.has(recorderNode.id)) return `Track ${trackNum}`
+  visited.add(recorderNode.id)
+
+  // Find connections TO this recorder that use this track number
+  const parents = graph.parentsByToNode[recorderNode.id] || []
+  
+  // Check for port-mapped connections first
+  let trackConn = null
+  for (const parent of parents) {
+    const portMaps = graph.mapsByConnId[parent.id] || []
+    const matchingMap = portMaps.find(m => Number(m.to_port) === Number(trackNum))
+    if (matchingMap) {
+      trackConn = { ...parent, _mappedFromPort: matchingMap.from_port }
+      break
+    }
+  }
+  
+  // If no port-mapped connection, check direct connections
+  if (!trackConn) {
+    trackConn = parents.find(p => Number(p.input_number) === Number(trackNum) || Number(p.track_number) === Number(trackNum))
+  }
+  
+  if (!trackConn) return `Track ${trackNum}`
+  
+  // Get the source node
+  const sourceNodeId = trackConn.from_node_id
+  const sourceNode = graph.nodeMap[sourceNodeId]
+  if (!sourceNode) return `Track ${trackNum}`
+  
+  // Determine which port on the source to trace from
+  let sourcePort = trackConn._mappedFromPort
+  if (sourcePort === undefined) {
+    // For direct connections, try to infer the source port
+    sourcePort = trackConn.output_number || trackConn.input_number || trackNum
+  }
+  
+  const sourceType = getNodeType(sourceNode)
+  
+  // If source is another recorder, recursively trace
+  if (sourceType === 'recorder') {
+    return await resolveRecorderTrackLabel(sourceNode, sourcePort, graph, visited)
+  }
+  
+  // For other source types, get their output label
+  return await getOutputLabel(sourceNode, sourcePort, graph)
 }
 
 
