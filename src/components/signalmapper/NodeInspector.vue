@@ -1558,9 +1558,10 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .tabs button.tab-delete { color: #dc2626; border-color: #dc2626; }
 .tabs button.tab-delete:hover { background: #fee2e2; }
 .tabs button.tab-delete.active { background: #fee2e2; border-color: #dc2626; }
-.delete-warning { padding: 16px; background: #991b1b; border: 1px solid #7f1d1d; border-radius: 8px; color: white; }
-.delete-warning p { margin: 0; color: white; }
-.delete-warning strong { color: white; }
+.delete-warning { padding: 16px; background: #991b1b; border: 1px solid #7f1d1d; border-radius: 8px; color: white !important; }
+.delete-warning p { margin: 0; color: white !important; }
+.delete-warning strong { color: white !important; }
+.delete-warning * { color: white !important; }
 .btn-danger { background: #dc2626 !important; color: white !important; border: 1px solid #dc2626 !important; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
 .btn-danger:hover:not(:disabled) { background: #b91c1c !important; border-color: #b91c1c !important; }
 .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; background: #dc2626 !important; }

@@ -679,6 +679,21 @@ async function loadRecorderTrackNames() {
             props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
   }
   
+  // Debug logging
+  console.log('[ConnectionModal] Loading recorder track names:', {
+    nodeId: props.fromNode.id,
+    nodeLabel: props.fromNode.label,
+    numOutputs: numOutputs.value,
+    count,
+    isRecorderFrom: isRecorderFrom.value,
+    nodeData: {
+      num_outputs: props.fromNode.num_outputs,
+      num_tracks: props.fromNode.num_tracks,
+      gear_type: props.fromNode.gear_type,
+      type: props.fromNode.type
+    }
+  })
+  
   // Load all track names in parallel
   const promises = []
   for (let n = 1; n <= count; n++) {
@@ -747,6 +762,17 @@ const availableFromPorts = computed(() => {
     // Fallback: check node directly for tracks if computed value is 0
     outputCount = props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
                   props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
+    // Debug logging for recorder outputs
+    if (outputCount > 0) {
+      console.log('[ConnectionModal] Recorder outputs detected:', {
+        nodeId: props.fromNode.id,
+        nodeLabel: props.fromNode.label,
+        numOutputs: numOutputs.value,
+        outputCount,
+        num_tracks: props.fromNode.num_tracks,
+        num_outputs: props.fromNode.num_outputs
+      })
+    }
   }
   
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))
@@ -2035,8 +2061,19 @@ onMounted(async () => {
     const recorderOutputs = props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
                             props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
     if (recorderOutputs > 0 && (numOutputs.value || 0) === 0) {
-      // If numOutputs computed is 0 but we have tracks, the node might need normalization
-      console.warn('Recorder node missing num_outputs:', props.fromNode.id, 'tracks:', recorderOutputs)
+      // If numOutputs computed is 0 but we have tracks, update the node object directly
+      // This ensures the computed property will return the correct value
+      console.warn('Recorder node missing num_outputs, updating from tracks:', props.fromNode.id, 'tracks:', recorderOutputs)
+      props.fromNode.num_outputs = recorderOutputs
+      // Also try to update in database if we can
+      try {
+        await supabase
+          .from('nodes')
+          .update({ num_outputs: recorderOutputs })
+          .eq('id', props.fromNode.id)
+      } catch (err) {
+        console.warn('Failed to update recorder num_outputs in DB:', err)
+      }
     }
   }
   await loadRecorderTrackNames()
