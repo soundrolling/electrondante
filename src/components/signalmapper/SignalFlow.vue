@@ -2297,7 +2297,7 @@ async function addGearNode(gear) {
       flow_y: 0.5,
       gear_type: gear.gear_type,
       num_inputs: gear.num_inputs || 0,
-      num_outputs: gear.num_outputs || 0,
+      num_outputs: gear.num_tracks || gear.num_outputs || 0, // For recorders, tracks are outputs
       num_tracks: gear.num_tracks || 0
     })
 

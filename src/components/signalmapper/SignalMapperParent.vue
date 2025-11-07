@@ -75,6 +75,7 @@
     <TrackList
       v-if="activeTab === 'tracklist'"
       :projectId="projectId"
+      :locationId="effectiveLocationId"
       :signalPaths="signalPaths"
       :loading="loadingPaths"
       @track-name-clicked="handleTrackNameClicked"

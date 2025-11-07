@@ -2,7 +2,8 @@
 <div class="track-list-container">
   <div class="track-list-header">
     <h3>Track List</h3>
-    <p>Complete signal routing from source to recorder tracks</p>
+    <p v-if="customTitle">{{ customTitle }}</p>
+    <p v-else>Complete signal routing from source to recorder tracks</p>
   </div>
 
   <!-- Export Buttons -->
@@ -105,21 +106,38 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { buildGraph } from '@/services/signalGraph'
 import { resolveTransformerInputLabel as svcResolveTransformerInputLabel, getOutputLabel as svcGetOutputLabel } from '@/services/portLabelService'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import InputModal from '@/components/signalmapper/InputModal.vue'
+import { supabase } from '@/supabase'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
+  locationId: { type: [String, Number], default: null },
   signalPaths: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['track-name-clicked', 'refetch-paths'])
 const graphRef = ref(null)
+
+// Project and stage info for custom title
+const projectName = ref('')
+const stageName = ref('')
+const venueName = ref('')
+const dateRange = ref('')
+
+// Computed custom title
+const customTitle = computed(() => {
+  const parts = []
+  if (projectName.value) parts.push(projectName.value)
+  if (stageName.value) parts.push(stageName.value)
+  if (dateRange.value) parts.push(dateRange.value)
+  return parts.length > 0 ? parts.join(' • ') : null
+})
 
 // Input modal state
 const showInputModal = ref(false)
@@ -225,9 +243,76 @@ function reversedPath(path) {
   return [...path].reverse()
 }
 
+// Fetch project and stage information
+async function fetchProjectAndStageInfo() {
+  try {
+    // Fetch project name
+    if (props.projectId) {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('project_name, main_show_days')
+        .eq('id', props.projectId)
+        .single()
+      
+      if (projectData) {
+        projectName.value = projectData.project_name || ''
+        
+        // Format date range from main_show_days
+        if (projectData.main_show_days && Array.isArray(projectData.main_show_days) && projectData.main_show_days.length > 0) {
+          const dates = projectData.main_show_days
+            .map(d => new Date(d))
+            .filter(d => !isNaN(d.getTime()))
+            .sort((a, b) => a - b)
+          
+          if (dates.length > 0) {
+            const start = dates[0]
+            const end = dates[dates.length - 1]
+            
+            const formatDate = (date) => {
+              return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: start.getFullYear() !== end.getFullYear() ? 'numeric' : undefined
+              })
+            }
+            
+            if (start.getTime() === end.getTime()) {
+              dateRange.value = formatDate(start)
+            } else {
+              dateRange.value = `${formatDate(start)} - ${formatDate(end)}`
+            }
+          }
+        }
+      }
+    }
+    
+    // Fetch stage/venue name
+    if (props.locationId) {
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('stage_name, venue_name')
+        .eq('id', props.locationId)
+        .single()
+      
+      if (locationData) {
+        stageName.value = locationData.stage_name || ''
+        venueName.value = locationData.venue_name || ''
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching project and stage info:', error)
+  }
+}
+
+// Watch for changes to projectId or locationId
+watch([() => props.projectId, () => props.locationId], () => {
+  fetchProjectAndStageInfo()
+}, { immediate: false })
+
 // Optional: if later we compute paths locally, we will use the services.
 onMounted(async () => {
   try { graphRef.value = await buildGraph(props.projectId) } catch {}
+  await fetchProjectAndStageInfo()
 })
 
 // Smart track number sorting that handles numbers, letters, and alphanumeric combinations
@@ -528,7 +613,8 @@ async function exportToPDF() {
     yPos += 8
     
     doc.setFontSize(12)
-    doc.text('Complete signal routing from source to recorder tracks', pageWidth / 2, yPos, { align: 'center' })
+    const subtitle = customTitle.value || 'Complete signal routing from source to recorder tracks'
+    doc.text(subtitle, pageWidth / 2, yPos, { align: 'center' })
     yPos += 15
     
     // Group by recorder and create tables

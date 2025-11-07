@@ -528,31 +528,31 @@ async function loadAvailableUpstreamSources() {
       }
     } else if (eType === 'recorder') {
       // Recorders can output to other nodes (recorder-to-recorder or recorder-to-transformer)
-      // For recorders: show ALL tracks from other recorders
-      // For other nodes: only show connected tracks
+      // Show ALL tracks from recorders as available outputs (not just connected ones)
+      // This allows backup recorders to see all tracks from primary recorders
       const numTracks = e.num_tracks || e.tracks || e.num_records || e.numrecord || 0
-      if (numTracks > 0) {
-        for (let port = 1; port <= numTracks; port++) {
-          // Only show connected tracks
-          if (connectedPortsSet && connectedPortsSet.has(port)) {
-            // Get the label for this recorder track output
-            try {
-              const label = await getOutputLabel(e, port, graph.value)
-              sources.push({
-                id: e.id,
-                port,
-                label: `${label} (Recorder ${e.track_name || e.label || ''})`.trim(),
-                feedKey: `${e.id}:${port}`
-              })
-            } catch (err) {
-              // Fallback if label resolution fails
-              sources.push({
-                id: e.id,
-                port,
-                label: `${e.track_name || e.label || 'Recorder'} Track ${port} (Recorder)`,
-                feedKey: `${e.id}:${port}`
-              })
-            }
+      const numOutputs = e.num_outputs || e.outputs || numTracks // Use num_outputs if set, otherwise tracks
+      const tracksToShow = Math.max(numTracks, numOutputs) // Show all available tracks/outputs
+      
+      if (tracksToShow > 0) {
+        for (let port = 1; port <= tracksToShow; port++) {
+          // Get the label for this recorder track output
+          try {
+            const label = await getOutputLabel(e, port, graph.value)
+            sources.push({
+              id: e.id,
+              port,
+              label: `${label} (Recorder ${e.track_name || e.label || ''})`.trim(),
+              feedKey: `${e.id}:${port}`
+            })
+          } catch (err) {
+            // Fallback if label resolution fails
+            sources.push({
+              id: e.id,
+              port,
+              label: `${e.track_name || e.label || 'Recorder'} Track ${port} (Recorder)`,
+              feedKey: `${e.id}:${port}`
+            })
           }
         }
       }

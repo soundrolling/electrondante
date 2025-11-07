@@ -351,7 +351,15 @@ const needsPortMapping = computed(() => {
 })
 
 const numInputs = computed(() => props.toNode.num_inputs || props.toNode.numinputs || props.toNode.inputs || 0)
-const numOutputs = computed(() => props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 0)
+// For recorders, tracks are outputs - use num_outputs if set, otherwise fall back to num_tracks
+const numOutputs = computed(() => {
+  if (isRecorderFrom.value) {
+    // For recorders, tracks are outputs
+    return props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
+           props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
+  }
+  return props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 0
+})
 const numTracks = computed(() => props.toNode.num_tracks || props.toNode.tracks || props.toNode.num_records || props.toNode.numrecord || 0)
 
 const inputNumber = ref(props.defaultInput)

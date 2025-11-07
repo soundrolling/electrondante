@@ -29,6 +29,15 @@ export async function getNodes(projectId) {
 export async function addNode(node) {
   // Remove node_type if present (column doesn't exist in database)
   const { node_type, ...nodeData } = node
+  
+  // For recorders, ensure num_outputs equals num_tracks so tracks can be used as outputs
+  if (nodeData.gear_type === 'recorder' || nodeData.type === 'recorder') {
+    const numTracks = nodeData.num_tracks || nodeData.tracks || nodeData.num_records || nodeData.numrecord || 0
+    if (numTracks > 0) {
+      nodeData.num_outputs = numTracks
+    }
+  }
+  
   const { data, error } = await supabase
     .from('nodes')
     .insert([nodeData])
@@ -46,6 +55,27 @@ export async function addNode(node) {
 
 export async function updateNode(node) {
   const { id, ...fields } = node
+  
+  // For recorders, ensure num_outputs equals num_tracks so tracks can be used as outputs
+  // Check if this is a recorder by looking at the existing node or the update fields
+  if (fields.gear_type === 'recorder' || fields.type === 'recorder' || 
+      (fields.num_tracks || fields.tracks || fields.num_records || fields.numrecord)) {
+    // Get the current node to check if it's a recorder
+    const { data: current } = await supabase
+      .from('nodes')
+      .select('gear_type, type, num_tracks, tracks, num_records, numrecord')
+      .eq('id', id)
+      .single()
+    
+    if (current && (current.gear_type === 'recorder' || current.type === 'recorder')) {
+      const numTracks = fields.num_tracks || fields.tracks || fields.num_records || fields.numrecord || 
+                        current.num_tracks || current.tracks || current.num_records || current.numrecord || 0
+      if (numTracks > 0) {
+        fields.num_outputs = numTracks
+      }
+    }
+  }
+  
   const { data, error } = await supabase
     .from('nodes')
     .update(fields)
