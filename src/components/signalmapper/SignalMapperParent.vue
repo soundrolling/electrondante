@@ -309,11 +309,12 @@ function handleConnectionUpdated(connection) {
 }
 
 function handleConnectionDeleted(connectionId) {
-  // Remove the connection from local state
+  // Remove the connection from local state immediately (synchronous update)
   allConnections.value = allConnections.value.filter(c => c.id !== connectionId)
   // Reload signal paths to ensure all cached data is cleared
   loadSignalPaths()
   // Force a refresh of nodes to clear any cached connection references
+  // Use nextTick to ensure Vue reactivity has processed the connection removal
   nextTick(async () => {
     await loadNodesAndConnections()
   })

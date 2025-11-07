@@ -1708,10 +1708,19 @@ async function deleteSelectedConnection() {
     recorderTrackNamesForEdit.value = {}
     upstreamLabelsForFromNode.value = {}
     
+    // Emit the deletion event - parent will update connections array
+    // The watcher on props.connections will automatically trigger drawCanvas()
     emit('connection-deleted', c.id)
     selectedConnectionId.value = null
+    
+    // Force immediate redraw after parent updates (watcher should handle this, but ensure it happens)
+    await nextTick()
+    // Small delay to ensure parent has updated the connections array and watcher has fired
+    setTimeout(() => {
+      drawCanvas()
+    }, 100)
+    
     toast.success('Connection deleted')
-    nextTick(drawCanvas)
   } catch (err) {
     console.error('Failed to delete connection:', err)
     toast.error('Failed to delete connection')
