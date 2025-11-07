@@ -166,11 +166,11 @@ components: { Header, Footer, ChangeoverNotificationModal },
   }
 
   // Watch for project changes to restart notification service
-  watch(() => userStore.getCurrentProject, (newProject) => {
+  watch(() => userStore.getCurrentProject, async (newProject) => {
     if (newProject && userStore.isAuthenticated) {
       // Restart notifications when project changes
       stopScheduleNotifications()
-      startScheduleNotifications(newProject.id)
+      await startScheduleNotifications(newProject.id)
     } else {
       stopScheduleNotifications()
     }
@@ -192,7 +192,7 @@ components: { Header, Footer, ChangeoverNotificationModal },
       
       // Start schedule notifications if authenticated and have a project
       if (userStore.isAuthenticated && userStore.getCurrentProject) {
-        startScheduleNotifications(userStore.getCurrentProject.id)
+        await startScheduleNotifications(userStore.getCurrentProject.id)
       }
     } catch (err) {
       initializationError.value = `Failed to initialize the app: ${err.message}`

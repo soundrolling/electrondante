@@ -101,6 +101,20 @@
           />
           <small class="setting-hint">Minutes before artist start time to show notification</small>
         </div>
+        <div class="setting-item" v-if="notificationsEnabled">
+          <label class="setting-label">
+            Notification scope:
+          </label>
+          <select 
+            v-model="notificationScope"
+            @change="saveNotificationSettings"
+            class="setting-input"
+          >
+            <option value="current_project">Current project only</option>
+            <option value="all_projects">All my projects</option>
+          </select>
+          <small class="setting-hint">Receive notifications for current project or all projects you're a member of</small>
+        </div>
       </div>
     </div>
   </transition>
@@ -347,6 +361,7 @@ export default {
     // Notification settings state
     const notificationsEnabled = ref(true) // Default to enabled
     const defaultWarningMinutes = ref(2) // Default 2 minutes
+    const notificationScope = ref('current_project') // 'current_project' or 'all_projects'
 
     // Filter panel state
     const showFilters = ref(false)
@@ -674,8 +689,10 @@ export default {
       try {
         const enabled = await getSetting('schedule_notifications_enabled', true)
         const minutes = await getSetting('schedule_warning_minutes', 2)
+        const scope = await getSetting('schedule_notification_scope', 'current_project')
         notificationsEnabled.value = enabled !== false // Default to true
         defaultWarningMinutes.value = parseInt(minutes, 10) || 2
+        notificationScope.value = scope || 'current_project'
       } catch (error) {
         console.error('Error loading notification settings:', error)
       }
@@ -686,7 +703,16 @@ export default {
       try {
         await saveSetting('schedule_notifications_enabled', notificationsEnabled.value)
         await saveSetting('schedule_warning_minutes', defaultWarningMinutes.value)
+        await saveSetting('schedule_notification_scope', notificationScope.value)
         await setDefaultWarningMinutes(defaultWarningMinutes.value)
+        
+        // Restart notifications with new scope if service is running
+        const { startScheduleNotifications, stopScheduleNotifications } = await import('@/services/scheduleNotificationService')
+        stopScheduleNotifications()
+        if (notificationsEnabled.value && store.getCurrentProject) {
+          startScheduleNotifications(store.getCurrentProject.id)
+        }
+        
         toast.success('Notification settings saved')
       } catch (error) {
         console.error('Error saving notification settings:', error)
@@ -722,7 +748,7 @@ export default {
       showForm, showRecordingDayHelp, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       activeIndex, filteredRows, fromDateTime, toDateTime,
-      notificationsEnabled, defaultWarningMinutes, showFilters, showNotifications,
+      notificationsEnabled, defaultWarningMinutes, notificationScope, showFilters, showNotifications,
       openForm, closeForm, save, remove, exportPdf, emitChangeNote,
       createChangeoverNote, isActive,
       saveRange, clearFrom, clearTo, setToday, setPreviousDay,
