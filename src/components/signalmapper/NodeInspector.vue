@@ -1166,8 +1166,36 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
           const nodeId = parts[0]
           const feedPort = parts.length > 1 ? Number(parts[1]) : null
           
-          // Validate that source node exists
+          // Debug logging for recorder→recorder connections
+          if (type.value === 'recorder') {
+            console.log('[Inspector][Map] Recorder→Recorder mapping:', {
+              inputNum,
+              feedKey,
+              nodeId,
+              feedPort,
+              parsedCorrectly: parts.length > 1,
+              parts
+            })
+          }
+          
+          // For recorder→recorder, feedPort MUST be provided (from the feedKey)
+          // If it's missing, we can't create a port mapping
           const srcNode = props.elements.find(e => e.id === nodeId)
+          const srcType = srcNode ? (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase() : ''
+          const isSourceRecorder = (srcType === 'recorder')
+          
+          if (isSourceRecorder && type.value === 'recorder' && feedPort === null) {
+            console.error('[Inspector][Map] Recorder→Recorder requires feedPort in feedKey, but got:', {
+              feedKey,
+              parts,
+              inputNum,
+              nodeId
+            })
+            errorCount++
+            continue
+          }
+          
+          // Validate that source node exists
           if (!srcNode) {
             console.warn('[Inspector][Map] source node not found', nodeId)
             errorCount++
@@ -1337,7 +1365,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const isSourceRecorder = (srcType === 'recorder')
               const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
               // Recorder→recorder connections should always use port mappings (multi-source)
-              const isPortMapped = ((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer && feedPort !== null)
+              // Don't require feedPort !== null - recorder→recorder is always port-mapped
+              const isPortMapped = ((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)
               
               let checkQuery = supabase
                 .from('connections')
@@ -1355,6 +1384,15 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               
               if (!checkError && data) {
                 existingConn = data
+                // Debug logging for recorder→recorder
+                if (isSourceRecorder && isRecorderOrTransformer) {
+                  console.log('[Inspector][Map] Found existing recorder→recorder connection:', {
+                    connection_id: data.id,
+                    inputNum,
+                    from_node: nodeId,
+                    to_node: props.node.id
+                  })
+                }
               }
               // If checkError exists (like 406), we'll proceed to insert and catch duplicate key
             } catch (checkErr) {
@@ -1407,8 +1445,10 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                     const src = props.elements.find(e => e.id === nodeId)
                     const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
                     const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+                    const isSourceRecorder = (srcType === 'recorder')
                     const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
-                    const isPortMapped = (isTransformerOrVenueSource && isRecorderOrTransformer && feedPort !== null)
+                    // Recorder→recorder connections should always use port mappings (multi-source)
+                    const isPortMapped = ((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)
                     
                     // For port-mapped connections, try finding without input_number first
                     if (isPortMapped) {
@@ -1518,10 +1558,26 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                 // Also delete any existing mapping that uses this from_port (source track)
                 // This is required because the database has a unique constraint on (connection_id, from_port)
                 // This means each source track can only map to one destination track per connection
-                await supabase.from('connection_port_map')
+                // But we can map multiple different source tracks to multiple different destination tracks
+                const { error: deleteFromPortError } = await supabase.from('connection_port_map')
                   .delete()
                   .eq('connection_id', connId)
                   .eq('from_port', Number(portToUse))
+                
+                if (deleteFromPortError) {
+                  console.warn('[Inspector][Map] failed to delete existing from_port mapping (continuing anyway)', deleteFromPortError)
+                }
+                
+                // Debug logging for recorder→recorder
+                if (isSourceRecorder && isTargetRecorder) {
+                  console.log('[Inspector][Map] Creating recorder→recorder port map:', {
+                    connection_id: connId,
+                    from_port: portToUse,
+                    to_port: inputNum,
+                    feedKey,
+                    feedPort
+                  })
+                }
                 
                 // Insert new port map
                 const { error: portMapError } = await supabase.from('connection_port_map').insert([{
@@ -1530,9 +1586,41 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                   from_port: portToUse,
                   to_port: Number(inputNum)
                 }])
+                
                 if (portMapError) {
-                  console.error('[Inspector][Map] failed to save port map', portMapError)
-                  throw portMapError
+                  // If it's a duplicate key error, the mapping might already exist - try to update instead
+                  if (portMapError.code === '23505') {
+                    console.warn('[Inspector][Map] Port map already exists (duplicate from_port), attempting update:', {
+                      connection_id: connId,
+                      from_port: portToUse,
+                      to_port: inputNum,
+                      feedKey,
+                      feedPort,
+                      error: portMapError
+                    })
+                    // Try to update the existing mapping to point to the new destination
+                    const { error: updateError } = await supabase.from('connection_port_map')
+                      .update({ to_port: Number(inputNum) })
+                      .eq('connection_id', connId)
+                      .eq('from_port', Number(portToUse))
+                    
+                    if (updateError) {
+                      console.error('[Inspector][Map] failed to update port map', updateError)
+                      throw updateError
+                    }
+                  } else {
+                    console.error('[Inspector][Map] failed to save port map', portMapError)
+                    throw portMapError
+                  }
+                } else {
+                  // Success - log for debugging
+                  if (isSourceRecorder && isTargetRecorder) {
+                    console.log('[Inspector][Map] Successfully created recorder→recorder port map:', {
+                      connection_id: connId,
+                      from_port: portToUse,
+                      to_port: inputNum
+                    })
+                  }
                 }
                 // Optimistically set the selected feedKey so the dropdown shows the saved value
                 upstreamMap.value[inputNum] = `${nodeId}:${portToUse}`
