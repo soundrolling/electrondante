@@ -1328,14 +1328,16 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
             let existingConn = null
             
             // Try to check for existing connection, but don't fail if check fails
-            // For port-mapped connections (transformer/venue_source to recorder/transformer), 
+            // For port-mapped connections (transformer/venue_source/recorder to recorder/transformer), 
             // don't require input_number in the check
             try {
               const src = props.elements.find(e => e.id === nodeId)
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
               const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+              const isSourceRecorder = (srcType === 'recorder')
               const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
-              const isPortMapped = (isTransformerOrVenueSource && isRecorderOrTransformer && feedPort !== null)
+              // Recorder→recorder connections should always use port mappings (multi-source)
+              const isPortMapped = ((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer && feedPort !== null)
               
               let checkQuery = supabase
                 .from('connections')
@@ -1366,15 +1368,17 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               upstreamConnections.value[inputNum] = connId
             } else {
               // Try to create new connection
-              // For transformers/venue_sources connecting to recorders/transformers, don't set input_number
+              // For transformers/venue_sources/recorders connecting to recorders/transformers, don't set input_number
               // if we're using port maps (port maps handle the mapping)
               const src = props.elements.find(e => e.id === nodeId)
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
               const isTransformerOrVenueSource = (srcType === 'transformer' || srcType === 'venue_sources')
+              const isSourceRecorder = (srcType === 'recorder')
               const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
               
-              // For transformer/venue_source -> recorder/transformer connections, do NOT set input_number
+              // For transformer/venue_source/recorder -> recorder/transformer connections, do NOT set input_number
               // even if feedPort is null. We want an unassigned connection until the user selects a port.
+              // Recorder→recorder connections should always use port mappings to support multiple tracks
               const connectionData = {
                 project_id: props.projectId,
                 from_node_id: nodeId,
@@ -1382,7 +1386,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               }
               
               // Only set input_number for simple source -> non-structured targets
-              if (!(isTransformerOrVenueSource && isRecorderOrTransformer)) {
+              // Recorder→recorder should always use port mappings (multi-source)
+              if (!((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)) {
                 connectionData.input_number = Number(inputNum)
               }
               
@@ -1482,13 +1487,18 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
             
             // Create/update port map if feed port is specified
             // For transformers, venue_sources, and recorders, ALWAYS create port maps to preserve feed tracking
+            // Recorder→recorder connections should always use port mappings to support multiple tracks
             if (connId) {
               const src = props.elements.find(e => e.id === nodeId)
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
               const isTransformerOrVenueSourceOrRecorder = (srcType === 'transformer' || srcType === 'venue_sources' || srcType === 'recorder')
+              const isTargetRecorder = (type.value === 'recorder')
+              const isSourceRecorder = (srcType === 'recorder')
               
-              // Only create a port map when an explicit from_port (feedPort) is selected
-              const portToUse = (feedPort !== null) ? feedPort : null
+              // For recorder→recorder, always create port maps (even if feedPort is null, use inputNum as from_port)
+              // For other types, only create when an explicit from_port (feedPort) is selected
+              const shouldCreatePortMap = isTransformerOrVenueSourceOrRecorder && (isTargetRecorder || type.value === 'transformer')
+              const portToUse = (feedPort !== null) ? feedPort : (shouldCreatePortMap && isSourceRecorder ? inputNum : null)
               
               if (portToUse !== null) {
                 // Validate port numbers are valid
