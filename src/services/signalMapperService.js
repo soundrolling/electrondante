@@ -452,6 +452,11 @@ export async function getCompleteSignalPath(projectId) {
     (acc[c.to_node_id] = acc[c.to_node_id] || []).push(c)
     return acc
   }, {})
+  // Also build a map of connections FROM each node (for tracing recorder outputs)
+  const childConnsByFromNode = connections.reduce((acc, c)=>{
+    (acc[c.from_node_id] = acc[c.from_node_id] || []).push(c)
+    return acc
+  }, {})
   
   // Build a map of node id to node
   const nodeMap = {}
@@ -488,10 +493,24 @@ export async function getCompleteSignalPath(projectId) {
     // Get all connections to this recorder
     const recorderConnections = connections.filter(c => c.to_node_id === recorder.id)
 
-    // Expand port-mapped parent connections (transformer→recorder with connection_port_map rows)
+    // Expand port-mapped parent connections (transformer→recorder, recorder→recorder with connection_port_map rows)
     // Start with all direct connections to the recorder (those with input_number set)
+    // Also include connections that might have port mappings (even without input_number)
     let trackConns = recorderConnections.filter(c => !!c.input_number || !!c.track_number)
     const parentConnIds = recorderConnections.map(c => c.id)
+    
+    // Also check for connections that have port mappings but no input_number
+    // This handles recorder→recorder connections that use port mappings
+    const connectionsWithPortMaps = recorderConnections.filter(c => {
+      const maps = allPortMaps.filter(m => m.connection_id === c.id)
+      return maps.length > 0
+    })
+    // Add connections with port maps to parentConnIds if not already included
+    connectionsWithPortMaps.forEach(c => {
+      if (!parentConnIds.includes(c.id)) {
+        parentConnIds.push(c.id)
+      }
+    })
     
     if (parentConnIds.length) {
       try {
@@ -524,26 +543,32 @@ export async function getCompleteSignalPath(projectId) {
       // Build the path backwards from the recorder to source
       const pathIds = buildPathToSource(conn.from_node_id, connections, nodeMap)
 
-      // For port-mapped connections direct to recorder, use from_port to determine source output (L/R)
+      // For port-mapped connections direct to recorder, use from_port to determine source output
+      // For recorder→recorder connections, from_port is the track number (output) on the source recorder
       // Otherwise use input_number which will be resolved through port maps
       let startInput = conn.input_number
       let recorderTrackNum = conn.input_number // Default to input_number for label
       if (conn.from_port && typeof conn.from_port === 'number') {
-        // This is an expanded port map connection - from_port tells us the source output (1=L, 2=R)
-        // Check if the from_node is a source - if so, we can use from_port directly for L/R determination
+        // This is an expanded port map connection - from_port tells us the source output
+        // For recorders, this is the track number on the source recorder
+        // For sources, this is the output port (1=L, 2=R)
         const fromNode = nodeMap[conn.from_node_id]
         if (fromNode && (fromNode.gear_type === 'source' || fromNode.type === 'source')) {
           startInput = conn.from_port // Use from_port (1 or 2) for source output detection
           recorderTrackNum = conn.input_number // Keep original track number for label
+        } else if (fromNode && (fromNode.gear_type === 'recorder' || fromNode.type === 'recorder')) {
+          // For recorder→recorder, from_port is the track number on the source recorder
+          startInput = conn.from_port // This is the track number we need to trace
+          recorderTrackNum = conn.input_number // Keep destination track number for label
         } else {
-          // Even if not directly a source, preserve from_port for tracing through transformers
+          // For transformers, preserve from_port for tracing
           // The from_port tells us which output from the upstream node (could be transformer or source)
           startInput = conn.from_port
         }
       }
 
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = await resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum)
+      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = await resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum, childConnsByFromNode)
 
       // For uniqueness, key off recorder + track + source node id + source output port
       // This ensures L and R from the same source are treated as separate paths
@@ -589,7 +614,7 @@ export async function getCompleteSignalPath(projectId) {
   return signalPaths
 }
 
-async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber) {
+async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber, childConnsByFromNode = {}) {
   const labels = []
   // Use recorderTrackNumber if provided (for direct port-mapped connections), otherwise use startInput
   const trackLabel = (recorderTrackNumber !== undefined && recorderTrackNumber !== null) 
@@ -716,12 +741,13 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
           
           // Check if source is another recorder - recursively trace
           if (sourceNode.gear_type === 'recorder' || sourceNode.type === 'recorder') {
-            // Source is another recorder - continue tracing from its output port
+            // Source is another recorder - continue tracing from its output port (track number)
+            // sourcePort represents the track number on the source recorder (from the port mapping's from_port)
             currentNodeId = sourceNodeId
-            currentInput = sourcePort
-            // Add recorder to labels
-            labels.push(`${node.label} Track ${currentInput}`)
-            continue
+            currentInput = sourcePort // This is the track number (output port) on the source recorder
+            // Add source recorder track to labels
+            labels.push(`${sourceNode.label} Track ${sourcePort}`)
+            continue // Continue loop to trace what feeds this source recorder's track
           } else {
             // Source is a transformer or regular source - continue tracing normally
             // currentInput should already be set to sourcePort which is the source output port
