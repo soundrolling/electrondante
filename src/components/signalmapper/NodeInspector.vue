@@ -1083,6 +1083,15 @@ function getUpstreamLabel(inputNum) {
 async function onUpstreamChange(inputNum) {
   // Autosave per-input for transformers and recorders; keeps UI in sync
   try {
+    const feedKey = upstreamMap.value[inputNum]
+    if (type.value === 'recorder') {
+      console.log('[Inspector][Change] Track selection changed:', {
+        inputNum,
+        feedKey,
+        feedKeyType: typeof feedKey,
+        isNoSource: feedKey === '__NO_SOURCE__'
+      })
+    }
     const result = await saveMap(inputNum, true)
     // After save/refresh, force a focused reload of upstream sources and labels to update the dropdown text
     await loadAvailableUpstreamSources()
@@ -1090,8 +1099,22 @@ async function onUpstreamChange(inputNum) {
     if (result && result.savedCount > 0 && result.errorCount === 0) {
       saveStatus.value[inputNum] = 'saved'
       setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
+    } else if (type.value === 'recorder') {
+      console.warn('[Inspector][Change] Save failed or nothing saved:', {
+        inputNum,
+        feedKey,
+        result
+      })
     }
-  } catch {}
+  } catch (err) {
+    if (type.value === 'recorder') {
+      console.error('[Inspector][Change] Error saving track:', {
+        inputNum,
+        feedKey: upstreamMap.value[inputNum],
+        error: err
+      })
+    }
+  }
 }
 
 function onDownstreamChange(outputNum) {
@@ -1159,6 +1182,16 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
       if (onlyInputNum !== null && Number(inputNum) !== Number(onlyInputNum)) continue
       const feedKey = upstreamMap.value[inputNum] // Can be nodeId or nodeId:port or '__NO_SOURCE__'
       const existingConnId = upstreamConnections.value[inputNum]
+      
+      // Debug logging for all saves
+      if (type.value === 'recorder') {
+        console.log('[Inspector][Map] Processing track:', {
+          inputNum,
+          feedKey,
+          existingConnId,
+          willProcess: feedKey && feedKey !== '__NO_SOURCE__'
+        })
+      }
       
       try {
         if (feedKey && feedKey !== '__NO_SOURCE__') {
