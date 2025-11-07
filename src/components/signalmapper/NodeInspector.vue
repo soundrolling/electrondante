@@ -1409,11 +1409,14 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
               const isSourceRecorder = (srcType === 'recorder')
               if (isSourceRecorder && type.value === 'recorder') {
-                console.log('[Inspector][Map] Reusing existing recorder→recorder connection:', {
+                console.log('[Inspector][Map] Reusing existing recorder→recorder connection for track:', {
                   connection_id: connId,
                   inputNum,
                   from_node: nodeId,
-                  to_node: props.node.id
+                  to_node: props.node.id,
+                  feedKey,
+                  feedPort,
+                  willCreatePortMap: feedPort !== null
                 })
               }
             } else {
