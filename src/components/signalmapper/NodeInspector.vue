@@ -1404,6 +1404,18 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               // Use existing connection
               connId = existingConn.id
               upstreamConnections.value[inputNum] = connId
+              // Debug logging for recorder→recorder
+              const src = props.elements.find(e => e.id === nodeId)
+              const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+              const isSourceRecorder = (srcType === 'recorder')
+              if (isSourceRecorder && type.value === 'recorder') {
+                console.log('[Inspector][Map] Reusing existing recorder→recorder connection:', {
+                  connection_id: connId,
+                  inputNum,
+                  from_node: nodeId,
+                  to_node: props.node.id
+                })
+              }
             } else {
               // Try to create new connection
               // For transformers/venue_sources/recorders connecting to recorders/transformers, don't set input_number
@@ -1425,8 +1437,19 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               
               // Only set input_number for simple source -> non-structured targets
               // Recorder→recorder should always use port mappings (multi-source)
-              if (!((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)) {
+              const shouldSetInputNumber = !((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)
+              if (shouldSetInputNumber) {
                 connectionData.input_number = Number(inputNum)
+              }
+              
+              // Debug logging for recorder→recorder
+              if (isSourceRecorder && isRecorderOrTransformer) {
+                console.log('[Inspector][Map] Creating new recorder→recorder connection:', {
+                  connectionData,
+                  inputNum,
+                  feedPort,
+                  willSetInputNumber: shouldSetInputNumber
+                })
               }
               
               const { data: newConn, error: insertError } = await supabase
@@ -1541,7 +1564,19 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               // Only use feedPort if explicitly provided - don't use inputNum as fallback to avoid constraint violations
               const portToUse = (feedPort !== null) ? feedPort : null
               
-              if (portToUse !== null) {
+              // Debug logging for recorder→recorder
+              if (isSourceRecorder && isTargetRecorder) {
+                console.log('[Inspector][Map] Port map check:', {
+                  shouldCreatePortMap,
+                  portToUse,
+                  feedPort,
+                  feedKey,
+                  inputNum,
+                  connId
+                })
+              }
+              
+              if (portToUse !== null && shouldCreatePortMap) {
                 // Validate port numbers are valid
                 if (isNaN(portToUse) || portToUse < 1 || isNaN(Number(inputNum)) || Number(inputNum) < 1) {
                   console.warn('[Inspector][Map] invalid port numbers', { from_port: portToUse, to_port: inputNum })
