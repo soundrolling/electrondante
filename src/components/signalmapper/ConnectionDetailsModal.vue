@@ -1482,14 +1482,23 @@ for (let n = 1; n <= numOutputs.value; n++) {
   const takenConn = props.existingConnections.find(c => 
     (c.from_node_id === props.fromNode.id || c.from === props.fromNode.id) && c.output_number === n
   )
-  let label = `Output ${n}`
+  let label
   let disabled = false
+  
+  // For recorders, show track names instead of "Output N"
+  if (isRecorderFrom.value) {
+    // Use preloaded track names or fallback to sync version
+    label = recorderTrackNames.value[n] || traceRecorderTrackNameForModal(props.fromNode.id, n) || `Track ${n}`
+  } else {
+    label = `Output ${n}`
+  }
+  
   if (takenConn) {
     let nodeLabel = 'Taken'
     if (takenConn.to_node_id || takenConn.to) {
       nodeLabel = getNodeLabelById(takenConn.to_node_id || takenConn.to)
     }
-    label = `Output ${n} (Assigned to ${nodeLabel})`
+    label = `${label} (Assigned to ${nodeLabel})`
     disabled = true
   }
   arr.push({ value: n, label, disabled })

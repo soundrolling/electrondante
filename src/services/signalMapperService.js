@@ -5,24 +5,80 @@ import { getOutputLabel as svcGetOutputLabel } from './portLabelService'
 import { getCached, setCached, invalidateTableCache, invalidateProjectCache } from './cacheService'
 
 // --- CRUD for Nodes ---
+// Helper function to normalize recorder nodes
+function normalizeRecorderNodes(nodes) {
+  const recorderUpdates = []
+  for (const node of nodes) {
+    if ((node.gear_type === 'recorder' || node.type === 'recorder')) {
+      const numTracks = node.num_tracks || node.tracks || node.num_records || node.numrecord || 0
+      const numOutputs = node.num_outputs || node.outputs || 0
+      
+      // If tracks exist but outputs don't match, update the node
+      if (numTracks > 0 && numOutputs !== numTracks) {
+        recorderUpdates.push({
+          id: node.id,
+          num_outputs: numTracks
+        })
+        // Update the node object in memory immediately
+        node.num_outputs = numTracks
+      }
+    }
+  }
+  return recorderUpdates
+}
+
 export async function getNodes(projectId) {
   const cacheKey = `nodes:${projectId}`
   
   // Check cache first
   const cached = getCached(cacheKey)
-  if (cached !== null) {
-    return cached
+  let data = cached
+  
+  if (data === null) {
+    // Fetch from database
+    const { data: fetchedData, error } = await supabase
+      .from('nodes')
+      .select('*')
+      .eq('project_id', projectId)
+    if (error) throw error
+    data = fetchedData
   }
   
-  // Fetch from database
-  const { data, error } = await supabase
-    .from('nodes')
-    .select('*')
-    .eq('project_id', projectId)
-  if (error) throw error
+  // Normalize existing recorder nodes: ensure num_outputs = num_tracks
+  // This fixes existing nodes that were created before tracks were outputs
+  // Always normalize, even for cached data, to ensure consistency
+  const recorderUpdates = normalizeRecorderNodes(data)
   
-  // Cache for 30 seconds
-  setCached(cacheKey, data, 30000)
+  // Batch update all recorder nodes that need fixing (only if not from cache)
+  if (recorderUpdates.length > 0 && cached === null) {
+    // Update in batches to avoid overwhelming the database
+    const batchSize = 10
+    for (let i = 0; i < recorderUpdates.length; i += batchSize) {
+      const batch = recorderUpdates.slice(i, i + batchSize)
+      try {
+        // Use Promise.all to update in parallel
+        await Promise.all(
+          batch.map(update => 
+            supabase
+              .from('nodes')
+              .update({ num_outputs: update.num_outputs })
+              .eq('id', update.id)
+          )
+        )
+      } catch (err) {
+        console.warn('Failed to update some recorder nodes:', err)
+        // Continue even if some updates fail
+      }
+    }
+    // Invalidate cache after updates
+    invalidateTableCache('nodes', projectId)
+  }
+  
+  // Cache for 30 seconds (only if we fetched from DB)
+  if (cached === null) {
+    setCached(cacheKey, data, 30000)
+  }
+  
   return data
 }
 
