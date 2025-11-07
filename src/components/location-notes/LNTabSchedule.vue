@@ -488,7 +488,15 @@ export default {
       const [h, m, s] = currentTimecode.value.split(':').map(Number)
       const now = new Date()
       now.setHours(h || 0, m || 0, s || 0, 0)
+      const currentDate = todayISO()
+      
       return rows.value.findIndex(item => {
+        // Check if the recording date matches today
+        if (item.recording_date !== currentDate) {
+          return false
+        }
+        
+        // Check if current device time is between start and end time
         const start = getTodayTime(item.start_time)
         const end = getTodayTime(item.end_time)
         return start <= now && now < end
