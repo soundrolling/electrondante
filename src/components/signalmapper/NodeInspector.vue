@@ -108,7 +108,7 @@
       <div class="panel" v-if="tab==='delete'">
         <div class="delete-warning">
           <p><strong>⚠️ Warning:</strong> This will permanently delete this node and all its connections.</p>
-          <p style="margin-top: 8px; color: var(--text-muted);">
+          <p style="margin-top: 8px; color: white;">
             Node: <strong>{{ node.track_name || node.label }}</strong>
           </p>
         </div>
@@ -1558,8 +1558,9 @@ h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .tabs button.tab-delete { color: #dc2626; border-color: #dc2626; }
 .tabs button.tab-delete:hover { background: #fee2e2; }
 .tabs button.tab-delete.active { background: #fee2e2; border-color: #dc2626; }
-.delete-warning { padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; }
-.delete-warning p { margin: 0; }
+.delete-warning { padding: 16px; background: #991b1b; border: 1px solid #7f1d1d; border-radius: 8px; color: white; }
+.delete-warning p { margin: 0; color: white; }
+.delete-warning strong { color: white; }
 .btn-danger { background: #dc2626 !important; color: white !important; border: 1px solid #dc2626 !important; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; }
 .btn-danger:hover:not(:disabled) { background: #b91c1c !important; border-color: #b91c1c !important; }
 .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; background: #dc2626 !important; }
