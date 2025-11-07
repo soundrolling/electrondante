@@ -1495,10 +1495,11 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const isTargetRecorder = (type.value === 'recorder')
               const isSourceRecorder = (srcType === 'recorder')
               
-              // For recorder→recorder, always create port maps (even if feedPort is null, use inputNum as from_port)
+              // For recorder→recorder, always create port maps when feedPort is provided
               // For other types, only create when an explicit from_port (feedPort) is selected
               const shouldCreatePortMap = isTransformerOrVenueSourceOrRecorder && (isTargetRecorder || type.value === 'transformer')
-              const portToUse = (feedPort !== null) ? feedPort : (shouldCreatePortMap && isSourceRecorder ? inputNum : null)
+              // Only use feedPort if explicitly provided - don't use inputNum as fallback to avoid constraint violations
+              const portToUse = (feedPort !== null) ? feedPort : null
               
               if (portToUse !== null) {
                 // Validate port numbers are valid
@@ -1508,22 +1509,19 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                   continue
                 }
                 
-                // For recorder→recorder, only delete mapping for this specific to_port (destination track)
-                // This allows multiple destination tracks to potentially use the same source track
-                // For other types, also delete by from_port to maintain 1:1 mapping
+                // Delete mapping for this specific to_port (destination track) first
                 await supabase.from('connection_port_map')
                   .delete()
                   .eq('connection_id', connId)
                   .eq('to_port', Number(inputNum))
                 
-                // Only delete by from_port for non-recorder sources (to maintain 1:1 mapping)
-                // For recorder→recorder, allow the same source track to map to multiple destinations
-                if (!isSourceRecorder) {
-                  await supabase.from('connection_port_map')
-                    .delete()
-                    .eq('connection_id', connId)
-                    .eq('from_port', Number(portToUse))
-                }
+                // Also delete any existing mapping that uses this from_port (source track)
+                // This is required because the database has a unique constraint on (connection_id, from_port)
+                // This means each source track can only map to one destination track per connection
+                await supabase.from('connection_port_map')
+                  .delete()
+                  .eq('connection_id', connId)
+                  .eq('from_port', Number(portToUse))
                 
                 // Insert new port map
                 const { error: portMapError } = await supabase.from('connection_port_map').insert([{
