@@ -79,6 +79,12 @@ Deno.serve(async (req) => {
       // This will redirect them to SetPassword.vue to set their new password
       console.log('🔐 User is fully registered, sending password reset email...');
       console.log('📍 Redirect URL: https://pro.soundrolling.com/auth/set-password');
+      console.log('👤 User details:', {
+        id: existingUser.id,
+        email: existingUser.email,
+        emailConfirmed: existingUser.email_confirmed_at,
+        createdAt: existingUser.created_at
+      });
       
       // Use client-side resetPasswordForEmail (works with anon key)
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -87,16 +93,19 @@ Deno.serve(async (req) => {
       }
       
       const supabaseClient = createClient(supabaseUrl, anonKey);
-      const { error: resetErr } = await supabaseClient.auth.resetPasswordForEmail(email.toLowerCase(), {
+      console.log('📧 Calling resetPasswordForEmail for:', email.toLowerCase());
+      const { data, error: resetErr } = await supabaseClient.auth.resetPasswordForEmail(email.toLowerCase(), {
         redirectTo: "https://pro.soundrolling.com/auth/set-password"
       });
       
       if (resetErr) {
         console.error('❌ Error sending password reset email:', resetErr);
+        console.error('❌ Error details:', JSON.stringify(resetErr, null, 2));
         throw new Error(`Password reset error: ${resetErr.message}`);
       }
       
-      console.log('✅ Password reset email sent');
+      console.log('✅ Password reset email sent successfully');
+      console.log('📬 Response data:', data);
       responseMessage = 'reset';
     } else {
       // User exists but hasn't confirmed - resend invitation
