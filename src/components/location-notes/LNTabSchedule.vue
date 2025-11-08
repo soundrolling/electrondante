@@ -37,7 +37,7 @@
       <label class="label">Recording Day:</label>
       <button class="btn btn-warning nav-btn" @click="idx--" :disabled="idx===0">‹</button>
       <div class="current-date">{{ currentGroupLabel }}</div>
-      <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDays.length-1">›</button>
+      <button class="btn btn-warning nav-btn" @click="idx++" :disabled="idx>=groupedDaysLength-1">›</button>
     </div>
   </div>
 
@@ -409,6 +409,10 @@ export default {
     const fromDateTime = ref('')
     const toDateTime = ref('')
     
+    // Filter panel state (declared before watch statements)
+    const showFilters = ref(false)
+    const showNotifications = ref(false)
+    
     // Watch and persist changes
     watch(idx, async (newIdx) => {
       const keys = await getStorageKeys(props.locationId)
@@ -463,10 +467,6 @@ export default {
     const notificationsEnabled = ref(true) // Default to enabled
     const defaultWarningMinutes = ref(2) // Default 2 minutes
     const notificationScope = ref('current_project') // 'current_project' or 'all_projects'
-
-    // Filter panel state
-    const showFilters = ref(false)
-    const showNotifications = ref(false)
     
     // Export modal state
     const showExportModal = ref(false)
@@ -548,6 +548,7 @@ export default {
 
     const day  = computed(() => groupedDays.value[idx.value] || { id:null, label:null, events:[] })
     const currentGroupLabel = computed(() => day.value.label || '')
+    const groupedDaysLength = computed(() => groupedDays.value?.length || 0)
     const rows = computed(() => {
       const list = [...day.value.events]
       if (sortOrder.value === 'artist')
@@ -1031,7 +1032,7 @@ export default {
     })
 
     const exposed = {
-      schedules, stageHours, groupedDays, idx, sortOrder,
+      schedules, stageHours, groupedDays, groupedDaysLength, idx, sortOrder,
       showForm, showRecordingDayHelp, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       filteredRows, fromDateTime, toDateTime,

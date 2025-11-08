@@ -85,13 +85,71 @@ function shouldShowNotification(schedule, warningMinutes, deviceSecondsUntil, pr
 }
 
 /**
+ * Check if user's alert preference allows showing notification for this project
+ */
+async function shouldShowNotificationForUser(projectId) {
+  try {
+    // Check if notifications are enabled
+    const notificationsEnabled = await getSetting('schedule_notifications_enabled', true)
+    if (notificationsEnabled === false) {
+      return false // User has "No Alert" preference
+    }
+    
+    // Get user's notification scope preference
+    const notificationScope = await getSetting('schedule_notification_scope', 'current_project')
+    
+    // Normalize project IDs to strings for comparison
+    const normalizedProjectId = String(projectId)
+    const normalizedCurrentProjectId = currentProjectId ? String(currentProjectId) : null
+    
+    if (notificationScope === 'current_project') {
+      // Only show if this is the current project
+      return normalizedProjectId === normalizedCurrentProjectId
+    } else if (notificationScope === 'all_projects') {
+      // Show for all projects user is a member of
+      try {
+        const userStore = useUserStore()
+        const userId = userStore.user?.id
+        const userEmail = userStore.userEmail || userStore.user?.email
+        
+        if (userId && userEmail) {
+          const userProjects = await getUserProjects(userId, userEmail)
+          // Normalize all project IDs to strings for comparison
+          const normalizedUserProjects = userProjects.map(p => String(p))
+          return normalizedUserProjects.includes(normalizedProjectId)
+        }
+      } catch (e) {
+        console.warn('[ScheduleNotifications] Could not check user projects:', e)
+      }
+      // Fallback: only show for current project if we can't determine user projects
+      return normalizedProjectId === normalizedCurrentProjectId
+    }
+    
+    // Default: only current project
+    return normalizedProjectId === normalizedCurrentProjectId
+  } catch (error) {
+    console.error('[ScheduleNotifications] Error checking user preference:', error)
+    // Fallback: only show for current project
+    const normalizedProjectId = String(projectId)
+    const normalizedCurrentProjectId = currentProjectId ? String(currentProjectId) : null
+    return normalizedProjectId === normalizedCurrentProjectId
+  }
+}
+
+/**
  * Show changeover notification modal
  */
-function showChangeoverNotification(schedule, warningMinutes, projectId = null) {
+async function showChangeoverNotification(schedule, warningMinutes, projectId = null) {
   // Use the configured warning minutes for the display (not calculated remaining time)
   // This shows the warning time the user configured (e.g., "2 minutes")
   
   const targetProjectId = projectId || currentProjectId
+  
+  // Check if user's alert preference allows showing this notification
+  const shouldShow = await shouldShowNotificationForUser(targetProjectId)
+  if (!shouldShow) {
+    return // User preference doesn't allow this notification
+  }
   
   // Update modal state
   if (setModalCallback) {
@@ -287,7 +345,8 @@ async function checkSchedulesForNotifications() {
             await broadcastScheduleNotification(projectId, schedule, scheduleWarningMinutes)
             
             // Also show locally (in case real-time fails or user is first to detect)
-            showChangeoverNotification(schedule, scheduleWarningMinutes, projectId)
+            // This will check user preference internally
+            await showChangeoverNotification(schedule, scheduleWarningMinutes, projectId)
           }
         }
       } catch (error) {
@@ -408,7 +467,7 @@ export async function startScheduleNotifications(projectId = null, intervalSecon
       
       const key = getNotificationKey(schedule, notificationData.project_id, notificationData.warning_minutes)
       if (!notifiedSchedules.has(key)) {
-        showChangeoverNotification(schedule, notificationData.warning_minutes, notificationData.project_id)
+        await showChangeoverNotification(schedule, notificationData.warning_minutes, notificationData.project_id)
       }
     })
     

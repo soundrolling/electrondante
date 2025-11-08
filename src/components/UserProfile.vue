@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
 import { formatWeight, getWeightUnit, setWeightUnit, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
+import { getSetting, saveSetting } from '../utils/indexedDB';
 
 const store = useUserStore();
 const route = useRoute();
@@ -144,6 +145,7 @@ const availabilityOptions = [
 onMounted(async () => {
   await fetchProfile();
   await fetchGear();
+  await loadAlertPreference();
 });
 
 /* profile CRUD */
@@ -500,6 +502,7 @@ watch(activeTab, () => {
 
 // Preferences state
 const weightUnit = ref(getWeightUnit());
+const alertPreference = ref('current_project'); // 'none', 'current_project', 'all_projects'
 const preferences = ref({
   notifications: true,
   weightUnit: getWeightUnit()
@@ -513,17 +516,59 @@ watch(weightUnit, (newUnit) => {
   preferences.value.weightUnit = newUnit;
 });
 
+async function loadAlertPreference() {
+  try {
+    const notificationsEnabled = await getSetting('schedule_notifications_enabled', true);
+    const notificationScope = await getSetting('schedule_notification_scope', 'current_project');
+    
+    if (notificationsEnabled === false) {
+      alertPreference.value = 'none';
+    } else if (notificationScope === 'all_projects') {
+      alertPreference.value = 'all_projects';
+    } else {
+      alertPreference.value = 'current_project';
+    }
+  } catch (error) {
+    console.error('Error loading alert preference:', error);
+  }
+}
+
 async function savePreferences() {
-  savingPreferences.value = true;
-  prefMsg.value = '';
-  // Save weight unit preference
-  setWeightUnit(weightUnit.value);
-  // Simulate save (replace with real API/store call)
-  setTimeout(() => {
+  try {
+    savingPreferences.value = true;
+    prefMsg.value = '';
+    
+    // Save weight unit preference
+    setWeightUnit(weightUnit.value);
+    
+    // Save alert preference
+    if (alertPreference.value === 'none') {
+      await saveSetting('schedule_notifications_enabled', false);
+    } else {
+      await saveSetting('schedule_notifications_enabled', true);
+      await saveSetting('schedule_notification_scope', alertPreference.value);
+    }
+    
+    // Restart notifications with new settings if service is running
+    try {
+      const { startScheduleNotifications, stopScheduleNotifications } = await import('@/services/scheduleNotificationService');
+      stopScheduleNotifications();
+      if (alertPreference.value !== 'none' && store.getCurrentProject) {
+        startScheduleNotifications(store.getCurrentProject.id);
+      }
+    } catch (error) {
+      console.warn('Could not restart notification service:', error);
+    }
+    
     prefMsg.value = 'Preferences saved!';
-    savingPreferences.value = false;
     setTimeout(() => { prefMsg.value = ''; }, 2000);
-  }, 800);
+  } catch (error) {
+    console.error('Error saving preferences:', error);
+    prefMsg.value = 'Failed to save preferences';
+    setTimeout(() => { prefMsg.value = ''; }, 3000);
+  } finally {
+    savingPreferences.value = false;
+  }
 }
 
 // Security state
@@ -810,12 +855,13 @@ async function saveSecurity() {
           <h2 class="section-title">Preferences</h2>
           <form class="pref-form" @submit.prevent="savePreferences">
             <div class="form-group">
-              <label class="form-label">Notifications</label>
-              <label class="switch">
-                <input type="checkbox" v-model="preferences.notifications" />
-                <span class="slider"></span>
-              </label>
-              <span class="input-note">Enable email notifications</span>
+              <label class="form-label">Changeover Alert Preference</label>
+              <select v-model="alertPreference" class="form-input">
+                <option value="none">No Alert</option>
+                <option value="current_project">Alert In Project Only</option>
+                <option value="all_projects">Alert Across All Projects</option>
+              </select>
+              <p class="form-hint">Choose when you want to receive changeover notifications for artist schedules</p>
             </div>
             <div class="form-group">
               <label class="form-label">Weight Unit</label>
