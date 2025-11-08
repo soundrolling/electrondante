@@ -2840,7 +2840,7 @@ async function exportToPDF() {
     }
     
     // Download PDF using reliable helper that works on iPad
-    downloadPDF(pdf, finalFileName, toast)
+    await downloadPDF(pdf, finalFileName, toast)
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export signal flow')

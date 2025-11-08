@@ -661,7 +661,7 @@ async function exportToPDF() {
     })
     
     // Download PDF using reliable helper that works on iPad
-    downloadPDF(doc, finalFileName)
+    await downloadPDF(doc, finalFileName)
   } catch (e) {
     console.error('Error exporting track list:', e)
     alert('Failed to export track list. Please try again.')

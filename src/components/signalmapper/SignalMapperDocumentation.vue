@@ -462,7 +462,7 @@ return node?.label || 'Unknown'
 }
 
 // Export functions
-function exportFullDocumentation() {
+async function exportFullDocumentation() {
 const doc = new jsPDF('portrait', 'mm', 'a4')
 const pageW = doc.internal.pageSize.getWidth()
 const pageH = doc.internal.pageSize.getHeight()
@@ -544,10 +544,10 @@ connections.value.forEach(conn => {
 
 // Download PDF using reliable helper that works on iPad
 const fileName = `signal-mapper-documentation-${Date.now()}.pdf`
-downloadPDF(doc, fileName)
+await downloadPDF(doc, fileName)
 }
 
-function exportSignalFlowDoc() {
+async function exportSignalFlowDoc() {
 const doc = new jsPDF('portrait', 'mm', 'a4')
 const pageW = doc.internal.pageSize.getWidth()
 const pageH = doc.internal.pageSize.getHeight()
@@ -584,7 +584,7 @@ signalPaths.value.forEach((path, index) => {
 
 // Download PDF using reliable helper that works on iPad
 const fileName = `signal-flow-report-${Date.now()}.pdf`
-downloadPDF(doc, fileName)
+await downloadPDF(doc, fileName)
 }
 
 function exportConnectionMatrix() {
