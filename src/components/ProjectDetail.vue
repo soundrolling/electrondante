@@ -156,6 +156,7 @@
         </button>
       </div>
     </section>
+    </div>
 
   <!-- Error State -->
   <div v-else class="error-state">
