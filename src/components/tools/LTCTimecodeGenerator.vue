@@ -164,7 +164,7 @@
               </div>
               <div class="preset-actions">
                 <button
-                  class="btn btn-sm btn-secondary"
+                  class="btn btn-sm btn-save-current"
                   :disabled="isRunning"
                   @click="showSavePresetModal = true"
                 >
@@ -1235,6 +1235,26 @@ watch(dropFrameComputed, (newVal) => {
 .btn-secondary {
   background: #edf2f7;
   color: #2d3748;
+}
+
+.btn-save-current {
+  background: #15803d;
+  color: #ffffff;
+  border: 2px solid #15803d;
+}
+
+.btn-save-current:hover:not(:disabled) {
+  background: #166534;
+  border-color: #166534;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(21, 128, 61, 0.3);
+}
+
+.btn-save-current:disabled {
+  background: #6b7280;
+  border-color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .footnote {
