@@ -500,7 +500,6 @@ watch(showFilters, async (newValue) => {
 // Watch for location changes to reload data
 watch(() => props.locationId, async (newLocationId, oldLocationId) => {
   if (newLocationId && newLocationId !== oldLocationId) {
-    console.log(`[LNTabNotes] Location changed from ${oldLocationId} to ${newLocationId}`);
     hasLoaded.value = false;
     // Reload persisted values for the new location
     const newPersisted = await loadPersistedValues(newLocationId);
@@ -527,7 +526,6 @@ watch(stageHours, (newStageHours) => {
     const stageHourExists = newStageHours.some(sh => sh.id === recordingDayFilter.value);
     if (!stageHourExists) {
       // Filter value is invalid, reset to 'all'
-      console.log(`[LNTabNotes] Filter value ${recordingDayFilter.value} no longer exists, resetting to 'all'`);
       recordingDayFilter.value = 'all';
     }
   }
@@ -699,14 +697,12 @@ async function loadNotes() {
         eq: { location_id: props.locationId },
         order: { column: 'created_at', ascending: false }
       });
-      console.log(`[loadNotes] Loaded ${notes.value.length} notes (online)`);
     } else {
       // Use cached data when offline
       notes.value = await fetchTableData('notes', {
         eq: { location_id: props.locationId },
         order: { column: 'created_at', ascending: false }
       });
-      console.log(`[loadNotes] Loaded ${notes.value.length} notes (offline)`);
       toast.info('Offline mode: using cached notes');
     }
   } catch (error) {
@@ -910,7 +906,6 @@ function closeExportModal() {
 
 // Stage Hours Modal Functions
 function openStageHoursModal() {
-  console.log('Opening stage hours modal, stageHours data:', stageHours.value);
   showStageHoursModal.value = true;
 }
 
@@ -1309,7 +1304,6 @@ async function ensureDataPersistence() {
     
     if (filteredNotes.length > 0) {
       notes.value = filteredNotes;
-      console.log(`[ensureDataPersistence] Loaded ${filteredNotes.length} cached notes`);
     }
     
     // Then try to fetch fresh data if online
@@ -1330,7 +1324,6 @@ onMounted(async () => {
     rangeStart.value = persisted.rangeStart;
     rangeEnd.value = persisted.rangeEnd;
     showFilters.value = persisted.showFilters;
-    console.log(`[LNTabNotes] Initial load - filter set to: ${recordingDayFilter.value}`);
     
     await ensureDataPersistence();
     await loadPills();

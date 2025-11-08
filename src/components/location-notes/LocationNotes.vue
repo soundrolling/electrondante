@@ -216,7 +216,6 @@ try {
 async function loadStageHours() {
   try {
     const projectId = await getSetting('current-project-id');
-    console.log('Loading stage hours for project:', projectId, 'location:', props.locationId);
     
     if (isOnline.value) {
       stageHours.value = await fetchTableData('stage_hours', {
@@ -237,7 +236,6 @@ async function loadStageHours() {
       toast.info('Offline mode: using cached stage hours');
     }
     
-    console.log('Loaded stage hours:', stageHours.value);
   } catch (error) {
     console.error('Error loading stage hours:', error);
     stageHours.value = await fetchTableData('stage_hours', {
@@ -291,36 +289,22 @@ showNoteInput.value = true;
 }
 // Auto-detect current stage hour based on timestamp and date
 function getCurrentStageHour(timestamp, recordingDate) {
-  console.log('getCurrentStageHour called with:', { timestamp, recordingDate, stageHoursCount: stageHours.value.length });
-  
   if (!stageHours.value.length || !timestamp || !recordingDate) {
-    console.log('No stage hours or missing timestamp/date');
     return null;
   }
   
   const noteDateTime = new Date(`${recordingDate}T${timestamp}`);
-  console.log('Note datetime:', noteDateTime);
   
   for (const stageHour of stageHours.value) {
     const startDateTime = new Date(stageHour.start_datetime);
     const endDateTime = new Date(stageHour.end_datetime);
     
-    console.log('Checking stage hour:', {
-      id: stageHour.id,
-      notes: stageHour.notes,
-      start: startDateTime,
-      end: endDateTime,
-      noteTime: noteDateTime
-    });
-    
     // Check if note falls within this stage hour's time range
     if (noteDateTime >= startDateTime && noteDateTime <= endDateTime) {
-      console.log('Found matching stage hour:', stageHour.id);
       return stageHour.id;
     }
   }
   
-  console.log('No matching stage hour found');
   return null;
 }
 

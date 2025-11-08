@@ -231,7 +231,7 @@ locationId: {
 }
 })
 
-console.log('[CONNECTION MODAL] Props received:', props)
+// Debug logging removed
 
 const emit = defineEmits(['confirm', 'cancel'])
 const toast = useToast()
@@ -683,20 +683,7 @@ async function loadRecorderTrackNames() {
             props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
   }
   
-  // Debug logging
-  console.log('[ConnectionModal] Loading recorder track names:', {
-    nodeId: props.fromNode.id,
-    nodeLabel: props.fromNode.label,
-    numOutputs: numOutputs.value,
-    count,
-    isRecorderFrom: isRecorderFrom.value,
-    nodeData: {
-      num_outputs: props.fromNode.num_outputs,
-      num_tracks: props.fromNode.num_tracks,
-      gear_type: props.fromNode.gear_type,
-      type: props.fromNode.type
-    }
-  })
+  // Debug logging removed
   
   // Load all track names in parallel
   const promises = []
@@ -766,17 +753,7 @@ const availableFromPorts = computed(() => {
     // Fallback: check node directly for tracks if computed value is 0
     outputCount = props.fromNode.num_outputs || props.fromNode.numoutputs || props.fromNode.outputs || 
                   props.fromNode.num_tracks || props.fromNode.tracks || props.fromNode.num_records || props.fromNode.numrecord || 0
-    // Debug logging for recorder outputs
-    if (outputCount > 0) {
-      console.log('[ConnectionModal] Recorder outputs detected:', {
-        nodeId: props.fromNode.id,
-        nodeLabel: props.fromNode.label,
-        numOutputs: numOutputs.value,
-        outputCount,
-        num_tracks: props.fromNode.num_tracks,
-        num_outputs: props.fromNode.num_outputs
-      })
-    }
+    // Debug logging removed
   }
   
   const used = new Set(portMappings.value.map(m => m.from_port).filter(Boolean))

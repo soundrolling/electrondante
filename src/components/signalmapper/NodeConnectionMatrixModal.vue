@@ -92,12 +92,7 @@ projectId: {
 }
 })
 
-// Debug logging
-console.log('NodeConnectionMatrixModal props:', props)
-console.log('Node data:', props.node)
-console.log('Node gearType:', props.node?.gearType)
-console.log('Node node_type:', props.node?.node_type)
-console.log('Node gear_type:', props.node?.gear_type)
+// Debug logging removed
 const emit = defineEmits(['close', 'edit-connection', 'save'])
 
 const numInputs = props.node.num_inputs || props.node.numinputs || props.node.inputs || 0

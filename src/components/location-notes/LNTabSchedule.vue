@@ -123,10 +123,7 @@
   <!-- Schedule list -->
   <div class="list-wrapper">
     <div class="list-scroll">
-    <!-- Debug: Show active count (remove after testing) -->
-    <div v-if="true" style="padding: 10px; background: yellow; margin-bottom: 10px; font-size: 12px;">
-      Debug: Active count: {{ activeScheduleIds.length }}, Current time: {{ currentDeviceTime.toLocaleTimeString() }}, Timestamp: {{ currentTimeTimestamp }}
-    </div>
+    <!-- Debug div removed to reduce UI clutter -->
     <template v-if="filteredRows.length">
       <div
         v-for="(r, i) in filteredRows"
@@ -667,21 +664,22 @@ export default {
       const endTimeMs = endDateTime.getTime()
       const isInRange = nowTime >= startTimeMs && nowTime < endTimeMs
       
-      // Log only when schedule should be active (reduced spam)
-      if (console && isInRange) {
-        console.log('[LNTabSchedule] Time comparison:', {
-          artist: item.artist_name,
-          scheduleDate: scheduleDate,
-          scheduleStart: item.start_time,
-          scheduleEnd: item.end_time,
-          startDateTime: startDateTime.toLocaleString(),
-          endDateTime: endDateTime.toLocaleString(),
-          now: now.toLocaleString(),
-          isInRange,
-          diffFromStartMinutes: Math.round((nowTime - startTimeMs) / 60000),
-          diffFromEndMinutes: Math.round((nowTime - endTimeMs) / 60000)
-        })
-      }
+      // Debug logging removed to reduce console spam
+      // Uncomment below for debugging if needed
+      // if (console && isInRange && import.meta.env.DEV) {
+      //   console.log('[LNTabSchedule] Time comparison:', {
+      //     artist: item.artist_name,
+      //     scheduleDate: scheduleDate,
+      //     scheduleStart: item.start_time,
+      //     scheduleEnd: item.end_time,
+      //     startDateTime: startDateTime.toLocaleString(),
+      //     endDateTime: endDateTime.toLocaleString(),
+      //     now: now.toLocaleString(),
+      //     isInRange,
+      //     diffFromStartMinutes: Math.round((nowTime - startTimeMs) / 60000),
+      //     diffFromEndMinutes: Math.round((nowTime - endTimeMs) / 60000)
+      //   })
+      // }
       
       return isInRange
     }
@@ -697,38 +695,41 @@ export default {
         return activeIds
       }
       
-      // Debug: log occasionally to see what's happening (every 5 seconds)
-      if (schedules.value.length > 0 && console && Math.floor(now.getTime() / 5000) % 2 === 0) {
-        const firstSchedule = schedules.value[0]
-        console.log('[LNTabSchedule] Checking schedules:', {
-          total: schedules.value.length,
-          firstSchedule: {
-            id: firstSchedule.id,
-            artist: firstSchedule.artist_name,
-            date: firstSchedule.recording_date,
-            start: firstSchedule.start_time,
-            end: firstSchedule.end_time
-          },
-          currentTime: now.toISOString(),
-          currentDate: now.toLocaleDateString(),
-          currentTimeOnly: now.toLocaleTimeString(),
-          activeCount: activeIds.length
-        })
-      }
+      // Debug logging removed to reduce console spam
+      // Uncomment below for debugging if needed
+      // if (schedules.value.length > 0 && console && import.meta.env.DEV && Math.floor(now.getTime() / 5000) % 2 === 0) {
+      //   const firstSchedule = schedules.value[0]
+      //   console.log('[LNTabSchedule] Checking schedules:', {
+      //     total: schedules.value.length,
+      //     firstSchedule: {
+      //       id: firstSchedule.id,
+      //       artist: firstSchedule.artist_name,
+      //       date: firstSchedule.recording_date,
+      //       start: firstSchedule.start_time,
+      //       end: firstSchedule.end_time
+      //     },
+      //     currentTime: now.toISOString(),
+      //     currentDate: now.toLocaleDateString(),
+      //     currentTimeOnly: now.toLocaleTimeString(),
+      //     activeCount: activeIds.length
+      //   })
+      // }
       
       schedules.value.forEach(item => {
         const isActive = checkIfActive(item)
         if (isActive) {
           activeIds.push(item.id)
-          if (console) {
-            console.log('[LNTabSchedule] Active schedule found:', {
-              id: item.id,
-              artist: item.artist_name,
-              date: item.recording_date,
-              start: item.start_time,
-              end: item.end_time
-            })
-          }
+          // Debug logging removed to reduce console spam
+          // Uncomment below for debugging if needed
+          // if (console && import.meta.env.DEV) {
+          //   console.log('[LNTabSchedule] Active schedule found:', {
+          //     id: item.id,
+          //     artist: item.artist_name,
+          //     date: item.recording_date,
+          //     start: item.start_time,
+          //     end: item.end_time
+          //   })
+          // }
         }
       })
       
