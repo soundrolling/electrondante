@@ -479,31 +479,23 @@ export default {
     const showDateRangeOptions = ref(false)
     const exportFilename = ref('stage-schedule.pdf')
 
-    // Highlighting
-    const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
-
-    const getTimecode = () => {
-      if (timecodeSource.value === 'live') {
-        return localStorage.getItem('liveTimecode') || '00:00:00'
-      }
-      // Add other sources as needed
-      if (timecodeSource.value === 'device') {
-        return new Date().toTimeString().slice(0,8)
-      }
-      // Add 'world' or other sources here
-      return '00:00:00'
-    }
-
-    const currentTimecode = ref(getTimecode())
-
-    // Update every second (or as needed)
-    let timerId
+    // Highlighting - use userStore's reactive liveTimecode
+    const currentTimecode = computed(() => store.liveTimecode || '00:00:00')
+    
+    // Reactive current device time for highlighting (updates every second)
+    const currentDeviceTime = ref(new Date())
+    let highlightTimerId = null
     onMounted(() => {
-      timerId = setInterval(() => {
-        currentTimecode.value = getTimecode()
+      // Update current device time every second for reactive highlighting
+      highlightTimerId = setInterval(() => {
+        currentDeviceTime.value = new Date()
       }, 1000)
     })
-    onUnmounted(() => clearInterval(timerId))
+    onUnmounted(() => {
+      if (highlightTimerId) {
+        clearInterval(highlightTimerId)
+      }
+    })
 
     // Fetch & group by recording day (stage hour)
     async function fetchAll() {
@@ -599,36 +591,54 @@ export default {
 
     // Check if an item is currently active (device time is within schedule)
     function isActive(item, i) {
-      // Parse current timecode (HH:MM:SS format)
-      const timecodeParts = currentTimecode.value.split(':').map(Number)
-      const [h, m, s] = timecodeParts
-      
-      // Create Date object for current device time
-      const now = new Date()
-      now.setHours(h || 0, m || 0, s || 0, 0)
-      const currentDate = todayISO()
-      
-      // Check if the recording date matches today
-      if (item.recording_date !== currentDate) {
+      if (!item.start_time || !item.end_time || !item.recording_date) {
         return false
       }
       
-      // Check if current device time is between start and end time (inclusive start, exclusive end)
-      // e.g., 21:00 to 22:00: highlighted from 21:00:00 to 21:59:59, not at 22:00:00
-      if (!item.start_time || !item.end_time) {
+      // Use reactive current device time
+      const now = currentDeviceTime.value
+      const scheduleDate = item.recording_date
+      
+      // Parse schedule date (format: YYYY-MM-DD)
+      const dateParts = scheduleDate.split('-').map(Number)
+      if (dateParts.length !== 3) {
+        return false
+      }
+      const [scheduleYear, scheduleMonth, scheduleDay] = dateParts
+      
+      // Parse schedule times (format: HH:MM:SS or HH:MM)
+      const parseTime = (timeStr) => {
+        if (!timeStr) return null
+        const parts = timeStr.split(':').map(Number)
+        return {
+          hours: parts[0] || 0,
+          minutes: parts[1] || 0,
+          seconds: parts[2] || 0
+        }
+      }
+      
+      const startTime = parseTime(item.start_time)
+      const endTime = parseTime(item.end_time)
+      
+      if (!startTime || !endTime) {
         return false
       }
       
-      const start = getTodayTime(item.start_time)
-      const end = getTodayTime(item.end_time)
+      // Create Date objects for schedule start and end times using the schedule's date
+      // Note: month is 0-indexed in Date constructor
+      const startDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                                     startTime.hours, startTime.minutes, startTime.seconds)
+      const endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                                   endTime.hours, endTime.minutes, endTime.seconds)
       
       // Ensure we have valid Date objects
-      if (!start || !end) {
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
         return false
       }
       
-      // Check if now is >= start and < end
-      return start.getTime() <= now.getTime() && now.getTime() < end.getTime()
+      // Check if current device time (date + time) is within the schedule range
+      // Inclusive start, exclusive end (e.g., 21:00 to 22:00: highlighted from 21:00:00 to 21:59:59)
+      return now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()
     }
 
     async function createChangeoverNote() {
