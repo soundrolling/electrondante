@@ -116,14 +116,28 @@ export async function restoreSessionFromUrl() {
   // Implicit/PKCE or password-reset flow (access_token in hash)
   else if (hash.startsWith('#')) {
     const params        = new URLSearchParams(hash.substring(1))
+    
+    // Check for Supabase error parameters
+    const error = params.get('error')
+    const errorCode = params.get('error_code')
+    if (error || errorCode) {
+      console.error('❌ Supabase error in URL hash:', {
+        error,
+        errorCode,
+        errorDescription: params.get('error_description')
+      })
+      // Don't process further - let SetPassword.vue handle the error display
+      return
+    }
+    
     const access_token  = params.get('access_token')
     const refresh_token = params.get('refresh_token')
     if (access_token && refresh_token) {
-      const { error } = await supabase.auth.setSession({
+      const { error: sessionError } = await supabase.auth.setSession({
         access_token,
         refresh_token,
       })
-      if (error) console.error('setSession error:', error.message)
+      if (sessionError) console.error('setSession error:', sessionError.message)
     }
   }
 

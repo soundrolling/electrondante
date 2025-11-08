@@ -26,7 +26,39 @@ setup() {
 
   const confirmEmail = async () => {
     try {
-      // Get the hash fragment from the URL
+      console.log('🔍 ConfirmEmail.vue - Checking URL:', window.location.href);
+      
+      // First, check for token_hash in query params (new Supabase format)
+      const queryParams = new URLSearchParams(window.location.search);
+      const tokenHash = queryParams.get('token_hash');
+      const tokenType = queryParams.get('type'); // 'recovery', 'invite', or 'email'
+      
+      if (tokenHash && (tokenType === 'recovery' || tokenType === 'invite')) {
+        console.log('🔍 Found token_hash in query params, type:', tokenType);
+        // This is a recovery or invite flow with token_hash
+        // Verify the OTP to establish session
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: tokenType,
+        });
+        
+        if (error) {
+          throw new Error(`Failed to verify token: ${error.message}`);
+        }
+        
+        // After verification, we should have a session
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        if (sessionErr || !sessionData?.session) {
+          throw new Error('Session not established after token verification');
+        }
+        
+        // Redirect to set-password page (session is now established)
+        console.log('✅ Token verified, redirecting to set-password');
+        window.location.href = '/auth/set-password';
+        return;
+      }
+      
+      // Get the hash fragment from the URL (old format)
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
       
@@ -35,7 +67,7 @@ setup() {
       const refreshToken = params.get('refresh_token');
       const tokenType = params.get('type');
       
-      console.log('🔍 Parsing URL tokens:', { 
+      console.log('🔍 Parsing URL tokens from hash:', { 
         hasAccessToken: !!accessToken, 
         hasRefreshToken: !!refreshToken, 
         tokenType 
@@ -43,7 +75,6 @@ setup() {
       
       if (!accessToken) {
         // Try to get token from query parameters instead (for compatibility)
-        const queryParams = new URLSearchParams(window.location.search);
         const queryToken = queryParams.get('token');
         const queryCode = queryParams.get('code');
         

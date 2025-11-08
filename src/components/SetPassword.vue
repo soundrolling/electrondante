@@ -6,6 +6,11 @@
   <div v-if="message" class="success-message">{{ message }}</div>
   <div v-if="errorMessage" class="error-message">
     <div>{{ errorMessage }}</div>
+    <div v-if="isLinkExpired" class="expired-link-actions">
+      <router-link to="/auth/reset-password" class="request-new-link-btn">
+        Request a New Password Reset Link
+      </router-link>
+    </div>
     <button 
       v-if="debugInfo" 
       @click="showDebugInfo = !showDebugInfo" 
@@ -79,6 +84,7 @@ setup() {
   const showPassword = ref(false);
   const showDebugInfo = ref(false);
   const debugInfo = ref(null);
+  const isLinkExpired = ref(false);
 
   const router = useRouter();
   const toast = useToast();
@@ -185,6 +191,28 @@ setup() {
       } else {
         // Try to parse from hash (standard flow from ConfirmEmail redirect)
         const params = parseHashParams();
+        
+        // Check for Supabase error parameters in hash
+        if (params.error || params.error_code) {
+          const errorCode = params.error_code || params.error;
+          const errorDesc = params.error_description || params.error_description || 'Unknown error';
+          
+          let userFriendlyMessage = 'The password reset link is invalid or has expired.';
+          if (errorCode === 'otp_expired') {
+            userFriendlyMessage = 'This password reset link has expired. Please request a new password reset link.';
+            isLinkExpired.value = true;
+          } else if (errorCode === 'access_denied') {
+            userFriendlyMessage = 'This password reset link is no longer valid. Please request a new password reset link.';
+            isLinkExpired.value = true;
+          }
+          
+          const debugErr = buildDebugInfo('Supabase error in URL hash', new Error(`${errorCode}: ${errorDesc}`));
+          debugInfo.value = debugErr;
+          errorMessage.value = userFriendlyMessage;
+          showDebugInfo.value = true;
+          return;
+        }
+        
         // Example keys: access_token, refresh_token, token_type, expires_at, expires_in, ...
         sessionParams.value.accessToken = params.access_token || null;
         sessionParams.value.refreshToken = params.refresh_token || null;
@@ -367,6 +395,7 @@ setup() {
     showDebugInfo,
     debugInfo,
     copyDebugInfo,
+    isLinkExpired,
   };
 },
 };
@@ -448,17 +477,37 @@ background-color: var(--color-primary-600);
 }
 
 .debug-info pre {
-margin: 0;
-padding: 10px;
-background-color: var(--bg-secondary);
-border: 1px solid var(--border-light);
-border-radius: 4px;
-font-size: 12px;
-line-height: 1.5;
-color: var(--text-primary);
-white-space: pre-wrap;
-word-wrap: break-word;
-overflow-x: auto;
+  margin: 0;
+  padding: 10px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+}
+
+.expired-link-actions {
+  margin-top: 15px;
+}
+
+.request-new-link-btn {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: var(--color-primary-500);
+  color: var(--text-inverse);
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.request-new-link-btn:hover {
+  background-color: var(--color-primary-600);
 }
 
 .input-group {
