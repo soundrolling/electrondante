@@ -224,6 +224,10 @@ elements: {
 projectId: {
   type: [String, Number],
   required: true
+},
+locationId: {
+  type: [String, Number],
+  default: null
 }
 })
 
@@ -1696,6 +1700,7 @@ errorMsg.value = ''
       // This ensures we track the source by ID, not just by name
       const parentConn = {
         project_id: props.projectId,
+        location_id: props.locationId || null,
         from_node_id: props.fromNode.id, // Source node ID - primary identifier
         to_node_id: props.toNode.id, // Destination node ID
         pad: -Math.abs(Number(padValue.value) || 0),
@@ -1864,6 +1869,7 @@ errorMsg.value = ''
   // No duplicate pre-checks; rely on UI filtering and DB constraint
   const connection = {
     project_id: props.projectId,
+    location_id: props.locationId || null,
     from_node_id: props.fromNode.id,
     to_node_id: props.toNode.id,
     input_number: inputNumber.value,
@@ -1892,6 +1898,7 @@ errorMsg.value = ''
         inputNumber.value = firstAvail
         const retryConn = {
           project_id: props.projectId,
+          location_id: props.locationId || null,
           from_node_id: props.fromNode.id,
           to_node_id: props.toNode.id,
           input_number: inputNumber.value,
@@ -1923,6 +1930,7 @@ function confirmTransformerToRecorder() {
 loading.value = true
 addConnection({
   project_id: props.projectId,
+  location_id: props.locationId || null,
   from_node_id: props.fromNode.id,
   to_node_id: props.toNode.id
 }).then(conn => {

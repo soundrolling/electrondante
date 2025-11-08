@@ -501,7 +501,8 @@ async function loadBags() {
   if (!userId.value) return
   loading.value = true
   try {
-    bags.value = await PackingService.getUserBags(userId.value)
+    const projectId = effectiveProjectId.value
+    bags.value = await PackingService.getUserBags(userId.value, projectId || null)
     // Load items for all bags to show accurate counts
     if (bags.value.length > 0) {
       const allBagIds = bags.value.map(b => b.id)
@@ -1163,8 +1164,9 @@ async function printMyGearInventory() {
       await loadAvailableGear()
     }
     
-    // Get all bags for the user
-    const userBags = await PackingService.getUserBags(userId.value)
+    // Get all bags for the user, filtered by project
+    const projectId = effectiveProjectId.value
+    const userBags = await PackingService.getUserBags(userId.value, projectId || null)
     
     if (userBags.length === 0) {
       toast.info('No bags found to print')

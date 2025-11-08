@@ -371,7 +371,8 @@ function loadCheckedItems() {
 async function loadBags() {
   if (!userId.value) return
   try {
-    bags.value = await PackingService.getUserBags(userId.value)
+    const projectId = effectiveProjectId.value
+    bags.value = await PackingService.getUserBags(userId.value, projectId || null)
     if (bags.value.length > 0) {
       const allBagIds = bags.value.map(b => b.id)
       const allItems = await Promise.all(

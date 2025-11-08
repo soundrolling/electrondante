@@ -7,11 +7,12 @@ import { supabase } from '../supabase';
 export class PackingService {
   
   /**
-   * Get all bags for a user
+   * Get all bags for a user, optionally filtered by project ID
    * @param {string} userId - User ID
+   * @param {string} projectId - Optional project ID to filter bags by project
    * @returns {Promise<Array>} Array of bags with image URLs
    */
-  static async getUserBags(userId) {
+  static async getUserBags(userId, projectId = null) {
     try {
       const { data, error } = await supabase
         .from('gear_bags')
@@ -21,9 +22,61 @@ export class PackingService {
       
       if (error) throw error;
       
+      let filteredBags = data || [];
+      
+      // If projectId is provided, filter bags to only include those with gear from this project
+      if (projectId && projectId.trim() !== '') {
+        // Get all bag IDs
+        const bagIds = filteredBags.map(bag => bag.id);
+        
+        if (bagIds.length > 0) {
+          // Get all bag items for these bags
+          const { data: bagItems, error: itemsError } = await supabase
+            .from('gear_bag_items')
+            .select('bag_id, gear_id')
+            .in('bag_id', bagIds)
+            .not('gear_id', 'is', null);
+          
+          if (itemsError) throw itemsError;
+          
+          // Get unique gear IDs from bag items
+          const gearIds = [...new Set((bagItems || []).map(item => item.gear_id).filter(Boolean))];
+          
+          if (gearIds.length > 0) {
+            // Check which gear belongs to this project
+            const { data: projectGear, error: gearError } = await supabase
+              .from('gear_table')
+              .select('id')
+              .in('id', gearIds)
+              .eq('project_id', projectId);
+            
+            if (gearError) throw gearError;
+            
+            // Get set of gear IDs that belong to this project
+            const projectGearIds = new Set((projectGear || []).map(g => g.id));
+            
+            // Get set of bag IDs that contain gear from this project
+            const projectBagIds = new Set(
+              (bagItems || [])
+                .filter(item => projectGearIds.has(item.gear_id))
+                .map(item => item.bag_id)
+            );
+            
+            // Filter bags to only those that contain gear from this project
+            filteredBags = filteredBags.filter(bag => projectBagIds.has(bag.id));
+          } else {
+            // No gear items in bags, so no bags match this project
+            filteredBags = [];
+          }
+        } else {
+          // No bags, so return empty array
+          filteredBags = [];
+        }
+      }
+      
       // Load image URLs for each bag
       const bagsWithImages = await Promise.all(
-        (data || []).map(async (bag) => {
+        filteredBags.map(async (bag) => {
           let imageUrl = null;
           if (bag.image_path) {
             try {

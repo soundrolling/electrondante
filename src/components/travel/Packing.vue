@@ -147,7 +147,8 @@ async function loadBags() {
   if (!userId.value) return
   loading.value = true
   try {
-    bags.value = await PackingService.getUserBags(userId.value)
+    const projectId = props.id ? String(props.id) : null
+    bags.value = await PackingService.getUserBags(userId.value, projectId)
   } catch (err) {
     toast.error(err.message || 'Failed to load bags')
   } finally {

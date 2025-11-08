@@ -2076,7 +2076,7 @@ function onPointerDown(e) {
           try {
             const exist = props.connections.find(c => c.from_node_id === linkSource.value.id && c.to_node_id === clickedNode.id)
             if (!exist) {
-              const payload = { project_id: props.projectId, from_node_id: linkSource.value.id, to_node_id: clickedNode.id }
+              const payload = { project_id: props.projectId, location_id: props.locationId || null, from_node_id: linkSource.value.id, to_node_id: clickedNode.id }
               const saved = await addConnectionToDB(payload)
               emit('connection-added', saved)
               toast.success('Linked nodes')
@@ -2207,6 +2207,16 @@ function getNodeLabelById(id) {
 function canConnect(from, to) {
   const fromType = from.gear_type || from.type
   const toType = to.gear_type || to.type
+
+  // Check location_id consistency: nodes must be in the same stage
+  // Allow connections if:
+  // - Both nodes have the same location_id
+  // - Both nodes have NULL location_id (project-wide)
+  // - One has location_id and the other is NULL (mixed - allow for flexibility)
+  // Disallow if both have location_id but they differ (cross-stage)
+  if (from.location_id !== null && to.location_id !== null && from.location_id !== to.location_id) {
+    return false // Cross-stage connection not allowed
+  }
 
   // Valid connections:
   // source -> transformer
