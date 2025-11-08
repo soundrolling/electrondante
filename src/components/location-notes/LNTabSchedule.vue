@@ -589,56 +589,75 @@ export default {
       })
     })
 
-    // Check if an item is currently active (device time is within schedule)
-    function isActive(item, i) {
-      if (!item.start_time || !item.end_time || !item.recording_date) {
-        return false
-      }
-      
-      // Use reactive current device time
+    // Computed property to track which schedules are currently active (reactive to currentDeviceTime)
+    const activeScheduleIds = computed(() => {
+      const activeIds = new Set()
       const now = currentDeviceTime.value
-      const scheduleDate = item.recording_date
       
-      // Parse schedule date (format: YYYY-MM-DD)
-      const dateParts = scheduleDate.split('-').map(Number)
-      if (dateParts.length !== 3) {
-        return false
+      if (!schedules.value || schedules.value.length === 0) {
+        return activeIds
       }
-      const [scheduleYear, scheduleMonth, scheduleDay] = dateParts
       
-      // Parse schedule times (format: HH:MM:SS or HH:MM)
-      const parseTime = (timeStr) => {
-        if (!timeStr) return null
-        const parts = timeStr.split(':').map(Number)
-        return {
-          hours: parts[0] || 0,
-          minutes: parts[1] || 0,
-          seconds: parts[2] || 0
+      schedules.value.forEach(item => {
+        if (!item.start_time || !item.end_time || !item.recording_date) {
+          return
         }
-      }
+        
+        const scheduleDate = item.recording_date
+        
+        // Parse schedule date (format: YYYY-MM-DD)
+        const dateParts = scheduleDate.split('-').map(Number)
+        if (dateParts.length !== 3) {
+          return
+        }
+        const [scheduleYear, scheduleMonth, scheduleDay] = dateParts
+        
+        // Parse schedule times (format: HH:MM:SS or HH:MM)
+        const parseTime = (timeStr) => {
+          if (!timeStr) return null
+          const parts = timeStr.split(':').map(Number)
+          return {
+            hours: parts[0] || 0,
+            minutes: parts[1] || 0,
+            seconds: parts[2] || 0
+          }
+        }
+        
+        const startTime = parseTime(item.start_time)
+        const endTime = parseTime(item.end_time)
+        
+        if (!startTime || !endTime) {
+          return
+        }
+        
+        // Create Date objects for schedule start and end times using the schedule's date
+        // Note: month is 0-indexed in Date constructor
+        const startDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                                       startTime.hours, startTime.minutes, startTime.seconds)
+        const endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                                     endTime.hours, endTime.minutes, endTime.seconds)
+        
+        // Ensure we have valid Date objects
+        if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+          return
+        }
+        
+        // Check if current device time (date + time) is within the schedule range
+        // Inclusive start, exclusive end
+        if (now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()) {
+          activeIds.add(item.id)
+        }
+      })
       
-      const startTime = parseTime(item.start_time)
-      const endTime = parseTime(item.end_time)
-      
-      if (!startTime || !endTime) {
+      return activeIds
+    })
+
+    // Check if an item is currently active (uses computed property for reactivity)
+    function isActive(item, i) {
+      if (!item || !item.id) {
         return false
       }
-      
-      // Create Date objects for schedule start and end times using the schedule's date
-      // Note: month is 0-indexed in Date constructor
-      const startDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
-                                     startTime.hours, startTime.minutes, startTime.seconds)
-      const endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
-                                   endTime.hours, endTime.minutes, endTime.seconds)
-      
-      // Ensure we have valid Date objects
-      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-        return false
-      }
-      
-      // Check if current device time (date + time) is within the schedule range
-      // Inclusive start, exclusive end (e.g., 21:00 to 22:00: highlighted from 21:00:00 to 21:59:59)
-      return now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()
+      return activeScheduleIds.value.has(item.id)
     }
 
     async function createChangeoverNote() {

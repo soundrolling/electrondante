@@ -99,7 +99,7 @@
     </div>
   </div>
 
-  <!-- Search Section -->
+  <!-- Search & Filter Section -->
   <section v-if="!isLoading" class="search-filter-section">
     <div class="filter-container ui-filter-bar">
       <div class="search-section" style="flex:1">
@@ -108,6 +108,24 @@
           placeholder="Search documents…"
           class="search-input"
         />
+      </div>
+      <div class="stage-filter">
+        <label class="filter-label">Filter by Venue</label>
+        <select v-model="selectedVenueId" class="select-stage">
+          <option value="">All Venues</option>
+          <option v-for="venue in venues" :key="venue.id" :value="venue.id">
+            {{ venue.venue_name }}
+          </option>
+        </select>
+      </div>
+      <div class="stage-filter">
+        <label class="filter-label">Filter by Stage</label>
+        <select v-model="selectedStageId" class="select-stage" :disabled="!selectedVenueId">
+          <option value="">All Stages</option>
+          <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">
+            {{ stage.stage_name }}
+          </option>
+        </select>
       </div>
     </div>
   </section>
@@ -171,6 +189,8 @@
               <span class="meta-item">{{ mimeLabel(doc.mime_type) }}</span>
               <span class="meta-item">📅 {{ formatDate(doc.inserted_at) }}</span>
               <span v-if="doc.uploaded_by" class="meta-item">👤 {{ doc.uploaded_by }}</span>
+              <span v-if="doc.venue_name" class="meta-item">🏢 {{ doc.venue_name }}</span>
+              <span v-if="doc.stage_name" class="meta-item">🎪 {{ doc.stage_name }}</span>
             </div>
           </div>
         </div>
@@ -238,8 +258,12 @@ const projectName = ref('Loading…')
 const isLoading   = ref(false)
 const docs        = ref([])
 const searchTerm  = ref('')
+const venues      = ref([])
+const stages      = ref([])
+const selectedVenueId = ref('')
+const selectedStageId = ref('')
 
-// Project-level documents (no stage filtering on this page)
+// Project-level view showing all stage_docs across all stages
 
 // ─── UPLOAD STATE ───────────────────────────────────────────────────────────────
 const selectedFiles = ref([])
