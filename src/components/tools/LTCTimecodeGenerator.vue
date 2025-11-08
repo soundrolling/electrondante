@@ -1031,12 +1031,12 @@ watch(dropFrameComputed, (newVal) => {
 .title {
   margin: 0 0 6px;
   font-size: 1.75rem;
-  color: #1a202c;
+  color: var(--text-heading, #1a202c);
 }
 
 .subtitle {
   margin: 0 0 16px;
-  color: #718096;
+  color: var(--text-secondary, #718096);
   font-size: 0.95rem;
 }
 
@@ -1059,7 +1059,7 @@ watch(dropFrameComputed, (newVal) => {
 }
 
 .tc-meta {
-  color: #a0aec0;
+  color: var(--text-tertiary, #a0aec0);
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
@@ -1079,10 +1079,10 @@ watch(dropFrameComputed, (newVal) => {
 }
 
 .controls-section {
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-light, #e0e0e0);
 }
 
 .control-grid {
@@ -1105,7 +1105,7 @@ watch(dropFrameComputed, (newVal) => {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #4a5568;
+  color: var(--text-secondary, #4a5568);
   margin-bottom: 0.5rem;
   font-weight: 600;
 }
@@ -1113,9 +1113,11 @@ watch(dropFrameComputed, (newVal) => {
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-light, #e2e8f0);
   border-radius: 8px;
   font-size: 0.95rem;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #333);
   transition: all 0.2s ease;
 }
 
@@ -1126,7 +1128,7 @@ watch(dropFrameComputed, (newVal) => {
 }
 
 .form-input:disabled {
-  background: #f0f0f0;
+  background: var(--bg-tertiary, #f0f0f0);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -1143,7 +1145,7 @@ watch(dropFrameComputed, (newVal) => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.95rem;
-  color: #2d3748;
+  color: var(--text-primary, #2d3748);
   cursor: pointer;
 }
 
@@ -1157,22 +1159,24 @@ watch(dropFrameComputed, (newVal) => {
 .tc-input {
   width: 56px;
   padding: 0.625rem 0.5rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-light, #e2e8f0);
   border-radius: 8px;
   font-size: 1rem;
   font-family: 'Courier New', monospace;
   text-align: center;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #333);
 }
 
 .tc-sep {
   font-size: 1.125rem;
-  color: #4a5568;
+  color: var(--text-secondary, #4a5568);
 }
 
 .help-text {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: #718096;
+  color: var(--text-tertiary, #718096);
 }
 
 .button-row {
@@ -1209,8 +1213,8 @@ watch(dropFrameComputed, (newVal) => {
 .btn-ghost {
   flex: 0 0 auto;
   background: transparent;
-  color: #4a5568;
-  border: 2px solid #e2e8f0;
+  color: var(--text-secondary, #4a5568);
+  border: 2px solid var(--border-light, #e2e8f0);
 }
 
 .btn-ghost:hover {
@@ -1234,7 +1238,7 @@ watch(dropFrameComputed, (newVal) => {
 }
 
 .footnote {
-  color: #718096;
+  color: var(--text-tertiary, #718096);
   font-size: 0.75rem;
   margin-top: 1rem;
   text-align: center;
@@ -1254,7 +1258,7 @@ watch(dropFrameComputed, (newVal) => {
 .modal {
   width: 100%;
   max-width: 760px;
-  background: white;
+  background: var(--bg-primary, #ffffff);
   border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   overflow: hidden;
@@ -1262,8 +1266,8 @@ watch(dropFrameComputed, (newVal) => {
 
 .modal-header {
   padding: 1rem 1.25rem;
-  background: #1a202c;
-  color: white;
+  background: var(--bg-elevated, #1a202c);
+  color: var(--text-primary, #ffffff);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1281,7 +1285,7 @@ watch(dropFrameComputed, (newVal) => {
 
 .modal-warning {
   border: 2px solid #fed7d7;
-  background: #fff5f5;
+  background: var(--bg-secondary, #fff5f5);
   color: #c53030;
   padding: 0.625rem 0.75rem;
   border-radius: 8px;
@@ -1306,7 +1310,7 @@ watch(dropFrameComputed, (newVal) => {
 
 .small {
   font-size: 0.75rem;
-  color: #4a5568;
+  color: var(--text-secondary, #4a5568);
 }
 
 .range-control {
@@ -1324,7 +1328,7 @@ watch(dropFrameComputed, (newVal) => {
   display: flex;
   gap: 0.625rem;
   justify-content: flex-end;
-  background: #f7fafc;
+  background: var(--bg-secondary, #f7fafc);
 }
 
 .modal-small {
@@ -1344,10 +1348,10 @@ watch(dropFrameComputed, (newVal) => {
 
 .preset-btn {
   padding: 0.625rem 0.75rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-light, #e2e8f0);
   border-radius: 8px;
-  background: white;
-  color: #4a5568;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-secondary, #4a5568);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -1411,9 +1415,9 @@ watch(dropFrameComputed, (newVal) => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light, #e2e8f0);
 }
 
 .preset-info {
@@ -1423,12 +1427,12 @@ watch(dropFrameComputed, (newVal) => {
 .preset-info strong {
   display: block;
   margin-bottom: 0.25rem;
-  color: #2d3748;
+  color: var(--text-primary, #2d3748);
 }
 
 .preset-details {
   font-size: 0.8125rem;
-  color: #718096;
+  color: var(--text-tertiary, #718096);
 }
 
 .preset-item-actions {
@@ -1439,7 +1443,7 @@ watch(dropFrameComputed, (newVal) => {
 .empty-presets {
   text-align: center;
   padding: 2rem;
-  color: #718096;
+  color: var(--text-tertiary, #718096);
 }
 
 @media (max-width: 768px) {

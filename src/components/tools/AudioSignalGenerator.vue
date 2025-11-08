@@ -740,21 +740,21 @@ onBeforeUnmount(() => {
 
 .info-section,
 .controls-section {
-  background: #f8f9fa;
+  background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
   padding: 1.5rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-light, #e0e0e0);
 }
 
 .info-section h3,
 .controls-section h3 {
   margin-bottom: 1rem;
-  color: #333;
+  color: var(--text-heading, #333);
   font-size: 1.3rem;
 }
 
 .info-section p {
-  color: #666;
+  color: var(--text-secondary, #666);
   line-height: 1.6;
   margin-bottom: 0.75rem;
 }
@@ -776,16 +776,18 @@ onBeforeUnmount(() => {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: #555;
+  color: var(--text-secondary, #555);
   font-size: 0.95rem;
 }
 
 .form-input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border-light, #ddd);
   border-radius: 6px;
   font-size: 1rem;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #333);
   transition: all 0.2s ease;
 }
 
@@ -796,7 +798,7 @@ onBeforeUnmount(() => {
 }
 
 .form-input:disabled {
-  background: #f0f0f0;
+  background: var(--bg-tertiary, #f0f0f0);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -810,13 +812,13 @@ onBeforeUnmount(() => {
 
 .preset-btn {
   padding: 0.5rem 1rem;
-  background: white;
-  border: 2px solid #ddd;
+  background: var(--bg-primary, #ffffff);
+  border: 2px solid var(--border-light, #ddd);
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary, #666);
   transition: all 0.2s ease;
 }
 
@@ -839,13 +841,13 @@ onBeforeUnmount(() => {
 
 .signal-tile {
   padding: 1rem;
-  background: white;
-  border: 2px solid #ddd;
+  background: var(--bg-primary, #ffffff);
+  border: 2px solid var(--border-light, #ddd);
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary, #666);
   transition: all 0.2s ease;
   text-align: center;
   min-height: 60px;
@@ -919,7 +921,7 @@ onBeforeUnmount(() => {
 
 .progress-container {
   width: 100%;
-  background: #e0e0e0;
+  background: var(--bg-tertiary, #e0e0e0);
   border-radius: 4px;
   height: 24px;
   margin: 1.5rem 0;
@@ -936,12 +938,12 @@ onBeforeUnmount(() => {
 .status-label {
   text-align: center;
   font-size: 1rem;
-  color: #666;
+  color: var(--text-secondary, #666);
   margin-top: 1rem;
   padding: 0.75rem;
-  background: white;
+  background: var(--bg-primary, #ffffff);
   border-radius: 6px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-light, #e0e0e0);
 }
 
 .status-label.playing {
@@ -951,20 +953,20 @@ onBeforeUnmount(() => {
 }
 
 .info-box {
-  background: white;
+  background: var(--bg-primary, #ffffff);
   padding: 1.5rem;
   border-radius: 8px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-light, #e0e0e0);
 }
 
 .info-box h4 {
   margin-bottom: 0.75rem;
-  color: #333;
+  color: var(--text-heading, #333);
   font-size: 1.1rem;
 }
 
 .info-box p {
-  color: #666;
+  color: var(--text-secondary, #666);
   line-height: 1.6;
   margin: 0;
 }
@@ -972,7 +974,7 @@ onBeforeUnmount(() => {
 .footer-note {
   text-align: center;
   padding: 1rem;
-  color: #999;
+  color: var(--text-muted, #999);
   font-size: 0.85rem;
 }
 
@@ -982,7 +984,7 @@ onBeforeUnmount(() => {
 
 .footer-note .note {
   font-size: 0.8rem;
-  color: #bbb;
+  color: var(--text-quaternary, #bbb);
   font-style: italic;
 }
 
