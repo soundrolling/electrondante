@@ -109,10 +109,6 @@
           <span class="action-icon">⚙️</span>
           <span class="action-label">Settings</span>
         </button>
-        <button class="btn btn-primary action-button" @click="goToProfile">
-          <span class="action-icon">👤</span>
-          <span class="action-label">Profile</span>
-        </button>
         <button class="btn btn-positive action-button" @click="goToGear">
           <span class="action-icon">🔧</span>
           <span class="action-label">Gear</span>
@@ -213,9 +209,6 @@ export default {
     }
 
     /* ---------------- Navigation helpers ---------------- */
-    function goToProfile() {
-      router.push({ name: 'UserProfile', params: { tab: 'profile' } });
-    }
     function goToLocations() {
       router.push({ name: 'ProjectLocations', params: { id: currentProject.value.id } });
     }
@@ -274,7 +267,6 @@ export default {
       currentProject,
       stages,
       /* navigation */
-      goToProfile,
       goToLocations,
       goToCalendar,
       goToTravelHub,

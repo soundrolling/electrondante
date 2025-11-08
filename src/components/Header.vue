@@ -97,6 +97,20 @@
           <span class="nav-text">All Projects</span>
         </router-link>
         
+        <!-- Profile Button -->
+        <router-link
+          v-if="isAuthenticated"
+          :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
+          class="nav-link light-btn"
+          :class="{ active: isActiveRoute('/profile') }"
+        >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span class="nav-text">My Profile</span>
+        </router-link>
+        
       </nav>
 
       <!-- Right side: User actions -->
@@ -244,6 +258,7 @@
       <div class="menu-section">
         <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="nav-link light-btn" @click="showMobileMenu = false">Project Home</router-link>
         <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="nav-link light-btn" @click="showMobileMenu = false">All Projects</router-link>
+        <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="nav-link light-btn" @click="showMobileMenu = false">My Profile</router-link>
       </div>
       <div class="menu-section actions">
         <button class="btn btn-light" @click="themeStore.toggleTheme(); showMobileMenu = false">

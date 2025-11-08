@@ -65,12 +65,12 @@ setup() {
       // Get the access token and type from the URL
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
-      const tokenType = params.get('type');
+      const hashTokenType = params.get('type'); // Renamed to avoid conflict with query tokenType
       
       console.log('🔍 Parsing URL tokens from hash:', { 
         hasAccessToken: !!accessToken, 
         hasRefreshToken: !!refreshToken, 
-        tokenType 
+        hashTokenType 
       });
       
       if (!accessToken) {
@@ -99,7 +99,7 @@ setup() {
       }
       
       // Handle different token types
-      if (tokenType === 'invite') {
+      if (hashTokenType === 'invite') {
         // This is an invitation flow - redirect to set password with tokens in hash
         console.log('📧 Invite flow detected, redirecting to set-password');
         const hashParams = new URLSearchParams();
@@ -110,7 +110,7 @@ setup() {
         // Use window.location to ensure hash is properly preserved
         window.location.href = `/auth/set-password#${hashParams.toString()}`;
         return;
-      } else if (tokenType === 'recovery') {
+      } else if (hashTokenType === 'recovery') {
         // This is a password reset flow
         console.log('🔑 Recovery flow detected, redirecting to set-password');
         const hashParams = new URLSearchParams();
