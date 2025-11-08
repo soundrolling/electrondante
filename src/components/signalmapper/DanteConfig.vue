@@ -7,8 +7,15 @@
 
   <!-- Upload Section -->
   <div class="dante-section">
-    <h4>📤 Upload Dante File</h4>
-    <div class="upload-area">
+    <h4>📤 Upload Setup Files</h4>
+    <div 
+      class="upload-area"
+      :class="{ 'drag-over': isDragOver }"
+      @drop="handleFileDrop"
+      @dragover.prevent="isDragOver = true"
+      @dragleave="isDragOver = false"
+      @click="!selectedFile && $refs.fileInput?.click()"
+    >
       <input 
         type="file" 
         ref="fileInput" 
@@ -16,12 +23,48 @@
         accept=".json,.xml,.txt,.dante"
         style="display: none"
       />
-      <button @click="$refs.fileInput.click()" class="btn-upload">
-        📁 Choose File
-      </button>
-      <span v-if="selectedFile" class="file-name">{{ selectedFile.name }}</span>
+      <div v-if="!selectedFile" class="upload-placeholder">
+        <p>📁 Drag and drop a file here, or click to select</p>
+        <button @click.stop="$refs.fileInput?.click()" class="btn-upload">
+          Choose File
+        </button>
+      </div>
+      <div v-else class="file-selected">
+        <span class="file-name">📄 {{ selectedFile.name }}</span>
+        <button @click.stop="clearFile" class="btn-clear">×</button>
+      </div>
     </div>
-    <div v-if="fileContent" class="file-preview">
+    
+    <!-- Title and Description Fields -->
+    <div v-if="selectedFile" class="upload-form">
+      <div class="form-group">
+        <label>Title *</label>
+        <input 
+          v-model="uploadForm.title" 
+          type="text" 
+          class="input" 
+          placeholder="e.g., Main Stage Dante Setup"
+          required
+        />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea 
+          v-model="uploadForm.description" 
+          class="input" 
+          rows="3"
+          placeholder="Optional description of this setup file"
+        />
+      </div>
+      <div class="form-actions">
+        <button @click="clearFile" class="btn-secondary">Cancel</button>
+        <button @click="handleUpload" class="btn-primary" :disabled="!uploadForm.title || uploading">
+          {{ uploading ? 'Uploading...' : 'Upload' }}
+        </button>
+      </div>
+    </div>
+    
+    <div v-if="fileContent && !selectedFile" class="file-preview">
       <h5>File Preview:</h5>
       <pre class="preview-content">{{ filePreview }}</pre>
     </div>
@@ -173,9 +216,16 @@ const fileType = ref(null)
 const configurations = ref([])
 const loading = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
+const isDragOver = ref(false)
 const showSaveModal = ref(false)
 const editingConfig = ref(null)
 const availableLocations = ref([])
+
+const uploadForm = ref({
+  title: '',
+  description: ''
+})
 
 const saveForm = ref({
   name: '',
@@ -198,10 +248,23 @@ const filePreview = computed(() => {
   return content.length > 500 ? content.substring(0, 500) + '...' : content
 })
 
+function handleFileDrop(event) {
+  isDragOver.value = false
+  event.preventDefault()
+  const file = event.dataTransfer.files[0]
+  if (file) {
+    processFile(file)
+  }
+}
+
 async function handleFileSelect(event) {
   const file = event.target.files[0]
-  if (!file) return
+  if (file) {
+    processFile(file)
+  }
+}
 
+function processFile(file) {
   selectedFile.value = file
   
   // Determine file type
@@ -214,6 +277,12 @@ async function handleFileSelect(event) {
     fileType.value = 'txt'
   }
 
+  // Pre-fill title with filename (without extension)
+  uploadForm.value = {
+    title: file.name.replace(/\.[^/.]+$/, ''),
+    description: ''
+  }
+
   // Read file content
   const reader = new FileReader()
   reader.onload = (e) => {
@@ -224,19 +293,73 @@ async function handleFileSelect(event) {
       } else {
         fileContent.value = content
       }
-      // Show save modal
-      saveForm.value = {
-        name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-        description: '',
-        location_id: props.locationId || null
-      }
-      showSaveModal.value = true
     } catch (err) {
       console.error('Error reading file:', err)
       toast.error('Failed to read file. Please check the file format.')
+      clearFile()
     }
   }
   reader.readAsText(file)
+}
+
+function clearFile() {
+  selectedFile.value = null
+  fileContent.value = null
+  fileType.value = null
+  uploadForm.value = {
+    title: '',
+    description: ''
+  }
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+async function handleUpload() {
+  if (!uploadForm.value.title || !fileContent.value) {
+    toast.error('Please provide a title and select a file')
+    return
+  }
+
+  uploading.value = true
+  try {
+    // Try to parse stagebox settings from file content
+    let stageboxSettings = null
+    let deviceInfo = null
+
+    if (fileType.value === 'json' && typeof fileContent.value === 'object') {
+      // Extract stagebox settings if present
+      stageboxSettings = fileContent.value.stagebox || fileContent.value.settings || fileContent.value
+      deviceInfo = fileContent.value.device || fileContent.value.deviceInfo
+    }
+
+    const { data, error } = await supabase
+      .from('dante_configurations')
+      .insert([{
+        project_id: props.projectId,
+        location_id: props.locationId || null,
+        name: uploadForm.value.title,
+        description: uploadForm.value.description || null,
+        file_name: selectedFile.value?.name || null,
+        file_content: typeof fileContent.value === 'string' 
+          ? fileContent.value 
+          : JSON.stringify(fileContent.value, null, 2),
+        file_type: fileType.value,
+        stagebox_settings: stageboxSettings,
+        device_info: deviceInfo
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+
+    toast.success('Setup file uploaded successfully')
+    clearFile()
+    await loadConfigurations()
+  } catch (err) {
+    console.error('Error uploading file:', err)
+    toast.error('Failed to upload setup file')
+  } finally {
+    uploading.value = false
+  }
 }
 
 async function saveConfiguration() {
@@ -488,10 +611,82 @@ onMounted(async () => {
 }
 
 .upload-area {
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 20px;
+}
+
+.upload-area:hover {
+  border-color: var(--color-primary-500);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.upload-area.drag-over {
+  border-color: var(--color-primary-500);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.upload-placeholder {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 15px;
-  margin-bottom: 15px;
+}
+
+.upload-placeholder p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.file-selected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.file-name {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-clear {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.btn-clear:hover {
+  background: #c82333;
+}
+
+.upload-form {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #dee2e6;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .btn-upload {
