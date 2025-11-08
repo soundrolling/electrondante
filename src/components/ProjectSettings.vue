@@ -123,11 +123,21 @@
                 <td>{{ m.user_email }}</td>
                 <td>{{ m.role }}</td>
                 <td>
-                  <button
-                    v-if="canManageProject && m.role !== 'owner'"
-                    @click="removeMember(m.id)"
-                    class="btn btn-danger remove-btn"
-                  >Remove</button>
+                  <div class="action-buttons">
+                    <button
+                      v-if="canManageProject"
+                      @click="reinviteOrResetPassword(m.user_email, m.id)"
+                      class="btn btn-secondary reinvite-btn"
+                      :disabled="isResettingPassword === m.id"
+                    >
+                      {{ isResettingPassword === m.id ? 'Sending…' : 'Reinvite/Reset Password' }}
+                    </button>
+                    <button
+                      v-if="canManageProject && m.role !== 'owner'"
+                      @click="removeMember(m.id)"
+                      class="btn btn-danger remove-btn"
+                    >Remove</button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -225,6 +235,7 @@ export default {
   const inviteEmail = ref('')
   const selectedRole = ref('viewer')
   const isInviting = ref(false)
+  const isResettingPassword = ref(null) // Track which member is being reset
   const showRoleDescriptions = ref(false)
 
   const currentUserEmail = ref('')
@@ -406,7 +417,44 @@ export default {
     }
   }
 
-  // 6) Remove a member
+  // 6) Reinvite or reset password for a member
+  const reinviteOrResetPassword = async (email, memberId) => {
+    if (!confirm(`Send password reset/reinvite email to ${email}?`)) return
+    
+    isResettingPassword.value = memberId
+    try {
+      console.log('🔄 Calling reset-password Edge Function for:', email)
+      
+      const { data, error } = await supabase.functions.invoke('reset-password', {
+        body: {
+          email
+        }
+      })
+
+      console.log('📤 Reset password response:', { data, error })
+
+      if (error) {
+        console.error('❌ Reset password error:', error)
+        throw new Error(error.message || 'Failed to send reset/reinvite email')
+      }
+
+      console.log('✅ Reset/reinvite email sent successfully')
+      
+      // Show different messages based on user status
+      if (data.userStatus === 'reset') {
+        toast.success('Password reset email sent! The user will receive an email to reset their password.')
+      } else {
+        toast.success('Invitation resent! The user will receive an email to set their password.')
+      }
+    } catch (err) {
+      console.error('💥 Reset password process failed:', err)
+      toast.error(err.message || 'Failed to send reset/reinvite email.')
+    } finally {
+      isResettingPassword.value = null
+    }
+  }
+
+  // 7) Remove a member
   const removeMember = async (id) => {
     if (!confirm('Remove this user from the project?')) return
     const { error } = await supabase
@@ -445,6 +493,7 @@ export default {
     inviteEmail,
     selectedRole,
     isInviting,
+    isResettingPassword,
     showRoleDescriptions,
     isInviteFormValid,
     currentUserEmail,
@@ -456,6 +505,7 @@ export default {
     frameRate,
     showForm,
     inviteUserToProject,
+    reinviteOrResetPassword,
     removeMember,
     saveProjectDetails,
   }
@@ -654,7 +704,12 @@ td {
   padding: 10px 12px;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
+}
+td {
   white-space: nowrap;
+}
+td:last-child {
+  white-space: normal;
 }
 th {
   background: #f1f5f9;
@@ -663,6 +718,32 @@ th {
 }
 tr:nth-child(even) td {
   background: #f8fafc;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reinvite-btn {
+  background: var(--color-primary-500);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.reinvite-btn:hover:not(:disabled) {
+  background: var(--color-primary-600);
+}
+.reinvite-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .remove-btn {
