@@ -148,7 +148,19 @@ router.beforeEach(async (to, from, next) => {
   if (!userStore.isAuthenticated && !isPublicPage) {
     return next({ name: 'Login' });
   }
-  if (userStore.isAuthenticated && isPublicPage) {
+  
+  // Allow authenticated users to access SetPassword page if they're setting/resetting password
+  // This happens when restoreSessionFromUrl() verifies the token and establishes a session
+  const isSettingPassword = to.name === 'SetPassword' && (
+    to.query.token_hash || 
+    to.query.type === 'recovery' || 
+    to.query.type === 'invite' ||
+    to.hash.includes('token_hash') ||
+    to.hash.includes('type=recovery') ||
+    to.hash.includes('type=invite')
+  );
+  
+  if (userStore.isAuthenticated && isPublicPage && !isSettingPassword) {
     return next({ name: 'Projects' });
   }
 

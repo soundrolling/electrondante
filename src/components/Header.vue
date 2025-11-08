@@ -103,12 +103,13 @@
           :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
           class="nav-link light-btn"
           :class="{ active: isActiveRoute('/profile') }"
+          title="My Profile"
+          aria-label="My Profile"
         >
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
           </svg>
-          <span class="nav-text">My Profile</span>
         </router-link>
         
       </nav>

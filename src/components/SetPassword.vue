@@ -126,6 +126,9 @@ setup() {
     
     try {
       // First, check if we already have a valid session (from restoreSessionFromUrl)
+      // Give restoreSessionFromUrl a moment to complete if it's still running
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const { data: existingSession, error: sessionErr } = await supabase.auth.getSession();
       console.log('🔍 Session check result:', { 
         hasSession: !!existingSession?.session, 
@@ -134,7 +137,7 @@ setup() {
       });
       
       if (!sessionErr && existingSession?.session) {
-        console.log('✅ Found existing session');
+        console.log('✅ Found existing session (from restoreSessionFromUrl)');
         sessionParams.value.accessToken = existingSession.session.access_token;
         sessionParams.value.refreshToken = existingSession.session.refresh_token;
         // Clean up URL
@@ -158,7 +161,21 @@ setup() {
       
       if (tokenHash && (tokenType === 'invite' || tokenType === 'recovery')) {
         // This is a Supabase invite/recovery flow with token_hash
+        // Note: restoreSessionFromUrl() may have already tried to verify this token
+        // If it failed, the token might be expired or already consumed
         console.log('🔍 Found token_hash in query params, verifying OTP...', { type: tokenType });
+        
+        // Double-check session wasn't established by restoreSessionFromUrl() in the meantime
+        const { data: recheckSession } = await supabase.auth.getSession();
+        if (recheckSession?.session) {
+          console.log('✅ Session was established by restoreSessionFromUrl()');
+          sessionParams.value.accessToken = recheckSession.session.access_token;
+          sessionParams.value.refreshToken = recheckSession.session.refresh_token;
+          sessionParams.value.tokenType = tokenType;
+          window.history.replaceState({}, '', window.location.pathname);
+          loading.value = false;
+          return;
+        }
         
         const { data, error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
@@ -166,8 +183,19 @@ setup() {
         });
         
         if (error) {
+          // Check if it's an expired/invalid token error
+          const isExpiredError = error.message?.toLowerCase().includes('expired') || 
+                                 error.message?.toLowerCase().includes('invalid') ||
+                                 error.message?.toLowerCase().includes('has expired');
+          
           const debugErr = buildDebugInfo('OTP verification failed', error);
           debugInfo.value = debugErr;
+          
+          if (isExpiredError) {
+            isLinkExpired.value = true;
+            throw new Error('This password reset link has expired. Please request a new password reset link.');
+          }
+          
           throw new Error(`Failed to verify token: ${error.message}`);
         }
         
