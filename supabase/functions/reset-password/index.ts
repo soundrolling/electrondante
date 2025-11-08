@@ -76,7 +76,9 @@ Deno.serve(async (req) => {
     // Check if user has confirmed their email
     if (existingUser.email_confirmed_at) {
       // User is fully registered - send password reset email
+      // This will redirect them to SetPassword.vue to set their new password
       console.log('🔐 User is fully registered, sending password reset email...');
+      console.log('📍 Redirect URL: https://pro.soundrolling.com/auth/set-password');
       
       // Use client-side resetPasswordForEmail (works with anon key)
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY");

@@ -411,23 +411,6 @@ hasPendingChanges
 import { getSetting, getData } from '@/utils/indexedDB';
 
 const props = defineProps({ locationId: { type: String, required: true } });
-
-// Watch for location changes to reload data
-watch(() => props.locationId, async (newLocationId, oldLocationId) => {
-  if (newLocationId && newLocationId !== oldLocationId) {
-    console.log(`[LNTabNotes] Location changed from ${oldLocationId} to ${newLocationId}`);
-    hasLoaded.value = false;
-    // Reload persisted values for the new location
-    const newPersisted = loadPersistedValues(newLocationId);
-    sortKey.value = newPersisted.sortKey;
-    recordingDayFilter.value = newPersisted.recordingDayFilter;
-    await ensureDataPersistence();
-    await loadPills();
-    await loadStageHours();
-    await checkPendingChanges();
-    hasLoaded.value = true;
-  }
-});
 const toast = useToast();
 const userStore = useUserStore();
 
@@ -436,45 +419,102 @@ const pills = ref([]);
 const stageHours = ref([]);
 
 // Persistence helper functions
-function getStorageKeys(locationId) {
-  const prefix = `ln_notes_${locationId}_`;
+async function getStorageKeys(locationId) {
+  const projectId = await getSetting('current-project-id') || 'default';
+  const prefix = `ln_notes_${projectId}_${locationId}_`;
   return {
     prefix,
     sort: prefix + 'sortKey',
-    recordingDay: prefix + 'recordingDayFilter'
+    recordingDay: prefix + 'recordingDayFilter',
+    rangeStart: prefix + 'rangeStart',
+    rangeEnd: prefix + 'rangeEnd',
+    showFilters: prefix + 'showFilters'
   };
 }
 
 // Load persisted values or defaults
-function loadPersistedValues(locationId) {
-  const keys = getStorageKeys(locationId);
+async function loadPersistedValues(locationId) {
+  const keys = await getStorageKeys(locationId);
   try {
     return {
       sortKey: localStorage.getItem(keys.sort) || 'desc',
-      recordingDayFilter: localStorage.getItem(keys.recordingDay) || 'all'
+      recordingDayFilter: localStorage.getItem(keys.recordingDay) || 'all',
+      rangeStart: localStorage.getItem(keys.rangeStart) || '',
+      rangeEnd: localStorage.getItem(keys.rangeEnd) || '',
+      showFilters: localStorage.getItem(keys.showFilters) === 'true' || false
     };
   } catch {
-    return { sortKey: 'desc', recordingDayFilter: 'all' };
+    return { 
+      sortKey: 'desc', 
+      recordingDayFilter: 'all',
+      rangeStart: '',
+      rangeEnd: '',
+      showFilters: false
+    };
   }
 }
 
-const persisted = loadPersistedValues(props.locationId);
-const sortKey = ref(persisted.sortKey);
-const recordingDayFilter = ref(persisted.recordingDayFilter);
+// Initialize with default values, will be updated in onMounted
+const sortKey = ref('desc');
+const recordingDayFilter = ref('all');
+const rangeStart = ref('');
+const rangeEnd = ref('');
+const showFilters = ref(false);
 
 // Watch and persist changes
-watch(sortKey, (newSort) => {
-  const keys = getStorageKeys(props.locationId);
+watch(sortKey, async (newSort) => {
+  const keys = await getStorageKeys(props.locationId);
   try {
     localStorage.setItem(keys.sort, newSort);
   } catch {}
 });
 
-watch(recordingDayFilter, (newFilter) => {
-  const keys = getStorageKeys(props.locationId);
+watch(recordingDayFilter, async (newFilter) => {
+  const keys = await getStorageKeys(props.locationId);
   try {
     localStorage.setItem(keys.recordingDay, newFilter);
   } catch {}
+});
+
+watch(rangeStart, async (newValue) => {
+  const keys = await getStorageKeys(props.locationId);
+  try {
+    localStorage.setItem(keys.rangeStart, newValue);
+  } catch {}
+});
+
+watch(rangeEnd, async (newValue) => {
+  const keys = await getStorageKeys(props.locationId);
+  try {
+    localStorage.setItem(keys.rangeEnd, newValue);
+  } catch {}
+});
+
+watch(showFilters, async (newValue) => {
+  const keys = await getStorageKeys(props.locationId);
+  try {
+    localStorage.setItem(keys.showFilters, String(newValue));
+  } catch {}
+});
+
+// Watch for location changes to reload data
+watch(() => props.locationId, async (newLocationId, oldLocationId) => {
+  if (newLocationId && newLocationId !== oldLocationId) {
+    console.log(`[LNTabNotes] Location changed from ${oldLocationId} to ${newLocationId}`);
+    hasLoaded.value = false;
+    // Reload persisted values for the new location
+    const newPersisted = await loadPersistedValues(newLocationId);
+    sortKey.value = newPersisted.sortKey;
+    recordingDayFilter.value = newPersisted.recordingDayFilter;
+    rangeStart.value = newPersisted.rangeStart;
+    rangeEnd.value = newPersisted.rangeEnd;
+    showFilters.value = newPersisted.showFilters;
+    await ensureDataPersistence();
+    await loadPills();
+    await loadStageHours();
+    await checkPendingChanges();
+    hasLoaded.value = true;
+  }
 });
 
 // Watch for stageHours to be loaded and ensure filter is still valid
@@ -808,10 +848,6 @@ startEdit({
 });
 }
 
-const rangeStart = ref('');
-const rangeEnd = ref('');
-// recordingDayFilter is now defined above with persistence
-const showFilters = ref(false);
 function toggleFilters(){ showFilters.value = !showFilters.value }
 function clearRange() {
   rangeStart.value = '';
@@ -1288,9 +1324,12 @@ async function ensureDataPersistence() {
 onMounted(async () => {
   if (!hasLoaded.value) {
     // Ensure filter is loaded before fetching data - this ensures filter is applied immediately
-    const persisted = loadPersistedValues(props.locationId);
+    const persisted = await loadPersistedValues(props.locationId);
     sortKey.value = persisted.sortKey;
     recordingDayFilter.value = persisted.recordingDayFilter;
+    rangeStart.value = persisted.rangeStart;
+    rangeEnd.value = persisted.rangeEnd;
+    showFilters.value = persisted.showFilters;
     console.log(`[LNTabNotes] Initial load - filter set to: ${recordingDayFilter.value}`);
     
     await ensureDataPersistence();

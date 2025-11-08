@@ -362,19 +362,23 @@ export default {
     const schedules   = ref([])
     const groupedDays = ref([])
     
-    // Persistence keys - function to get keys for current location
-    const getStorageKeys = (locationId) => {
-      const prefix = `ln_schedule_${locationId}_`
+    // Persistence keys - function to get keys for current project and location
+    const getStorageKeys = async (locationId) => {
+      const projectId = await getSetting('current-project-id') || 'default'
+      const prefix = `ln_schedule_${projectId}_${locationId}_`
       return {
         prefix,
         idx: prefix + 'idx',
-        sort: prefix + 'sortOrder'
+        sort: prefix + 'sortOrder',
+        fromDateTime: prefix + 'fromDateTime',
+        toDateTime: prefix + 'toDateTime',
+        showFilters: prefix + 'showFilters'
       }
     }
     
     // Load persisted values or defaults
-    const loadPersistedValues = (locationId) => {
-      const keys = getStorageKeys(locationId)
+    const loadPersistedValues = async (locationId) => {
+      const keys = await getStorageKeys(locationId)
       try {
         const savedIdx = localStorage.getItem(keys.idx)
         if (savedIdx !== null) {
@@ -382,30 +386,62 @@ export default {
           if (!isNaN(parsed)) {
             return { 
               idx: parsed, 
-              sortOrder: localStorage.getItem(keys.sort) || 'asc' 
+              sortOrder: localStorage.getItem(keys.sort) || 'asc',
+              fromDateTime: localStorage.getItem(keys.fromDateTime) || '',
+              toDateTime: localStorage.getItem(keys.toDateTime) || '',
+              showFilters: localStorage.getItem(keys.showFilters) === 'true' || false
             }
           }
         }
       } catch {}
-      return { idx: 0, sortOrder: 'asc' }
+      return { 
+        idx: 0, 
+        sortOrder: 'asc',
+        fromDateTime: '',
+        toDateTime: '',
+        showFilters: false
+      }
     }
     
-    const persisted = loadPersistedValues(props.locationId)
-    const idx = ref(persisted.idx)
-    const sortOrder = ref(persisted.sortOrder)
+    // Initialize with default values, will be updated in onMounted
+    const idx = ref(0)
+    const sortOrder = ref('asc')
+    const fromDateTime = ref('')
+    const toDateTime = ref('')
     
     // Watch and persist changes
-    watch(idx, (newIdx) => {
-      const keys = getStorageKeys(props.locationId)
+    watch(idx, async (newIdx) => {
+      const keys = await getStorageKeys(props.locationId)
       try {
         localStorage.setItem(keys.idx, String(newIdx))
       } catch {}
     })
     
-    watch(sortOrder, (newSort) => {
-      const keys = getStorageKeys(props.locationId)
+    watch(sortOrder, async (newSort) => {
+      const keys = await getStorageKeys(props.locationId)
       try {
         localStorage.setItem(keys.sort, newSort)
+      } catch {}
+    })
+    
+    watch(fromDateTime, async (newValue) => {
+      const keys = await getStorageKeys(props.locationId)
+      try {
+        localStorage.setItem(keys.fromDateTime, newValue)
+      } catch {}
+    })
+    
+    watch(toDateTime, async (newValue) => {
+      const keys = await getStorageKeys(props.locationId)
+      try {
+        localStorage.setItem(keys.toDateTime, newValue)
+      } catch {}
+    })
+    
+    watch(showFilters, async (newValue) => {
+      const keys = await getStorageKeys(props.locationId)
+      try {
+        localStorage.setItem(keys.showFilters, String(newValue))
       } catch {}
     })
 
@@ -500,7 +536,7 @@ export default {
       }
       groupedDays.value = groups
       // Restore persisted index if valid, otherwise use 0
-      const keys = getStorageKeys(props.locationId)
+      const keys = await getStorageKeys(props.locationId)
       const savedIdx = parseInt(localStorage.getItem(keys.idx) || '0', 10)
       if (!isNaN(savedIdx) && savedIdx >= 0 && savedIdx < groups.length) {
         idx.value = savedIdx
@@ -560,27 +596,38 @@ export default {
       })
     })
 
-    const activeIndex = computed(() => {
-      const [h, m, s] = currentTimecode.value.split(':').map(Number)
+    // Check if an item is currently active (device time is within schedule)
+    function isActive(item, i) {
+      // Parse current timecode (HH:MM:SS format)
+      const timecodeParts = currentTimecode.value.split(':').map(Number)
+      const [h, m, s] = timecodeParts
+      
+      // Create Date object for current device time
       const now = new Date()
       now.setHours(h || 0, m || 0, s || 0, 0)
       const currentDate = todayISO()
       
-      return rows.value.findIndex(item => {
-        // Check if the recording date matches today
-        if (item.recording_date !== currentDate) {
-          return false
-        }
-        
-        // Check if current device time is between start and end time
-        const start = getTodayTime(item.start_time)
-        const end = getTodayTime(item.end_time)
-        return start <= now && now < end
-      })
-    })
-
-    function isActive(item, i) {
-      return i === activeIndex.value
+      // Check if the recording date matches today
+      if (item.recording_date !== currentDate) {
+        return false
+      }
+      
+      // Check if current device time is between start and end time (inclusive start, exclusive end)
+      // e.g., 21:00 to 22:00: highlighted from 21:00:00 to 21:59:59, not at 22:00:00
+      if (!item.start_time || !item.end_time) {
+        return false
+      }
+      
+      const start = getTodayTime(item.start_time)
+      const end = getTodayTime(item.end_time)
+      
+      // Ensure we have valid Date objects
+      if (!start || !end) {
+        return false
+      }
+      
+      // Check if now is >= start and < end
+      return start.getTime() <= now.getTime() && now.getTime() < end.getTime()
     }
 
     async function createChangeoverNote() {
@@ -864,22 +911,15 @@ export default {
       emit('quick', `DJ Change - ${artistName}`);
     }
 
-    // Date/time range filter state
-    const RANGE_KEY = 'ln_schedule_range'
-    const fromDateTime = ref(localStorage.getItem(RANGE_KEY + '_from') || '')
-    const toDateTime = ref(localStorage.getItem(RANGE_KEY + '_to') || '')
-
+    // Date/time range filter state - persistence is handled by watch functions above
     function saveRange() {
-      localStorage.setItem(RANGE_KEY + '_from', fromDateTime.value)
-      localStorage.setItem(RANGE_KEY + '_to', toDateTime.value)
+      // Persistence is handled by watch functions, this function kept for compatibility
     }
     function clearFrom() {
       fromDateTime.value = ''
-      saveRange()
     }
     function clearTo() {
       toDateTime.value = ''
-      saveRange()
     }
 
     // Filtering rows by date/time range
@@ -960,8 +1000,11 @@ export default {
     watch(() => props.locationId, async (newLocationId, oldLocationId) => {
       if (newLocationId && newLocationId !== oldLocationId) {
         // Reload persisted values for the new location
-        const newPersisted = loadPersistedValues(newLocationId)
+        const newPersisted = await loadPersistedValues(newLocationId)
         sortOrder.value = newPersisted.sortOrder
+        fromDateTime.value = newPersisted.fromDateTime
+        toDateTime.value = newPersisted.toDateTime
+        showFilters.value = newPersisted.showFilters
         await fetchAll()
         // fetchAll will restore the correct idx, but ensure it's valid
         if (idx.value >= groupedDays.value.length) {
@@ -971,6 +1014,14 @@ export default {
     })
 
     onMounted(async () => {
+      // Load persisted values first
+      const persisted = await loadPersistedValues(props.locationId)
+      idx.value = persisted.idx
+      sortOrder.value = persisted.sortOrder
+      fromDateTime.value = persisted.fromDateTime
+      toDateTime.value = persisted.toDateTime
+      showFilters.value = persisted.showFilters
+      
       await fetchAll()
       await loadNotificationSettings()
       // Ensure idx is within valid range after data loads
@@ -983,7 +1034,7 @@ export default {
       schedules, stageHours, groupedDays, idx, sortOrder,
       showForm, showRecordingDayHelp, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
-      activeIndex, filteredRows, fromDateTime, toDateTime,
+      filteredRows, fromDateTime, toDateTime,
       notificationsEnabled, defaultWarningMinutes, notificationScope, showFilters, showNotifications,
       showExportModal, exportMode, exportRecordingDayId, exportRangeStart, exportRangeEnd, 
       exportWholeDay, exportWholeDayDate, showDateRangeOptions, exportFilename,

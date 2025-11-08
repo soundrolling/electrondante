@@ -434,8 +434,6 @@ export default {
 
   // 6) Reinvite or reset password for a member
   const reinviteOrResetPassword = async (email, memberId) => {
-    if (!confirm(`Send password reset/reinvite email to ${email}?`)) return
-    
     isResettingPassword.value = memberId
     try {
       // Get the Supabase URL to verify the endpoint
