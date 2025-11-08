@@ -8,7 +8,6 @@ import ProjectDetail from '../components/ProjectDetail.vue';
 
 // Public / Auth
 const Login         = defineAsyncComponent(() => import('../components/Login.vue'));
-const MagicLink     = defineAsyncComponent(() => import('../components/MagicLink.vue'));
 const ConfirmEmail  = defineAsyncComponent(() => import('../components/ConfirmEmail.vue'));
 const SetPassword   = defineAsyncComponent(() => import('../components/SetPassword.vue'));
 const ResetPassword = defineAsyncComponent(() => import('../components/ResetPassword.vue'));
@@ -46,7 +45,6 @@ const SignalMapper = defineAsyncComponent(() => import('../components/signalmapp
 const routes = [
   // Public / Auth
   { path: '/',                    name: 'Login',            component: Login },
-  { path: '/magic-link',          name: 'MagicLink',        component: MagicLink },
   { path: '/auth/confirm',        name: 'ConfirmEmail',     component: ConfirmEmail },
   { path: '/auth/set-password',   name: 'SetPassword',      component: SetPassword },
   { path: '/auth/reset-password', name: 'ResetPassword',    component: ResetPassword },
@@ -141,7 +139,7 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const userStore    = useUserStore();
-  const publicPages  = ['Login','MagicLink','ConfirmEmail','SetPassword','ResetPassword','Offline'];
+  const publicPages  = ['Login','ConfirmEmail','SetPassword','ResetPassword','Offline'];
   const isPublicPage = publicPages.includes(to.name);
 
   if (!userStore.isAuthenticated) {

@@ -113,6 +113,14 @@
           <span class="action-icon">👤</span>
           <span class="action-label">Profile</span>
         </button>
+        <button class="btn btn-positive action-button" @click="goToGear">
+          <span class="action-icon">🔧</span>
+          <span class="action-label">Gear</span>
+        </button>
+        <button class="btn btn-positive action-button" @click="goToDocuments">
+          <span class="action-icon">📄</span>
+          <span class="action-label">Documents</span>
+        </button>
       </div>
     </section>
   </div>
@@ -223,6 +231,12 @@ export default {
     function goToSettings() {
       router.push({ name: 'ProjectSettings', params: { id: currentProject.value.id } });
     }
+    function goToGear() {
+      router.push({ name: 'ProjectGear', params: { id: currentProject.value.id } });
+    }
+    function goToDocuments() {
+      router.push({ name: 'ProjectDocs', params: { id: currentProject.value.id } });
+    }
 
     /* ---------------- Touch feedback ---------------- */
     function handleTouchStart(event) {
@@ -266,6 +280,8 @@ export default {
       goToTravelHub,
       goToContacts,
       goToSettings,
+      goToGear,
+      goToDocuments,
       /* stage navigation */
       openStageModal,
       closeStageModal,

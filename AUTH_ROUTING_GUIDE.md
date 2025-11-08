@@ -79,7 +79,6 @@ https://pro.soundrolling.com
 
 ### Public Routes (No Authentication Required)
 - `/` - Login page
-- `/magic-link` - Magic link authentication
 - `/auth/confirm` - Email confirmation handler
 - `/auth/set-password` - Password setup page
 - `/auth/reset-password` - Password reset request page
@@ -92,7 +91,7 @@ All other routes require authentication. The router guard will redirect unauthen
 ```javascript
 router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
-  const publicPages = ['Login','MagicLink','ConfirmEmail','SetPassword','ResetPassword','Offline'];
+  const publicPages = ['Login','ConfirmEmail','SetPassword','ResetPassword','Offline'];
   const isPublicPage = publicPages.includes(to.name);
 
   // Check authentication

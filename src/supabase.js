@@ -65,27 +65,28 @@ supabase.auth.onAuthStateChange((event) => {
 
 /**
  * Call this from main.js before mounting to:
- *  • parse magic-link (type=email) or invite (type=invite) tokens,
+ *  • parse invite (type=invite) or recovery (type=recovery) tokens,
  *    or PKCE/reset tokens in hash,
  *  • restore the session,
- *  • then (for invites) redirect into your set-password page.
+ *  • then (for invites/recovery) redirect into your set-password page.
  */
 export async function restoreSessionFromUrl() {
   const { hash, search, pathname } = window.location
   const qs = new URLSearchParams(search)
 
-  // Magic-link (email) or Invite flow
+  // Invite or Recovery (password reset) flow
   const tokenHash = qs.get('token_hash')
-  const type      = qs.get('type')  // 'email', 'recovery', or 'invite'
-  if (tokenHash && (type === 'email' || type === 'invite')) {
+  const type      = qs.get('type')  // 'recovery' or 'invite'
+  if (tokenHash && (type === 'invite' || type === 'recovery')) {
     const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
-      type, // pass through 'email' or 'invite'
+      type, // pass through 'invite' or 'recovery'
     })
     if (error) {
       console.error('verifyOtp error:', error.message)
-    } else if (type === 'invite') {
-      // After verifying invite, send user to set-password page
+    } else {
+      // After verifying invite or recovery, session is now established
+      // Redirect to set-password page (session will be available there)
       window.location.href = window.location.origin + '/auth/set-password'
       return
     }

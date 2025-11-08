@@ -94,17 +94,30 @@ setup() {
 
   // 2) onMounted, parse all tokens from the hash or query params
   onMounted(async () => {
-    // First, check for token_hash in query params (Supabase invite/recovery flow)
-    const queryParams = new URLSearchParams(window.location.search);
-    const tokenHash = queryParams.get('token_hash');
-    const tokenType = queryParams.get('type'); // 'invite' or 'recovery'
+    loading.value = true;
     
-    if (tokenHash && (tokenType === 'invite' || tokenType === 'recovery')) {
-      // This is a Supabase invite/recovery flow with token_hash
-      console.log('🔍 Found token_hash in query params, verifying OTP...');
-      loading.value = true;
+    try {
+      // First, check if we already have a valid session (from restoreSessionFromUrl)
+      const { data: existingSession, error: sessionErr } = await supabase.auth.getSession();
+      if (!sessionErr && existingSession?.session) {
+        console.log('✅ Found existing session');
+        sessionParams.value.accessToken = existingSession.session.access_token;
+        sessionParams.value.refreshToken = existingSession.session.refresh_token;
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
+        loading.value = false;
+        return;
+      }
       
-      try {
+      // If no session, check for token_hash in query params (Supabase invite/recovery flow)
+      const queryParams = new URLSearchParams(window.location.search);
+      const tokenHash = queryParams.get('token_hash');
+      const tokenType = queryParams.get('type'); // 'invite' or 'recovery'
+      
+      if (tokenHash && (tokenType === 'invite' || tokenType === 'recovery')) {
+        // This is a Supabase invite/recovery flow with token_hash
+        console.log('🔍 Found token_hash in query params, verifying OTP...');
+        
         const { data, error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
           type: tokenType === 'invite' ? 'invite' : 'recovery',
@@ -115,8 +128,8 @@ setup() {
         }
         
         // After verification, we should have a session
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        if (sessionErr || !sessionData?.session) {
+        const { data: sessionData, error: sessionErr2 } = await supabase.auth.getSession();
+        if (sessionErr2 || !sessionData?.session) {
           throw new Error('Session not established after token verification');
         }
         
@@ -129,26 +142,26 @@ setup() {
         
         // Clean up URL
         window.history.replaceState({}, '', window.location.pathname);
-      } catch (err) {
-        console.error('❌ Token verification failed:', err);
-        errorMessage.value = err.message || 'Failed to verify invitation token. Please use the link from your invite email.';
-      } finally {
-        loading.value = false;
-      }
-    } else {
-      // Try to parse from hash (standard flow from ConfirmEmail redirect)
-      const params = parseHashParams();
-      // Example keys: access_token, refresh_token, token_type, expires_at, expires_in, ...
-      sessionParams.value.accessToken = params.access_token || null;
-      sessionParams.value.refreshToken = params.refresh_token || null;
-      sessionParams.value.tokenType = params.type || params.token_type || null;
-      sessionParams.value.expiresIn = params.expires_in || null;
-      sessionParams.value.expiresAt = params.expires_at || null;
+      } else {
+        // Try to parse from hash (standard flow from ConfirmEmail redirect)
+        const params = parseHashParams();
+        // Example keys: access_token, refresh_token, token_type, expires_at, expires_in, ...
+        sessionParams.value.accessToken = params.access_token || null;
+        sessionParams.value.refreshToken = params.refresh_token || null;
+        sessionParams.value.tokenType = params.type || params.token_type || null;
+        sessionParams.value.expiresIn = params.expires_in || null;
+        sessionParams.value.expiresAt = params.expires_at || null;
 
-      if (!sessionParams.value.accessToken) {
-        errorMessage.value =
-          'No access token found in the URL. Please use the link from your invite email.';
+        if (!sessionParams.value.accessToken) {
+          errorMessage.value =
+            'No access token found in the URL. Please use the link from your invite email.';
+        }
       }
+    } catch (err) {
+      console.error('❌ Token verification/session check failed:', err);
+      errorMessage.value = err.message || 'Failed to verify invitation token. Please use the link from your invite email.';
+    } finally {
+      loading.value = false;
     }
   });
 
@@ -165,33 +178,35 @@ setup() {
       return;
     }
 
-    // Check if we have a valid session (either from token_hash verification or access_token)
-    const { data: currentSession } = await supabase.auth.getSession();
-    if (!currentSession?.session && !sessionParams.value.accessToken) {
-      errorMessage.value = 'No valid session token available. Please use the link from your invite email.';
-      return;
-    }
-
     loading.value = true;
     errorMessage.value = '';
 
     try {
-      // 4.1) If we have access_token from hash, set the session explicitly
-      // If we verified via token_hash, session is already set, but we'll ensure it's current
-      if (sessionParams.value.accessToken) {
-        const { data, error: sessionError } = await supabase.auth.setSession({
-          access_token: sessionParams.value.accessToken,
-          refresh_token: sessionParams.value.refreshToken ?? null,
-        });
-        if (sessionError) {
-          throw new Error(`Failed to authenticate: ${sessionError.message}`);
+      // 4.1) Ensure we have a valid session
+      // First check if we already have a session (from restoreSessionFromUrl or verifyOtp)
+      let { data: currentSession, error: sessionError } = await supabase.auth.getSession();
+      
+      if (!currentSession?.session) {
+        // No existing session, try to set it from sessionParams (from hash or token_hash)
+        if (sessionParams.value.accessToken) {
+          const { data, error: setSessionError } = await supabase.auth.setSession({
+            access_token: sessionParams.value.accessToken,
+            refresh_token: sessionParams.value.refreshToken ?? null,
+          });
+          if (setSessionError) {
+            throw new Error(`Failed to authenticate: ${setSessionError.message}`);
+          }
+          // Re-fetch session after setting it
+          const { data: newSession } = await supabase.auth.getSession();
+          currentSession = newSession;
+        } else {
+          throw new Error('No valid session token available. Please use the link from your invite email.');
         }
-      } else {
-        // Session was already established via verifyOtp, just verify it's still valid
-        const { data: sessionCheck, error: sessionCheckError } = await supabase.auth.getSession();
-        if (sessionCheckError || !sessionCheck?.session) {
-          throw new Error('Session expired. Please use the link from your invite email again.');
-        }
+      }
+      
+      // Verify we have a valid session before proceeding
+      if (!currentSession?.session) {
+        throw new Error('Session expired. Please use the link from your invite email again.');
       }
 
       // 4.2) Update the user's password
