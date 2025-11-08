@@ -127,7 +127,7 @@
       <div
         v-for="(r, i) in filteredRows"
         :key="r.id"
-        :class="['row-card', { 'active-card': activeScheduleIds.has(r.id) }]"
+        :class="['row-card', { 'active-card': activeScheduleIds.includes(r.id) }]"
       >
         <div class="row-content">
           <div class="artist">{{ r.artist_name }}</div>
@@ -483,12 +483,16 @@ export default {
     const currentTimecode = computed(() => store.liveTimecode || '00:00:00')
     
     // Reactive current device time for highlighting (updates every second)
+    // Use a timestamp to ensure Vue detects the change
     const currentDeviceTime = ref(new Date())
+    const currentTimeTimestamp = ref(Date.now())
     let highlightTimerId = null
     onMounted(() => {
       // Update current device time every second for reactive highlighting
       highlightTimerId = setInterval(() => {
-        currentDeviceTime.value = new Date()
+        const now = new Date()
+        currentDeviceTime.value = now
+        currentTimeTimestamp.value = now.getTime() // Force reactivity with timestamp
       }, 1000)
     })
     onUnmounted(() => {
@@ -591,7 +595,9 @@ export default {
 
     // Computed property to track which schedules are currently active (reactive to currentDeviceTime)
     const activeScheduleIds = computed(() => {
-      const activeIds = new Set()
+      // Access timestamp to force reactivity
+      const _ = currentTimeTimestamp.value
+      const activeIds = []
       const now = currentDeviceTime.value
       
       if (!schedules.value || schedules.value.length === 0) {
@@ -599,7 +605,7 @@ export default {
       }
       
       schedules.value.forEach(item => {
-        if (!item.start_time || !item.end_time || !item.recording_date) {
+        if (!item.start_time || !item.end_time || !item.recording_date || !item.id) {
           return
         }
         
@@ -607,15 +613,21 @@ export default {
         
         // Parse schedule date (format: YYYY-MM-DD)
         const dateParts = scheduleDate.split('-').map(Number)
-        if (dateParts.length !== 3) {
+        if (dateParts.length !== 3 || dateParts.some(isNaN)) {
           return
         }
         const [scheduleYear, scheduleMonth, scheduleDay] = dateParts
         
+        // Validate date parts
+        if (scheduleYear < 2000 || scheduleYear > 2100 || scheduleMonth < 1 || scheduleMonth > 12 || scheduleDay < 1 || scheduleDay > 31) {
+          return
+        }
+        
         // Parse schedule times (format: HH:MM:SS or HH:MM)
         const parseTime = (timeStr) => {
-          if (!timeStr) return null
+          if (!timeStr || typeof timeStr !== 'string') return null
           const parts = timeStr.split(':').map(Number)
+          if (parts.some(isNaN) || parts.length < 2) return null
           return {
             hours: parts[0] || 0,
             minutes: parts[1] || 0,
@@ -645,7 +657,7 @@ export default {
         // Check if current device time (date + time) is within the schedule range
         // Inclusive start, exclusive end
         if (now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()) {
-          activeIds.add(item.id)
+          activeIds.push(item.id)
         }
       })
       
@@ -657,7 +669,7 @@ export default {
       if (!item || !item.id) {
         return false
       }
-      return activeScheduleIds.value.has(item.id)
+      return activeScheduleIds.value.includes(item.id)
     }
 
     async function createChangeoverNote() {
@@ -1064,7 +1076,7 @@ export default {
       schedules, stageHours, groupedDays, groupedDaysLength, idx, sortOrder,
       showForm, showRecordingDayHelp, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
-      filteredRows, fromDateTime, toDateTime,
+      filteredRows, fromDateTime, toDateTime, activeScheduleIds,
       notificationsEnabled, defaultWarningMinutes, notificationScope, showFilters, showNotifications,
       showExportModal, exportMode, exportRecordingDayId, exportRangeStart, exportRangeEnd, 
       exportWholeDay, exportWholeDayDate, showDateRangeOptions, exportFilename,
