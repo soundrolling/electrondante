@@ -5,7 +5,7 @@
   <nav class="breadcrumb">
     <button class="breadcrumb-item" @click="goBack">← Back</button>
     <span class="breadcrumb-separator">/</span>
-    <span class="breadcrumb-text">Stage Documents</span>
+    <span class="breadcrumb-text">{{ isProjectLevelView ? 'All Documents' : 'Stage Documents' }}</span>
   </nav>
 
   <!-- Project header removed per design (covered elsewhere) -->
@@ -17,8 +17,9 @@
       <!-- Header Section -->
       <header class="header-section ui-page-header">
         <div class="header-content">
-          <h1 class="header-title">{{ stageName }} Documents</h1>
-          <p class="header-subtitle">Venue: {{ venueName }}</p>
+          <h1 class="header-title">{{ isProjectLevelView ? 'All Documents' : `${stageName} Documents` }}</h1>
+          <p v-if="!isProjectLevelView" class="header-subtitle">Venue: {{ venueName }}</p>
+          <p v-else class="header-subtitle">Project: {{ currentProject?.project_name || 'Loading…' }}</p>
         </div>
         <div class="header-actions">
           <button 
@@ -32,8 +33,8 @@
         </div>
       </header>
 
-      <!-- Upload Section -->
-      <div class="upload-section">
+      <!-- Upload Section - Only show when viewing a specific stage -->
+      <div v-if="!isProjectLevelView" class="upload-section">
         <div 
           class="upload-area"
           :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
@@ -111,7 +112,7 @@
       </div>
     </div>
 
-    <!-- Right Column: Document Count + Search -->
+    <!-- Right Column: Document Count + Search + Filters -->
     <div class="right-column">
       <!-- Document Count Section -->
       <section v-if="!isLoading" class="docs-count-section">
@@ -128,6 +129,30 @@
             placeholder="Search documents…"
             class="search-input"
           />
+        </div>
+      </section>
+
+      <!-- Filter Section - Only show in project-level view -->
+      <section v-if="!isLoading && isProjectLevelView" class="filter-section">
+        <div class="filter-container">
+          <div class="stage-filter">
+            <label class="filter-label">Filter by Venue</label>
+            <select v-model="selectedVenueId" class="select-stage">
+              <option value="">All Venues</option>
+              <option v-for="venue in venues" :key="venue.id" :value="venue.id">
+                {{ venue.venue_name }}
+              </option>
+            </select>
+          </div>
+          <div class="stage-filter">
+            <label class="filter-label">Filter by Stage</label>
+            <select v-model="selectedStageId" class="select-stage" :disabled="!selectedVenueId">
+              <option value="">All Stages</option>
+              <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">
+                {{ stage.stage_name }}
+              </option>
+            </select>
+          </div>
         </div>
       </section>
     </div>
@@ -186,6 +211,8 @@
               <span class="meta-item">{{ mimeLabel(doc.mime_type) }}</span>
               <span class="meta-item">📅 {{ formatDate(doc.inserted_at) }}</span>
               <span v-if="doc.uploaded_by" class="meta-item">👤 {{ doc.uploaded_by }}</span>
+              <span v-if="isProjectLevelView && doc.venue_name" class="meta-item">🏢 {{ doc.venue_name }}</span>
+              <span v-if="isProjectLevelView && doc.stage_name" class="meta-item">🎪 {{ doc.stage_name }}</span>
             </div>
           </div>
         </div>
@@ -238,7 +265,12 @@
     <div class="empty-icon">📁</div>
     <h3 class="empty-title">No Documents Yet</h3>
     <p class="empty-description">
-      Upload some documents to get started with documenting this stage.
+      <span v-if="isProjectLevelView">
+        No documents found for this project. Documents are uploaded at the stage level. Navigate to a specific stage to upload documents.
+      </span>
+      <span v-else>
+        Upload some documents to get started with documenting this stage.
+      </span>
     </p>
   </div>
 
@@ -268,7 +300,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
@@ -289,6 +321,9 @@ const projectId = route.params.id
 const venueId   = route.query.venueId
 const stageId   = route.query.stageId
 
+// Check if we're in project-level view (no venue/stage specified)
+const isProjectLevelView = computed(() => !venueId || !stageId)
+
 // reactive page state
 const venueName     = ref('Loading…')
 const stageName     = ref('Loading…')
@@ -303,6 +338,10 @@ const fileInput     = ref(null)
 const editingId     = ref(null)
 const showPreviewModal = ref(false)
 const previewDoc = ref(null)
+const venues      = ref([])
+const stages      = ref([])
+const selectedVenueId = ref('')
+const selectedStageId = ref('')
 
 // allowed MIME types
 const allowedMimes = [
@@ -401,41 +440,98 @@ try {
 }
 }
 
-// 2) Fetch venue & stage names
+// 2) Fetch venue & stage names (only if venueId/stageId are provided)
 async function fetchNames() {
-const { data: v } = await supabase
-  .from('venues')
-  .select('venue_name')
-  .eq('id', venueId)
-  .single()
-if (v) venueName.value = v.venue_name
+  if (!venueId || !stageId) {
+    // Project-level view - fetch all venues and stages for filtering
+    try {
+      const { data: venuesData, error: venuesError } = await supabase
+        .from('venues')
+        .select('id, venue_name')
+        .eq('project_id', projectId)
+        .order('venue_name', { ascending: true })
+      
+      if (venuesError) throw venuesError
+      venues.value = venuesData || []
 
-const { data: s } = await supabase
-  .from('locations')
-  .select('stage_name')
-  .eq('id', stageId)
-  .single()
-if (s) stageName.value = s.stage_name
+      const { data: stagesData, error: stagesError } = await supabase
+        .from('locations')
+        .select('id, stage_name, venue_id')
+        .eq('project_id', projectId)
+        .order('stage_name', { ascending: true })
+      
+      if (stagesError) throw stagesError
+      stages.value = stagesData || []
+    } catch (e) {
+      console.error('Error fetching venues/stages:', e)
+    }
+    return
+  }
+
+  // Stage-level view - fetch specific venue and stage names
+  try {
+    const { data: v } = await supabase
+      .from('venues')
+      .select('venue_name')
+      .eq('id', venueId)
+      .single()
+    if (v) venueName.value = v.venue_name
+
+    const { data: s } = await supabase
+      .from('locations')
+      .select('stage_name')
+      .eq('id', stageId)
+      .single()
+    if (s) stageName.value = s.stage_name
+  } catch (e) {
+    console.error('Error fetching venue/stage names:', e)
+  }
 }
 
 // 3) Fetch docs list + signed URLs
 async function fetchDocs() {
 isLoading.value = true
 try {
-  const { data, error } = await supabase
+  let query = supabase
     .from('stage_docs')
     .select('*')
     .eq('project_id', projectId)
-    .eq('venue_id', venueId)
-    .eq('stage_id', stageId)
-    .order('order', { ascending: true })
+
+  // Only filter by venue/stage if they're provided
+  if (venueId) {
+    query = query.eq('venue_id', venueId)
+  } else if (selectedVenueId.value) {
+    query = query.eq('venue_id', selectedVenueId.value)
+  }
+
+  if (stageId) {
+    query = query.eq('stage_id', stageId)
+  } else if (selectedStageId.value) {
+    query = query.eq('stage_id', selectedStageId.value)
+  }
+
+  const { data, error } = await query.order('order', { ascending: true })
   if (error) throw error
+
+  // Get venue and stage names for project-level view
+  const venueMap = new Map()
+  const stageMap = new Map()
+  if (isProjectLevelView.value) {
+    venues.value.forEach(v => venueMap.set(v.id, v.venue_name))
+    stages.value.forEach(s => stageMap.set(s.id, s.stage_name))
+  }
 
   for (let d of data) {
     const { data: urlData } = await supabase.storage
       .from('stage-docs')
       .createSignedUrl(d.file_path, 3600)
     d.url = urlData.signedUrl
+    
+    // Add venue/stage names for project-level view
+    if (isProjectLevelView.value) {
+      d.venue_name = venueMap.get(d.venue_id) || 'Unknown Venue'
+      d.stage_name = stageMap.get(d.stage_id) || 'Unknown Stage'
+    }
   }
   docs.value = data
 } catch (e) {
@@ -447,18 +543,44 @@ try {
 }
 
 // filtered view
+const filteredStages = computed(() => {
+  if (!selectedVenueId.value) return stages.value
+  return stages.value.filter(s => s.venue_id === selectedVenueId.value)
+})
+
 const filteredDocs = computed(() => {
 const t = searchTerm.value.toLowerCase()
 if (!t) return docs.value
 return docs.value.filter(d =>
   d.file_name.toLowerCase().includes(t) ||
-  (d.description || '').toLowerCase().includes(t)
+  (d.description || '').toLowerCase().includes(t) ||
+  (isProjectLevelView.value && (d.venue_name || '').toLowerCase().includes(t)) ||
+  (isProjectLevelView.value && (d.stage_name || '').toLowerCase().includes(t))
 )
+})
+
+// Watch for filter changes in project-level view
+watch([selectedVenueId, selectedStageId], () => {
+  if (isProjectLevelView.value) {
+    fetchDocs()
+  }
+})
+
+// Reset stage filter when venue changes
+watch(selectedVenueId, () => {
+  if (isProjectLevelView.value) {
+    selectedStageId.value = ''
+  }
 })
 
 // upload to storage & insert rows
 async function uploadDocs() {
 if (!selectedFiles.value.length) return
+if (!venueId || !stageId) {
+  toast.error('Please navigate to a specific stage to upload documents')
+  return
+}
+
 isUploading.value = true
 uploadProgress.value = 0
 
@@ -1109,6 +1231,56 @@ function printPreview() {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Filter Section */
+.filter-section {
+  margin-bottom: 32px;
+}
+
+.filter-section .filter-container {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stage-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.select-stage {
+  padding: 12px 16px;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
+}
+
+.select-stage:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.select-stage:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Loading Section */

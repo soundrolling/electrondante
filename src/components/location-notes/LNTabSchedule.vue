@@ -127,7 +127,7 @@
       <div
         v-for="(r, i) in filteredRows"
         :key="r.id"
-        :class="['row-card', { 'active-card': isActive(r, i) }]"
+        :class="['row-card', { 'active-card': activeScheduleIds.has(r.id) }]"
       >
         <div class="row-content">
           <div class="artist">{{ r.artist_name }}</div>

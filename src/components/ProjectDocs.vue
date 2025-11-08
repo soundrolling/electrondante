@@ -21,8 +21,8 @@
     </div>
   </header>
 
-  <!-- Upload Section -->
-  <div class="upload-section">
+  <!-- Upload Section - Hidden for project-level view (upload should be done at stage level) -->
+  <!-- <div class="upload-section">
     <div 
       class="upload-area"
       :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
@@ -51,7 +51,6 @@
         </p>
         <p class="upload-info">15 MB max (PDF, Word, Excel, CSV, Text)</p>
         
-        <!-- Upload Progress -->
         <div v-if="isUploading" class="upload-progress">
           <div class="progress-bar">
             <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
@@ -61,7 +60,6 @@
       </div>
     </div>
 
-    <!-- Selected Files Preview -->
     <div v-if="selectedFiles.length" class="selected-files">
       <h4 class="selected-files-title">Selected Files ({{ selectedFiles.length }})</h4>
       <div class="file-list">
@@ -86,7 +84,6 @@
           </button>
         </div>
       </div>
-      <!-- Upload Button -->
       <div class="selected-files-upload-btn">
         <button
           class="btn btn-positive"
@@ -97,7 +94,7 @@
         </button>
       </div>
     </div>
-  </div>
+  </div> -->
 
   <!-- Search & Filter Section -->
   <section v-if="!isLoading" class="search-filter-section">
@@ -203,9 +200,9 @@
   <div v-else-if="!isLoading" class="empty-state">
     <div class="empty-icon">📁</div>
     <h3 class="empty-title">No Documents Found</h3>
-    <p class="empty-description">
-      No documents found for this project/stage. Upload some documents to get started.
-    </p>
+      <p class="empty-description">
+      No documents found for this project. Documents are uploaded at the stage level. Navigate to a specific stage to upload documents.
+      </p>
   </div>
 
   <!-- Document Preview Modal -->
@@ -370,13 +367,42 @@ if (error) {
 }
 }
 
-// ─── FETCH PROJECT_DOCS ─────────────────────────────────────────────────────────
+// ─── FETCH VENUES & STAGES ─────────────────────────────────────────────────────
+async function fetchVenuesAndStages() {
+  try {
+    // Fetch venues for this project
+    const { data: venuesData, error: venuesError } = await supabase
+      .from('venues')
+      .select('id, venue_name')
+      .eq('project_id', projectId)
+      .order('venue_name', { ascending: true })
+    
+    if (venuesError) throw venuesError
+    venues.value = venuesData || []
+
+    // Fetch all stages for this project
+    const { data: stagesData, error: stagesError } = await supabase
+      .from('locations')
+      .select('id, stage_name, venue_id')
+      .eq('project_id', projectId)
+      .order('stage_name', { ascending: true })
+    
+    if (stagesError) throw stagesError
+    stages.value = stagesData || []
+  } catch (e) {
+    console.error('Error fetching venues/stages:', e)
+    toast.error('Failed to load venues and stages')
+  }
+}
+
+// ─── FETCH ALL STAGE DOCS FOR PROJECT ────────────────────────────────────────────
 async function fetchProjectDocs() {
 isLoading.value = true
 
 try {
-  const { data, error } = await supabase
-    .from('project_docs')
+  // Build query for stage_docs with joins to get venue and stage names
+  let query = supabase
+    .from('stage_docs')
     .select(`
       id,
       file_name,
@@ -385,19 +411,39 @@ try {
       inserted_at,
       file_path,
       uploaded_by,
-      order
+      order,
+      venue_id,
+      stage_id
     `)
     .eq('project_id', projectId)
-    .order('order', { ascending: true })
+
+  // Apply venue filter if selected
+  if (selectedVenueId.value) {
+    query = query.eq('venue_id', selectedVenueId.value)
+  }
+
+  // Apply stage filter if selected
+  if (selectedStageId.value) {
+    query = query.eq('stage_id', selectedStageId.value)
+  }
+
+  const { data, error } = await query.order('order', { ascending: true })
   if (error) throw error
+
+  // Get venue and stage names
+  const venueMap = new Map(venues.value.map(v => [v.id, v.venue_name]))
+  const stageMap = new Map(stages.value.map(s => [s.id, s.stage_name]))
 
   // Build signed URLs for each document
   docs.value = await Promise.all(
-    data.map(async (d) => {
+    (data || []).map(async (d) => {
       const { data: urlData, error: urlError } = await supabase.storage
         .from('stage-docs')
         .createSignedUrl(d.file_path, 3600)
-      if (urlError) throw urlError
+      if (urlError) {
+        console.error('Error creating signed URL:', urlError)
+        return null
+      }
 
       return {
         id:          d.id,
@@ -406,11 +452,18 @@ try {
         description: d.description,
         inserted_at: d.inserted_at,
         uploaded_by: d.uploaded_by || null,
-        url:         urlData.signedUrl,
-        file_path:   d.file_path
+        url:         urlData?.signedUrl || null,
+        file_path:   d.file_path,
+        venue_id:    d.venue_id,
+        stage_id:    d.stage_id,
+        venue_name:  venueMap.get(d.venue_id) || 'Unknown Venue',
+        stage_name:  stageMap.get(d.stage_id) || 'Unknown Stage'
       }
     })
   )
+
+  // Filter out any null entries (failed URL generation)
+  docs.value = docs.value.filter(d => d !== null)
 } catch (e) {
   console.error(e)
   toast.error('Failed to load documents')
@@ -592,9 +645,9 @@ async function deleteDoc(doc) {
       .remove([doc.file_path])
     if (rmErr) throw rmErr
 
-    // Remove row from project_docs
+    // Remove row from stage_docs
     const { error: dbErr } = await supabase
-      .from('project_docs')
+      .from('stage_docs')
       .delete()
       .eq('id', doc.id)
     if (dbErr) throw dbErr
@@ -608,15 +661,33 @@ async function deleteDoc(doc) {
   }
 }
 
-// ─── COMPUTED FILTER ────────────────────────────────────────────────────────────
+// ─── COMPUTED FILTERS ────────────────────────────────────────────────────────────
+const filteredStages = computed(() => {
+  if (!selectedVenueId.value) return stages.value
+  return stages.value.filter(s => s.venue_id === selectedVenueId.value)
+})
+
 const filteredDocs = computed(() => {
 const term = searchTerm.value.trim().toLowerCase()
 if (!term) return docs.value
 
 return docs.value.filter((d) =>
   d.file_name.toLowerCase().includes(term) ||
-  (d.description || '').toLowerCase().includes(term)
+  (d.description || '').toLowerCase().includes(term) ||
+  (d.venue_name || '').toLowerCase().includes(term) ||
+  (d.stage_name || '').toLowerCase().includes(term)
 )
+})
+
+// Reset stage filter when venue changes, then fetch
+watch(selectedVenueId, () => {
+  selectedStageId.value = ''
+  fetchProjectDocs()
+})
+
+// Watch for stage filter changes
+watch(selectedStageId, () => {
+  fetchProjectDocs()
 })
 
 // PDF Export
@@ -653,10 +724,14 @@ async function exportPdf() {
       y += 16
       doc.text(`Added: ${formatDate(docItem.inserted_at)}`, margin, y)
       y += 16
-      doc.text(`Venue: ${docItem.venue_name}`, margin, y)
-      y += 16
-      doc.text(`Stage: ${docItem.stage_name}`, margin, y)
-      y += 16
+      if (docItem.venue_name) {
+        doc.text(`Venue: ${docItem.venue_name}`, margin, y)
+        y += 16
+      }
+      if (docItem.stage_name) {
+        doc.text(`Stage: ${docItem.stage_name}`, margin, y)
+        y += 16
+      }
       if (docItem.uploaded_by) {
         doc.text(`Uploaded by: ${docItem.uploaded_by}`, margin, y)
         y += 16
@@ -685,6 +760,7 @@ async function exportPdf() {
 // ─── ON MOUNT ───────────────────────────────────────────────────────────────────
 onMounted(async () => {
 await fetchProjectName()
+await fetchVenuesAndStages()
 await fetchProjectDocs()
 })
 </script>
