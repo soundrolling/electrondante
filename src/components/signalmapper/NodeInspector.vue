@@ -1146,6 +1146,10 @@ function getDownstreamPortOptions(targetNodeId) {
 }
 
 async function clearUpstreamConnection(inputNum) {
+  // Store connection ID before clearing (needed for deletion)
+  const existingConnId = upstreamConnections.value[inputNum]
+  
+  // Clear the dropdown selection
   upstreamMap.value[inputNum] = '__NO_SOURCE__'
   delete upstreamConnections.value[inputNum]
   
@@ -1164,15 +1168,98 @@ async function clearUpstreamConnection(inputNum) {
     }
   }
   
-  try {
-    const result = await saveMap(inputNum, true)
-    await loadAvailableUpstreamSources()
-    await updateUpstreamLabels()
-    if (result && result.errorCount === 0) {
+  // Delete the connection and port maps from database
+  if (existingConnId) {
+    try {
+      // First, check if this connection has port maps or is a direct connection
+      const { data: portMaps } = await supabase
+        .from('connection_port_map')
+        .select('id')
+        .eq('connection_id', existingConnId)
+      
+      if (portMaps && portMaps.length > 0) {
+        // Connection has port maps - delete only the port map for this input
+        await supabase
+          .from('connection_port_map')
+          .delete()
+          .eq('connection_id', existingConnId)
+          .eq('to_port', Number(inputNum))
+        
+        // Check if any port maps remain for this connection
+        const { data: remainingMaps } = await supabase
+          .from('connection_port_map')
+          .select('id')
+          .eq('connection_id', existingConnId)
+          .limit(1)
+        
+        // If no port maps remain, delete the connection
+        if (!remainingMaps || remainingMaps.length === 0) {
+          await supabase
+            .from('connections')
+            .delete()
+            .eq('id', existingConnId)
+        }
+      } else {
+        // Direct connection (no port maps) - check if it matches this input_number
+        const { data: conn } = await supabase
+          .from('connections')
+          .select('input_number, to_node_id')
+          .eq('id', existingConnId)
+          .single()
+        
+        if (conn && conn.to_node_id === props.node.id && conn.input_number === Number(inputNum)) {
+          // This is a direct connection for this input - delete it
+          await supabase
+            .from('connections')
+            .delete()
+            .eq('id', existingConnId)
+        }
+      }
+      
+      // Invalidate cache
+      invalidateTableCache('connections', props.projectId)
+      invalidateTableCache('graph', props.projectId)
+      
+      // Refresh to update the UI
+      await refresh()
+      await loadAvailableUpstreamSources()
+      await updateUpstreamLabels()
+      
       saveStatus.value[inputNum] = 'cleared'
       setTimeout(() => { if (saveStatus.value[inputNum] === 'cleared') delete saveStatus.value[inputNum] }, 2000)
+    } catch (err) {
+      console.error('[Inspector] failed to clear connection', err)
+      toast.error('Failed to clear connection')
     }
-  } catch {}
+  } else {
+    // No connection ID stored, but might still need to check for connection by input_number
+    // This handles cases where the connection exists but wasn't loaded into upstreamConnections
+    try {
+      const { data: directConn } = await supabase
+        .from('connections')
+        .select('id, input_number')
+        .eq('project_id', props.projectId)
+        .eq('to_node_id', props.node.id)
+        .eq('input_number', Number(inputNum))
+        .maybeSingle()
+      
+      if (directConn) {
+        // Found a direct connection - delete it
+        await supabase
+          .from('connections')
+          .delete()
+          .eq('id', directConn.id)
+        
+        invalidateTableCache('connections', props.projectId)
+        invalidateTableCache('graph', props.projectId)
+        await refresh()
+        await loadAvailableUpstreamSources()
+        await updateUpstreamLabels()
+      }
+    } catch (err) {
+      console.warn('[Inspector] error checking for direct connection', err)
+    }
+  }
 }
 
 function clearDownstreamConnection(outputNum) {
