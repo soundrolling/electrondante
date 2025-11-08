@@ -642,8 +642,18 @@ export default {
       // Note: month is 0-indexed in Date constructor
       const startDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
                                      startTime.hours, startTime.minutes, startTime.seconds)
-      const endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
-                                   endTime.hours, endTime.minutes, endTime.seconds)
+      
+      // Handle cross-midnight schedules (end time < start time means it goes to next day)
+      let endDateTime
+      if (endTime.hours < startTime.hours || (endTime.hours === startTime.hours && endTime.minutes < startTime.minutes)) {
+        // End time is on the next day
+        endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay + 1, 
+                              endTime.hours, endTime.minutes, endTime.seconds)
+      } else {
+        // End time is on the same day
+        endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                               endTime.hours, endTime.minutes, endTime.seconds)
+      }
       
       // Ensure we have valid Date objects
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
@@ -657,27 +667,17 @@ export default {
       const endTimeMs = endDateTime.getTime()
       const isInRange = nowTime >= startTimeMs && nowTime < endTimeMs
       
-      // Log every check for debugging (we'll remove this later)
-      if (console) {
+      // Log only when schedule should be active (reduced spam)
+      if (console && isInRange) {
         console.log('[LNTabSchedule] Time comparison:', {
           artist: item.artist_name,
           scheduleDate: scheduleDate,
           scheduleStart: item.start_time,
           scheduleEnd: item.end_time,
-          parsedDate: { scheduleYear, scheduleMonth, scheduleDay },
-          parsedStartTimeObj: startTime,
-          parsedEndTimeObj: endTime,
-          startDateTime: startDateTime.toISOString(),
-          endDateTime: endDateTime.toISOString(),
-          now: now.toISOString(),
-          nowTime,
-          startTimeMs,
-          endTimeMs,
+          startDateTime: startDateTime.toLocaleString(),
+          endDateTime: endDateTime.toLocaleString(),
+          now: now.toLocaleString(),
           isInRange,
-          beforeStart: nowTime < startTimeMs,
-          afterEnd: nowTime >= endTimeMs,
-          diffFromStartMs: nowTime - startTimeMs,
-          diffFromEndMs: nowTime - endTimeMs,
           diffFromStartMinutes: Math.round((nowTime - startTimeMs) / 60000),
           diffFromEndMinutes: Math.round((nowTime - endTimeMs) / 60000)
         })

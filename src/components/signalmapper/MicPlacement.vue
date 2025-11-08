@@ -34,7 +34,7 @@
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
       <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
-      <button @click="exportToPDF" class="btn-secondary">📄 Export PDF</button>
+      <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
     </div>
   </div>
 
@@ -1312,7 +1312,7 @@ function updateCanvasSize() {
   drawCanvas()
 }
 
-// Export/Print the current canvas with print preview (PDF default)
+// Export/Download the current canvas as PNG image
 function exportToPDF() {
   if (!canvas.value) return
   
@@ -1324,111 +1324,24 @@ function exportToPDF() {
   }
   
   try {
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a')
     
-    // Create a clean print preview window with just the canvas image
-    const printWindow = window.open('', '_blank', 'width=800,height=600')
-    if (!printWindow) {
-      toast.error('Please allow popups to export')
-      return
-    }
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+    const filename = `mic-placement-${timestamp}.png`
     
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Mic Placement - Print Preview</title>
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              background: var(--bg-secondary);
-              font-family: system-ui, -apple-system, sans-serif;
-            }
-            .print-content {
-              background: white;
-              padding: 20px;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-              max-width: 100%;
-            }
-            .print-content img {
-              display: block;
-              max-width: 100%;
-              height: auto;
-            }
-            .print-actions {
-              text-align: center;
-              margin-top: 20px;
-              padding: 15px;
-            }
-            .print-actions button {
-              padding: 10px 20px;
-              margin: 0 5px;
-              background: var(--color-primary-500);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-            }
-            .print-actions button:hover {
-              background: var(--color-primary-600);
-            }
-            .print-actions button.secondary {
-              background: var(--color-secondary-500);
-            }
-            .print-actions button.secondary:hover {
-              background: var(--color-secondary-600);
-            }
-            @media print {
-              body {
-                background: white;
-                padding: 0;
-              }
-              .print-actions {
-                display: none;
-              }
-              .print-content {
-                padding: 0;
-                box-shadow: none;
-              }
-              .print-content img {
-                width: 100%;
-                height: auto;
-                page-break-inside: avoid;
-              }
-            }
-            @page {
-              margin: 0;
-              size: auto;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-content">
-            <img src="${dataURL}" alt="Mic Placement" />
-          </div>
-          <div class="print-actions">
-            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-            <button class="secondary" onclick="window.close()">Close</button>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
+    // Set the download attributes
+    link.href = dataURL
+    link.download = filename
+    link.style.display = 'none'
     
-    // Wait for image to load
-    printWindow.onload = () => {
-      // Focus the window to bring it to front
-      printWindow.focus()
-    }
+    // Append to body, click, and remove
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    toast.success('Mic placement exported successfully')
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export mic placement')
