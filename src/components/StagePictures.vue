@@ -306,6 +306,7 @@ const stageId = route.query.stageId;
 // Reactive state
 const venueName = ref('Loading…');
 const stageName = ref('Loading…');
+const projectName = ref('Loading…');
 const images = ref([]);
 const selectedFiles = ref([]);
 const isLoading = ref(false);
@@ -383,6 +384,13 @@ function formatFileSize(bytes) {
 // Data fetching
 async function fetchNames() {
   try {
+    const { data: p } = await supabase
+      .from('projects')
+      .select('project_name')
+      .eq('id', projectId)
+      .single();
+    if (p) projectName.value = p.project_name;
+
     const { data: v } = await supabase
       .from('venues')
       .select('venue_name')
@@ -704,19 +712,27 @@ async function exportPdf() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     let y = margin;
-
-    doc.setFontSize(18);
-    doc.text(`${stageName.value} Pictures`, margin, y);
-    y += 24;
-    doc.setFontSize(12);
-    doc.text(`Venue: ${venueName.value}`, margin, y);
-    y += 32;
+    let isFirstPage = true;
 
     for (const img of images.value) {
       // Check if we need a new page (account for image + text space)
       if (y + 500 > pageHeight) {
         doc.addPage();
         y = margin;
+        isFirstPage = false;
+      }
+
+      // Add header on first page only
+      if (isFirstPage && y === margin) {
+        doc.setFontSize(18);
+        doc.setFont(undefined, 'bold');
+        doc.text(projectName.value || 'Project', margin, y);
+        y += 24;
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'normal');
+        doc.text(stageName.value || 'Stage', margin, y);
+        y += 32;
+        isFirstPage = false;
       }
 
       const blob = await (await fetch(img.url)).blob();
@@ -745,13 +761,6 @@ async function exportPdf() {
       doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
       y += imgH + 12;
 
-      // Add title/name below the image
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      const titleText = img.name || 'Untitled';
-      doc.text(titleText, margin, y);
-      y += 18;
-
       // Add description if it exists
       if (img.description && img.description.trim()) {
         doc.setFontSize(11);
@@ -763,25 +772,6 @@ async function exportPdf() {
         doc.text(descLines, margin, y);
         y += descLines.length * 14;
       }
-
-      // Add metadata (date, size, uploader) if available
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      let metadataText = [];
-      if (img.created_at) {
-        metadataText.push(`Date: ${formatDate(img.created_at)}`);
-      }
-      if (img.size) {
-        metadataText.push(`Size: ${formatFileSize(img.size)}`);
-      }
-      if (img.uploaded_by) {
-        metadataText.push(`Uploaded by: ${img.uploaded_by}`);
-      }
-      if (metadataText.length > 0) {
-        doc.text(metadataText.join(' • '), margin, y);
-        y += 12;
-      }
-      doc.setTextColor(0, 0, 0); // Reset text color
 
       y += 20; // Space before next image
     }
@@ -807,14 +797,7 @@ async function exportSelectedPdf() {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     let y = margin;
-
-    doc.setFontSize(18);
-    doc.text(`${stageName.value} Pictures (Selected)`, margin, y);
-    y += 24;
-    doc.setFontSize(12);
-    doc.text(`Venue: ${venueName.value}`, margin, y);
-    doc.text(`Selected: ${selectedImages.value.length} image${selectedImages.value.length === 1 ? '' : 's'}`, margin, y + 16);
-    y += 32;
+    let isFirstPage = true;
 
     // Get only selected images
     const selectedImagesData = images.value.filter(img => selectedImages.value.includes(img.id));
@@ -824,6 +807,20 @@ async function exportSelectedPdf() {
       if (y + 500 > pageHeight) {
         doc.addPage();
         y = margin;
+        isFirstPage = false;
+      }
+
+      // Add header on first page only
+      if (isFirstPage && y === margin) {
+        doc.setFontSize(18);
+        doc.setFont(undefined, 'bold');
+        doc.text(projectName.value || 'Project', margin, y);
+        y += 24;
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'normal');
+        doc.text(stageName.value || 'Stage', margin, y);
+        y += 32;
+        isFirstPage = false;
       }
 
       const blob = await (await fetch(img.url)).blob();
@@ -852,13 +849,6 @@ async function exportSelectedPdf() {
       doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
       y += imgH + 12;
 
-      // Add title/name below the image
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      const titleText = img.name || 'Untitled';
-      doc.text(titleText, margin, y);
-      y += 18;
-
       // Add description if it exists
       if (img.description && img.description.trim()) {
         doc.setFontSize(11);
@@ -870,25 +860,6 @@ async function exportSelectedPdf() {
         doc.text(descLines, margin, y);
         y += descLines.length * 14;
       }
-
-      // Add metadata (date, size, uploader) if available
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      let metadataText = [];
-      if (img.created_at) {
-        metadataText.push(`Date: ${formatDate(img.created_at)}`);
-      }
-      if (img.size) {
-        metadataText.push(`Size: ${formatFileSize(img.size)}`);
-      }
-      if (img.uploaded_by) {
-        metadataText.push(`Uploaded by: ${img.uploaded_by}`);
-      }
-      if (metadataText.length > 0) {
-        doc.text(metadataText.join(' • '), margin, y);
-        y += 12;
-      }
-      doc.setTextColor(0, 0, 0); // Reset text color
 
       y += 20; // Space before next image
     }

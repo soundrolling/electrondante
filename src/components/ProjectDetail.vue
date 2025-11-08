@@ -117,9 +117,45 @@
           <span class="action-icon">📄</span>
           <span class="action-label">Documents</span>
         </button>
+        <button class="btn btn-positive action-button" @click="showToolsSection = !showToolsSection">
+          <span class="action-icon">🛠️</span>
+          <span class="action-label">Tools</span>
+        </button>
       </div>
     </section>
-  </div>
+
+    <!-- Tools Section -->
+    <section v-if="showToolsSection" class="tools-section">
+      <h2 class="section-title">Tools</h2>
+      <div class="tools-grid">
+        <button
+          class="tool-card"
+          @click="openTool('ltc')"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+        >
+          <div class="tool-icon">⏱️</div>
+          <div class="tool-info">
+            <div class="tool-name">LTC Timecode Generator</div>
+            <div class="tool-description">Generate Linear Timecode audio signal</div>
+          </div>
+          <div class="tool-arrow">→</div>
+        </button>
+        <button
+          class="tool-card"
+          @click="openTool('audio-signal')"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+        >
+          <div class="tool-icon">🔊</div>
+          <div class="tool-info">
+            <div class="tool-name">Audio Signal Generator</div>
+            <div class="tool-description">Generate sine waves, noise, and sweeps</div>
+          </div>
+          <div class="tool-arrow">→</div>
+        </button>
+      </div>
+    </section>
 
   <!-- Error State -->
   <div v-else class="error-state">
@@ -140,6 +176,20 @@
     :visible="showStageModal"
     @close="closeStageModal"
   />
+
+  <!-- Tool Modal -->
+  <div v-if="showToolModal && selectedTool" class="tool-modal-backdrop" @click.self="closeToolModal">
+    <div class="tool-modal">
+      <div class="tool-modal-header">
+        <h2 class="tool-modal-title">{{ toolTitle }}</h2>
+        <button class="tool-modal-close" @click="closeToolModal">×</button>
+      </div>
+      <div class="tool-modal-body">
+        <LTCTimecodeGenerator v-if="selectedTool === 'ltc'" />
+        <AudioSignalGenerator v-if="selectedTool === 'audio-signal'" />
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -150,10 +200,12 @@ import { useUserStore } from '../stores/userStore';
 import { supabase } from '../supabase';
 import { fetchTableData } from '../services/dataService';
 import StageQuickAccessMenu from './stage/StageQuickAccessMenu.vue';
+import LTCTimecodeGenerator from './tools/LTCTimecodeGenerator.vue';
+import AudioSignalGenerator from './tools/AudioSignalGenerator.vue';
 
 export default {
   name: 'ProjectDetail',
-  components: { StageQuickAccessMenu },
+  components: { StageQuickAccessMenu, LTCTimecodeGenerator, AudioSignalGenerator },
   setup() {
     const route      = useRoute();
     const router     = useRouter();
@@ -164,6 +216,9 @@ export default {
     const stages          = ref([]);
     const showStageModal  = ref(false);
     const selectedStage   = ref(null);
+    const showToolsSection = ref(false);
+    const showToolModal   = ref(false);
+    const selectedTool    = ref(null);
 
     onMounted(loadProject);
 
@@ -249,6 +304,22 @@ export default {
       selectedStage.value = null;
     }
 
+    /* ---------------- Tool navigation helpers ---------------- */
+    function openTool(toolName) {
+      selectedTool.value = toolName;
+      showToolModal.value = true;
+    }
+    function closeToolModal() {
+      showToolModal.value = false;
+      selectedTool.value = null;
+    }
+
+    const toolTitle = computed(() => {
+      if (selectedTool.value === 'ltc') return 'LTC Timecode Generator';
+      if (selectedTool.value === 'audio-signal') return 'Audio Signal Generator';
+      return 'Tool';
+    });
+
     function ordinal(n) {
       const s = ["th", "st", "nd", "rd"], v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
@@ -284,6 +355,13 @@ export default {
       handleTouchStart,
       handleTouchEnd,
       loadProject,
+      /* tools */
+      showToolsSection,
+      showToolModal,
+      selectedTool,
+      openTool,
+      closeToolModal,
+      toolTitle,
     };
   },
 };
@@ -959,16 +1037,155 @@ export default {
   }
 }
 
+/* Tools Section */
+.tools-section {
+  margin-bottom: 24px;
+}
+
+.tools-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  text-align: left;
+  width: 100%;
+}
+
+.tool-card:hover {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+}
+
+.tool-card:active,
+.tool-card.touch-active {
+  transform: scale(0.98);
+  background: var(--bg-secondary);
+}
+
+.tool-icon {
+  font-size: 24px;
+  width: 48px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tool-info {
+  flex: 1;
+}
+
+.tool-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-heading);
+  margin-bottom: 2px;
+}
+
+.tool-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.tool-arrow {
+  font-size: 18px;
+  color: var(--text-secondary);
+  font-weight: 300;
+}
+
+/* Tool Modal */
+.tool-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.tool-modal {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  background: var(--bg-primary);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tool-modal-header {
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.tool-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.tool-modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.tool-modal-close:hover {
+  background: var(--bg-primary);
+  color: var(--text-heading);
+}
+
+.tool-modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
   .stage-card,
   .action-button,
-  .startup-button {
+  .startup-button,
+  .tool-card {
     transition: none;
   }
   
   .stage-card:active,
-  .stage-card.touch-active {
+  .stage-card.touch-active,
+  .tool-card:active,
+  .tool-card.touch-active {
     transform: none;
   }
 
@@ -978,6 +1195,22 @@ export default {
 
   .startup-button:active {
     transform: none;
+  }
+}
+
+/* Tablet and Desktop adjustments for tools */
+@media (min-width: 601px) {
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .tools-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
   }
 }
 </style>

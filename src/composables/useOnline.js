@@ -1,0 +1,25 @@
+// src/composables/useOnline.js
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+
+export function useOnline() {
+  const isOnline = ref(navigator.onLine)
+  
+  const updateOnlineStatus = () => {
+    isOnline.value = navigator.onLine
+  }
+  
+  onMounted(() => {
+    window.addEventListener('online', updateOnlineStatus)
+    window.addEventListener('offline', updateOnlineStatus)
+  })
+  
+  onBeforeUnmount(() => {
+    window.removeEventListener('online', updateOnlineStatus)
+    window.removeEventListener('offline', updateOnlineStatus)
+  })
+  
+  return {
+    isOnline
+  }
+}
+
