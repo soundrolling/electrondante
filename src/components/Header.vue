@@ -97,21 +97,6 @@
           <span class="nav-text">All Projects</span>
         </router-link>
         
-        <!-- Profile Button -->
-        <router-link
-          v-if="isAuthenticated"
-          :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
-          class="nav-link light-btn"
-          :class="{ active: isActiveRoute('/profile') }"
-          title="My Profile"
-          aria-label="My Profile"
-        >
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
-        </router-link>
-        
       </nav>
 
       <!-- Right side: User actions -->
@@ -179,6 +164,21 @@
             <line x1="21" y1="12" x2="9" y2="12"/>
           </svg>
         </button>
+
+        <!-- Profile Button -->
+        <router-link
+          v-if="isAuthenticated"
+          :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
+          class="btn btn-light profile-btn"
+          :class="{ active: isActiveRoute('/profile') }"
+          title="My Profile"
+          aria-label="My Profile"
+        >
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </router-link>
 
         <button
           v-if="isAuthenticated"
@@ -662,6 +662,42 @@ export default {
   color: var(--text-primary) !important;
 }
 
+/* Profile button specific styling */
+.profile-btn {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-medium) !important;
+  padding: var(--space-3) !important;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.profile-btn:hover {
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--border-dark) !important;
+}
+
+.profile-btn.active {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-color: var(--color-primary-300) !important;
+}
+
+.profile-btn .btn-icon {
+  color: var(--icon-primary) !important;
+  stroke: var(--icon-primary) !important;
+  width: 20px;
+  height: 20px;
+}
+
+.profile-btn.active .btn-icon {
+  color: var(--color-primary-600) !important;
+  stroke: var(--color-primary-600) !important;
+}
+
 /* Theme toggle button specific styling */
 .theme-toggle-btn {
   background-color: var(--bg-secondary) !important;
@@ -1131,7 +1167,8 @@ export default {
   .mobile-menu-btn { display: none; }
   /* Hide desktop buttons on mobile - use mobile versions instead */
   .bug-report-btn,
-  .sign-out-btn { display: none; }
+  .sign-out-btn,
+  .profile-btn { display: none; }
   /* Online dot */
   .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--space-2); }
   .online-dot.online { background-color: #10b981; }
