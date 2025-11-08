@@ -652,7 +652,37 @@ export default {
       
       // Check if current device time (date + time) is within the schedule range
       // Inclusive start, exclusive end
-      const isInRange = now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()
+      const nowTime = now.getTime()
+      const startTimeMs = startDateTime.getTime()
+      const endTimeMs = endDateTime.getTime()
+      const isInRange = nowTime >= startTimeMs && nowTime < endTimeMs
+      
+      // Log every check for debugging (we'll remove this later)
+      if (console) {
+        console.log('[LNTabSchedule] Time comparison:', {
+          artist: item.artist_name,
+          scheduleDate: scheduleDate,
+          scheduleStart: item.start_time,
+          scheduleEnd: item.end_time,
+          parsedDate: { scheduleYear, scheduleMonth, scheduleDay },
+          parsedStartTimeObj: startTime,
+          parsedEndTimeObj: endTime,
+          startDateTime: startDateTime.toISOString(),
+          endDateTime: endDateTime.toISOString(),
+          now: now.toISOString(),
+          nowTime,
+          startTimeMs,
+          endTimeMs,
+          isInRange,
+          beforeStart: nowTime < startTimeMs,
+          afterEnd: nowTime >= endTimeMs,
+          diffFromStartMs: nowTime - startTimeMs,
+          diffFromEndMs: nowTime - endTimeMs,
+          diffFromStartMinutes: Math.round((nowTime - startTimeMs) / 60000),
+          diffFromEndMinutes: Math.round((nowTime - endTimeMs) / 60000)
+        })
+      }
+      
       return isInRange
     }
 
@@ -661,14 +691,44 @@ export default {
       // Access timestamp to force reactivity
       const _ = currentTimeTimestamp.value
       const activeIds = []
+      const now = currentDeviceTime.value
       
       if (!schedules.value || schedules.value.length === 0) {
         return activeIds
       }
       
+      // Debug: log occasionally to see what's happening (every 5 seconds)
+      if (schedules.value.length > 0 && console && Math.floor(now.getTime() / 5000) % 2 === 0) {
+        const firstSchedule = schedules.value[0]
+        console.log('[LNTabSchedule] Checking schedules:', {
+          total: schedules.value.length,
+          firstSchedule: {
+            id: firstSchedule.id,
+            artist: firstSchedule.artist_name,
+            date: firstSchedule.recording_date,
+            start: firstSchedule.start_time,
+            end: firstSchedule.end_time
+          },
+          currentTime: now.toISOString(),
+          currentDate: now.toLocaleDateString(),
+          currentTimeOnly: now.toLocaleTimeString(),
+          activeCount: activeIds.length
+        })
+      }
+      
       schedules.value.forEach(item => {
-        if (checkIfActive(item)) {
+        const isActive = checkIfActive(item)
+        if (isActive) {
           activeIds.push(item.id)
+          if (console) {
+            console.log('[LNTabSchedule] Active schedule found:', {
+              id: item.id,
+              artist: item.artist_name,
+              date: item.recording_date,
+              start: item.start_time,
+              end: item.end_time
+            })
+          }
         }
       })
       
