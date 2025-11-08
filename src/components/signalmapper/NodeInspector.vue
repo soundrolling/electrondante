@@ -1382,13 +1382,16 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                 // Use the existing connection with new source
                 connId = existingWithNewSource.id
                 upstreamConnections.value[inputNum] = connId
+                // Invalidate cache
+                invalidateTableCache('connections', props.projectId)
+                invalidateTableCache('graph', props.projectId)
                 // Port map will be set up below in the common code
               } else {
-                // No existing connection found - try to update, but handle duplicate key gracefully
-                const { error: updateError } = await supabase
-                  .from('connections')
-                  .update({ from_node_id: nodeId })
-                  .eq('id', existingConnId)
+                  // No existing connection found - try to update, but handle duplicate key gracefully
+                  const { error: updateError } = await supabase
+                    .from('connections')
+                    .update({ from_node_id: nodeId, location_id: props.locationId || null })
+                    .eq('id', existingConnId)
                 
                 if (updateError) {
                   // If update fails with duplicate key, find and use existing connection
@@ -1410,6 +1413,9 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                         await supabase.from('connections').delete().eq('id', existingConnId)
                         connId = existingConn.id
                         upstreamConnections.value[inputNum] = connId
+                        // Invalidate cache
+                        invalidateTableCache('connections', props.projectId)
+                        invalidateTableCache('graph', props.projectId)
                       } else {
                         // Couldn't find existing connection - log and skip this connection
                         console.warn('[Inspector][Map] duplicate key error but could not find existing connection', updateError)
@@ -1425,6 +1431,9 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                     throw updateError
                   }
                 }
+                // Invalidate cache after update
+                invalidateTableCache('connections', props.projectId)
+                invalidateTableCache('graph', props.projectId)
               }
             }
             
@@ -1599,6 +1608,8 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                 .single()
               
               if (!insertError && newConn) {
+                // Store the connection ID for this input
+                upstreamConnections.value[inputNum] = newConn.id
                 // Invalidate cache immediately after successful insert
                 invalidateTableCache('connections', props.projectId)
                 invalidateTableCache('graph', props.projectId)
@@ -1805,6 +1816,11 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                 }
                 // Optimistically set the selected feedKey so the dropdown shows the saved value
                 upstreamMap.value[inputNum] = `${nodeId}:${portToUse}`
+                // Store connection ID
+                upstreamConnections.value[inputNum] = connId
+                // Invalidate cache to ensure fresh data
+                invalidateTableCache('connections', props.projectId)
+                invalidateTableCache('graph', props.projectId)
               } else {
                 // Only remove port map if it's not a transformer or venue source
                 // For regular sources, port maps aren't needed
@@ -1813,6 +1829,9 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                   .delete()
                   .eq('connection_id', connId)
                   .eq('to_port', Number(inputNum))
+                // Invalidate cache
+                invalidateTableCache('connections', props.projectId)
+                invalidateTableCache('graph', props.projectId)
               }
               savedCount++
             }
@@ -1833,6 +1852,9 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
             await supabase.from('connections').delete().eq('id', existingConnId)
             delete upstreamConnections.value[inputNum]
           }
+          // Invalidate cache
+          invalidateTableCache('connections', props.projectId)
+          invalidateTableCache('graph', props.projectId)
           savedCount++
         }
       } catch (err) {
@@ -1844,7 +1866,18 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
     // Note: Downstream connections are managed by configuring the receiving node's inputs
     // No need to save them from this node
     
+    // Invalidate cache before refresh to ensure we get fresh data
+    if (savedCount > 0) {
+      invalidateTableCache('connections', props.projectId)
+      invalidateTableCache('graph', props.projectId)
+      invalidateTableCache('port_maps', props.projectId)
+    }
+    
+    // Refresh graph and reload available sources to update dropdown labels
     await refresh()
+    await loadAvailableUpstreamSources()
+    await updateUpstreamLabels()
+    
     console.log('[Inspector][Map] save:done', { savedCount, errorCount, onlyInputNum })
     if (!suppressToasts) {
       if (errorCount > 0) {
