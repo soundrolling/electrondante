@@ -86,9 +86,16 @@ export async function restoreSessionFromUrl() {
       console.error('verifyOtp error:', error.message)
     } else {
       // After verifying invite or recovery, session is now established
-      // Redirect to set-password page (session will be available there)
-      window.location.href = window.location.origin + '/auth/set-password'
-      return
+      // Only redirect if we're not already on the set-password page
+      const isOnSetPasswordPage = pathname === '/auth/set-password'
+      if (!isOnSetPasswordPage) {
+        // Redirect to set-password page (session will be available there)
+        window.location.href = window.location.origin + '/auth/set-password'
+        return
+      }
+      // If already on set-password page, just clean up the URL
+      // The session is established, SetPassword.vue will detect it
+      window.history.replaceState({}, '', '/auth/set-password')
     }
   }
   // Implicit/PKCE or password-reset flow (access_token in hash)

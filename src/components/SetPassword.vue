@@ -153,13 +153,22 @@ setup() {
         sessionParams.value.expiresAt = params.expires_at || null;
 
         if (!sessionParams.value.accessToken) {
-          errorMessage.value =
-            'No access token found in the URL. Please use the link from your invite email.';
+          // Give restoreSessionFromUrl a moment to establish session
+          // Sometimes there's a timing issue where the component mounts before session is ready
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const { data: delayedSession } = await supabase.auth.getSession();
+          if (delayedSession?.session) {
+            sessionParams.value.accessToken = delayedSession.session.access_token;
+            sessionParams.value.refreshToken = delayedSession.session.refresh_token;
+          } else {
+            errorMessage.value =
+              'No access token found in the URL. Please use the link from your password reset email.';
+          }
         }
       }
     } catch (err) {
       console.error('❌ Token verification/session check failed:', err);
-      errorMessage.value = err.message || 'Failed to verify invitation token. Please use the link from your invite email.';
+      errorMessage.value = err.message || 'Failed to verify token. Please use the link from your password reset email.';
     } finally {
       loading.value = false;
     }
@@ -200,7 +209,7 @@ setup() {
           const { data: newSession } = await supabase.auth.getSession();
           currentSession = newSession;
         } else {
-          throw new Error('No valid session token available. Please use the link from your invite email.');
+          throw new Error('No valid session token available. Please use the link from your password reset email.');
         }
       }
       
