@@ -251,6 +251,7 @@ import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import { jsPDF } from 'jspdf'
+import { downloadPDF } from '@/utils/pdfDownloadHelper'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
@@ -2838,73 +2839,8 @@ async function exportToPDF() {
       pdf.text('Other', x + 24, y - 4)
     }
     
-    // Download PDF with iOS-compatible blob approach
-    try {
-      const pdfBlob = pdf.output('blob')
-      const url = URL.createObjectURL(pdfBlob)
-      
-      // Detect iOS/iPad
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-      
-      if (isIOS) {
-        // For iOS, use link click (download attribute not fully supported, but click works)
-        // This avoids popup blocker issues since it's a direct user interaction
-        const link = document.createElement('a')
-        link.href = url
-        link.target = '_blank' // Open in new tab on iOS
-        link.style.display = 'none'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        setTimeout(() => {
-          URL.revokeObjectURL(url)
-        }, 1000)
-        toast.success('PDF opened - use Share button to save')
-      } else {
-        // For other platforms, use standard download link
-        const link = document.createElement('a')
-        link.href = url
-        link.download = finalFileName
-        link.style.display = 'none'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        setTimeout(() => URL.revokeObjectURL(url), 100)
-        toast.success('PDF exported successfully')
-      }
-    } catch (blobError) {
-      // Fallback: try using data URI
-      try {
-        const pdfDataUri = pdf.output('datauristring')
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-        
-        if (isIOS) {
-          const link = document.createElement('a')
-          link.href = pdfDataUri
-          link.target = '_blank'
-          link.style.display = 'none'
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          toast.success('PDF opened - use Share button to save')
-        } else {
-          const link = document.createElement('a')
-          link.href = pdfDataUri
-          link.download = finalFileName
-          link.style.display = 'none'
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          toast.success('PDF exported successfully')
-        }
-      } catch (dataUriError) {
-        // Final fallback: use jsPDF's save method
-        pdf.save(finalFileName)
-        toast.success('PDF exported successfully')
-      }
-    }
+    // Download PDF using reliable helper that works on iPad
+    downloadPDF(pdf, finalFileName, toast)
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export signal flow')

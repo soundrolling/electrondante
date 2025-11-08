@@ -400,6 +400,7 @@ import Swal from 'sweetalert2';
 import { useToast } from 'vue-toastification';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPDF } from '@/utils/pdfDownloadHelper';
 import { useUserStore } from '@/stores/userStore';
 import {
 fetchTableData,
@@ -1096,9 +1097,9 @@ async function doExportPdf() {
         });
       }
     }
-    doc.save(exportFilename.value || `location-notes-${props.locationId}.pdf`);
+    // Download PDF using reliable helper that works on iPad
+    downloadPDF(doc, exportFilename.value || `location-notes-${props.locationId}.pdf`, toast);
     saveExportPrefs();
-    toast.success('PDF exported successfully');
     closeExportModal();
   } catch (error) {
     console.error('Export error:', error);
