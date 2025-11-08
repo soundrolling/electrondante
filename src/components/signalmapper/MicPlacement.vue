@@ -98,6 +98,35 @@
             </div>
           </div>
         </div>
+        <div class="context-menu-section">
+          <label>Label Background Color:</label>
+          <div class="color-picker-container">
+            <input 
+              v-model="contextMenuLabelBgColorHex" 
+              @change="updateMicFromContextMenu"
+              type="color"
+              class="color-picker-input"
+              :title="contextMenuLabelBgColor"
+            />
+            <input 
+              v-model="contextMenuLabelBgColor" 
+              @change="updateMicFromContextMenu"
+              type="text"
+              placeholder="e.g. rgba(255,255,255,0.92) or #ffffff"
+              class="context-menu-input color-text-input"
+            />
+          </div>
+          <div class="color-presets">
+            <button 
+              v-for="preset in colorPresets"
+              :key="preset"
+              @click="setLabelColor(preset)"
+              class="color-preset-btn"
+              :style="{ backgroundColor: preset }"
+              :title="preset"
+            ></button>
+          </div>
+        </div>
         <div class="context-menu-actions">
           <button @click="deleteMicFromContextMenu" class="btn-danger context-menu-btn">
             🗑️ Delete
@@ -350,6 +379,7 @@ const trackNameInput = ref('')
 const showContextMenu = ref(false)
 const contextMenuTrackName = ref('')
 const contextMenuRotation = ref(0)
+const contextMenuLabelBgColor = ref('rgba(255,255,255,0.92)')
 
 // Available mics (sources only)
 const availableMics = computed(() => {
@@ -472,28 +502,36 @@ function drawMic(ctx, mic) {
     }
   }
 
-  // Draw label with white background for readability over dark images
+  // Draw label positioned opposite to mic direction
   ctx.font = 'bold 12px sans-serif'
   ctx.textAlign = 'center'
-  ctx.textBaseline = 'top'
+  ctx.textBaseline = 'middle'
   const labelText = mic.track_name || mic.label
   const textMetrics = ctx.measureText(labelText)
   const padX = 6
   const padY = 4
   const bgW = Math.ceil(textMetrics.width) + padX * 2
   const bgH = 18 + padY * 2
-  const labelY = y + 40
-  // Background
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  
+  // Calculate label position opposite to mic direction
+  // Mic points in rotation direction (0° = up), so label goes opposite (180° offset)
+  const labelAngle = (rotation + 180) * (Math.PI / 180)
+  const labelDistance = 40 // Distance from mic center
+  const labelX = x + Math.sin(labelAngle) * labelDistance
+  const labelY = y - Math.cos(labelAngle) * labelDistance
+  
+  // Background color - use stored color or default to white
+  const bgColor = mic.label_bg_color || 'rgba(255,255,255,0.92)'
+  ctx.fillStyle = bgColor
   ctx.strokeStyle = 'rgba(0,0,0,0.1)'
   ctx.lineWidth = 1
   ctx.beginPath()
-  ctx.rect(x - bgW / 2, labelY - padY, bgW, bgH)
+  ctx.rect(labelX - bgW / 2, labelY - bgH / 2, bgW, bgH)
   ctx.fill()
   ctx.stroke()
   // Text
   ctx.fillStyle = '#222'
-  ctx.fillText(labelText, x, labelY)
+  ctx.fillText(labelText, labelX, labelY)
 }
 
 // Image handling
@@ -562,16 +600,20 @@ function resetImageView() {
     maxX = Math.max(maxX, x + circleRadius)
     maxY = Math.max(maxY, y + circleRadius)
     
-    // Label extents
+    // Label extents - positioned opposite to mic direction
     const labelText = mic.track_name || mic.label || ''
     const textMetrics = measure ? measure.measureText(labelText) : null
     const padX = 6
     const padY = 4
     const bgW = textMetrics ? Math.ceil(textMetrics.width) + padX * 2 : (labelText.length * 7) + padX * 2
     const bgH = 18 + padY * 2
-    const labelY = y + 40
-    const lx = x - bgW / 2
-    const ly = labelY - padY
+    const rotation = mic.rotation || 0
+    const labelAngle = (rotation + 180) * (Math.PI / 180)
+    const labelDistance = 40
+    const labelX = x + Math.sin(labelAngle) * labelDistance
+    const labelY = y - Math.cos(labelAngle) * labelDistance
+    const lx = labelX - bgW / 2
+    const ly = labelY - bgH / 2
     minX = Math.min(minX, lx)
     minY = Math.min(minY, ly)
     maxX = Math.max(maxX, lx + bgW)
@@ -1005,7 +1047,8 @@ async function saveMicUpdate(mic) {
       x: mic.x,
       y: mic.y,
       rotation: mic.rotation,
-      track_name: mic.track_name
+      track_name: mic.track_name,
+      label_bg_color: mic.label_bg_color
     })
     emit('node-updated', mic)
   } catch (err) {
@@ -1082,6 +1125,60 @@ async function deleteSelected() {
   }
 }
 
+// Color presets for label background
+const colorPresets = [
+  'rgba(255,255,255,0.92)',
+  'rgba(0,0,0,0.8)',
+  'rgba(255,0,0,0.9)',
+  'rgba(0,255,0,0.9)',
+  'rgba(0,0,255,0.9)',
+  'rgba(255,255,0,0.9)',
+  'rgba(255,0,255,0.9)',
+  'rgba(0,255,255,0.9)',
+  '#ffffff',
+  '#000000',
+  '#ff0000',
+  '#00ff00',
+  '#0000ff'
+]
+
+// Helper function to convert rgba/rgb/hex to hex for color input
+function colorToHex(color) {
+  if (!color) return '#ffffff'
+  // If already hex, return as is
+  if (color.startsWith('#')) return color
+  // If rgba or rgb, extract RGB values
+  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  if (match) {
+    const r = parseInt(match[1]).toString(16).padStart(2, '0')
+    const g = parseInt(match[2]).toString(16).padStart(2, '0')
+    const b = parseInt(match[3]).toString(16).padStart(2, '0')
+    return `#${r}${g}${b}`
+  }
+  return '#ffffff'
+}
+
+// Computed property for color picker (hex format)
+const contextMenuLabelBgColorHex = computed({
+  get: () => colorToHex(contextMenuLabelBgColor.value),
+  set: (hex) => {
+    // Convert hex to rgba with opacity
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    // Preserve opacity if original was rgba, otherwise use 0.92
+    const originalColor = contextMenuLabelBgColor.value
+    let opacity = 0.92
+    if (originalColor && originalColor.includes('rgba')) {
+      const opacityMatch = originalColor.match(/rgba\([^)]+,\s*([\d.]+)\)/)
+      if (opacityMatch) {
+        opacity = parseFloat(opacityMatch[1])
+      }
+    }
+    contextMenuLabelBgColor.value = `rgba(${r},${g},${b},${opacity})`
+  }
+})
+
 // Context menu functions
 function openContextMenu(e) {
   if (!selectedMic.value) return
@@ -1089,6 +1186,7 @@ function openContextMenu(e) {
   // Set the context menu values
   contextMenuTrackName.value = selectedMic.value.track_name || ''
   contextMenuRotation.value = selectedMic.value.rotation || 0
+  contextMenuLabelBgColor.value = selectedMic.value.label_bg_color || 'rgba(255,255,255,0.92)'
   
   showContextMenu.value = true
 }
@@ -1097,10 +1195,16 @@ function closeContextMenu() {
   showContextMenu.value = false
   contextMenuTrackName.value = ''
   contextMenuRotation.value = 0
+  contextMenuLabelBgColor.value = 'rgba(255,255,255,0.92)'
 }
 
 function setQuickRotation(angle) {
   contextMenuRotation.value = angle
+  updateMicFromContextMenu()
+}
+
+function setLabelColor(color) {
+  contextMenuLabelBgColor.value = color
   updateMicFromContextMenu()
 }
 
@@ -1109,6 +1213,7 @@ async function updateMicFromContextMenu() {
   
   selectedMic.value.track_name = contextMenuTrackName.value
   selectedMic.value.rotation = contextMenuRotation.value
+  selectedMic.value.label_bg_color = contextMenuLabelBgColor.value
   
   await saveMicUpdate(selectedMic.value)
   drawCanvas()
@@ -1120,6 +1225,7 @@ async function saveAndCloseContextMenu() {
   // Ensure all current values are saved
   selectedMic.value.track_name = contextMenuTrackName.value
   selectedMic.value.rotation = contextMenuRotation.value
+  selectedMic.value.label_bg_color = contextMenuLabelBgColor.value
   
   await saveMicUpdate(selectedMic.value)
   drawCanvas()
@@ -1378,16 +1484,20 @@ function getCanvasDataURL() {
     maxX = Math.max(maxX, x + circleRadius)
     maxY = Math.max(maxY, y + circleRadius)
 
-    // Label extents
+    // Label extents - positioned opposite to mic direction
     const labelText = mic.track_name || mic.label || ''
     const textMetrics = measure.measureText(labelText)
     const padX = 6
     const padY = 4
     const bgW = Math.ceil(textMetrics.width) + padX * 2
     const bgH = 18 + padY * 2
-    const labelY = y + 40
-    const lx = x - bgW / 2
-    const ly = labelY - padY
+    const rotation = mic.rotation || 0
+    const labelAngle = (rotation + 180) * (Math.PI / 180)
+    const labelDistance = 40
+    const labelX = x + Math.sin(labelAngle) * labelDistance
+    const labelY = y - Math.cos(labelAngle) * labelDistance
+    const lx = labelX - bgW / 2
+    const ly = labelY - bgH / 2
     minX = Math.min(minX, lx)
     minY = Math.min(minY, ly)
     maxX = Math.max(maxX, lx + bgW)
@@ -2076,6 +2186,60 @@ defineExpose({ getCanvasDataURL })
 
 .context-menu-btn.btn-secondary:hover {
   background: var(--color-secondary-600);
+}
+
+.color-picker-container {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.color-picker-input {
+  width: 60px;
+  height: 40px;
+  border: 2px solid var(--border-medium);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.color-picker-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.color-text-input {
+  flex: 1;
+}
+
+.color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.color-preset-btn {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border-medium);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.color-preset-btn:hover {
+  transform: scale(1.1);
+  border-color: var(--color-primary-500);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 </style>
 
