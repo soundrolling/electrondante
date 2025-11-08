@@ -78,25 +78,40 @@ export async function restoreSessionFromUrl() {
   const tokenHash = qs.get('token_hash')
   const type      = qs.get('type')  // 'recovery' or 'invite'
   if (tokenHash && (type === 'invite' || type === 'recovery')) {
-    const { error } = await supabase.auth.verifyOtp({
+    console.log('🔍 Found token_hash in URL, verifying OTP...', { type, hasTokenHash: !!tokenHash })
+    const { data, error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
       type, // pass through 'invite' or 'recovery'
     })
     if (error) {
-      console.error('verifyOtp error:', error.message)
-    } else {
-      // After verifying invite or recovery, session is now established
-      // Only redirect if we're not already on the set-password page
-      const isOnSetPasswordPage = pathname === '/auth/set-password'
-      if (!isOnSetPasswordPage) {
-        // Redirect to set-password page (session will be available there)
-        window.location.href = window.location.origin + '/auth/set-password'
-        return
-      }
-      // If already on set-password page, just clean up the URL
-      // The session is established, SetPassword.vue will detect it
-      window.history.replaceState({}, '', '/auth/set-password')
+      console.error('❌ verifyOtp error:', error.message)
+      console.error('❌ Error details:', error)
+      // Don't continue if verification fails - let SetPassword.vue handle it
+      return
     }
+    
+    // Verify session was established
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+    if (sessionErr || !sessionData?.session) {
+      console.error('❌ Session not established after verifyOtp')
+      return
+    }
+    
+    console.log('✅ Token verified and session established')
+    
+    // After verifying invite or recovery, session is now established
+    // Only redirect if we're not already on the set-password page
+    const isOnSetPasswordPage = pathname === '/auth/set-password'
+    if (!isOnSetPasswordPage) {
+      // Redirect to set-password page (session will be available there)
+      console.log('🔄 Redirecting to set-password page')
+      window.location.href = window.location.origin + '/auth/set-password'
+      return
+    }
+    // If already on set-password page, just clean up the URL
+    // The session is established, SetPassword.vue will detect it
+    console.log('✅ Already on set-password page, cleaning up URL')
+    window.history.replaceState({}, '', '/auth/set-password')
   }
   // Implicit/PKCE or password-reset flow (access_token in hash)
   else if (hash.startsWith('#')) {
@@ -112,6 +127,9 @@ export async function restoreSessionFromUrl() {
     }
   }
 
-  // Remove tokens from URL so they don’t get processed again
-  window.history.replaceState({}, '', pathname)
+  // Only remove tokens from URL if we haven't already handled them above
+  // (token_hash handling already cleans up the URL)
+  if (!tokenHash || (tokenHash && pathname !== '/auth/set-password')) {
+    window.history.replaceState({}, '', pathname)
+  }
 }

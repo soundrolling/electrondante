@@ -4,7 +4,21 @@
 
   <!-- Success & Error Messages -->
   <div v-if="message" class="success-message">{{ message }}</div>
-  <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
+  <div v-if="errorMessage" class="error-message">
+    <div>{{ errorMessage }}</div>
+    <button 
+      v-if="debugInfo" 
+      @click="showDebugInfo = !showDebugInfo" 
+      class="debug-toggle-btn"
+    >
+      {{ showDebugInfo ? 'Hide' : 'Show' }} Debug Information
+    </button>
+    <div v-if="showDebugInfo && debugInfo" class="debug-info">
+      <h3>Debug Information (Please share this with support)</h3>
+      <button @click="copyDebugInfo" class="copy-debug-btn">Copy Debug Info</button>
+      <pre>{{ debugInfo }}</pre>
+    </div>
+  </div>
 
   <!-- Password Fields -->
   <div class="input-group">
@@ -63,6 +77,8 @@ setup() {
   const errorMessage = ref('');
   const loading = ref(false);
   const showPassword = ref(false);
+  const showDebugInfo = ref(false);
+  const debugInfo = ref(null);
 
   const router = useRouter();
   const toast = useToast();
@@ -96,9 +112,21 @@ setup() {
   onMounted(async () => {
     loading.value = true;
     
+    console.log('🔍 SetPassword.vue mounted, checking for session/tokens...');
+    console.log('📍 Current URL:', window.location.href);
+    console.log('📍 Pathname:', window.location.pathname);
+    console.log('📍 Search:', window.location.search);
+    console.log('📍 Hash:', window.location.hash);
+    
     try {
       // First, check if we already have a valid session (from restoreSessionFromUrl)
       const { data: existingSession, error: sessionErr } = await supabase.auth.getSession();
+      console.log('🔍 Session check result:', { 
+        hasSession: !!existingSession?.session, 
+        error: sessionErr?.message,
+        sessionUser: existingSession?.session?.user?.email 
+      });
+      
       if (!sessionErr && existingSession?.session) {
         console.log('✅ Found existing session');
         sessionParams.value.accessToken = existingSession.session.access_token;
@@ -108,15 +136,23 @@ setup() {
         loading.value = false;
         return;
       }
+
+      // Build initial debug info (will be updated if errors occur)
+      const initialDebugObj = JSON.parse(buildDebugInfo('Component mounted - checking for session'));
+      initialDebugObj.session.hasSession = !!existingSession?.session;
+      initialDebugObj.session.userEmail = existingSession?.session?.user?.email || null;
+      // Don't set debugInfo yet - only show on errors
       
       // If no session, check for token_hash in query params (Supabase invite/recovery flow)
       const queryParams = new URLSearchParams(window.location.search);
       const tokenHash = queryParams.get('token_hash');
       const tokenType = queryParams.get('type'); // 'invite' or 'recovery'
       
+      console.log('🔍 Checking query params:', { tokenHash: !!tokenHash, tokenType });
+      
       if (tokenHash && (tokenType === 'invite' || tokenType === 'recovery')) {
         // This is a Supabase invite/recovery flow with token_hash
-        console.log('🔍 Found token_hash in query params, verifying OTP...');
+        console.log('🔍 Found token_hash in query params, verifying OTP...', { type: tokenType });
         
         const { data, error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
@@ -124,12 +160,16 @@ setup() {
         });
         
         if (error) {
+          const debugErr = buildDebugInfo('OTP verification failed', error);
+          debugInfo.value = debugErr;
           throw new Error(`Failed to verify token: ${error.message}`);
         }
         
         // After verification, we should have a session
         const { data: sessionData, error: sessionErr2 } = await supabase.auth.getSession();
         if (sessionErr2 || !sessionData?.session) {
+          const debugErr = buildDebugInfo('Session not established after OTP verification', sessionErr2 || new Error('No session after verification'));
+          debugInfo.value = debugErr;
           throw new Error('Session not established after token verification');
         }
         
@@ -161,6 +201,8 @@ setup() {
             sessionParams.value.accessToken = delayedSession.session.access_token;
             sessionParams.value.refreshToken = delayedSession.session.refresh_token;
           } else {
+            const debugErr = buildDebugInfo('No access token found after delay check');
+            debugInfo.value = debugErr;
             errorMessage.value =
               'No access token found in the URL. Please use the link from your password reset email.';
           }
@@ -168,7 +210,12 @@ setup() {
       }
     } catch (err) {
       console.error('❌ Token verification/session check failed:', err);
+      if (!debugInfo.value) {
+        const debugErr = buildDebugInfo('Token verification/session check failed', err);
+        debugInfo.value = debugErr;
+      }
       errorMessage.value = err.message || 'Failed to verify token. Please use the link from your password reset email.';
+      showDebugInfo.value = true; // Auto-show debug info on error
     } finally {
       loading.value = false;
     }
@@ -177,6 +224,51 @@ setup() {
   // 3) Toggle password visibility
   function togglePasswordVisibility() {
     showPassword.value = !showPassword.value;
+  }
+
+  // 5) Copy debug info to clipboard
+  async function copyDebugInfo() {
+    try {
+      await navigator.clipboard.writeText(debugInfo.value);
+      toast.success('Debug information copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy debug info:', err);
+      toast.error('Failed to copy debug info');
+    }
+  }
+
+  // 6) Build debug information object
+  function buildDebugInfo(context, error = null) {
+    const url = new URL(window.location.href);
+    const queryParams = Object.fromEntries(new URLSearchParams(url.search));
+    const hashParams = url.hash ? Object.fromEntries(new URLSearchParams(url.hash.substring(1))) : {};
+    
+    return JSON.stringify({
+      timestamp: new Date().toISOString(),
+      context: context,
+      error: error ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      } : null,
+      url: {
+        full: window.location.href,
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+        queryParams: queryParams,
+        hashParams: hashParams
+      },
+      sessionParams: {
+        hasAccessToken: !!sessionParams.value.accessToken,
+        hasRefreshToken: !!sessionParams.value.refreshToken,
+        tokenType: sessionParams.value.tokenType
+      },
+      session: {
+        hasSession: null, // Will be populated
+        userEmail: null // Will be populated
+      }
+    }, null, 2);
   }
 
   // 4) Handle setting the new password
@@ -209,13 +301,17 @@ setup() {
           const { data: newSession } = await supabase.auth.getSession();
           currentSession = newSession;
         } else {
+          const debugErr = buildDebugInfo('No session token available when setting password');
+          debugInfo.value = debugErr;
           throw new Error('No valid session token available. Please use the link from your password reset email.');
         }
       }
       
       // Verify we have a valid session before proceeding
       if (!currentSession?.session) {
-        throw new Error('Session expired. Please use the link from your invite email again.');
+        const debugErr = buildDebugInfo('Session expired or invalid when setting password');
+        debugInfo.value = debugErr;
+        throw new Error('Session expired. Please use the link from your password reset email again.');
       }
 
       // 4.2) Update the user's password
@@ -241,7 +337,17 @@ setup() {
       }, 1500);
     } catch (err) {
       console.error('Password set error:', err);
+      if (!debugInfo.value) {
+        const debugErr = buildDebugInfo('Password set failed', err);
+        // Add current session state to debug info
+        const { data: currentSessionCheck } = await supabase.auth.getSession();
+        const debugObj = JSON.parse(debugErr);
+        debugObj.session.hasSession = !!currentSessionCheck?.session;
+        debugObj.session.userEmail = currentSessionCheck?.session?.user?.email || null;
+        debugInfo.value = JSON.stringify(debugObj, null, 2);
+      }
       errorMessage.value = err.message;
+      showDebugInfo.value = true; // Auto-show debug info on error
       toast.error(`Password setup failed: ${err.message}`);
     } finally {
       loading.value = false;
@@ -258,6 +364,9 @@ setup() {
     togglePasswordVisibility,
     handleSetPassword,
     sessionParams,
+    showDebugInfo,
+    debugInfo,
+    copyDebugInfo,
   };
 },
 };
@@ -286,6 +395,70 @@ margin-bottom: 10px;
 .error-message {
 color: red;
 margin-bottom: 10px;
+padding: 15px;
+background-color: rgba(239, 68, 68, 0.1);
+border: 1px solid rgba(239, 68, 68, 0.3);
+border-radius: 4px;
+}
+
+.debug-toggle-btn {
+margin-top: 10px;
+padding: 8px 16px;
+background-color: var(--bg-tertiary);
+color: var(--text-primary);
+border: 1px solid var(--border-light);
+border-radius: 4px;
+cursor: pointer;
+font-size: 14px;
+}
+
+.debug-toggle-btn:hover {
+background-color: var(--bg-secondary);
+}
+
+.debug-info {
+margin-top: 15px;
+padding: 15px;
+background-color: var(--bg-primary);
+border: 1px solid var(--border-light);
+border-radius: 4px;
+max-height: 400px;
+overflow-y: auto;
+}
+
+.debug-info h3 {
+margin: 0 0 10px 0;
+color: var(--text-heading);
+font-size: 16px;
+}
+
+.copy-debug-btn {
+margin-bottom: 10px;
+padding: 8px 16px;
+background-color: var(--color-primary-500);
+color: var(--text-inverse);
+border: none;
+border-radius: 4px;
+cursor: pointer;
+font-size: 14px;
+}
+
+.copy-debug-btn:hover {
+background-color: var(--color-primary-600);
+}
+
+.debug-info pre {
+margin: 0;
+padding: 10px;
+background-color: var(--bg-secondary);
+border: 1px solid var(--border-light);
+border-radius: 4px;
+font-size: 12px;
+line-height: 1.5;
+color: var(--text-primary);
+white-space: pre-wrap;
+word-wrap: break-word;
+overflow-x: auto;
 }
 
 .input-group {
