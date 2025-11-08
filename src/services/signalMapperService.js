@@ -27,8 +27,9 @@ function normalizeRecorderNodes(nodes) {
   return recorderUpdates
 }
 
-export async function getNodes(projectId) {
-  const cacheKey = `nodes:${projectId}`
+export async function getNodes(projectId, locationId = null) {
+  // Include locationId in cache key to avoid cross-contamination
+  const cacheKey = `nodes:${projectId}:${locationId || 'all'}`
   
   // Check cache first
   const cached = getCached(cacheKey)
@@ -36,10 +37,23 @@ export async function getNodes(projectId) {
   
   if (data === null) {
     // Fetch from database
-    const { data: fetchedData, error } = await supabase
+    let query = supabase
       .from('nodes')
       .select('*')
       .eq('project_id', projectId)
+    
+    // Filter by location if provided
+    if (locationId !== null && locationId !== undefined) {
+      query = query.eq('location_id', locationId)
+    } else {
+      // If no locationId specified, only get nodes that don't have a location (project-wide)
+      // OR get all nodes for backward compatibility - actually, let's get all for now
+      // Users can filter client-side if needed, but we want to show stage-specific nodes
+      // Actually, if locationId is null, we should get nodes where location_id IS NULL
+      query = query.is('location_id', null)
+    }
+    
+    const { data: fetchedData, error } = await query
     if (error) throw error
     data = fetchedData
   }
@@ -170,8 +184,9 @@ export async function deleteNode(id) {
 }
 
 // --- CRUD for Connections ---
-export async function getConnections(projectId) {
-  const cacheKey = `connections:${projectId}`
+export async function getConnections(projectId, locationId = null) {
+  // Include locationId in cache key to avoid cross-contamination
+  const cacheKey = `connections:${projectId}:${locationId || 'all'}`
   
   // Check cache first
   const cached = getCached(cacheKey)
@@ -180,10 +195,20 @@ export async function getConnections(projectId) {
   }
   
   // Fetch from database
-  const { data, error } = await supabase
+  let query = supabase
     .from('connections')
     .select('*')
     .eq('project_id', projectId)
+  
+  // Filter by location if provided
+  if (locationId !== null && locationId !== undefined) {
+    query = query.eq('location_id', locationId)
+  } else {
+    // If no locationId specified, get connections where location_id IS NULL (project-wide)
+    query = query.is('location_id', null)
+  }
+  
+  const { data, error } = await query
   if (error) throw error
   
   // Cache for 30 seconds

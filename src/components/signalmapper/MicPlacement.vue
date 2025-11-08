@@ -1017,6 +1017,7 @@ async function placeMic() {
 
     const newNode = await addNode({
       project_id: props.projectId,
+      location_id: props.locationId || null,
       type: 'gear',
       gear_id: mic.id,
       label: mic.gear_name,
@@ -1125,21 +1126,16 @@ async function deleteSelected() {
   }
 }
 
-// Color presets for label background
+// Color presets for label background - 8 unique colors
 const colorPresets = [
-  'rgba(255,255,255,0.92)',
-  'rgba(0,0,0,0.8)',
-  'rgba(255,0,0,0.9)',
-  'rgba(0,255,0,0.9)',
-  'rgba(0,0,255,0.9)',
-  'rgba(255,255,0,0.9)',
-  'rgba(255,0,255,0.9)',
-  'rgba(0,255,255,0.9)',
-  '#ffffff',
-  '#000000',
-  '#ff0000',
-  '#00ff00',
-  '#0000ff'
+  'rgba(255,255,255,0.92)',  // White (transparent)
+  'rgba(0,0,0,0.8)',          // Black (transparent)
+  'rgba(255,0,0,0.9)',        // Red (transparent)
+  'rgba(0,255,0,0.9)',        // Green (transparent)
+  'rgba(0,0,255,0.9)',        // Blue (transparent)
+  'rgba(255,255,0,0.9)',      // Yellow (transparent)
+  'rgba(255,0,255,0.9)',      // Magenta (transparent)
+  'rgba(0,255,255,0.9)'       // Cyan (transparent)
 ]
 
 // Helper function to convert rgba/rgb/hex to hex for color input

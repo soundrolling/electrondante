@@ -233,14 +233,15 @@ async function fetchGearList() {
   }
 }
 
-// Load nodes and connections
+// Load nodes and connections - filtered by location if provided
 async function loadNodesAndConnections() {
   if (!props.projectId) return
 
   try {
+    const locId = effectiveLocationId.value
     const [nodes, connections] = await Promise.all([
-      getNodes(props.projectId),
-      getConnections(props.projectId)
+      getNodes(props.projectId, locId),
+      getConnections(props.projectId, locId)
     ])
     
     allNodes.value = nodes
@@ -373,6 +374,11 @@ watch(() => route.params.tab || route.query.tab, (newTab) => {
       setActiveTab('placement')
     }
   }
+})
+
+// Watch for location changes and reload nodes/connections
+watch(effectiveLocationId, () => {
+  loadNodesAndConnections()
 })
 
 // Lifecycle

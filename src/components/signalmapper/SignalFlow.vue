@@ -2297,6 +2297,7 @@ async function addGearNode(gear) {
 
     const newNode = await addNode({
       project_id: props.projectId,
+      location_id: props.locationId || null,
       type: 'gear',
       gear_id: gear.id,
       label,
@@ -2340,6 +2341,7 @@ async function addSourceNode(preset) {
     // Explicitly exclude node_type (column doesn't exist in database)
     const nodeData = {
       project_id: props.projectId,
+      location_id: props.locationId || null,
       type: 'venue_sources',
       label: 'Venue Sources',
       track_name: 'Venue Sources',
