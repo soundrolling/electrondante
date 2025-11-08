@@ -122,7 +122,7 @@
               :key="preset"
               @click="setLabelColor(preset)"
               class="color-preset-btn"
-              :style="{ backgroundColor: preset }"
+              :style="{ '--preset-color': preset }"
               :title="preset"
             ></button>
           </div>
@@ -2234,12 +2234,54 @@ defineExpose({ getCanvasDataURL })
   padding: 0;
   transition: all 0.2s;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  /* Checkered background pattern for transparency visibility - base layer */
+  background-image: 
+    linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
+.dark .color-preset-btn {
+  background-image: 
+    linear-gradient(45deg, #666 25%, transparent 25%),
+    linear-gradient(-45deg, #666 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #666 75%),
+    linear-gradient(-45deg, transparent 75%, #666 75%);
+}
+
+/* Layer the actual color on top using pseudo-element so checkered pattern shows through transparent colors */
+.color-preset-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--preset-color, transparent);
+  z-index: 1;
 }
 
 .color-preset-btn:hover {
   transform: scale(1.1);
   border-color: var(--color-primary-500);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+
+/* Ensure border is visible in dark mode */
+.dark .color-preset-btn {
+  border-color: #888;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.dark .color-preset-btn:hover {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 </style>
 
