@@ -212,6 +212,7 @@
     :node="inspectorNode"
     :fromNode="inspectorFromNode"
     :elements="nodes"
+    :locationId="locationId"
     viewType="signal-flow"
     @close="inspectorOpen = false; inspectorNode = null"
     @node-deleted="handleInspectorNodeDeleted"
@@ -840,7 +841,7 @@ async function buildUpstreamLabelsForEdit() {
   const from = fromNodeOfSelected.value
   if (!from) return
   if (!graphRef.value) {
-    try { graphRef.value = await buildGraph(props.projectId) } catch {}
+    try { graphRef.value = await buildGraph(props.projectId, props.locationId) } catch {}
   }
   const count = from?.num_outputs || from?.outputs || 0
   const fromType = (from.gear_type || from.node_type || from.type || '').toLowerCase()

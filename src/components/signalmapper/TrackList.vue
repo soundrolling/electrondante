@@ -311,7 +311,7 @@ watch([() => props.projectId, () => props.locationId], () => {
 
 // Optional: if later we compute paths locally, we will use the services.
 onMounted(async () => {
-  try { graphRef.value = await buildGraph(props.projectId) } catch {}
+  try { graphRef.value = await buildGraph(props.projectId, props.locationId) } catch {}
   await fetchProjectAndStageInfo()
 })
 

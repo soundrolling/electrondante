@@ -140,7 +140,8 @@ const props = defineProps({
   elements: { type: Array, default: () => [] },
   fromNode: { type: Object, default: null },
   // Optional: if provided, will check if node can be deleted from this view
-  viewType: { type: String, default: null } // 'signal-flow' or 'mic-placement'
+  viewType: { type: String, default: null }, // 'signal-flow' or 'mic-placement'
+  locationId: { type: [String, Number], default: null } // Location/stage ID for filtering
 })
 const emit = defineEmits(['close', 'node-deleted'])
 
@@ -625,7 +626,7 @@ const trackList = ref([])
 async function refresh() {
   // Always rebuild graph to ensure we have latest connections and port maps
   // This ensures we fetch all connected sources and their current state
-  graph.value = await buildGraph(props.projectId)
+  graph.value = await buildGraph(props.projectId, props.locationId)
   if (type.value === 'venue_sources') {
     await hydrateVenueLabels(props.node)
   }

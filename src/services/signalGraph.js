@@ -5,8 +5,9 @@ import { getCached, setCached, invalidateTableCache } from './cacheService'
 
 // Build an in-memory graph snapshot for a project.
 // Returns { nodes, nodeMap, connections, mapsByConnId, parentsByToNode }
-export async function buildGraph(projectId) {
-  const cacheKey = `graph:${projectId}`
+export async function buildGraph(projectId, locationId = null) {
+  // Include locationId in cache key to avoid cross-contamination
+  const cacheKey = `graph:${projectId}:${locationId || 'all'}`
   
   // Check cache first
   const cached = getCached(cacheKey)
@@ -15,8 +16,8 @@ export async function buildGraph(projectId) {
   }
   
   // Fetch nodes and connections (these are already cached individually)
-  const nodes = await getNodes(projectId)
-  const connections = await getConnections(projectId)
+  const nodes = await getNodes(projectId, locationId)
+  const connections = await getConnections(projectId, locationId)
 
   // Cache port maps separately
   const connIds = connections.map(c => c.id)
