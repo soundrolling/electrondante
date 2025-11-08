@@ -141,16 +141,27 @@
           </svg>
         </router-link>
 
-        <!-- Mobile Clock/History Button -->
+        <!-- Mobile Bug Report Button -->
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
-          class="btn light-btn clock-btn mobile-only"
+          class="btn light-btn bug-report-btn mobile-only"
           title="Report a bug or suggestion"
         >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12,6 12,12 16,14"/>
+          <svg class="btn-icon bug-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <!-- Simple bug icon: oval body with segments, 6 legs, 2 antennae -->
+            <ellipse cx="12" cy="13" rx="7" ry="5"/>
+            <ellipse cx="12" cy="11" rx="6" ry="4"/>
+            <!-- Antennae -->
+            <path d="M8 10 Q7 7 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M16 10 Q17 7 18 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- Legs (6 total: 3 on each side) -->
+            <line x1="6" y1="12" x2="3" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="15" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="18" x2="3" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="12" x2="21" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="15" x2="21" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="18" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
 
@@ -175,13 +186,21 @@
           class="btn btn-positive bug-report-btn"
           title="Report a bug or suggestion"
         >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 12l2 2 4-4"/>
-            <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/>
-            <path d="M12 7v6"/>
-            <path d="M12 17h.01"/>
+          <svg class="btn-icon bug-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <!-- Simple bug icon: oval body with segments, 6 legs, 2 antennae -->
+            <ellipse cx="12" cy="13" rx="7" ry="5"/>
+            <ellipse cx="12" cy="11" rx="6" ry="4"/>
+            <!-- Antennae -->
+            <path d="M8 10 Q7 7 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M16 10 Q17 7 18 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- Legs (6 total: 3 on each side) -->
+            <line x1="6" y1="12" x2="3" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="15" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="18" x2="3" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="12" x2="21" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="15" x2="21" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="18" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <span class="btn-text">Report</span>
           <span v-if="openReportsCount > 0" class="badge badge-danger" :title="openReportsCount + ' open reports'">{{ openReportsCount }}</span>
         </button>
         
@@ -208,7 +227,6 @@
             <!-- Moon icon for dark mode -->
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
-          <span class="btn-text">{{ themeStore.isDark ? 'Light' : 'Dark' }}</span>
         </button>
 
         <button
@@ -262,7 +280,7 @@
         <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="nav-link light-btn" @click="showMobileMenu = false">My Profile</router-link>
       </div>
       <div class="menu-section actions">
-        <button class="btn btn-light" @click="themeStore.toggleTheme(); showMobileMenu = false">
+        <button class="btn btn-light theme-toggle-btn" @click="themeStore.toggleTheme(); showMobileMenu = false" :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="5"/>
             <line x1="12" y1="1" x2="12" y2="3"/>
@@ -277,9 +295,24 @@
           <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
-          <span>{{ themeStore.isDark ? 'Light Mode' : 'Dark Mode' }}</span>
         </button>
-        <button v-if="isAuthenticated" class="btn btn-positive" @click="showBugReportModal = true; showMobileMenu = false">Report</button>
+        <button v-if="isAuthenticated" class="btn btn-positive bug-report-btn" @click="showBugReportModal = true; showMobileMenu = false" title="Report a bug or suggestion">
+          <svg class="btn-icon bug-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <!-- Simple bug icon: oval body with segments, 6 legs, 2 antennae -->
+            <ellipse cx="12" cy="13" rx="7" ry="5"/>
+            <ellipse cx="12" cy="11" rx="6" ry="4"/>
+            <!-- Antennae -->
+            <path d="M8 10 Q7 7 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M16 10 Q17 7 18 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- Legs (6 total: 3 on each side) -->
+            <line x1="6" y1="12" x2="3" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="15" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="6" y1="18" x2="3" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="12" x2="21" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="15" x2="21" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="18" y1="18" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
         <button v-if="isAuthenticated" class="btn btn-danger" @click="handleSignOut">Sign Out</button>
       </div>
     </div>
@@ -634,6 +667,12 @@ export default {
   background-color: var(--bg-secondary) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--border-medium) !important;
+  padding: var(--space-3) !important;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .theme-toggle-btn:hover {
@@ -644,10 +683,8 @@ export default {
 .theme-toggle-btn .btn-icon {
   color: var(--icon-primary) !important;
   stroke: var(--icon-primary) !important;
-}
-
-.theme-toggle-btn .btn-text {
-  color: var(--text-primary) !important;
+  width: 20px;
+  height: 20px;
 }
 
 /* Ensure btn-light class (used in mobile menu) has proper contrast */
@@ -737,6 +774,11 @@ export default {
 }
 .bug-report-btn .btn-text {
   color: var(--text-primary) !important;
+}
+
+.bug-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .bug-report-btn:active {
