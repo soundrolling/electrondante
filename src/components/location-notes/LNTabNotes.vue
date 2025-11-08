@@ -226,26 +226,63 @@
 
   <!-- Export Modal -->
   <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
-    <div class="modal-content">
+    <div class="modal-content export-modal">
       <h4>Export Notes & Schedule</h4>
       <div class="modal-grid">
-        <label>From:
-          <input type="datetime-local" v-model="exportRangeStart" class="date-range-input" :disabled="exportWholeDay" />
+        <label style="grid-column: 1 / -1;">Export by:
+          <select v-model="exportMode" class="export-mode-select">
+            <option value="recording_day">Recording Day</option>
+            <option value="date_range">Date Range</option>
+          </select>
         </label>
-        <label>To:
-          <input type="datetime-local" v-model="exportRangeEnd" class="date-range-input" :disabled="exportWholeDay" />
-        </label>
-        <label>Filename:
+        
+        <!-- Recording Day Selection -->
+        <div v-if="exportMode === 'recording_day'" style="grid-column: 1 / -1;" class="recording-day-export-section">
+          <label>Recording Day:
+            <select v-model="exportRecordingDayId" class="export-recording-day-select">
+              <option value="all">All Recording Days</option>
+              <option value="unassigned">Unassigned</option>
+              <option 
+                v-for="stageHour in stageHours" 
+                :key="stageHour.id" 
+                :value="stageHour.id"
+              >
+                {{ stageHour.notes || `Day ${stageHour.id.slice(-4)}` }}
+              </option>
+            </select>
+          </label>
+        </div>
+        
+        <!-- Date Range Section (Collapsible) -->
+        <div v-if="exportMode === 'date_range'" style="grid-column: 1 / -1;" class="date-range-export-section">
+          <button 
+            class="btn btn-primary date-range-toggle" 
+            type="button" 
+            @click="showDateRangeOptions = !showDateRangeOptions"
+          >
+            {{ showDateRangeOptions ? 'Hide' : 'Show' }} Date Range Options
+          </button>
+          <div v-if="showDateRangeOptions" class="date-range-options">
+            <label>From:
+              <input type="datetime-local" v-model="exportRangeStart" class="date-range-input" :disabled="exportWholeDay" />
+            </label>
+            <label>To:
+              <input type="datetime-local" v-model="exportRangeEnd" class="date-range-input" :disabled="exportWholeDay" />
+            </label>
+            <label style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" v-model="exportWholeDay" /> Export whole day
+              <input type="date" v-model="exportWholeDayDate" class="date-range-input" :disabled="!exportWholeDay" />
+            </label>
+            <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
+              <button class="btn btn-primary" type="button" @click="applyFilterRange">Use current Notes filter range</button>
+              <small style="color:#64748b">Quickly copy the From/To range from the table filters.</small>
+            </div>
+          </div>
+        </div>
+        
+        <label style="grid-column: 1 / -1;">Filename:
           <input type="text" v-model="exportFilename" class="export-filename-input" placeholder="location-notes.pdf" />
         </label>
-        <label style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" v-model="exportWholeDay" /> Export whole day
-          <input type="date" v-model="exportWholeDayDate" class="date-range-input" :disabled="!exportWholeDay" />
-        </label>
-        <div style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
-          <button class="btn btn-primary" type="button" @click="applyFilterRange">Use current Notes filter range</button>
-          <small style="color:#64748b">Quickly copy the From/To range from the table filters.</small>
-        </div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-warning cancel-btn" @click="closeExportModal">Cancel</button>
@@ -450,10 +487,13 @@ const showInfo = ref(false);
 const infoNote = ref(null);
 
 const showExportModal = ref(false);
+const exportMode = ref('recording_day'); // 'recording_day' or 'date_range'
+const exportRecordingDayId = ref('all');
 const exportRangeStart = ref('');
 const exportRangeEnd = ref('');
 const exportWholeDay = ref(false);
 const exportWholeDayDate = ref('');
+const showDateRangeOptions = ref(false);
 const EXPORT_PREF_KEY = 'ln_notes_export_prefs';
 
 // Stage Hours Modal
@@ -797,6 +837,10 @@ const filteredAndSortedNotes = computed(() => {
 
 function openExportModal() {
   showExportModal.value = true;
+  // Reset to default export mode
+  exportMode.value = 'recording_day';
+  exportRecordingDayId.value = 'all';
+  showDateRangeOptions.value = false;
   // Load saved prefs if available; otherwise defaults
   const loaded = loadExportPrefs();
   if (!loaded) {
@@ -905,35 +949,41 @@ function formatStageHourDates(stageHour) {
   }
 }
 
-// Only use date range for export, not for table filtering
+// Get exported notes based on export mode
 function getExportedNotes() {
   let arr = [...notes.value];
-  if (exportWholeDay.value && exportWholeDayDate.value) {
-    const d = exportWholeDayDate.value;
-    const start = new Date(`${d}T00:00:00`);
-    const end = new Date(`${d}T23:59:59`);
-    arr = arr.filter(n => {
-      const dt = toDateTime(n.recording_date, n.timestamp);
-      return dt >= start && dt <= end;
-    });
-  } else {
-    if (exportRangeStart.value) {
-      const start = new Date(exportRangeStart.value);
-      arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) >= start);
+  
+  if (exportMode.value === 'recording_day') {
+    // Filter by recording day
+    if (exportRecordingDayId.value && exportRecordingDayId.value !== 'all') {
+      if (exportRecordingDayId.value === 'unassigned') {
+        arr = arr.filter(n => !n.stage_hour_id);
+      } else {
+        arr = arr.filter(n => n.stage_hour_id === exportRecordingDayId.value);
+      }
     }
-    if (exportRangeEnd.value) {
-      const end = new Date(exportRangeEnd.value);
-      arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
-    }
-  }
-  // Filter by recording day if a specific one is selected (not 'all')
-  if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
-    if (recordingDayFilter.value === 'unassigned') {
-      arr = arr.filter(n => !n.stage_hour_id);
+  } else if (exportMode.value === 'date_range') {
+    // Filter by date range
+    if (exportWholeDay.value && exportWholeDayDate.value) {
+      const d = exportWholeDayDate.value;
+      const start = new Date(`${d}T00:00:00`);
+      const end = new Date(`${d}T23:59:59`);
+      arr = arr.filter(n => {
+        const dt = toDateTime(n.recording_date, n.timestamp);
+        return dt >= start && dt <= end;
+      });
     } else {
-      arr = arr.filter(n => n.stage_hour_id === recordingDayFilter.value);
+      if (exportRangeStart.value) {
+        const start = new Date(exportRangeStart.value);
+        arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) >= start);
+      }
+      if (exportRangeEnd.value) {
+        const end = new Date(exportRangeEnd.value);
+        arr = arr.filter(n => toDateTime(n.recording_date, n.timestamp) <= end);
+      }
     }
   }
+  
   // Sort
   return arr.sort((a, b) => {
     const aDate = new Date(`${a.recording_date}T${a.timestamp}`);
@@ -945,41 +995,47 @@ function getExportedNotes() {
 async function doExportPdf() {
   try {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    // Get project, venue, stage/location name, author, and timestamp
+    // Get project, venue, stage/location name
     let projectName = '';
     let stageName = '';
     let venueName = '';
-    let author = '';
-    let exportedAt = new Date().toLocaleString();
     try {
       const store = useUserStore();
       projectName = store.getCurrentProject?.name || store.getCurrentProject?.project_name || '';
-      author = store.getUserEmail || '';
     } catch {}
     if (typeof location !== 'undefined' && location.value) {
       venueName = location.value.venue_name || '';
       stageName = location.value.stage_name || '';
     }
-    // Date range
-    let dateRange = '';
-    if (exportWholeDay.value && exportWholeDayDate.value) {
-      const d = new Date(exportWholeDayDate.value);
-      const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' });
-      dateRange = `${label} (00:00–23:59:59)`;
-    } else if (exportRangeStart.value || exportRangeEnd.value) {
-      const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-      const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…';
-      const endLbl   = exportRangeEnd.value ? fmt(exportRangeEnd.value)     : '…';
-      dateRange = `${startLbl} → ${endLbl}`;
+    // Export info label
+    let exportInfo = '';
+    if (exportMode.value === 'recording_day') {
+      if (exportRecordingDayId.value === 'all') {
+        exportInfo = 'All Recording Days';
+      } else if (exportRecordingDayId.value === 'unassigned') {
+        exportInfo = 'Unassigned Notes';
+      } else {
+        const stageHour = stageHours.value.find(sh => sh.id === exportRecordingDayId.value);
+        exportInfo = stageHour ? (stageHour.notes || `Day ${stageHour.id.slice(-4)}`) : 'Selected Recording Day';
+      }
+    } else {
+      if (exportWholeDay.value && exportWholeDayDate.value) {
+        const d = new Date(exportWholeDayDate.value);
+        const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' });
+        exportInfo = `${label} (00:00–23:59:59)`;
+      } else if (exportRangeStart.value || exportRangeEnd.value) {
+        const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…';
+        const endLbl   = exportRangeEnd.value ? fmt(exportRangeEnd.value)     : '…';
+        exportInfo = `${startLbl} → ${endLbl}`;
+      }
     }
     let y = 40;
     doc.setFontSize(14);
     if (projectName) { doc.text(`Project: ${projectName}`, 40, y); y += 20; }
     if (venueName) { doc.text(`Venue: ${venueName}`, 40, y); y += 20; }
     if (stageName) { doc.text(`Stage: ${stageName}`, 40, y); y += 20; }
-    if (author) { doc.text(`Author: ${author}`, 40, y); y += 20; }
-    doc.text(`Exported at: ${exportedAt}`, 40, y); y += 20;
-    if (dateRange) { doc.text(`Date Range: ${dateRange}`, 40, y); y += 20; }
+    if (exportInfo) { doc.text(`${exportMode.value === 'recording_day' ? 'Recording Day' : 'Date Range'}: ${exportInfo}`, 40, y); y += 20; }
     y += 10;
     // Notes table
     doc.setFontSize(16);
@@ -1001,63 +1057,44 @@ async function doExportPdf() {
       doc.setFontSize(12);
       doc.text('No notes available', 40, y + 20);
     }
-    // Get schedule data for the same location
-    let schedules = await fetchTableData('schedules', {
-      eq: { location_id: props.locationId },
-      order: [
-        { column: 'recording_date', ascending: true },
-        { column: 'start_time', ascending: true }
-      ]
-    });
-    // Filter schedules by recording day if a specific one is selected (not 'all')
-    if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
-      if (recordingDayFilter.value === 'unassigned') {
-        schedules = schedules.filter(s => !s.stage_hour_id);
-      } else {
-        schedules = schedules.filter(s => s.stage_hour_id === recordingDayFilter.value);
-      }
-    }
-    // Filter schedules by range
-    if (exportWholeDay.value && exportWholeDayDate.value) {
-      const d = exportWholeDayDate.value;
-      const start = new Date(`${d}T00:00:00`);
-      const end = new Date(`${d}T23:59:59`);
-      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start && new Date(`${s.recording_date}T${s.start_time}`) <= end);
-    } else {
-      if (exportRangeStart.value) {
-        const start = new Date(exportRangeStart.value);
-        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
-      }
-      if (exportRangeEnd.value) {
-        const end = new Date(exportRangeEnd.value);
-        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
-      }
-    }
-    // Add schedule table on new page if schedules exist
-    if (schedules.length > 0) {
-      doc.addPage();
-      let y2 = 40;
-      doc.setFontSize(14);
-      if (projectName) { doc.text(`Project: ${projectName}`, 40, y2); y2 += 20; }
-      if (venueName) { doc.text(`Venue: ${venueName}`, 40, y2); y2 += 20; }
-      if (stageName) { doc.text(`Stage: ${stageName}`, 40, y2); y2 += 20; }
-      if (author) { doc.text(`Author: ${author}`, 40, y2); y2 += 20; }
-      doc.text(`Exported at: ${exportedAt}`, 40, y2); y2 += 20;
-      if (dateRange) { doc.text(`Date Range: ${dateRange}`, 40, y2); y2 += 20; }
-      y2 += 10;
-      doc.setFontSize(16);
-      doc.text('Stage Schedule', 40, y2); y2 += 20;
-      autoTable(doc, {
-        head: [['Artist', 'Start Time', 'End Time', 'Date']],
-        body: schedules.map(s => [
-          s.artist_name,
-          s.start_time?.slice(0, 5) || '',
-          s.end_time?.slice(0, 5) || '',
-          s.recording_date
-        ]),
-        startY: y2,
-        styles: { fontSize: 9, cellPadding: 4 }
+    // Only add schedule when exporting by specific recording day (not 'all' or 'unassigned')
+    if (exportMode.value === 'recording_day' && exportRecordingDayId.value && exportRecordingDayId.value !== 'all' && exportRecordingDayId.value !== 'unassigned') {
+      // Get schedule data for the same location and recording day
+      let schedules = await fetchTableData('schedules', {
+        eq: { location_id: props.locationId },
+        order: [
+          { column: 'recording_date', ascending: true },
+          { column: 'start_time', ascending: true }
+        ]
       });
+      
+      // Filter schedules by the same recording day
+      schedules = schedules.filter(s => s.stage_hour_id === exportRecordingDayId.value);
+      
+      // Add schedule table on new page if schedules exist
+      if (schedules.length > 0) {
+        doc.addPage();
+        let y2 = 40;
+        doc.setFontSize(14);
+        if (projectName) { doc.text(`Project: ${projectName}`, 40, y2); y2 += 20; }
+        if (venueName) { doc.text(`Venue: ${venueName}`, 40, y2); y2 += 20; }
+        if (stageName) { doc.text(`Stage: ${stageName}`, 40, y2); y2 += 20; }
+        if (exportInfo) { doc.text(`Recording Day: ${exportInfo}`, 40, y2); y2 += 20; }
+        y2 += 10;
+        doc.setFontSize(16);
+        doc.text('Stage Schedule', 40, y2); y2 += 20;
+        autoTable(doc, {
+          head: [['Artist', 'Start Time', 'End Time', 'Date']],
+          body: schedules.map(s => [
+            s.artist_name,
+            s.start_time?.slice(0, 5) || '',
+            s.end_time?.slice(0, 5) || '',
+            s.recording_date
+          ]),
+          startY: y2,
+          styles: { fontSize: 9, cellPadding: 4 }
+        });
+      }
     }
     doc.save(exportFilename.value || `location-notes-${props.locationId}.pdf`);
     saveExportPrefs();
@@ -1072,32 +1109,40 @@ async function doExportPdf() {
 // CSV Export with header section
 async function doExportCsv() {
   try {
-    // Get project, venue, stage/location name, author, and timestamp
+    // Get project, venue, stage/location name
     let projectName = '';
     let stageName = '';
     let venueName = '';
-    let author = '';
-    let exportedAt = new Date().toLocaleString();
     try {
       const store = useUserStore();
       projectName = store.getCurrentProject?.name || store.getCurrentProject?.project_name || '';
-      author = store.getUserEmail || '';
     } catch {}
     if (typeof location !== 'undefined' && location.value) {
       venueName = location.value.venue_name || '';
       stageName = location.value.stage_name || '';
     }
-    // Date range
-    let dateRange = '';
-    if (exportWholeDay.value && exportWholeDayDate.value) {
-      const d = new Date(exportWholeDayDate.value);
-      const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' });
-      dateRange = `${label} (00:00–23:59:59)`;
-    } else if (exportRangeStart.value || exportRangeEnd.value) {
-      const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-      const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…';
-      const endLbl   = exportRangeEnd.value ? fmt(exportRangeEnd.value)     : '…';
-      dateRange = `${startLbl} → ${endLbl}`;
+    // Export info
+    let exportInfo = '';
+    if (exportMode.value === 'recording_day') {
+      if (exportRecordingDayId.value === 'all') {
+        exportInfo = 'All Recording Days';
+      } else if (exportRecordingDayId.value === 'unassigned') {
+        exportInfo = 'Unassigned Notes';
+      } else {
+        const stageHour = stageHours.value.find(sh => sh.id === exportRecordingDayId.value);
+        exportInfo = stageHour ? (stageHour.notes || `Day ${stageHour.id.slice(-4)}`) : 'Selected Recording Day';
+      }
+    } else {
+      if (exportWholeDay.value && exportWholeDayDate.value) {
+        const d = new Date(exportWholeDayDate.value);
+        const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' });
+        exportInfo = `${label} (00:00–23:59:59)`;
+      } else if (exportRangeStart.value || exportRangeEnd.value) {
+        const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…';
+        const endLbl   = exportRangeEnd.value ? fmt(exportRangeEnd.value)     : '…';
+        exportInfo = `${startLbl} → ${endLbl}`;
+      }
     }
     // Notes table
     const exportedNotes = getExportedNotes();
@@ -1106,61 +1151,40 @@ async function doExportCsv() {
     if (projectName) csv += `Project:,${projectName}\n`;
     if (venueName) csv += `Venue:,${venueName}\n`;
     if (stageName) csv += `Stage:,${stageName}\n`;
-    if (author) csv += `Author:,${author}\n`;
-    csv += `Exported at:,${exportedAt}\n`;
-    if (dateRange) csv += `Date Range:,${dateRange}\n`;
+    if (exportInfo) csv += `${exportMode.value === 'recording_day' ? 'Recording Day' : 'Date Range'}:,${exportInfo}\n`;
     csv += '\n';
     // Notes table
     csv += 'Time,Date,Recording Day,Note\n';
     exportedNotes.forEach(n => {
       csv += `"${n.timestamp}","${fmtDate(n.recording_date)}","${getRecordingDayDisplay(n)}","${(n.note || '').replace(/"/g, '""')}"\n`;
     });
-    // Get schedule data for the same location
-    let schedules = await fetchTableData('schedules', {
-      eq: { location_id: props.locationId },
-      order: [
-        { column: 'recording_date', ascending: true },
-        { column: 'start_time', ascending: true }
-      ]
-    });
-    // Filter schedules by recording day if a specific one is selected (not 'all')
-    if (recordingDayFilter.value && recordingDayFilter.value !== 'all') {
-      if (recordingDayFilter.value === 'unassigned') {
-        schedules = schedules.filter(s => !s.stage_hour_id);
-      } else {
-        schedules = schedules.filter(s => s.stage_hour_id === recordingDayFilter.value);
-      }
-    }
-    // Filter schedules by range
-    if (exportWholeDay.value && exportWholeDayDate.value) {
-      const d = exportWholeDayDate.value;
-      const start = new Date(`${d}T00:00:00`);
-      const end = new Date(`${d}T23:59:59`);
-      schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start && new Date(`${s.recording_date}T${s.start_time}`) <= end);
-    } else {
-      if (exportRangeStart.value) {
-        const start = new Date(exportRangeStart.value);
-        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start);
-      }
-      if (exportRangeEnd.value) {
-        const end = new Date(exportRangeEnd.value);
-        schedules = schedules.filter(s => new Date(`${s.recording_date}T${s.start_time}`) <= end);
-      }
-    }
-    if (schedules.length > 0) {
-      csv += '\n';
-      // Schedule header section
-      if (projectName) csv += `Project:,${projectName}\n`;
-      if (venueName) csv += `Venue:,${venueName}\n`;
-      if (stageName) csv += `Stage:,${stageName}\n`;
-      if (author) csv += `Author:,${author}\n`;
-      csv += `Exported at:,${exportedAt}\n`;
-      if (dateRange) csv += `Date Range:,${dateRange}\n`;
-      csv += '\n';
-      csv += 'Artist,Start Time,End Time,Date\n';
-      schedules.forEach(s => {
-        csv += `"${s.artist_name}","${s.start_time?.slice(0, 5) || ''}","${s.end_time?.slice(0, 5) || ''}","${s.recording_date}"\n`;
+    // Only add schedule when exporting by specific recording day (not 'all' or 'unassigned')
+    if (exportMode.value === 'recording_day' && exportRecordingDayId.value && exportRecordingDayId.value !== 'all' && exportRecordingDayId.value !== 'unassigned') {
+      // Get schedule data for the same location and recording day
+      let schedules = await fetchTableData('schedules', {
+        eq: { location_id: props.locationId },
+        order: [
+          { column: 'recording_date', ascending: true },
+          { column: 'start_time', ascending: true }
+        ]
       });
+      
+      // Filter schedules by the same recording day
+      schedules = schedules.filter(s => s.stage_hour_id === exportRecordingDayId.value);
+      
+      if (schedules.length > 0) {
+        csv += '\n';
+        // Schedule header section
+        if (projectName) csv += `Project:,${projectName}\n`;
+        if (venueName) csv += `Venue:,${venueName}\n`;
+        if (stageName) csv += `Stage:,${stageName}\n`;
+        if (exportInfo) csv += `Recording Day:,${exportInfo}\n`;
+        csv += '\n';
+        csv += 'Artist,Start Time,End Time,Date\n';
+        schedules.forEach(s => {
+          csv += `"${s.artist_name}","${s.start_time?.slice(0, 5) || ''}","${s.end_time?.slice(0, 5) || ''}","${s.recording_date}"\n`;
+        });
+      }
     }
     // Download CSV
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -2052,6 +2076,68 @@ opacity: 0.6;
   border-radius: 6px;
   min-width: 180px;
   width: 100%;
+}
+
+.export-modal {
+  max-width: 600px;
+}
+
+.export-mode-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+.export-mode-select:focus {
+  border-color: var(--color-primary-500);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.recording-day-export-section {
+  margin-top: 12px;
+}
+
+.export-recording-day-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+.export-recording-day-select:focus {
+  border-color: var(--color-primary-500);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.date-range-export-section {
+  margin-top: 12px;
+}
+
+.date-range-toggle {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.date-range-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
 }
 
 .timestamp-row {

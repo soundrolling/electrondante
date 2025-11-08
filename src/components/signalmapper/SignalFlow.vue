@@ -2771,41 +2771,134 @@ async function exportToPDF() {
     // Ensure filename has .pdf extension
     const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
     
-    // Create PDF
+    // Calculate legend height needed
+    const LEGEND_HEIGHT = 60
+    const LEGEND_PADDING = 10
+    
+    // Create PDF with extra space for legend
     const pdf = new jsPDF({
       orientation: exportW > exportH ? 'landscape' : 'portrait',
       unit: 'px',
-      format: [exportW, exportH]
+      format: [exportW, exportH + LEGEND_HEIGHT + LEGEND_PADDING * 2]
     })
     
     // Add image to PDF (scale to fit)
     pdf.addImage(dataURL, 'PNG', 0, 0, exportW, exportH)
     
+    // Helper function to convert hex to RGB
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : null
+    }
+    
+    // Add legend below the image
+    const legendY = exportH + LEGEND_PADDING
+    pdf.setFontSize(10)
+    pdf.setTextColor(0, 0, 0)
+    pdf.text('Connection Types:', LEGEND_PADDING, legendY)
+    
+    // Draw legend items
+    let legendX = LEGEND_PADDING
+    const legendItemSpacing = 100
+    const legendLineHeight = 12
+    
+    connectionTypes.forEach((type, index) => {
+      const x = legendX + (index % 3) * legendItemSpacing
+      const y = legendY + 8 + Math.floor(index / 3) * legendLineHeight
+      
+      // Draw color box
+      const color = getConnectionColor(type)
+      const rgb = hexToRgb(color)
+      if (rgb) {
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b)
+        pdf.rect(x, y - 8, 20, 4, 'F')
+      }
+      
+      // Draw label
+      pdf.text(type, x + 24, y - 4)
+    })
+    
+    // Add default/other color if needed
+    const hasOtherConnections = props.connections.some(conn => {
+      const connType = conn.connection_type || 'Mic'
+      return !connectionTypes.includes(connType)
+    })
+    if (hasOtherConnections) {
+      const x = legendX + (connectionTypes.length % 3) * legendItemSpacing
+      const y = legendY + 8 + Math.floor(connectionTypes.length / 3) * legendLineHeight
+      const rgb = hexToRgb(defaultConnectionColor)
+      if (rgb) {
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b)
+        pdf.rect(x, y - 8, 20, 4, 'F')
+      }
+      pdf.text('Other', x + 24, y - 4)
+    }
+    
     // Download PDF with iOS-compatible blob approach
     try {
       const pdfBlob = pdf.output('blob')
       const url = URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = finalFileName
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setTimeout(() => URL.revokeObjectURL(url), 100)
-      toast.success('PDF exported successfully')
-    } catch (blobError) {
-      // Fallback: try using data URI
-      try {
-        const pdfDataUri = pdf.output('datauristring')
+      
+      // Detect iOS/iPad
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      
+      if (isIOS) {
+        // For iOS, use link click (download attribute not fully supported, but click works)
+        // This avoids popup blocker issues since it's a direct user interaction
         const link = document.createElement('a')
-        link.href = pdfDataUri
+        link.href = url
+        link.target = '_blank' // Open in new tab on iOS
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 1000)
+        toast.success('PDF opened - use Share button to save')
+      } else {
+        // For other platforms, use standard download link
+        const link = document.createElement('a')
+        link.href = url
         link.download = finalFileName
         link.style.display = 'none'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        setTimeout(() => URL.revokeObjectURL(url), 100)
         toast.success('PDF exported successfully')
+      }
+    } catch (blobError) {
+      // Fallback: try using data URI
+      try {
+        const pdfDataUri = pdf.output('datauristring')
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        
+        if (isIOS) {
+          const link = document.createElement('a')
+          link.href = pdfDataUri
+          link.target = '_blank'
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          toast.success('PDF opened - use Share button to save')
+        } else {
+          const link = document.createElement('a')
+          link.href = pdfDataUri
+          link.download = finalFileName
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          toast.success('PDF exported successfully')
+        }
       } catch (dataUriError) {
         // Final fallback: use jsPDF's save method
         pdf.save(finalFileName)

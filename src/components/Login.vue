@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.61">
-        <span class="version-text">v21.61</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.62">
+        <span class="version-text">v21.62</span>
         <span class="version-date">November 6th 2025</span>
       </button>
     </div>
@@ -19,11 +19,26 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.61</h2>
+          <h2 id="changelog-title">What's New in 21.62</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>📤 Enhanced Location Notes Export</h3>
+            <p>Location Notes export now supports exporting by Recording Day in addition to date ranges. Choose between "Recording Day" or "Date Range" export modes. Export all notes from a specific recording day, unassigned notes, or use the traditional date range filter. This makes it easier to export notes organized by your production schedule.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>🔗 Signal Mapper Stage Boundary Validation</h3>
+            <p>Added validation to prevent cross-stage connections in the Signal Mapper. Connections can only be created between nodes within the same stage/location, ensuring proper signal routing organization. The system now automatically validates and maintains location consistency for all signal mapper connections.</p>
+          </div>
+          
+          <div class="changelog-section">
+            <h3>📊 Improved Track List Functionality</h3>
+            <p>Enhanced the Track List view in Signal Mapper with better organization and display. Track lists now properly group by recorder and maintain consistent location filtering throughout the signal mapper interface.</p>
+          </div>
+          
           <div class="changelog-section">
             <h3>🌙 Complete Dark Mode Support</h3>
             <p>Added comprehensive dark mode theme throughout the entire application. Toggle between light and dark modes from the header or footer. All components now properly support dark backgrounds with white text for better visibility in low-light conditions.</p>

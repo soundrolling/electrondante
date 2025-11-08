@@ -31,6 +31,7 @@
         Changeover Alerts
       </button>
       <button class="btn btn-positive btn-add" @click="openForm()">Add Artist Time</button>
+      <button class="btn btn-warning export-btn" @click="openExportModal">Export</button>
     </div>
     <div class="right-stack wide-screen-only">
       <label class="label">Recording Day:</label>
@@ -229,6 +230,70 @@
     </div>
   </div>
 
+  <!-- Export Modal -->
+  <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
+    <div class="modal-content export-modal">
+      <h4>Export Schedule</h4>
+      <div class="modal-grid">
+        <label style="grid-column: 1 / -1;">Export by:
+          <select v-model="exportMode" class="export-mode-select">
+            <option value="recording_day">Recording Day</option>
+            <option value="date_range">Date Range</option>
+          </select>
+        </label>
+        
+        <!-- Recording Day Selection -->
+        <div v-if="exportMode === 'recording_day'" style="grid-column: 1 / -1;" class="recording-day-export-section">
+          <label>Recording Day:
+            <select v-model="exportRecordingDayId" class="export-recording-day-select">
+              <option value="all">All Recording Days</option>
+              <option value="unassigned">Unassigned</option>
+              <option 
+                v-for="sh in stageHours" 
+                :key="sh.id" 
+                :value="sh.id"
+              >
+                {{ sh.notes || formatStageHourFallback(sh) }}
+              </option>
+            </select>
+          </label>
+        </div>
+        
+        <!-- Date Range Section (Collapsible) -->
+        <div v-if="exportMode === 'date_range'" style="grid-column: 1 / -1;" class="date-range-export-section">
+          <button 
+            class="btn btn-primary date-range-toggle" 
+            type="button" 
+            @click="showDateRangeOptions = !showDateRangeOptions"
+          >
+            {{ showDateRangeOptions ? 'Hide' : 'Show' }} Date Range Options
+          </button>
+          <div v-if="showDateRangeOptions" class="date-range-options">
+            <label>From:
+              <input type="datetime-local" v-model="exportRangeStart" class="date-range-input" :disabled="exportWholeDay" />
+            </label>
+            <label>To:
+              <input type="datetime-local" v-model="exportRangeEnd" class="date-range-input" :disabled="exportWholeDay" />
+            </label>
+            <label style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" v-model="exportWholeDay" /> Export whole day
+              <input type="date" v-model="exportWholeDayDate" class="date-range-input" :disabled="!exportWholeDay" />
+            </label>
+          </div>
+        </div>
+        
+        <label style="grid-column: 1 / -1;">Filename:
+          <input type="text" v-model="exportFilename" class="export-filename-input" placeholder="stage-schedule.pdf" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-warning cancel-btn" @click="closeExportModal">Cancel</button>
+        <button class="btn btn-positive save-btn" @click="doExportPdf">Export PDF</button>
+        <button class="btn btn-positive save-btn" @click="doExportCsv">Export CSV</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Recording Day Help Modal -->
   <div v-if="showRecordingDayHelp" class="modal-overlay" @click.self="showRecordingDayHelp = false">
     <div class="modal-content recording-day-help-modal">
@@ -366,6 +431,17 @@ export default {
     // Filter panel state
     const showFilters = ref(false)
     const showNotifications = ref(false)
+    
+    // Export modal state
+    const showExportModal = ref(false)
+    const exportMode = ref('recording_day') // 'recording_day' or 'date_range'
+    const exportRecordingDayId = ref('all')
+    const exportRangeStart = ref('')
+    const exportRangeEnd = ref('')
+    const exportWholeDay = ref(false)
+    const exportWholeDayDate = ref('')
+    const showDateRangeOptions = ref(false)
+    const exportFilename = ref('stage-schedule.pdf')
 
     // Highlighting
     const timecodeSource = ref('live') // 'live', 'device', 'world', etc.
@@ -617,19 +693,171 @@ export default {
       toast.success('Deleted!')
     }
 
-    // PDF export
-    function exportPdf(){
-      const doc = new jsPDF({ unit:'pt', format:'a4' })
-      doc.text('Stage Schedule',40,40)
-      autoTable(doc,{
-        head: [['Artist','Start','End','Date','Recording Day']],
-        body: schedules.value.map(s=>[
-          s.artist_name, t5(s.start_time), t5(s.end_time), s.recording_date, getRecordingDayDisplay(s)
-        ]),
-        startY: 60,
-        styles: { fontSize:9, cellPadding:4 }
+    // Get exported schedules based on export mode
+    function getExportedSchedules() {
+      let arr = [...schedules.value]
+      
+      if (exportMode.value === 'recording_day') {
+        if (exportRecordingDayId.value && exportRecordingDayId.value !== 'all') {
+          if (exportRecordingDayId.value === 'unassigned') {
+            arr = arr.filter(s => !s.stage_hour_id)
+          } else {
+            arr = arr.filter(s => s.stage_hour_id === exportRecordingDayId.value)
+          }
+        }
+      } else if (exportMode.value === 'date_range') {
+        if (exportWholeDay.value && exportWholeDayDate.value) {
+          const d = exportWholeDayDate.value
+          const start = new Date(`${d}T00:00:00`)
+          const end = new Date(`${d}T23:59:59`)
+          arr = arr.filter(s => {
+            const dt = new Date(`${s.recording_date}T${s.start_time}`)
+            return dt >= start && dt <= end
+          })
+        } else {
+          if (exportRangeStart.value) {
+            const start = new Date(exportRangeStart.value)
+            arr = arr.filter(s => new Date(`${s.recording_date}T${s.start_time}`) >= start)
+          }
+          if (exportRangeEnd.value) {
+            const end = new Date(exportRangeEnd.value)
+            arr = arr.filter(s => new Date(`${s.recording_date}T${s.end_time}`) <= end)
+          }
+        }
+      }
+      
+      return arr.sort((a, b) => {
+        const aDateTime = `${a.recording_date}T${a.start_time || '00:00:00'}`
+        const bDateTime = `${b.recording_date}T${b.start_time || '00:00:00'}`
+        return aDateTime.localeCompare(bDateTime)
       })
-      doc.save('stage-schedule.pdf')
+    }
+
+    function openExportModal() {
+      showExportModal.value = true
+      exportMode.value = 'recording_day'
+      exportRecordingDayId.value = 'all'
+      showDateRangeOptions.value = false
+      exportFilename.value = `stage-schedule-${props.locationId}.pdf`
+    }
+
+    function closeExportModal() {
+      showExportModal.value = false
+    }
+
+    // PDF export
+    function doExportPdf(){
+      try {
+        const doc = new jsPDF({ unit:'pt', format:'a4' })
+        const exportedSchedules = getExportedSchedules()
+        
+        // Get export info
+        let exportInfo = ''
+        if (exportMode.value === 'recording_day') {
+          if (exportRecordingDayId.value === 'all') {
+            exportInfo = 'All Recording Days'
+          } else if (exportRecordingDayId.value === 'unassigned') {
+            exportInfo = 'Unassigned'
+          } else {
+            const stageHour = stageHours.value.find(sh => sh.id === exportRecordingDayId.value)
+            exportInfo = stageHour ? (stageHour.notes || formatStageHourFallback(stageHour)) : 'Selected Recording Day'
+          }
+        } else {
+          if (exportWholeDay.value && exportWholeDayDate.value) {
+            const d = new Date(exportWholeDayDate.value)
+            const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' })
+            exportInfo = `${label} (00:00–23:59:59)`
+          } else if (exportRangeStart.value || exportRangeEnd.value) {
+            const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+            const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…'
+            const endLbl = exportRangeEnd.value ? fmt(exportRangeEnd.value) : '…'
+            exportInfo = `${startLbl} → ${endLbl}`
+          }
+        }
+        
+        let y = 40
+        doc.setFontSize(14)
+        if (exportInfo) {
+          doc.text(`${exportMode.value === 'recording_day' ? 'Recording Day' : 'Date Range'}: ${exportInfo}`, 40, y)
+          y += 20
+        }
+        doc.setFontSize(16)
+        doc.text('Stage Schedule', 40, y)
+        y += 20
+        
+        if (exportedSchedules.length > 0) {
+          autoTable(doc, {
+            head: [['Artist','Start','End','Date','Recording Day']],
+            body: exportedSchedules.map(s => [
+              s.artist_name, t5(s.start_time), t5(s.end_time), s.recording_date, getRecordingDayDisplay(s)
+            ]),
+            startY: y,
+            styles: { fontSize:9, cellPadding:4 }
+          })
+        } else {
+          doc.setFontSize(12)
+          doc.text('No schedules available', 40, y + 20)
+        }
+        
+        doc.save(exportFilename.value || 'stage-schedule.pdf')
+        toast.success('PDF exported successfully')
+        closeExportModal()
+      } catch (error) {
+        console.error('Export error:', error)
+        toast.error('Failed to export PDF')
+      }
+    }
+
+    // CSV export
+    function doExportCsv() {
+      try {
+        const exportedSchedules = getExportedSchedules()
+        
+        // Get export info
+        let exportInfo = ''
+        if (exportMode.value === 'recording_day') {
+          if (exportRecordingDayId.value === 'all') {
+            exportInfo = 'All Recording Days'
+          } else if (exportRecordingDayId.value === 'unassigned') {
+            exportInfo = 'Unassigned'
+          } else {
+            const stageHour = stageHours.value.find(sh => sh.id === exportRecordingDayId.value)
+            exportInfo = stageHour ? (stageHour.notes || formatStageHourFallback(stageHour)) : 'Selected Recording Day'
+          }
+        } else {
+          if (exportWholeDay.value && exportWholeDayDate.value) {
+            const d = new Date(exportWholeDayDate.value)
+            const label = d.toLocaleDateString([], { year:'numeric', month:'short', day:'numeric' })
+            exportInfo = `${label} (00:00–23:59:59)`
+          } else if (exportRangeStart.value || exportRangeEnd.value) {
+            const fmt = (iso) => new Date(iso).toLocaleString([], { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+            const startLbl = exportRangeStart.value ? fmt(exportRangeStart.value) : '…'
+            const endLbl = exportRangeEnd.value ? fmt(exportRangeEnd.value) : '…'
+            exportInfo = `${startLbl} → ${endLbl}`
+          }
+        }
+        
+        let csv = ''
+        if (exportInfo) csv += `${exportMode.value === 'recording_day' ? 'Recording Day' : 'Date Range'}:,${exportInfo}\n`
+        csv += '\n'
+        csv += 'Artist,Start Time,End Time,Date,Recording Day\n'
+        exportedSchedules.forEach(s => {
+          csv += `"${s.artist_name}","${t5(s.start_time)}","${t5(s.end_time)}","${s.recording_date}","${getRecordingDayDisplay(s)}"\n`
+        })
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.setAttribute('download', (exportFilename.value || 'stage-schedule.csv').replace(/\.pdf$/, '.csv'))
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        toast.success('CSV exported successfully')
+        closeExportModal()
+      } catch (error) {
+        console.error('Export error:', error)
+        toast.error('Failed to export CSV')
+      }
     }
 
     function emitChangeNote(artistName) {
@@ -757,10 +985,12 @@ export default {
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
       activeIndex, filteredRows, fromDateTime, toDateTime,
       notificationsEnabled, defaultWarningMinutes, notificationScope, showFilters, showNotifications,
-      openForm, closeForm, save, remove, exportPdf, emitChangeNote,
+      showExportModal, exportMode, exportRecordingDayId, exportRangeStart, exportRangeEnd, 
+      exportWholeDay, exportWholeDayDate, showDateRangeOptions, exportFilename,
+      openForm, closeForm, save, remove, doExportPdf, doExportCsv, emitChangeNote,
       createChangeoverNote, isActive,
       saveRange, clearFrom, clearTo, setToday, setPreviousDay,
-      saveNotificationSettings,
+      saveNotificationSettings, openExportModal, closeExportModal,
       t5, niceDate, formatStageHourFallback, store
     }
     return exposed
@@ -1433,5 +1663,98 @@ cursor: default;
   color: var(--text-secondary);
   margin-left: 26px;
   display: block;
+}
+
+.export-btn {
+  background: var(--color-warning-500);
+  color: var(--text-inverse);
+  border: 2px solid var(--color-warning-600);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .2s;
+  font-weight: 700;
+}
+
+.export-btn:hover {
+  background: var(--color-warning-600);
+}
+
+.export-modal {
+  max-width: 600px;
+}
+
+.export-mode-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+.export-mode-select:focus {
+  border-color: var(--color-primary-500);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.recording-day-export-section {
+  margin-top: 12px;
+}
+
+.export-recording-day-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+.export-recording-day-select:focus {
+  border-color: var(--color-primary-500);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.date-range-export-section {
+  margin-top: 12px;
+}
+
+.date-range-toggle {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.date-range-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+}
+
+.export-filename-input {
+  padding: 6px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  min-width: 180px;
+  width: 100%;
+}
+
+.date-range-input {
+  padding: 6px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  width: 100%;
 }
 </style>

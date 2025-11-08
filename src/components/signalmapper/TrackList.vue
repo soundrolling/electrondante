@@ -659,42 +659,63 @@ async function exportToPDF() {
       doc.setTextColor(0, 0, 0) // Reset to black
     })
     
-    // Add summary on new page if needed
-    if (yPos > doc.internal.pageSize.getHeight() - 40) {
-      doc.addPage()
-      yPos = margin
-    } else {
-      yPos += 10
-    }
-    
-    doc.setFontSize(12)
-    doc.text(`Total Tracks: ${props.signalPaths.length}`, margin, yPos)
-    yPos += 7
-    doc.text(`Recorders: ${recorderNames.length}`, margin, yPos)
-    
     // Download PDF with iOS-compatible blob approach
     try {
       const pdfBlob = doc.output('blob')
       const url = URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = finalFileName
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      setTimeout(() => URL.revokeObjectURL(url), 100)
-    } catch (blobError) {
-      // Fallback: try using data URI
-      try {
-        const pdfDataUri = doc.output('datauristring')
+      
+      // Detect iOS/iPad
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      
+      if (isIOS) {
+        // For iOS, use link click (download attribute not fully supported, but click works)
+        // This avoids popup blocker issues since it's a direct user interaction
         const link = document.createElement('a')
-        link.href = pdfDataUri
+        link.href = url
+        link.target = '_blank' // Open in new tab on iOS
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 1000)
+      } else {
+        // For other platforms, use standard download link
+        const link = document.createElement('a')
+        link.href = url
         link.download = finalFileName
         link.style.display = 'none'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        setTimeout(() => URL.revokeObjectURL(url), 100)
+      }
+    } catch (blobError) {
+      // Fallback: try using data URI
+      try {
+        const pdfDataUri = doc.output('datauristring')
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        
+        if (isIOS) {
+          const link = document.createElement('a')
+          link.href = pdfDataUri
+          link.target = '_blank'
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } else {
+          const link = document.createElement('a')
+          link.href = pdfDataUri
+          link.download = finalFileName
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        }
       } catch (dataUriError) {
         // Final fallback: use jsPDF's save method
         doc.save(finalFileName)
