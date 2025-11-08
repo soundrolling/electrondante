@@ -455,7 +455,7 @@ export async function startScheduleNotifications(projectId = null, intervalSecon
   // Subscribe to real-time notifications for all relevant projects
   activeSubscriptions = []
   for (const projId of projectIdsToMonitor) {
-    const subscription = subscribeToScheduleNotifications(projId, (notificationData) => {
+    const subscription = subscribeToScheduleNotifications(projId, async (notificationData) => {
       // Handle received notification
       const schedule = {
         id: notificationData.schedule_id,
