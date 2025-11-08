@@ -477,6 +477,22 @@ watch(recordingDayFilter, (newFilter) => {
   } catch {}
 });
 
+// Watch for stageHours to be loaded and ensure filter is still valid
+watch(stageHours, (newStageHours) => {
+  // If filter is set to a specific stage hour ID, verify it still exists
+  if (recordingDayFilter.value && 
+      recordingDayFilter.value !== 'all' && 
+      recordingDayFilter.value !== 'unassigned' &&
+      newStageHours.length > 0) {
+    const stageHourExists = newStageHours.some(sh => sh.id === recordingDayFilter.value);
+    if (!stageHourExists) {
+      // Filter value is invalid, reset to 'all'
+      console.log(`[LNTabNotes] Filter value ${recordingDayFilter.value} no longer exists, resetting to 'all'`);
+      recordingDayFilter.value = 'all';
+    }
+  }
+}, { immediate: false });
+
 const editingId = ref(null);
 const draft = ref({ timestamp: '', recording_date: '', note: '', stage_hour_id: null });
 const showForm = ref(false);
@@ -1271,6 +1287,12 @@ async function ensureDataPersistence() {
 
 onMounted(async () => {
   if (!hasLoaded.value) {
+    // Ensure filter is loaded before fetching data - this ensures filter is applied immediately
+    const persisted = loadPersistedValues(props.locationId);
+    sortKey.value = persisted.sortKey;
+    recordingDayFilter.value = persisted.recordingDayFilter;
+    console.log(`[LNTabNotes] Initial load - filter set to: ${recordingDayFilter.value}`);
+    
     await ensureDataPersistence();
     await loadPills();
     await loadStageHours();
