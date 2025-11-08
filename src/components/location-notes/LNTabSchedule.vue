@@ -123,11 +123,16 @@
   <!-- Schedule list -->
   <div class="list-wrapper">
     <div class="list-scroll">
+    <!-- Debug: Show active count (remove after testing) -->
+    <div v-if="true" style="padding: 10px; background: yellow; margin-bottom: 10px; font-size: 12px;">
+      Debug: Active count: {{ activeScheduleIds.length }}, Current time: {{ currentDeviceTime.toLocaleTimeString() }}, Timestamp: {{ currentTimeTimestamp }}
+    </div>
     <template v-if="filteredRows.length">
       <div
         v-for="(r, i) in filteredRows"
         :key="r.id"
-        :class="['row-card', { 'active-card': activeScheduleIds.includes(r.id) }]"
+        :class="['row-card', { 'active-card': isActive(r) }]"
+        :data-active="isActive(r)"
       >
         <div class="row-content">
           <div class="artist">{{ r.artist_name }}</div>
@@ -593,70 +598,76 @@ export default {
       })
     })
 
+    // Helper function to check if a schedule is currently active
+    const checkIfActive = (item) => {
+      if (!item || !item.start_time || !item.end_time || !item.recording_date || !item.id) {
+        return false
+      }
+      
+      const now = currentDeviceTime.value
+      const scheduleDate = item.recording_date
+      
+      // Parse schedule date (format: YYYY-MM-DD)
+      const dateParts = scheduleDate.split('-').map(Number)
+      if (dateParts.length !== 3 || dateParts.some(isNaN)) {
+        return false
+      }
+      const [scheduleYear, scheduleMonth, scheduleDay] = dateParts
+      
+      // Validate date parts
+      if (scheduleYear < 2000 || scheduleYear > 2100 || scheduleMonth < 1 || scheduleMonth > 12 || scheduleDay < 1 || scheduleDay > 31) {
+        return false
+      }
+      
+      // Parse schedule times (format: HH:MM:SS or HH:MM)
+      const parseTime = (timeStr) => {
+        if (!timeStr || typeof timeStr !== 'string') return null
+        const parts = timeStr.split(':').map(Number)
+        if (parts.some(isNaN) || parts.length < 2) return null
+        return {
+          hours: parts[0] || 0,
+          minutes: parts[1] || 0,
+          seconds: parts[2] || 0
+        }
+      }
+      
+      const startTime = parseTime(item.start_time)
+      const endTime = parseTime(item.end_time)
+      
+      if (!startTime || !endTime) {
+        return false
+      }
+      
+      // Create Date objects for schedule start and end times using the schedule's date
+      // Note: month is 0-indexed in Date constructor
+      const startDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                                     startTime.hours, startTime.minutes, startTime.seconds)
+      const endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
+                                   endTime.hours, endTime.minutes, endTime.seconds)
+      
+      // Ensure we have valid Date objects
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        return false
+      }
+      
+      // Check if current device time (date + time) is within the schedule range
+      // Inclusive start, exclusive end
+      const isInRange = now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()
+      return isInRange
+    }
+
     // Computed property to track which schedules are currently active (reactive to currentDeviceTime)
     const activeScheduleIds = computed(() => {
       // Access timestamp to force reactivity
       const _ = currentTimeTimestamp.value
       const activeIds = []
-      const now = currentDeviceTime.value
       
       if (!schedules.value || schedules.value.length === 0) {
         return activeIds
       }
       
       schedules.value.forEach(item => {
-        if (!item.start_time || !item.end_time || !item.recording_date || !item.id) {
-          return
-        }
-        
-        const scheduleDate = item.recording_date
-        
-        // Parse schedule date (format: YYYY-MM-DD)
-        const dateParts = scheduleDate.split('-').map(Number)
-        if (dateParts.length !== 3 || dateParts.some(isNaN)) {
-          return
-        }
-        const [scheduleYear, scheduleMonth, scheduleDay] = dateParts
-        
-        // Validate date parts
-        if (scheduleYear < 2000 || scheduleYear > 2100 || scheduleMonth < 1 || scheduleMonth > 12 || scheduleDay < 1 || scheduleDay > 31) {
-          return
-        }
-        
-        // Parse schedule times (format: HH:MM:SS or HH:MM)
-        const parseTime = (timeStr) => {
-          if (!timeStr || typeof timeStr !== 'string') return null
-          const parts = timeStr.split(':').map(Number)
-          if (parts.some(isNaN) || parts.length < 2) return null
-          return {
-            hours: parts[0] || 0,
-            minutes: parts[1] || 0,
-            seconds: parts[2] || 0
-          }
-        }
-        
-        const startTime = parseTime(item.start_time)
-        const endTime = parseTime(item.end_time)
-        
-        if (!startTime || !endTime) {
-          return
-        }
-        
-        // Create Date objects for schedule start and end times using the schedule's date
-        // Note: month is 0-indexed in Date constructor
-        const startDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
-                                       startTime.hours, startTime.minutes, startTime.seconds)
-        const endDateTime = new Date(scheduleYear, scheduleMonth - 1, scheduleDay, 
-                                     endTime.hours, endTime.minutes, endTime.seconds)
-        
-        // Ensure we have valid Date objects
-        if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-          return
-        }
-        
-        // Check if current device time (date + time) is within the schedule range
-        // Inclusive start, exclusive end
-        if (now.getTime() >= startDateTime.getTime() && now.getTime() < endDateTime.getTime()) {
+        if (checkIfActive(item)) {
           activeIds.push(item.id)
         }
       })
@@ -664,12 +675,33 @@ export default {
       return activeIds
     })
 
-    // Check if an item is currently active (uses computed property for reactivity)
+    // Create a computed map of active schedule IDs for O(1) lookup
+    const activeScheduleMap = computed(() => {
+      // Access timestamp to force reactivity
+      const _ = currentTimeTimestamp.value
+      const now = currentDeviceTime.value
+      const map = new Map()
+      
+      if (!schedules.value || schedules.value.length === 0) {
+        return map
+      }
+      
+      schedules.value.forEach(item => {
+        if (checkIfActive(item)) {
+          map.set(item.id, true)
+        }
+      })
+      
+      return map
+    })
+
+    // Check if an item is currently active - uses computed map for reactivity
     function isActive(item, i) {
       if (!item || !item.id) {
         return false
       }
-      return activeScheduleIds.value.includes(item.id)
+      // Access the computed map to ensure reactivity
+      return activeScheduleMap.value.has(item.id)
     }
 
     async function createChangeoverNote() {
@@ -1076,7 +1108,7 @@ export default {
       schedules, stageHours, groupedDays, groupedDaysLength, idx, sortOrder,
       showForm, showRecordingDayHelp, isEdit, fArtist, fStart, fEnd, fDate, fStageHourId, fWarningMinutes, busy, err,
       currentTimecode, day, currentGroupLabel, rows, hasNextArtist, nextArtist,
-      filteredRows, fromDateTime, toDateTime, activeScheduleIds,
+      filteredRows, fromDateTime, toDateTime, activeScheduleIds, activeScheduleMap, currentDeviceTime, currentTimeTimestamp,
       notificationsEnabled, defaultWarningMinutes, notificationScope, showFilters, showNotifications,
       showExportModal, exportMode, exportRecordingDayId, exportRangeStart, exportRangeEnd, 
       exportWholeDay, exportWholeDayDate, showDateRangeOptions, exportFilename,
@@ -1253,9 +1285,10 @@ transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 backdrop-filter: blur(10px);
 }
 .row-card.active-card {
-background: rgba(34, 197, 94, 0.15);
-border-color: var(--color-success-500);
-box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+background: rgba(34, 197, 94, 0.25) !important;
+border: 3px solid var(--color-success-500) !important;
+box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4) !important;
+transform: scale(1.02);
 }
 .row-card:hover {
 transform: translateY(-2px);
