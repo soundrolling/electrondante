@@ -1,8 +1,8 @@
 <template>
 <div class="dante-config-container">
   <div class="dante-header">
-    <h3>Dante Configuration</h3>
-    <p>Upload Dante files and save stagebox settings for future setups</p>
+    <h3>Setup Files</h3>
+    <p>Upload your Dante and stagebox setup files so you can download for future shows or with a show reset</p>
   </div>
 
   <!-- Upload Section -->

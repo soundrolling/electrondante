@@ -36,7 +36,7 @@
       :class="['tab-btn', { active: activeTab === 'dante' }]"
       @click="setActiveTab('dante')"
     >
-      🎛️ Dante
+      🎛️ Setup Files
     </button>
   </div>
 
