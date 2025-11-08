@@ -261,7 +261,8 @@ async function loadSignalPaths() {
   
   loadingPaths.value = true
   try {
-    signalPaths.value = await getCompleteSignalPath(props.projectId)
+    const locId = effectiveLocationId.value
+    signalPaths.value = await getCompleteSignalPath(props.projectId, locId)
   } catch (err) {
     console.error('Error loading signal paths:', err)
     toast.error('Failed to load signal paths')

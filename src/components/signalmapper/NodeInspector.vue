@@ -913,11 +913,15 @@ async function saveFeeds() {
 }
 
 async function loadTracks() {
-  console.log('[Inspector][Tracks] load:start', { project_id: props.projectId })
-  const all = await getCompleteSignalPath(props.projectId)
-  const here = all.filter(p => p.recorderId === props.node.id)
-  trackList.value = here.map(p => ({ key: `${p.recorderId}:${p.track}`, track: p.track, source: p.sourceLabel }))
-  console.log('[Inspector][Tracks] load:done', { count: trackList.value.length })
+  console.log('[Inspector][Tracks] load:start', { project_id: props.projectId, locationId: props.locationId })
+  const all = await getCompleteSignalPath(props.projectId, props.locationId)
+  const here = all.filter(p => p.recorder_id === props.node.id)
+  trackList.value = here.map(p => ({ 
+    key: `${p.recorder_id}:${p.track_number}`, 
+    track: p.track_number, 
+    source: p.source_label || p.track_name 
+  }))
+  console.log('[Inspector][Tracks] load:done', { count: trackList.value.length, totalPaths: all.length, filteredPaths: here.length })
 }
 
 onMounted(async () => {

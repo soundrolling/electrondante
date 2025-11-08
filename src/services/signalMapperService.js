@@ -451,11 +451,11 @@ export async function getSourceLabelFromNode(node, outputPort) {
   return `${base}${numSuffix}`
 }
 
-export async function getCompleteSignalPath(projectId) {
-  const graph = await buildGraph(projectId)
+export async function getCompleteSignalPath(projectId, locationId = null) {
+  const graph = await buildGraph(projectId, locationId)
   // Get all nodes and connections
-  const nodes = await getNodes(projectId)
-  const connections = await getConnections(projectId)
+  const nodes = await getNodes(projectId, locationId)
+  const connections = await getConnections(projectId, locationId)
   // Preload all connection_port_map rows for this project to resolve transformer→transformer/recorder chains
   let allPortMaps = []
   try {
