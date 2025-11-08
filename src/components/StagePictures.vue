@@ -701,6 +701,8 @@ async function exportPdf() {
   try {
     const doc = new jsPDF('p', 'pt', 'a4');
     const margin = 40;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     let y = margin;
 
     doc.setFontSize(18);
@@ -710,10 +712,9 @@ async function exportPdf() {
     doc.text(`Venue: ${venueName.value}`, margin, y);
     y += 32;
 
-    const pageHeight = doc.internal.pageSize.getHeight();
-
     for (const img of images.value) {
-      if (y + 420 > pageHeight) {
+      // Check if we need a new page (account for image + text space)
+      if (y + 500 > pageHeight) {
         doc.addPage();
         y = margin;
       }
@@ -732,22 +733,57 @@ async function exportPdf() {
       });
 
       const maxH = 400;
-      const scale = Math.min(1, maxH / htmlImg.height);
+      const maxW = pageWidth - (margin * 2);
+      const scale = Math.min(1, maxH / htmlImg.height, maxW / htmlImg.width);
       const imgW = htmlImg.width * scale;
       const imgH = htmlImg.height * scale;
+      
+      // Center the image horizontally
+      const imgX = margin + (maxW - imgW) / 2;
 
-      doc.addImage(dataUrl, 'PNG', margin, y, imgW, imgH);
+      // Add the image
+      doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
+      y += imgH + 12;
 
-      const textX = margin + imgW + 20;
-      doc.setFontSize(12);
-      doc.text(`Name: ${img.name}`, textX, y + 14);
-      const descLines = doc.splitTextToSize(
-        `Description: ${img.description}`,
-        doc.internal.pageSize.getWidth() - textX - margin
-      );
-      doc.text(descLines, textX, y + 30);
+      // Add title/name below the image
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      const titleText = img.name || 'Untitled';
+      doc.text(titleText, margin, y);
+      y += 18;
 
-      y += Math.max(imgH, descLines.length * 14 + 30) + 20;
+      // Add description if it exists
+      if (img.description && img.description.trim()) {
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'normal');
+        const descLines = doc.splitTextToSize(
+          img.description,
+          pageWidth - (margin * 2)
+        );
+        doc.text(descLines, margin, y);
+        y += descLines.length * 14;
+      }
+
+      // Add metadata (date, size, uploader) if available
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      let metadataText = [];
+      if (img.created_at) {
+        metadataText.push(`Date: ${formatDate(img.created_at)}`);
+      }
+      if (img.size) {
+        metadataText.push(`Size: ${formatFileSize(img.size)}`);
+      }
+      if (img.uploaded_by) {
+        metadataText.push(`Uploaded by: ${img.uploaded_by}`);
+      }
+      if (metadataText.length > 0) {
+        doc.text(metadataText.join(' • '), margin, y);
+        y += 12;
+      }
+      doc.setTextColor(0, 0, 0); // Reset text color
+
+      y += 20; // Space before next image
     }
 
     doc.save(`${stageName.value.replace(/\s+/g, '_')}_Pictures.pdf`);
@@ -768,6 +804,8 @@ async function exportSelectedPdf() {
   try {
     const doc = new jsPDF('p', 'pt', 'a4');
     const margin = 40;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     let y = margin;
 
     doc.setFontSize(18);
@@ -778,13 +816,12 @@ async function exportSelectedPdf() {
     doc.text(`Selected: ${selectedImages.value.length} image${selectedImages.value.length === 1 ? '' : 's'}`, margin, y + 16);
     y += 32;
 
-    const pageHeight = doc.internal.pageSize.getHeight();
-
     // Get only selected images
     const selectedImagesData = images.value.filter(img => selectedImages.value.includes(img.id));
 
     for (const img of selectedImagesData) {
-      if (y + 420 > pageHeight) {
+      // Check if we need a new page (account for image + text space)
+      if (y + 500 > pageHeight) {
         doc.addPage();
         y = margin;
       }
@@ -803,22 +840,57 @@ async function exportSelectedPdf() {
       });
 
       const maxH = 400;
-      const scale = Math.min(1, maxH / htmlImg.height);
+      const maxW = pageWidth - (margin * 2);
+      const scale = Math.min(1, maxH / htmlImg.height, maxW / htmlImg.width);
       const imgW = htmlImg.width * scale;
       const imgH = htmlImg.height * scale;
+      
+      // Center the image horizontally
+      const imgX = margin + (maxW - imgW) / 2;
 
-      doc.addImage(dataUrl, 'PNG', margin, y, imgW, imgH);
+      // Add the image
+      doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
+      y += imgH + 12;
 
-      const textX = margin + imgW + 20;
-      doc.setFontSize(12);
-      doc.text(`Name: ${img.name}`, textX, y + 14);
-      const descLines = doc.splitTextToSize(
-        `Description: ${img.description}`,
-        doc.internal.pageSize.getWidth() - textX - margin
-      );
-      doc.text(descLines, textX, y + 30);
+      // Add title/name below the image
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'bold');
+      const titleText = img.name || 'Untitled';
+      doc.text(titleText, margin, y);
+      y += 18;
 
-      y += Math.max(imgH, descLines.length * 14 + 30) + 20;
+      // Add description if it exists
+      if (img.description && img.description.trim()) {
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'normal');
+        const descLines = doc.splitTextToSize(
+          img.description,
+          pageWidth - (margin * 2)
+        );
+        doc.text(descLines, margin, y);
+        y += descLines.length * 14;
+      }
+
+      // Add metadata (date, size, uploader) if available
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      let metadataText = [];
+      if (img.created_at) {
+        metadataText.push(`Date: ${formatDate(img.created_at)}`);
+      }
+      if (img.size) {
+        metadataText.push(`Size: ${formatFileSize(img.size)}`);
+      }
+      if (img.uploaded_by) {
+        metadataText.push(`Uploaded by: ${img.uploaded_by}`);
+      }
+      if (metadataText.length > 0) {
+        doc.text(metadataText.join(' • '), margin, y);
+        y += 12;
+      }
+      doc.setTextColor(0, 0, 0); // Reset text color
+
+      y += 20; // Space before next image
     }
 
     doc.save(`${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`);

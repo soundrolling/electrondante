@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.62">
-        <span class="version-text">v21.62</span>
-        <span class="version-date">November 6th 2025</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.64">
+        <span class="version-text">v21.64</span>
+        <span class="version-date">November 8th 2025</span>
       </button>
     </div>
 
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.62</h2>
+          <h2 id="changelog-title">What's New in 21.64</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔄 Version Update</h3>
+            <p>General improvements and bug fixes.</p>
+          </div>
+          
           <div class="changelog-section">
             <h3>📤 Enhanced Location Notes Export</h3>
             <p>Location Notes export now supports exporting by Recording Day in addition to date ranges. Choose between "Recording Day" or "Date Range" export modes. Export all notes from a specific recording day, unassigned notes, or use the traditional date range filter. This makes it easier to export notes organized by your production schedule.</p>

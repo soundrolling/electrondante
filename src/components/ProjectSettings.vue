@@ -205,6 +205,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '../supabase'
+import { config } from '../config'
 import { useUserStore } from '../stores/userStore'
 import { useToast } from 'vue-toastification'
 import BugReportList from './BugReportList.vue'
@@ -344,7 +345,18 @@ export default {
 
       if (error) {
         console.error('❌ Edge Function error:', error)
-        throw new Error(error.message || 'Failed to call invite function')
+        // Check if error has a message in the response body
+        let errorMessage = error.message || 'Failed to call invite function'
+        if (data?.error) {
+          errorMessage = data.error
+        }
+        throw new Error(errorMessage)
+      }
+
+      // Check if response indicates an error (edge function returns 200 but with error in body)
+      if (data?.error) {
+        console.error('❌ Error in response data:', data.error)
+        throw new Error(data.error)
       }
 
       console.log('✅ Edge Function success:', data)
@@ -403,10 +415,13 @@ export default {
       selectedRole.value = 'viewer'
       
       // Show different messages based on user status
-      if (result.userStatus === 'existing') {
-        toast.success('User successfully added to project. Please let them know they can now access it from their account.')
+      if (result?.userStatus === 'existing') {
+        toast.success(`${email} successfully added to project! Please let them know they can now access it from their account.`)
+      } else if (result?.userStatus === 'invited') {
+        toast.success(`Invitation sent to ${email}! The user will receive an email to set their password and join the project.`)
       } else {
-        toast.success('Invitation sent! The user will receive an email to set their password and join the project.')
+        // Fallback success message
+        toast.success(`User ${email} has been added to the project.`)
       }
       console.log('✅ Invite process completed successfully')
     } catch (err) {
@@ -423,7 +438,13 @@ export default {
     
     isResettingPassword.value = memberId
     try {
+      // Get the Supabase URL to verify the endpoint
+      const supabaseUrl = config.supabase.url || 'Unknown'
+      const functionUrl = `${supabaseUrl}/functions/v1/reset-password`
       console.log('🔄 Calling reset-password Edge Function for:', email)
+      console.log('🌐 Expected Function URL:', functionUrl)
+      console.log('📦 Request body:', { email })
+      console.log('🔍 Verifying endpoint matches: https://mcetzgzwldytnalfaldo.supabase.co/functions/v1/reset-password')
       
       const { data, error } = await supabase.functions.invoke('reset-password', {
         body: {
@@ -432,22 +453,48 @@ export default {
       })
 
       console.log('📤 Reset password response:', { data, error })
+      console.log('✅ Function call completed. Check Network tab to verify the exact URL called.')
+      
+      // Verify the URL matches expected endpoint
+      if (supabaseUrl.includes('mcetzgzwldytnalfaldo.supabase.co')) {
+        console.log('✅ Supabase URL matches expected endpoint')
+      } else {
+        console.warn('⚠️ Supabase URL does not match expected endpoint. Expected: mcetzgzwldytnalfaldo.supabase.co')
+      }
 
+      // Handle error response from edge function
       if (error) {
         console.error('❌ Reset password error:', error)
-        throw new Error(error.message || 'Failed to send reset/reinvite email')
+        // Check if error has a message in the response body
+        let errorMessage = error.message || 'Failed to send reset/reinvite email'
+        if (data?.error) {
+          errorMessage = data.error
+        }
+        toast.error(errorMessage)
+        return // Don't throw, we've already shown the error
+      }
+
+      // Check if response indicates an error (edge function returns 200 but with error in body)
+      if (data?.error) {
+        console.error('❌ Error in response data:', data.error)
+        toast.error(data.error)
+        return // Don't throw, we've already shown the error
       }
 
       console.log('✅ Reset/reinvite email sent successfully')
       
       // Show different messages based on user status
-      if (data.userStatus === 'reset') {
-        toast.success('Password reset email sent! The user will receive an email to reset their password.')
+      if (data?.userStatus === 'reset') {
+        toast.success(`Password reset email sent to ${email}! The user will receive an email to reset their password.`)
+      } else if (data?.userStatus === 'invited') {
+        toast.success(`Invitation resent to ${email}! The user will receive an email to set their password.`)
       } else {
-        toast.success('Invitation resent! The user will receive an email to set their password.')
+        // Fallback success message
+        toast.success(`Email sent to ${email}!`)
       }
     } catch (err) {
       console.error('💥 Reset password process failed:', err)
+      // Show error toast for unexpected errors
       toast.error(err.message || 'Failed to send reset/reinvite email.')
     } finally {
       isResettingPassword.value = null
@@ -523,7 +570,7 @@ export default {
   margin: 32px auto;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 .card {
   background: var(--bg-primary);
@@ -531,7 +578,7 @@ export default {
   padding: 24px 20px 20px 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   margin-bottom: 18px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
 }
 h3 {
   font-size: 1.7rem;
@@ -586,9 +633,9 @@ h5 {
 }
 
 .tab-btn.active {
-  background: var(--color-primary-100);
-  color: var(--color-primary-700);
-  border-color: var(--color-primary-200);
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
+  border-color: var(--color-primary-600);
 }
 
 .tab-btn svg {
@@ -620,7 +667,7 @@ input,
 select {
   padding: 12px 14px;
   font-size: 1rem;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   border-radius: 8px;
   outline: none;
   transition: border-color .2s, box-shadow .2s;
@@ -628,7 +675,7 @@ select {
   color: var(--text-primary);
 }
 input:focus,
-select:focus { border-color: var(--color-primary-500); box-shadow: 0 0 0 2px #dbeafe; }
+select:focus { border-color: var(--color-primary-500); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
 .invite-button {
   padding: 10px 18px;
   background: var(--color-primary-500);
@@ -702,7 +749,7 @@ table {
 th,
 td {
   padding: 10px 12px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-light);
   text-align: left;
 }
 td {
@@ -712,12 +759,12 @@ td:last-child {
   white-space: normal;
 }
 th {
-  background: #f1f5f9;
+  background: var(--bg-tertiary);
   font-weight: 600;
   color: var(--text-primary);
 }
 tr:nth-child(even) td {
-  background: #f8fafc;
+  background: var(--bg-secondary);
 }
 
 .action-buttons {
@@ -728,7 +775,7 @@ tr:nth-child(even) td {
 
 .reinvite-btn {
   background: var(--color-primary-500);
-  color: #fff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
@@ -747,8 +794,8 @@ tr:nth-child(even) td {
 }
 
 .remove-btn {
-  background: #ef4444;
-  color: #fff;
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
@@ -758,12 +805,12 @@ tr:nth-child(even) td {
   transition: background 0.2s;
 }
 .remove-btn:hover {
-  background: #dc2626;
+  background: var(--btn-danger-hover-bg);
 }
 
 .section-break hr {
   border: 0;
-  border-top: 1.5px solid #e5e7eb;
+  border-top: 1.5px solid var(--border-light);
   margin: 24px 0;
 }
 .form-container {
@@ -772,7 +819,7 @@ tr:nth-child(even) td {
   padding: 18px;
   margin-top: 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
 }
 .form-container label {
   display: block;
@@ -783,7 +830,7 @@ tr:nth-child(even) td {
 .form-container select {
   width: 100%;
   padding: 12px 14px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--border-light);
   border-radius: 8px;
   margin-bottom: 12px;
   background: var(--bg-primary);
@@ -793,8 +840,8 @@ tr:nth-child(even) td {
 
 .save-button {
   padding: 10px 18px;
-  background: #10b981;
-  color: #fff;
+  background: var(--btn-positive-bg);
+  color: var(--btn-positive-text);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -802,7 +849,7 @@ tr:nth-child(even) td {
   font-size: 1rem;
   transition: background 0.2s;
 }
-.save-button:hover { background: #059669; }
+.save-button:hover { background: var(--btn-positive-hover-bg); }
 
 @media (max-width:700px) {
   .container { padding: 14px; }
