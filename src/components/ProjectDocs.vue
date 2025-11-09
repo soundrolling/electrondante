@@ -240,19 +240,28 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
+import jsPDF from 'jspdf'
 // pdf.js for streaming multi-page preview
 import * as pdfjsLib from 'pdfjs-dist/build/pdf'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url'
+
+// ─── PROPS ──────────────────────────────────────────────────────────────────────
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: true
+  }
+})
 
 // ─── ROUTER & STATE ────────────────────────────────────────────────────────────
 const route      = useRoute()
 const router     = useRouter()
 const toast      = useToast()
 
-const projectId   = route.params.id
+const projectId   = props.projectId || route.params.id
 const projectName = ref('Loading…')
 
-const isLoading   = ref(false)
+const isLoading   = ref(true)
 const docs        = ref([])
 const searchTerm  = ref('')
 const venues      = ref([])
