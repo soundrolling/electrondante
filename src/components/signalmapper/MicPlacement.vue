@@ -2211,11 +2211,14 @@ function getCanvasDataURL() {
     maxY = Math.max(maxY, canvasHeight.value)
   }
 
+  // Calculate label positions with collision avoidance (same as screen drawing)
+  const exportLabelPositions = calculateLabelPositions(measure)
+  
   // Include all mic nodes (circle radius and label box)
   const circleRadius = 30 * nodeScaleFactor.value
   const measureFont = `bold ${12 * nodeScaleFactor.value}px sans-serif`
   measure.font = measureFont
-  props.nodes.forEach(mic => {
+  props.nodes.forEach((mic, idx) => {
     const { x, y } = imageToCanvasCoords(mic.x, mic.y)
     // Circle extents
     minX = Math.min(minX, x - circleRadius)
@@ -2223,18 +2226,28 @@ function getCanvasDataURL() {
     maxX = Math.max(maxX, x + circleRadius)
     maxY = Math.max(maxY, y + circleRadius)
 
-    // Label extents - positioned opposite to mic direction
+    // Label extents - use calculated collision-avoided positions
     const labelText = mic.track_name || mic.label || ''
     const textMetrics = measure.measureText(labelText)
     const padX = 6 * nodeScaleFactor.value
     const padY = 4 * nodeScaleFactor.value
     const bgW = Math.ceil(textMetrics.width) + padX * 2
     const bgH = (18 * nodeScaleFactor.value) + padY * 2
-    const rotation = mic.rotation || 0
-    const labelAngle = (rotation + 180) * (Math.PI / 180)
-    const labelDistance = 40 * nodeScaleFactor.value
-    const labelX = x + Math.sin(labelAngle) * labelDistance
-    const labelY = y - Math.cos(labelAngle) * labelDistance
+    
+    // Use calculated label position or fallback to default
+    let labelX, labelY
+    if (exportLabelPositions[idx]) {
+      labelX = exportLabelPositions[idx].x
+      labelY = exportLabelPositions[idx].y
+    } else {
+      // Fallback to default position
+      const rotation = mic.rotation || 0
+      const labelAngle = (rotation + 180) * (Math.PI / 180)
+      const labelDistance = 40 * nodeScaleFactor.value
+      labelX = x + Math.sin(labelAngle) * labelDistance
+      labelY = y - Math.cos(labelAngle) * labelDistance
+    }
+    
     const lx = labelX - bgW / 2
     const ly = labelY - bgH / 2
     minX = Math.min(minX, lx)
@@ -2309,10 +2322,22 @@ function getCanvasDataURL() {
     ctx.globalAlpha = 1.0
   }
 
-  // Draw all mics using the same routine as screen draw
-  props.nodes.forEach(mic => {
-    drawMic(ctx, mic)
-  })
+  // Draw all mics using the same routine as screen draw with collision-avoided label positions
+  // Recalculate label positions for export (in case canvas size differs)
+  const exportCtx = document.createElement('canvas').getContext('2d')
+  if (exportCtx) {
+    exportCtx.font = `bold ${12 * nodeScaleFactor.value}px sans-serif`
+    const exportLabelPositions = calculateLabelPositions(exportCtx)
+    
+    props.nodes.forEach((mic, idx) => {
+      drawMic(ctx, mic, exportLabelPositions[idx])
+    })
+  } else {
+    // Fallback if context creation fails
+    props.nodes.forEach(mic => {
+      drawMic(ctx, mic)
+    })
+  }
 
   ctx.restore()
 
