@@ -208,8 +208,25 @@ const handleSignIn = async () => {
 const connectWebSocket = async () => {
   if (wsRef.value?.readyState === WebSocket.OPEN) return;
 
+  // Clean up any existing connection
+  if (wsRef.value) {
+    try {
+      wsRef.value.close();
+    } catch (e) {
+      // Ignore errors when closing
+    }
+    wsRef.value = null;
+  }
+
   try {
-    const ws = new WebSocket(wsUrl.value);
+    // Ensure URL has no trailing slash and uses correct protocol
+    let url = wsUrl.value.trim();
+    if (url.endsWith('/')) {
+      url = url.slice(0, -1);
+    }
+    
+    console.log(`🔌 Attempting WebSocket connection to: ${url}`);
+    const ws = new WebSocket(url);
     wsRef.value = ws;
 
     ws.onopen = async () => {

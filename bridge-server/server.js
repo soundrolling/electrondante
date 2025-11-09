@@ -174,28 +174,39 @@ class DanteBridgeServer {
 
     this.wss.on('connection', async (ws, req) => {
       const clientId = this.generateClientId();
-      console.log(`Client connected: ${clientId}`);
+      const clientIp = req.socket.remoteAddress || 'unknown';
+      console.log(`✅ Client connected: ${clientId} from ${clientIp}`);
+      console.log(`📡 Request URL: ${req.url}`);
       this.clients.set(clientId, { ws, userId: null });
 
-      // Send initial configuration
-      ws.send(JSON.stringify({
-        type: 'config',
-        channels: CONFIG.channels,
-        sampleRate: CONFIG.sampleRate,
-        clientId,
-      }));
+      // Send initial configuration immediately
+      try {
+        ws.send(JSON.stringify({
+          type: 'config',
+          channels: CONFIG.channels,
+          sampleRate: CONFIG.sampleRate,
+          clientId,
+        }));
+        console.log(`📤 Sent config to client ${clientId}`);
+      } catch (error) {
+        console.error(`❌ Error sending config to ${clientId}:`, error);
+      }
 
       ws.on('message', async (message) => {
         await this.handleClientMessage(clientId, message);
       });
 
-      ws.on('close', () => {
-        console.log(`Client disconnected: ${clientId}`);
+      ws.on('close', (code, reason) => {
+        console.log(`❌ Client disconnected: ${clientId} (code: ${code}, reason: ${reason || 'none'})`);
         this.clients.delete(clientId);
       });
 
       ws.on('error', (error) => {
-        console.error(`WebSocket error for ${clientId}:`, error);
+        console.error(`❌ WebSocket error for ${clientId}:`, error.message || error);
+      });
+      
+      ws.on('ping', () => {
+        ws.pong();
       });
     });
   }
