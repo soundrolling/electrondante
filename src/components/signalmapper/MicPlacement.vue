@@ -33,7 +33,6 @@
     </div>
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
-      <span v-if="rotationMode" class="mode-badge">Rotation mode</span>
       <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
     </div>
   </div>
@@ -356,8 +355,6 @@ const selectedMic = ref(null)
 
 // Safe two-way bindings so inputs remain mounted when nothing is selected
 const draggingMic = ref(null)
-const rotatingMic = ref(null)
-const rotationMode = ref(false) // stays enabled until user clicks off
 let dragStart = null
 let dragStartPos = null
 // Pinch zoom helpers
@@ -365,10 +362,6 @@ const activePointers = new Map()
 let lastPinchDistance = null
 const MIN_SCALE = 0.2
 const MAX_SCALE = 5
-// Auto-rotation state
-const autoRotatingMic = ref(null)
-let autoRotationInterval = null
-const AUTO_ROTATION_SPEED = 1 // degrees per frame
 
 // Modal state
 const showGearModal = ref(false)
@@ -475,15 +468,6 @@ function drawMic(ctx, mic) {
     ctx.setLineDash([5, 5])
     ctx.stroke()
     ctx.setLineDash([])
-
-    // Rotation handle
-    ctx.beginPath()
-    ctx.arc(0, -35, 8, 0, 2 * Math.PI) // bigger handle for easier hit
-    ctx.fillStyle = '#22c55e'
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2 / scale
-    ctx.fill()
-    ctx.stroke()
   }
 
   ctx.restore()
@@ -756,52 +740,15 @@ function onPointerDown(e) {
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
 
-  // Stop auto-rotation when user interacts
-  stopAutoRotation()
-
   if (clickedMic) {
-    // If rotation mode is latched on, start rotating regardless of pointer position
-    if (rotationMode.value && selectedMic.value && clickedMic.id === selectedMic.value.id) {
-      rotatingMic.value = clickedMic
-      selectedMic.value = clickedMic
-      return
-    }
-
-    // Check if clicking rotation handle (with generous hitbox)
-    const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
-    const handleY = micY - (35 * nodeScaleFactor.value)
-    const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
-    const handleRadius = 14 * nodeScaleFactor.value
-    
-    if (dist < handleRadius) {
-      // Clicked rotation handle
-      rotatingMic.value = clickedMic
-      selectedMic.value = clickedMic
-      rotationMode.value = true
-    } else {
-      // Start dragging
-      draggingMic.value = clickedMic
-      selectedMic.value = clickedMic
-      dragStart = { x: imgPt.imgX, y: imgPt.imgY }
-      dragStartPos = { x: clickedMic.x, y: clickedMic.y }
-      rotationMode.value = false
-    }
+    // Start dragging or just select
+    draggingMic.value = clickedMic
+    selectedMic.value = clickedMic
+    dragStart = { x: imgPt.imgX, y: imgPt.imgY }
+    dragStartPos = { x: clickedMic.x, y: clickedMic.y }
   } else {
-    // If no mic center was clicked, allow grabbing the rotation handle of the
-    // currently selected mic so users can click the green dot to start rotation
-    if (selectedMic.value) {
-      const { x: micX, y: micY } = imageToCanvasCoords(selectedMic.value.x, selectedMic.value.y)
-      const handleY = micY - (35 * nodeScaleFactor.value)
-      const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
-      const handleRadius = 14 * nodeScaleFactor.value
-      if (dist < handleRadius) {
-        rotatingMic.value = selectedMic.value
-        rotationMode.value = true
-        return
-      }
-    }
+    // Clicked empty space - deselect
     selectedMic.value = null
-    rotationMode.value = false
   }
   
   drawCanvas()
@@ -844,14 +791,6 @@ function onPointerMove(e) {
     draggingMic.value.y = imgPt.imgY
     drawCanvas()
   }
-
-  // Rotating mic
-  if (rotatingMic.value) {
-    const { x: micX, y: micY } = imageToCanvasCoords(rotatingMic.value.x, rotatingMic.value.y)
-    const angle = Math.atan2(y - micY, x - micX) * (180 / Math.PI)
-    rotatingMic.value.rotation = (angle + 90 + 360) % 360
-    drawCanvas()
-  }
 }
 
 async function onPointerUp(e) {
@@ -866,15 +805,10 @@ async function onPointerUp(e) {
     return
   }
 
-  // Save mic position/rotation
+  // Save mic position
   if (draggingMic.value) {
     await saveMicUpdate(draggingMic.value)
     draggingMic.value = null
-  }
-
-  if (rotatingMic.value) {
-    await saveMicUpdate(rotatingMic.value)
-    rotatingMic.value = null
   }
 
   dragStart = null
@@ -897,9 +831,6 @@ function applyZoom(zoomFactor, centerX, centerY) {
 }
 
 function onWheel(e) {
-  // Stop auto-rotation when user scrolls
-  stopAutoRotation()
-  
   // Allow normal page scrolling - zoom is controlled via buttons only
   // Do not prevent default or handle zoom here
 }
@@ -928,59 +859,9 @@ function onDoubleClick(e) {
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
   
   if (clickedMic) {
-    // Check if not clicking on rotation handle
-    const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
-    const handleY = micY - (35 * nodeScaleFactor.value)
-    const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
-    const handleRadius = 14 * nodeScaleFactor.value
-    
-    if (dist >= handleRadius) {
-      // Stop any auto-rotation
-      stopAutoRotation()
-      // Select the mic and show context menu
-      selectedMic.value = clickedMic
-      openContextMenu(e)
-    }
-  }
-}
-
-// Start auto-rotation
-function startAutoRotation(mic) {
-  stopAutoRotation() // Stop any existing rotation
-  autoRotatingMic.value = mic
-  
-  const rotate = () => {
-    if (autoRotatingMic.value) {
-      autoRotatingMic.value.rotation = ((autoRotatingMic.value.rotation || 0) + AUTO_ROTATION_SPEED) % 360
-      drawCanvas()
-    }
-  }
-  
-  // Use requestAnimationFrame for smooth rotation
-  let lastTime = performance.now()
-  const animate = (currentTime) => {
-    if (!autoRotatingMic.value) return
-    
-    const deltaTime = currentTime - lastTime
-    if (deltaTime >= 16) { // ~60fps
-      rotate()
-      lastTime = currentTime
-    }
-    autoRotationInterval = requestAnimationFrame(animate)
-  }
-  autoRotationInterval = requestAnimationFrame(animate)
-}
-
-// Stop auto-rotation
-function stopAutoRotation() {
-  if (autoRotationInterval !== null) {
-    cancelAnimationFrame(autoRotationInterval)
-    autoRotationInterval = null
-  }
-  if (autoRotatingMic.value) {
-    // Save the rotation state when stopping
-    saveMicUpdate(autoRotatingMic.value)
-    autoRotatingMic.value = null
+    // Select the mic and show context menu
+    selectedMic.value = clickedMic
+    openContextMenu(e)
   }
 }
 
@@ -1310,7 +1191,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
   window.removeEventListener('keydown', handleKeyDown)
-  stopAutoRotation()
 })
 
 function updateCanvasSize() {
