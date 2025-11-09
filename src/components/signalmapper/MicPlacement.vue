@@ -795,11 +795,11 @@ function drawMic(ctx, mic) {
   ctx.fill()
   ctx.stroke()
 
-  // Draw direction indicator (arrow)
+  // Draw direction indicator (arrow) - bigger arrow
   ctx.beginPath()
-  ctx.moveTo(0, -15)
-  ctx.lineTo(5, -5)
-  ctx.lineTo(-5, -5)
+  ctx.moveTo(0, -18) // Top point, closer to circle edge
+  ctx.lineTo(8, -2)  // Right bottom point, wider base
+  ctx.lineTo(-8, -2) // Left bottom point, wider base
   ctx.closePath()
   ctx.fillStyle = mic === selectedMic.value ? '#007bff' : '#495057'
   ctx.fill()
@@ -826,23 +826,6 @@ function drawMic(ctx, mic) {
   }
 
   ctx.restore()
-
-  // Draw gear name inside circle for source mics (first 6 characters)
-  if (mic.gear_id && (mic.gear_type === 'source' || mic.node_type === 'source')) {
-    const gear = props.gearList.find(g => g.id === mic.gear_id)
-    if (gear && gear.gear_name) {
-      const gearNameText = gear.gear_name.length > 6 
-        ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
-        : gear.gear_name.toUpperCase()
-      ctx.save()
-      ctx.font = `bold ${9 * scale}px sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = mic === selectedMic.value ? '#fff' : '#495057'
-      ctx.fillText(gearNameText, x, y)
-      ctx.restore()
-    }
-  }
 
   // Draw label positioned opposite to mic direction
   ctx.font = `bold ${12 * scale}px sans-serif`
@@ -1095,17 +1078,21 @@ function onPointerDown(e) {
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
 
   if (clickedMic) {
-    // Start dragging or just select
-    draggingMic.value = clickedMic
+    // Select the mic immediately (for highlighting)
     selectedMic.value = clickedMic
+    // Start dragging tracking
+    draggingMic.value = clickedMic
     dragStart = { x: imgPt.imgX, y: imgPt.imgY }
     dragStartPos = { x: clickedMic.x, y: clickedMic.y }
+    // Redraw to show selection highlight
+    drawCanvas()
   } else {
-    // Clicked empty space - deselect
-    selectedMic.value = null
+    // Clicked empty space - deselect only if not clicking on context menu
+    if (!showContextMenu.value) {
+      selectedMic.value = null
+      drawCanvas()
+    }
   }
-  
-  drawCanvas()
 }
 
 function onPointerMove(e) {
@@ -1159,14 +1146,26 @@ async function onPointerUp(e) {
     return
   }
 
-  // Save mic position
-  if (draggingMic.value) {
+  // Check if this was a click (no drag) or a drag
+  const wasDrag = draggingMic.value && dragStart && (
+    Math.abs(draggingMic.value.x - dragStartPos.x) > 0.001 ||
+    Math.abs(draggingMic.value.y - dragStartPos.y) > 0.001
+  )
+
+  // Save mic position if it was dragged
+  if (draggingMic.value && wasDrag) {
     await saveMicUpdate(draggingMic.value)
-    draggingMic.value = null
   }
 
+  // Clear dragging state but keep selection
+  draggingMic.value = null
   dragStart = null
   dragStartPos = null
+  
+  // Redraw to ensure selection highlight is visible
+  if (selectedMic.value) {
+    drawCanvas()
+  }
 }
 
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)) }
@@ -1215,7 +1214,12 @@ function onDoubleClick(e) {
   if (clickedMic) {
     // Select the mic and show context menu
     selectedMic.value = clickedMic
-    openContextMenu(e)
+    // Redraw to show selection highlight before opening menu
+    drawCanvas()
+    // Use nextTick to ensure canvas is updated before opening menu
+    nextTick(() => {
+      openContextMenu(e)
+    })
   }
 }
 
