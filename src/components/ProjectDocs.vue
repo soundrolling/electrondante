@@ -10,7 +10,7 @@
 
   <!-- Desktop Layout: 2 Columns -->
   <div class="desktop-layout">
-    <!-- Left Column: Header -->
+    <!-- Left Column: Header + Documents -->
     <div class="left-column">
       <!-- Header Section -->
       <header class="header-section ui-page-header">
@@ -29,6 +29,84 @@
           </button>
         </div>
       </header>
+
+      <!-- Loading State -->
+      <div v-if="isLoading" class="loading-section">
+        <div class="loading-skeleton">
+          <div class="skeleton-card" v-for="n in 6" :key="n">
+            <div class="skeleton-icon"></div>
+            <div class="skeleton-content">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line skeleton-line--short"></div>
+              <div class="skeleton-line skeleton-line--short"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documents List -->
+      <section v-else-if="filteredDocs.length" class="docs-section">
+        <div class="docs-list">
+          <div
+            v-for="(doc, idx) in filteredDocs"
+            :key="doc.id"
+            class="doc-card"
+          >
+            <!-- Document Icon & Info -->
+            <div class="doc-header">
+              <div class="doc-icon">
+                {{ getFileIcon(doc.mime_type) }}
+              </div>
+              <div class="doc-info">
+                <div class="doc-title-row">
+                  <a href="#" @click.prevent="viewDoc(doc)" class="doc-link">
+                    {{ doc.file_name }}
+                  </a>
+                  <div class="doc-actions">
+                    <button 
+                      @click="viewDoc(doc)" 
+                      class="action-btn view-btn"
+                      title="View document"
+                    >
+                      👁
+                    </button>
+                    <button 
+                      @click="downloadDoc(doc)" 
+                      class="action-btn download-btn"
+                      title="Download document"
+                    >
+                      📥
+                    </button>
+                  </div>
+                </div>
+                <div class="doc-meta">
+                  <span class="meta-item">{{ mimeLabel(doc.mime_type) }}</span>
+                  <span class="meta-item">📅 {{ formatDate(doc.inserted_at) }}</span>
+                  <span v-if="doc.uploaded_by" class="meta-item">👤 {{ doc.uploaded_by }}</span>
+                  <span v-if="doc.venue_name" class="meta-item">🏢 {{ doc.venue_name }}</span>
+                  <span v-if="doc.stage_name" class="meta-item">🎪 {{ doc.stage_name }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Description Section -->
+            <div class="description-section">
+              <div class="description-display">
+                <p class="description-text">{{ doc.description || 'No description' }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Empty State -->
+      <div v-else-if="!isLoading" class="empty-state">
+        <div class="empty-icon">📁</div>
+        <h3 class="empty-title">No Documents Found</h3>
+        <p class="empty-description">
+          No documents found for this project. Documents are uploaded at the stage level. Navigate to a specific stage to upload documents.
+        </p>
+      </div>
     </div>
 
     <!-- Right Column: Document Count + Search + Filters -->
@@ -75,84 +153,6 @@
         </div>
       </section>
     </div>
-  </div>
-
-  <!-- Loading State -->
-  <div v-if="isLoading" class="loading-section">
-    <div class="loading-skeleton">
-      <div class="skeleton-card" v-for="n in 6" :key="n">
-        <div class="skeleton-icon"></div>
-        <div class="skeleton-content">
-          <div class="skeleton-line"></div>
-          <div class="skeleton-line skeleton-line--short"></div>
-          <div class="skeleton-line skeleton-line--short"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Documents List -->
-  <section v-else-if="filteredDocs.length" class="docs-section">
-    <div class="docs-list">
-      <div
-        v-for="(doc, idx) in filteredDocs"
-        :key="doc.id"
-        class="doc-card"
-      >
-        <!-- Document Icon & Info -->
-        <div class="doc-header">
-          <div class="doc-icon">
-            {{ getFileIcon(doc.mime_type) }}
-          </div>
-          <div class="doc-info">
-            <div class="doc-title-row">
-              <a href="#" @click.prevent="viewDoc(doc)" class="doc-link">
-                {{ doc.file_name }}
-              </a>
-              <div class="doc-actions">
-                <button 
-                  @click="viewDoc(doc)" 
-                  class="action-btn view-btn"
-                  title="View document"
-                >
-                  👁
-                </button>
-                <button 
-                  @click="downloadDoc(doc)" 
-                  class="action-btn download-btn"
-                  title="Download document"
-                >
-                  📥
-                </button>
-              </div>
-            </div>
-            <div class="doc-meta">
-              <span class="meta-item">{{ mimeLabel(doc.mime_type) }}</span>
-              <span class="meta-item">📅 {{ formatDate(doc.inserted_at) }}</span>
-              <span v-if="doc.uploaded_by" class="meta-item">👤 {{ doc.uploaded_by }}</span>
-              <span v-if="doc.venue_name" class="meta-item">🏢 {{ doc.venue_name }}</span>
-              <span v-if="doc.stage_name" class="meta-item">🎪 {{ doc.stage_name }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Description Section -->
-        <div class="description-section">
-          <div class="description-display">
-            <p class="description-text">{{ doc.description || 'No description' }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Empty State -->
-  <div v-else-if="!isLoading" class="empty-state">
-    <div class="empty-icon">📁</div>
-    <h3 class="empty-title">No Documents Found</h3>
-    <p class="empty-description">
-      No documents found for this project. Documents are uploaded at the stage level. Navigate to a specific stage to upload documents.
-    </p>
   </div>
 
   <!-- Document Preview Modal -->
@@ -515,6 +515,18 @@ onMounted(async () => {
     margin-bottom: 0;
   }
   
+  .loading-section {
+    margin-bottom: 0;
+  }
+  
+  .docs-section {
+    margin-bottom: 0;
+  }
+  
+  .empty-state {
+    margin-bottom: 0;
+  }
+  
   .docs-count-section {
     margin-bottom: 0;
   }
@@ -563,7 +575,7 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: 0;
   padding: 24px;
   background: var(--bg-primary);
   border-radius: 12px;
@@ -643,7 +655,7 @@ onMounted(async () => {
 
 /* Document Count Section */
 .docs-count-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .docs-count-container {
@@ -663,7 +675,7 @@ onMounted(async () => {
 
 /* Search Section */
 .search-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .search-container {
@@ -693,7 +705,7 @@ onMounted(async () => {
 
 /* Filter Section */
 .filter-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .filter-section .filter-container {
@@ -743,7 +755,7 @@ onMounted(async () => {
 
 /* Loading Section */
 .loading-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .loading-skeleton {
@@ -795,7 +807,7 @@ onMounted(async () => {
 
 /* Docs Section */
 .docs-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .docs-list {
