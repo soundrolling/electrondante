@@ -792,6 +792,7 @@ function calculateLabelPositions(ctx) {
   const scale = nodeScaleFactor.value
   const labelPositions = []
   const labelRects = []
+  const micNodeRadius = 20 * scale // Radius of mic node circle
   
   // First pass: calculate default positions and bounding boxes
   props.nodes.forEach((mic, idx) => {
@@ -831,24 +832,22 @@ function calculateLabelPositions(ctx) {
     let finalY = rect.defaultY
     let needsLine = false
     
-    // Check for collisions with other labels (already processed)
-    for (let i = 0; i < idx; i++) {
-      const other = labelRects[i]
-      const otherPos = labelPositions[i]
-      
-      // Check if rectangles overlap
-      if (rectanglesOverlap(
-        finalX - rect.width / 2, finalY - rect.height / 2, rect.width, rect.height,
-        otherPos.x - other.width / 2, otherPos.y - other.height / 2, other.width, other.height
-      )) {
-        // Try alternative positions
-        const alternatives = findAlternativeLabelPosition(rect, labelRects, labelPositions, idx, scale)
-        if (alternatives) {
-          finalX = alternatives.x
-          finalY = alternatives.y
-          needsLine = true
-          break // Found a position, no need to check more
-        }
+    // Check if default position overlaps with any mic node or other labels
+    const hasCollision = checkLabelCollision(
+      finalX, finalY, rect.width, rect.height,
+      rect.micX, rect.micY, micNodeRadius,
+      labelRects, labelPositions, idx
+    )
+    
+    if (hasCollision) {
+      // Try alternative positions
+      const alternatives = findAlternativeLabelPosition(
+        rect, labelRects, labelPositions, idx, scale, micNodeRadius
+      )
+      if (alternatives) {
+        finalX = alternatives.x
+        finalY = alternatives.y
+        needsLine = true
       }
     }
     
@@ -864,15 +863,63 @@ function calculateLabelPositions(ctx) {
   return labelPositions
 }
 
+// Check if a label position collides with mic nodes or other labels
+function checkLabelCollision(labelX, labelY, labelW, labelH, ownMicX, ownMicY, micRadius, labelRects, labelPositions, currentIdx) {
+  // Check collision with all mic nodes (except own)
+  for (let i = 0; i < props.nodes.length; i++) {
+    if (i === currentIdx) continue // Skip own mic
+    
+    const { x: micX, y: micY } = imageToCanvasCoords(props.nodes[i].x, props.nodes[i].y)
+    
+    // Check if label rectangle overlaps with mic node circle
+    if (rectangleCircleOverlap(
+      labelX - labelW / 2, labelY - labelH / 2, labelW, labelH,
+      micX, micY, micRadius
+    )) {
+      return true
+    }
+  }
+  
+  // Check collision with other labels (already positioned)
+  for (let i = 0; i < currentIdx; i++) {
+    const other = labelRects[i]
+    const otherPos = labelPositions[i]
+    
+    if (rectanglesOverlap(
+      labelX - labelW / 2, labelY - labelH / 2, labelW, labelH,
+      otherPos.x - other.width / 2, otherPos.y - other.height / 2, other.width, other.height
+    )) {
+      return true
+    }
+  }
+  
+  return false
+}
+
+// Check if a rectangle overlaps with a circle
+function rectangleCircleOverlap(rectX, rectY, rectW, rectH, circleX, circleY, circleRadius) {
+  // Find the closest point on the rectangle to the circle center
+  const closestX = Math.max(rectX, Math.min(circleX, rectX + rectW))
+  const closestY = Math.max(rectY, Math.min(circleY, rectY + rectH))
+  
+  // Calculate distance from circle center to closest point
+  const dx = circleX - closestX
+  const dy = circleY - closestY
+  const distanceSquared = dx * dx + dy * dy
+  
+  // Check if distance is less than radius
+  return distanceSquared < (circleRadius * circleRadius)
+}
+
 // Check if two rectangles overlap
 function rectanglesOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
   return !(x1 + w1 < x2 || x2 + w2 < x1 || y1 + h1 < y2 || y2 + h2 < y1)
 }
 
 // Find alternative position for label to avoid collision
-function findAlternativeLabelPosition(rect, allRects, existingPositions, currentIdx, scale) {
+function findAlternativeLabelPosition(rect, allRects, existingPositions, currentIdx, scale, micRadius) {
   const baseDistance = 40 * scale
-  const maxDistance = 80 * scale
+  const maxDistance = 100 * scale // Increased max distance to find more options
   const angleStep = 30 // Try every 30 degrees
   
   // Try positions at different angles and distances
@@ -882,20 +929,12 @@ function findAlternativeLabelPosition(rect, allRects, existingPositions, current
       const testX = rect.micX + Math.sin(testAngle) * distance
       const testY = rect.micY - Math.cos(testAngle) * distance
       
-      // Check if this position collides with any other label
-      let hasCollision = false
-      for (let i = 0; i < currentIdx; i++) {
-        const other = allRects[i]
-        const otherPos = existingPositions[i]
-        
-        if (rectanglesOverlap(
-          testX - rect.width / 2, testY - rect.height / 2, rect.width, rect.height,
-          otherPos.x - other.width / 2, otherPos.y - other.height / 2, other.width, other.height
-        )) {
-          hasCollision = true
-          break
-        }
-      }
+      // Check if this position collides with mic nodes or other labels
+      const hasCollision = checkLabelCollision(
+        testX, testY, rect.width, rect.height,
+        rect.micX, rect.micY, micRadius,
+        allRects, existingPositions, currentIdx
+      )
       
       if (!hasCollision) {
         return { x: testX, y: testY }
