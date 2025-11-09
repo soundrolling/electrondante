@@ -158,6 +158,19 @@
           </div>
           <div class="tool-arrow">→</div>
         </button>
+        <button
+          class="tool-card"
+          @click="goToDanteMixer"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+        >
+          <div class="tool-icon">🎛️</div>
+          <div class="tool-info">
+            <div class="tool-name">Dante Monitor Mixer</div>
+            <div class="tool-description">Personal monitor mixing for live performance</div>
+          </div>
+          <div class="tool-arrow">→</div>
+        </button>
       </div>
     </section>
     </div>
@@ -293,6 +306,9 @@ export default {
     function goToDataManagement() {
       router.push({ name: 'DataManagement', params: { id: currentProject.value.id } });
     }
+    function goToDanteMixer() {
+      router.push({ name: 'DanteMonitorMixer', params: { id: currentProject.value.id } });
+    }
 
     /* ---------------- Touch feedback ---------------- */
     function handleTouchStart(event) {
@@ -354,6 +370,7 @@ export default {
       goToGear,
       goToDocuments,
       goToDataManagement,
+      goToDanteMixer,
       /* stage navigation */
       openStageModal,
       closeStageModal,
