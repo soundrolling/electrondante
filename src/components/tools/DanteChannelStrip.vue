@@ -125,6 +125,7 @@ const handlePanMove = (e) => {
 
 // Meter styling
 const meterStyle = computed(() => {
+  // Calculate height: -60dB = 0%, 0dB = 100%
   const height = Math.max(0, Math.min(100, ((props.peakLevel + 60) / 60) * 100));
   let color = '#10b981'; // green
   
@@ -134,9 +135,13 @@ const meterStyle = computed(() => {
     color = '#f59e0b'; // yellow
   }
   
+  // Ensure minimum 1% height so meter is always visible (even at -60dB)
+  const minHeight = props.peakLevel <= -60 ? 1 : height;
+  
   return {
-    height: `${height}%`,
+    height: `${minHeight}%`,
     backgroundColor: color,
+    opacity: props.peakLevel <= -60 ? 0.3 : 1, // Dim when no signal
   };
 });
 

@@ -70,10 +70,10 @@ class DanteBridgeServer {
       console.log('Generating test tone for meter testing (no real audio available)');
       console.log('For audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS, etc.)');
       
-      // Generate test tone every 100ms for meter testing
-      this.testToneInterval = setInterval(() => {
-        this.generateTestTone();
-      }, 100);
+              // Generate test tone every 10ms for smooth audio (matches ~10ms buffer size)
+              this.testToneInterval = setInterval(() => {
+                this.generateTestTone();
+              }, 10);
       return;
     }
 
@@ -155,15 +155,15 @@ class DanteBridgeServer {
       let phase = this.testTonePhase;
       
       for (let i = 0; i < frameCount; i++) {
-        channels[ch][i] = Math.sin(phase + channelPhase) * 0.1; // Low volume test tone (-20dB)
+        channels[ch][i] = Math.sin(phase + channelPhase) * 0.3; // Higher volume for visibility (-10dB)
         phase += (frequency * 2 * Math.PI) / CONFIG.sampleRate;
         if (phase > Math.PI * 2) phase -= Math.PI * 2;
       }
     }
     
-    // Update persistent phase for next call
+    // Update persistent phase for next call (continuous wave)
     this.testTonePhase += (frequency * 2 * Math.PI * frameCount) / CONFIG.sampleRate;
-    if (this.testTonePhase > Math.PI * 2) {
+    while (this.testTonePhase > Math.PI * 2) {
       this.testTonePhase -= Math.PI * 2;
     }
     

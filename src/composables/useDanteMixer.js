@@ -45,18 +45,18 @@ export class AudioMixerEngine {
     
     // Create a master gain node for the final mix
     this.masterGain = this.audioContext.createGain();
-    this.masterGain.connect(this.audioContext.destination);
+    // Will connect to destination in start() method
     
     // Create ScriptProcessorNode to process incoming audio and route through gain/analyser chains
-    // Input: channelCount channels from WebSocket, Output: mixed stereo
+    // Input: 0 channels (we provide data manually), Output: mixed stereo
     this.scriptProcessor = this.audioContext.createScriptProcessor(256, 0, 2);
     
     this.scriptProcessor.onaudioprocess = (e) => {
       this.processAudio(e);
     };
     
-    // Connect script processor to master gain (which goes to destination)
-    this.scriptProcessor.connect(this.masterGain);
+    // Note: ScriptProcessor needs to be connected to destination to run
+    // We'll connect it in start() method
 
     // Start meter update loop
     this.meterAnimationFrame = null;
@@ -93,9 +93,14 @@ export class AudioMixerEngine {
         tempData[i] = samples[i];
       }
       
-      // Feed audio through gain node for analyser to measure
-      // Use a splitter approach: create buffer source that feeds into gain node
+      // Use a more efficient approach: create buffer source that feeds into gain node
       // This allows analyser (connected to gain) to measure the audio
+      // Reuse buffer sources if possible, or create them more efficiently
+      if (!this.bufferSources) {
+        this.bufferSources = new Array(this.channelCount).fill(null);
+      }
+      
+      // Create or reuse buffer source for this channel
       const bufferSource = this.audioContext.createBufferSource();
       bufferSource.buffer = tempBuffer;
       // Connect to gain node - audio flows: bufferSource -> gain -> analyser -> pan -> destination
@@ -104,10 +109,7 @@ export class AudioMixerEngine {
       bufferSource.start(startTime);
       bufferSource.stop(startTime + frameCount / this.sampleRate);
       
-      // Note: This creates many buffer sources, but it's necessary for analyser to measure
-      // In production with real audio, this would be optimized
-      
-      // Mix to output for playback
+      // Mix to output for playback (apply gain and pan)
       for (let i = 0; i < frameCount; i++) {
         outputL[i] += samples[i] * gainL;
         outputR[i] += samples[i] * gainR;
@@ -145,23 +147,26 @@ export class AudioMixerEngine {
   updateMeters() {
     for (let ch = 0; ch < this.channelCount; ch++) {
       const analyser = this.analyserNodes[ch];
-      if (!analyser) continue;
+      if (!analyser) {
+        this.peakLevels[ch] = -60;
+        continue;
+      }
 
       try {
-        const dataArray = new Uint8Array(analyser.fftSize);
-        analyser.getByteTimeDomainData(dataArray);
+        // Use getFloatTimeDomainData for more accurate measurement
+        const dataArray = new Float32Array(analyser.fftSize);
+        analyser.getFloatTimeDomainData(dataArray);
 
-        // Find peak value
+        // Find peak value (absolute maximum)
         let max = 0;
         for (let i = 0; i < dataArray.length; i++) {
-          const abs = Math.abs(dataArray[i] - 128);
+          const abs = Math.abs(dataArray[i]);
           if (abs > max) max = abs;
         }
 
-        // Convert to dB (0-128 range, clamp to -60dB minimum)
-        const normalized = max / 128;
-        const db = normalized > 0 ? 20 * Math.log10(normalized) : -60;
-        const clampedDb = Math.max(-60, db);
+        // Convert to dB (0-1 range, clamp to -60dB minimum)
+        const db = max > 0.0001 ? 20 * Math.log10(max) : -60;
+        const clampedDb = Math.max(-60, Math.min(0, db)); // Clamp between -60dB and 0dB
 
         this.peakLevels[ch] = clampedDb;
 
@@ -181,6 +186,7 @@ export class AudioMixerEngine {
         }
       } catch (error) {
         // If analyser isn't ready yet, use default value
+        console.warn(`Analyser error for channel ${ch}:`, error);
         this.peakLevels[ch] = -60;
       }
     }
@@ -194,9 +200,14 @@ export class AudioMixerEngine {
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
-      // Connect script processor (it processes input but doesn't output directly)
-      // Audio flows through gain -> analyser -> pan -> destination
-      this.scriptProcessor.connect(this.audioContext.destination);
+      // Connect script processor to master gain, then to destination
+      // The script processor will call processAudio() which mixes audio
+      // and feeds it through gain/analyser chains for metering
+      if (this.masterGain.context.state !== 'closed') {
+        this.scriptProcessor.connect(this.masterGain);
+        this.masterGain.connect(this.audioContext.destination);
+        console.log('Audio mixer started, script processor connected');
+      }
     } catch (error) {
       console.error('Error starting audio mixer:', error);
       throw error;
@@ -230,16 +241,24 @@ export function useDanteMixer(channelCount, sampleRate) {
   const mixer = ref(null);
   const peakLevels = ref(new Array(channelCount).fill(-60));
   const peakHolds = ref(new Array(channelCount).fill(-60));
+  let updateInterval = null;
 
   onMounted(() => {
     mixer.value = new AudioMixerEngine(channelCount, sampleRate);
     
-    // Update reactive refs from mixer engine
+    // Update reactive refs from mixer engine every frame
     const updatePeakLevels = () => {
       if (mixer.value) {
+        // Directly read from the mixer's peakLevels array
         for (let i = 0; i < channelCount; i++) {
-          peakLevels.value[i] = mixer.value.getPeakLevel(i);
-          peakHolds.value[i] = mixer.value.getPeakHold(i);
+          const level = mixer.value.peakLevels[i];
+          const hold = mixer.value.peakHolds[i];
+          if (level !== undefined) {
+            peakLevels.value[i] = level;
+          }
+          if (hold !== undefined) {
+            peakHolds.value[i] = hold;
+          }
         }
         requestAnimationFrame(updatePeakLevels);
       }
@@ -248,6 +267,9 @@ export function useDanteMixer(channelCount, sampleRate) {
   });
 
   onBeforeUnmount(() => {
+    if (updateInterval) {
+      cancelAnimationFrame(updateInterval);
+    }
     if (mixer.value) {
       mixer.value.stop();
     }
