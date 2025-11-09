@@ -864,6 +864,14 @@ setup() {
   function getTodaySlot(stageId) {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
+    // First, try to find a slot that is currently active (handles overnight slots)
+    const activeSlot = stageHours.value.find(slot =>
+      slot.stage_id === stageId &&
+      new Date(slot.start_datetime) <= now &&
+      now < new Date(slot.end_datetime)
+    );
+    if (activeSlot) return activeSlot;
+    // If no active slot, find a slot that starts today
     return stageHours.value.find(slot =>
       slot.stage_id === stageId &&
       slot.start_datetime.slice(0, 10) === today
