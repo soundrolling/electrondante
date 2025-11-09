@@ -24,7 +24,6 @@ export async function exportProjectData(projectId, selections, options = {}) {
     totalSteps = Object.values(selections).filter(Boolean).length;
     if (selections.documents) totalSteps += 1; // Files download
     if (selections.pictures) totalSteps += 1; // Files download
-    if (selections.rushes) totalSteps += 1; // Files download
 
     // Create metadata folder
     const metadataFolder = zip.folder('metadata');
@@ -102,18 +101,15 @@ export async function exportProjectData(projectId, selections, options = {}) {
       if (onProgress) {
         onProgress({ current: ++currentStep, total: totalSteps, message: 'Exporting notes...' });
       }
-      await exportNotes(projectId, metadataFolder);
+      await exportNotes(projectId, metadataFolder, selections);
     }
 
-    // Export rushes
-    if (selections.rushes) {
+    // Export artist timetables
+    if (selections.artist_timetables) {
       if (onProgress) {
-        onProgress({ current: ++currentStep, total: totalSteps, message: 'Exporting rushes metadata...' });
+        onProgress({ current: ++currentStep, total: totalSteps, message: 'Exporting artist timetables...' });
       }
-      const rushesData = await exportRushes(projectId, metadataFolder, zip, selections);
-      if (onProgress && rushesData.filesCount > 0) {
-        onProgress({ current: ++currentStep, total: totalSteps, message: `Downloading ${rushesData.filesCount} rushes files...` });
-      }
+      await exportArtistTimetables(projectId, metadataFolder, selections);
     }
 
     // Generate ZIP file
@@ -354,79 +350,58 @@ async function exportCalendar(projectId, metadataFolder) {
 /**
  * Export notes
  */
-async function exportNotes(projectId, metadataFolder) {
+async function exportNotes(projectId, metadataFolder, selections) {
   try {
-    // Notes might be in different tables depending on implementation
-    // Adjust based on your actual notes table structure
-    const { data: notes, error } = await supabase
+    let query = supabase
       .from('notes')
       .select('*')
       .eq('project_id', projectId);
 
-    if (!error && notes) {
-      metadataFolder.file('notes.json', JSON.stringify(notes, null, 2));
+    // Apply filters if specified
+    if (selections.stageFilter) {
+      query = query.eq('location_id', selections.stageFilter);
     }
+
+    const { data: notes, error } = await query
+      .order('recording_date', { ascending: true })
+      .order('timestamp', { ascending: true });
+
+    if (error) throw error;
+
+    metadataFolder.file('notes.json', JSON.stringify(notes || [], null, 2));
   } catch (error) {
     console.error('Error exporting notes:', error);
   }
 }
 
 /**
- * Export rushes with files
+ * Export artist timetables (schedules)
  */
-async function exportRushes(projectId, metadataFolder, zip, selections) {
+async function exportArtistTimetables(projectId, metadataFolder, selections) {
   try {
     let query = supabase
-      .from('rushes_uploads')
+      .from('schedules')
       .select('*')
       .eq('project_id', projectId);
 
     // Apply filters if specified
     if (selections.venueFilter) {
-      query = query.eq('venue_id', selections.venueFilter);
+      // Need to join with locations to filter by venue_id
+      // For now, we'll filter by stage/location directly
     }
     if (selections.stageFilter) {
       query = query.eq('location_id', selections.stageFilter);
     }
 
-    const { data: rushes, error } = await query.order('created_at', { ascending: false });
+    const { data: schedules, error } = await query
+      .order('recording_date', { ascending: true })
+      .order('start_time', { ascending: true });
 
     if (error) throw error;
 
-    metadataFolder.file('rushes-metadata.json', JSON.stringify(rushes || [], null, 2));
-
-    // Download files
-    const rushesFolder = zip.folder('rushes');
-    let filesCount = 0;
-
-    if (rushes && rushes.length > 0) {
-      for (const rush of rushes) {
-        // Only try to download if file_path doesn't start with "manual/" (manually tracked files)
-        if (rush.file_path && !rush.file_path.startsWith('manual/')) {
-          try {
-            // Try to determine bucket from file path or use default
-            const bucket = 'stage-docs'; // Default bucket, adjust as needed
-            const { data: fileBlob, error: downloadError } = await supabase.storage
-              .from(bucket)
-              .download(rush.file_path);
-
-            if (!downloadError && fileBlob) {
-              const stageFolder = rushesFolder.folder(`stage-${rush.location_id || 'unknown'}`);
-              stageFolder.file(rush.file_name || rush.file_path.split('/').pop(), fileBlob);
-              filesCount++;
-            }
-          } catch (err) {
-            console.warn('Error downloading rushes file:', rush.file_path, err);
-          }
-        }
-        // For manually tracked files (file_path starts with "manual/"), we only export metadata
-      }
-    }
-
-    return { filesCount };
+    metadataFolder.file('artist-timetables.json', JSON.stringify(schedules || [], null, 2));
   } catch (error) {
-    console.error('Error exporting rushes:', error);
-    return { filesCount: 0 };
+    console.error('Error exporting artist timetables:', error);
   }
 }
 

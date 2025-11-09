@@ -145,8 +145,12 @@
               <span>Calendar Events</span>
             </label>
             <label class="checkbox-item">
-              <input type="checkbox" v-model="exportSelections.rushes" />
-              <span>Rushes Files</span>
+              <input type="checkbox" v-model="exportSelections.notes" />
+              <span>Notes</span>
+            </label>
+            <label class="checkbox-item">
+              <input type="checkbox" v-model="exportSelections.artist_timetables" />
+              <span>Artist Timetables</span>
             </label>
           </div>
         </div>
@@ -429,7 +433,8 @@ export default {
       contacts: false,
       travel: false,
       calendar: false,
-      rushes: false,
+      notes: false,
+      artist_timetables: false,
     });
 
     const exportProgress = ref({
