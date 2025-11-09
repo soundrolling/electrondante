@@ -52,9 +52,11 @@ The server will run on `http://localhost:3000` with WebSocket at `ws://localhost
 
 4. **Build Configuration:**
    - Railway uses RAILPACK builder (configured in `railway.json`)
+   - Build command is set to `npm install --legacy-peer-deps` (avoids npm ci lock file issues)
    - Auto-detects Node.js and installs dependencies
-   - Start command comes from `package.json` scripts
-   - If build fails, verify Root Directory is set to `bridge-server`
+   - Start command comes from `package.json` scripts ("start": "node server.js")
+   - **IMPORTANT**: Make sure Root Directory is set to `bridge-server` in Railway dashboard
+   - If build fails with npm ci errors, verify Root Directory setting
 
 5. **Deploy:**
    - Railway will automatically build and deploy
