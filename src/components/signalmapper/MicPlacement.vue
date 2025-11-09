@@ -52,8 +52,18 @@
       @dblclick="onDoubleClick"
     />
     <!-- Color Legend -->
-    <div v-if="showLegend" class="color-legend">
-      <div class="legend-header">
+    <div 
+      v-if="showLegend" 
+      class="color-legend"
+      :style="legendPosition.x !== null && legendPosition.y !== null ? {
+        position: 'absolute',
+        left: legendPosition.x + 'px',
+        top: legendPosition.y + 'px',
+        cursor: draggingLegend ? 'grabbing' : 'grab'
+      } : {}"
+      @pointerdown="onLegendPointerDown"
+    >
+      <div class="legend-header" :class="{ 'dragging': draggingLegend }">
         <h4>Color Legend</h4>
         <button @click="showLegend = false" class="legend-close-btn">×</button>
       </div>
@@ -542,6 +552,9 @@ const contextMenuLabelBgColor = ref('rgba(255,255,255,0.92)')
 const showLegend = ref(false)
 const colorLegendMap = ref({}) // Map of color -> label
 const defaultColor = 'rgba(255,255,255,0.92)'
+const legendPosition = ref({ x: null, y: null }) // Legend position (null = auto-calculate)
+const draggingLegend = ref(false)
+const legendDragStart = ref({ x: 0, y: 0 })
 
 // Filename modal state
 const showFilenameModal = ref(false)
@@ -1305,6 +1318,30 @@ function onPointerMove(e) {
   const { x, y } = getCanvasCoords(e)
   if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x, y })
 
+  // Dragging legend
+  if (draggingLegend.value && legendDragStart.value) {
+    // Get coordinates relative to canvas-wrapper
+    const wrapper = canvasWrapper.value
+    if (wrapper) {
+      const rect = wrapper.getBoundingClientRect()
+      const wrapperX = e.clientX - rect.left
+      const wrapperY = e.clientY - rect.top
+      
+      const dx = wrapperX - legendDragStart.value.x
+      const dy = wrapperY - legendDragStart.value.y
+      const newX = legendDragStart.value.startX + dx
+      const newY = legendDragStart.value.startY + dy
+      
+      // Clamp to canvas bounds (will be adjusted when drawing based on legend size)
+      legendPosition.value = {
+        x: Math.max(0, newX),
+        y: Math.max(0, newY)
+      }
+      drawCanvas()
+    }
+    return
+  }
+
   // Pinch to zoom
   if (activePointers.size >= 2 && bgImageObj.value) {
     const pts = Array.from(activePointers.values())
@@ -1344,6 +1381,13 @@ async function onPointerUp(e) {
   activePointers.delete(e.pointerId)
   if (activePointers.size < 2) lastPinchDistance = null
 
+  // Stop dragging legend
+  if (draggingLegend.value) {
+    draggingLegend.value = false
+    legendDragStart.value = { x: 0, y: 0, startX: 0, startY: 0 }
+    return
+  }
+
   if (panImageMode.value) {
     dragStart = null
     dragStartPos = null
@@ -1370,6 +1414,76 @@ async function onPointerUp(e) {
   // Redraw to ensure selection highlight is visible
   if (selectedMic.value) {
     drawCanvas()
+  }
+}
+
+// Legend drag handlers
+function onLegendPointerDown(e) {
+  if (e.button !== 0) return
+  e.preventDefault()
+  e.stopPropagation()
+  
+  // Only drag from header area (not the close button)
+  if (!e.target.closest('.legend-header') || e.target.closest('.legend-close-btn')) return
+  
+  draggingLegend.value = true
+  
+  // Get coordinates relative to canvas-wrapper
+  const wrapper = canvasWrapper.value
+  if (!wrapper) return
+  
+  const rect = wrapper.getBoundingClientRect()
+  const x = e.clientX - rect.left
+  const y = e.clientY - rect.top
+  
+  // Initialize position if not set
+  if (legendPosition.value.x === null || legendPosition.value.y === null) {
+    // Calculate current legend position (default bottom-right)
+    const legendItems = []
+    Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
+      const btn = colorButtons.value.find(b => b.id === buttonId)
+      if (btn) legendItems.push([btn.color, label || btn.name])
+    })
+    
+    if (legendItems.length > 0) {
+      const ctx = canvas.value?.getContext('2d')
+      if (ctx) {
+        ctx.font = '12px sans-serif'
+        let maxTextWidth = 0
+        legendItems.forEach(([color, label]) => {
+          const text = label || color
+          const metrics = ctx.measureText(text)
+          maxTextWidth = Math.max(maxTextWidth, metrics.width)
+        })
+        
+        const LEGEND_PADDING = 12
+        const SWATCH_SIZE = 16
+        const SWATCH_MARGIN = 8
+        const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
+        const LEGEND_ITEM_HEIGHT = 24
+        const LEGEND_ITEM_GAP = 8
+        const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
+        
+        // Default to bottom-right
+        legendPosition.value = {
+          x: canvasWidth.value - legendWidth - 20,
+          y: canvasHeight.value - legendHeight - 20
+        }
+      }
+    }
+  }
+  
+  // Get current legend position
+  const legendEl = e.currentTarget
+  const legendRect = legendEl.getBoundingClientRect()
+  const currentX = legendRect.left - rect.left
+  const currentY = legendRect.top - rect.top
+  
+  legendDragStart.value = {
+    x,
+    y,
+    startX: legendPosition.value.x ?? currentX,
+    startY: legendPosition.value.y ?? currentY
   }
 }
 
@@ -1920,8 +2034,20 @@ function drawLegend(ctx, canvasW = null, canvasH = null) {
   const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
   const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20 // +20 for header
   
-  // Calculate best position that avoids mic nodes
-  const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h)
+  // Use stored position or calculate best position that avoids mic nodes
+  let legendX, legendY
+  if (legendPosition.value.x !== null && legendPosition.value.y !== null) {
+    // Use stored position, but clamp to canvas bounds
+    legendX = Math.max(0, Math.min(legendPosition.value.x, w - legendWidth))
+    legendY = Math.max(0, Math.min(legendPosition.value.y, h - legendHeight))
+  } else {
+    // Auto-calculate position
+    const pos = calculateLegendPosition(legendWidth, legendHeight, w, h)
+    legendX = pos.x
+    legendY = pos.y
+    // Store the calculated position
+    legendPosition.value = { x: legendX, y: legendY }
+  }
   
   // Draw legend background
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
@@ -2447,7 +2573,7 @@ defineExpose({ getCanvasDataURL })
   width: 100%;
   box-sizing: border-box;
   padding: 8px 12px; /* thin side padding so canvas never touches edges */
-  position: relative;
+  position: relative; /* Required for absolute positioning of legend */
 }
 
 .modal-overlay {
@@ -3057,6 +3183,14 @@ defineExpose({ getCanvasDataURL })
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10;
   backdrop-filter: blur(4px);
+  user-select: none;
+  touch-action: none;
+}
+
+.color-legend:not([style*="left"]) {
+  /* Only apply default positioning if not manually positioned */
+  bottom: 20px;
+  right: 20px;
 }
 
 .dark .color-legend {
@@ -3072,6 +3206,16 @@ defineExpose({ getCanvasDataURL })
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: grab;
+}
+
+.legend-header.dragging {
+  cursor: grabbing;
+  opacity: 0.8;
+}
+
+.legend-header:active {
+  cursor: grabbing;
 }
 
 .dark .legend-header {
