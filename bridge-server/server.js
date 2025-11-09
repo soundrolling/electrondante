@@ -67,13 +67,8 @@ class DanteBridgeServer {
     if (!portAudio) {
       console.log('Audio input disabled - naudiodon not available (cloud deployment mode)');
       console.log('Server will accept WebSocket connections but no audio will be streamed');
-      console.log('Generating test tone for meter testing (no real audio available)');
       console.log('For audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS, etc.)');
-      
-              // Generate test tone every 10ms for smooth audio (matches ~10ms buffer size)
-              this.testToneInterval = setInterval(() => {
-                this.generateTestTone();
-              }, 10);
+      console.log('No test tone will be generated - waiting for real Dante audio input');
       return;
     }
 
@@ -135,42 +130,6 @@ class DanteBridgeServer {
     this.broadcastAudio(channels);
   }
   
-  // Generate test tone for channels (when no audio hardware available)
-  generateTestTone() {
-    if (portAudio) return; // Don't generate test tone if real audio is available
-    
-    const frameCount = 480; // ~10ms at 48kHz
-    const channels = [];
-    const frequency = 440; // A4 note
-    
-    // Use a persistent phase counter for continuous tone
-    if (!this.testTonePhase) {
-      this.testTonePhase = 0;
-    }
-    
-    for (let ch = 0; ch < CONFIG.channels; ch++) {
-      channels[ch] = new Float32Array(frameCount);
-      // Generate sine wave with different phase per channel for visibility
-      const channelPhase = (ch * Math.PI * 2) / CONFIG.channels;
-      let phase = this.testTonePhase;
-      
-      for (let i = 0; i < frameCount; i++) {
-        channels[ch][i] = Math.sin(phase + channelPhase) * 0.3; // Higher volume for visibility (-10dB)
-        phase += (frequency * 2 * Math.PI) / CONFIG.sampleRate;
-        if (phase > Math.PI * 2) phase -= Math.PI * 2;
-      }
-    }
-    
-    // Update persistent phase for next call (continuous wave)
-    this.testTonePhase += (frequency * 2 * Math.PI * frameCount) / CONFIG.sampleRate;
-    while (this.testTonePhase > Math.PI * 2) {
-      this.testTonePhase -= Math.PI * 2;
-    }
-    
-    // Broadcast test tone periodically
-    this.broadcastAudio(channels);
-  }
-
   broadcastAudio(channels) {
     // Only broadcast if we have audio data (naudiodon available)
     if (!channels || channels.length === 0) return;
@@ -537,9 +496,6 @@ process.on('unhandledRejection', (reason, promise) => {
 // Graceful shutdown
 const shutdown = () => {
   console.log('Shutting down gracefully...');
-  if (server.testToneInterval) {
-    clearInterval(server.testToneInterval);
-  }
   if (server.audioInput && portAudio) {
     try {
       server.audioInput.quit();
