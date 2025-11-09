@@ -24,19 +24,33 @@ const CONFIG = {
   // Railway/cloud platforms assign PORT automatically - use same port for HTTP and WebSocket
 };
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+// Initialize Supabase client (with error handling)
+let supabase = null;
+try {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
+    console.log('✅ Supabase client initialized');
+  } else {
+    console.warn('⚠️ Supabase credentials not found - authentication will be disabled');
+    console.warn('Set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Supabase client:', error.message);
+  console.warn('Server will continue without Supabase authentication');
+}
 
 class DanteBridgeServer {
   constructor() {
     this.clients = new Map(); // clientId -> { ws, userId }
     this.audioBuffer = null;
     this.httpServer = null;
+    this.wss = null;
+    // Initialize HTTP server first, then WebSocket (which attaches to HTTP server)
     this.initHTTP();
-    this.initWebSocket();
+    // initWebSocket will be called after HTTP server is ready
     this.initAudioInput();
   }
 
@@ -134,8 +148,15 @@ class DanteBridgeServer {
   }
 
   initWebSocket() {
+    if (!this.httpServer) {
+      console.error('HTTP server not initialized yet, cannot attach WebSocket');
+      return;
+    }
     // Attach WebSocket server to HTTP server (Railway-friendly)
-    this.wss = new WebSocket.Server({ server: this.httpServer });
+    this.wss = new WebSocket.Server({ 
+      server: this.httpServer,
+      perMessageDeflate: false, // Disable compression for lower latency
+    });
     console.log(`WebSocket server attached to HTTP server on port ${CONFIG.port}`);
 
     this.wss.on('connection', async (ws, req) => {
@@ -176,14 +197,22 @@ class DanteBridgeServer {
       switch (data.type) {
         case 'authenticate':
           // Verify JWT token with Supabase
-          const { data: user, error } = await supabase.auth.getUser(data.token);
-          if (error) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+          if (!supabase) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
             return;
           }
-
-          client.userId = user.user.id;
-          client.ws.send(JSON.stringify({ type: 'authenticated', userId: user.user.id }));
+          try {
+            const { data: user, error } = await supabase.auth.getUser(data.token);
+            if (error) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+              return;
+            }
+            client.userId = user.user.id;
+            client.ws.send(JSON.stringify({ type: 'authenticated', userId: user.user.id }));
+          } catch (error) {
+            console.error('Authentication error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication error' }));
+          }
           break;
 
         case 'loadPreset':
@@ -193,19 +222,27 @@ class DanteBridgeServer {
           }
 
           // Load mix preset from Supabase
-          const { data: preset, error: presetError } = await supabase
-            .from('mix_presets')
-            .select('*')
-            .eq('user_id', client.userId)
-            .eq('id', data.presetId)
-            .single();
-
-          if (presetError) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Preset not found' }));
+          if (!supabase) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
             return;
           }
+          try {
+            const { data: preset, error: presetError } = await supabase
+              .from('mix_presets')
+              .select('*')
+              .eq('user_id', client.userId)
+              .eq('id', data.presetId)
+              .single();
 
-          client.ws.send(JSON.stringify({ type: 'preset', data: preset }));
+            if (presetError) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Preset not found' }));
+              return;
+            }
+            client.ws.send(JSON.stringify({ type: 'preset', data: preset }));
+          } catch (error) {
+            console.error('Load preset error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Failed to load preset' }));
+          }
           break;
 
         case 'savePreset':
@@ -215,21 +252,29 @@ class DanteBridgeServer {
           }
 
           // Save mix preset to Supabase
-          const { error: saveError } = await supabase.from('mix_presets').upsert({
-            user_id: client.userId,
-            name: data.name,
-            faders: data.faders, // Array of gain values per channel
-            pans: data.pans,
-            mutes: data.mutes,
-            updated_at: new Date().toISOString(),
-          });
-
-          if (saveError) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Failed to save preset' }));
+          if (!supabase) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
             return;
           }
+          try {
+            const { error: saveError } = await supabase.from('mix_presets').upsert({
+              user_id: client.userId,
+              name: data.name,
+              faders: data.faders, // Array of gain values per channel
+              pans: data.pans,
+              mutes: data.mutes,
+              updated_at: new Date().toISOString(),
+            });
 
-          client.ws.send(JSON.stringify({ type: 'presetSaved' }));
+            if (saveError) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Failed to save preset' }));
+              return;
+            }
+            client.ws.send(JSON.stringify({ type: 'presetSaved' }));
+          } catch (error) {
+            console.error('Save preset error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Failed to save preset' }));
+          }
           break;
 
         default:
@@ -249,6 +294,7 @@ class DanteBridgeServer {
       // Allow requests from Vercel and localhost
       if (origin && (
         origin.includes('vercel.app') || 
+        origin.includes('soundrolling.com') ||
         origin.includes('localhost') || 
         origin.includes('127.0.0.1')
       )) {
@@ -274,6 +320,17 @@ class DanteBridgeServer {
         connectedClients: this.clients.size,
         platform: process.env.RAILWAY_ENVIRONMENT || 'local',
         audioAvailable: !!portAudio,
+        websocketEnabled: true,
+        port: CONFIG.port,
+      });
+    });
+
+    // WebSocket upgrade endpoint (for debugging)
+    app.get('/ws', (req, res) => {
+      res.json({
+        message: 'WebSocket server is running',
+        upgrade: 'Use wss:// protocol to connect',
+        path: '/',
       });
     });
 
@@ -282,6 +339,8 @@ class DanteBridgeServer {
       console.log(`HTTP server listening on port ${CONFIG.port}`);
       console.log(`Environment: ${process.env.RAILWAY_ENVIRONMENT || 'local'}`);
       console.log(`WebSocket will be available at: ws://localhost:${CONFIG.port}`);
+      // Initialize WebSocket after HTTP server is ready
+      this.initWebSocket();
     });
   }
 
@@ -290,8 +349,16 @@ class DanteBridgeServer {
   }
 }
 
-// Start the server
-const server = new DanteBridgeServer();
+// Start the server with error handling
+let server;
+try {
+  server = new DanteBridgeServer();
+  console.log('✅ Dante Bridge Server initialized');
+} catch (error) {
+  console.error('❌ Failed to start server:', error);
+  console.error(error.stack);
+  process.exit(1);
+}
 
 // Graceful shutdown
 const shutdown = () => {

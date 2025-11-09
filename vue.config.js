@@ -21,6 +21,9 @@ module.exports = defineConfig({
       if (process.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY) {
         args[0]['process.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY'] = JSON.stringify(process.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY)
       }
+      if (process.env.VUE_APP_BRIDGE_WS_URL) {
+        args[0]['process.env.VUE_APP_BRIDGE_WS_URL'] = JSON.stringify(process.env.VUE_APP_BRIDGE_WS_URL)
+      }
       
       return args
     })

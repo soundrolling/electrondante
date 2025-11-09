@@ -13,6 +13,10 @@
           </span>
           <span class="latency-info">Latency: {{ latency.toFixed(1) }}ms</span>
         </div>
+        <div v-if="connectionError" class="connection-error">
+          <p>⚠️ Connection Error: {{ connectionError }}</p>
+          <p class="error-hint">WebSocket URL: {{ wsUrl }}</p>
+        </div>
       </div>
 
       <!-- Auth Component (if not authenticated) -->
@@ -127,6 +131,7 @@ const authError = ref('');
 const connected = ref(false);
 const wsRef = ref(null);
 const latency = ref(0);
+const connectionError = ref('');
 
 // Mixer state
 const channels = ref([]);
@@ -140,7 +145,12 @@ const { mixer, peakLevels, peakHolds } = useDanteMixer(16, 48000);
 
 // WebSocket URL from environment
 const wsUrl = computed(() => {
-  return process.env.VUE_APP_BRIDGE_WS_URL || 'ws://localhost:3001';
+  let url = process.env.VUE_APP_BRIDGE_WS_URL || 'ws://localhost:3001';
+  // Remove trailing slash if present
+  if (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+  return url;
 });
 
 // Check authentication on mount
@@ -205,6 +215,7 @@ const connectWebSocket = async () => {
     ws.onopen = async () => {
       console.log('Connected to bridge server');
       connected.value = true;
+      connectionError.value = ''; // Clear any previous errors
 
       // Authenticate with server
       const { data: { session } } = await supabase.auth.getSession();
@@ -220,9 +231,12 @@ const connectWebSocket = async () => {
       handleServerMessage(JSON.parse(event.data));
     };
 
-    ws.onclose = () => {
-      console.log('Disconnected from bridge server');
+    ws.onclose = (event) => {
+      console.log('Disconnected from bridge server', event.code, event.reason);
       connected.value = false;
+      if (event.code !== 1000) { // Not a normal closure
+        connectionError.value = `Connection closed (code: ${event.code}). Retrying...`;
+      }
       // Reconnect after 3 seconds
       setTimeout(connectWebSocket, 3000);
     };
@@ -230,10 +244,12 @@ const connectWebSocket = async () => {
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       connected.value = false;
+      connectionError.value = `Failed to connect to ${wsUrl.value}. Check that the Railway server is running and the URL is correct.`;
     };
   } catch (error) {
     console.error('Failed to connect WebSocket:', error);
     connected.value = false;
+    connectionError.value = error.message || `Cannot connect to ${wsUrl.value}`;
   }
 };
 
@@ -517,6 +533,25 @@ watch(() => mixer.value, (newMixer) => {
   margin-top: 1rem;
   color: #ef4444;
   font-size: 0.875rem;
+}
+
+.connection-error {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fee2e2;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  color: #991b1b;
+}
+
+.connection-error p {
+  margin: 0.5rem 0;
+}
+
+.error-hint {
+  font-size: 0.875rem;
+  color: #7f1d1d;
+  font-family: monospace;
 }
 
 .mixer-interface {
