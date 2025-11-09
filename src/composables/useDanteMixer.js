@@ -93,13 +93,19 @@ export class AudioMixerEngine {
         tempData[i] = samples[i];
       }
       
-      // Create buffer source to feed through gain node (which has analyser connected)
+      // Feed audio through gain node for analyser to measure
+      // Use a splitter approach: create buffer source that feeds into gain node
+      // This allows analyser (connected to gain) to measure the audio
       const bufferSource = this.audioContext.createBufferSource();
       bufferSource.buffer = tempBuffer;
-      bufferSource.connect(this.gainNodes[ch]); // Goes: gain -> analyser -> pan -> destination
+      // Connect to gain node - audio flows: bufferSource -> gain -> analyser -> pan -> destination
+      bufferSource.connect(this.gainNodes[ch]);
       const startTime = this.audioContext.currentTime;
       bufferSource.start(startTime);
       bufferSource.stop(startTime + frameCount / this.sampleRate);
+      
+      // Note: This creates many buffer sources, but it's necessary for analyser to measure
+      // In production with real audio, this would be optimized
       
       // Mix to output for playback
       for (let i = 0; i < frameCount; i++) {

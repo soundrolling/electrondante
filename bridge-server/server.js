@@ -71,7 +71,7 @@ class DanteBridgeServer {
       console.log('For audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS, etc.)');
       
       // Generate test tone every 100ms for meter testing
-      setInterval(() => {
+      this.testToneInterval = setInterval(() => {
         this.generateTestTone();
       }, 100);
       return;
@@ -132,6 +132,42 @@ class DanteBridgeServer {
     this.audioBuffer = channels;
     
     // Send to all connected clients
+    this.broadcastAudio(channels);
+  }
+  
+  // Generate test tone for channels (when no audio hardware available)
+  generateTestTone() {
+    if (portAudio) return; // Don't generate test tone if real audio is available
+    
+    const frameCount = 480; // ~10ms at 48kHz
+    const channels = [];
+    const frequency = 440; // A4 note
+    
+    // Use a persistent phase counter for continuous tone
+    if (!this.testTonePhase) {
+      this.testTonePhase = 0;
+    }
+    
+    for (let ch = 0; ch < CONFIG.channels; ch++) {
+      channels[ch] = new Float32Array(frameCount);
+      // Generate sine wave with different phase per channel for visibility
+      const channelPhase = (ch * Math.PI * 2) / CONFIG.channels;
+      let phase = this.testTonePhase;
+      
+      for (let i = 0; i < frameCount; i++) {
+        channels[ch][i] = Math.sin(phase + channelPhase) * 0.1; // Low volume test tone (-20dB)
+        phase += (frequency * 2 * Math.PI) / CONFIG.sampleRate;
+        if (phase > Math.PI * 2) phase -= Math.PI * 2;
+      }
+    }
+    
+    // Update persistent phase for next call
+    this.testTonePhase += (frequency * 2 * Math.PI * frameCount) / CONFIG.sampleRate;
+    if (this.testTonePhase > Math.PI * 2) {
+      this.testTonePhase -= Math.PI * 2;
+    }
+    
+    // Broadcast test tone periodically
     this.broadcastAudio(channels);
   }
 
@@ -501,6 +537,9 @@ process.on('unhandledRejection', (reason, promise) => {
 // Graceful shutdown
 const shutdown = () => {
   console.log('Shutting down gracefully...');
+  if (server.testToneInterval) {
+    clearInterval(server.testToneInterval);
+  }
   if (server.audioInput && portAudio) {
     try {
       server.audioInput.quit();
