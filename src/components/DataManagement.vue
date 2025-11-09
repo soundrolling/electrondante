@@ -31,56 +31,56 @@
           <div class="overview-card">
             <div class="card-icon">🎪</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.stages }}</div>
+              <div class="card-value">{{ dataCounts?.stages || 0 }}</div>
               <div class="card-label">Stages</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">📄</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.documents }}</div>
+              <div class="card-value">{{ dataCounts?.documents || 0 }}</div>
               <div class="card-label">Documents</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">🖼️</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.pictures }}</div>
+              <div class="card-value">{{ dataCounts?.pictures || 0 }}</div>
               <div class="card-label">Pictures</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">🔧</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.gear }}</div>
+              <div class="card-value">{{ dataCounts?.gear || 0 }}</div>
               <div class="card-label">Gear Items</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">👥</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.contacts }}</div>
+              <div class="card-value">{{ dataCounts?.contacts || 0 }}</div>
               <div class="card-label">Contacts</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">✈️</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.travel }}</div>
+              <div class="card-value">{{ dataCounts?.travel || 0 }}</div>
               <div class="card-label">Travel Trips</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">📅</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.calendar }}</div>
+              <div class="card-value">{{ dataCounts?.calendar || 0 }}</div>
               <div class="card-label">Calendar Events</div>
             </div>
           </div>
           <div class="overview-card">
             <div class="card-icon">🎵</div>
             <div class="card-content">
-              <div class="card-value">{{ dataCounts.rushes }}</div>
+              <div class="card-value">{{ dataCounts?.rushes || 0 }}</div>
               <div class="card-label">Rushes Files</div>
             </div>
           </div>
@@ -717,9 +717,9 @@ export default {
       isLoading,
       isLoadingRushes,
       isExporting,
-      isScanning,
       isSaving,
       showEditModal,
+      showAddModal,
       dataCounts,
       venues,
       stages,
@@ -732,6 +732,7 @@ export default {
       filteredRushes,
       hasSelection,
       editForm,
+      addForm,
       loadRushes,
       selectAll,
       deselectAll,
