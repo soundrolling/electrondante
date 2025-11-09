@@ -17,12 +17,20 @@ try {
 
 // Configuration
 const CONFIG = {
-  port: process.env.PORT || 3000,
+  port: parseInt(process.env.PORT) || 3000, // Railway sets PORT - must be parsed as integer
   sampleRate: 48000, // Dante standard
   channels: parseInt(process.env.CHANNEL_COUNT) || 16, // Number of Dante input channels
   bufferSize: 128, // Smaller = lower latency, but higher CPU
   // Railway/cloud platforms assign PORT automatically - use same port for HTTP and WebSocket
 };
+
+console.log('🔧 Configuration:', {
+  port: CONFIG.port,
+  channels: CONFIG.channels,
+  sampleRate: CONFIG.sampleRate,
+  nodeEnv: process.env.NODE_ENV,
+  railwayEnv: process.env.RAILWAY_ENVIRONMENT,
+});
 
 // Initialize Supabase client (with error handling)
 let supabase = null;
@@ -313,6 +321,19 @@ class DanteBridgeServer {
     app.use(express.json());
     app.use(express.static('public'));
 
+    // Root route
+    app.get('/', (req, res) => {
+      res.json({
+        service: 'Dante Bridge Server',
+        status: 'running',
+        version: '1.0.0',
+        endpoints: {
+          health: '/health',
+          websocket: '/ (wss://)',
+        },
+      });
+    });
+
     app.get('/health', (req, res) => {
       res.json({
         status: 'ok',
@@ -335,13 +356,26 @@ class DanteBridgeServer {
     });
 
     // Store HTTP server reference for WebSocket attachment
-    this.httpServer = app.listen(CONFIG.port, '0.0.0.0', () => {
-      console.log(`HTTP server listening on port ${CONFIG.port}`);
-      console.log(`Environment: ${process.env.RAILWAY_ENVIRONMENT || 'local'}`);
-      console.log(`WebSocket will be available at: ws://localhost:${CONFIG.port}`);
-      // Initialize WebSocket after HTTP server is ready
-      this.initWebSocket();
-    });
+    try {
+      this.httpServer = app.listen(CONFIG.port, '0.0.0.0', () => {
+        console.log(`✅ HTTP server listening on port ${CONFIG.port}`);
+        console.log(`🌍 Environment: ${process.env.RAILWAY_ENVIRONMENT || 'local'}`);
+        console.log(`🔌 WebSocket will be available at: ws://localhost:${CONFIG.port}`);
+        console.log(`🌐 Public URL: https://proapp2149-production.up.railway.app`);
+        // Initialize WebSocket after HTTP server is ready
+        this.initWebSocket();
+      });
+      
+      this.httpServer.on('error', (error) => {
+        console.error('❌ HTTP server error:', error);
+        if (error.code === 'EADDRINUSE') {
+          console.error(`Port ${CONFIG.port} is already in use`);
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to start HTTP server:', error);
+      throw error;
+    }
   }
 
   generateClientId() {
@@ -352,13 +386,28 @@ class DanteBridgeServer {
 // Start the server with error handling
 let server;
 try {
+  console.log('🚀 Starting Dante Bridge Server...');
+  console.log(`📦 Node version: ${process.version}`);
+  console.log(`🔧 PORT env var: ${process.env.PORT || 'not set (using default 3000)'}`);
+  
   server = new DanteBridgeServer();
-  console.log('✅ Dante Bridge Server initialized');
+  console.log('✅ Dante Bridge Server initialized successfully');
 } catch (error) {
   console.error('❌ Failed to start server:', error);
-  console.error(error.stack);
+  console.error('Stack trace:', error.stack);
   process.exit(1);
 }
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Graceful shutdown
 const shutdown = () => {
