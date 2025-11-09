@@ -245,36 +245,64 @@ const connectWebSocket = async () => {
     };
 
     ws.onmessage = async (event) => {
-      const message = JSON.parse(event.data);
-      
-      // If we receive config, try to start audio context (may need user interaction)
-      if (message.type === 'config' && mixer.value) {
-        try {
-          await mixer.value.start();
-        } catch (error) {
-          if (error.name === 'NotAllowedError') {
-            console.warn('AudioContext requires user interaction. Click anywhere to enable audio.');
-            connectionError.value = 'Click anywhere on the page to enable audio playback';
-            // Add click handler to start audio on first user interaction
-            const startAudioOnClick = async () => {
-              try {
-                await mixer.value.start();
-                connectionError.value = '';
-                document.removeEventListener('click', startAudioOnClick);
-                document.removeEventListener('touchstart', startAudioOnClick);
-              } catch (e) {
-                console.error('Failed to start audio:', e);
+      try {
+        const message = JSON.parse(event.data);
+        console.log('📨 Received message:', message.type, message);
+        
+        // Handle config message immediately (before handleServerMessage)
+        if (message.type === 'config') {
+          console.log('✅ Received config:', message);
+          
+          // Initialize channel state
+          const channelState = Array.from({ length: message.channels }, (_, i) => ({
+            index: i,
+            name: `Channel ${i + 1}`,
+            gain: 0.7, // Default 70% volume
+            pan: 0,
+            muted: false,
+            solo: false,
+          }));
+          
+          channels.value = channelState;
+          console.log(`📊 Initialized ${channelState.length} channels`);
+          
+          // Try to start audio context (may need user interaction)
+          if (mixer.value) {
+            try {
+              await mixer.value.start();
+              latency.value = mixer.value.getLatency();
+              console.log('✅ Audio mixer started');
+            } catch (error) {
+              if (error.name === 'NotAllowedError') {
+                console.warn('⚠️ AudioContext requires user interaction. Click anywhere to enable audio.');
+                connectionError.value = 'Click anywhere on the page to enable audio playback';
+                // Add click handler to start audio on first user interaction
+                const startAudioOnClick = async () => {
+                  try {
+                    await mixer.value.start();
+                    latency.value = mixer.value.getLatency();
+                    connectionError.value = '';
+                    console.log('✅ Audio mixer started after user interaction');
+                    document.removeEventListener('click', startAudioOnClick);
+                    document.removeEventListener('touchstart', startAudioOnClick);
+                  } catch (e) {
+                    console.error('Failed to start audio:', e);
+                  }
+                };
+                document.addEventListener('click', startAudioOnClick, { once: true });
+                document.addEventListener('touchstart', startAudioOnClick, { once: true });
+              } else {
+                console.error('Error starting audio:', error);
               }
-            };
-            document.addEventListener('click', startAudioOnClick, { once: true });
-            document.addEventListener('touchstart', startAudioOnClick, { once: true });
-          } else {
-            console.error('Error starting audio:', error);
+            }
           }
+          return; // Don't call handleServerMessage for config
         }
+        
+        handleServerMessage(message);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
       }
-      
-      handleServerMessage(message);
     };
 
     ws.onclose = (event) => {
@@ -309,25 +337,8 @@ const disconnectWebSocket = () => {
 const handleServerMessage = (message) => {
   switch (message.type) {
     case 'config':
-      console.log('Received config:', message);
-      
-      // Initialize channel state
-      const channelState = Array.from({ length: message.channels }, (_, i) => ({
-        index: i,
-        name: `Channel ${i + 1}`,
-        gain: 0.7, // Default 70% volume
-        pan: 0,
-        muted: false,
-        solo: false,
-      }));
-      
-      channels.value = channelState;
-      
-      // Start audio engine
-      if (mixer.value) {
-        mixer.value.start();
-        latency.value = mixer.value.getLatency();
-      }
+      // Config is now handled in ws.onmessage directly
+      console.log('Config message already handled');
       break;
 
     case 'audio':
