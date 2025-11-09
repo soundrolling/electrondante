@@ -27,8 +27,8 @@ export class AudioMixerEngine {
       const panNode = this.audioContext.createStereoPanner();
       
       // Configure analyser for peak detection
-      analyserNode.fftSize = 256;
-      analyserNode.smoothingTimeConstant = 0.3;
+      analyserNode.fftSize = 2048; // Larger FFT for better frequency resolution
+      analyserNode.smoothingTimeConstant = 0.1; // Lower smoothing for faster response
       
       // Connect: gain -> analyser -> pan -> destination
       gainNode.connect(analyserNode);
@@ -119,6 +119,8 @@ export class AudioMixerEngine {
 
   addChannelData(channel, data) {
     if (channel >= 0 && channel < this.channelCount) {
+      if (!data || data.length === 0) return;
+      
       this.channelBuffers[channel].push(...data);
       
       // Prevent buffer overflow

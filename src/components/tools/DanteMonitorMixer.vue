@@ -73,16 +73,26 @@
         <!-- Channel Grid -->
         <div class="channels-grid">
           <DanteChannelStrip
-            v-for="(channel, index) in channels"
-            :key="index"
+            v-for="(channel, index) in enabledChannels"
+            :key="channel.index"
             :channel="channel"
-            :peak-level="peakLevels[index]"
-            :peak-hold="peakHolds[index]"
-            @fader-change="(value) => handleFaderChange(index, value)"
-            @pan-change="(value) => handlePanChange(index, value)"
-            @mute-toggle="() => handleMuteToggle(index)"
-            @solo-toggle="() => handleSoloToggle(index)"
+            :peak-level="peakLevels[channel.index]"
+            :peak-hold="peakHolds[channel.index]"
+            @fader-change="(value) => handleFaderChange(channel.index, value)"
+            @pan-change="(value) => handlePanChange(channel.index, value)"
+            @mute-toggle="() => handleMuteToggle(channel.index)"
+            @solo-toggle="() => handleSoloToggle(channel.index)"
           />
+          <!-- Add Channel Button -->
+          <button 
+            v-if="enabledChannels.length < Math.min(32, channels.length)"
+            @click="addChannel"
+            class="add-channel-btn"
+            :disabled="enabledChannels.length >= 32"
+          >
+            <span class="add-icon">+</span>
+            <span class="add-label">Add Channel</span>
+          </button>
         </div>
       </div>
 
@@ -140,8 +150,13 @@ const selectedPresetId = ref('');
 const showSavePresetModal = ref(false);
 const presetName = ref('');
 
-// Audio engine
-const { mixer, peakLevels, peakHolds } = useDanteMixer(16, 48000);
+// Audio engine - support up to 32 channels
+const { mixer, peakLevels, peakHolds } = useDanteMixer(32, 48000);
+
+// Computed: only show enabled channels
+const enabledChannels = computed(() => {
+  return channels.value.filter(ch => ch.enabled);
+});
 
 // WebSocket URL from environment
 const wsUrl = computed(() => {
@@ -247,24 +262,40 @@ const connectWebSocket = async () => {
     ws.onmessage = async (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log('📨 Received message:', message.type, message);
+        
+        // Only log non-audio messages (audio messages are too frequent)
+        if (message.type !== 'audio') {
+          console.log('📨 Received message:', message.type, message);
+        }
         
         // Handle config message immediately (before handleServerMessage)
         if (message.type === 'config') {
           console.log('✅ Received config:', message);
           
           // Initialize channel state
-          const channelState = Array.from({ length: message.channels }, (_, i) => ({
+          // Only channels 1-2 (index 0-1) are enabled and unmuted by default
+          // Rest are muted and disabled until user adds them
+          const maxChannels = Math.min(32, message.channels);
+          const channelState = Array.from({ length: maxChannels }, (_, i) => ({
             index: i,
             name: `Channel ${i + 1}`,
             gain: 0.7, // Default 70% volume
             pan: 0,
-            muted: false,
+            muted: i >= 2, // Mute channels 3+ by default
             solo: false,
+            enabled: i < 2, // Only enable channels 1-2 by default
           }));
           
           channels.value = channelState;
-          console.log(`📊 Initialized ${channelState.length} channels`);
+          console.log(`📊 Initialized ${channelState.length} channels (${channelState.filter(ch => ch.enabled).length} enabled)`);
+          
+          // Apply initial mute states to audio engine
+          if (mixer.value) {
+            channelState.forEach((ch, i) => {
+              mixer.value.setChannelGain(i, ch.muted ? 0 : ch.gain);
+              mixer.value.setChannelPan(i, ch.pan);
+            });
+          }
           
           // Try to start audio context (may need user interaction)
           if (mixer.value) {
@@ -404,11 +435,13 @@ const loadPreset = async () => {
 const applyPreset = (preset) => {
   if (!mixer.value) return;
 
+  // Apply preset values but preserve enabled state (UI preference)
   const updatedChannels = channels.value.map((ch, i) => ({
     ...ch,
-    gain: preset.faders[i] ?? ch.gain,
-    pan: preset.pans[i] ?? ch.pan,
-    muted: preset.mutes[i] ?? ch.muted,
+    gain: preset.faders?.[i] ?? ch.gain,
+    pan: preset.pans?.[i] ?? ch.pan,
+    muted: preset.mutes?.[i] ?? ch.muted,
+    // Keep enabled state - don't change which channels are visible
   }));
 
   channels.value = updatedChannels;
@@ -491,6 +524,24 @@ const handleSoloToggle = (channelIndex) => {
       mixer.value.setChannelMute(i, shouldMute);
     }
   });
+};
+
+// Add next disabled channel
+const addChannel = () => {
+  const nextDisabledIndex = channels.value.findIndex(ch => !ch.enabled);
+  if (nextDisabledIndex === -1) return; // No more channels to add
+  
+  const updatedChannels = [...channels.value];
+  updatedChannels[nextDisabledIndex].enabled = true;
+  updatedChannels[nextDisabledIndex].muted = false; // Unmute when adding
+  
+  channels.value = updatedChannels;
+  
+  // Apply to audio engine
+  if (mixer.value) {
+    mixer.value.setChannelGain(nextDisabledIndex, updatedChannels[nextDisabledIndex].gain);
+    mixer.value.setChannelPan(nextDisabledIndex, updatedChannels[nextDisabledIndex].pan);
+  }
 };
 
 // Update latency periodically
@@ -677,6 +728,46 @@ watch(() => mixer.value, (newMixer) => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 1rem;
+}
+
+.add-channel-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 2px dashed var(--border-light, #e2e8f0);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 100px;
+  min-height: 200px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.add-channel-btn:hover:not(:disabled) {
+  background: var(--bg-dark, #e5e7eb);
+  border-color: var(--primary, #3b82f6);
+  color: var(--primary, #3b82f6);
+}
+
+.add-channel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-icon {
+  font-size: 2.5rem;
+  font-weight: 300;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.add-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
 }
 
 .modal-overlay {
