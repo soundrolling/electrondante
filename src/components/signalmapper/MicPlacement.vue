@@ -55,7 +55,10 @@
     <div v-if="showLegend" class="color-legend" :style="legendStyle">
       <div class="legend-header">
         <h4>Color Legend</h4>
-        <button @click="showLegend = false" class="legend-close-btn">×</button>
+        <div class="legend-header-actions">
+          <button @click="cycleLegendCorner" class="legend-swap-btn" title="Move to next corner">⇄</button>
+          <button @click="showLegend = false" class="legend-close-btn">×</button>
+        </div>
       </div>
       <div class="legend-items">
         <div 
@@ -545,6 +548,7 @@ const defaultColor = 'rgba(255,255,255,0.92)'
 
 // Legend position for DOM element (updates when nodes move)
 const legendStyle = ref({})
+const legendCornerPreference = ref(0) // 0: bottom-right, 1: bottom-left, 2: top-right, 3: top-left
 
 // Update legend position - called when nodes move or canvas redraws
 function updateLegendPosition() {
@@ -576,7 +580,7 @@ function updateLegendPosition() {
   const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
   
   // Calculate position
-  const pos = calculateLegendPosition(legendWidth, legendHeight, canvasWidth.value, canvasHeight.value)
+  const pos = calculateLegendPosition(legendWidth, legendHeight, canvasWidth.value, canvasHeight.value, legendCornerPreference.value)
   
   legendStyle.value = {
     left: pos.x + 'px',
@@ -584,6 +588,12 @@ function updateLegendPosition() {
     bottom: 'auto',
     right: 'auto'
   }
+}
+
+// Cycle through legend corners
+function cycleLegendCorner() {
+  legendCornerPreference.value = (legendCornerPreference.value + 1) % 4
+  updateLegendPosition()
 }
 
 // Watch for node changes and update legend position
@@ -1889,24 +1899,35 @@ function saveLegend() {
 
 // Draw legend on canvas
 // Calculate best position for legend around screen edges
-function calculateLegendPosition(legendWidth, legendHeight, canvasW, canvasH) {
+function calculateLegendPosition(legendWidth, legendHeight, canvasW, canvasH, cornerPreference = 0) {
   const EDGE_MARGIN = 20
   const micNodeRadius = 20 * nodeScaleFactor.value
   
-  // Define preferred positions around edges (in order of preference)
+  // Define all corner positions
   // Format: [x, y, description]
-  const positions = [
-    // Corners (preferred)
+  const corners = [
     [canvasW - legendWidth - EDGE_MARGIN, canvasH - legendHeight - EDGE_MARGIN, 'bottom-right'],
     [EDGE_MARGIN, canvasH - legendHeight - EDGE_MARGIN, 'bottom-left'],
     [canvasW - legendWidth - EDGE_MARGIN, EDGE_MARGIN, 'top-right'],
     [EDGE_MARGIN, EDGE_MARGIN, 'top-left'],
-    // Sides (if corners don't work)
+  ]
+  
+  // Define side positions (fallback)
+  const sides = [
     [(canvasW - legendWidth) / 2, canvasH - legendHeight - EDGE_MARGIN, 'bottom-center'],
     [(canvasW - legendWidth) / 2, EDGE_MARGIN, 'top-center'],
     [EDGE_MARGIN, (canvasH - legendHeight) / 2, 'left-center'],
     [canvasW - legendWidth - EDGE_MARGIN, (canvasH - legendHeight) / 2, 'right-center'],
   ]
+  
+  // Reorder corners to prioritize the selected corner
+  const reorderedCorners = [
+    ...corners.slice(cornerPreference),
+    ...corners.slice(0, cornerPreference)
+  ]
+  
+  // Combine: preferred corner first, then other corners, then sides
+  const positions = [...reorderedCorners, ...sides]
   
   // Try each position in order of preference
   for (const [x, y, desc] of positions) {
@@ -1976,7 +1997,7 @@ function drawLegend(ctx, canvasW = null, canvasH = null) {
   const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20 // +20 for header
   
   // Calculate best position that avoids mic nodes (always recalculate)
-  const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h)
+  const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h, legendCornerPreference.value)
   
   // Draw legend background
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
@@ -3193,6 +3214,44 @@ defineExpose({ getCanvasDataURL })
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.legend-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-swap-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.legend-swap-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.dark .legend-swap-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dark .legend-swap-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .legend-close-btn {
