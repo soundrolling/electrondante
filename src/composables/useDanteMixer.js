@@ -150,9 +150,17 @@ export class AudioMixerEngine {
     this.meterAnimationFrame = requestAnimationFrame(() => this.updateMeters());
   }
 
-  start() {
-    this.scriptProcessor.connect(this.audioContext.destination);
-    this.audioContext.resume();
+  async start() {
+    try {
+      // Resume audio context (may require user interaction)
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      this.scriptProcessor.connect(this.audioContext.destination);
+    } catch (error) {
+      console.error('Error starting audio mixer:', error);
+      throw error;
+    }
   }
 
   stop() {

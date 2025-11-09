@@ -244,8 +244,37 @@ const connectWebSocket = async () => {
       }
     };
 
-    ws.onmessage = (event) => {
-      handleServerMessage(JSON.parse(event.data));
+    ws.onmessage = async (event) => {
+      const message = JSON.parse(event.data);
+      
+      // If we receive config, try to start audio context (may need user interaction)
+      if (message.type === 'config' && mixer.value) {
+        try {
+          await mixer.value.start();
+        } catch (error) {
+          if (error.name === 'NotAllowedError') {
+            console.warn('AudioContext requires user interaction. Click anywhere to enable audio.');
+            connectionError.value = 'Click anywhere on the page to enable audio playback';
+            // Add click handler to start audio on first user interaction
+            const startAudioOnClick = async () => {
+              try {
+                await mixer.value.start();
+                connectionError.value = '';
+                document.removeEventListener('click', startAudioOnClick);
+                document.removeEventListener('touchstart', startAudioOnClick);
+              } catch (e) {
+                console.error('Failed to start audio:', e);
+              }
+            };
+            document.addEventListener('click', startAudioOnClick, { once: true });
+            document.addEventListener('touchstart', startAudioOnClick, { once: true });
+          } else {
+            console.error('Error starting audio:', error);
+          }
+        }
+      }
+      
+      handleServerMessage(message);
     };
 
     ws.onclose = (event) => {
