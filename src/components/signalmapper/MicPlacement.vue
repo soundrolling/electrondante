@@ -51,6 +51,33 @@
       @wheel="onWheel"
       @dblclick="onDoubleClick"
     />
+    <!-- Color Legend -->
+    <div v-if="showLegend" class="color-legend">
+      <div class="legend-header">
+        <h4>Color Legend</h4>
+        <button @click="showLegend = false" class="legend-close-btn">×</button>
+      </div>
+      <div class="legend-items">
+        <div 
+          v-for="(label, color) in colorLegendMap" 
+          :key="color"
+          class="legend-item"
+        >
+          <div 
+            class="legend-color-swatch"
+            :style="{ backgroundColor: color }"
+          ></div>
+          <input
+            v-model="colorLegendMap[color]"
+            @blur="saveLegend"
+            @keyup.enter="saveLegend"
+            class="legend-label-input"
+            type="text"
+            :placeholder="color"
+          />
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Mic Context Menu -->
@@ -136,6 +163,34 @@
           <button @click="closeContextMenu" class="btn-secondary context-menu-btn">
             Close
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filename Prompt Modal -->
+  <div v-if="showFilenameModal" class="modal-overlay" @click="closeFilenameModal">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>Name Your Export</h3>
+        <button @click="closeFilenameModal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="filename-input-section">
+          <label for="filename-input">Filename:</label>
+          <input 
+            id="filename-input"
+            type="text" 
+            v-model="exportFilename" 
+            placeholder="mic-placement"
+            class="filename-input-field"
+            @keyup.enter="confirmExport"
+          />
+          <p class="filename-hint">.png</p>
+        </div>
+        <div class="filename-actions">
+          <button @click="confirmExport" class="btn-primary">Export</button>
+          <button @click="closeFilenameModal" class="btn-secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -375,6 +430,15 @@ const contextMenuTrackName = ref('')
 const contextMenuRotation = ref(0)
 const contextMenuLabelBgColor = ref('rgba(255,255,255,0.92)')
 
+// Color legend state
+const showLegend = ref(false)
+const colorLegendMap = ref({}) // Map of color -> label
+const defaultColor = 'rgba(255,255,255,0.92)'
+
+// Filename modal state
+const showFilenameModal = ref(false)
+const exportFilename = ref('')
+
 // Available mics (sources only)
 const availableMics = computed(() => {
   return props.gearList.filter(g => 
@@ -419,6 +483,11 @@ function drawCanvas() {
   props.nodes.forEach(mic => {
     drawMic(ctx, mic)
   })
+
+  // Draw legend on canvas if it should be visible
+  if (showLegend.value && Object.keys(colorLegendMap.value).length > 0) {
+    drawLegend(ctx)
+  }
 }
 
 function drawMic(ctx, mic) {
@@ -1151,8 +1220,134 @@ async function deleteMicFromContextMenu() {
   }
 }
 
+// Update color legend when nodes change
+function updateColorLegend() {
+  const usedColors = new Set()
+  props.nodes.forEach(mic => {
+    const color = mic.label_bg_color || defaultColor
+    // Only track non-default colors
+    if (color !== defaultColor) {
+      usedColors.add(color)
+      // Initialize label if not exists
+      if (!colorLegendMap.value[color]) {
+        colorLegendMap.value[color] = ''
+      }
+    }
+  })
+  
+  // Remove colors that are no longer used
+  Object.keys(colorLegendMap.value).forEach(color => {
+    if (!usedColors.has(color)) {
+      delete colorLegendMap.value[color]
+    }
+  })
+  
+  // Show legend if there are custom colors
+  showLegend.value = Object.keys(colorLegendMap.value).length > 0
+}
+
+function saveLegend() {
+  // Legend is saved automatically via v-model, but we can trigger a redraw
+  nextTick(drawCanvas)
+}
+
+// Draw legend on canvas
+function drawLegend(ctx, canvasW = null, canvasH = null) {
+  const legendItems = Object.entries(colorLegendMap.value)
+  if (legendItems.length === 0) return
+  
+  // Use provided dimensions or fall back to current canvas dimensions
+  const w = canvasW ?? canvasWidth.value
+  const h = canvasH ?? canvasHeight.value
+  
+  const LEGEND_PADDING = 12
+  const LEGEND_ITEM_HEIGHT = 24
+  const LEGEND_ITEM_GAP = 8
+  const SWATCH_SIZE = 16
+  const SWATCH_MARGIN = 8
+  const TEXT_MARGIN = 8
+  
+  // Calculate legend dimensions
+  ctx.font = '12px sans-serif'
+  let maxTextWidth = 0
+  legendItems.forEach(([color, label]) => {
+    const text = label || color
+    const metrics = ctx.measureText(text)
+    maxTextWidth = Math.max(maxTextWidth, metrics.width)
+  })
+  
+  const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
+  const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20 // +20 for header
+  
+  // Position in bottom right
+  const legendX = w - legendWidth - 20
+  const legendY = h - legendHeight - 20
+  
+  // Draw legend background
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+  ctx.lineWidth = 1
+  // Use roundRect if available, otherwise draw rounded rectangle manually
+  if (ctx.roundRect) {
+    ctx.beginPath()
+    ctx.roundRect(legendX, legendY, legendWidth, legendHeight, 8)
+    ctx.fill()
+    ctx.stroke()
+  } else {
+    // Fallback: draw rounded rectangle manually
+    const radius = 8
+    ctx.beginPath()
+    ctx.moveTo(legendX + radius, legendY)
+    ctx.lineTo(legendX + legendWidth - radius, legendY)
+    ctx.quadraticCurveTo(legendX + legendWidth, legendY, legendX + legendWidth, legendY + radius)
+    ctx.lineTo(legendX + legendWidth, legendY + legendHeight - radius)
+    ctx.quadraticCurveTo(legendX + legendWidth, legendY + legendHeight, legendX + legendWidth - radius, legendY + legendHeight)
+    ctx.lineTo(legendX + radius, legendY + legendHeight)
+    ctx.quadraticCurveTo(legendX, legendY + legendHeight, legendX, legendY + legendHeight - radius)
+    ctx.lineTo(legendX, legendY + radius)
+    ctx.quadraticCurveTo(legendX, legendY, legendX + radius, legendY)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
+  
+  // Draw header
+  ctx.fillStyle = '#333'
+  ctx.font = 'bold 13px sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText('Color Legend', legendX + LEGEND_PADDING, legendY + LEGEND_PADDING)
+  
+  // Draw legend items
+  let itemY = legendY + LEGEND_PADDING + 20
+  legendItems.forEach(([color, label]) => {
+    const text = label || color
+    
+    // Draw color swatch
+    ctx.fillStyle = color
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.rect(legendX + LEGEND_PADDING, itemY, SWATCH_SIZE, SWATCH_SIZE)
+    ctx.fill()
+    ctx.stroke()
+    
+    // Draw text
+    ctx.fillStyle = '#222'
+    ctx.font = '12px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, legendX + LEGEND_PADDING + SWATCH_SIZE + SWATCH_MARGIN, itemY + SWATCH_SIZE / 2)
+    
+    itemY += LEGEND_ITEM_HEIGHT + LEGEND_ITEM_GAP
+  })
+}
+
 // Watchers
-watch(() => props.nodes, () => nextTick(drawCanvas))
+watch(() => props.nodes, () => {
+  updateColorLegend()
+  nextTick(drawCanvas)
+}, { deep: true })
 
 // Persist opacity changes
 // no-op: opacity changes are not persisted locally
@@ -1184,6 +1379,7 @@ onMounted(() => {
   window.addEventListener('resize', updateCanvasSize)
   // Load background image (if any)
   loadImageState()
+  updateColorLegend()
   nextTick(drawCanvas)
 })
 
@@ -1210,6 +1406,25 @@ function updateCanvasSize() {
 function exportToPDF() {
   if (!canvas.value) return
   
+  // Show filename prompt modal
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+  exportFilename.value = `mic-placement-${timestamp}`
+  showFilenameModal.value = true
+}
+
+function closeFilenameModal() {
+  showFilenameModal.value = false
+  exportFilename.value = ''
+}
+
+async function confirmExport() {
+  if (!exportFilename.value.trim()) {
+    toast.error('Please enter a filename')
+    return
+  }
+  
+  closeFilenameModal()
+  
   // Use getCanvasDataURL to get a properly bounded export with all elements
   const dataURL = getCanvasDataURL()
   if (!dataURL) {
@@ -1221,9 +1436,9 @@ function exportToPDF() {
     // Create a temporary anchor element to trigger download
     const link = document.createElement('a')
     
-    // Generate filename with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-    const filename = `mic-placement-${timestamp}.png`
+    // Sanitize filename (remove invalid characters)
+    const sanitizedFilename = exportFilename.value.trim().replace(/[^a-z0-9_-]/gi, '-')
+    const filename = sanitizedFilename.endsWith('.png') ? sanitizedFilename : `${sanitizedFilename}.png`
     
     // Set the download attributes
     link.href = dataURL
@@ -1309,6 +1524,39 @@ function getCanvasDataURL() {
     maxY = Math.max(maxY, ly + bgH)
   })
 
+  // Include legend bounds if it exists (will be positioned in bottom right of content)
+  if (Object.keys(colorLegendMap.value).length > 0) {
+    const legendMeasure = document.createElement('canvas').getContext('2d')
+    if (legendMeasure) {
+      legendMeasure.font = '12px sans-serif'
+      let maxTextWidth = 0
+      Object.entries(colorLegendMap.value).forEach(([color, label]) => {
+        const text = label || color
+        const metrics = legendMeasure.measureText(text)
+        maxTextWidth = Math.max(maxTextWidth, metrics.width)
+      })
+      const LEGEND_PADDING = 12
+      const LEGEND_ITEM_HEIGHT = 24
+      const LEGEND_ITEM_GAP = 8
+      const SWATCH_SIZE = 16
+      const SWATCH_MARGIN = 8
+      const legendItemCount = Object.keys(colorLegendMap.value).length
+      const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
+      const legendHeight = (LEGEND_ITEM_HEIGHT * legendItemCount) + (LEGEND_ITEM_GAP * (legendItemCount - 1)) + LEGEND_PADDING * 2 + 20
+      
+      // Legend will be positioned in bottom right, so extend bounds to include it
+      // Position it relative to the content bounds
+      const legendX = maxX - legendWidth - 20
+      const legendY = maxY - legendHeight - 20
+      
+      // Only extend bounds if legend would be outside current bounds
+      if (legendX < minX) minX = legendX
+      if (legendY < minY) minY = legendY
+      if (legendX + legendWidth > maxX) maxX = legendX + legendWidth
+      if (legendY + legendHeight > maxY) maxY = legendY + legendHeight
+    }
+  }
+
   // Apply padding
   const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
   const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
@@ -1348,6 +1596,36 @@ function getCanvasDataURL() {
   })
 
   ctx.restore()
+
+  // Draw legend if there are custom colors (after restore so it's in export canvas coordinates)
+  if (Object.keys(colorLegendMap.value).length > 0) {
+    // Calculate legend position in export canvas coordinates
+    const legendMeasure = document.createElement('canvas').getContext('2d')
+    if (legendMeasure) {
+      legendMeasure.font = '12px sans-serif'
+      let maxTextWidth = 0
+      Object.entries(colorLegendMap.value).forEach(([color, label]) => {
+        const text = label || color
+        const metrics = legendMeasure.measureText(text)
+        maxTextWidth = Math.max(maxTextWidth, metrics.width)
+      })
+      const LEGEND_PADDING = 12
+      const LEGEND_ITEM_HEIGHT = 24
+      const LEGEND_ITEM_GAP = 8
+      const SWATCH_SIZE = 16
+      const SWATCH_MARGIN = 8
+      const legendItemCount = Object.keys(colorLegendMap.value).length
+      const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
+      const legendHeight = (LEGEND_ITEM_HEIGHT * legendItemCount) + (LEGEND_ITEM_GAP * (legendItemCount - 1)) + LEGEND_PADDING * 2 + 20
+      
+      // Position legend in bottom right of export canvas
+      const legendX = exportW - legendWidth - PADDING
+      const legendY = exportH - legendHeight - PADDING
+      
+      // Draw legend with export canvas dimensions
+      drawLegend(ctx, exportW, exportH)
+    }
+  }
 
   try {
     return off.toDataURL('image/png')
@@ -1522,6 +1800,7 @@ defineExpose({ getCanvasDataURL })
   width: 100%;
   box-sizing: border-box;
   padding: 8px 12px; /* thin side padding so canvas never touches edges */
+  position: relative;
 }
 
 .modal-overlay {
@@ -2087,6 +2366,157 @@ defineExpose({ getCanvasDataURL })
 .dark .color-preset-btn:hover {
   border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3), 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Color Legend Styles */
+.color-legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 200px;
+  max-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.legend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.legend-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.legend-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.legend-close-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color-swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  flex-shrink: 0;
+  /* Checkered background for transparency */
+  background-image: 
+    linear-gradient(45deg, #ccc 25%, transparent 25%),
+    linear-gradient(-45deg, #ccc 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ccc 75%),
+    linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 6px 6px;
+  background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
+  position: relative;
+}
+
+.legend-color-swatch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: inherit;
+  border-radius: 2px;
+}
+
+.legend-label-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.legend-label-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+}
+
+/* Filename Modal Styles */
+.filename-input-section {
+  margin-bottom: 20px;
+}
+
+.filename-input-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.filename-input-field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.filename-input-field:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+}
+
+.filename-hint {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.filename-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 </style>
 
