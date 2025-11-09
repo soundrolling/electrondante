@@ -3,9 +3,17 @@
 
 const express = require('express');
 const WebSocket = require('ws');
-const portAudio = require('naudiodon'); // For accessing Dante Virtual Soundcard
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
+
+// Lazy load naudiodon - only if audio hardware is available
+let portAudio = null;
+try {
+  portAudio = require('naudiodon');
+} catch (error) {
+  console.warn('naudiodon not available (no audio hardware):', error.message);
+  console.warn('Server will run without audio input - suitable for cloud deployment');
+}
 
 // Configuration
 const CONFIG = {
@@ -33,6 +41,14 @@ class DanteBridgeServer {
   }
 
   initAudioInput() {
+    // Skip audio input if naudiodon is not available (cloud deployment)
+    if (!portAudio) {
+      console.log('Audio input disabled - naudiodon not available (cloud deployment mode)');
+      console.log('Server will accept WebSocket connections but no audio will be streamed');
+      console.log('For audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS, etc.)');
+      return;
+    }
+
     console.log('Initializing audio input from Dante Virtual Soundcard...');
     
     try {
@@ -92,6 +108,9 @@ class DanteBridgeServer {
   }
 
   broadcastAudio(channels) {
+    // Only broadcast if we have audio data (naudiodon available)
+    if (!channels || channels.length === 0) return;
+    
     this.clients.forEach((client, clientId) => {
       if (client.ws.readyState === WebSocket.OPEN) {
         // Send audio data via WebSocket
@@ -254,6 +273,7 @@ class DanteBridgeServer {
         channels: CONFIG.channels,
         connectedClients: this.clients.size,
         platform: process.env.RAILWAY_ENVIRONMENT || 'local',
+        audioAvailable: !!portAudio,
       });
     });
 
@@ -276,7 +296,7 @@ const server = new DanteBridgeServer();
 // Graceful shutdown
 const shutdown = () => {
   console.log('Shutting down gracefully...');
-  if (server.audioInput) {
+  if (server.audioInput && portAudio) {
     try {
       server.audioInput.quit();
     } catch (error) {

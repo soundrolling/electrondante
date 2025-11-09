@@ -71,11 +71,13 @@ The server will run on `http://localhost:3000` with WebSocket at `ws://localhost
 
 ## Important Notes
 
-- **Audio Hardware:** Dante Virtual Soundcard requires local machine access. For cloud deployment, you'll need to stream audio from a local machine to the cloud server, or use a VPS with audio hardware.
+- **Audio Hardware:** Dante Virtual Soundcard requires local machine access. The server will start successfully on Railway (cloud) without audio hardware, but no audio will be streamed. For actual audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS with ALSA, etc.).
+
+- **Cloud Deployment:** The server is designed to run on Railway without audio hardware. It will accept WebSocket connections and handle authentication/presets, but audio streaming requires a machine with `naudiodon` and ALSA libraries.
 
 - **WebSocket URL:** Railway provides HTTPS, so use `wss://` (secure WebSocket) in production.
 
-- **Health Check:** The server exposes `/health` endpoint for monitoring.
+- **Health Check:** The server exposes `/health` endpoint for monitoring. Check `audioAvailable: true/false` to see if audio hardware is detected.
 
 ## Troubleshooting
 
