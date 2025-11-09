@@ -2200,7 +2200,7 @@ defineExpose({ getCanvasDataURL })
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000; /* Higher than context menu (1001-1002) to ensure modals appear on top */
 }
 
 .modal-content {
