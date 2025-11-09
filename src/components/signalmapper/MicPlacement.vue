@@ -247,6 +247,7 @@ const bgOpacity = ref(1.0)
 const imageOffsetX = ref(0)
 const imageOffsetY = ref(0)
 const scaleFactor = ref(1)
+const nodeScaleFactor = ref(1) // Separate scale factor for nodes only
 const panImageMode = ref(false)
 // no popover; show inline controls
 const showMobileSettings = ref(false)
@@ -430,9 +431,11 @@ function drawCanvas() {
 function drawMic(ctx, mic) {
   const { x, y } = imageToCanvasCoords(mic.x, mic.y)
   const rotation = mic.rotation || 0
+  const scale = nodeScaleFactor.value
   
   ctx.save()
   ctx.translate(x, y)
+  ctx.scale(scale, scale)
   ctx.rotate((rotation * Math.PI) / 180)
 
   // Draw mic circle
@@ -440,7 +443,7 @@ function drawMic(ctx, mic) {
   ctx.arc(0, 0, 20, 0, 2 * Math.PI)
   ctx.fillStyle = mic === selectedMic.value ? '#007bff' : '#fff'
   ctx.strokeStyle = mic === selectedMic.value ? '#0056b3' : '#007bff'
-  ctx.lineWidth = mic === selectedMic.value ? 3 : 2
+  ctx.lineWidth = (mic === selectedMic.value ? 3 : 2) / scale
   ctx.fill()
   ctx.stroke()
 
@@ -459,7 +462,7 @@ function drawMic(ctx, mic) {
     ctx.beginPath()
     ctx.arc(0, 0, 35, 0, 2 * Math.PI)
     ctx.strokeStyle = '#007bff'
-    ctx.lineWidth = 3
+    ctx.lineWidth = 3 / scale
     ctx.setLineDash([8, 4])
     ctx.stroke()
     ctx.setLineDash([])
@@ -468,7 +471,7 @@ function drawMic(ctx, mic) {
     ctx.beginPath()
     ctx.arc(0, 0, 30, 0, 2 * Math.PI)
     ctx.strokeStyle = '#0056b3'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2 / scale
     ctx.setLineDash([5, 5])
     ctx.stroke()
     ctx.setLineDash([])
@@ -478,7 +481,7 @@ function drawMic(ctx, mic) {
     ctx.arc(0, -35, 8, 0, 2 * Math.PI) // bigger handle for easier hit
     ctx.fillStyle = '#22c55e'
     ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2 / scale
     ctx.fill()
     ctx.stroke()
   }
@@ -493,7 +496,7 @@ function drawMic(ctx, mic) {
         ? gear.gear_name.substring(0, 6).toUpperCase() + '...'
         : gear.gear_name.toUpperCase()
       ctx.save()
-      ctx.font = 'bold 9px sans-serif'
+      ctx.font = `bold ${9 * scale}px sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = mic === selectedMic.value ? '#fff' : '#495057'
@@ -503,20 +506,20 @@ function drawMic(ctx, mic) {
   }
 
   // Draw label positioned opposite to mic direction
-  ctx.font = 'bold 12px sans-serif'
+  ctx.font = `bold ${12 * scale}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   const labelText = mic.track_name || mic.label
   const textMetrics = ctx.measureText(labelText)
-  const padX = 6
-  const padY = 4
+  const padX = 6 * scale
+  const padY = 4 * scale
   const bgW = Math.ceil(textMetrics.width) + padX * 2
-  const bgH = 18 + padY * 2
+  const bgH = (18 * scale) + padY * 2
   
   // Calculate label position opposite to mic direction
   // Mic points in rotation direction (0° = up), so label goes opposite (180° offset)
   const labelAngle = (rotation + 180) * (Math.PI / 180)
-  const labelDistance = 40 // Distance from mic center
+  const labelDistance = 40 * scale // Distance from mic center
   const labelX = x + Math.sin(labelAngle) * labelDistance
   const labelY = y - Math.cos(labelAngle) * labelDistance
   
@@ -524,7 +527,7 @@ function drawMic(ctx, mic) {
   const bgColor = mic.label_bg_color || 'rgba(255,255,255,0.92)'
   ctx.fillStyle = bgColor
   ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-  ctx.lineWidth = 1
+  ctx.lineWidth = 1 / scale
   ctx.beginPath()
   ctx.rect(labelX - bgW / 2, labelY - bgH / 2, bgW, bgH)
   ctx.fill()
@@ -559,11 +562,11 @@ function fitImageToCanvas(img) {
 }
 
 function zoomIn() { 
-  scaleFactor.value *= 1.1
+  nodeScaleFactor.value *= 1.1
   drawCanvas() 
 }
 function zoomOut() { 
-  scaleFactor.value /= 1.1
+  nodeScaleFactor.value /= 1.1
   drawCanvas() 
 }
 function resetImageView() {
@@ -585,10 +588,10 @@ function resetImageView() {
   }
   
   // Include all mic nodes (circle radius and label box)
-  const circleRadius = 30
+  const circleRadius = 30 * nodeScaleFactor.value
   const measure = document.createElement('canvas').getContext('2d')
   if (measure) {
-    measure.font = 'bold 12px sans-serif'
+    measure.font = `bold ${12 * nodeScaleFactor.value}px sans-serif`
   }
   
   props.nodes.forEach(mic => {
@@ -603,13 +606,13 @@ function resetImageView() {
     // Label extents - positioned opposite to mic direction
     const labelText = mic.track_name || mic.label || ''
     const textMetrics = measure ? measure.measureText(labelText) : null
-    const padX = 6
-    const padY = 4
-    const bgW = textMetrics ? Math.ceil(textMetrics.width) + padX * 2 : (labelText.length * 7) + padX * 2
-    const bgH = 18 + padY * 2
+    const padX = 6 * nodeScaleFactor.value
+    const padY = 4 * nodeScaleFactor.value
+    const bgW = textMetrics ? Math.ceil(textMetrics.width) + padX * 2 : (labelText.length * 7 * nodeScaleFactor.value) + padX * 2
+    const bgH = (18 * nodeScaleFactor.value) + padY * 2
     const rotation = mic.rotation || 0
     const labelAngle = (rotation + 180) * (Math.PI / 180)
-    const labelDistance = 40
+    const labelDistance = 40 * nodeScaleFactor.value
     const labelX = x + Math.sin(labelAngle) * labelDistance
     const labelY = y - Math.cos(labelAngle) * labelDistance
     const lx = labelX - bgW / 2
@@ -691,6 +694,9 @@ function resetImageView() {
     imageOffsetY.value = newOffsetY
   }
   
+  // Reset node scale to default
+  nodeScaleFactor.value = 1
+  
   drawCanvas()
 }
 function triggerImageUpload() {
@@ -763,10 +769,11 @@ function onPointerDown(e) {
 
     // Check if clicking rotation handle (with generous hitbox)
     const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
-    const handleY = micY - 35
+    const handleY = micY - (35 * nodeScaleFactor.value)
     const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
+    const handleRadius = 14 * nodeScaleFactor.value
     
-    if (dist < 14) {
+    if (dist < handleRadius) {
       // Clicked rotation handle
       rotatingMic.value = clickedMic
       selectedMic.value = clickedMic
@@ -784,9 +791,10 @@ function onPointerDown(e) {
     // currently selected mic so users can click the green dot to start rotation
     if (selectedMic.value) {
       const { x: micX, y: micY } = imageToCanvasCoords(selectedMic.value.x, selectedMic.value.y)
-      const handleY = micY - 35
+      const handleY = micY - (35 * nodeScaleFactor.value)
       const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
-      if (dist < 14) {
+      const handleRadius = 14 * nodeScaleFactor.value
+      if (dist < handleRadius) {
         rotatingMic.value = selectedMic.value
         rotationMode.value = true
         return
@@ -898,12 +906,17 @@ function onWheel(e) {
 
 // Mic detection
 function getMicAt(imgX, imgY) {
+  // Account for node scale when detecting clicks
+  // Base detection radius is 0.05 (5% of image size), scaled by node scale
+  const baseRadius = 0.05
+  const scaledRadius = baseRadius * nodeScaleFactor.value
+  
   for (let i = props.nodes.length - 1; i >= 0; i--) {
     const mic = props.nodes[i]
     const dx = imgX - mic.x
     const dy = imgY - mic.y
     const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < 0.05) return mic // 5% of image size
+    if (dist < scaledRadius) return mic
   }
   return null
 }
@@ -917,10 +930,11 @@ function onDoubleClick(e) {
   if (clickedMic) {
     // Check if not clicking on rotation handle
     const { x: micX, y: micY } = imageToCanvasCoords(clickedMic.x, clickedMic.y)
-    const handleY = micY - 35
+    const handleY = micY - (35 * nodeScaleFactor.value)
     const dist = Math.sqrt((x - micX) ** 2 + (y - handleY) ** 2)
+    const handleRadius = 14 * nodeScaleFactor.value
     
-    if (dist >= 14) {
+    if (dist >= handleRadius) {
       // Stop any auto-rotation
       stopAutoRotation()
       // Select the mic and show context menu
@@ -1384,7 +1398,9 @@ function getCanvasDataURL() {
   }
 
   // Include all mic nodes (circle radius and label box)
-  const circleRadius = 30
+  const circleRadius = 30 * nodeScaleFactor.value
+  const measureFont = `bold ${12 * nodeScaleFactor.value}px sans-serif`
+  measure.font = measureFont
   props.nodes.forEach(mic => {
     const { x, y } = imageToCanvasCoords(mic.x, mic.y)
     // Circle extents
@@ -1396,13 +1412,13 @@ function getCanvasDataURL() {
     // Label extents - positioned opposite to mic direction
     const labelText = mic.track_name || mic.label || ''
     const textMetrics = measure.measureText(labelText)
-    const padX = 6
-    const padY = 4
+    const padX = 6 * nodeScaleFactor.value
+    const padY = 4 * nodeScaleFactor.value
     const bgW = Math.ceil(textMetrics.width) + padX * 2
-    const bgH = 18 + padY * 2
+    const bgH = (18 * nodeScaleFactor.value) + padY * 2
     const rotation = mic.rotation || 0
     const labelAngle = (rotation + 180) * (Math.PI / 180)
-    const labelDistance = 40
+    const labelDistance = 40 * nodeScaleFactor.value
     const labelX = x + Math.sin(labelAngle) * labelDistance
     const labelY = y - Math.cos(labelAngle) * labelDistance
     const lx = labelX - bgW / 2
