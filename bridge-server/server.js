@@ -67,7 +67,13 @@ class DanteBridgeServer {
     if (!portAudio) {
       console.log('Audio input disabled - naudiodon not available (cloud deployment mode)');
       console.log('Server will accept WebSocket connections but no audio will be streamed');
+      console.log('Generating test tone for meter testing (no real audio available)');
       console.log('For audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS, etc.)');
+      
+      // Generate test tone every 100ms for meter testing
+      setInterval(() => {
+        this.generateTestTone();
+      }, 100);
       return;
     }
 

@@ -40,13 +40,23 @@ export class AudioMixerEngine {
       this.panNodes.push(panNode);
     }
 
-    // Create ScriptProcessorNode for WebSocket-based audio (alternative method)
-    this.scriptProcessor = this.audioContext.createScriptProcessor(256, channelCount, 2);
+    // Create audio buffers for incoming WebSocket audio
     this.channelBuffers = new Array(channelCount).fill(null).map(() => []);
+    
+    // Create a master gain node for the final mix
+    this.masterGain = this.audioContext.createGain();
+    this.masterGain.connect(this.audioContext.destination);
+    
+    // Create ScriptProcessorNode to process incoming audio and route through gain/analyser chains
+    // Input: channelCount channels from WebSocket, Output: mixed stereo
+    this.scriptProcessor = this.audioContext.createScriptProcessor(256, 0, 2);
     
     this.scriptProcessor.onaudioprocess = (e) => {
       this.processAudio(e);
     };
+    
+    // Connect script processor to master gain (which goes to destination)
+    this.scriptProcessor.connect(this.masterGain);
 
     // Start meter update loop
     this.meterAnimationFrame = null;
@@ -62,7 +72,7 @@ export class AudioMixerEngine {
     outputL.fill(0);
     outputR.fill(0);
 
-    // Mix all channels based on gain and pan settings
+    // Process each channel: buffer -> gain -> analyser (for metering) -> pan -> mix
     for (let ch = 0; ch < this.channelCount; ch++) {
       const buffer = this.channelBuffers[ch];
       if (buffer.length < frameCount) continue;
@@ -75,6 +85,23 @@ export class AudioMixerEngine {
       // Get samples from buffer
       const samples = buffer.splice(0, frameCount);
       
+      // Feed samples through gain/analyser chain for metering
+      // Create audio buffer and feed through gain node (analyser is connected to gain)
+      const tempBuffer = this.audioContext.createBuffer(1, frameCount, this.sampleRate);
+      const tempData = tempBuffer.getChannelData(0);
+      for (let i = 0; i < frameCount; i++) {
+        tempData[i] = samples[i];
+      }
+      
+      // Create buffer source to feed through gain node (which has analyser connected)
+      const bufferSource = this.audioContext.createBufferSource();
+      bufferSource.buffer = tempBuffer;
+      bufferSource.connect(this.gainNodes[ch]); // Goes: gain -> analyser -> pan -> destination
+      const startTime = this.audioContext.currentTime;
+      bufferSource.start(startTime);
+      bufferSource.stop(startTime + frameCount / this.sampleRate);
+      
+      // Mix to output for playback
       for (let i = 0; i < frameCount; i++) {
         outputL[i] += samples[i] * gainL;
         outputR[i] += samples[i] * gainR;
@@ -114,36 +141,41 @@ export class AudioMixerEngine {
       const analyser = this.analyserNodes[ch];
       if (!analyser) continue;
 
-      const dataArray = new Uint8Array(analyser.fftSize);
-      analyser.getByteTimeDomainData(dataArray);
+      try {
+        const dataArray = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(dataArray);
 
-      // Find peak value
-      let max = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        const abs = Math.abs(dataArray[i] - 128);
-        if (abs > max) max = abs;
-      }
-
-      // Convert to dB (0-128 range, clamp to -60dB minimum)
-      const normalized = max / 128;
-      const db = normalized > 0 ? 20 * Math.log10(normalized) : -60;
-      const clampedDb = Math.max(-60, db);
-
-      this.peakLevels[ch] = clampedDb;
-
-      // Update peak hold
-      if (clampedDb > this.peakHolds[ch]) {
-        this.peakHolds[ch] = clampedDb;
-        
-        // Clear existing timer
-        if (this.peakHoldTimers[ch]) {
-          clearTimeout(this.peakHoldTimers[ch]);
+        // Find peak value
+        let max = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const abs = Math.abs(dataArray[i] - 128);
+          if (abs > max) max = abs;
         }
-        
-        // Reset peak hold after 3 seconds
-        this.peakHoldTimers[ch] = setTimeout(() => {
+
+        // Convert to dB (0-128 range, clamp to -60dB minimum)
+        const normalized = max / 128;
+        const db = normalized > 0 ? 20 * Math.log10(normalized) : -60;
+        const clampedDb = Math.max(-60, db);
+
+        this.peakLevels[ch] = clampedDb;
+
+        // Update peak hold
+        if (clampedDb > this.peakHolds[ch]) {
           this.peakHolds[ch] = clampedDb;
-        }, 3000);
+          
+          // Clear existing timer
+          if (this.peakHoldTimers[ch]) {
+            clearTimeout(this.peakHoldTimers[ch]);
+          }
+          
+          // Reset peak hold after 3 seconds
+          this.peakHoldTimers[ch] = setTimeout(() => {
+            this.peakHolds[ch] = -60; // Reset to minimum
+          }, 3000);
+        }
+      } catch (error) {
+        // If analyser isn't ready yet, use default value
+        this.peakLevels[ch] = -60;
       }
     }
 
@@ -156,6 +188,8 @@ export class AudioMixerEngine {
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
+      // Connect script processor (it processes input but doesn't output directly)
+      // Audio flows through gain -> analyser -> pan -> destination
       this.scriptProcessor.connect(this.audioContext.destination);
     } catch (error) {
       console.error('Error starting audio mixer:', error);
