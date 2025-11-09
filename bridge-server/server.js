@@ -157,15 +157,20 @@ class DanteBridgeServer {
 
   initWebSocket() {
     if (!this.httpServer) {
-      console.error('HTTP server not initialized yet, cannot attach WebSocket');
+      console.error('❌ HTTP server not initialized yet, cannot attach WebSocket');
       return;
     }
-    // Attach WebSocket server to HTTP server (Railway-friendly)
-    this.wss = new WebSocket.Server({ 
-      server: this.httpServer,
-      perMessageDeflate: false, // Disable compression for lower latency
-    });
-    console.log(`WebSocket server attached to HTTP server on port ${CONFIG.port}`);
+    try {
+      // Attach WebSocket server to HTTP server (Railway-friendly)
+      this.wss = new WebSocket.Server({ 
+        server: this.httpServer,
+        perMessageDeflate: false, // Disable compression for lower latency
+      });
+      console.log(`✅ WebSocket server attached to HTTP server on port ${CONFIG.port}`);
+    } catch (error) {
+      console.error('❌ Failed to initialize WebSocket server:', error);
+      throw error;
+    }
 
     this.wss.on('connection', async (ws, req) => {
       const clientId = this.generateClientId();
@@ -321,17 +326,23 @@ class DanteBridgeServer {
     app.use(express.json());
     app.use(express.static('public'));
 
-    // Root route
+    // Root route - Railway health check
     app.get('/', (req, res) => {
       res.json({
         service: 'Dante Bridge Server',
         status: 'running',
         version: '1.0.0',
+        uptime: process.uptime(),
         endpoints: {
           health: '/health',
           websocket: '/ (wss://)',
         },
       });
+    });
+    
+    // Keep-alive endpoint for Railway
+    app.get('/ping', (req, res) => {
+      res.status(200).send('pong');
     });
 
     app.get('/health', (req, res) => {
@@ -362,6 +373,7 @@ class DanteBridgeServer {
         console.log(`🌍 Environment: ${process.env.RAILWAY_ENVIRONMENT || 'local'}`);
         console.log(`🔌 WebSocket will be available at: ws://localhost:${CONFIG.port}`);
         console.log(`🌐 Public URL: https://proapp2149-production.up.railway.app`);
+        console.log(`📡 Server ready to accept connections`);
         // Initialize WebSocket after HTTP server is ready
         this.initWebSocket();
       });
@@ -371,7 +383,13 @@ class DanteBridgeServer {
         if (error.code === 'EADDRINUSE') {
           console.error(`Port ${CONFIG.port} is already in use`);
         }
+        process.exit(1);
       });
+      
+      // Keep server alive
+      this.httpServer.keepAliveTimeout = 65000; // 65 seconds
+      this.httpServer.headersTimeout = 66000; // 66 seconds
+      
     } catch (error) {
       console.error('❌ Failed to start HTTP server:', error);
       throw error;
@@ -392,6 +410,18 @@ try {
   
   server = new DanteBridgeServer();
   console.log('✅ Dante Bridge Server initialized successfully');
+  
+  // Keep process alive
+  setInterval(() => {
+    // Periodic heartbeat to keep process alive
+    if (server && server.httpServer) {
+      const uptime = process.uptime();
+      if (uptime % 60 === 0) { // Log every minute
+        console.log(`💓 Server heartbeat - uptime: ${Math.floor(uptime)}s, clients: ${server.clients.size}`);
+      }
+    }
+  }, 1000);
+  
 } catch (error) {
   console.error('❌ Failed to start server:', error);
   console.error('Stack trace:', error.stack);
