@@ -356,35 +356,50 @@ class DanteBridgeServer {
     app.use(express.json());
     app.use(express.static('public'));
 
-    // Root route - Railway health check
+    // Root route - Railway health check (must respond quickly)
     app.get('/', (req, res) => {
-      res.json({
-        service: 'Dante Bridge Server',
-        status: 'running',
-        version: '1.0.0',
-        uptime: process.uptime(),
-        endpoints: {
-          health: '/health',
-          websocket: '/ (wss://)',
-        },
-      });
+      try {
+        res.status(200).json({
+          service: 'Dante Bridge Server',
+          status: 'running',
+          version: '1.0.0',
+          uptime: Math.floor(process.uptime()),
+          endpoints: {
+            health: '/health',
+            websocket: '/ (wss://)',
+          },
+        });
+      } catch (error) {
+        console.error('Error in root route:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
     });
     
-    // Keep-alive endpoint for Railway
+    // Keep-alive endpoint for Railway (fast response)
     app.get('/ping', (req, res) => {
       res.status(200).send('pong');
     });
 
     app.get('/health', (req, res) => {
-      res.json({
-        status: 'ok',
-        channels: CONFIG.channels,
-        connectedClients: this.clients.size,
-        platform: process.env.RAILWAY_ENVIRONMENT || 'local',
-        audioAvailable: !!portAudio,
-        websocketEnabled: true,
-        port: CONFIG.port,
-      });
+      try {
+        res.status(200).json({
+          status: 'ok',
+          channels: CONFIG.channels,
+          connectedClients: this.clients.size,
+          platform: process.env.RAILWAY_ENVIRONMENT || 'local',
+          audioAvailable: !!portAudio,
+          websocketEnabled: true,
+          port: CONFIG.port,
+          uptime: Math.floor(process.uptime()),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('Error in health check:', error);
+        res.status(500).json({ 
+          status: 'error',
+          error: error.message 
+        });
+      }
     });
 
     // WebSocket upgrade endpoint (for debugging)
@@ -416,9 +431,17 @@ class DanteBridgeServer {
         process.exit(1);
       });
       
-      // Keep server alive
-      this.httpServer.keepAliveTimeout = 65000; // 65 seconds
-      this.httpServer.headersTimeout = 66000; // 66 seconds
+      // Keep server alive - Railway needs shorter timeouts
+      this.httpServer.keepAliveTimeout = 61000; // 61 seconds
+      this.httpServer.headersTimeout = 62000; // 62 seconds
+      
+      // Handle server errors
+      this.httpServer.on('clientError', (err, socket) => {
+        console.error('HTTP client error:', err);
+        if (!socket.destroyed) {
+          socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+        }
+      });
       
     } catch (error) {
       console.error('❌ Failed to start HTTP server:', error);
