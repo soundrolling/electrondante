@@ -2120,11 +2120,32 @@ function closeFilenameModal() {
 }
 
 async function confirmExport() {
-  if (!exportFilename.value.trim()) {
+  const filenameInput = exportFilename.value.trim()
+  if (!filenameInput) {
     toast.error('Please enter a filename')
     return
   }
   
+  // Store filename before closing modal (which clears it)
+  // Sanitize filename (remove invalid characters, but preserve the name)
+  // Remove or replace characters that aren't safe for filenames
+  let sanitizedFilename = filenameInput
+    .replace(/[<>:"/\\|?*]/g, '-') // Replace invalid filename characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+  
+  // Ensure we have a valid filename
+  if (!sanitizedFilename || sanitizedFilename.length === 0) {
+    sanitizedFilename = 'mic-placement-export'
+  }
+  
+  // Add .png extension if not already present
+  const filename = sanitizedFilename.toLowerCase().endsWith('.png') 
+    ? sanitizedFilename 
+    : `${sanitizedFilename}.png`
+  
+  // Close modal (this clears exportFilename, but we've already stored the sanitized filename)
   closeFilenameModal()
   
   // Use getCanvasDataURL to get a properly bounded export with all elements
@@ -2138,10 +2159,6 @@ async function confirmExport() {
     // Create a temporary anchor element to trigger download
     const link = document.createElement('a')
     
-    // Sanitize filename (remove invalid characters)
-    const sanitizedFilename = exportFilename.value.trim().replace(/[^a-z0-9_-]/gi, '-')
-    const filename = sanitizedFilename.endsWith('.png') ? sanitizedFilename : `${sanitizedFilename}.png`
-    
     // Set the download attributes
     link.href = dataURL
     link.download = filename
@@ -2152,7 +2169,7 @@ async function confirmExport() {
     link.click()
     document.body.removeChild(link)
     
-    toast.success('Mic placement exported successfully')
+    toast.success(`Mic placement exported as ${filename}`)
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export mic placement')
