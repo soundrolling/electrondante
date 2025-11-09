@@ -117,6 +117,10 @@
           <span class="action-icon">📄</span>
           <span class="action-label">Documents</span>
         </button>
+        <button class="btn btn-positive action-button" @click="goToDataManagement">
+          <span class="action-icon">📊</span>
+          <span class="action-label">Data Management</span>
+        </button>
         <button class="btn btn-positive action-button" @click="showToolsSection = !showToolsSection">
           <span class="action-icon">🛠️</span>
           <span class="action-label">Tools</span>
@@ -286,6 +290,9 @@ export default {
     function goToDocuments() {
       router.push({ name: 'ProjectDocs', params: { id: currentProject.value.id } });
     }
+    function goToDataManagement() {
+      router.push({ name: 'DataManagement', params: { id: currentProject.value.id } });
+    }
 
     /* ---------------- Touch feedback ---------------- */
     function handleTouchStart(event) {
@@ -346,6 +353,7 @@ export default {
       goToSettings,
       goToGear,
       goToDocuments,
+      goToDataManagement,
       /* stage navigation */
       openStageModal,
       closeStageModal,

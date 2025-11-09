@@ -39,6 +39,7 @@ const LocationNotes = defineAsyncComponent(() => import('../components/location-
 const StagePictures = defineAsyncComponent(() => import('../components/StagePictures.vue'));
 const StageDocs     = defineAsyncComponent(() => import('../components/StageDocs.vue'));
 const ProjectDocs   = defineAsyncComponent(() => import('../components/ProjectDocs.vue'));
+const DataManagement = defineAsyncComponent(() => import('../components/DataManagement.vue'));
 
 const SignalMapper = defineAsyncComponent(() => import('../components/signalmapper/SignalMapper.vue'));
 
@@ -110,6 +111,7 @@ const routes = [
   { path: '/projects/:id/repacking',  name: 'ProjectRepacking', component: ProjectGear,     props: r => ({ locationId: r.query.locationId, tab: 'repacking' }) },
   { path: '/projects/:id/contacts',  name: 'ProjectContacts', component: ProjectContacts, props: true },
   { path: '/projects/:id/settings',  name: 'ProjectSettings', component: ProjectSettings, props: true },
+  { path: '/projects/:id/data-management', name: 'DataManagement', component: DataManagement, props: true },
   { path: '/projects/:projectId/bug-reports/:reportId', name: 'BugReportDetail', component: defineAsyncComponent(() => import('../components/BugReportDetail.vue')), props: true },
 
   // Location-specific notes
