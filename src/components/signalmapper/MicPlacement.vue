@@ -33,7 +33,63 @@
     </div>
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
+      <button @click="showColorButtonManager = !showColorButtonManager" class="btn-secondary">🎨 Color Buttons</button>
       <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
+    </div>
+  </div>
+
+  <!-- Color Button Management Panel -->
+  <div v-if="showColorButtonManager" class="color-button-manager">
+    <div class="manager-header">
+      <h4>Color Button Management</h4>
+      <button @click="showColorButtonManager = false" class="close-btn">×</button>
+    </div>
+    <div class="manager-content">
+      <p class="info-text">Create color buttons to quickly apply colors to mic nodes. The color will change the node border and label background.</p>
+      
+      <!-- Color Button Grid -->
+      <div class="color-button-grid">
+        <button
+          v-for="btn in colorButtons"
+          :key="btn.id"
+          class="color-button-preview"
+          :style="{ 
+            '--btn-color': btn.color, 
+            '--btn-text': getContrastColor(btn.color) 
+          }"
+          @click="applyColorButton(btn.id)"
+          :class="{ active: selectedMic?.color_button_id === btn.id }"
+        >
+          <div class="btn-color-swatch" :style="{ backgroundColor: btn.color }"></div>
+          <span class="btn-name">{{ btn.name }}</span>
+        </button>
+      </div>
+
+      <!-- Add/Edit Button -->
+      <button class="btn-secondary add-color-btn" @click="openColorButtonModal">
+        {{ editingColorButton ? 'Edit' : 'Add' }} Color Button
+      </button>
+
+      <!-- Color Button List -->
+      <div v-if="colorButtons.length" class="color-button-list">
+        <div 
+          v-for="(btn, idx) in colorButtons" 
+          :key="btn.id"
+          class="color-button-item"
+        >
+          <div class="item-info">
+            <div class="item-color" :style="{ backgroundColor: btn.color }"></div>
+            <div class="item-details">
+              <div class="item-name">{{ btn.name }}</div>
+              <div class="item-description">{{ btn.description || 'No description' }}</div>
+            </div>
+          </div>
+          <div class="item-actions">
+            <button @click="editColorButton(idx)" class="btn-warning icon-btn">✏️</button>
+            <button @click="deleteColorButton(btn.id, idx)" class="btn-danger icon-btn">🗑️</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -59,22 +115,15 @@
       </div>
       <div class="legend-items">
         <div 
-          v-for="(label, color) in colorLegendMap" 
-          :key="color"
+          v-for="(label, buttonId) in colorLegendMap" 
+          :key="buttonId"
           class="legend-item"
         >
           <div 
             class="legend-color-swatch"
-            :style="{ backgroundColor: color }"
+            :style="{ backgroundColor: colorButtons.find(b => b.id === buttonId)?.color || '#ccc' }"
           ></div>
-          <input
-            v-model="colorLegendMap[color]"
-            @blur="saveLegend"
-            @keyup.enter="saveLegend"
-            class="legend-label-input"
-            type="text"
-            :placeholder="getColorName(color)"
-          />
+          <span class="legend-label-text">{{ label }}</span>
         </div>
       </div>
     </div>
@@ -125,32 +174,38 @@
           </div>
         </div>
         <div class="context-menu-section">
-          <label>Label Background Color:</label>
-          <div class="color-picker-container">
-            <input 
-              v-model="contextMenuLabelBgColorHex" 
-              @change="updateMicFromContextMenu"
-              type="color"
-              class="color-picker-input"
-              :title="contextMenuLabelBgColor"
-            />
-            <input 
-              v-model="contextMenuLabelBgColor" 
-              @change="updateMicFromContextMenu"
-              type="text"
-              placeholder="e.g. rgba(255,255,255,0.92) or #ffffff"
-              class="context-menu-input color-text-input"
-            />
-          </div>
-          <div class="color-presets">
+          <label>Color Button:</label>
+          <div class="color-button-selector">
+            <div class="color-button-buttons">
+              <button
+                v-for="btn in colorButtons"
+                :key="btn.id"
+                class="color-button-select-btn"
+                :class="{ active: selectedMic?.color_button_id === btn.id }"
+                :style="{ 
+                  '--btn-color': btn.color, 
+                  '--btn-text': getContrastColor(btn.color) 
+                }"
+                @click="applyColorButtonToMic(btn.id)"
+                :title="btn.name"
+              >
+                <div class="select-btn-swatch" :style="{ backgroundColor: btn.color }"></div>
+                <span>{{ btn.name }}</span>
+              </button>
+              <button
+                v-if="colorButtons.length === 0"
+                class="color-button-select-btn no-buttons"
+                @click="showColorButtonManager = true"
+              >
+                No color buttons. Click to create.
+              </button>
+            </div>
             <button 
-              v-for="preset in colorPresets"
-              :key="preset"
-              @click="setLabelColor(preset)"
-              class="color-preset-btn"
-              :style="{ '--preset-color': preset }"
-              :title="preset"
-            ></button>
+              class="manage-color-buttons-btn"
+              @click="showColorButtonManager = true"
+            >
+              Manage Color Buttons
+            </button>
           </div>
         </div>
         <div class="context-menu-actions">
@@ -192,6 +247,51 @@
           <button @click="confirmExport" class="btn-primary">Export</button>
           <button @click="closeFilenameModal" class="btn-secondary">Cancel</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color Button Modal -->
+  <div v-if="showColorButtonModal" class="modal-overlay" @click="closeColorButtonModal">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>{{ editingColorButton !== null ? 'Edit' : 'Add' }} Color Button</h3>
+        <button @click="closeColorButtonModal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Name*</label>
+          <input 
+            v-model="colorButtonForm.name" 
+            placeholder="e.g. Vocals, Drums, etc."
+            required
+            class="context-menu-input"
+          />
+        </div>
+        <div class="form-field">
+          <label>Color*</label>
+          <select v-model="colorButtonForm.color" required class="context-menu-input">
+            <option disabled value="">Select a color</option>
+            <option v-for="c in colorOptions" :key="c.value" :value="c.value">
+              {{ c.name }}
+            </option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Description</label>
+          <input 
+            v-model="colorButtonForm.description" 
+            placeholder="Optional description"
+            class="context-menu-input"
+          />
+        </div>
+        <p v-if="colorButtonForm.error" class="error-text">{{ colorButtonForm.error }}</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeColorButtonModal" class="btn-secondary">Cancel</button>
+        <button @click="saveColorButton" class="btn-primary" :disabled="colorButtonBusy">
+          {{ colorButtonBusy ? 'Saving...' : 'Save' }}
+        </button>
       </div>
     </div>
   </div>
@@ -274,6 +374,9 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
 import { addNode, updateNode, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+import { fetchTableData, mutateTableData } from '@/services/dataService'
+import { useUserStore } from '@/stores/userStore'
+import Swal from 'sweetalert2'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -285,6 +388,7 @@ const props = defineProps({
 const emit = defineEmits(['node-updated', 'node-added', 'node-deleted'])
 
 const toast = useToast()
+const store = useUserStore()
 const canvas = ref(null)
 const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
@@ -439,6 +543,27 @@ const defaultColor = 'rgba(255,255,255,0.92)'
 const showFilenameModal = ref(false)
 const exportFilename = ref('')
 
+// Color button management state
+const showColorButtonManager = ref(false)
+const colorButtons = ref([])
+const editingColorButton = ref(null)
+const colorButtonForm = ref({ name: '', color: '', description: '' })
+const showColorButtonModal = ref(false)
+const colorButtonBusy = ref(false)
+
+const colorOptions = [
+  { name: 'Red', value: '#ff4d4f' },
+  { name: 'Orange', value: '#fa8c16' },
+  { name: 'Yellow', value: '#fadb14' },
+  { name: 'Green', value: '#52c41a' },
+  { name: 'Blue', value: '#1890ff' },
+  { name: 'Purple', value: '#722ed1' },
+  { name: 'Pink', value: '#eb2f96' },
+  { name: 'Cyan', value: '#13c2c2' },
+  { name: 'Magenta', value: '#f759ab' },
+  { name: 'Lime', value: '#a0d911' }
+]
+
 // Available mics (sources only)
 const availableMics = computed(() => {
   return props.gearList.filter(g => 
@@ -451,6 +576,151 @@ function getAvailableCount(mic) {
   const assigned = mic.assignments?.[props.locationId] || 0
   const placed = props.nodes.filter(n => n.gear_id === mic.id).length
   return Math.max(0, assigned - placed)
+}
+
+// Color button helper functions
+function getContrastColor(hexColor) {
+  if (!hexColor) return '#000'
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000
+  return brightness < 128 ? '#fff' : '#000'
+}
+
+function getColorButtonForMic(mic) {
+  if (!mic?.color_button_id) return null
+  return colorButtons.value.find(btn => btn.id === mic.color_button_id)
+}
+
+// Color button CRUD functions
+async function fetchColorButtons() {
+  try {
+    // Fetch color buttons for this project and location (or project-level if no location)
+    let query = supabase
+      .from('mic_color_buttons')
+      .select('*')
+      .eq('project_id', props.projectId)
+    
+    if (props.locationId) {
+      query = query.or(`location_id.eq.${props.locationId},location_id.is.null`)
+    } else {
+      query = query.is('location_id', null)
+    }
+    
+    const { data, error } = await query.order('name')
+    
+    if (error) throw error
+    colorButtons.value = data || []
+    updateColorLegend()
+  } catch (err) {
+    console.error('Error fetching color buttons:', err)
+    // If table doesn't exist yet, just use empty array
+    colorButtons.value = []
+  }
+}
+
+function openColorButtonModal() {
+  editingColorButton.value = null
+  colorButtonForm.value = { name: '', color: '', description: '', error: null }
+  showColorButtonModal.value = true
+}
+
+function closeColorButtonModal() {
+  showColorButtonModal.value = false
+  editingColorButton.value = null
+  colorButtonForm.value = { name: '', color: '', description: '', error: null }
+}
+
+function editColorButton(idx) {
+  const btn = colorButtons.value[idx]
+  editingColorButton.value = idx
+  colorButtonForm.value = {
+    name: btn.name,
+    color: btn.color,
+    description: btn.description || '',
+    error: null
+  }
+  showColorButtonModal.value = true
+}
+
+async function saveColorButton() {
+  if (!colorButtonForm.value.name || !colorButtonForm.value.color) {
+    colorButtonForm.value.error = 'Name and color are required'
+    return
+  }
+  
+  colorButtonForm.value.error = null
+  colorButtonBusy.value = true
+  
+  try {
+    const payload = {
+      name: colorButtonForm.value.name,
+      color: colorButtonForm.value.color,
+      description: colorButtonForm.value.description || null,
+      project_id: props.projectId,
+      location_id: props.locationId || null
+    }
+    
+    if (editingColorButton.value !== null) {
+      await mutateTableData(
+        'mic_color_buttons',
+        'update',
+        { id: colorButtons.value[editingColorButton.value].id, ...payload }
+      )
+    } else {
+      await mutateTableData('mic_color_buttons', 'insert', payload)
+    }
+    
+    await fetchColorButtons()
+    closeColorButtonModal()
+    toast.success('Color button saved')
+  } catch (err) {
+    colorButtonForm.value.error = err.message || 'Failed to save color button'
+    console.error('Error saving color button:', err)
+  } finally {
+    colorButtonBusy.value = false
+  }
+}
+
+async function deleteColorButton(id, idx) {
+  const result = await Swal.fire({
+    title: 'Delete Color Button?',
+    text: 'This will remove the color button. Mic nodes using this color will revert to default.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    confirmButtonText: 'Delete'
+  })
+  
+  if (!result.isConfirmed) return
+  
+  try {
+    await mutateTableData('mic_color_buttons', 'delete', { id })
+    colorButtons.value.splice(idx, 1)
+    toast.success('Color button deleted')
+    updateColorLegend()
+  } catch (err) {
+    console.error('Error deleting color button:', err)
+    toast.error('Failed to delete color button')
+  }
+}
+
+function applyColorButton(buttonId) {
+  if (!selectedMic.value) {
+    toast.info('Please select a mic first')
+    return
+  }
+  applyColorButtonToMic(buttonId)
+}
+
+async function applyColorButtonToMic(buttonId) {
+  if (!selectedMic.value) return
+  
+  selectedMic.value.color_button_id = buttonId
+  await saveMicUpdate(selectedMic.value)
+  drawCanvas()
 }
 
 // Canvas drawing
@@ -495,6 +765,12 @@ function drawMic(ctx, mic) {
   const rotation = mic.rotation || 0
   const scale = nodeScaleFactor.value
   
+  // Get color button for this mic
+  const colorBtn = getColorButtonForMic(mic)
+  const borderColor = colorBtn ? colorBtn.color : (mic === selectedMic.value ? '#0056b3' : '#007bff')
+  const labelBgColor = colorBtn ? colorBtn.color : 'rgba(255,255,255,0.92)'
+  const labelTextColor = colorBtn ? getContrastColor(colorBtn.color) : '#222'
+  
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(scale, scale)
@@ -504,7 +780,7 @@ function drawMic(ctx, mic) {
   ctx.beginPath()
   ctx.arc(0, 0, 20, 0, 2 * Math.PI)
   ctx.fillStyle = mic === selectedMic.value ? '#007bff' : '#fff'
-  ctx.strokeStyle = mic === selectedMic.value ? '#0056b3' : '#007bff'
+  ctx.strokeStyle = borderColor
   ctx.lineWidth = (mic === selectedMic.value ? 3 : 2) / scale
   ctx.fill()
   ctx.stroke()
@@ -576,17 +852,16 @@ function drawMic(ctx, mic) {
   const labelX = x + Math.sin(labelAngle) * labelDistance
   const labelY = y - Math.cos(labelAngle) * labelDistance
   
-  // Background color - use stored color or default to white
-  const bgColor = mic.label_bg_color || 'rgba(255,255,255,0.92)'
-  ctx.fillStyle = bgColor
+  // Background color - use color button or default
+  ctx.fillStyle = labelBgColor
   ctx.strokeStyle = 'rgba(0,0,0,0.1)'
   ctx.lineWidth = 1 / scale
   ctx.beginPath()
   ctx.rect(labelX - bgW / 2, labelY - bgH / 2, bgW, bgH)
   ctx.fill()
   ctx.stroke()
-  // Text
-  ctx.fillStyle = '#222'
+  // Text with contrast color
+  ctx.fillStyle = labelTextColor
   ctx.fillText(labelText, labelX, labelY)
 }
 
@@ -1013,7 +1288,7 @@ async function saveMicUpdate(mic) {
       y: mic.y,
       rotation: mic.rotation,
       track_name: mic.track_name,
-      label_bg_color: mic.label_bg_color
+      color_button_id: mic.color_button_id || null
     })
     emit('node-updated', mic)
   } catch (err) {
@@ -1146,7 +1421,6 @@ function openContextMenu(e) {
   // Set the context menu values
   contextMenuTrackName.value = selectedMic.value.track_name || ''
   contextMenuRotation.value = selectedMic.value.rotation || 0
-  contextMenuLabelBgColor.value = selectedMic.value.label_bg_color || 'rgba(255,255,255,0.92)'
   
   showContextMenu.value = true
   // Ensure canvas is redrawn to show selection highlight
@@ -1171,17 +1445,11 @@ function setQuickRotation(angle) {
   updateMicFromContextMenu()
 }
 
-function setLabelColor(color) {
-  contextMenuLabelBgColor.value = color
-  updateMicFromContextMenu()
-}
-
 async function updateMicFromContextMenu() {
   if (!selectedMic.value) return
   
   selectedMic.value.track_name = contextMenuTrackName.value
   selectedMic.value.rotation = contextMenuRotation.value
-  selectedMic.value.label_bg_color = contextMenuLabelBgColor.value
   
   await saveMicUpdate(selectedMic.value)
   drawCanvas()
@@ -1193,7 +1461,6 @@ async function saveAndCloseContextMenu() {
   // Ensure all current values are saved
   selectedMic.value.track_name = contextMenuTrackName.value
   selectedMic.value.rotation = contextMenuRotation.value
-  selectedMic.value.label_bg_color = contextMenuLabelBgColor.value
   
   await saveMicUpdate(selectedMic.value)
   drawCanvas()
@@ -1315,29 +1582,27 @@ function getColorName(color) {
   return 'Custom'
 }
 
-// Update color legend when nodes change
+// Update color legend when nodes change - now based on color buttons
 function updateColorLegend() {
-  const usedColors = new Set()
+  // Build legend from color buttons that are actually used
+  const usedButtonIds = new Set()
   props.nodes.forEach(mic => {
-    const color = mic.label_bg_color || defaultColor
-    // Only track non-default colors
-    if (color !== defaultColor) {
-      usedColors.add(color)
-      // Initialize label with a readable color name if not exists
-      if (!colorLegendMap.value[color]) {
-        colorLegendMap.value[color] = getColorName(color)
-      }
+    if (mic.color_button_id) {
+      usedButtonIds.add(mic.color_button_id)
     }
   })
   
-  // Remove colors that are no longer used
-  Object.keys(colorLegendMap.value).forEach(color => {
-    if (!usedColors.has(color)) {
-      delete colorLegendMap.value[color]
+  // Update legend map with used color buttons
+  const newLegendMap = {}
+  colorButtons.value.forEach(btn => {
+    if (usedButtonIds.has(btn.id)) {
+      newLegendMap[btn.id] = btn.name
     }
   })
   
-  // Show legend if there are custom colors
+  colorLegendMap.value = newLegendMap
+  
+  // Show legend if there are color buttons in use
   showLegend.value = Object.keys(colorLegendMap.value).length > 0
 }
 
@@ -1348,7 +1613,15 @@ function saveLegend() {
 
 // Draw legend on canvas
 function drawLegend(ctx, canvasW = null, canvasH = null) {
-  const legendItems = Object.entries(colorLegendMap.value)
+  // Build legend items from color buttons
+  const legendItems = []
+  Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
+    const btn = colorButtons.value.find(b => b.id === buttonId)
+    if (btn) {
+      legendItems.push([btn.color, label || btn.name])
+    }
+  })
+  
   if (legendItems.length === 0) return
   
   // Use provided dimensions or fall back to current canvas dimensions
@@ -1480,7 +1753,8 @@ onMounted(() => {
   window.addEventListener('resize', updateCanvasSize)
   // Load background image (if any)
   loadImageState()
-  updateColorLegend()
+  // Load color buttons
+  fetchColorButtons()
   nextTick(drawCanvas)
 })
 
@@ -2485,6 +2759,12 @@ defineExpose({ getCanvasDataURL })
   backdrop-filter: blur(4px);
 }
 
+.dark .color-legend {
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
 .legend-header {
   display: flex;
   justify-content: space-between;
@@ -2492,6 +2772,10 @@ defineExpose({ getCanvasDataURL })
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .legend-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .legend-header h4 {
@@ -2520,6 +2804,15 @@ defineExpose({ getCanvasDataURL })
 .legend-close-btn:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.dark .legend-close-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dark .legend-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .legend-items {
@@ -2551,6 +2844,16 @@ defineExpose({ getCanvasDataURL })
   position: relative;
 }
 
+.dark .legend-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* Darker checkered background for dark mode */
+  background-image: 
+    linear-gradient(45deg, #555 25%, transparent 25%),
+    linear-gradient(-45deg, #555 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #555 75%),
+    linear-gradient(-45deg, transparent 75%, #555 75%);
+}
+
 .legend-color-swatch::after {
   content: '';
   position: absolute;
@@ -2562,20 +2865,11 @@ defineExpose({ getCanvasDataURL })
   border-radius: 2px;
 }
 
-.legend-label-input {
+.legend-label-text {
   flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
   font-size: 12px;
-  background: var(--bg-primary);
   color: var(--text-primary);
-  min-width: 0;
-}
-
-.legend-label-input:focus {
-  outline: none;
-  border-color: var(--color-primary-500);
+  font-weight: 500;
 }
 
 /* Filename Modal Styles */
@@ -2618,6 +2912,228 @@ defineExpose({ getCanvasDataURL })
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+/* Color Button Manager Styles */
+.color-button-manager {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: var(--shadow-md);
+}
+
+.manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.manager-header h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.manager-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.color-button-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.color-button-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--border-medium);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.color-button-preview:hover {
+  border-color: var(--color-primary-500);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.color-button-preview.active {
+  border-color: var(--color-primary-500);
+  border-width: 3px;
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.btn-color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.btn-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.add-color-btn {
+  align-self: flex-start;
+  margin-bottom: 8px;
+}
+
+.color-button-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.color-button-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.item-color {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.item-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+/* Color Button Selector in Context Menu */
+.color-button-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.color-button-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.color-button-select-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 2px solid var(--border-medium);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.color-button-select-btn:hover {
+  border-color: var(--color-primary-500);
+  background: var(--bg-primary);
+}
+
+.color-button-select-btn.active {
+  border-color: var(--color-primary-500);
+  border-width: 3px;
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.color-button-select-btn.no-buttons {
+  grid-column: 1 / -1;
+  justify-content: center;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.select-btn-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.manage-color-buttons-btn {
+  padding: 8px 16px;
+  background: var(--color-secondary-500);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+  align-self: flex-start;
+}
+
+.manage-color-buttons-btn:hover {
+  background: var(--color-secondary-600);
 }
 </style>
 
