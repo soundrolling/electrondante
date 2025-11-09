@@ -175,11 +175,13 @@
       <!-- Frame.io Upload Tracking Section -->
       <section class="rushes-section">
         <div class="section-header">
-          <h2 class="section-title">Frame.io Upload Tracking</h2>
-          <button class="btn btn-secondary" @click="scanForRushes" :disabled="isScanning">
-            <span v-if="isScanning">⏳</span>
-            <span v-else>🔍</span>
-            <span>{{ isScanning ? 'Scanning...' : 'Scan for BWF Files' }}</span>
+          <div>
+            <h2 class="section-title">Frame.io Upload Tracking</h2>
+            <p class="section-description">Track BWF rushes files and supporting documents uploaded to Frame.io for recording days</p>
+          </div>
+          <button class="btn btn-primary" @click="openAddModal">
+            <span>➕</span>
+            <span>Add Rushes File</span>
           </button>
         </div>
         <div class="rushes-filters">
@@ -192,7 +194,7 @@
         </div>
         <div v-if="isLoadingRushes" class="loading-text">Loading rushes files...</div>
         <div v-else-if="filteredRushes.length === 0" class="empty-state">
-          <p>No rushes files found. Click "Scan for BWF Files" to detect files in storage.</p>
+          <p>No rushes files tracked yet. Click "Add Rushes File" to manually track a BWF file and its Frame.io upload status.</p>
         </div>
         <div v-else class="rushes-table-container">
           <table class="rushes-table">
@@ -244,6 +246,78 @@
       </section>
     </div>
 
+    <!-- Add Rushes File Modal -->
+    <div v-if="showAddModal" class="modal-backdrop" @click.self="closeAddModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add Rushes File</h3>
+          <button class="modal-close" @click="closeAddModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>File Name <span class="required">*</span></label>
+            <input 
+              v-model="addForm.file_name" 
+              type="text" 
+              class="form-control"
+              placeholder="e.g., Recording_Day_01_Scene_01.bwf"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>Stage (optional)</label>
+            <select v-model="addForm.location_id" class="form-control">
+              <option :value="null">No Stage</option>
+              <option v-for="stage in stages" :key="stage.id" :value="stage.id">
+                {{ stage.stage_name }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>File Size (optional)</label>
+            <input 
+              v-model="addForm.file_size" 
+              type="number" 
+              class="form-control"
+              placeholder="Size in bytes"
+            />
+          </div>
+          <div class="form-group">
+            <label>Upload Status</label>
+            <select v-model="addForm.upload_status" class="form-control">
+              <option value="not_uploaded">Not Uploaded</option>
+              <option value="uploaded">Uploaded</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Frame.io URL (optional)</label>
+            <input 
+              v-model="addForm.frame_io_url" 
+              type="url" 
+              class="form-control"
+              placeholder="https://frame.io/..."
+            />
+          </div>
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <textarea 
+              v-model="addForm.notes" 
+              class="form-control"
+              rows="3"
+              placeholder="Recording date, scene info, etc."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeAddModal">Cancel</button>
+          <button class="btn btn-primary" @click="saveAdd" :disabled="isSaving || !addForm.file_name">
+            {{ isSaving ? 'Saving...' : 'Add File' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Edit Upload Status Modal -->
     <div v-if="showEditModal" class="modal-backdrop" @click.self="closeEditModal">
       <div class="modal-content">
@@ -252,6 +326,15 @@
           <button class="modal-close" @click="closeEditModal">×</button>
         </div>
         <div class="modal-body">
+          <div class="form-group">
+            <label>File Name</label>
+            <input 
+              v-model="editForm.file_name" 
+              type="text" 
+              class="form-control"
+              disabled
+            />
+          </div>
           <div class="form-group">
             <label>Status</label>
             <select v-model="editForm.upload_status" class="form-control">
@@ -298,9 +381,8 @@ import { fetchTableData } from '../services/dataService';
 import { exportProjectData, downloadZip } from '../services/exportService';
 import { 
   fetchRushesFiles, 
-  updateUploadStatus, 
-  detectBWFiles, 
-  syncDetectedFiles 
+  updateUploadStatus,
+  createRushesUpload,
 } from '../services/rushesService';
 import { useToast } from 'vue-toastification';
 
@@ -318,9 +400,9 @@ export default {
     const isLoading = ref(true);
     const isLoadingRushes = ref(false);
     const isExporting = ref(false);
-    const isScanning = ref(false);
     const isSaving = ref(false);
     const showEditModal = ref(false);
+    const showAddModal = ref(false);
 
     const dataCounts = ref({
       stages: 0,
@@ -359,6 +441,15 @@ export default {
     const rushes = ref([]);
     const editingRush = ref(null);
     const editForm = ref({
+      file_name: '',
+      upload_status: 'not_uploaded',
+      frame_io_url: '',
+      notes: '',
+    });
+    const addForm = ref({
+      file_name: '',
+      location_id: null,
+      file_size: null,
       upload_status: 'not_uploaded',
       frame_io_url: '',
       notes: '',
@@ -441,24 +532,61 @@ export default {
       }
     }
 
-    async function scanForRushes() {
-      isScanning.value = true;
+    function openAddModal() {
+      addForm.value = {
+        file_name: '',
+        location_id: null,
+        file_size: null,
+        upload_status: 'not_uploaded',
+        frame_io_url: '',
+        notes: '',
+      };
+      showAddModal.value = true;
+    }
+
+    function closeAddModal() {
+      showAddModal.value = false;
+      addForm.value = {
+        file_name: '',
+        location_id: null,
+        file_size: null,
+        upload_status: 'not_uploaded',
+        frame_io_url: '',
+        notes: '',
+      };
+    }
+
+    async function saveAdd() {
+      if (!addForm.value.file_name) {
+        toast.warning('Please enter a file name');
+        return;
+      }
+
+      isSaving.value = true;
       try {
-        toast.info('Scanning for BWF files...');
-        const detected = await detectBWFiles(projectId.value);
-        if (detected.length === 0) {
-          toast.info('No BWF files found in storage');
-          return;
-        }
-        const result = await syncDetectedFiles(projectId.value, detected);
-        toast.success(`Found ${result.total} files, created ${result.created} new records`);
+        const user = userStore.user?.email || userStore.user?.name || 'Unknown';
+        await createRushesUpload({
+          project_id: projectId.value,
+          location_id: addForm.value.location_id || null,
+          venue_id: null, // Could be derived from location_id if needed
+          file_path: `manual/${addForm.value.file_name}`, // Placeholder path since not in storage
+          file_name: addForm.value.file_name,
+          file_size: addForm.value.file_size ? parseInt(addForm.value.file_size) : null,
+          upload_status: addForm.value.upload_status,
+          frame_io_url: addForm.value.frame_io_url || null,
+          uploaded_by: addForm.value.upload_status === 'uploaded' ? user : null,
+          uploaded_at: addForm.value.upload_status === 'uploaded' ? new Date().toISOString() : null,
+          notes: addForm.value.notes || null,
+        });
+        toast.success('Rushes file added successfully');
         await loadRushes();
         await loadData(); // Refresh counts
+        closeAddModal();
       } catch (error) {
-        console.error('Error scanning for rushes:', error);
-        toast.error('Failed to scan for BWF files');
+        console.error('Error adding rushes file:', error);
+        toast.error('Failed to add rushes file');
       } finally {
-        isScanning.value = false;
+        isSaving.value = false;
       }
     }
 
@@ -511,6 +639,7 @@ export default {
     function openEditModal(rush) {
       editingRush.value = rush;
       editForm.value = {
+        file_name: rush.file_name,
         upload_status: rush.upload_status,
         frame_io_url: rush.frame_io_url || '',
         notes: rush.notes || '',
@@ -604,13 +733,15 @@ export default {
       hasSelection,
       editForm,
       loadRushes,
-      scanForRushes,
       selectAll,
       deselectAll,
       handleExport,
       openEditModal,
       closeEditModal,
       saveEdit,
+      openAddModal,
+      closeAddModal,
+      saveAdd,
       getStageName,
       formatFileSize,
       formatStatus,
@@ -713,8 +844,18 @@ export default {
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  margin: 0 0 16px 0;
+  margin: 0 0 8px 0;
   color: var(--text-heading);
+}
+
+.section-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.required {
+  color: var(--color-error-500);
 }
 
 .section-header {

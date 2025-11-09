@@ -401,7 +401,8 @@ async function exportRushes(projectId, metadataFolder, zip, selections) {
 
     if (rushes && rushes.length > 0) {
       for (const rush of rushes) {
-        if (rush.file_path) {
+        // Only try to download if file_path doesn't start with "manual/" (manually tracked files)
+        if (rush.file_path && !rush.file_path.startsWith('manual/')) {
           try {
             // Try to determine bucket from file path or use default
             const bucket = 'stage-docs'; // Default bucket, adjust as needed
@@ -418,6 +419,7 @@ async function exportRushes(projectId, metadataFolder, zip, selections) {
             console.warn('Error downloading rushes file:', rush.file_path, err);
           }
         }
+        // For manually tracked files (file_path starts with "manual/"), we only export metadata
       }
     }
 
