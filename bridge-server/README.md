@@ -37,7 +37,8 @@ The server will run on `http://localhost:3000` with WebSocket at `ws://localhost
 
 2. **Configure Service:**
    - Set **Root Directory** to `bridge-server` (IMPORTANT!)
-   - Railway will auto-detect Node.js from `bridge-server/package.json`
+   - Railway will use RAILPACK builder (configured in `railway.json`)
+   - Start command is auto-detected from `package.json` ("start": "node server.js")
 
 3. **Set Environment Variables:**
    In Railway dashboard → Variables, add:
@@ -49,11 +50,11 @@ The server will run on `http://localhost:3000` with WebSocket at `ws://localhost
    - `PORT` is automatically set by Railway (don't override)
    - `DANTE_DEVICE_ID` only needed if you have local audio hardware
 
-4. **Fix Build Issues (if needed):**
-   If Railway tries to use root `package.json`:
-   - Make sure Root Directory is set to `bridge-server`
-   - Railway should use `npm install` (not `npm ci`) - this is handled by `nixpacks.toml`
-   - If build fails, check that it's reading from `bridge-server/` directory
+4. **Build Configuration:**
+   - Railway uses RAILPACK builder (configured in `railway.json`)
+   - Auto-detects Node.js and installs dependencies
+   - Start command comes from `package.json` scripts
+   - If build fails, verify Root Directory is set to `bridge-server`
 
 5. **Deploy:**
    - Railway will automatically build and deploy
