@@ -205,6 +205,14 @@
                 >
                   📥
                 </button>
+                <button 
+                  v-if="isAdmin"
+                  @click="confirmRemove(doc)" 
+                  class="action-btn delete-btn"
+                  title="Delete document"
+                >
+                  🗑️
+                </button>
               </div>
             </div>
             <div class="doc-meta">
@@ -251,7 +259,7 @@
             <textarea v-model="doc.description" class="textarea-edit" placeholder="Enter description..."></textarea>
             <div class="edit-actions">
               <button class="btn btn-save" @click="saveDoc(doc)">Save</button>
-              <button class="btn btn-delete" @click="confirmRemove(doc)">Delete</button>
+              <button v-if="isAdmin" class="btn btn-delete" @click="confirmRemove(doc)">Delete</button>
               <button class="btn btn-cancel" @click="cancelEdit">Cancel</button>
             </div>
           </div>
@@ -323,6 +331,12 @@ const stageId   = route.query.stageId
 
 // Check if we're in project-level view (no venue/stage specified)
 const isProjectLevelView = computed(() => !venueId || !stageId)
+
+// Check if user is admin
+const isAdmin = computed(() => {
+  const role = userStore.currentProject?.role
+  return role === 'admin' || role === 'owner'
+})
 
 // reactive page state
 const venueName     = ref('Loading…')
@@ -1453,6 +1467,12 @@ function printPreview() {
   background: var(--color-success-600);
   color: var(--text-inverse) !important;
   border-color: var(--color-success-700);
+}
+
+.delete-btn:hover {
+  background: var(--color-error-600);
+  color: var(--text-inverse) !important;
+  border-color: var(--color-error-700);
 }
 
 .doc-meta {

@@ -5,7 +5,18 @@
       <div class="inspector-header">
         <div class="title">
           <span class="badge">{{ type }}</span>
-          <h3>{{ node.track_name || node.label }}</h3>
+          <!-- Editable label for transformers and recorders -->
+          <input 
+            v-if="type === 'transformer' || type === 'recorder'"
+            v-model="editableLabel"
+            @blur="saveLabel"
+            @keyup.enter="saveLabel"
+            @keyup.esc="cancelLabelEdit"
+            class="editable-label"
+            :class="{ saving: savingLabel }"
+            :disabled="savingLabel"
+          />
+          <h3 v-else>{{ node.track_name || node.label }}</h3>
         </div>
         <button class="close-btn" @click="emit('close')">×</button>
       </div>
@@ -83,7 +94,7 @@
             <!-- Current Node (Center) -->
             <div class="map-center">
               <div class="map-node-badge">{{ type }}</div>
-              <div class="map-node-name">{{ node.track_name || node.label }}</div>
+              <div class="map-node-name">{{ (type === 'transformer' || type === 'recorder') ? editableLabel : (node.track_name || node.label) }}</div>
               <div class="map-node-hint" style="margin-top: 8px; font-size: 11px; color: var(--text-muted); text-align: center;">
                 To route outputs, configure the receiving node's inputs
               </div>
@@ -144,7 +155,7 @@ const props = defineProps({
   viewType: { type: String, default: null }, // 'signal-flow' or 'mic-placement'
   locationId: { type: [String, Number], default: null } // Location/stage ID for filtering
 })
-const emit = defineEmits(['close', 'node-deleted'])
+const emit = defineEmits(['close', 'node-deleted', 'node-updated'])
 
 const type = computed(() => (props.node.gear_type || props.node.node_type || props.node.type || '').toLowerCase())
 const inputs = computed(() => props.node.num_inputs || props.node.inputs || 0)
@@ -161,6 +172,10 @@ const sourcePadDb = ref(0)
 const inputGain = ref({}) // { inputNumber: gainDb }
 // Delete state
 const deleting = ref(false)
+// Label editing state
+const editableLabel = ref('')
+const savingLabel = ref(false)
+const originalLabel = ref('')
 
 onMounted(async () => {
   // Initialize sourcePadDb from node if present
@@ -171,6 +186,11 @@ onMounted(async () => {
   // Load transformer input gain values
   if (type.value === 'transformer') {
     await loadInputGain()
+  }
+  // Initialize editable label for transformers and recorders
+  if (type.value === 'transformer' || type.value === 'recorder') {
+    editableLabel.value = props.node.label || props.node.track_name || ''
+    originalLabel.value = editableLabel.value
   }
 })
 
@@ -185,6 +205,45 @@ async function saveSourceSettings() {
     console.error('[Inspector][Settings] failed to save source settings', e)
     toast.error('Failed to save settings')
   }
+}
+
+async function saveLabel() {
+  if (savingLabel.value) return
+  
+  const trimmedLabel = editableLabel.value.trim()
+  if (!trimmedLabel) {
+    // Revert to original if empty
+    editableLabel.value = originalLabel.value
+    toast.error('Label cannot be empty')
+    return
+  }
+  
+  if (trimmedLabel === originalLabel.value) {
+    // No change, nothing to save
+    return
+  }
+  
+  savingLabel.value = true
+  try {
+    await updateNode({ id: props.node.id, label: trimmedLabel })
+    // Optimistically update local node
+    props.node.label = trimmedLabel
+    originalLabel.value = trimmedLabel
+    toast.success('Label updated')
+    // Emit node-updated event so parent can refresh
+    emit('node-updated', props.node)
+  } catch (e) {
+    console.error('[Inspector] failed to save label', e)
+    toast.error('Failed to save label')
+    // Revert on error
+    editableLabel.value = originalLabel.value
+  } finally {
+    savingLabel.value = false
+  }
+}
+
+function cancelLabelEdit() {
+  editableLabel.value = originalLabel.value
 }
 
 async function cascadeDeleteNode(nodeId) {
@@ -1906,6 +1965,10 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
 .title { display: flex; gap: 10px; align-items: center; }
 .badge { background: var(--bg-elevated); border: 1px solid var(--border-medium); padding: 2px 8px; border-radius: 999px; font-size: 12px; color: var(--text-secondary); }
 h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
+.editable-label { margin: 0; font-size: 18px; color: var(--text-primary); background: var(--bg-primary); border: 2px solid var(--border-medium); border-radius: 6px; padding: 4px 8px; font-weight: 600; min-width: 200px; max-width: 400px; }
+.editable-label:focus { outline: none; border-color: var(--color-primary-500); box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25); }
+.editable-label:disabled { opacity: 0.6; cursor: not-allowed; }
+.editable-label.saving { border-color: var(--color-success-500); }
 .close-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 22px; cursor: pointer; }
 .meta { display: flex; gap: 12px; padding: 10px 18px; color: var(--text-secondary); font-size: 12px; }
 .tabs { display: flex; gap: 6px; padding: 0 18px 8px 18px; border-bottom: 1px solid var(--border-separator); }

@@ -216,6 +216,7 @@
     viewType="signal-flow"
     @close="inspectorOpen = false; inspectorNode = null"
     @node-deleted="handleInspectorNodeDeleted"
+    @node-updated="handleInspectorNodeUpdated"
   />
   
   <!-- Venue Sources Configuration Modal -->
@@ -2005,6 +2006,88 @@ function drawConnection(ctx, conn, isSelected = false) {
   ctx.restore()
 }
 
+// Draw connection legend for export
+function drawConnectionLegend(ctx, canvasWidth, canvasHeight) {
+  const LEGEND_PADDING = 12
+  const LEGEND_MARGIN = 20
+  const ITEM_SPACING = 12
+  const COLOR_SWATCH_WIDTH = 32
+  const COLOR_SWATCH_HEIGHT = 4
+  const FONT_SIZE = 12
+  const TITLE_FONT_SIZE = 13
+  
+  ctx.save()
+  
+  // Set up fonts
+  ctx.font = `bold ${TITLE_FONT_SIZE}px sans-serif`
+  const titleText = 'Connection Types:'
+  
+  ctx.font = `${FONT_SIZE}px sans-serif`
+  
+  // Calculate legend dimensions
+  let maxLabelWidth = 0
+  connectionTypes.forEach(type => {
+    const metrics = ctx.measureText(type)
+    maxLabelWidth = Math.max(maxLabelWidth, metrics.width)
+  })
+  
+  const itemHeight = Math.max(COLOR_SWATCH_HEIGHT + 4, FONT_SIZE + 4)
+  const legendWidth = COLOR_SWATCH_WIDTH + 8 + maxLabelWidth + LEGEND_PADDING * 2
+  const legendHeight = TITLE_FONT_SIZE + 8 + (connectionTypes.length * itemHeight) + (connectionTypes.length - 1) * ITEM_SPACING + LEGEND_PADDING * 2
+  
+  // Position in bottom right corner
+  const legendX = canvasWidth - legendWidth - LEGEND_MARGIN
+  const legendY = canvasHeight - legendHeight - LEGEND_MARGIN
+  
+  // Draw background with semi-transparent white and border
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+  ctx.lineWidth = 1
+  // Draw rounded rectangle manually
+  const radius = 8
+  ctx.beginPath()
+  ctx.moveTo(legendX + radius, legendY)
+  ctx.lineTo(legendX + legendWidth - radius, legendY)
+  ctx.quadraticCurveTo(legendX + legendWidth, legendY, legendX + legendWidth, legendY + radius)
+  ctx.lineTo(legendX + legendWidth, legendY + legendHeight - radius)
+  ctx.quadraticCurveTo(legendX + legendWidth, legendY + legendHeight, legendX + legendWidth - radius, legendY + legendHeight)
+  ctx.lineTo(legendX + radius, legendY + legendHeight)
+  ctx.quadraticCurveTo(legendX, legendY + legendHeight, legendX, legendY + legendHeight - radius)
+  ctx.lineTo(legendX, legendY + radius)
+  ctx.quadraticCurveTo(legendX, legendY, legendX + radius, legendY)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  
+  // Draw title
+  ctx.fillStyle = '#222'
+  ctx.font = `bold ${TITLE_FONT_SIZE}px sans-serif`
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(titleText, legendX + LEGEND_PADDING, legendY + LEGEND_PADDING)
+  
+  // Draw legend items
+  let currentY = legendY + LEGEND_PADDING + TITLE_FONT_SIZE + 8
+  connectionTypes.forEach(type => {
+    const color = getConnectionColor(type)
+    
+    // Draw color swatch
+    ctx.fillStyle = color
+    ctx.fillRect(legendX + LEGEND_PADDING, currentY, COLOR_SWATCH_WIDTH, COLOR_SWATCH_HEIGHT)
+    
+    // Draw label
+    ctx.fillStyle = '#495057'
+    ctx.font = `${FONT_SIZE}px sans-serif`
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(type, legendX + LEGEND_PADDING + COLOR_SWATCH_WIDTH + 8, currentY - 2)
+    
+    currentY += itemHeight + ITEM_SPACING
+  })
+  
+  ctx.restore()
+}
+
 // Pointer events
 function onPointerDown(e) {
   e.preventDefault()
@@ -2460,6 +2543,23 @@ function handleInspectorNodeDeleted(nodeId) {
   nextTick(drawCanvas)
 }
 
+function handleInspectorNodeUpdated(updatedNode) {
+  // Update the node in the local nodes array
+  const nodeIndex = props.nodes.findIndex(n => n.id === updatedNode.id)
+  if (nodeIndex !== -1) {
+    // Update the node in the array (props.nodes is reactive, so this should update the UI)
+    Object.assign(props.nodes[nodeIndex], updatedNode)
+    // Also update inspectorNode if it's the same node
+    if (inspectorNode.value && inspectorNode.value.id === updatedNode.id) {
+      Object.assign(inspectorNode.value, updatedNode)
+    }
+    // Emit to parent so it can refresh from database if needed
+    emit('node-updated', updatedNode)
+    // Redraw canvas to show updated label
+    nextTick(drawCanvas)
+  }
+}
+
 async function deleteSelected() {
   if (!selectedNode.value) return
 
@@ -2742,6 +2842,9 @@ async function exportToPNG() {
   })
   
   ctx.restore()
+  
+  // Draw connection legend in bottom right corner
+  drawConnectionLegend(ctx, exportW, exportH)
   
   // Get data URL
   let dataURL

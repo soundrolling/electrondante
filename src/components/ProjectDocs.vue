@@ -77,6 +77,14 @@
                     >
                       📥
                     </button>
+                    <button 
+                      v-if="isAdmin"
+                      @click="confirmRemove(doc)" 
+                      class="action-btn delete-btn"
+                      title="Delete document"
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
                 <div class="doc-meta">
@@ -208,6 +216,12 @@ const isLoadingProject = ref(true)
 
 const projectId   = props.projectId || route.params.id
 const projectName = ref('Loading…')
+
+// Check if user is admin
+const isAdmin = computed(() => {
+  const role = userStore.currentProject?.role
+  return role === 'admin' || role === 'owner'
+})
 
 // reactive page state
 const docs          = ref([])
@@ -396,6 +410,38 @@ function downloadDoc(doc) {
     toast.success('Download started')
   } catch (e) {
     toast.error('Failed to download')
+  }
+}
+
+// ─── DELETE DOCUMENT ───────────────────────────────────────────────────────────
+function confirmRemove(doc) {
+  if (!confirm('Deleting will remove for everyone. Continue?')) return
+  removeDoc(doc)
+}
+
+async function removeDoc(doc) {
+  try {
+    const { error: remErr } = await supabase.storage
+      .from('stage-docs')
+      .remove([doc.file_path])
+    if (remErr) { 
+      toast.error(remErr.message)
+      return 
+    }
+
+    const { error: delErr } = await supabase
+      .from('stage_docs')
+      .delete()
+      .eq('id', doc.id)
+    if (delErr) {
+      toast.error(delErr.message)
+    } else {
+      toast.success('Deleted')
+      await fetchDocs()
+    }
+  } catch (e) {
+    console.error('Error deleting document:', e)
+    toast.error('Failed to delete document')
   }
 }
 
@@ -923,6 +969,12 @@ onMounted(async () => {
   background: var(--color-success-600);
   color: var(--text-inverse) !important;
   border-color: var(--color-success-700);
+}
+
+.delete-btn:hover {
+  background: var(--color-error-600);
+  color: var(--text-inverse) !important;
+  border-color: var(--color-error-700);
 }
 
 .doc-meta {

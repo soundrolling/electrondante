@@ -101,6 +101,40 @@
             </option>
           </select>
         </div>
+        <div class="form-group">
+          <label for="parkingImage">Parking Photo (Optional)</label>
+          <div class="image-upload-container">
+            <input 
+              type="file" 
+              id="parkingImage" 
+              ref="imageInput"
+              accept="image/*" 
+              @change="handleImageSelect"
+              class="image-input"
+            />
+            <div v-if="imagePreview" class="image-preview">
+              <img :src="imagePreview" alt="Parking preview" />
+              <button type="button" @click="removeImage" class="remove-image-button" aria-label="Remove image">
+                ×
+              </button>
+            </div>
+            <div v-else-if="parkingForm.image_url" class="image-preview">
+              <img :src="parkingForm.image_url" alt="Parking photo" />
+              <button type="button" @click="removeImage" class="remove-image-button" aria-label="Remove image">
+                ×
+              </button>
+            </div>
+            <button 
+              v-else
+              type="button" 
+              @click="$refs.imageInput?.click()" 
+              class="image-upload-button"
+            >
+              <span class="upload-icon">📷</span>
+              <span>Upload Photo</span>
+            </button>
+          </div>
+        </div>
         <div class="form-actions">
           <button type="button" @click="closeForm" class="secondary-button">
             Cancel
@@ -128,6 +162,9 @@
           <span class="parking-provider">{{ entry.parking_provider }}</span>
         </div>
         <div class="parking-card-body">
+          <div v-if="entry.image_url" class="parking-image-container">
+            <img :src="entry.image_url" alt="Parking photo" class="parking-image" />
+          </div>
           <div class="parking-details">
             <div class="detail-item">
               <span class="detail-label">Start:</span>
@@ -188,6 +225,8 @@ setup(props) {
   const showForm = ref(false);
   const editingParking = ref(null);
   const parkingEntries = ref([]);
+  const imagePreview = ref(null);
+  const selectedImageFile = ref(null);
   const parkingForm = ref({
     airport: '',
     parking_provider: '',
@@ -195,7 +234,9 @@ setup(props) {
     end_datetime: '',
     cost: '',
     notes: '',
-    member_email: '' // Will be set to current user when opening form
+    member_email: '', // Will be set to current user when opening form
+    image_path: null,
+    image_url: null
   });
   
   // Permission check
@@ -277,10 +318,24 @@ setup(props) {
         .eq('trip_id', props.tripId)
         .order('start_datetime', { ascending: true });
       if (error) throw error;
-      // Enrich with member names
-      parkingEntries.value = (data || []).map(entry => ({
-        ...entry,
-        member_name: entry.member_email ? getMemberName(entry.member_email) : null
+      // Enrich with member names and image URLs
+      parkingEntries.value = await Promise.all((data || []).map(async entry => {
+        let imageUrl = null;
+        if (entry.image_path) {
+          try {
+            const { data: signed } = await supabase.storage
+              .from('parking-images')
+              .createSignedUrl(entry.image_path, 3600);
+            imageUrl = signed?.signedUrl || null;
+          } catch (err) {
+            console.warn('Could not get signed URL for parking image:', err);
+          }
+        }
+        return {
+          ...entry,
+          member_name: entry.member_email ? getMemberName(entry.member_email) : null,
+          image_url: imageUrl
+        };
       }));
     } catch (err) {
       toast.error('Failed to load parking entries');
@@ -291,6 +346,8 @@ setup(props) {
 
   const openForm = () => {
     editingParking.value = null;
+    imagePreview.value = null;
+    selectedImageFile.value = null;
     parkingForm.value = { 
       airport: '', 
       parking_provider: '', 
@@ -298,18 +355,36 @@ setup(props) {
       end_datetime: '', 
       cost: '', 
       notes: '',
-      member_email: currentUserEmail.value // Default to current user
+      member_email: currentUserEmail.value, // Default to current user
+      image_path: null,
+      image_url: null
     };
     showForm.value = true;
   };
-  const editParking = (entry) => {
+  const editParking = async (entry) => {
     editingParking.value = entry;
     parkingForm.value = { ...entry };
+    imagePreview.value = null;
+    selectedImageFile.value = null;
+    // Load existing image URL if available
+    if (entry.image_path) {
+      try {
+        const { data: signed } = await supabase.storage
+          .from('parking-images')
+          .createSignedUrl(entry.image_path, 3600);
+        parkingForm.value.image_url = signed?.signedUrl || null;
+      } catch (err) {
+        console.warn('Could not get signed URL for parking image:', err);
+        parkingForm.value.image_url = null;
+      }
+    }
     showForm.value = true;
   };
   const closeForm = () => {
     showForm.value = false;
     editingParking.value = null;
+    imagePreview.value = null;
+    selectedImageFile.value = null;
     parkingForm.value = { 
       airport: '', 
       parking_provider: '', 
@@ -317,29 +392,127 @@ setup(props) {
       end_datetime: '', 
       cost: '', 
       notes: '',
-      member_email: ''
+      member_email: '',
+      image_path: null,
+      image_url: null
     };
+    if (document.getElementById('parkingImage')) {
+      document.getElementById('parkingImage').value = '';
+    }
   };
+  const handleImageSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+    
+    selectedImageFile.value = file;
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  const removeImage = () => {
+    imagePreview.value = null;
+    selectedImageFile.value = null;
+    parkingForm.value.image_path = null;
+    parkingForm.value.image_url = null;
+    if (document.getElementById('parkingImage')) {
+      document.getElementById('parkingImage').value = '';
+    }
+  };
+  
+  const uploadImage = async (file) => {
+    if (!file) return null;
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${props.projectId}/${props.tripId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('parking-images')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (uploadError) throw uploadError;
+    return uploadData.path;
+  };
+  
   const saveParking = async () => {
     isSaving.value = true;
     try {
+      let imagePath = parkingForm.value.image_path;
+      
+      // Upload new image if one was selected
+      if (selectedImageFile.value) {
+        // Delete old image if editing and replacing
+        if (editingParking.value?.image_path) {
+          try {
+            await supabase.storage
+              .from('parking-images')
+              .remove([editingParking.value.image_path]);
+          } catch (err) {
+            console.warn('Could not delete old image:', err);
+          }
+        }
+        
+        imagePath = await uploadImage(selectedImageFile.value);
+      } else if (editingParking.value && editingParking.value.image_path && !parkingForm.value.image_path) {
+        // Image was removed: editing entry that had an image, but image_path is now null
+        try {
+          await supabase.storage
+            .from('parking-images')
+            .remove([editingParking.value.image_path]);
+        } catch (err) {
+          console.warn('Could not delete image:', err);
+        }
+        imagePath = null;
+      }
+      
+      const formData = {
+        airport: parkingForm.value.airport,
+        parking_provider: parkingForm.value.parking_provider,
+        start_datetime: parkingForm.value.start_datetime,
+        end_datetime: parkingForm.value.end_datetime,
+        cost: parkingForm.value.cost,
+        notes: parkingForm.value.notes,
+        member_email: parkingForm.value.member_email,
+        image_path: imagePath
+      };
+      
       if (editingParking.value) {
         const { error } = await supabase
           .from('travel_parking')
-          .update({ ...parkingForm.value })
+          .update(formData)
           .eq('id', editingParking.value.id);
         if (error) throw error;
         toast.success('Parking updated');
       } else {
         const { error } = await supabase
           .from('travel_parking')
-          .insert({ ...parkingForm.value, trip_id: props.tripId });
+          .insert({ ...formData, trip_id: props.tripId });
         if (error) throw error;
         toast.success('Parking added');
       }
       await loadParking();
       closeForm();
     } catch (err) {
+      console.error('Error saving parking:', err);
       toast.error('Failed to save parking');
     } finally {
       isSaving.value = false;
@@ -348,6 +521,20 @@ setup(props) {
   const deleteParking = async (id) => {
     if (!confirm('Delete this parking entry?')) return;
     try {
+      // Get the entry to find image path
+      const entry = parkingEntries.value.find(e => e.id === id);
+      
+      // Delete image from storage if it exists
+      if (entry?.image_path) {
+        try {
+          await supabase.storage
+            .from('parking-images')
+            .remove([entry.image_path]);
+        } catch (err) {
+          console.warn('Could not delete parking image:', err);
+        }
+      }
+      
       const { error } = await supabase
         .from('travel_parking')
         .delete()
@@ -383,6 +570,7 @@ setup(props) {
     editingParking,
     parkingEntries,
     parkingForm,
+    imagePreview,
     openForm,
     editParking,
     closeForm,
@@ -390,7 +578,9 @@ setup(props) {
     deleteParking,
     canManageProject,
     projectMembers,
-    formatDateTime
+    formatDateTime,
+    handleImageSelect,
+    removeImage
   };
 }
 };
@@ -623,11 +813,115 @@ setup(props) {
   resize: vertical;
 }
 
+.form-select {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  color: var(--text-heading);
+  transition: all 0.2s ease;
+  min-height: 48px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
   border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Image Upload Styles */
+.image-upload-container {
+  width: 100%;
+}
+
+.image-input {
+  display: none;
+}
+
+.image-upload-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+  width: 100%;
+  justify-content: center;
+  min-height: 48px;
+}
+
+.image-upload-button:hover {
+  border-color: var(--color-primary-500);
+  background: var(--bg-primary);
+  color: var(--text-heading);
+}
+
+.upload-icon {
+  font-size: 20px;
+}
+
+.image-preview {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.image-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 300px;
+  object-fit: contain;
+  background: var(--bg-secondary);
+}
+
+.remove-image-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(220, 38, 38, 0.9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.remove-image-button:hover {
+  background: rgba(185, 28, 28, 1);
+  transform: scale(1.1);
+}
+
+.remove-image-button:active {
+  transform: scale(0.95);
 }
 
 .form-actions {
@@ -771,6 +1065,23 @@ setup(props) {
 
 .parking-card-body {
   margin-bottom: 16px;
+}
+
+.parking-image-container {
+  width: 100%;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.parking-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 400px;
+  object-fit: contain;
+  background: var(--bg-secondary);
 }
 
 .parking-details {
