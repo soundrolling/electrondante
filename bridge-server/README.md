@@ -36,8 +36,8 @@ The server will run on `http://localhost:3000` with WebSocket at `ws://localhost
    - Select your repository
 
 2. **Configure Service:**
-   - Set **Root Directory** to `bridge-server`
-   - Railway will auto-detect Node.js
+   - Set **Root Directory** to `bridge-server` (IMPORTANT!)
+   - Railway will auto-detect Node.js from `bridge-server/package.json`
 
 3. **Set Environment Variables:**
    In Railway dashboard → Variables, add:
@@ -49,11 +49,17 @@ The server will run on `http://localhost:3000` with WebSocket at `ws://localhost
    - `PORT` is automatically set by Railway (don't override)
    - `DANTE_DEVICE_ID` only needed if you have local audio hardware
 
-4. **Deploy:**
+4. **Fix Build Issues (if needed):**
+   If Railway tries to use root `package.json`:
+   - Make sure Root Directory is set to `bridge-server`
+   - Railway should use `npm install` (not `npm ci`) - this is handled by `nixpacks.toml`
+   - If build fails, check that it's reading from `bridge-server/` directory
+
+5. **Deploy:**
    - Railway will automatically build and deploy
    - Get your deployment URL (e.g., `https://your-app.railway.app`)
 
-5. **Update Frontend:**
+6. **Update Frontend:**
    - In Vercel, add environment variable:
    ```
    VUE_APP_BRIDGE_WS_URL=wss://your-app.railway.app
