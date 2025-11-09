@@ -773,18 +773,141 @@ function drawCanvas() {
     ctx.globalAlpha = 1.0
   }
 
-  // Draw mics
-  props.nodes.forEach(mic => {
-    drawMic(ctx, mic)
+  // Calculate label positions with collision avoidance
+  const labelPositions = calculateLabelPositions(ctx)
+
+  // Draw mics with optimized label positions
+  props.nodes.forEach((mic, idx) => {
+    drawMic(ctx, mic, labelPositions[idx])
   })
 
   // Draw legend on canvas if it should be visible
   if (showLegend.value && Object.keys(colorLegendMap.value).length > 0) {
-    drawLegend(ctx)
+drawLegend(ctx)
   }
 }
 
-function drawMic(ctx, mic) {
+// Calculate label positions with collision avoidance
+function calculateLabelPositions(ctx) {
+  const scale = nodeScaleFactor.value
+  const labelPositions = []
+  const labelRects = []
+  
+  // First pass: calculate default positions and bounding boxes
+  props.nodes.forEach((mic, idx) => {
+    const { x, y } = imageToCanvasCoords(mic.x, mic.y)
+    const rotation = mic.rotation || 0
+    const labelText = mic.track_name || mic.label || ''
+    
+    ctx.font = `bold ${12 * scale}px sans-serif`
+    const textMetrics = ctx.measureText(labelText)
+    const padX = 6 * scale
+    const padY = 4 * scale
+    const bgW = Math.ceil(textMetrics.width) + padX * 2
+    const bgH = (18 * scale) + padY * 2
+    
+    // Default position: opposite to mic direction
+    const labelAngle = (rotation + 180) * (Math.PI / 180)
+    const baseDistance = 40 * scale
+    let labelX = x + Math.sin(labelAngle) * baseDistance
+    let labelY = y - Math.cos(labelAngle) * baseDistance
+    
+    labelRects.push({
+      micIdx: idx,
+      micX: x,
+      micY: y,
+      defaultX: labelX,
+      defaultY: labelY,
+      defaultAngle: labelAngle,
+      width: bgW,
+      height: bgH,
+      rotation: rotation
+    })
+  })
+  
+  // Second pass: resolve collisions
+  labelRects.forEach((rect, idx) => {
+    let finalX = rect.defaultX
+    let finalY = rect.defaultY
+    let needsLine = false
+    
+    // Check for collisions with other labels (already processed)
+    for (let i = 0; i < idx; i++) {
+      const other = labelRects[i]
+      const otherPos = labelPositions[i]
+      
+      // Check if rectangles overlap
+      if (rectanglesOverlap(
+        finalX - rect.width / 2, finalY - rect.height / 2, rect.width, rect.height,
+        otherPos.x - other.width / 2, otherPos.y - other.height / 2, other.width, other.height
+      )) {
+        // Try alternative positions
+        const alternatives = findAlternativeLabelPosition(rect, labelRects, labelPositions, idx, scale)
+        if (alternatives) {
+          finalX = alternatives.x
+          finalY = alternatives.y
+          needsLine = true
+          break // Found a position, no need to check more
+        }
+      }
+    }
+    
+    labelPositions.push({
+      x: finalX,
+      y: finalY,
+      needsLine: needsLine,
+      micX: rect.micX,
+      micY: rect.micY
+    })
+  })
+  
+  return labelPositions
+}
+
+// Check if two rectangles overlap
+function rectanglesOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
+  return !(x1 + w1 < x2 || x2 + w2 < x1 || y1 + h1 < y2 || y2 + h2 < y1)
+}
+
+// Find alternative position for label to avoid collision
+function findAlternativeLabelPosition(rect, allRects, existingPositions, currentIdx, scale) {
+  const baseDistance = 40 * scale
+  const maxDistance = 80 * scale
+  const angleStep = 30 // Try every 30 degrees
+  
+  // Try positions at different angles and distances
+  for (let distance = baseDistance + 10 * scale; distance <= maxDistance; distance += 10 * scale) {
+    for (let angleOffset = 0; angleOffset < 360; angleOffset += angleStep) {
+      const testAngle = rect.defaultAngle + (angleOffset * Math.PI / 180)
+      const testX = rect.micX + Math.sin(testAngle) * distance
+      const testY = rect.micY - Math.cos(testAngle) * distance
+      
+      // Check if this position collides with any other label
+      let hasCollision = false
+      for (let i = 0; i < currentIdx; i++) {
+        const other = allRects[i]
+        const otherPos = existingPositions[i]
+        
+        if (rectanglesOverlap(
+          testX - rect.width / 2, testY - rect.height / 2, rect.width, rect.height,
+          otherPos.x - other.width / 2, otherPos.y - other.height / 2, other.width, other.height
+        )) {
+          hasCollision = true
+          break
+        }
+      }
+      
+      if (!hasCollision) {
+        return { x: testX, y: testY }
+      }
+    }
+  }
+  
+  // If no position found, return null (will use default)
+  return null
+}
+
+function drawMic(ctx, mic, labelPos = null) {
   const { x, y } = imageToCanvasCoords(mic.x, mic.y)
   const rotation = mic.rotation || 0
   const scale = nodeScaleFactor.value
@@ -841,7 +964,7 @@ function drawMic(ctx, mic) {
 
   ctx.restore()
 
-  // Draw label positioned opposite to mic direction
+  // Draw label with optimized position
   ctx.font = `bold ${12 * scale}px sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -852,12 +975,32 @@ function drawMic(ctx, mic) {
   const bgW = Math.ceil(textMetrics.width) + padX * 2
   const bgH = (18 * scale) + padY * 2
   
-  // Calculate label position opposite to mic direction
-  // Mic points in rotation direction (0° = up), so label goes opposite (180° offset)
-  const labelAngle = (rotation + 180) * (Math.PI / 180)
-  const labelDistance = 40 * scale // Distance from mic center
-  const labelX = x + Math.sin(labelAngle) * labelDistance
-  const labelY = y - Math.cos(labelAngle) * labelDistance
+  // Use calculated position or calculate default
+  let labelX, labelY
+  if (labelPos) {
+    labelX = labelPos.x
+    labelY = labelPos.y
+  } else {
+    // Fallback to default position
+    const labelAngle = (rotation + 180) * (Math.PI / 180)
+    const labelDistance = 40 * scale
+    labelX = x + Math.sin(labelAngle) * labelDistance
+    labelY = y - Math.cos(labelAngle) * labelDistance
+  }
+  
+  // Draw connecting line if label is offset from default position
+  if (labelPos && labelPos.needsLine) {
+    ctx.save()
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
+    ctx.lineWidth = 1 / scale
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(labelX, labelY)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+  }
   
   // Background color - use color button or default
   ctx.fillStyle = labelBgColor
