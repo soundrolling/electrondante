@@ -23,8 +23,8 @@
     <span class="node-count">
       Sources: {{ sourceCount }} | Transformers: {{ transformerCount }} | Recorders: {{ recorderCount }}
     </span>
-    <button class="tool-btn" @click="exportToPDF" title="Export signal flow as PDF">
-      📄 Export PDF
+    <button class="tool-btn" @click="exportToPNG" title="Export signal flow as PNG">
+      📄 Export PNG
     </button>
     <div class="toolbar-divider"></div>
     <div class="zoom-controls">
@@ -250,8 +250,6 @@ import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as sv
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
-import { jsPDF } from 'jspdf'
-import { downloadPDF } from '@/utils/pdfDownloadHelper'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
@@ -2645,8 +2643,8 @@ function selectConnection(connectionId) {
 
 defineExpose({ getCanvasDataURL, selectConnection })
 
-// Export/Print the current signal flow canvas with print preview (PDF default)
-async function exportToPDF() {
+// Export the current signal flow canvas as PNG
+async function exportToPNG() {
   if (!canvas.value) return
   
   // Build an export canvas that fits all nodes and connections with padding
@@ -2759,88 +2757,28 @@ async function exportToPDF() {
     // Prompt for filename
     const defaultName = `signal-flow-${Date.now()}`
     const fileName = await showInput(
-      'Export PDF',
-      'Enter a filename for the PDF export:',
+      'Export PNG',
+      'Enter a filename for the PNG export:',
       defaultName,
       'Filename',
       'Enter filename...'
-    ) || defaultName
+    )
     if (!fileName) {
       return // User cancelled
     }
     
-    // Ensure filename has .pdf extension
-    const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
+    // Ensure filename has .png extension
+    const finalFileName = fileName.endsWith('.png') ? fileName : `${fileName}.png`
     
-    // Calculate legend height needed
-    const LEGEND_HEIGHT = 60
-    const LEGEND_PADDING = 10
+    // Download PNG file
+    const link = document.createElement('a')
+    link.download = finalFileName
+    link.href = dataURL
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
     
-    // Create PDF with extra space for legend
-    const pdf = new jsPDF({
-      orientation: exportW > exportH ? 'landscape' : 'portrait',
-      unit: 'px',
-      format: [exportW, exportH + LEGEND_HEIGHT + LEGEND_PADDING * 2]
-    })
-    
-    // Add image to PDF (scale to fit)
-    pdf.addImage(dataURL, 'PNG', 0, 0, exportW, exportH)
-    
-    // Helper function to convert hex to RGB
-    function hexToRgb(hex) {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-      return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      } : null
-    }
-    
-    // Add legend below the image
-    const legendY = exportH + LEGEND_PADDING
-    pdf.setFontSize(10)
-    pdf.setTextColor(0, 0, 0)
-    pdf.text('Connection Types:', LEGEND_PADDING, legendY)
-    
-    // Draw legend items
-    let legendX = LEGEND_PADDING
-    const legendItemSpacing = 100
-    const legendLineHeight = 12
-    
-    connectionTypes.forEach((type, index) => {
-      const x = legendX + (index % 3) * legendItemSpacing
-      const y = legendY + 8 + Math.floor(index / 3) * legendLineHeight
-      
-      // Draw color box
-      const color = getConnectionColor(type)
-      const rgb = hexToRgb(color)
-      if (rgb) {
-        pdf.setFillColor(rgb.r, rgb.g, rgb.b)
-        pdf.rect(x, y - 8, 20, 4, 'F')
-      }
-      
-      // Draw label
-      pdf.text(type, x + 24, y - 4)
-    })
-    
-    // Add default/other color if needed
-    const hasOtherConnections = props.connections.some(conn => {
-      const connType = conn.connection_type || 'Mic'
-      return !connectionTypes.includes(connType)
-    })
-    if (hasOtherConnections) {
-      const x = legendX + (connectionTypes.length % 3) * legendItemSpacing
-      const y = legendY + 8 + Math.floor(connectionTypes.length / 3) * legendLineHeight
-      const rgb = hexToRgb(defaultConnectionColor)
-      if (rgb) {
-        pdf.setFillColor(rgb.r, rgb.g, rgb.b)
-        pdf.rect(x, y - 8, 20, 4, 'F')
-      }
-      pdf.text('Other', x + 24, y - 4)
-    }
-    
-    // Download PDF using reliable helper that works on iPad
-    await downloadPDF(pdf, finalFileName, toast)
+    toast.success('Signal flow exported successfully')
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export signal flow')

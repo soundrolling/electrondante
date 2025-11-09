@@ -33,45 +33,50 @@
     </div>
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
-      <button @click="showColorButtonManager = !showColorButtonManager" class="btn-secondary">🎨 Color Buttons</button>
+      <button @click="showColorButtonManager = !showColorButtonManager" class="btn-secondary">🎨 Manage Colour Legend</button>
       <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
     </div>
   </div>
 
-  <!-- Color Button Management Panel -->
+  <!-- Colour Legend Management Panel -->
   <div v-if="showColorButtonManager" class="color-button-manager">
     <div class="manager-header">
-      <h4>Color Button Management</h4>
+      <h4>Manage Colour Legend</h4>
       <button @click="showColorButtonManager = false" class="close-btn">×</button>
     </div>
     <div class="manager-content">
-      <p class="info-text">Create color buttons to quickly apply colors to mic nodes. The color will change the node border and label background.</p>
+      <p class="info-text">Create colour legend entries to quickly apply colours to mic nodes. The colour will change the node border and label background, and appear in the legend on exported images.</p>
       
-      <!-- Color Button Grid -->
-      <div class="color-button-grid">
-        <button
-          v-for="btn in colorButtons"
-          :key="btn.id"
-          class="color-button-preview"
-          :style="{ 
-            '--btn-color': btn.color, 
-            '--btn-text': getContrastColor(btn.color) 
-          }"
-          @click="applyColorButton(btn.id)"
-          :class="{ active: selectedMic?.color_button_id === btn.id }"
-        >
-          <div class="btn-color-swatch" :style="{ backgroundColor: btn.color }"></div>
-          <span class="btn-name">{{ btn.name }}</span>
-        </button>
+      <!-- Quick Apply Grid -->
+      <div v-if="colorButtons.length > 0" class="quick-apply-section">
+        <h5 class="section-title">Quick Apply to Selected Mic</h5>
+        <div class="color-button-grid">
+          <button
+            v-for="btn in colorButtons"
+            :key="btn.id"
+            class="color-button-preview"
+            :style="{ 
+              '--btn-color': btn.color, 
+              '--btn-text': getContrastColor(btn.color) 
+            }"
+            @click="applyColorButton(btn.id)"
+            :class="{ active: selectedMic?.color_button_id === btn.id }"
+            :title="`Apply ${btn.name} to selected mic`"
+          >
+            <div class="btn-color-swatch" :style="{ backgroundColor: btn.color }"></div>
+            <span class="btn-name">{{ btn.name }}</span>
+          </button>
+        </div>
       </div>
 
       <!-- Add/Edit Button -->
-      <button class="btn-secondary add-color-btn" @click="openColorButtonModal">
-        {{ editingColorButton ? 'Edit' : 'Add' }} Color Button
+      <button class="btn-primary add-color-btn" @click="openColorButtonModal">
+        {{ editingColorButton !== null ? '✏️ Edit' : '➕ Add' }} Colour Legend Entry
       </button>
 
-      <!-- Color Button List -->
-      <div v-if="colorButtons.length" class="color-button-list">
+      <!-- Colour Legend List -->
+      <div v-if="colorButtons.length > 0" class="color-button-list">
+        <h5 class="section-title">Colour Legend Entries</h5>
         <div 
           v-for="(btn, idx) in colorButtons" 
           :key="btn.id"
@@ -82,13 +87,22 @@
             <div class="item-details">
               <div class="item-name">{{ btn.name }}</div>
               <div class="item-description">{{ btn.description || 'No description' }}</div>
+              <div class="item-meta">
+                <span class="item-color-code">{{ btn.color }}</span>
+                <span class="item-usage-count">
+                  Used by {{ props.nodes.filter(n => n.color_button_id === btn.id).length }} mic{{ props.nodes.filter(n => n.color_button_id === btn.id).length !== 1 ? 's' : '' }}
+                </span>
+              </div>
             </div>
           </div>
           <div class="item-actions">
-            <button @click="editColorButton(idx)" class="btn-warning icon-btn">✏️</button>
-            <button @click="deleteColorButton(btn.id, idx)" class="btn-danger icon-btn">🗑️</button>
+            <button @click="editColorButton(idx)" class="btn-warning icon-btn" title="Edit">✏️</button>
+            <button @click="deleteColorButton(btn.id, idx)" class="btn-danger icon-btn" title="Delete">🗑️</button>
           </div>
         </div>
+      </div>
+      <div v-else class="empty-state">
+        <p>No colour legend entries yet. Click "Add Colour Legend Entry" to create one.</p>
       </div>
     </div>
   </div>
@@ -197,14 +211,14 @@
                 class="color-button-select-btn no-buttons"
                 @click="showColorButtonManager = true"
               >
-                No color buttons. Click to create.
+                No colour legend entries. Click to create.
               </button>
             </div>
             <button 
               class="manage-color-buttons-btn"
               @click="showColorButtonManager = true"
             >
-              Manage Color Buttons
+              Manage Colour Legend
             </button>
           </div>
         </div>
@@ -251,11 +265,11 @@
     </div>
   </div>
 
-  <!-- Color Button Modal -->
+  <!-- Colour Legend Entry Modal -->
   <div v-if="showColorButtonModal" class="modal-overlay" @click="closeColorButtonModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>{{ editingColorButton !== null ? 'Edit' : 'Add' }} Color Button</h3>
+        <h3>{{ editingColorButton !== null ? 'Edit' : 'Add' }} Colour Legend Entry</h3>
         <button @click="closeColorButtonModal" class="close-btn">×</button>
       </div>
       <div class="modal-body">
@@ -263,33 +277,46 @@
           <label>Name*</label>
           <input 
             v-model="colorButtonForm.name" 
-            placeholder="e.g. Vocals, Drums, etc."
+            placeholder="e.g. Vocals, Drums, Stage Left, etc."
             required
             class="context-menu-input"
           />
+          <p class="field-hint">This name will appear in the legend on exported images</p>
         </div>
         <div class="form-field">
-          <label>Color*</label>
-          <select v-model="colorButtonForm.color" required class="context-menu-input">
-            <option disabled value="">Select a color</option>
+          <label>Colour*</label>
+          <select v-model="colorButtonForm.color" required class="context-menu-input" @change="updateColorPreview">
+            <option disabled value="">Select a colour</option>
             <option v-for="c in colorOptions" :key="c.value" :value="c.value">
               {{ c.name }}
             </option>
           </select>
+          <div v-if="colorButtonForm.color" class="color-preview-box">
+            <div class="preview-label">Preview:</div>
+            <div class="preview-mic-sample">
+              <div class="preview-circle" :style="{ borderColor: colorButtonForm.color }">
+                <div class="preview-arrow"></div>
+              </div>
+              <div class="preview-label-box" :style="{ backgroundColor: colorButtonForm.color, color: getContrastColor(colorButtonForm.color) }">
+                Sample Label
+              </div>
+            </div>
+          </div>
         </div>
         <div class="form-field">
           <label>Description</label>
           <input 
             v-model="colorButtonForm.description" 
-            placeholder="Optional description"
+            placeholder="Optional description (e.g., 'Used for vocal microphones')"
             class="context-menu-input"
           />
+          <p class="field-hint">Optional note about what this colour represents</p>
         </div>
         <p v-if="colorButtonForm.error" class="error-text">{{ colorButtonForm.error }}</p>
       </div>
       <div class="modal-footer">
         <button @click="closeColorButtonModal" class="btn-secondary">Cancel</button>
-        <button @click="saveColorButton" class="btn-primary" :disabled="colorButtonBusy">
+        <button @click="saveColorButton" class="btn-primary" :disabled="colorButtonBusy || !colorButtonForm.name || !colorButtonForm.color">
           {{ colorButtonBusy ? 'Saving...' : 'Save' }}
         </button>
       </div>
@@ -625,6 +652,11 @@ function openColorButtonModal() {
   editingColorButton.value = null
   colorButtonForm.value = { name: '', color: '', description: '', error: null }
   showColorButtonModal.value = true
+}
+
+function updateColorPreview() {
+  // Trigger reactivity for color preview
+  // This is handled automatically by Vue reactivity
 }
 
 function closeColorButtonModal() {
@@ -3134,6 +3166,99 @@ defineExpose({ getCanvasDataURL })
 
 .manage-color-buttons-btn:hover {
   background: var(--color-secondary-600);
+}
+
+/* Manager Panel Enhancements */
+.section-title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.item-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 0.75rem;
+}
+
+.item-color-code {
+  font-family: monospace;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.item-usage-count {
+  color: var(--text-secondary);
+}
+
+/* Color Preview in Modal */
+.color-preview-box {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+}
+
+.preview-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.preview-mic-sample {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+}
+
+.preview-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid;
+  background: #fff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-arrow {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 10px solid #495057;
+  margin-top: -8px;
+}
+
+.preview-label-box {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 4px 0 0 0;
+  font-style: italic;
 }
 </style>
 
