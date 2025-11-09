@@ -10,10 +10,10 @@ require('dotenv').config();
 // Configuration
 const CONFIG = {
   port: process.env.PORT || 3000,
-  wsPort: process.env.WS_PORT || 3001,
   sampleRate: 48000, // Dante standard
   channels: parseInt(process.env.CHANNEL_COUNT) || 16, // Number of Dante input channels
   bufferSize: 128, // Smaller = lower latency, but higher CPU
+  // Railway/cloud platforms assign PORT automatically - use same port for HTTP and WebSocket
 };
 
 // Initialize Supabase client
@@ -26,9 +26,10 @@ class DanteBridgeServer {
   constructor() {
     this.clients = new Map(); // clientId -> { ws, userId }
     this.audioBuffer = null;
-    this.initAudioInput();
-    this.initWebSocket();
+    this.httpServer = null;
     this.initHTTP();
+    this.initWebSocket();
+    this.initAudioInput();
   }
 
   initAudioInput() {
@@ -114,8 +115,9 @@ class DanteBridgeServer {
   }
 
   initWebSocket() {
-    this.wss = new WebSocket.Server({ port: CONFIG.wsPort });
-    console.log(`WebSocket server listening on port ${CONFIG.wsPort}`);
+    // Attach WebSocket server to HTTP server (Railway-friendly)
+    this.wss = new WebSocket.Server({ server: this.httpServer });
+    console.log(`WebSocket server attached to HTTP server on port ${CONFIG.port}`);
 
     this.wss.on('connection', async (ws, req) => {
       const clientId = this.generateClientId();
@@ -221,6 +223,28 @@ class DanteBridgeServer {
 
   initHTTP() {
     const app = express();
+    
+    // CORS middleware for Railway/cloud deployment
+    app.use((req, res, next) => {
+      const origin = req.headers.origin;
+      // Allow requests from Vercel and localhost
+      if (origin && (
+        origin.includes('vercel.app') || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1')
+      )) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      }
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+      next();
+    });
+    
     app.use(express.json());
     app.use(express.static('public'));
 
@@ -229,11 +253,15 @@ class DanteBridgeServer {
         status: 'ok',
         channels: CONFIG.channels,
         connectedClients: this.clients.size,
+        platform: process.env.RAILWAY_ENVIRONMENT || 'local',
       });
     });
 
-    app.listen(CONFIG.port, () => {
+    // Store HTTP server reference for WebSocket attachment
+    this.httpServer = app.listen(CONFIG.port, '0.0.0.0', () => {
       console.log(`HTTP server listening on port ${CONFIG.port}`);
+      console.log(`Environment: ${process.env.RAILWAY_ENVIRONMENT || 'local'}`);
+      console.log(`WebSocket will be available at: ws://localhost:${CONFIG.port}`);
     });
   }
 
@@ -246,11 +274,25 @@ class DanteBridgeServer {
 const server = new DanteBridgeServer();
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('Shutting down...');
+const shutdown = () => {
+  console.log('Shutting down gracefully...');
   if (server.audioInput) {
-    server.audioInput.quit();
+    try {
+      server.audioInput.quit();
+    } catch (error) {
+      console.error('Error stopping audio input:', error);
+    }
   }
-  process.exit(0);
-});
+  if (server.httpServer) {
+    server.httpServer.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown); // Railway sends SIGTERM
 
