@@ -917,14 +917,23 @@ function rectanglesOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
 }
 
 // Find alternative position for label to avoid collision
+// Always favors positions opposite to the arrow direction
 function findAlternativeLabelPosition(rect, allRects, existingPositions, currentIdx, scale, micRadius) {
   const baseDistance = 40 * scale
   const maxDistance = 100 * scale // Increased max distance to find more options
-  const angleStep = 30 // Try every 30 degrees
+  const angleStep = 15 // Try every 15 degrees for finer control
   
-  // Try positions at different angles and distances
+  // Generate angle offsets in order of preference (closest to default angle first)
+  // Start with 0° (exactly opposite), then try ±15°, ±30°, ±45°, etc.
+  const angleOffsets = [0]
+  for (let step = angleStep; step <= 180; step += angleStep) {
+    angleOffsets.push(step, -step)
+  }
+  
+  // Try positions at different distances, starting from base distance
   for (let distance = baseDistance + 10 * scale; distance <= maxDistance; distance += 10 * scale) {
-    for (let angleOffset = 0; angleOffset < 360; angleOffset += angleStep) {
+    // Try angles in order of preference (closest to opposite direction first)
+    for (const angleOffset of angleOffsets) {
       const testAngle = rect.defaultAngle + (angleOffset * Math.PI / 180)
       const testX = rect.micX + Math.sin(testAngle) * distance
       const testY = rect.micY - Math.cos(testAngle) * distance
@@ -1824,6 +1833,58 @@ function saveLegend() {
 }
 
 // Draw legend on canvas
+// Calculate best position for legend around screen edges
+function calculateLegendPosition(legendWidth, legendHeight, canvasW, canvasH) {
+  const EDGE_MARGIN = 20
+  const micNodeRadius = 20 * nodeScaleFactor.value
+  
+  // Define preferred positions around edges (in order of preference)
+  // Format: [x, y, description]
+  const positions = [
+    // Corners (preferred)
+    [canvasW - legendWidth - EDGE_MARGIN, canvasH - legendHeight - EDGE_MARGIN, 'bottom-right'],
+    [EDGE_MARGIN, canvasH - legendHeight - EDGE_MARGIN, 'bottom-left'],
+    [canvasW - legendWidth - EDGE_MARGIN, EDGE_MARGIN, 'top-right'],
+    [EDGE_MARGIN, EDGE_MARGIN, 'top-left'],
+    // Sides (if corners don't work)
+    [(canvasW - legendWidth) / 2, canvasH - legendHeight - EDGE_MARGIN, 'bottom-center'],
+    [(canvasW - legendWidth) / 2, EDGE_MARGIN, 'top-center'],
+    [EDGE_MARGIN, (canvasH - legendHeight) / 2, 'left-center'],
+    [canvasW - legendWidth - EDGE_MARGIN, (canvasH - legendHeight) / 2, 'right-center'],
+  ]
+  
+  // Try each position in order of preference
+  for (const [x, y, desc] of positions) {
+    if (x < 0 || y < 0 || x + legendWidth > canvasW || y + legendHeight > canvasH) {
+      continue // Position is out of bounds
+    }
+    
+    // Check if legend rectangle overlaps with any mic node
+    let hasCollision = false
+    for (const mic of props.nodes) {
+      const { x: micX, y: micY } = imageToCanvasCoords(mic.x, mic.y)
+      
+      if (rectangleCircleOverlap(
+        x, y, legendWidth, legendHeight,
+        micX, micY, micNodeRadius
+      )) {
+        hasCollision = true
+        break
+      }
+    }
+    
+    if (!hasCollision) {
+      return { x, y }
+    }
+  }
+  
+  // If all positions collide, use bottom-right as fallback (original position)
+  return {
+    x: canvasW - legendWidth - EDGE_MARGIN,
+    y: canvasH - legendHeight - EDGE_MARGIN
+  }
+}
+
 function drawLegend(ctx, canvasW = null, canvasH = null) {
   // Build legend items from color buttons
   const legendItems = []
@@ -1859,9 +1920,8 @@ function drawLegend(ctx, canvasW = null, canvasH = null) {
   const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
   const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20 // +20 for header
   
-  // Position in bottom right
-  const legendX = w - legendWidth - 20
-  const legendY = h - legendHeight - 20
+  // Calculate best position that avoids mic nodes
+  const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h)
   
   // Draw legend background
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
