@@ -73,7 +73,7 @@
             @keyup.enter="saveLegend"
             class="legend-label-input"
             type="text"
-            :placeholder="color"
+            :placeholder="getColorName(color)"
           />
         </div>
       </div>
@@ -81,7 +81,7 @@
   </div>
 
   <!-- Mic Context Menu -->
-  <div v-if="showContextMenu" class="context-menu-overlay" @click="closeContextMenu">
+  <div v-if="showContextMenu" class="context-menu-overlay" @click="closeContextMenuWithoutDeselect">
     <div class="context-menu" @click.stop>
       <div class="context-menu-header">
         <h4>{{ selectedMic?.track_name || selectedMic?.label || 'Mic' }}</h4>
@@ -1149,6 +1149,8 @@ function openContextMenu(e) {
   contextMenuLabelBgColor.value = selectedMic.value.label_bg_color || 'rgba(255,255,255,0.92)'
   
   showContextMenu.value = true
+  // Ensure canvas is redrawn to show selection highlight
+  nextTick(drawCanvas)
 }
 
 function closeContextMenu() {
@@ -1156,6 +1158,12 @@ function closeContextMenu() {
   contextMenuTrackName.value = ''
   contextMenuRotation.value = 0
   contextMenuLabelBgColor.value = 'rgba(255,255,255,0.92)'
+}
+
+function closeContextMenuWithoutDeselect() {
+  // Close context menu but keep mic selected
+  closeContextMenu()
+  // Don't deselect the mic - keep it highlighted
 }
 
 function setQuickRotation(angle) {
@@ -1220,6 +1228,93 @@ async function deleteMicFromContextMenu() {
   }
 }
 
+// Generate a readable color name from color value
+function getColorName(color) {
+  if (!color) return 'Unknown'
+  
+  // Normalize color to lowercase for comparison
+  const normalized = color.toLowerCase().trim()
+  
+  // Check for common color presets
+  const colorMap = {
+    'rgba(255,255,255,0.92)': 'White',
+    'rgba(0,0,0,0.8)': 'Black',
+    'rgba(255,0,0,0.9)': 'Red',
+    'rgba(0,255,0,0.9)': 'Green',
+    'rgba(0,0,255,0.9)': 'Blue',
+    'rgba(255,255,0,0.9)': 'Yellow',
+    'rgba(255,0,255,0.9)': 'Magenta',
+    'rgba(0,255,255,0.9)': 'Cyan',
+  }
+  
+  if (colorMap[normalized]) {
+    return colorMap[normalized]
+  }
+  
+  // Try to parse rgba/rgb
+  const rgbaMatch = normalized.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  if (rgbaMatch) {
+    const r = parseInt(rgbaMatch[1])
+    const g = parseInt(rgbaMatch[2])
+    const b = parseInt(rgbaMatch[3])
+    
+    // Generate a descriptive name based on RGB values
+    if (r > 200 && g > 200 && b > 200) return 'Light'
+    if (r < 50 && g < 50 && b < 50) return 'Dark'
+    if (r > g && r > b) {
+      if (g > 150) return 'Orange'
+      if (b > 150) return 'Pink'
+      return 'Red'
+    }
+    if (g > r && g > b) {
+      if (r > 150) return 'Yellow-Green'
+      if (b > 150) return 'Cyan'
+      return 'Green'
+    }
+    if (b > r && b > g) {
+      if (r > 150) return 'Purple'
+      if (g > 150) return 'Teal'
+      return 'Blue'
+    }
+    return 'Custom'
+  }
+  
+  // Try hex
+  if (normalized.startsWith('#')) {
+    let hex = normalized.slice(1)
+    // Handle 3-digit hex
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join('')
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16)
+      const g = parseInt(hex.slice(2, 4), 16)
+      const b = parseInt(hex.slice(4, 6), 16)
+      
+      if (r > 200 && g > 200 && b > 200) return 'Light'
+      if (r < 50 && g < 50 && b < 50) return 'Dark'
+      if (r > g && r > b) {
+        if (g > 150) return 'Orange'
+        if (b > 150) return 'Pink'
+        return 'Red'
+      }
+      if (g > r && g > b) {
+        if (r > 150) return 'Yellow-Green'
+        if (b > 150) return 'Cyan'
+        return 'Green'
+      }
+      if (b > r && b > g) {
+        if (r > 150) return 'Purple'
+        if (g > 150) return 'Teal'
+        return 'Blue'
+      }
+      return 'Custom'
+    }
+  }
+  
+  return 'Custom'
+}
+
 // Update color legend when nodes change
 function updateColorLegend() {
   const usedColors = new Set()
@@ -1228,9 +1323,9 @@ function updateColorLegend() {
     // Only track non-default colors
     if (color !== defaultColor) {
       usedColors.add(color)
-      // Initialize label if not exists
+      // Initialize label with a readable color name if not exists
       if (!colorLegendMap.value[color]) {
-        colorLegendMap.value[color] = ''
+        colorLegendMap.value[color] = getColorName(color)
       }
     }
   })
@@ -1321,7 +1416,7 @@ function drawLegend(ctx, canvasW = null, canvasH = null) {
   // Draw legend items
   let itemY = legendY + LEGEND_PADDING + 20
   legendItems.forEach(([color, label]) => {
-    const text = label || color
+    const text = label || getColorName(color)
     
     // Draw color swatch
     ctx.fillStyle = color
@@ -1354,6 +1449,12 @@ watch(() => props.nodes, () => {
 
 // Keyboard handler for context menu and delete
 function handleKeyDown(e) {
+  // Don't handle keys if user is typing in an input field
+  const target = e.target
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+    return
+  }
+  
   if (e.key === 'Escape' && showContextMenu.value) {
     closeContextMenu()
   }
