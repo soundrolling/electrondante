@@ -33,77 +33,7 @@
     </div>
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
-      <button @click="showColorButtonManager = !showColorButtonManager" class="btn-secondary">🎨 Manage Colour Legend</button>
       <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
-    </div>
-  </div>
-
-  <!-- Colour Legend Management Panel -->
-  <div v-if="showColorButtonManager" class="color-button-manager">
-    <div class="manager-header">
-      <h4>Manage Colour Legend</h4>
-      <button @click="showColorButtonManager = false" class="close-btn">×</button>
-    </div>
-    <div class="manager-content">
-      <p class="info-text">Create colour legend entries to quickly apply colours to mic nodes. The colour will change the node border and label background, and appear in the legend on exported images.</p>
-      
-      <!-- Quick Apply Grid -->
-      <div v-if="colorButtons.length > 0" class="quick-apply-section">
-        <h5 class="section-title">Quick Apply to Selected Mic</h5>
-        <div class="color-button-grid">
-          <button
-            v-for="btn in colorButtons"
-            :key="btn.id"
-            class="color-button-preview"
-            :style="{ 
-              '--btn-color': btn.color, 
-              '--btn-text': getContrastColor(btn.color) 
-            }"
-            @click="applyColorButton(btn.id)"
-            :class="{ active: selectedMic?.color_button_id === btn.id }"
-            :title="`Apply ${btn.name} to selected mic`"
-          >
-            <div class="btn-color-swatch" :style="{ backgroundColor: btn.color }"></div>
-            <span class="btn-name">{{ btn.name }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Add/Edit Button -->
-      <button class="btn-primary add-color-btn" @click="openColorButtonModal">
-        {{ editingColorButton !== null ? '✏️ Edit' : '➕ Add' }} Colour Legend Entry
-      </button>
-
-      <!-- Colour Legend List -->
-      <div v-if="colorButtons.length > 0" class="color-button-list">
-        <h5 class="section-title">Colour Legend Entries</h5>
-        <div 
-          v-for="(btn, idx) in colorButtons" 
-          :key="btn.id"
-          class="color-button-item"
-        >
-          <div class="item-info">
-            <div class="item-color" :style="{ backgroundColor: btn.color }"></div>
-            <div class="item-details">
-              <div class="item-name">{{ btn.name }}</div>
-              <div class="item-description">{{ btn.description || 'No description' }}</div>
-              <div class="item-meta">
-                <span class="item-color-code">{{ btn.color }}</span>
-                <span class="item-usage-count">
-                  Used by {{ props.nodes.filter(n => n.color_button_id === btn.id).length }} mic{{ props.nodes.filter(n => n.color_button_id === btn.id).length !== 1 ? 's' : '' }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="item-actions">
-            <button @click="editColorButton(idx)" class="btn-warning icon-btn" title="Edit">✏️</button>
-            <button @click="deleteColorButton(btn.id, idx)" class="btn-danger icon-btn" title="Delete">🗑️</button>
-          </div>
-        </div>
-      </div>
-      <div v-else class="empty-state">
-        <p>No colour legend entries yet. Click "Add Colour Legend Entry" to create one.</p>
-      </div>
     </div>
   </div>
 
@@ -188,7 +118,18 @@
           </div>
         </div>
         <div class="context-menu-section">
-          <label>Color Button:</label>
+          <div class="section-header-with-toggle">
+            <label>Colour Legend:</label>
+            <button 
+              class="toggle-manage-btn"
+              @click="showLegendManagement = !showLegendManagement"
+              :title="showLegendManagement ? 'Hide management' : 'Show management'"
+            >
+              {{ showLegendManagement ? '▼' : '▶' }} Manage
+            </button>
+          </div>
+          
+          <!-- Colour Button Selector -->
           <div class="color-button-selector">
             <div class="color-button-buttons">
               <button
@@ -209,17 +150,53 @@
               <button
                 v-if="colorButtons.length === 0"
                 class="color-button-select-btn no-buttons"
-                @click="showColorButtonManager = true"
+                @click="showLegendManagement = true"
               >
                 No colour legend entries. Click to create.
               </button>
             </div>
-            <button 
-              class="manage-color-buttons-btn"
-              @click="showColorButtonManager = true"
-            >
-              Manage Colour Legend
+          </div>
+
+          <!-- Inline Management Section -->
+          <div v-if="showLegendManagement" class="legend-management-inline">
+            <div class="management-header-inline">
+              <span class="management-title">Manage Colour Legend</span>
+            </div>
+            
+            <!-- Add/Edit Button -->
+            <button class="btn-primary add-color-btn-inline" @click="openColorButtonModal">
+              {{ editingColorButton !== null ? '✏️ Edit' : '➕ Add' }} Entry
             </button>
+
+            <!-- Colour Legend List -->
+            <div v-if="colorButtons.length > 0" class="color-button-list-inline">
+              <div 
+                v-for="(btn, idx) in colorButtons" 
+                :key="btn.id"
+                class="color-button-item-inline"
+              >
+                <div class="item-info-inline">
+                  <div class="item-color-inline" :style="{ backgroundColor: btn.color }"></div>
+                  <div class="item-details-inline">
+                    <div class="item-name-inline">{{ btn.name }}</div>
+                    <div class="item-description-inline">{{ btn.description || 'No description' }}</div>
+                    <div class="item-meta-inline">
+                      <span class="item-color-code-inline">{{ btn.color }}</span>
+                      <span class="item-usage-count-inline">
+                        Used by {{ props.nodes.filter(n => n.color_button_id === btn.id).length }} mic{{ props.nodes.filter(n => n.color_button_id === btn.id).length !== 1 ? 's' : '' }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="item-actions-inline">
+                  <button @click="editColorButton(idx)" class="btn-warning icon-btn-inline" title="Edit">✏️</button>
+                  <button @click="deleteColorButton(btn.id, idx)" class="btn-danger icon-btn-inline" title="Delete">🗑️</button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state-inline">
+              <p>No colour legend entries yet. Click "Add Entry" to create one.</p>
+            </div>
           </div>
         </div>
         <div class="context-menu-actions">
@@ -571,12 +548,12 @@ const showFilenameModal = ref(false)
 const exportFilename = ref('')
 
 // Color button management state
-const showColorButtonManager = ref(false)
 const colorButtons = ref([])
 const editingColorButton = ref(null)
 const colorButtonForm = ref({ name: '', color: '', description: '' })
 const showColorButtonModal = ref(false)
 const colorButtonBusy = ref(false)
+const showLegendManagement = ref(false)
 
 const colorOptions = [
   { name: 'Red', value: '#ff4d4f' },
@@ -740,6 +717,7 @@ async function deleteColorButton(id, idx) {
 }
 
 function applyColorButton(buttonId) {
+  // This is called from inline management - mic should already be selected
   if (!selectedMic.value) {
     toast.info('Please select a mic first')
     return
@@ -1453,6 +1431,8 @@ function openContextMenu(e) {
   // Set the context menu values
   contextMenuTrackName.value = selectedMic.value.track_name || ''
   contextMenuRotation.value = selectedMic.value.rotation || 0
+  // Keep legend management state when reopening context menu
+  // showLegendManagement stays as is
   
   showContextMenu.value = true
   // Ensure canvas is redrawn to show selection highlight
@@ -2946,156 +2926,152 @@ defineExpose({ getCanvasDataURL })
   justify-content: flex-end;
 }
 
-/* Color Button Manager Styles */
-.color-button-manager {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-  box-shadow: var(--shadow-md);
-}
-
-.manager-header {
+/* Inline Legend Management in Context Menu */
+.section-header-with-toggle {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.manager-header h4 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.manager-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.info-text {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.color-button-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.color-button-preview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  border: 2px solid var(--border-medium);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.color-button-preview:hover {
-  border-color: var(--color-primary-500);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
-.color-button-preview.active {
-  border-color: var(--color-primary-500);
-  border-width: 3px;
-  background: var(--bg-primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.btn-color-swatch {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.2);
-}
-
-.btn-name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.add-color-btn {
-  align-self: flex-start;
   margin-bottom: 8px;
 }
 
-.color-button-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
+.toggle-manage-btn {
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: all 0.2s;
 }
 
-.color-button-item {
+.toggle-manage-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.legend-management-inline {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.management-header-inline {
+  margin-bottom: 12px;
+}
+
+.management-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.add-color-btn-inline {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.color-button-list-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.color-button-item-inline {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
+  padding: 10px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
-.item-info {
+.item-info-inline {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
+  min-width: 0;
 }
 
-.item-color {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+.item-color-inline {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
-.item-details {
+.item-details-inline {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
 }
 
-.item-name {
+.item-name-inline {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
-.item-description {
-  font-size: 0.85rem;
+.item-description-inline {
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
-.item-actions {
+.item-meta-inline {
   display: flex;
   gap: 8px;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  flex-wrap: wrap;
 }
 
-.icon-btn {
-  padding: 6px 10px;
+.item-color-code-inline {
+  font-family: monospace;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.item-usage-count-inline {
+  color: var(--text-secondary);
+}
+
+.item-actions-inline {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.icon-btn-inline {
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   transition: all 0.2s;
+  min-width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state-inline {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.85rem;
 }
 
 /* Color Button Selector in Context Menu */
