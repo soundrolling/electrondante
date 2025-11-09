@@ -165,8 +165,27 @@ class DanteBridgeServer {
       this.wss = new WebSocket.Server({ 
         server: this.httpServer,
         perMessageDeflate: false, // Disable compression for lower latency
+        clientTracking: true,
+        verifyClient: (info) => {
+          console.log(`🔍 WebSocket upgrade request from: ${info.origin || 'no origin'}`);
+          return true; // Accept all connections
+        },
       });
       console.log(`✅ WebSocket server attached to HTTP server on port ${CONFIG.port}`);
+      
+      // Handle WebSocket upgrade errors
+      this.wss.on('error', (error) => {
+        console.error('❌ WebSocket server error:', error);
+      });
+      
+      this.wss.on('headers', (headers, req) => {
+        // Add CORS headers for WebSocket upgrade
+        const origin = req.headers.origin;
+        if (origin) {
+          headers.push(`Access-Control-Allow-Origin: ${origin}`);
+        }
+        headers.push('Access-Control-Allow-Credentials: true');
+      });
     } catch (error) {
       console.error('❌ Failed to initialize WebSocket server:', error);
       throw error;
