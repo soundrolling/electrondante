@@ -2140,10 +2140,13 @@ async function confirmExport() {
     sanitizedFilename = 'mic-placement-export'
   }
   
-  // Add .png extension if not already present
-  const filename = sanitizedFilename.toLowerCase().endsWith('.png') 
-    ? sanitizedFilename 
-    : `${sanitizedFilename}.png`
+  // Remove .png extension if present (we'll add it back)
+  sanitizedFilename = sanitizedFilename.replace(/\.png$/i, '')
+  
+  // Add .png extension
+  const filename = `${sanitizedFilename}.png`
+  
+  console.log('Export filename:', filename, 'from input:', filenameInput)
   
   // Close modal (this clears exportFilename, but we've already stored the sanitized filename)
   closeFilenameModal()
@@ -2156,18 +2159,28 @@ async function confirmExport() {
   }
   
   try {
+    // Convert data URL to blob for more reliable downloads
+    const response = await fetch(dataURL)
+    const blob = await response.blob()
+    const blobURL = URL.createObjectURL(blob)
+    
     // Create a temporary anchor element to trigger download
     const link = document.createElement('a')
     
     // Set the download attributes
-    link.href = dataURL
+    link.href = blobURL
     link.download = filename
     link.style.display = 'none'
     
     // Append to body, click, and remove
     document.body.appendChild(link)
     link.click()
-    document.body.removeChild(link)
+    
+    // Clean up after a short delay
+    setTimeout(() => {
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobURL)
+    }, 100)
     
     toast.success(`Mic placement exported as ${filename}`)
   } catch (e) {
