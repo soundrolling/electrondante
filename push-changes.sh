@@ -104,6 +104,15 @@ if [[ -n $(git status -s) ]]; then
     echo -e "${BLUE}Staging all changes...${NC}"
     git add -A
     
+    # Verify bridge-server files are included (if they exist)
+    if [ -d "bridge-server" ]; then
+        if git ls-files --error-unmatch bridge-server/server.js > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ Bridge server files included${NC}"
+        else
+            echo -e "${YELLOW}Note: Bridge server files may need to be committed separately${NC}"
+        fi
+    fi
+    
     echo -e "${BLUE}Committing changes...${NC}"
     # Use provided commit message or default
     COMMIT_MSG="${1:-Update changes}"
