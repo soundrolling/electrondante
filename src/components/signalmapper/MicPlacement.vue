@@ -244,7 +244,7 @@
 
   <!-- Colour Legend Entry Modal -->
   <div v-if="showColorButtonModal" class="modal-overlay" @click="closeColorButtonModal">
-    <div class="modal-content" @click.stop>
+    <div class="modal-content color-button-modal" @click.stop>
       <div class="modal-header">
         <h3>{{ editingColorButton !== null ? 'Edit' : 'Add' }} Colour Legend Entry</h3>
         <button @click="closeColorButtonModal" class="close-btn">×</button>
@@ -694,13 +694,27 @@ async function saveColorButton() {
 }
 
 async function deleteColorButton(id, idx) {
+  // Check if dark mode is active
+  const isDark = document.documentElement.classList.contains('dark')
+  
   const result = await Swal.fire({
-    title: 'Delete Color Button?',
-    text: 'This will remove the color button. Mic nodes using this color will revert to default.',
+    title: 'Delete Colour Legend Entry?',
+    text: 'This will remove the colour legend entry. Mic nodes using this colour will revert to default.',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#d33',
-    confirmButtonText: 'Delete'
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel',
+    background: isDark ? '#1a1a1a' : '#fff',
+    color: isDark ? '#ffffff' : '#000000',
+    customClass: {
+      popup: isDark ? 'swal2-dark' : '',
+      title: isDark ? 'swal2-title-dark' : '',
+      htmlContainer: isDark ? 'swal2-html-dark' : '',
+      confirmButton: isDark ? 'swal2-confirm-dark' : '',
+      cancelButton: isDark ? 'swal2-cancel-dark' : '',
+      icon: isDark ? 'swal2-icon-dark' : ''
+    }
   })
   
   if (!result.isConfirmed) return
@@ -2218,6 +2232,34 @@ defineExpose({ getCanvasDataURL })
   color: var(--text-primary);
 }
 
+/* Color Button Modal - narrower with more padding */
+.color-button-modal {
+  max-width: 480px;
+  width: 85%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.color-button-modal .modal-header {
+  padding: 0 0 20px 0;
+  margin-bottom: 0;
+}
+
+.color-button-modal .modal-body {
+  padding: 0;
+  flex: 1;
+}
+
+.color-button-modal .modal-footer {
+  padding: 24px 0 0 0;
+  margin-top: 20px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -3239,6 +3281,51 @@ defineExpose({ getCanvasDataURL })
   color: var(--text-secondary);
   margin: 4px 0 0 0;
   font-style: italic;
+}
+
+/* SweetAlert2 Dark Mode Styling */
+.swal2-dark {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.swal2-title-dark {
+  color: var(--text-primary) !important;
+}
+
+.swal2-html-dark {
+  color: var(--text-secondary) !important;
+}
+
+.swal2-confirm-dark {
+  background: var(--btn-danger-bg) !important;
+  border-color: var(--btn-danger-border) !important;
+  color: var(--btn-danger-text) !important;
+}
+
+.swal2-confirm-dark:hover {
+  background: var(--btn-danger-hover-bg) !important;
+  border-color: var(--btn-danger-hover-border) !important;
+}
+
+.swal2-cancel-dark {
+  background: var(--btn-secondary-bg) !important;
+  border-color: var(--btn-secondary-border) !important;
+  color: var(--btn-secondary-text) !important;
+}
+
+.swal2-cancel-dark:hover {
+  background: var(--btn-secondary-hover-bg) !important;
+  border-color: var(--btn-secondary-hover-border) !important;
+}
+
+.swal2-icon-dark.swal2-warning {
+  border-color: var(--btn-warning-border) !important;
+  color: var(--btn-warning-bg) !important;
+}
+
+.swal2-icon-dark.swal2-warning .swal2-icon-content {
+  color: var(--btn-warning-bg) !important;
 }
 </style>
 
