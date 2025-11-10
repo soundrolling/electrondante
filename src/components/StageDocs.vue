@@ -303,6 +303,32 @@
       </div>
     </div>
   </teleport>
+
+  <!-- Delete Confirmation Modal -->
+  <teleport to="body">
+    <ConfirmationModal
+      :show="showDeleteConfirm"
+      title="Delete Document"
+      :message="docToDelete ? `Deleting "${docToDelete.file_name}" will remove it for everyone. Continue?` : ''"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      @confirm="handleDeleteConfirm"
+      @cancel="handleDeleteCancel"
+    />
+  </teleport>
+
+  <!-- Download Confirmation Modal -->
+  <teleport to="body">
+    <ConfirmationModal
+      :show="showDownloadConfirm"
+      title="Download Document"
+      :message="docToDownload ? `Download "${docToDownload.file_name}"?` : ''"
+      confirm-text="Download"
+      cancel-text="Cancel"
+      @confirm="handleDownloadConfirm"
+      @cancel="handleDownloadCancel"
+    />
+  </teleport>
 </div>
 </template>
 
@@ -313,6 +339,7 @@ import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { useUserStore } from '@/stores/userStore'
 import jsPDF from 'jspdf'
+import ConfirmationModal from '@/components/calendar/ConfirmationModal.vue'
 
 // router, toast & store
 const route      = useRoute()
@@ -356,6 +383,10 @@ const venues      = ref([])
 const stages      = ref([])
 const selectedVenueId = ref('')
 const selectedStageId = ref('')
+const showDeleteConfirm = ref(false)
+const showDownloadConfirm = ref(false)
+const docToDelete = ref(null)
+const docToDownload = ref(null)
 
 // allowed MIME types
 const allowedMimes = [
@@ -687,8 +718,21 @@ function cancelEdit() { editingId.value = null }
 
 // delete
 function confirmRemove(doc) {
-  if (!confirm('Deleting will remove for everyone. Continue?')) return
-  removeDoc(doc)
+  docToDelete.value = doc
+  showDeleteConfirm.value = true
+}
+
+function handleDeleteConfirm() {
+  if (docToDelete.value) {
+    removeDoc(docToDelete.value)
+    docToDelete.value = null
+  }
+  showDeleteConfirm.value = false
+}
+
+function handleDeleteCancel() {
+  docToDelete.value = null
+  showDeleteConfirm.value = false
 }
 
 async function removeDoc(doc) {
@@ -734,18 +778,31 @@ function viewDoc(doc) {
 
 // download document directly
 function downloadDoc(doc) {
-  if (!confirm(`Download "${doc.file_name}"?`)) return
-  try {
-    const link = document.createElement('a')
-    link.href = doc.url
-    link.download = doc.file_name
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Download started')
-  } catch (e) {
-    toast.error('Failed to download')
+  docToDownload.value = doc
+  showDownloadConfirm.value = true
+}
+
+function handleDownloadConfirm() {
+  if (docToDownload.value) {
+    try {
+      const link = document.createElement('a')
+      link.href = docToDownload.value.url
+      link.download = docToDownload.value.file_name
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('Download started')
+    } catch (e) {
+      toast.error('Failed to download')
+    }
+    docToDownload.value = null
   }
+  showDownloadConfirm.value = false
+}
+
+function handleDownloadCancel() {
+  docToDownload.value = null
+  showDownloadConfirm.value = false
 }
 
 // reorder
