@@ -2842,6 +2842,41 @@ async function exportToPNG() {
     maxY = canvasHeight.value
   }
   
+  // Fetch project and stage names
+  let projectName = ''
+  let stageName = ''
+  let venueName = ''
+  
+  try {
+    if (props.projectId) {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('project_name')
+        .eq('id', props.projectId)
+        .single()
+      
+      if (projectData) {
+        projectName = projectData.project_name || ''
+      }
+    }
+    
+    if (props.locationId) {
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('stage_name, venue_name')
+        .eq('id', props.locationId)
+        .single()
+      
+      if (locationData) {
+        stageName = locationData.stage_name || ''
+        venueName = locationData.venue_name || ''
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching project/stage info:', error)
+    // Continue with export even if fetch fails
+  }
+  
   // Calculate legend dimensions before creating canvas
   // Create a temporary context for legend measurement
   const tempCanvas = document.createElement('canvas')
@@ -2853,10 +2888,31 @@ async function exportToPNG() {
   const legendDims = calculateLegendDimensions(tempCtx)
   const LEGEND_BOTTOM_PADDING = 20 // Extra padding below legend
   
-  // Apply padding and add space for legend at the bottom
+  // Calculate title height
+  const TITLE_FONT_SIZE = 20
+  const SUBTITLE_FONT_SIZE = 16
+  const TITLE_TOP_PADDING = 20
+  const TITLE_BOTTOM_PADDING = 15
+  const TITLE_SPACING = 8
+  
+  tempCtx.font = `bold ${TITLE_FONT_SIZE}px sans-serif`
+  const titleHeight = TITLE_FONT_SIZE
+  tempCtx.font = `${SUBTITLE_FONT_SIZE}px sans-serif`
+  const subtitleHeight = SUBTITLE_FONT_SIZE
+  
+  let titleAreaHeight = 0
+  if (projectName || stageName || venueName) {
+    titleAreaHeight = TITLE_TOP_PADDING + titleHeight
+    if (stageName || venueName) {
+      titleAreaHeight += TITLE_SPACING + subtitleHeight
+    }
+    titleAreaHeight += TITLE_BOTTOM_PADDING
+  }
+  
+  // Apply padding and add space for title at top and legend at the bottom
   const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
   const contentH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
-  const exportH = contentH + legendDims.legendHeight + LEGEND_BOTTOM_PADDING + legendDims.LEGEND_MARGIN
+  const exportH = titleAreaHeight + contentH + legendDims.legendHeight + LEGEND_BOTTOM_PADDING + legendDims.LEGEND_MARGIN
   
   // Create offscreen canvas
   const off = document.createElement('canvas')
@@ -2873,9 +2929,36 @@ async function exportToPNG() {
   ctx.fillStyle = '#f8f9fa'
   ctx.fillRect(0, 0, exportW, exportH)
   
-  // Translate to account for bounding box offset and padding
+  // Draw title at the top
+  if (projectName || stageName || venueName) {
+    let currentY = TITLE_TOP_PADDING
+    
+    // Draw project name
+    if (projectName) {
+      ctx.fillStyle = '#222'
+      ctx.font = `bold ${TITLE_FONT_SIZE}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillText(projectName, exportW / 2, currentY)
+      currentY += titleHeight
+    }
+    
+    // Draw stage/venue name
+    if (stageName || venueName) {
+      currentY += TITLE_SPACING
+      const locationText = [venueName, stageName].filter(Boolean).join(' – ')
+      ctx.fillStyle = '#495057'
+      ctx.font = `${SUBTITLE_FONT_SIZE}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillText(locationText, exportW / 2, currentY)
+      currentY += subtitleHeight
+    }
+  }
+  
+  // Translate to account for bounding box offset, padding, and title area
   ctx.save()
-  ctx.translate(-minX + PADDING, -minY + PADDING)
+  ctx.translate(-minX + PADDING, -minY + PADDING + titleAreaHeight)
   
   // Draw connections first (so they appear under nodes)
   props.connections.forEach(conn => {
