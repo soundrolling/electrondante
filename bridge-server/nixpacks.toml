@@ -3,7 +3,8 @@ nixPkgs = ["nodejs_20"]
 
 [phases.install]
 # Use npm install instead of npm ci to avoid lock file sync issues with root package.json
-cmds = ["npm install --legacy-peer-deps"]
+# Use --omit=dev to avoid npm warning about production config
+cmds = ["npm install --legacy-peer-deps --omit=dev"]
 
 [phases.build]
 cmds = []
