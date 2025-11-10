@@ -205,7 +205,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '../../stores/userStore';
@@ -214,12 +214,23 @@ import { format, parseISO } from 'date-fns';
 export default {
 name: 'Parking',
 props: {
-  projectId: { type: [String, Number], required: true },
+  projectId: { type: [String, Number], required: false },
+  id: { type: [String, Number], required: false }, // For route params
   tripId: { type: [String, Number], required: true }
 },
 setup(props) {
   const toast = useToast();
   const userStore = useUserStore();
+  
+  // Normalize projectId - use projectId prop if available, otherwise use id prop
+  const normalizedProjectId = computed(() => {
+    return props.projectId || props.id || userStore.currentProject?.id;
+  });
+  
+  // Normalize tripId - use tripId prop if available
+  const normalizedTripId = computed(() => {
+    return props.tripId;
+  });
   const isLoading = ref(false);
   const isSaving = ref(false);
   const showForm = ref(false);
@@ -315,7 +326,7 @@ setup(props) {
       const { data, error } = await supabase
         .from('travel_parking')
         .select('*')
-        .eq('trip_id', props.tripId)
+        .eq('trip_id', normalizedTripId.value)
         .order('start_datetime', { ascending: true });
       if (error) throw error;
       // Enrich with member names and image URLs
@@ -440,12 +451,15 @@ setup(props) {
     if (!file) return null;
     
     // Validate required props
-    if (!props.projectId || !props.tripId) {
-      throw new Error('Project ID and Trip ID are required to upload images');
+    if (!normalizedProjectId.value) {
+      throw new Error('Project ID is required to upload images. Please ensure you are accessing parking from within a project.');
+    }
+    if (!normalizedTripId.value) {
+      throw new Error('Trip ID is required to upload images. Please ensure you are accessing parking from within a trip.');
     }
     
     const fileExt = file.name.split('.').pop();
-    const fileName = `${props.projectId}/${props.tripId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `${normalizedProjectId.value}/${normalizedTripId.value}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('parking-images')
@@ -528,7 +542,7 @@ setup(props) {
       } else {
         const { error } = await supabase
           .from('travel_parking')
-          .insert({ ...formData, trip_id: props.tripId });
+          .insert({ ...formData, trip_id: normalizedTripId.value });
         if (error) {
           console.error('Error inserting parking:', error);
           throw error;
