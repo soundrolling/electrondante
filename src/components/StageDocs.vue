@@ -313,6 +313,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { useUserStore } from '@/stores/userStore'
+import jsPDF from 'jspdf'
 
 // router, toast & store
 const route      = useRoute()
@@ -445,7 +446,30 @@ try {
     .eq('id', projectId)
     .single()
   if (error) throw error
-  userStore.setCurrentProject({ id: projectId, project_name: data.project_name })
+  
+  // Ensure role is loaded if not already set
+  let role = userStore.currentProject?.role
+  if (!role) {
+    const { data: session } = await supabase.auth.getSession()
+    const email = session?.session?.user?.email?.toLowerCase()
+    if (email) {
+      const { data: member } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', projectId)
+        .eq('user_email', email)
+        .single()
+      if (member) {
+        role = member.role
+      }
+    }
+  }
+  
+  userStore.setCurrentProject({ 
+    id: projectId, 
+    project_name: data.project_name,
+    role: role || userStore.currentProject?.role
+  })
 } catch (e) {
   console.error('Error loading project:', e)
   toast.error('Could not load project')
@@ -668,19 +692,30 @@ if (!confirm('Deleting will remove for everyone. Continue?')) return
 removeDoc(doc)
 }
 async function removeDoc(doc) {
-const { error: remErr } = await supabase.storage
-  .from('stage-docs')
-  .remove([doc.file_path])
-if (remErr) { toast.error(remErr.message); return }
+try {
+  const { error: remErr } = await supabase.storage
+    .from('stage-docs')
+    .remove([doc.file_path])
+  if (remErr) { 
+    console.error('Storage removal error:', remErr)
+    toast.error(remErr.message || 'Failed to delete file from storage')
+    return 
+  }
 
-const { error: delErr } = await supabase
-  .from('stage_docs')
-  .delete()
-  .eq('id', doc.id)
-if (delErr) toast.error(delErr.message)
-else {
-  toast.success('Deleted')
-  await fetchDocs()
+  const { error: delErr } = await supabase
+    .from('stage_docs')
+    .delete()
+    .eq('id', doc.id)
+  if (delErr) {
+    console.error('Database deletion error:', delErr)
+    toast.error(delErr.message || 'Failed to delete document record')
+  } else {
+    toast.success('Deleted')
+    await fetchDocs()
+  }
+} catch (e) {
+  console.error('Error deleting document:', e)
+  toast.error('Failed to delete document: ' + (e.message || 'Unknown error'))
 }
 }
 

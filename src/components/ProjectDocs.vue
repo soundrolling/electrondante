@@ -267,7 +267,30 @@ async function loadProject() {
       .eq('id', projectId)
       .single()
     if (error) throw error
-    userStore.setCurrentProject({ id: projectId, project_name: data.project_name })
+    
+    // Ensure role is loaded if not already set
+    let role = userStore.currentProject?.role
+    if (!role) {
+      const { data: session } = await supabase.auth.getSession()
+      const email = session?.session?.user?.email?.toLowerCase()
+      if (email) {
+        const { data: member } = await supabase
+          .from('project_members')
+          .select('role')
+          .eq('project_id', projectId)
+          .eq('user_email', email)
+          .single()
+        if (member) {
+          role = member.role
+        }
+      }
+    }
+    
+    userStore.setCurrentProject({ 
+      id: projectId, 
+      project_name: data.project_name,
+      role: role || userStore.currentProject?.role
+    })
     projectName.value = data.project_name
   } catch (e) {
     console.error('Error loading project:', e)
@@ -425,7 +448,8 @@ async function removeDoc(doc) {
       .from('stage-docs')
       .remove([doc.file_path])
     if (remErr) { 
-      toast.error(remErr.message)
+      console.error('Storage removal error:', remErr)
+      toast.error(remErr.message || 'Failed to delete file from storage')
       return 
     }
 
@@ -434,14 +458,15 @@ async function removeDoc(doc) {
       .delete()
       .eq('id', doc.id)
     if (delErr) {
-      toast.error(delErr.message)
+      console.error('Database deletion error:', delErr)
+      toast.error(delErr.message || 'Failed to delete document record')
     } else {
       toast.success('Deleted')
       await fetchDocs()
     }
   } catch (e) {
     console.error('Error deleting document:', e)
-    toast.error('Failed to delete document')
+    toast.error('Failed to delete document: ' + (e.message || 'Unknown error'))
   }
 }
 

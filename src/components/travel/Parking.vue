@@ -439,6 +439,11 @@ setup(props) {
   const uploadImage = async (file) => {
     if (!file) return null;
     
+    // Validate required props
+    if (!props.projectId || !props.tripId) {
+      throw new Error('Project ID and Trip ID are required to upload images');
+    }
+    
     const fileExt = file.name.split('.').pop();
     const fileName = `${props.projectId}/${props.tripId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     
@@ -449,7 +454,15 @@ setup(props) {
         upsert: false
       });
     
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError);
+      throw uploadError;
+    }
+    
+    if (!uploadData?.path) {
+      throw new Error('Upload succeeded but no path returned');
+    }
+    
     return uploadData.path;
   };
   
@@ -460,18 +473,25 @@ setup(props) {
       
       // Upload new image if one was selected
       if (selectedImageFile.value) {
-        // Delete old image if editing and replacing
-        if (editingParking.value?.image_path) {
-          try {
-            await supabase.storage
-              .from('parking-images')
-              .remove([editingParking.value.image_path]);
-          } catch (err) {
-            console.warn('Could not delete old image:', err);
+        try {
+          // Delete old image if editing and replacing
+          if (editingParking.value?.image_path) {
+            try {
+              await supabase.storage
+                .from('parking-images')
+                .remove([editingParking.value.image_path]);
+            } catch (err) {
+              console.warn('Could not delete old image:', err);
+            }
           }
+          
+          imagePath = await uploadImage(selectedImageFile.value);
+        } catch (uploadErr) {
+          console.error('Error uploading image:', uploadErr);
+          const errorMessage = uploadErr?.message || 'Failed to upload image';
+          toast.error(`Image upload failed: ${errorMessage}`);
+          throw uploadErr; // Re-throw to prevent saving without image
         }
-        
-        imagePath = await uploadImage(selectedImageFile.value);
       } else if (editingParking.value && editingParking.value.image_path && !parkingForm.value.image_path) {
         // Image was removed: editing entry that had an image, but image_path is now null
         try {
@@ -500,20 +520,32 @@ setup(props) {
           .from('travel_parking')
           .update(formData)
           .eq('id', editingParking.value.id);
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating parking:', error);
+          throw error;
+        }
         toast.success('Parking updated');
       } else {
         const { error } = await supabase
           .from('travel_parking')
           .insert({ ...formData, trip_id: props.tripId });
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting parking:', error);
+          throw error;
+        }
         toast.success('Parking added');
       }
       await loadParking();
       closeForm();
     } catch (err) {
       console.error('Error saving parking:', err);
-      toast.error('Failed to save parking');
+      // Show more specific error message
+      const errorMessage = err?.message || 'Failed to save parking';
+      if (errorMessage.includes('upload') || errorMessage.includes('storage') || errorMessage.includes('image')) {
+        toast.error(`Image error: ${errorMessage}`);
+      } else {
+        toast.error(`Failed to save parking: ${errorMessage}`);
+      }
     } finally {
       isSaving.value = false;
     }
