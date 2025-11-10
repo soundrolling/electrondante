@@ -102,30 +102,30 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="parkingImage">Parking Photo (Optional)</label>
+          <label for="carImage">Car Photo (Optional)</label>
           <div class="image-upload-container">
             <input 
               type="file" 
-              id="parkingImage" 
-              ref="imageInput"
+              id="carImage" 
+              ref="carImageInput"
               accept="image/*" 
-              @change="handleImageSelect"
+              @change="(e) => handleImageSelect(e, 'car')"
               class="image-input"
               :disabled="isUploading"
             />
-            <div v-if="imagePreview" class="image-preview">
-              <img :src="imagePreview" alt="Parking preview" />
+            <div v-if="carImagePreview" class="image-preview">
+              <img :src="carImagePreview" alt="Car preview" />
               <button 
                 v-if="!isUploading"
                 type="button" 
-                @click="removeImage" 
+                @click="removeImage('car')" 
                 class="remove-image-button" 
-                aria-label="Remove image"
+                aria-label="Remove car image"
               >
                 ×
               </button>
               <!-- Upload Progress Overlay -->
-              <div v-if="isUploading" class="upload-progress-overlay">
+              <div v-if="isUploading && uploadingType === 'car'" class="upload-progress-overlay">
                 <div class="upload-progress-content">
                   <div class="progress-bar">
                     <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
@@ -134,14 +134,14 @@
                 </div>
               </div>
             </div>
-            <div v-else-if="parkingForm.image_url" class="image-preview">
-              <img :src="parkingForm.image_url" alt="Parking photo" />
+            <div v-else-if="parkingForm.car_image_url" class="image-preview">
+              <img :src="parkingForm.car_image_url" alt="Car photo" />
               <button 
                 v-if="!isUploading"
                 type="button" 
-                @click="removeImage" 
+                @click="removeImage('car')" 
                 class="remove-image-button" 
-                aria-label="Remove image"
+                aria-label="Remove car image"
               >
                 ×
               </button>
@@ -149,19 +149,83 @@
             <button 
               v-else
               type="button" 
-              @click="$refs.imageInput?.click()" 
+              @click="$refs.carImageInput?.click()" 
               class="image-upload-button"
               :disabled="isUploading"
             >
-              <span class="upload-icon">📷</span>
-              <span>{{ isUploading ? 'Uploading...' : 'Upload Photo' }}</span>
+              <span class="upload-icon">🚗</span>
+              <span>{{ isUploading && uploadingType === 'car' ? 'Uploading...' : 'Upload Car Photo' }}</span>
             </button>
             <!-- Upload Progress Bar (when no preview yet) -->
-            <div v-if="isUploading && !imagePreview" class="upload-progress-standalone">
+            <div v-if="isUploading && uploadingType === 'car' && !carImagePreview" class="upload-progress-standalone">
               <div class="progress-bar">
                 <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
               </div>
-              <p class="progress-text">Uploading image... {{ uploadProgress }}%</p>
+              <p class="progress-text">Uploading car photo... {{ uploadProgress }}%</p>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="receiptImage">Receipt Photo (Optional)</label>
+          <div class="image-upload-container">
+            <input 
+              type="file" 
+              id="receiptImage" 
+              ref="receiptImageInput"
+              accept="image/*" 
+              @change="(e) => handleImageSelect(e, 'receipt')"
+              class="image-input"
+              :disabled="isUploading"
+            />
+            <div v-if="receiptImagePreview" class="image-preview">
+              <img :src="receiptImagePreview" alt="Receipt preview" />
+              <button 
+                v-if="!isUploading"
+                type="button" 
+                @click="removeImage('receipt')" 
+                class="remove-image-button" 
+                aria-label="Remove receipt image"
+              >
+                ×
+              </button>
+              <!-- Upload Progress Overlay -->
+              <div v-if="isUploading && uploadingType === 'receipt'" class="upload-progress-overlay">
+                <div class="upload-progress-content">
+                  <div class="progress-bar">
+                    <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+                  </div>
+                  <p class="progress-text">{{ uploadProgress }}%</p>
+                </div>
+              </div>
+            </div>
+            <div v-else-if="parkingForm.receipt_image_url" class="image-preview">
+              <img :src="parkingForm.receipt_image_url" alt="Receipt photo" />
+              <button 
+                v-if="!isUploading"
+                type="button" 
+                @click="removeImage('receipt')" 
+                class="remove-image-button" 
+                aria-label="Remove receipt image"
+              >
+                ×
+              </button>
+            </div>
+            <button 
+              v-else
+              type="button" 
+              @click="$refs.receiptImageInput?.click()" 
+              class="image-upload-button"
+              :disabled="isUploading"
+            >
+              <span class="upload-icon">🧾</span>
+              <span>{{ isUploading && uploadingType === 'receipt' ? 'Uploading...' : 'Upload Receipt Photo' }}</span>
+            </button>
+            <!-- Upload Progress Bar (when no preview yet) -->
+            <div v-if="isUploading && uploadingType === 'receipt' && !receiptImagePreview" class="upload-progress-standalone">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+              </div>
+              <p class="progress-text">Uploading receipt photo... {{ uploadProgress }}%</p>
             </div>
           </div>
         </div>
@@ -192,8 +256,15 @@
           <span class="parking-provider">{{ entry.parking_provider }}</span>
         </div>
         <div class="parking-card-body">
-          <div v-if="entry.image_url" class="parking-image-container">
-            <img :src="entry.image_url" alt="Parking photo" class="parking-image" />
+          <div v-if="entry.car_image_url || entry.receipt_image_url" class="parking-images-container">
+            <div v-if="entry.car_image_url" class="parking-image-container">
+              <div class="image-label">Car Photo</div>
+              <img :src="entry.car_image_url" alt="Car photo" class="parking-image" />
+            </div>
+            <div v-if="entry.receipt_image_url" class="parking-image-container">
+              <div class="image-label">Receipt</div>
+              <img :src="entry.receipt_image_url" alt="Receipt photo" class="parking-image" />
+            </div>
           </div>
           <div class="parking-details">
             <div class="detail-item">
@@ -265,11 +336,14 @@ setup(props) {
   const isSaving = ref(false);
   const isUploading = ref(false);
   const uploadProgress = ref(0);
+  const uploadingType = ref(null); // 'car' or 'receipt'
   const showForm = ref(false);
   const editingParking = ref(null);
   const parkingEntries = ref([]);
-  const imagePreview = ref(null);
-  const selectedImageFile = ref(null);
+  const carImagePreview = ref(null);
+  const receiptImagePreview = ref(null);
+  const selectedCarImageFile = ref(null);
+  const selectedReceiptImageFile = ref(null);
   const parkingForm = ref({
     airport: '',
     parking_provider: '',
@@ -278,8 +352,10 @@ setup(props) {
     cost: '',
     notes: '',
     member_email: '', // Will be set to current user when opening form
-    image_path: null,
-    image_url: null
+    image_path: null, // Car image path
+    receipt_image_path: null, // Receipt image path
+    car_image_url: null,
+    receipt_image_url: null
   });
   
   // Permission check
@@ -363,21 +439,38 @@ setup(props) {
       if (error) throw error;
       // Enrich with member names and image URLs
       parkingEntries.value = await Promise.all((data || []).map(async entry => {
-        let imageUrl = null;
+        let carImageUrl = null;
+        let receiptImageUrl = null;
+        
+        // Get car image URL
         if (entry.image_path) {
           try {
             const { data: signed } = await supabase.storage
               .from('parking-images')
               .createSignedUrl(entry.image_path, 3600);
-            imageUrl = signed?.signedUrl || null;
+            carImageUrl = signed?.signedUrl || null;
           } catch (err) {
-            console.warn('Could not get signed URL for parking image:', err);
+            console.warn('Could not get signed URL for car image:', err);
           }
         }
+        
+        // Get receipt image URL
+        if (entry.receipt_image_path) {
+          try {
+            const { data: signed } = await supabase.storage
+              .from('parking-images')
+              .createSignedUrl(entry.receipt_image_path, 3600);
+            receiptImageUrl = signed?.signedUrl || null;
+          } catch (err) {
+            console.warn('Could not get signed URL for receipt image:', err);
+          }
+        }
+        
         return {
           ...entry,
           member_name: entry.member_email ? getMemberName(entry.member_email) : null,
-          image_url: imageUrl
+          car_image_url: carImageUrl,
+          receipt_image_url: receiptImageUrl
         };
       }));
     } catch (err) {
@@ -389,8 +482,10 @@ setup(props) {
 
   const openForm = () => {
     editingParking.value = null;
-    imagePreview.value = null;
-    selectedImageFile.value = null;
+    carImagePreview.value = null;
+    receiptImagePreview.value = null;
+    selectedCarImageFile.value = null;
+    selectedReceiptImageFile.value = null;
     parkingForm.value = { 
       airport: '', 
       parking_provider: '', 
@@ -400,34 +495,55 @@ setup(props) {
       notes: '',
       member_email: currentUserEmail.value, // Default to current user
       image_path: null,
-      image_url: null
+      receipt_image_path: null,
+      car_image_url: null,
+      receipt_image_url: null
     };
     showForm.value = true;
   };
   const editParking = async (entry) => {
     editingParking.value = entry;
     parkingForm.value = { ...entry };
-    imagePreview.value = null;
-    selectedImageFile.value = null;
-    // Load existing image URL if available
+    carImagePreview.value = null;
+    receiptImagePreview.value = null;
+    selectedCarImageFile.value = null;
+    selectedReceiptImageFile.value = null;
+    
+    // Load existing car image URL if available
     if (entry.image_path) {
       try {
         const { data: signed } = await supabase.storage
           .from('parking-images')
           .createSignedUrl(entry.image_path, 3600);
-        parkingForm.value.image_url = signed?.signedUrl || null;
+        parkingForm.value.car_image_url = signed?.signedUrl || null;
       } catch (err) {
-        console.warn('Could not get signed URL for parking image:', err);
-        parkingForm.value.image_url = null;
+        console.warn('Could not get signed URL for car image:', err);
+        parkingForm.value.car_image_url = null;
       }
     }
+    
+    // Load existing receipt image URL if available
+    if (entry.receipt_image_path) {
+      try {
+        const { data: signed } = await supabase.storage
+          .from('parking-images')
+          .createSignedUrl(entry.receipt_image_path, 3600);
+        parkingForm.value.receipt_image_url = signed?.signedUrl || null;
+      } catch (err) {
+        console.warn('Could not get signed URL for receipt image:', err);
+        parkingForm.value.receipt_image_url = null;
+      }
+    }
+    
     showForm.value = true;
   };
   const closeForm = () => {
     showForm.value = false;
     editingParking.value = null;
-    imagePreview.value = null;
-    selectedImageFile.value = null;
+    carImagePreview.value = null;
+    receiptImagePreview.value = null;
+    selectedCarImageFile.value = null;
+    selectedReceiptImageFile.value = null;
     parkingForm.value = { 
       airport: '', 
       parking_provider: '', 
@@ -437,13 +553,18 @@ setup(props) {
       notes: '',
       member_email: '',
       image_path: null,
-      image_url: null
+      receipt_image_path: null,
+      car_image_url: null,
+      receipt_image_url: null
     };
-    if (document.getElementById('parkingImage')) {
-      document.getElementById('parkingImage').value = '';
+    if (document.getElementById('carImage')) {
+      document.getElementById('carImage').value = '';
+    }
+    if (document.getElementById('receiptImage')) {
+      document.getElementById('receiptImage').value = '';
     }
   };
-  const handleImageSelect = (event) => {
+  const handleImageSelect = (event, type) => {
     const file = event.target.files?.[0];
     if (!file) return;
     
@@ -459,27 +580,46 @@ setup(props) {
       return;
     }
     
-    selectedImageFile.value = file;
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      imagePreview.value = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  
-  const removeImage = () => {
-    imagePreview.value = null;
-    selectedImageFile.value = null;
-    parkingForm.value.image_path = null;
-    parkingForm.value.image_url = null;
-    if (document.getElementById('parkingImage')) {
-      document.getElementById('parkingImage').value = '';
+    if (type === 'car') {
+      selectedCarImageFile.value = file;
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        carImagePreview.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    } else if (type === 'receipt') {
+      selectedReceiptImageFile.value = file;
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        receiptImagePreview.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
     }
   };
   
-  const uploadImage = async (file) => {
+  const removeImage = (type) => {
+    if (type === 'car') {
+      carImagePreview.value = null;
+      selectedCarImageFile.value = null;
+      parkingForm.value.image_path = null;
+      parkingForm.value.car_image_url = null;
+      if (document.getElementById('carImage')) {
+        document.getElementById('carImage').value = '';
+      }
+    } else if (type === 'receipt') {
+      receiptImagePreview.value = null;
+      selectedReceiptImageFile.value = null;
+      parkingForm.value.receipt_image_path = null;
+      parkingForm.value.receipt_image_url = null;
+      if (document.getElementById('receiptImage')) {
+        document.getElementById('receiptImage').value = '';
+      }
+    }
+  };
+  
+  const uploadImage = async (file, type) => {
     if (!file) return null;
     
     // Validate required props
@@ -491,6 +631,7 @@ setup(props) {
     }
     
     isUploading.value = true;
+    uploadingType.value = type;
     uploadProgress.value = 0;
     
     try {
@@ -503,7 +644,8 @@ setup(props) {
       }, 200);
       
       const fileExt = file.name.split('.').pop();
-      const fileName = `${normalizedProjectId.value}/${normalizedTripId.value}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const prefix = type === 'car' ? 'car' : 'receipt';
+      const fileName = `${normalizedProjectId.value}/${normalizedTripId.value}/${prefix}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       
       uploadProgress.value = 20; // Start upload
       
@@ -536,6 +678,7 @@ setup(props) {
       return uploadData.path;
     } finally {
       isUploading.value = false;
+      uploadingType.value = null;
       uploadProgress.value = 0;
     }
   };
@@ -543,39 +686,73 @@ setup(props) {
   const saveParking = async () => {
     isSaving.value = true;
     try {
-      let imagePath = parkingForm.value.image_path;
+      let carImagePath = parkingForm.value.image_path;
+      let receiptImagePath = parkingForm.value.receipt_image_path;
       
-      // Upload new image if one was selected
-      if (selectedImageFile.value) {
+      // Upload car image if one was selected
+      if (selectedCarImageFile.value) {
         try {
-          // Delete old image if editing and replacing
+          // Delete old car image if editing and replacing
           if (editingParking.value?.image_path) {
             try {
               await supabase.storage
                 .from('parking-images')
                 .remove([editingParking.value.image_path]);
             } catch (err) {
-              console.warn('Could not delete old image:', err);
+              console.warn('Could not delete old car image:', err);
             }
           }
           
-          imagePath = await uploadImage(selectedImageFile.value);
+          carImagePath = await uploadImage(selectedCarImageFile.value, 'car');
         } catch (uploadErr) {
-          console.error('Error uploading image:', uploadErr);
-          const errorMessage = uploadErr?.message || 'Failed to upload image';
-          toast.error(`Image upload failed: ${errorMessage}`);
+          console.error('Error uploading car image:', uploadErr);
+          const errorMessage = uploadErr?.message || 'Failed to upload car image';
+          toast.error(`Car image upload failed: ${errorMessage}`);
           throw uploadErr; // Re-throw to prevent saving without image
         }
       } else if (editingParking.value && editingParking.value.image_path && !parkingForm.value.image_path) {
-        // Image was removed: editing entry that had an image, but image_path is now null
+        // Car image was removed: editing entry that had an image, but image_path is now null
         try {
           await supabase.storage
             .from('parking-images')
             .remove([editingParking.value.image_path]);
         } catch (err) {
-          console.warn('Could not delete image:', err);
+          console.warn('Could not delete car image:', err);
         }
-        imagePath = null;
+        carImagePath = null;
+      }
+      
+      // Upload receipt image if one was selected
+      if (selectedReceiptImageFile.value) {
+        try {
+          // Delete old receipt image if editing and replacing
+          if (editingParking.value?.receipt_image_path) {
+            try {
+              await supabase.storage
+                .from('parking-images')
+                .remove([editingParking.value.receipt_image_path]);
+            } catch (err) {
+              console.warn('Could not delete old receipt image:', err);
+            }
+          }
+          
+          receiptImagePath = await uploadImage(selectedReceiptImageFile.value, 'receipt');
+        } catch (uploadErr) {
+          console.error('Error uploading receipt image:', uploadErr);
+          const errorMessage = uploadErr?.message || 'Failed to upload receipt image';
+          toast.error(`Receipt image upload failed: ${errorMessage}`);
+          throw uploadErr; // Re-throw to prevent saving without image
+        }
+      } else if (editingParking.value && editingParking.value.receipt_image_path && !parkingForm.value.receipt_image_path) {
+        // Receipt image was removed: editing entry that had an image, but receipt_image_path is now null
+        try {
+          await supabase.storage
+            .from('parking-images')
+            .remove([editingParking.value.receipt_image_path]);
+        } catch (err) {
+          console.warn('Could not delete receipt image:', err);
+        }
+        receiptImagePath = null;
       }
       
       const formData = {
@@ -586,7 +763,8 @@ setup(props) {
         cost: parkingForm.value.cost,
         notes: parkingForm.value.notes,
         member_email: parkingForm.value.member_email,
-        image_path: imagePath
+        image_path: carImagePath,
+        receipt_image_path: receiptImagePath
       };
       
       if (editingParking.value) {
@@ -627,17 +805,28 @@ setup(props) {
   const deleteParking = async (id) => {
     if (!confirm('Delete this parking entry?')) return;
     try {
-      // Get the entry to find image path
+      // Get the entry to find image paths
       const entry = parkingEntries.value.find(e => e.id === id);
       
-      // Delete image from storage if it exists
+      // Delete car image from storage if it exists
       if (entry?.image_path) {
         try {
           await supabase.storage
             .from('parking-images')
             .remove([entry.image_path]);
         } catch (err) {
-          console.warn('Could not delete parking image:', err);
+          console.warn('Could not delete car image:', err);
+        }
+      }
+      
+      // Delete receipt image from storage if it exists
+      if (entry?.receipt_image_path) {
+        try {
+          await supabase.storage
+            .from('parking-images')
+            .remove([entry.receipt_image_path]);
+        } catch (err) {
+          console.warn('Could not delete receipt image:', err);
         }
       }
       
@@ -676,9 +865,11 @@ setup(props) {
     editingParking,
     parkingEntries,
     parkingForm,
-    imagePreview,
+    carImagePreview,
+    receiptImagePreview,
     isUploading,
     uploadProgress,
+    uploadingType,
     openForm,
     editParking,
     closeForm,
@@ -1238,12 +1429,29 @@ setup(props) {
   margin-bottom: 16px;
 }
 
+.parking-images-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
 .parking-image-container {
   width: 100%;
-  margin-bottom: 16px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
+}
+
+.image-label {
+  background: var(--bg-secondary);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .parking-image {
