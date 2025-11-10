@@ -259,7 +259,6 @@
             <textarea v-model="doc.description" class="textarea-edit" placeholder="Enter description..."></textarea>
             <div class="edit-actions">
               <button class="btn btn-save" @click="saveDoc(doc)">Save</button>
-              <button v-if="isAdmin" class="btn btn-delete" @click="confirmRemove(doc)">Delete</button>
               <button class="btn btn-cancel" @click="cancelEdit">Cancel</button>
             </div>
           </div>
@@ -688,35 +687,43 @@ function cancelEdit() { editingId.value = null }
 
 // delete
 function confirmRemove(doc) {
-if (!confirm('Deleting will remove for everyone. Continue?')) return
-removeDoc(doc)
+  if (!confirm('Deleting will remove for everyone. Continue?')) return
+  removeDoc(doc)
 }
-async function removeDoc(doc) {
-try {
-  const { error: remErr } = await supabase.storage
-    .from('stage-docs')
-    .remove([doc.file_path])
-  if (remErr) { 
-    console.error('Storage removal error:', remErr)
-    toast.error(remErr.message || 'Failed to delete file from storage')
-    return 
-  }
 
-  const { error: delErr } = await supabase
-    .from('stage_docs')
-    .delete()
-    .eq('id', doc.id)
-  if (delErr) {
-    console.error('Database deletion error:', delErr)
-    toast.error(delErr.message || 'Failed to delete document record')
-  } else {
-    toast.success('Deleted')
-    await fetchDocs()
+async function removeDoc(doc) {
+  try {
+    // First, delete from storage
+    const { error: remErr, data: remData } = await supabase.storage
+      .from('stage-docs')
+      .remove([doc.file_path])
+    
+    if (remErr) { 
+      console.error('Storage removal error:', remErr)
+      toast.error(remErr.message || 'Failed to delete file from storage')
+      return 
+    }
+    
+    console.log('Storage file removed:', remData)
+
+    // Then, delete from database
+    const { error: delErr } = await supabase
+      .from('stage_docs')
+      .delete()
+      .eq('id', doc.id)
+    
+    if (delErr) {
+      console.error('Database deletion error:', delErr)
+      toast.error(delErr.message || 'Failed to delete document record')
+    } else {
+      console.log('Document deleted successfully:', doc.id)
+      toast.success('Document deleted successfully')
+      await fetchDocs()
+    }
+  } catch (e) {
+    console.error('Error deleting document:', e)
+    toast.error('Failed to delete document: ' + (e.message || 'Unknown error'))
   }
-} catch (e) {
-  console.error('Error deleting document:', e)
-  toast.error('Failed to delete document: ' + (e.message || 'Unknown error'))
-}
 }
 
 // view document in new tab

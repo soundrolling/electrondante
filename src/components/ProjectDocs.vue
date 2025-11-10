@@ -444,24 +444,31 @@ function confirmRemove(doc) {
 
 async function removeDoc(doc) {
   try {
-    const { error: remErr } = await supabase.storage
+    // First, delete from storage
+    const { error: remErr, data: remData } = await supabase.storage
       .from('stage-docs')
       .remove([doc.file_path])
+    
     if (remErr) { 
       console.error('Storage removal error:', remErr)
       toast.error(remErr.message || 'Failed to delete file from storage')
       return 
     }
+    
+    console.log('Storage file removed:', remData)
 
+    // Then, delete from database
     const { error: delErr } = await supabase
       .from('stage_docs')
       .delete()
       .eq('id', doc.id)
+    
     if (delErr) {
       console.error('Database deletion error:', delErr)
       toast.error(delErr.message || 'Failed to delete document record')
     } else {
-      toast.success('Deleted')
+      console.log('Document deleted successfully:', doc.id)
+      toast.success('Document deleted successfully')
       await fetchDocs()
     }
   } catch (e) {

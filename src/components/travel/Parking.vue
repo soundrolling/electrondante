@@ -111,16 +111,38 @@
               accept="image/*" 
               @change="handleImageSelect"
               class="image-input"
+              :disabled="isUploading"
             />
             <div v-if="imagePreview" class="image-preview">
               <img :src="imagePreview" alt="Parking preview" />
-              <button type="button" @click="removeImage" class="remove-image-button" aria-label="Remove image">
+              <button 
+                v-if="!isUploading"
+                type="button" 
+                @click="removeImage" 
+                class="remove-image-button" 
+                aria-label="Remove image"
+              >
                 ×
               </button>
+              <!-- Upload Progress Overlay -->
+              <div v-if="isUploading" class="upload-progress-overlay">
+                <div class="upload-progress-content">
+                  <div class="progress-bar">
+                    <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+                  </div>
+                  <p class="progress-text">{{ uploadProgress }}%</p>
+                </div>
+              </div>
             </div>
             <div v-else-if="parkingForm.image_url" class="image-preview">
               <img :src="parkingForm.image_url" alt="Parking photo" />
-              <button type="button" @click="removeImage" class="remove-image-button" aria-label="Remove image">
+              <button 
+                v-if="!isUploading"
+                type="button" 
+                @click="removeImage" 
+                class="remove-image-button" 
+                aria-label="Remove image"
+              >
                 ×
               </button>
             </div>
@@ -129,10 +151,18 @@
               type="button" 
               @click="$refs.imageInput?.click()" 
               class="image-upload-button"
+              :disabled="isUploading"
             >
               <span class="upload-icon">📷</span>
-              <span>Upload Photo</span>
+              <span>{{ isUploading ? 'Uploading...' : 'Upload Photo' }}</span>
             </button>
+            <!-- Upload Progress Bar (when no preview yet) -->
+            <div v-if="isUploading && !imagePreview" class="upload-progress-standalone">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+              </div>
+              <p class="progress-text">Uploading image... {{ uploadProgress }}%</p>
+            </div>
           </div>
         </div>
         <div class="form-actions">
@@ -233,6 +263,8 @@ setup(props) {
   });
   const isLoading = ref(false);
   const isSaving = ref(false);
+  const isUploading = ref(false);
+  const uploadProgress = ref(0);
   const showForm = ref(false);
   const editingParking = ref(null);
   const parkingEntries = ref([]);
@@ -458,26 +490,54 @@ setup(props) {
       throw new Error('Trip ID is required to upload images. Please ensure you are accessing parking from within a trip.');
     }
     
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${normalizedProjectId.value}/${normalizedTripId.value}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    isUploading.value = true;
+    uploadProgress.value = 0;
     
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('parking-images')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-    
-    if (uploadError) {
-      console.error('Storage upload error:', uploadError);
-      throw uploadError;
+    try {
+      // Simulate progress since Supabase doesn't provide real-time progress callbacks
+      // We'll show progress in stages
+      const progressInterval = setInterval(() => {
+        if (uploadProgress.value < 90) {
+          uploadProgress.value += 10;
+        }
+      }, 200);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${normalizedProjectId.value}/${normalizedTripId.value}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      uploadProgress.value = 20; // Start upload
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('parking-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      clearInterval(progressInterval);
+      uploadProgress.value = 100;
+      
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        // Provide helpful error message for missing bucket
+        if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('not found')) {
+          throw new Error('The parking-images storage bucket does not exist. Please create it in your Supabase dashboard under Storage.');
+        }
+        throw uploadError;
+      }
+      
+      if (!uploadData?.path) {
+        throw new Error('Upload succeeded but no path returned');
+      }
+      
+      // Small delay to show 100% before completing
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      return uploadData.path;
+    } finally {
+      isUploading.value = false;
+      uploadProgress.value = 0;
     }
-    
-    if (!uploadData?.path) {
-      throw new Error('Upload succeeded but no path returned');
-    }
-    
-    return uploadData.path;
   };
   
   const saveParking = async () => {
@@ -617,6 +677,8 @@ setup(props) {
     parkingEntries,
     parkingForm,
     imagePreview,
+    isUploading,
+    uploadProgress,
     openForm,
     editParking,
     closeForm,
@@ -968,6 +1030,69 @@ setup(props) {
 
 .remove-image-button:active {
   transform: scale(0.95);
+}
+
+/* Upload Progress Styles */
+.upload-progress-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.upload-progress-content {
+  background: var(--bg-primary);
+  padding: 20px;
+  border-radius: 8px;
+  min-width: 200px;
+  text-align: center;
+}
+
+.upload-progress-standalone {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 500;
+}
+
+.upload-progress-content .progress-text {
+  color: var(--text-heading);
+  font-size: 16px;
+}
+
+.image-upload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .form-actions {
