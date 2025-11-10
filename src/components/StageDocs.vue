@@ -309,7 +309,7 @@
     <ConfirmationModal
       :show="showDeleteConfirm"
       title="Delete Document"
-      :message="docToDelete ? `Deleting "${docToDelete.file_name}" will remove it for everyone. Continue?` : ''"
+      :message="docToDelete ? `Deleting '${docToDelete.file_name}' will remove it for everyone. Continue?` : ''"
       confirm-text="Delete"
       cancel-text="Cancel"
       @confirm="handleDeleteConfirm"
@@ -322,7 +322,7 @@
     <ConfirmationModal
       :show="showDownloadConfirm"
       title="Download Document"
-      :message="docToDownload ? `Download "${docToDownload.file_name}"?` : ''"
+      :message="docToDownload ? `Download '${docToDownload.file_name}'?` : ''"
       confirm-text="Download"
       cancel-text="Cancel"
       @confirm="handleDownloadConfirm"
