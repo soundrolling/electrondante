@@ -2007,7 +2007,33 @@ function drawConnection(ctx, conn, isSelected = false) {
 }
 
 // Draw connection legend for export
-function drawConnectionLegend(ctx, canvasWidth, canvasHeight) {
+// Helper function to calculate legend dimensions
+function calculateLegendDimensions(ctx) {
+  const LEGEND_PADDING = 12
+  const ITEM_SPACING = 12
+  const COLOR_SWATCH_WIDTH = 32
+  const COLOR_SWATCH_HEIGHT = 4
+  const FONT_SIZE = 12
+  const TITLE_FONT_SIZE = 13
+  
+  // Set up fonts for measurement
+  ctx.font = `${FONT_SIZE}px sans-serif`
+  
+  // Calculate legend dimensions
+  let maxLabelWidth = 0
+  connectionTypes.forEach(type => {
+    const metrics = ctx.measureText(type)
+    maxLabelWidth = Math.max(maxLabelWidth, metrics.width)
+  })
+  
+  const itemHeight = Math.max(COLOR_SWATCH_HEIGHT + 4, FONT_SIZE + 4)
+  const legendWidth = COLOR_SWATCH_WIDTH + 8 + maxLabelWidth + LEGEND_PADDING * 2
+  const legendHeight = TITLE_FONT_SIZE + 8 + (connectionTypes.length * itemHeight) + (connectionTypes.length - 1) * ITEM_SPACING + LEGEND_PADDING * 2
+  
+  return { legendWidth, legendHeight, LEGEND_PADDING, LEGEND_MARGIN: 20, ITEM_SPACING, COLOR_SWATCH_WIDTH, COLOR_SWATCH_HEIGHT, FONT_SIZE, TITLE_FONT_SIZE, itemHeight, maxLabelWidth }
+}
+
+function drawConnectionLegend(ctx, canvasWidth, canvasHeight, position = 'bottom-right') {
   const LEGEND_PADDING = 12
   const LEGEND_MARGIN = 20
   const ITEM_SPACING = 12
@@ -2035,9 +2061,17 @@ function drawConnectionLegend(ctx, canvasWidth, canvasHeight) {
   const legendWidth = COLOR_SWATCH_WIDTH + 8 + maxLabelWidth + LEGEND_PADDING * 2
   const legendHeight = TITLE_FONT_SIZE + 8 + (connectionTypes.length * itemHeight) + (connectionTypes.length - 1) * ITEM_SPACING + LEGEND_PADDING * 2
   
-  // Position in bottom right corner
-  const legendX = canvasWidth - legendWidth - LEGEND_MARGIN
-  const legendY = canvasHeight - legendHeight - LEGEND_MARGIN
+  // Position legend based on position parameter
+  let legendX, legendY
+  if (position === 'bottom-center') {
+    // Center horizontally at the bottom
+    legendX = (canvasWidth - legendWidth) / 2
+    legendY = canvasHeight - legendHeight - LEGEND_MARGIN
+  } else {
+    // Default: bottom right corner
+    legendX = canvasWidth - legendWidth - LEGEND_MARGIN
+    legendY = canvasHeight - legendHeight - LEGEND_MARGIN
+  }
   
   // Draw background with semi-transparent white and border
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
@@ -2808,9 +2842,21 @@ async function exportToPNG() {
     maxY = canvasHeight.value
   }
   
-  // Apply padding
+  // Calculate legend dimensions before creating canvas
+  // Create a temporary context for legend measurement
+  const tempCanvas = document.createElement('canvas')
+  const tempCtx = tempCanvas.getContext('2d')
+  if (!tempCtx) {
+    toast.error('Failed to create measurement context')
+    return
+  }
+  const legendDims = calculateLegendDimensions(tempCtx)
+  const LEGEND_BOTTOM_PADDING = 20 // Extra padding below legend
+  
+  // Apply padding and add space for legend at the bottom
   const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
-  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+  const contentH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+  const exportH = contentH + legendDims.legendHeight + LEGEND_BOTTOM_PADDING + legendDims.LEGEND_MARGIN
   
   // Create offscreen canvas
   const off = document.createElement('canvas')
@@ -2843,8 +2889,8 @@ async function exportToPNG() {
   
   ctx.restore()
   
-  // Draw connection legend in bottom right corner
-  drawConnectionLegend(ctx, exportW, exportH)
+  // Draw connection legend at the bottom center (expanded canvas)
+  drawConnectionLegend(ctx, exportW, exportH, 'bottom-center')
   
   // Get data URL
   let dataURL
