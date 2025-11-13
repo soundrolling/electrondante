@@ -1146,8 +1146,12 @@ setup() {
 
   // Handle enabled categories update from CalendarLegend
   async function updateEnabledCategories(newEnabledCategories) {
-    enabledCategories.value = newEnabledCategories;
-    await saveEnabledCategories();
+    // Update the ref immediately to trigger reactivity
+    enabledCategories.value = { ...newEnabledCategories };
+    // Save asynchronously (non-blocking)
+    saveEnabledCategories().catch(e => {
+      console.error('Failed to save enabled categories:', e);
+    });
   }
 
   // --- NEW: Sync filters and view from route query ---

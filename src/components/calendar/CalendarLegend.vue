@@ -70,8 +70,13 @@ data() {
 },
 methods: {
   toggleCategory(categoryId) {
+    // Create a new object to ensure Vue detects the change
     const updated = { ...this.enabledCategories };
-    updated[categoryId] = !updated[categoryId];
+    // Get current value - undefined means enabled by default (true)
+    const currentValue = updated[categoryId];
+    // Toggle: if false, set to true; if true or undefined, set to false
+    updated[categoryId] = currentValue === false;
+    // Emit the new object to trigger reactivity
     this.$emit('update:enabledCategories', updated);
   }
 }
