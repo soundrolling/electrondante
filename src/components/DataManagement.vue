@@ -28,56 +28,56 @@
       <section class="overview-section">
         <h2 class="section-title">Data Overview</h2>
         <div class="overview-grid">
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToStages">
             <div class="card-icon">🎪</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.stages || 0 }}</div>
               <div class="card-label">Stages</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToDocuments">
             <div class="card-icon">📄</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.documents || 0 }}</div>
               <div class="card-label">Documents</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToPictures">
             <div class="card-icon">🖼️</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.pictures || 0 }}</div>
               <div class="card-label">Pictures</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToGear">
             <div class="card-icon">🔧</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.gear || 0 }}</div>
               <div class="card-label">Gear Items</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToContacts">
             <div class="card-icon">👥</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.contacts || 0 }}</div>
               <div class="card-label">Contacts</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToTravel">
             <div class="card-icon">✈️</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.travel || 0 }}</div>
               <div class="card-label">Travel Trips</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="navigateToCalendar">
             <div class="card-icon">📅</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.calendar || 0 }}</div>
               <div class="card-label">Calendar Events</div>
             </div>
           </div>
-          <div class="overview-card">
+          <div class="overview-card clickable" @click="scrollToRushes">
             <div class="card-icon">🎵</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.rushes || 0 }}</div>
@@ -716,6 +716,41 @@ export default {
       router.push({ name: 'ProjectDetail', params: { id: projectId.value } });
     }
 
+    function navigateToStages() {
+      router.push({ name: 'ProjectLocations', params: { id: projectId.value } });
+    }
+
+    function navigateToDocuments() {
+      router.push({ name: 'ProjectDocs', params: { id: projectId.value } });
+    }
+
+    function navigateToPictures() {
+      router.push({ name: 'StagePictures', params: { id: projectId.value } });
+    }
+
+    function navigateToGear() {
+      router.push({ name: 'ProjectGear', params: { id: projectId.value } });
+    }
+
+    function navigateToContacts() {
+      router.push({ name: 'ProjectContacts', params: { id: projectId.value } });
+    }
+
+    function navigateToTravel() {
+      router.push({ name: 'TravelDashboard', params: { id: projectId.value } });
+    }
+
+    function navigateToCalendar() {
+      router.push({ name: 'Calendar', params: { id: projectId.value } });
+    }
+
+    function scrollToRushes() {
+      const rushesSection = document.querySelector('.rushes-section');
+      if (rushesSection) {
+        rushesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
     return {
       projectId,
       currentProject,
@@ -752,6 +787,14 @@ export default {
       formatFileSize,
       formatStatus,
       goBack,
+      navigateToStages,
+      navigateToDocuments,
+      navigateToPictures,
+      navigateToGear,
+      navigateToContacts,
+      navigateToTravel,
+      navigateToCalendar,
+      scrollToRushes,
     };
   },
 };
@@ -890,6 +933,18 @@ export default {
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
   border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.overview-card.clickable {
+  cursor: pointer;
+}
+
+.overview-card.clickable:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--color-primary-500);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-icon {

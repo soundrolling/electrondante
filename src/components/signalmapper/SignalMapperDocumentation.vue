@@ -542,9 +542,42 @@ connections.value.forEach(conn => {
   yPos += 6
 })
 
-// Download PDF using reliable helper that works on iPad
+// Save PDF to storage instead of downloading
 const fileName = `signal-mapper-documentation-${Date.now()}.pdf`
-await downloadPDF(doc, fileName)
+let venueId = null
+if (props.locationId) {
+  try {
+    const { data: locationData } = await supabase
+      .from('locations')
+      .select('venue_id')
+      .eq('id', props.locationId)
+      .single()
+    
+    if (locationData) {
+      venueId = locationData.venue_id || null
+    }
+  } catch (err) {
+    console.warn('Error fetching venue_id:', err)
+  }
+}
+
+const { savePDFToStorage } = await import('@/services/exportStorageService')
+const description = 'Signal mapper documentation export'
+
+const result = await savePDFToStorage(
+  doc,
+  fileName,
+  props.projectId,
+  venueId,
+  props.locationId,
+  description
+)
+
+if (result.success) {
+  toast.success('PDF exported to Data Management successfully')
+} else {
+  toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+}
 }
 
 async function exportSignalFlowDoc() {
@@ -582,9 +615,42 @@ signalPaths.value.forEach((path, index) => {
   yPos += 10
 })
 
-// Download PDF using reliable helper that works on iPad
+// Save PDF to storage instead of downloading
 const fileName = `signal-flow-report-${Date.now()}.pdf`
-await downloadPDF(doc, fileName)
+let venueId = null
+if (props.locationId) {
+  try {
+    const { data: locationData } = await supabase
+      .from('locations')
+      .select('venue_id')
+      .eq('id', props.locationId)
+      .single()
+    
+    if (locationData) {
+      venueId = locationData.venue_id || null
+    }
+  } catch (err) {
+    console.warn('Error fetching venue_id:', err)
+  }
+}
+
+const { savePDFToStorage } = await import('@/services/exportStorageService')
+const description = 'Signal flow report export'
+
+const result = await savePDFToStorage(
+  doc,
+  fileName,
+  props.projectId,
+  venueId,
+  props.locationId,
+  description
+)
+
+if (result.success) {
+  toast.success('PDF exported to Data Management successfully')
+} else {
+  toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+}
 }
 
 function exportConnectionMatrix() {

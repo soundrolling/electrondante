@@ -901,8 +901,25 @@ async function exportPdf() {
       y += 12; // Space before next image
     }
 
-    doc.save(`${stageName.value.replace(/\s+/g, '_')}_Pictures.pdf`);
-    toast.success('PDF exported successfully');
+    // Save PDF to storage instead of downloading
+    const filename = `${stageName.value.replace(/\s+/g, '_')}_Pictures.pdf`;
+    const { savePDFToStorage } = await import('@/services/exportStorageService');
+    const description = `Stage pictures export - ${stageName.value || 'Stage'}`;
+    
+    const result = await savePDFToStorage(
+      doc,
+      filename,
+      projectId,
+      venueId,
+      stageId,
+      description
+    );
+    
+    if (result.success) {
+      toast.success('PDF exported to Data Management successfully');
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`);
+    }
   } catch (error) {
     console.error('PDF export error:', error);
     toast.error('Failed to export PDF');
@@ -995,11 +1012,29 @@ async function exportSelectedPdf() {
       y += 12; // Space before next image
     }
 
-    doc.save(`${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`);
-    toast.success(`PDF exported successfully with ${selectedImages.value.length} selected image${selectedImages.value.length === 1 ? '' : 's'}`);
+    // Save PDF to storage instead of downloading
+    const filename = `${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`;
+    const { savePDFToStorage } = await import('@/services/exportStorageService');
+    const description = `Selected stage pictures export - ${stageName.value || 'Stage'}`;
+    
+    const result = await savePDFToStorage(
+      doc,
+      filename,
+      projectId,
+      venueId,
+      stageId,
+      description
+    );
+    
+    if (result.success) {
+      toast.success(`PDF exported to Data Management successfully with ${selectedImages.value.length} selected image${selectedImages.value.length === 1 ? '' : 's'}`);
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`);
+    }
   } catch (error) {
     console.error('PDF export error:', error);
     toast.error('Failed to export selected images as PDF');
+    return;
   }
 }
 

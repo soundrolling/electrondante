@@ -1205,7 +1205,6 @@ async function assignAsBackup() {
   
   // Create 1:1 mappings only for tracks that have assigned inputs
   const mappings = []
-  const maxTracks = Math.min(fromTrackCount, toTrackCount)
   
   // Check which tracks on the source recorder have assigned inputs
   const sourceRecorderConnections = props.connections.filter(c => 
@@ -1237,21 +1236,33 @@ async function assignAsBackup() {
     })
   }
   
-  for (let track = 1; track <= maxTracks; track++) {
-    // Skip if source track doesn't have an assigned input
-    if (!sourceTracksWithInputs.has(track)) {
-      continue
+  // Get sorted list of tracks with inputs (only tracks with sources)
+  const tracksWithInputs = Array.from(sourceTracksWithInputs).sort((a, b) => a - b)
+  
+  if (tracksWithInputs.length === 0) {
+    toast.warning('No tracks with assigned inputs found on recorder 1.')
+    return
+  }
+  
+  // Map tracks sequentially: first track with input → track 1, second → track 2, etc.
+  let destTrackIndex = 1
+  for (const sourceTrack of tracksWithInputs) {
+    // Find next available destination track
+    while (destTrackIndex <= toTrackCount && usedToPorts.has(destTrackIndex)) {
+      destTrackIndex++
     }
     
-    // Skip if destination track is already used
-    if (usedToPorts.has(track)) {
-      continue
+    // If we've run out of destination tracks, stop
+    if (destTrackIndex > toTrackCount) {
+      break
     }
     
     mappings.push({
-      from_port: track,
-      to_port: track
+      from_port: sourceTrack,
+      to_port: destTrackIndex
     })
+    
+    destTrackIndex++
   }
   
   if (mappings.length === 0) {
@@ -3069,6 +3080,8 @@ async function exportToPNG() {
   let projectName = ''
   let stageName = ''
   let venueName = ''
+  let venueId = null
+  let stageId = null
   
   try {
     if (props.projectId) {
@@ -3086,13 +3099,15 @@ async function exportToPNG() {
     if (props.locationId) {
       const { data: locationData } = await supabase
         .from('locations')
-        .select('stage_name, venue_name')
+        .select('stage_name, venue_name, venue_id')
         .eq('id', props.locationId)
         .single()
       
       if (locationData) {
         stageName = locationData.stage_name || ''
         venueName = locationData.venue_name || ''
+        venueId = locationData.venue_id || null
+        stageId = props.locationId
       }
     }
   } catch (error) {
@@ -3225,15 +3240,24 @@ async function exportToPNG() {
     // Ensure filename has .png extension
     const finalFileName = fileName.endsWith('.png') ? fileName : `${fileName}.png`
     
-    // Download PNG file
-    const link = document.createElement('a')
-    link.download = finalFileName
-    link.href = dataURL
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Save to storage instead of downloading
+    const { savePNGToStorage } = await import('@/services/exportStorageService')
+    const description = `Signal flow export${stageName ? ` - ${stageName}` : ''}${venueName ? ` (${venueName})` : ''}`
     
-    toast.success('Signal flow exported successfully')
+    const result = await savePNGToStorage(
+      dataURL,
+      finalFileName,
+      props.projectId,
+      venueId,
+      stageId,
+      description
+    )
+    
+    if (result.success) {
+      toast.success('Signal flow exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export signal flow')

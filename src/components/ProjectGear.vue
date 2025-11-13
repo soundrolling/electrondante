@@ -420,23 +420,15 @@
             <!-- Default color for source gear -->
             <div v-if="gearType === 'source'" class="form-group">
               <label for="gearDefaultColor" class="form-label">Default Color</label>
-              <div style="display: flex; gap: 12px; align-items: center;">
-                <input 
-                  id="gearDefaultColor"
-                  v-model="gearDefaultColor" 
-                  type="color"
-                  class="form-input"
-                  style="width: 80px; height: 40px; padding: 2px; cursor: pointer;"
-                />
-                <input 
-                  v-model="gearDefaultColor" 
-                  type="text"
-                  placeholder="#000000"
-                  pattern="^#[0-9A-Fa-f]{6}$"
-                  class="form-input"
-                  style="flex: 1;"
-                />
-              </div>
+              <select 
+                id="gearDefaultColor"
+                v-model="gearDefaultColor" 
+                class="form-input"
+              >
+                <option v-for="color in gearColorOptions" :key="color.value" :value="color.value">
+                  {{ color.label }}
+                </option>
+              </select>
               <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
                 This color will be used when placing this microphone in mic placement view
               </small>
@@ -796,23 +788,15 @@
                 <!-- Default color for source gear -->
                 <div v-if="editGearType === 'source'" class="form-group">
                   <label for="editGearDefaultColor" class="form-label">Default Color</label>
-                  <div style="display: flex; gap: 12px; align-items: center;">
-                    <input 
-                      id="editGearDefaultColor"
-                      v-model="editGearDefaultColor" 
-                      type="color"
-                      class="form-input"
-                      style="width: 80px; height: 40px; padding: 2px; cursor: pointer;"
-                    />
-                    <input 
-                      v-model="editGearDefaultColor" 
-                      type="text"
-                      placeholder="#000000"
-                      pattern="^#[0-9A-Fa-f]{6}$"
-                      class="form-input"
-                      style="flex: 1;"
-                    />
-                  </div>
+                  <select 
+                    id="editGearDefaultColor"
+                    v-model="editGearDefaultColor" 
+                    class="form-input"
+                  >
+                    <option v-for="color in gearColorOptions" :key="color.value" :value="color.value">
+                      {{ color.label }}
+                    </option>
+                  </select>
                   <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
                     This color will be used when placing this microphone in mic placement view
                   </small>
@@ -969,6 +953,28 @@ setup(props) {
   const gearAmount              = ref(1)
   const isRented                = ref(false)
   const vendor                  = ref('')
+  
+  // Pre-selected color options for gear
+  const gearColorOptions = [
+    { value: '#1890ff', label: 'Blue' },
+    { value: '#dc2626', label: 'Red' },
+    { value: '#047857', label: 'Green' },
+    { value: '#f59e0b', label: 'Yellow' },
+    { value: '#8b5cf6', label: 'Purple' },
+    { value: '#f97316', label: 'Orange' },
+    { value: '#ec4899', label: 'Pink' },
+    { value: '#06b6d4', label: 'Cyan' },
+    { value: '#14b8a6', label: 'Teal' },
+    { value: '#6366f1', label: 'Indigo' }
+  ]
+  
+  // Helper function to ensure color is one of the valid options
+  const normalizeGearColor = (color) => {
+    if (!color) return '#1890ff'
+    const validColor = gearColorOptions.find(opt => opt.value === color)
+    return validColor ? validColor.value : '#1890ff'
+  }
+  
   const gearDefaultColor        = ref('#1890ff') // Default blue color
   const selectedLocationId      = ref('')
   const immediateAssignedAmount = ref(0)
@@ -1809,7 +1815,7 @@ setup(props) {
     editNumRecords.value   = gear.num_records || 1
     editGearAmount.value   = gear.gear_amount
     editVendor.value       = gear.vendor || ''
-    editGearDefaultColor.value = gear.default_color || '#1890ff'
+    editGearDefaultColor.value = normalizeGearColor(gear.default_color)
     editIsRented.value     = gear.is_rented
     editModalVisible.value = true
   }
@@ -2236,8 +2242,26 @@ setup(props) {
       head: [['Name','Type','Total','Unassigned','Assigned','Rented?','Vendor']],
       body: data
     })
-    doc.save(`gear_${new Date().toISOString().slice(0,10)}.pdf`)
-    toast.success('Exported to PDF')
+    // Save PDF to storage instead of downloading
+    const filename = `gear_${new Date().toISOString().slice(0,10)}.pdf`
+    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const description = `Gear export - ${title}`
+    const projectId = route.params.id
+    
+    const result = await savePDFToStorage(
+      doc,
+      filename,
+      projectId,
+      null, // venueId - project level
+      null, // stageId - project level
+      description
+    )
+    
+    if (result.success) {
+      toast.success('PDF exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   }
 
   function calcMaxAssignment(locId) {

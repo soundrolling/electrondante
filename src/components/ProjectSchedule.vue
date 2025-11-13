@@ -567,8 +567,33 @@ try {
     ]),
     startY: 20
   })
-  doc.save(`${loc.replace(/\s+/g,'_')}_${currentDay.value?.date || 'schedule'}.pdf`)
-  toast.success('Exported')
+  // Save PDF to storage instead of downloading
+  const filename = `${loc.replace(/\s+/g,'_')}_${currentDay.value?.date || 'schedule'}.pdf`
+  let venueId = null
+  let stageId = null
+  if (currentLocation.value) {
+    venueId = currentLocation.value.venue_id || null
+    stageId = currentLocation.value.id || null
+  }
+  
+  const projectId = route.params.id
+  const { savePDFToStorage } = await import('@/services/exportStorageService')
+  const description = `Schedule export - ${loc}${dateInfo}`
+  
+  const result = await savePDFToStorage(
+    doc,
+    filename,
+    projectId,
+    venueId,
+    stageId,
+    description
+  )
+  
+  if (result.success) {
+    toast.success('PDF exported to Data Management successfully')
+  } else {
+    toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+  }
 } catch (err) {
   toast.error(err.message)
 } finally {

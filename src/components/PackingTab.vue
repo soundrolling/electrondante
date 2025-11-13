@@ -1125,8 +1125,26 @@ async function printBagInventory(bag) {
       doc.text('No items in this bag.', 10, yPosition)
     }
 
-    doc.save(`bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`)
-    toast.success('Inventory printed')
+    // Save PDF to storage instead of downloading
+    const filename = `bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
+    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const description = `Bag inventory export - ${bag.name}`
+    const projectId = effectiveProjectId.value || props.projectId
+    
+    const result = await savePDFToStorage(
+      doc,
+      filename,
+      projectId,
+      null, // venueId - project level
+      null, // stageId - project level
+      description
+    )
+    
+    if (result.success) {
+      toast.success('PDF exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   } catch (err) {
     console.error('Failed to print bag inventory:', err)
     toast.error(err.message || 'Failed to print inventory')
@@ -1275,8 +1293,26 @@ async function printMyGearInventory() {
       yPosition += 5
     }
     
-    doc.save(`all_gear_bags_${new Date().toISOString().slice(0, 10)}.pdf`)
-    toast.success('All gear bags printed')
+    // Save PDF to storage instead of downloading
+    const filename = `all_gear_bags_${new Date().toISOString().slice(0, 10)}.pdf`
+    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const description = 'All gear bags export'
+    const projectId = effectiveProjectId.value || props.projectId
+    
+    const result = await savePDFToStorage(
+      doc,
+      filename,
+      projectId,
+      null, // venueId - project level
+      null, // stageId - project level
+      description
+    )
+    
+    if (result.success) {
+      toast.success('PDF exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   } catch (err) {
     console.error('Failed to print all gear bags:', err)
     toast.error(err.message || 'Failed to print bags')

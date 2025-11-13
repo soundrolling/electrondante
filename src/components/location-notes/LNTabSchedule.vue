@@ -981,8 +981,34 @@ export default {
           doc.text('No schedules available', 40, y + 20)
         }
         
-        doc.save(exportFilename.value || 'stage-schedule.pdf')
-        toast.success('PDF exported successfully')
+        // Save PDF to storage instead of downloading
+        const filename = exportFilename.value || 'stage-schedule.pdf'
+        let venueId = null
+        if (props.locationId && location.value) {
+          venueId = location.value.venue_id || null
+        }
+        
+        // Get projectId from user store
+        const store = useUserStore()
+        const projectId = store.getCurrentProject?.id || route.params.id
+        
+        const { savePDFToStorage } = await import('@/services/exportStorageService')
+        const description = `Stage schedule export${exportInfo ? ` - ${exportInfo}` : ''}`
+        
+        const result = await savePDFToStorage(
+          doc,
+          filename,
+          projectId,
+          venueId,
+          props.locationId,
+          description
+        )
+        
+        if (result.success) {
+          toast.success('PDF exported to Data Management successfully')
+        } else {
+          toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+        }
         closeExportModal()
       } catch (error) {
         console.error('Export error:', error)

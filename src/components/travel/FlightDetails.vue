@@ -192,6 +192,10 @@
                 <span class="detail-label">Reservation #:</span>
                 <span class="detail-value">{{ rental.reservation_number }}</span>
               </div>
+              <div class="detail-item" v-if="rental.confirmation_number">
+                <span class="detail-label">Confirmation #:</span>
+                <span class="detail-value">{{ rental.confirmation_number }}</span>
+              </div>
               <div class="detail-item">
                 <span class="detail-label">Pickup:</span>
                 <span class="detail-value">{{ rental.pickup_location }}</span>
@@ -199,6 +203,18 @@
               <div class="detail-item">
                 <span class="detail-label">Return:</span>
                 <span class="detail-value">{{ rental.return_location }}</span>
+              </div>
+              <div class="detail-item" v-if="rental.driver_name">
+                <span class="detail-label">Driver:</span>
+                <span class="detail-value">{{ rental.driver_name }}</span>
+              </div>
+              <div class="detail-item" v-if="rental.cost">
+                <span class="detail-label">Cost:</span>
+                <span class="detail-value">{{ rental.cost }}</span>
+              </div>
+              <div class="detail-item" v-if="rental.insurance">
+                <span class="detail-label">Insurance:</span>
+                <span class="detail-value">{{ rental.insurance }}</span>
               </div>
             </div>
             <div class="rental-notes" v-if="rental.notes">
@@ -567,16 +583,28 @@
               class="form-input"
             />
           </div>
-          <div class="form-group">
-            <label for="reservationNumber">Reservation #</label>
-            <input
-              type="text"
-              id="reservationNumber"
-              v-model="rentalForm.reservation_number"
-              required
-              placeholder="e.g., ABC123456"
-              class="form-input"
-            />
+          <div class="form-row">
+            <div class="form-group">
+              <label for="reservationNumber">Reservation #</label>
+              <input
+                type="text"
+                id="reservationNumber"
+                v-model="rentalForm.reservation_number"
+                required
+                placeholder="e.g., ABC123456"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label for="confirmationNumber">Confirmation #</label>
+              <input
+                type="text"
+                id="confirmationNumber"
+                v-model="rentalForm.confirmation_number"
+                placeholder="e.g., CONF789012"
+                class="form-input"
+              />
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -602,13 +630,45 @@
               />
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="driverName">Driver Name</label>
+              <input
+                type="text"
+                id="driverName"
+                v-model="rentalForm.driver_name"
+                placeholder="e.g., John Doe"
+                class="form-input"
+              />
+            </div>
+            <div class="form-group">
+              <label for="cost">Cost</label>
+              <input
+                type="text"
+                id="cost"
+                v-model="rentalForm.cost"
+                placeholder="e.g., $150/day or $450 total"
+                class="form-input"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="insurance">Insurance Coverage (Optional)</label>
+            <input
+              type="text"
+              id="insurance"
+              v-model="rentalForm.insurance"
+              placeholder="e.g., Full coverage, CDW included"
+              class="form-input"
+            />
+          </div>
           <div class="form-group">
             <label for="rentalNotes">Notes (Optional)</label>
             <textarea
               id="rentalNotes"
               v-model="rentalForm.notes"
               rows="3"
-              placeholder="Any special instructions"
+              placeholder="Any special instructions, additional fees, mileage policy, etc."
               class="form-textarea"
             ></textarea>
           </div>
@@ -1333,8 +1393,12 @@ setup(props) {
           return_date: '',
           vehicle_type: '',
           reservation_number: '',
+          confirmation_number: '',
           pickup_location: '',
           return_location: '',
+          driver_name: '',
+          cost: '',
+          insurance: '',
           notes: ''
         };
     showRentalModal.value = true;

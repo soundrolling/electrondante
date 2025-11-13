@@ -880,8 +880,25 @@ async function exportPdf() {
       y += 20
     }
 
-    doc.save(`${stageName.value.replace(/\s+/g, '_')}_Documents.pdf`)
-    toast.success('PDF exported successfully')
+    // Save PDF to storage instead of downloading
+    const filename = `${stageName.value.replace(/\s+/g, '_')}_Documents.pdf`
+    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const description = `Stage documents export - ${stageName.value || 'Stage'}`
+    
+    const result = await savePDFToStorage(
+      doc,
+      filename,
+      projectId,
+      venueId,
+      stageId,
+      description
+    )
+    
+    if (result.success) {
+      toast.success('PDF exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   } catch (error) {
     console.error('PDF export error:', error)
     toast.error('Failed to export PDF')

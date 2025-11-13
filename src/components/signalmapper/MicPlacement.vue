@@ -57,28 +57,35 @@
     <div 
       v-if="showLegend" 
       class="color-legend" 
+      :class="{ 'legend-dragging': legendDragging }"
       :style="legendStyle"
       draggable="false"
       @pointerdown="onLegendDragStart"
-      @dragstart.prevent
+      @dragstart.prevent.stop
+      @drag.prevent.stop
+      @dragend.prevent.stop
+      @mousedown.prevent.stop
     >
-      <div class="legend-header">
-        <h4>{{ stageName || 'Color Legend' }}</h4>
+      <div class="legend-header" draggable="false" @dragstart.prevent.stop>
+        <h4 draggable="false">{{ stageName || 'Color Legend' }}</h4>
         <div class="legend-header-actions">
-          <button @click="showLegend = false" class="legend-close-btn">×</button>
+          <button @click="showLegend = false" class="legend-close-btn" draggable="false">×</button>
         </div>
       </div>
-      <div class="legend-items">
+      <div class="legend-items" draggable="false" @dragstart.prevent.stop>
         <div 
           v-for="(label, buttonId) in colorLegendMap" 
           :key="buttonId"
           class="legend-item"
+          draggable="false"
+          @dragstart.prevent.stop
         >
           <div 
             class="legend-color-swatch"
             :style="{ backgroundColor: colorButtons.find(b => b.id === buttonId)?.color || '#ccc' }"
+            draggable="false"
           ></div>
-          <span class="legend-label-text">{{ label }}</span>
+          <span class="legend-label-text" draggable="false">{{ label }}</span>
         </div>
       </div>
     </div>
@@ -704,10 +711,11 @@ function updateLegendStyle() {
   }
   
   legendStyle.value = {
-    left: legendPosition.value.x + 'px',
-    top: legendPosition.value.y + 'px',
+    left: '0',
+    top: '0',
     bottom: 'auto',
     right: 'auto',
+    transform: `translate(${legendPosition.value.x}px, ${legendPosition.value.y}px)`,
     cursor: legendDragging.value ? 'grabbing' : 'grab'
   }
 }
@@ -723,16 +731,52 @@ function onLegendDragStart(e) {
   e.stopPropagation()
   
   // Prevent default drag behavior to avoid ghost image
-  if (e.target.closest('.color-legend')) {
-    e.target.closest('.color-legend').setPointerCapture(e.pointerId)
+  const legendElement = e.target.closest('.color-legend')
+  if (legendElement) {
+    legendElement.setPointerCapture(e.pointerId)
   }
   
   legendDragging.value = true
   const rect = canvasWrapper.value.getBoundingClientRect()
+  const startX = e.clientX - rect.left
+  const startY = e.clientY - rect.top
+  
   legendDragStart.value = {
-    x: e.clientX - rect.left - legendPosition.value.x,
-    y: e.clientY - rect.top - legendPosition.value.y
+    x: startX - legendPosition.value.x,
+    y: startY - legendPosition.value.y
   }
+  
+  // Update position immediately to prevent ghost
+  const newX = startX - legendDragStart.value.x
+  const newY = startY - legendDragStart.value.y
+  
+  // Get legend dimensions to constrain within canvas
+  const legendItems = []
+  Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
+    const btn = colorButtons.value.find(b => b.id === buttonId)
+    if (btn) legendItems.push([btn.color, label || btn.name])
+  })
+  
+  const LEGEND_PADDING = 12
+  const LEGEND_ITEM_HEIGHT = 24
+  const LEGEND_ITEM_GAP = 8
+  const SWATCH_SIZE = 16
+  const SWATCH_MARGIN = 8
+  const estimatedTextWidth = 120
+  const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + estimatedTextWidth + LEGEND_PADDING * 2
+  const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
+  
+  // Calculate canvas position within wrapper (canvas is centered)
+  const wrapperWidth = rect.width
+  const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
+  
+  // Constrain to canvas bounds
+  legendPosition.value = {
+    x: Math.max(canvasOffsetX, Math.min(newX, canvasOffsetX + canvasWidth.value - legendWidth)),
+    y: Math.max(0, Math.min(newY, canvasHeight.value - legendHeight))
+  }
+  
+  updateLegendStyle()
   
   // Add global event listeners for drag
   window.addEventListener('pointermove', onLegendDragMove)
@@ -2969,30 +3013,42 @@ async function confirmExport() {
   }
   
   try {
-    // Convert data URL to blob for more reliable downloads
-    const response = await fetch(dataURL)
-    const blob = await response.blob()
-    const blobURL = URL.createObjectURL(blob)
+    // Get venueId from locationId if available
+    let venueId = null
+    if (props.locationId) {
+      try {
+        const { data: locationData } = await supabase
+          .from('locations')
+          .select('venue_id')
+          .eq('id', props.locationId)
+          .single()
+        
+        if (locationData) {
+          venueId = locationData.venue_id || null
+        }
+      } catch (err) {
+        console.warn('Error fetching venue_id:', err)
+      }
+    }
     
-    // Create a temporary anchor element to trigger download
-    const link = document.createElement('a')
+    // Save to storage instead of downloading
+    const { savePNGToStorage } = await import('@/services/exportStorageService')
+    const description = `Mic placement export${props.stageName ? ` - ${props.stageName}` : ''}`
     
-    // Set the download attributes
-    link.href = blobURL
-    link.download = filename
-    link.style.display = 'none'
+    const result = await savePNGToStorage(
+      dataURL,
+      filename,
+      props.projectId,
+      venueId,
+      props.locationId,
+      description
+    )
     
-    // Append to body, click, and remove
-    document.body.appendChild(link)
-    link.click()
-    
-    // Clean up after a short delay
-    setTimeout(() => {
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobURL)
-    }, 100)
-    
-    toast.success(`Mic placement exported as ${filename}`)
+    if (result.success) {
+      toast.success('Mic placement exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export mic placement')
@@ -3991,6 +4047,11 @@ defineExpose({ getCanvasDataURL })
   -moz-user-drag: none;
   -o-user-drag: none;
   user-drag: none;
+  transition: opacity 0.1s;
+}
+
+.color-legend.legend-dragging {
+  opacity: 1;
 }
 
 .dark .color-legend {

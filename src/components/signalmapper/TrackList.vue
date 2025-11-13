@@ -798,8 +798,41 @@ async function confirmPDFExport() {
       doc.setTextColor(0, 0, 0) // Reset to black
     })
     
-    // Download PDF using reliable helper that works on iPad
-    await downloadPDF(doc, finalFileName)
+    // Save PDF to storage instead of downloading
+    let venueId = null
+    if (props.locationId) {
+      try {
+        const { data: locationData } = await supabase
+          .from('locations')
+          .select('venue_id')
+          .eq('id', props.locationId)
+          .single()
+        
+        if (locationData) {
+          venueId = locationData.venue_id || null
+        }
+      } catch (err) {
+        console.warn('Error fetching venue_id:', err)
+      }
+    }
+    
+    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const description = `Track list export${customTitle.value ? ` - ${customTitle.value}` : ''}${pdfExportOptions.value.recordingDateName ? ` (${pdfExportOptions.value.recordingDateName})` : ''}`
+    
+    const result = await savePDFToStorage(
+      doc,
+      finalFileName,
+      props.projectId,
+      venueId,
+      props.locationId,
+      description
+    )
+    
+    if (result.success) {
+      toast.success('Track list exported to Data Management successfully')
+    } else {
+      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    }
   } catch (e) {
     console.error('Error exporting track list:', e)
     alert('Failed to export track list. Please try again.')
