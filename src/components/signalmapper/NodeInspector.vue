@@ -107,9 +107,16 @@
       </div>
       <!-- Settings tab for Source nodes -->
       <div class="panel" v-if="tab==='settings' && type==='source'">
-        <div style="display:grid; grid-template-columns: 160px 1fr; align-items:center; gap:10px;">
+        <div style="display:grid; grid-template-columns: 160px 1fr; align-items:center; gap:10px; margin-bottom:12px;">
           <label style="font-weight:600; color: var(--text-secondary);">Pad (dB)</label>
           <input class="input" type="number" v-model.number="sourcePadDb" step="1" min="-60" max="0" placeholder="0" />
+        </div>
+        <div style="display:grid; grid-template-columns: 160px 1fr; align-items:center; gap:10px;">
+          <label style="font-weight:600; color: var(--text-secondary);">Phantom Power</label>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" v-model="sourcePhantomPower" style="width:auto; min-height:unset; cursor:pointer;" />
+            <span style="font-size:14px; color: var(--text-primary);">+48V</span>
+          </label>
         </div>
         <div class="actions">
           <button class="btn" @click="saveSourceSettings" :disabled="saving">Save Settings</button>
@@ -168,6 +175,7 @@ const isIncomingMap = computed(() => !!fromNodeRef.value)
 const graph = ref(null)
 // Source settings
 const sourcePadDb = ref(0)
+const sourcePhantomPower = ref(false)
 // Transformer input gain tracking
 const inputGain = ref({}) // { inputNumber: gainDb }
 // Delete state
@@ -182,6 +190,8 @@ onMounted(async () => {
   if (type.value === 'source') {
     const pad = props.node?.pad_db
     sourcePadDb.value = typeof pad === 'number' ? pad : 0
+    const phantom = props.node?.phantom_power
+    sourcePhantomPower.value = typeof phantom === 'boolean' ? phantom : false
   }
   // Load transformer input gain values
   if (type.value === 'transformer') {
@@ -197,9 +207,11 @@ onMounted(async () => {
 async function saveSourceSettings() {
   try {
     const padDb = Number(sourcePadDb.value) || 0
-    await updateNode({ id: props.node.id, pad_db: padDb })
+    const phantomPower = !!sourcePhantomPower.value
+    await updateNode({ id: props.node.id, pad_db: padDb, phantom_power: phantomPower })
     // Optimistically update local node
     props.node.pad_db = padDb
+    props.node.phantom_power = phantomPower
     toast.success('Source settings saved')
   } catch (e) {
     console.error('[Inspector][Settings] failed to save source settings', e)

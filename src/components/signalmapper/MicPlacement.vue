@@ -586,6 +586,19 @@ let lastPinchDistance = null
 const MIN_SCALE = 0.2
 const MAX_SCALE = 5
 
+// Gesture detection for iPad/touch
+const pointerTypes = new Map() // Track pointer types (touch, pen, mouse)
+const gestureState = ref({
+  isTwoFingerPan: false,
+  isTwoFingerZoom: false,
+  panStart: null,
+  panStartImageOffset: null
+})
+const DRAG_THRESHOLD = 5 // pixels - minimum movement to consider it a drag
+const TAP_TIMEOUT = 300 // ms - maximum time between taps for double-tap
+let lastTapTime = 0
+let lastTapPoint = null
+
 // Modal state
 const showGearModal = ref(false)
 const selectedMicForOrientation = ref(null)
@@ -1220,6 +1233,7 @@ function drawMic(ctx, mic, labelPos = null) {
   // Get color button for this mic
   const colorBtn = getColorButtonForMic(mic)
   const isSelected = selectedMics.value.has(mic)
+  const micColor = colorBtn ? colorBtn.color : (isSelected ? '#007bff' : '#fff')
   const borderColor = colorBtn ? colorBtn.color : (isSelected ? '#0056b3' : '#007bff')
   const labelBgColor = colorBtn ? colorBtn.color : 'rgba(255,255,255,0.92)'
   const labelTextColor = colorBtn ? getContrastColor(colorBtn.color) : '#222'
@@ -1229,22 +1243,33 @@ function drawMic(ctx, mic, labelPos = null) {
   ctx.scale(scale, scale)
   ctx.rotate((rotation * Math.PI) / 180)
 
-  // Draw mic circle
+  // Draw mic circle - fill with color
   ctx.beginPath()
   ctx.arc(0, 0, 20, 0, 2 * Math.PI)
-  ctx.fillStyle = isSelected ? '#007bff' : '#fff'
+  ctx.fillStyle = isSelected ? '#007bff' : micColor
   ctx.strokeStyle = borderColor
   ctx.lineWidth = (isSelected ? 3 : 2) / scale
   ctx.fill()
   ctx.stroke()
 
-  // Draw direction indicator (arrow) - bigger arrow
+  // Draw direction indicator (arrow) - fill with color
   ctx.beginPath()
   ctx.moveTo(0, -18) // Top point, closer to circle edge
   ctx.lineTo(8, -2)  // Right bottom point, wider base
   ctx.lineTo(-8, -2) // Left bottom point, wider base
   ctx.closePath()
-  ctx.fillStyle = isSelected ? '#007bff' : '#495057'
+  // Use a slightly darker version of the color for the arrow, or white if no color
+  if (colorBtn) {
+    // Convert hex to RGB and darken
+    const hex = colorBtn.color.replace('#', '')
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    const darkenFactor = 0.7
+    ctx.fillStyle = `rgb(${Math.floor(r * darkenFactor)}, ${Math.floor(g * darkenFactor)}, ${Math.floor(b * darkenFactor)})`
+  } else {
+    ctx.fillStyle = isSelected ? '#0056b3' : '#495057'
+  }
   ctx.fill()
 
   // Selection indicator - enhanced highlighting
@@ -1842,12 +1867,46 @@ function getCanvasCoords(e) {
 // Pointer events
 function onPointerDown(e) {
   e.preventDefault()
-  if (e.button !== 0) return
+  if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') return
 
   const { x, y } = getCanvasCoords(e)
-  activePointers.set(e.pointerId, { x, y })
+  const pointerInfo = { 
+    x, 
+    y, 
+    initialX: x, 
+    initialY: y, 
+    type: e.pointerType || 'mouse', 
+    timestamp: Date.now() 
+  }
+  activePointers.set(e.pointerId, pointerInfo)
+  pointerTypes.set(e.pointerId, e.pointerType || 'mouse')
 
-  // Pan image mode
+  // Detect two-finger gestures (iPad trackpad-like gestures)
+  const activePointerIds = Array.from(activePointers.keys())
+  const touchPointers = activePointerIds.filter(id => pointerTypes.get(id) === 'touch')
+  
+  // Two-finger touch detected - enable gesture mode
+  if (activePointers.size === 2 && touchPointers.length === 2) {
+    gestureState.value.isTwoFingerPan = true
+    gestureState.value.isTwoFingerZoom = false
+    const pts = Array.from(activePointers.values())
+    gestureState.value.panStart = {
+      centerX: (pts[0].x + pts[1].x) / 2,
+      centerY: (pts[0].y + pts[1].y) / 2,
+      pointers: [...pts]
+    }
+    gestureState.value.panStartImageOffset = {
+      x: imageOffsetX.value,
+      y: imageOffsetY.value
+    }
+    const dx = pts[0].x - pts[1].x
+    const dy = pts[0].y - pts[1].y
+    lastPinchDistance = Math.sqrt(dx * dx + dy * dy)
+    return
+  }
+
+  // Single pointer - handle selection/dragging
+  // Pan image mode (explicit mode toggle)
   if (panImageMode.value && bgImageObj.value) {
     dragStart = { x, y }
     dragStartPos = { x: imageOffsetX.value, y: imageOffsetY.value }
@@ -1856,7 +1915,11 @@ function onPointerDown(e) {
 
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
-  const isMultiSelect = e.ctrlKey || e.metaKey // Ctrl on Windows/Linux, Cmd on Mac
+  
+  // For touch/pen: use two-finger tap for multi-select (simulated via timing)
+  // For mouse: use Ctrl/Cmd key
+  const isMultiSelect = e.ctrlKey || e.metaKey || 
+    (e.pointerType === 'touch' && activePointers.size > 1)
 
   if (clickedMic) {
     // Multi-select logic
@@ -1897,7 +1960,7 @@ function onPointerDown(e) {
     // Clicked empty space - deselect only if not clicking on context menu
     if (!showContextMenu.value) {
       if (!isMultiSelect) {
-        // Only clear selection if not holding Ctrl/Cmd
+        // Only clear selection if not holding Ctrl/Cmd or using multi-touch
         selectedMics.value.clear()
         selectedMic.value = null
         drawCanvas()
@@ -1909,24 +1972,50 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   e.preventDefault()
   const { x, y } = getCanvasCoords(e)
-  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x, y })
+  if (activePointers.has(e.pointerId)) {
+    const pointerInfo = activePointers.get(e.pointerId)
+    pointerInfo.x = x
+    pointerInfo.y = y
+    activePointers.set(e.pointerId, pointerInfo)
+  }
 
-  // Pinch to zoom
+  // Two-finger gestures (iPad trackpad-like)
   if (activePointers.size >= 2 && bgImageObj.value) {
     const pts = Array.from(activePointers.values())
     const dx = pts[0].x - pts[1].x
     const dy = pts[0].y - pts[1].y
     const dist = Math.sqrt(dx * dx + dy * dy)
+    const centerX = (pts[0].x + pts[1].x) / 2
+    const centerY = (pts[0].y + pts[1].y) / 2
+    
+    // Determine if this is zoom or pan based on distance change
     if (lastPinchDistance != null) {
-      const centerX = (pts[0].x + pts[1].x) / 2
-      const centerY = (pts[0].y + pts[1].y) / 2
-      applyZoom(dist / lastPinchDistance, centerX, centerY)
+      const distanceChange = Math.abs(dist - lastPinchDistance)
+      const panThreshold = 10 // pixels - minimum distance change to trigger zoom
+      
+      if (distanceChange > panThreshold) {
+        // Pinch to zoom (two-finger zoom gesture)
+        gestureState.value.isTwoFingerZoom = true
+        gestureState.value.isTwoFingerPan = false
+        applyZoom(dist / lastPinchDistance, centerX, centerY)
+        lastPinchDistance = dist
+      } else if (gestureState.value.isTwoFingerPan && gestureState.value.panStart) {
+        // Two-finger pan (iPad trackpad pan gesture)
+        gestureState.value.isTwoFingerZoom = false
+        const panDx = centerX - gestureState.value.panStart.centerX
+        const panDy = centerY - gestureState.value.panStart.centerY
+        imageOffsetX.value = gestureState.value.panStartImageOffset.x + panDx
+        imageOffsetY.value = gestureState.value.panStartImageOffset.y + panDy
+        drawCanvas()
+      }
+    } else {
+      lastPinchDistance = dist
     }
-    lastPinchDistance = dist
     return
   }
 
-  // Pan image mode
+  // Single pointer gestures
+  // Pan image mode (explicit toggle mode)
   if (panImageMode.value && dragStart && bgImageObj.value) {
     const dx = x - dragStart.x
     const dy = y - dragStart.y
@@ -1937,7 +2026,24 @@ function onPointerMove(e) {
   }
 
   // Dragging mics (all selected mics together)
+  // For Apple Pencil and touch: only drag if movement exceeds threshold
   if (draggingMics.value.size > 0 && dragStart) {
+    const pointerType = pointerTypes.get(e.pointerId) || 'mouse'
+    
+    // For touch/pen: check if movement exceeds threshold before dragging
+    // We need to track the initial canvas position for threshold checking
+    if (pointerType === 'touch' || pointerType === 'pen') {
+      const pointerInfo = activePointers.get(e.pointerId)
+      if (pointerInfo && pointerInfo.initialX !== undefined) {
+        const moveDistance = Math.sqrt(
+          Math.pow(x - pointerInfo.initialX, 2) + Math.pow(y - pointerInfo.initialY, 2)
+        )
+        if (moveDistance < DRAG_THRESHOLD) {
+          return // Don't start dragging until threshold is exceeded
+        }
+      }
+    }
+    
     const imgPt = canvasToImageCoords(x, y)
     // Calculate the offset from the drag start point
     const offsetX = imgPt.imgX - dragStart.x
@@ -1958,14 +2064,62 @@ function onPointerMove(e) {
 
 async function onPointerUp(e) {
   e.preventDefault()
+  const pointerType = pointerTypes.get(e.pointerId) || 'mouse'
   activePointers.delete(e.pointerId)
-  if (activePointers.size < 2) lastPinchDistance = null
+  pointerTypes.delete(e.pointerId)
+  
+  // Reset gesture state when all pointers are released
+  if (activePointers.size < 2) {
+    lastPinchDistance = null
+    gestureState.value.isTwoFingerPan = false
+    gestureState.value.isTwoFingerZoom = false
+    gestureState.value.panStart = null
+    gestureState.value.panStartImageOffset = null
+  }
 
   if (panImageMode.value) {
     dragStart = null
     dragStartPos = null
     saveImageState()
     return
+  }
+
+  // Handle double-tap for Apple Pencil/touch (context menu)
+  if (pointerType === 'pen' || pointerType === 'touch') {
+    const { x, y } = getCanvasCoords(e)
+    const currentTime = Date.now()
+    const timeSinceLastTap = currentTime - lastTapTime
+    const currentPoint = { x, y }
+    
+    // Check if this is a double-tap (within timeout and distance threshold)
+    if (lastTapPoint && timeSinceLastTap < TAP_TIMEOUT) {
+      const distance = Math.sqrt(
+        Math.pow(currentPoint.x - lastTapPoint.x, 2) + 
+        Math.pow(currentPoint.y - lastTapPoint.y, 2)
+      )
+      if (distance < 20) { // 20px threshold for double-tap
+        // Double-tap detected - open context menu if mic is selected
+        const imgPt = canvasToImageCoords(x, y)
+        const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+        if (clickedMic) {
+          selectedMics.value.clear()
+          selectedMics.value.add(clickedMic)
+          selectedMic.value = clickedMic
+          drawCanvas()
+          nextTick(() => {
+            openContextMenu(e)
+          })
+        }
+        // Reset tap tracking
+        lastTapTime = 0
+        lastTapPoint = null
+        return
+      }
+    }
+    
+    // Single tap - update tap tracking
+    lastTapTime = currentTime
+    lastTapPoint = currentPoint
   }
 
   // Check if this was a click (no drag) or a drag
@@ -2108,6 +2262,37 @@ async function placeMic() {
     const centerY = canvasHeight.value / 2
     const imgCoords = canvasToImageCoords(centerX, centerY)
 
+    // If gear has a default_color, find or create a matching color button
+    let colorButtonId = null
+    if (mic.default_color) {
+      // Try to find existing color button with this color
+      let existingButton = colorButtons.value.find(
+        btn => btn.color.toLowerCase() === mic.default_color.toLowerCase() && 
+        (btn.location_id === props.locationId || (!btn.location_id && !props.locationId))
+      )
+      
+      if (!existingButton) {
+        // Create a new color button for this gear's default color
+        try {
+          const newButton = await mutateTableData('mic_color_buttons', 'insert', {
+            name: mic.gear_name,
+            color: mic.default_color,
+            description: `Default color for ${mic.gear_name}`,
+            project_id: props.projectId,
+            location_id: props.locationId || null
+          })
+          await fetchColorButtons() // Refresh color buttons
+          existingButton = colorButtons.value.find(btn => btn.id === newButton.id)
+        } catch (err) {
+          console.warn('Failed to create color button for gear default color:', err)
+        }
+      }
+      
+      if (existingButton) {
+        colorButtonId = existingButton.id
+      }
+    }
+
     const newNode = await addNode({
       project_id: props.projectId,
       location_id: props.locationId || null,
@@ -2121,7 +2306,8 @@ async function placeMic() {
       gear_type: 'source',
       num_inputs: mic.num_inputs || 0,
       num_outputs: mic.num_outputs || 1,
-      num_tracks: 0
+      num_tracks: 0,
+      color_button_id: colorButtonId
     })
 
     emit('node-added', newNode)

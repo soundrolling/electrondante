@@ -417,6 +417,30 @@
                 style="width:auto; min-height:unset;"
               />
             </div>
+            <!-- Default color for source gear -->
+            <div v-if="gearType === 'source'" class="form-group">
+              <label for="gearDefaultColor" class="form-label">Default Color</label>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <input 
+                  id="gearDefaultColor"
+                  v-model="gearDefaultColor" 
+                  type="color"
+                  class="form-input"
+                  style="width: 80px; height: 40px; padding: 2px; cursor: pointer;"
+                />
+                <input 
+                  v-model="gearDefaultColor" 
+                  type="text"
+                  placeholder="#000000"
+                  pattern="^#[0-9A-Fa-f]{6}$"
+                  class="form-input"
+                  style="flex: 1;"
+                />
+              </div>
+              <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
+                This color will be used when placing this microphone in mic placement view
+              </small>
+            </div>
             <!-- Multi-stage assignment section -->
             <div class="form-group" style="grid-column: 1 / -1;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -769,6 +793,30 @@
                     class="form-input"
                   />
                 </div>
+                <!-- Default color for source gear -->
+                <div v-if="editGearType === 'source'" class="form-group">
+                  <label for="editGearDefaultColor" class="form-label">Default Color</label>
+                  <div style="display: flex; gap: 12px; align-items: center;">
+                    <input 
+                      id="editGearDefaultColor"
+                      v-model="editGearDefaultColor" 
+                      type="color"
+                      class="form-input"
+                      style="width: 80px; height: 40px; padding: 2px; cursor: pointer;"
+                    />
+                    <input 
+                      v-model="editGearDefaultColor" 
+                      type="text"
+                      placeholder="#000000"
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                      class="form-input"
+                      style="flex: 1;"
+                    />
+                  </div>
+                  <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
+                    This color will be used when placing this microphone in mic placement view
+                  </small>
+                </div>
                 <div class="form-group">
                   <label for="editIsRented" class="form-label">Rented?</label>
                   <input 
@@ -921,6 +969,7 @@ setup(props) {
   const gearAmount              = ref(1)
   const isRented                = ref(false)
   const vendor                  = ref('')
+  const gearDefaultColor        = ref('#1890ff') // Default blue color
   const selectedLocationId      = ref('')
   const immediateAssignedAmount = ref(0)
 
@@ -946,6 +995,7 @@ setup(props) {
   const editNumRecords          = ref(1)
   const editGearAmount          = ref(1)
   const editVendor              = ref('')
+  const editGearDefaultColor   = ref('#1890ff')
   const editIsRented            = ref(false)
 
   const reorderModalVisible     = ref(false)
@@ -1283,6 +1333,7 @@ setup(props) {
       gearAmount.value              = 1
       isRented.value                = false
       vendor.value                  = ''
+      gearDefaultColor.value        = '#1890ff'
       selectedLocationId.value      = ''
       immediateAssignedAmount.value = 0
       newGearAssignments.value      = []
@@ -1316,6 +1367,7 @@ setup(props) {
         gear_amount: gearAmount.value,
         is_rented:   isRented.value,
         vendor:      vendor.value,
+        default_color: gearType.value === 'source' ? gearDefaultColor.value : null,
         project_id:  currentProject.value.id,
         sort_order:  gearList.value.length + 1
       }
@@ -1757,6 +1809,7 @@ setup(props) {
     editNumRecords.value   = gear.num_records || 1
     editGearAmount.value   = gear.gear_amount
     editVendor.value       = gear.vendor || ''
+    editGearDefaultColor.value = gear.default_color || '#1890ff'
     editIsRented.value     = gear.is_rented
     editModalVisible.value = true
   }
@@ -1870,7 +1923,8 @@ setup(props) {
         num_records: editGearType.value === 'recorder' ? Number(editNumRecords.value) : null,
         gear_amount: editGearAmount.value,
         is_rented:   editIsRented.value,
-        vendor:      editVendor.value
+        vendor:      editVendor.value,
+        default_color: editGearType.value === 'source' ? editGearDefaultColor.value : null
       })
       
       // Update assignments if gear amount was reduced
@@ -2247,6 +2301,7 @@ setup(props) {
           gear_amount: quantity,
           is_rented: userGear.is_rented ?? false,
           vendor: `${userGear.owner_name || 'Unknown'} (Personal Gear)`,
+          default_color: gearType === 'source' ? (userGear.default_color || '#1890ff') : null,
           project_id: currentProject.value.id,
           sort_order: gearList.value.length + 1,
           user_gear_id: userGear.id, // Reference to original user gear

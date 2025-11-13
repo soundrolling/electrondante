@@ -119,7 +119,7 @@
                   v-if="editPortMappings.length === 0"
                   @click="assignAsBackup" 
                   class="btn-backup"
-                  style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;"
+                  style="padding: 6px 12px; background: #28a745; color: var(--text-primary); border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;"
                 >
                   📋 Assign as Backup
                 </button>
@@ -1203,11 +1203,46 @@ async function assignAsBackup() {
     }
   })
   
-  // Create 1:1 mappings for all available tracks
+  // Create 1:1 mappings only for tracks that have assigned inputs
   const mappings = []
   const maxTracks = Math.min(fromTrackCount, toTrackCount)
   
+  // Check which tracks on the source recorder have assigned inputs
+  const sourceRecorderConnections = props.connections.filter(c => 
+    (c.to_node_id === from.id || c.to === from.id)
+  )
+  
+  // Get port mappings for connections TO the source recorder
+  const sourceConnIds = sourceRecorderConnections.map(c => c.id).filter(Boolean)
+  const sourceTracksWithInputs = new Set()
+  
+  // Check direct connections to source recorder
+  sourceRecorderConnections.forEach(conn => {
+    if (conn.track_number) {
+      sourceTracksWithInputs.add(conn.track_number)
+    } else if (conn.input_number) {
+      sourceTracksWithInputs.add(conn.input_number)
+    }
+  })
+  
+  // Check port mappings to source recorder
+  if (sourceConnIds.length > 0 && graphRef.value?.mapsByConnId) {
+    sourceConnIds.forEach(connId => {
+      const maps = graphRef.value.mapsByConnId[connId] || []
+      maps.forEach(m => {
+        if (m.to_port) {
+          sourceTracksWithInputs.add(m.to_port)
+        }
+      })
+    })
+  }
+  
   for (let track = 1; track <= maxTracks; track++) {
+    // Skip if source track doesn't have an assigned input
+    if (!sourceTracksWithInputs.has(track)) {
+      continue
+    }
+    
     // Skip if destination track is already used
     if (usedToPorts.has(track)) {
       continue
@@ -1220,7 +1255,7 @@ async function assignAsBackup() {
   }
   
   if (mappings.length === 0) {
-    toast.warning('No available tracks to map. All destination tracks are already in use.')
+    toast.warning('No tracks with assigned inputs found to map, or all destination tracks are already in use.')
     return
   }
   

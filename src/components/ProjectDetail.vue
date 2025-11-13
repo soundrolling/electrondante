@@ -191,8 +191,10 @@
     v-if="showStageModal && selectedStage"
     :stage="selectedStage"
     :project-id="currentProject?.id"
+    :stages="stages"
     :visible="showStageModal"
     @close="closeStageModal"
+    @stage-change="handleStageChange"
   />
 
   <!-- Tool Modal -->
@@ -328,6 +330,12 @@ export default {
       showStageModal.value = false;
       selectedStage.value = null;
     }
+    function handleStageChange(stageId) {
+      const newStage = stages.value.find(s => s.id === stageId);
+      if (newStage) {
+        selectedStage.value = newStage;
+      }
+    }
 
     /* ---------------- Tool navigation helpers ---------------- */
     function openTool(toolName) {
@@ -388,6 +396,7 @@ export default {
       /* stage navigation */
       openStageModal,
       closeStageModal,
+      handleStageChange,
       formatSingleDate,
       formatDateRange,
       showStageModal,
