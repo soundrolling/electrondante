@@ -41,11 +41,11 @@
       <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="inline-timeline">
         <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-chip build">
           <span class="chip-icon">🔨</span>
-          <span class="chip-text">Build: {{ formatSingleDate(currentProject.build_days[0]) }} - {{ formatSingleDate(currentProject.build_days[currentProject.build_days.length-1]) }}</span>
+          <span class="chip-text">Build: {{ formatDateRange(currentProject.build_days) }}</span>
         </div>
         <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-chip show">
           <span class="chip-icon">🎭</span>
-          <span class="chip-text">Show: {{ formatSingleDate(currentProject.main_show_days[0]) }} - {{ formatSingleDate(currentProject.main_show_days[currentProject.main_show_days.length-1]) }}</span>
+          <span class="chip-text">Show: {{ formatDateRange(currentProject.main_show_days) }}</span>
         </div>
       </div>
     </section>
@@ -357,6 +357,19 @@ export default {
       const month = d.toLocaleDateString(undefined, { month: 'long' });
       return `${weekday} ${day} ${month}`;
     }
+    function formatDateRange(dateArray) {
+      if (!dateArray || dateArray.length === 0) return '';
+      if (dateArray.length === 1) {
+        return formatSingleDate(dateArray[0]);
+      }
+      const start = formatSingleDate(dateArray[0]);
+      const end = formatSingleDate(dateArray[dateArray.length - 1]);
+      // If start and end are the same, just return one date
+      if (start === end) {
+        return start;
+      }
+      return `${start} - ${end}`;
+    }
 
     return {
       isLoading,
@@ -376,6 +389,7 @@ export default {
       openStageModal,
       closeStageModal,
       formatSingleDate,
+      formatDateRange,
       showStageModal,
       selectedStage,
       /* touch feedback */

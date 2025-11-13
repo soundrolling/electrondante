@@ -152,11 +152,23 @@ onMounted(async () => {
 async function fetchProfile() {
   try {
     loading.value = true;
-        await store.fetchUserProfile();
+    await store.fetchUserProfile();
     if (store.userProfile) {
       profile.value = { 
         ...profile.value,
-        ...store.userProfile 
+        ...store.userProfile,
+        // Ensure social_links is always an object with the expected structure
+        social_links: store.userProfile.social_links && typeof store.userProfile.social_links === 'object' 
+          ? {
+              linkedin: store.userProfile.social_links.linkedin || '',
+              twitter: store.userProfile.social_links.twitter || '',
+              github: store.userProfile.social_links.github || ''
+            }
+          : {
+              linkedin: '',
+              twitter: '',
+              github: ''
+            }
       };
     }
   } catch (e) {

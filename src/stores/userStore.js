@@ -216,7 +216,7 @@ export const useUserStore = defineStore('userStore', {
       try {
         const { data, error, status } = await supabase
           .from('user_profiles')
-          .select('id, user_id, full_name, phone, avatar_url, equipment, calendar_event_toggles')
+          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles')
           .eq('id', this.user.id)
           .single();
         if (error && status !== 406) throw error;
@@ -229,6 +229,16 @@ export const useUserStore = defineStore('userStore', {
           user_id: this.user.id,
           full_name: this.user.user_metadata?.full_name ?? '',
           phone: '',
+          bio: '',
+          company: '',
+          role: '',
+          location: '',
+          website: '',
+          social_links: {
+            linkedin: '',
+            twitter: '',
+            github: ''
+          },
           avatar_url: '',
           equipment: [],
           calendar_event_toggles: {}
@@ -253,7 +263,7 @@ export const useUserStore = defineStore('userStore', {
         const { data, error } = await supabase
           .from('user_profiles')
           .upsert(updates)
-          .select()
+          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles')
           .single();
         if (error) throw error;
         this.userProfile = data;

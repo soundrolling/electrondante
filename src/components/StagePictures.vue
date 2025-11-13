@@ -128,8 +128,16 @@
       <div class="images-actions">
         <button 
           class="btn btn-outline"
+          @click="toggleReorganizeMode"
+          :class="{ 'btn-outline--active': reorganizeMode }"
+        >
+          {{ reorganizeMode ? 'Done Reorganizing' : 'Reorganize' }}
+        </button>
+        <button 
+          class="btn btn-outline"
           @click="toggleBulkMode"
           :class="{ 'btn-outline--active': bulkMode }"
+          :disabled="reorganizeMode"
         >
           {{ bulkMode ? 'Cancel' : 'Select Multiple' }}
         </button>
@@ -153,12 +161,26 @@
       </div>
     </div>
 
-    <div class="images-grid">
+    <div 
+      class="images-grid"
+      :class="{ 'images-grid--reorganize': reorganizeMode }"
+    >
       <div
         v-for="(img, idx) in images"
         :key="img.id"
         class="card"
-        :class="{ 'image-card--selected': selectedImages.includes(img.id) }"
+        :class="{ 
+          'image-card--selected': selectedImages.includes(img.id),
+          'card--draggable': reorganizeMode,
+          'card--dragging': draggedImageId === img.id,
+          'card--drag-over': dragOverIndex === idx
+        }"
+        :draggable="reorganizeMode"
+        @dragstart="onDragStart(img, idx, $event)"
+        @dragover.prevent="onDragOver(idx, $event)"
+        @dragleave="onDragLeave(idx)"
+        @drop="onDropImage(idx, $event)"
+        @dragend="onDragEnd"
       >
         <!-- Image Container -->
         <div class="image-container">
@@ -176,9 +198,13 @@
             :src="img.url" 
             :alt="img.name || 'Stage picture'"
             class="image-preview"
-            :class="{ 'image-preview--selectable': bulkMode }"
-            @click="bulkMode ? toggleImageSelection(img.id) : viewImage(img.file_path)"
+            :class="{ 
+              'image-preview--selectable': bulkMode,
+              'image-preview--reorganize': reorganizeMode
+            }"
+            @click="reorganizeMode ? null : (bulkMode ? toggleImageSelection(img.id) : viewImage(img.file_path))"
             @load="onImageLoad"
+            :draggable="false"
           />
           <!-- Tiles Row: Date, Size, and Uploader -->
           <div class="image-tiles-row">
@@ -211,8 +237,8 @@
           </div>
         </div>
 
-        <!-- Unified Action Row -->
-        <div class="card-action-row">
+          <!-- Unified Action Row -->
+        <div v-if="!reorganizeMode" class="card-action-row">
           <button class="card-action-btn" @click="viewImage(img.file_path)" :title="'View full image'">
             <span class="card-action-icon">👁️</span>
           </button>
@@ -234,10 +260,15 @@
             <span class="card-action-icon">🗑️</span>
           </button>
         </div>
+        <!-- Reorganize Mode Indicator -->
+        <div v-if="reorganizeMode" class="reorganize-indicator">
+          <span class="reorganize-icon">↕️</span>
+          <span class="reorganize-text">Drag to reorder</span>
+        </div>
 
         <!-- Image Details -->
         <div class="image-details">
-          <div class="image-order">
+          <div v-if="!reorganizeMode" class="image-order">
             <button
               class="order-btn"
               @click="moveImageUp(img, idx)"
@@ -255,6 +286,9 @@
             >
               ↓
             </button>
+          </div>
+          <div v-else class="image-order">
+            <span class="order-number reorganize-order">{{ idx + 1 }}</span>
           </div>
 
           <input
@@ -315,6 +349,10 @@ const isDragOver = ref(false);
 const uploadProgress = ref(0);
 const bulkMode = ref(false);
 const selectedImages = ref([]);
+const reorganizeMode = ref(false);
+const draggedImageId = ref(null);
+const draggedImageIndex = ref(null);
+const dragOverIndex = ref(null);
 
 const fileInput = ref(null);
 const editingCardId = ref(null);
@@ -574,8 +612,108 @@ async function removeImage(img) {
 
 // Bulk operations
 function toggleBulkMode() {
+  if (reorganizeMode.value) return; // Don't allow bulk mode while reorganizing
   bulkMode.value = !bulkMode.value;
   selectedImages.value = [];
+}
+
+// Reorganize mode
+function toggleReorganizeMode() {
+  reorganizeMode.value = !reorganizeMode.value;
+  if (reorganizeMode.value) {
+    bulkMode.value = false; // Disable bulk mode when reorganizing
+    selectedImages.value = [];
+    editingCardId.value = null; // Close any open edit modes
+  }
+  draggedImageId.value = null;
+  draggedImageIndex.value = null;
+  dragOverIndex.value = null;
+}
+
+// Drag and drop handlers
+function onDragStart(img, idx, event) {
+  if (!reorganizeMode.value) return;
+  draggedImageId.value = img.id;
+  draggedImageIndex.value = idx;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/html', img.id);
+}
+
+function onDragOver(idx, event) {
+  if (!reorganizeMode.value || draggedImageIndex.value === null) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  
+  if (idx !== draggedImageIndex.value) {
+    dragOverIndex.value = idx;
+  }
+}
+
+function onDragLeave(idx) {
+  if (dragOverIndex.value === idx) {
+    dragOverIndex.value = null;
+  }
+}
+
+async function onDropImage(dropIndex, event) {
+  if (!reorganizeMode.value || draggedImageIndex.value === null) return;
+  event.preventDefault();
+  
+  const dragIndex = draggedImageIndex.value;
+  if (dragIndex === dropIndex) {
+    dragOverIndex.value = null;
+    return;
+  }
+  
+  // Reorder images array
+  const reorderedImages = [...images.value];
+  const [draggedItem] = reorderedImages.splice(dragIndex, 1);
+  reorderedImages.splice(dropIndex, 0, draggedItem);
+  
+  // Update order values
+  reorderedImages.forEach((img, index) => {
+    img.order = index + 1;
+  });
+  
+  // Update local state immediately for better UX
+  images.value = reorderedImages;
+  
+  // Save new order to database
+  try {
+    const updates = reorderedImages.map((img, index) => ({
+      id: img.id,
+      order: index + 1
+    }));
+    
+    // Update all images in a batch
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('stage_pictures')
+        .update({ order: update.order })
+        .eq('id', update.id);
+      
+      if (error) {
+        console.error('Error updating order:', error);
+        throw error;
+      }
+    }
+    
+    toast.success('Images reordered successfully');
+  } catch (error) {
+    console.error('Error saving new order:', error);
+    toast.error('Failed to save new order. Refreshing...');
+    // Revert by fetching images again
+    await fetchImages();
+  }
+  
+  dragOverIndex.value = null;
+}
+
+function onDragEnd(event) {
+  event.target.style.opacity = '1';
+  draggedImageId.value = null;
+  draggedImageIndex.value = null;
+  dragOverIndex.value = null;
 }
 
 function toggleImageSelection(imageId) {
@@ -1418,6 +1556,70 @@ watch(() => route.query.stageId, async (newVal) => {
 .image-card--selected {
   border-color: var(--color-primary-500);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.card--draggable {
+  cursor: move;
+  cursor: grab;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card--draggable:active {
+  cursor: grabbing;
+}
+
+.card--dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  z-index: 1000;
+}
+
+.card--drag-over {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  transform: scale(1.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.images-grid--reorganize {
+  cursor: move;
+}
+
+.image-preview--reorganize {
+  cursor: move;
+  cursor: grab;
+}
+
+.image-preview--reorganize:active {
+  cursor: grabbing;
+}
+
+.reorganize-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 0 0 12px 12px;
+  border-top: 1px solid var(--border-light);
+  color: var(--color-primary-500);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.reorganize-icon {
+  font-size: 18px;
+}
+
+.reorganize-text {
+  color: var(--text-secondary);
+}
+
+.reorganize-order {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-primary-500);
 }
 
 .card-action-row {

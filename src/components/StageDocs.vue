@@ -10,151 +10,162 @@
 
   <!-- Project header removed per design (covered elsewhere) -->
 
-  <!-- Desktop Layout: 2 Columns -->
-  <div class="desktop-layout">
-    <!-- Left Column: Header + Upload -->
-    <div class="left-column">
-      <!-- Header Section -->
-      <header class="header-section ui-page-header">
-        <div class="header-content">
-          <h1 class="header-title">{{ isProjectLevelView ? 'All Documents' : `${stageName} Documents` }}</h1>
-          <p v-if="!isProjectLevelView" class="header-subtitle">Venue: {{ venueName }}</p>
-          <p v-else class="header-subtitle">Project: {{ currentProject?.project_name || 'Loading…' }}</p>
-        </div>
-        <div class="header-actions">
-          <button 
-            class="btn btn-secondary" 
-            @click="exportPdf"
-            :disabled="!filteredDocs.length"
-          >
-            <span class="btn-icon">📄</span>
-            Export PDF
-          </button>
-        </div>
-      </header>
+  <!-- Top Bar: Compact Layout for Large Screens -->
+  <div class="top-bar-container">
+    <!-- Title Section -->
+    <div class="top-bar-title">
+      <h1 class="header-title">{{ isProjectLevelView ? 'All Documents' : `${stageName} Documents` }}</h1>
+      <p v-if="!isProjectLevelView" class="header-subtitle">Venue: {{ venueName }}</p>
+      <p v-else class="header-subtitle">Project: {{ currentProject?.project_name || 'Loading…' }}</p>
+    </div>
 
-      <!-- Upload Section - Only show when viewing a specific stage -->
-      <div v-if="!isProjectLevelView" class="upload-section">
-        <div 
-          class="upload-area"
-          :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
-          @drop="onDrop"
-          @dragover.prevent="isDragOver = true"
-          @dragleave.prevent="isDragOver = false"
+    <!-- Controls Row: Upload, Search, Count, Filters, Export -->
+    <div class="top-bar-controls">
+      <!-- Upload Button - Only show when viewing a specific stage -->
+      <div v-if="!isProjectLevelView && !isLoading" class="top-bar-upload">
+        <input
+          ref="fileInput"
+          type="file"
+          :accept="allowedMimes.join(',')"
+          multiple
+          @change="onFileChange"
+          class="upload-input"
+          :disabled="isUploading"
+        />
+        <button
+          class="btn btn-primary btn-compact"
           @click="triggerFileInput"
+          :disabled="isUploading"
         >
-          <input
-            ref="fileInput"
-            type="file"
-            :accept="allowedMimes.join(',')"
-            multiple
-            @change="onFileChange"
-            class="upload-input"
-            :disabled="isUploading"
-          />
-          
-          <div class="upload-content">
-            <div class="upload-icon">📁</div>
-            <h3 class="upload-title">
-              {{ isUploading ? 'Uploading Documents...' : 'Upload Stage Documents' }}
-            </h3>
-            <p class="upload-subtitle">
-              {{ isUploading ? 'Please wait while we process your documents' : 'Drag & drop files here or click to browse' }}
-            </p>
-            <p class="upload-info">15 MB max (PDF, Word, Excel, CSV, Text)</p>
-            
-            <!-- Upload Progress -->
-            <div v-if="isUploading" class="upload-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
-              </div>
-              <p class="progress-text">{{ uploadProgress }}% Complete</p>
-            </div>
+          <span class="btn-icon">📁</span>
+          {{ isUploading ? 'Uploading…' : 'Upload' }}
+        </button>
+        <div v-if="isUploading" class="upload-progress-inline">
+          <div class="progress-bar-inline">
+            <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
           </div>
         </div>
+      </div>
 
-        <!-- Selected Files Preview -->
-        <div v-if="selectedFiles.length" class="selected-files">
-          <h4 class="selected-files-title">Selected Files ({{ selectedFiles.length }})</h4>
-          <div class="file-list">
-            <div 
-              v-for="(file, index) in selectedFiles" 
-              :key="index"
-              class="file-item"
-            >
-              <div class="file-icon">
-                {{ getFileIcon(file.type) }}
-              </div>
-              <div class="file-info">
-                <p class="file-name">{{ file.name }}</p>
-                <p class="file-size">{{ formatFileSize(file.size) }}</p>
-              </div>
-              <button 
-                class="file-remove"
-                @click="removeSelectedFile(index)"
-                :disabled="isUploading"
-              >
-                ×
-              </button>
-            </div>
+      <!-- Document Count -->
+      <div v-if="!isLoading" class="top-bar-count">
+        <span class="count-text">{{ filteredDocs.length }} Document{{ filteredDocs.length === 1 ? '' : 's' }}</span>
+      </div>
+
+      <!-- Search -->
+      <div v-if="!isLoading" class="top-bar-search">
+        <input
+          v-model="searchTerm"
+          placeholder="Search documents…"
+          class="search-input-compact"
+        />
+      </div>
+
+      <!-- Filters - Only show in project-level view -->
+      <div v-if="!isLoading && isProjectLevelView" class="top-bar-filters">
+        <select v-model="selectedVenueId" class="select-compact">
+          <option value="">All Venues</option>
+          <option v-for="venue in venues" :key="venue.id" :value="venue.id">
+            {{ venue.venue_name }}
+          </option>
+        </select>
+        <select v-model="selectedStageId" class="select-compact" :disabled="!selectedVenueId">
+          <option value="">All Stages</option>
+          <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">
+            {{ stage.stage_name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Export PDF Button -->
+      <div v-if="!isLoading" class="top-bar-export">
+        <button 
+          class="btn btn-secondary btn-compact" 
+          @click="exportPdf"
+          :disabled="!filteredDocs.length"
+        >
+          <span class="btn-icon">📄</span>
+          Export PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Area - Full size for mobile, compact for desktop -->
+  <div v-if="!isProjectLevelView && !isLoading" class="upload-section-mobile">
+    <div 
+      class="upload-area"
+      :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
+      @drop="onDrop"
+      @dragover.prevent="isDragOver = true"
+      @dragleave.prevent="isDragOver = false"
+      @click="triggerFileInput"
+    >
+      <input
+        ref="fileInputMobile"
+        type="file"
+        :accept="allowedMimes.join(',')"
+        multiple
+        @change="onFileChange"
+        class="upload-input"
+        :disabled="isUploading"
+      />
+      
+      <div class="upload-content">
+        <div class="upload-icon">📁</div>
+        <h3 class="upload-title">
+          {{ isUploading ? 'Uploading Documents...' : 'Upload Stage Documents' }}
+        </h3>
+        <p class="upload-subtitle">
+          {{ isUploading ? 'Please wait while we process your documents' : 'Drag & drop files here or click to browse' }}
+        </p>
+        <p class="upload-info">15 MB max (PDF, Word, Excel, CSV, Text)</p>
+        
+        <!-- Upload Progress -->
+        <div v-if="isUploading" class="upload-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
           </div>
-          <!-- Upload Button -->
-          <div class="selected-files-upload-btn">
-            <button
-              class="btn btn-primary"
-              :disabled="isUploading || !selectedFiles.length"
-              @click="uploadDocs"
-            >
-              {{ isUploading ? 'Uploading…' : 'Upload Selected Files' }}
-            </button>
-          </div>
+          <p class="progress-text">{{ uploadProgress }}% Complete</p>
         </div>
       </div>
     </div>
 
-    <!-- Right Column: Document Count + Search + Filters -->
-    <div class="right-column">
-      <!-- Document Count Section -->
-      <section v-if="!isLoading" class="docs-count-section">
-        <div class="docs-count-container">
-          <h3 class="docs-count-title">{{ filteredDocs.length }} Document{{ filteredDocs.length === 1 ? '' : 's' }}</h3>
-        </div>
-      </section>
-
-      <!-- Search Section -->
-      <section v-if="!isLoading" class="search-section">
-        <div class="search-container">
-          <input
-            v-model="searchTerm"
-            placeholder="Search documents…"
-            class="search-input"
-          />
-        </div>
-      </section>
-
-      <!-- Filter Section - Only show in project-level view -->
-      <section v-if="!isLoading && isProjectLevelView" class="filter-section">
-        <div class="filter-container">
-          <div class="stage-filter">
-            <label class="filter-label">Filter by Venue</label>
-            <select v-model="selectedVenueId" class="select-stage">
-              <option value="">All Venues</option>
-              <option v-for="venue in venues" :key="venue.id" :value="venue.id">
-                {{ venue.venue_name }}
-              </option>
-            </select>
+    <!-- Selected Files Preview -->
+    <div v-if="selectedFiles.length" class="selected-files">
+      <h4 class="selected-files-title">Selected Files ({{ selectedFiles.length }})</h4>
+      <div class="file-list">
+        <div 
+          v-for="(file, index) in selectedFiles" 
+          :key="index"
+          class="file-item"
+        >
+          <div class="file-icon">
+            {{ getFileIcon(file.type) }}
           </div>
-          <div class="stage-filter">
-            <label class="filter-label">Filter by Stage</label>
-            <select v-model="selectedStageId" class="select-stage" :disabled="!selectedVenueId">
-              <option value="">All Stages</option>
-              <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">
-                {{ stage.stage_name }}
-              </option>
-            </select>
+          <div class="file-info">
+            <p class="file-name">{{ file.name }}</p>
+            <p class="file-size">{{ formatFileSize(file.size) }}</p>
           </div>
+          <button 
+            class="file-remove"
+            @click="removeSelectedFile(index)"
+            :disabled="isUploading"
+          >
+            ×
+          </button>
         </div>
-      </section>
+      </div>
+      <!-- Upload Button -->
+      <div class="selected-files-upload-btn">
+        <button
+          class="btn btn-primary"
+          :disabled="isUploading || !selectedFiles.length"
+          @click="uploadDocs"
+        >
+          {{ isUploading ? 'Uploading…' : 'Upload Selected Files' }}
+        </button>
+      </div>
     </div>
   </div>
 
@@ -376,6 +387,7 @@ const isUploading   = ref(false)
 const isDragOver    = ref(false)
 const uploadProgress = ref(0)
 const fileInput     = ref(null)
+const fileInputMobile = ref(null)
 const editingId     = ref(null)
 const showPreviewModal = ref(false)
 const previewDoc = ref(null)
@@ -404,7 +416,7 @@ const goBack = () => router.back()
 // file handling
 function triggerFileInput() {
   if (!isUploading.value) {
-    fileInput.value?.click()
+    fileInput.value?.click() || fileInputMobile.value?.click()
   }
 }
 
@@ -695,6 +707,7 @@ for (const file of selectedFiles.value) {
 
 selectedFiles.value = []
 fileInput.value.value = null
+fileInputMobile.value.value = null
 uploadProgress.value = 0
 toast.success(`${count} uploaded`)
 await fetchDocs()
@@ -908,47 +921,178 @@ function printPreview() {
   min-height: 100vh;
 }
 
-/* Desktop Layout: 2 Columns */
-.desktop-layout {
+/* Top Bar Container - Compact Layout for Large Screens */
+.top-bar-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
 }
 
 @media (min-width: 1024px) {
-  .desktop-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
+  .top-bar-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 24px;
-    align-items: start;
+    padding: 16px 24px;
   }
   
-  .left-column {
+  .top-bar-title {
+    flex-shrink: 0;
+    min-width: 200px;
+  }
+  
+  .top-bar-controls {
     display: flex;
-    flex-direction: column;
-    gap: 24px;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    flex-wrap: wrap;
   }
   
-  .right-column {
+  .top-bar-upload {
     display: flex;
-    flex-direction: column;
-    gap: 24px;
+    align-items: center;
+    gap: 8px;
   }
   
-  .header-section {
-    margin-bottom: 0;
+  .top-bar-count {
+    white-space: nowrap;
   }
   
-  .upload-section {
-    margin-bottom: 0;
+  .top-bar-search {
+    flex: 1;
+    min-width: 200px;
+    max-width: 300px;
   }
   
-  .docs-count-section {
-    margin-bottom: 0;
+  .top-bar-filters {
+    display: flex;
+    gap: 8px;
   }
   
-  .search-section {
-    margin-bottom: 0;
+  .top-bar-export {
+    flex-shrink: 0;
+  }
+  
+  /* Hide mobile upload section on large screens */
+  .upload-section-mobile {
+    display: none;
+  }
+}
+
+.top-bar-title {
+  margin-bottom: 0;
+}
+
+.top-bar-title .header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.top-bar-title .header-subtitle {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.top-bar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.count-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.search-input-compact {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.search-input-compact:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.select-compact {
+  padding: 8px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.select-compact:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.select-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-compact {
+  padding: 8px 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.upload-progress-inline {
+  width: 60px;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-inline {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-inline .progress-fill {
+  height: 100%;
+  background: var(--color-success-500);
+  transition: width 0.3s ease;
+}
+
+/* Upload Section - Mobile/Tablet */
+.upload-section-mobile {
+  margin-bottom: 32px;
+}
+
+@media (min-width: 1024px) {
+  .upload-section-mobile {
+    display: none;
   }
 }
 
@@ -1003,7 +1147,7 @@ function printPreview() {
   color: var(--text-primary);
 }
 
-/* Header Section */
+/* Header Section - Legacy styles (kept for compatibility) */
 .header-section {
   display: flex;
   justify-content: space-between;
@@ -1738,22 +1882,23 @@ function printPreview() {
 
 /* Responsive Design */
 @media (max-width: 1023px) {
-  .desktop-layout {
-    display: flex;
+  .top-bar-controls {
     flex-direction: column;
-    gap: 24px;
+    gap: 12px;
   }
   
-  .left-column {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+  .top-bar-search {
+    width: 100%;
+    max-width: none;
   }
   
-  .right-column {
-    display: flex;
+  .top-bar-filters {
     flex-direction: column;
-    gap: 24px;
+    width: 100%;
+  }
+  
+  .select-compact {
+    width: 100%;
   }
 }
 
@@ -1762,14 +1907,12 @@ function printPreview() {
     padding: 16px;
   }
   
-  .header-section {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
+  .top-bar-container {
+    padding: 16px;
   }
   
-  .header-actions {
-    justify-content: flex-start;
+  .top-bar-title .header-title {
+    font-size: 1.25rem;
   }
   
   .docs-list {
