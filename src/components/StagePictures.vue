@@ -1469,6 +1469,8 @@ watch(() => route.query.stageId, async (newVal) => {
   border-radius: 10px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
   border: 1px solid var(--border-light);
+  flex-wrap: nowrap;
+  gap: 12px;
 }
 
 .images-title {
@@ -1477,12 +1479,18 @@ watch(() => route.query.stageId, async (newVal) => {
   color: var(--text-primary);
   margin: 0;
   white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .images-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .images-grid {
@@ -1760,13 +1768,11 @@ watch(() => route.query.stageId, async (newVal) => {
   }
   
   .images-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
+    gap: 8px;
   }
   
   .images-actions {
-    justify-content: flex-start;
+    gap: 6px;
   }
   
   .images-grid {
@@ -1833,12 +1839,19 @@ watch(() => route.query.stageId, async (newVal) => {
     gap: 6px;
     align-items: center;
     padding: 8px 4px;
+    flex-wrap: nowrap;
   }
   .images-title {
     margin-bottom: 0;
+    font-size: 0.9rem;
   }
   .images-actions {
     justify-content: flex-end;
+    gap: 4px;
+  }
+  .images-actions .btn {
+    padding: 8px 12px;
+    font-size: 13px;
   }
 }
 

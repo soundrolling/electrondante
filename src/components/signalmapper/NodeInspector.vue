@@ -67,7 +67,7 @@
                   </div>
                   <select v-model="upstreamMap[n]" class="select" @change="onUpstreamChange(n)">
                     <option :value="'__NO_SOURCE__'">-- No source --</option>
-                    <option v-for="src in availableUpstreamSources" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
+                    <option v-for="src in getAvailableSourcesForInput(n)" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
                   <!-- Gain field for transformer inputs (only show when input is assigned) -->
                   <div v-if="type === 'transformer' && upstreamMap[n] && upstreamMap[n] !== '__NO_SOURCE__'" style="display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; margin-top: 8px;">
@@ -406,6 +406,25 @@ const upstreamLabels = ref({}) // { inputNum: label } - cached labels for displa
 const saveStatus = ref({}) // { inputNum: 'saved' | 'error' }
 
 const availableUpstreamSources = ref([]) // [{ id: nodeId, port: portNum (for venue), label: string, feedKey: 'nodeId:port' }]
+
+// Get available sources for a specific input, excluding sources already assigned to other inputs
+function getAvailableSourcesForInput(inputNum) {
+  // Get the currently selected source for this input (if any)
+  const currentFeedKey = upstreamMap.value[inputNum]
+  
+  // Get all feedKeys that are currently assigned to other inputs
+  const usedFeedKeys = new Set()
+  for (const [otherInputNum, feedKey] of Object.entries(upstreamMap.value)) {
+    if (Number(otherInputNum) !== Number(inputNum) && feedKey && feedKey !== '__NO_SOURCE__') {
+      usedFeedKeys.add(feedKey)
+    }
+  }
+  
+  // Filter out sources that are already used by other inputs, but always include the currently selected source
+  return availableUpstreamSources.value.filter(src => 
+    !usedFeedKeys.has(src.feedKey) || src.feedKey === currentFeedKey
+  )
+}
 
 async function loadAvailableUpstreamSources() {
   if (!graph.value) {
