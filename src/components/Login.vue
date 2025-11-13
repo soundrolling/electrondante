@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.149">
-        <span class="version-text">v21.149</span>
-        <span class="version-date">November 10th 2025</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.150">
+        <span class="version-text">v21.150</span>
+        <span class="version-date">November 13th 2025</span>
       </button>
     </div>
 
@@ -19,7 +19,7 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.149</h2>
+          <h2 id="changelog-title">What's New in 21.150</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
@@ -96,13 +96,14 @@
     </div>
 
     <!-- Login Form -->
-    <form @submit.prevent="handleSubmit" class="login-form">
+    <form @submit.prevent="handleSubmit" class="login-form" autocomplete="on">
       <div class="form-group">
         <label for="email" class="form-label">Email Address</label>
         <div class="input-wrapper">
           <div class="input-icon" aria-hidden="true">📧</div>
           <input
             id="email"
+            name="email"
             v-model="email"
             type="email"
             placeholder="Enter your email address"
@@ -121,6 +122,7 @@
           <div class="input-icon" aria-hidden="true">🔒</div>
           <input
             id="password"
+            name="password"
             v-model="password"
             :type="showPassword ? 'text' : 'password'"
             placeholder="Enter your password"
@@ -453,6 +455,21 @@ setup() {
 .form-input::placeholder {
   color: var(--text-secondary);
   font-weight: 400;
+}
+
+/* Allow browser autofill styling */
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus,
+.form-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--bg-primary) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  box-shadow: 0 0 0 30px var(--bg-primary) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.form-input:-webkit-autofill {
+  border-color: var(--border-light);
 }
 
 .input-error {

@@ -51,6 +51,9 @@
     :project-id="changeoverModal.projectId"
     @close="closeChangeoverModal"
   />
+
+  <!-- Quick Access Menu (available on all project pages) -->
+  <QuickAccessMenu />
 </div>
 </template>
 
@@ -62,12 +65,13 @@ import { useThemeStore } from './stores/themeStore'
 import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
 import ChangeoverNotificationModal from './components/ChangeoverNotificationModal.vue'
+import QuickAccessMenu from './components/QuickAccessMenu.vue'
 import { useToast } from 'vue-toastification'
 import { syncOfflineChanges } from '@/services/dataService'
 import { startScheduleNotifications, stopScheduleNotifications, setChangeoverModalCallbacks } from '@/services/scheduleNotificationService'
 
 export default {
-components: { Header, Footer, ChangeoverNotificationModal },
+components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
   setup() {
   const userStore = useUserStore()
   const themeStore = useThemeStore()
