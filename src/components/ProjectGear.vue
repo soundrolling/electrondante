@@ -518,9 +518,9 @@
 
     <!-- ASSIGNMENT MODAL -->
     <div v-if="assignmentModalVisible" class="modal-overlay" @click="closeAssignmentModal">
-      <div class="modal" @click.stop>
+      <div class="modal assignment-modal" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">Assign Gear</h3>
+          <h3 class="modal-title">Assign & Unassign Gear</h3>
           <button class="modal-close" @click="closeAssignmentModal">✕</button>
         </div>
         <div class="modal-body">
@@ -528,53 +528,99 @@
             <div class="gear-summary">
               <h4 class="gear-summary-title">{{ selectedGear.gear_name }}</h4>
               <div class="gear-summary-details">
-                <span class="summary-item">Available: {{ selectedGear.unassigned_amount }}</span>
                 <span class="summary-item">Total: {{ selectedGear.gear_amount }}</span>
-                <span v-if="assignmentStageId && selectedGear.assignments?.[assignmentStageId]" class="summary-item">
-                  Currently assigned to this stage: {{ selectedGear.assignments[assignmentStageId] }}
+                <span class="summary-item" :class="{ 'summary-warning': remainingAvailable < 0, 'summary-success': remainingAvailable >= 0 }">
+                  Available: {{ remainingAvailable }}
                 </span>
+                <span class="summary-item">Assigned: {{ totalAssignedInModal }}</span>
+              </div>
+              <div v-if="remainingAvailable < 0" class="summary-error">
+                ⚠️ Total assigned ({{ totalAssignedInModal }}) exceeds total gear ({{ selectedGear.gear_amount }})
               </div>
             </div>
 
-            <form @submit.prevent="saveAssignment" class="assignment-form-content">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="assignmentStage" class="form-label">Stage<span class="required">*</span></label>
-                  <select id="assignmentStage" v-model="assignmentStageId" required class="form-select">
-                    <option value="">Select a stage</option>
-                    <option
-                      v-for="location in locationsList"
-                      :key="location.id"
-                      :value="location.id"
+            <div class="assignments-editor">
+              <div class="assignments-header">
+                <h4 class="assignments-title">Current Assignments</h4>
+                <button 
+                  type="button" 
+                  class="btn btn-secondary btn-sm" 
+                  @click="addNewAssignment"
+                  :disabled="remainingAvailable <= 0 || !hasUnassignedStages"
+                >
+                  <span class="btn-icon">➕</span>
+                  <span class="btn-text">Add Stage</span>
+                </button>
+              </div>
+
+              <div class="assignments-list-editor">
+                <div 
+                  v-for="(assignment, index) in editableAssignments" 
+                  :key="assignment.key"
+                  class="assignment-editor-item"
+                >
+                  <div class="assignment-editor-stage">
+                    <select 
+                      v-model="assignment.locationId" 
+                      class="form-select assignment-select"
+                      @change="onAssignmentStageChange(assignment, index)"
                     >
-                      {{ location.stage_name }} ({{ location.venue_name }})
-                    </option>
-                  </select>
+                      <option value="">Select stage</option>
+                      <option
+                        v-for="location in availableLocationsForAssignment(assignment.locationId)"
+                        :key="location.id"
+                        :value="location.id"
+                      >
+                        {{ location.stage_name }} ({{ location.venue_name }})
+                      </option>
+                    </select>
+                  </div>
+                  <div class="assignment-editor-amount">
+                    <input 
+                      v-model.number="assignment.amount" 
+                      type="number" 
+                      min="0"
+                      :max="getMaxForAssignment(assignment)"
+                      class="form-input assignment-input"
+                      @input="validateAssignmentAmount(assignment)"
+                    />
+                    <small class="assignment-hint">
+                      Max: {{ getMaxForAssignment(assignment) }}
+                    </small>
+                  </div>
+                  <div class="assignment-editor-actions">
+                    <button 
+                      type="button"
+                      class="btn btn-danger btn-sm btn-icon-only"
+                      @click="removeAssignment(index)"
+                      title="Remove assignment"
+                    >
+                      <span class="btn-icon">🗑️</span>
+                    </button>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="assignmentAmount" class="form-label">Amount<span class="required">*</span></label>
-                  <input 
-                    id="assignmentAmount"
-                    v-model="assignmentAmount" 
-                    type="number" 
-                    min="1" 
-                    :max="maxAssignableAmount"
-                    required 
-                    class="form-input"
-                  />
-                  <small v-if="assignmentStageId && selectedGear.assignments?.[assignmentStageId]" style="color: var(--text-secondary); margin-top: 4px; display: block;">
-                    Max: {{ maxAssignableAmount }} ({{ selectedGear.unassigned_amount }} unassigned + {{ selectedGear.assignments[assignmentStageId] }} currently assigned to this stage)
-                  </small>
-                  <small v-else style="color: var(--text-secondary); margin-top: 4px; display: block;">
-                    Max: {{ maxAssignableAmount }} available
-                  </small>
+
+                <div v-if="editableAssignments.length === 0" class="empty-assignments">
+                  <p>No assignments yet. Click "Add Stage" to assign gear to a stage.</p>
                 </div>
               </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-positive">Save Assignment</button>
-                <button type="button" @click="closeAssignmentModal" class="btn btn-warning">Cancel</button>
-              </div>
-            </form>
+            </div>
+
+            <div class="form-actions">
+              <button 
+                type="button" 
+                class="btn btn-positive" 
+                @click="saveAllAssignments"
+                :disabled="remainingAvailable < 0 || loading"
+              >
+                <span class="btn-icon">💾</span>
+                <span class="btn-text">Save All Changes</span>
+              </button>
+              <button type="button" @click="closeAssignmentModal" class="btn btn-warning">
+                <span class="btn-icon">✕</span>
+                <span class="btn-text">Cancel</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -819,10 +865,10 @@ setup(props) {
   const currentAssignmentGear   = ref(null)
   const gearAssignments         = ref({})
 
-  // Single-assignment workflow state (used by Assign modal form)
+  // Batch-assignment workflow state (used by Assign modal form)
   const selectedGear            = ref(null)
-  const assignmentStageId       = ref('')
-  const assignmentAmount        = ref(1)
+  const editableAssignments     = ref([])
+  let assignmentKeyCounter      = 0
 
   const editModalVisible        = ref(false)
   const currentEditGear         = ref({})
@@ -1308,33 +1354,126 @@ setup(props) {
   }
 
   function openAssignmentModal(gear) {
-    // Legacy batch-assignment state (kept for compatibility)
-    currentAssignmentGear.value = gear
-    const init = {}
-    locationsList.value.forEach(l => init[l.id] = gear.assignments?.[l.id] || 0)
-    gearAssignments.value = init
-
-    // New single-assignment form state
-    selectedGear.value        = gear
-    assignmentStageId.value   = ''
-    assignmentAmount.value    = Math.min(1, Math.max(0, gear.unassigned_amount || 1))
+    selectedGear.value = gear
+    
+    // Initialize editable assignments from current assignments
+    editableAssignments.value = []
+    assignmentKeyCounter = 0
+    
+    // Add existing assignments
+    if (gear.assignments) {
+      Object.entries(gear.assignments).forEach(([locationId, amount]) => {
+        if (amount > 0) {
+          editableAssignments.value.push({
+            key: `existing-${assignmentKeyCounter++}`,
+            locationId: Number(locationId),
+            amount: amount,
+            isNew: false
+          })
+        }
+      })
+    }
+    
+    // If no assignments exist, add one empty row
+    if (editableAssignments.value.length === 0) {
+      addNewAssignment()
+    }
 
     assignmentModalVisible.value = true
   }
   
-  // Computed property for max assignable amount (accounts for existing assignment to selected stage)
-  const maxAssignableAmount = computed(() => {
-    if (!selectedGear.value || !assignmentStageId.value) {
-      return selectedGear.value?.unassigned_amount || 0
-    }
-    const existingAssignment = selectedGear.value.assignments?.[assignmentStageId.value] || 0
-    return (selectedGear.value.unassigned_amount || 0) + existingAssignment
+  // Computed properties for batch assignment validation
+  const totalAssignedInModal = computed(() => {
+    return editableAssignments.value.reduce((sum, a) => {
+      if (!a.locationId || a.amount <= 0) return sum
+      return sum + (Number(a.amount) || 0)
+    }, 0)
   })
+  
+  const remainingAvailable = computed(() => {
+    if (!selectedGear.value) return 0
+    return selectedGear.value.gear_amount - totalAssignedInModal.value
+  })
+  
+  const hasUnassignedStages = computed(() => {
+    const assignedLocationIds = new Set(
+      editableAssignments.value
+        .filter(a => a.locationId)
+        .map(a => a.locationId)
+    )
+    return locationsList.value.some(loc => !assignedLocationIds.has(loc.id))
+  })
+  
+  function addNewAssignment() {
+    editableAssignments.value.push({
+      key: `new-${assignmentKeyCounter++}`,
+      locationId: null,
+      amount: 0,
+      isNew: true
+    })
+  }
+  
+  function removeAssignment(index) {
+    editableAssignments.value.splice(index, 1)
+    // If no assignments left, add one empty row
+    if (editableAssignments.value.length === 0) {
+      addNewAssignment()
+    }
+  }
+  
+  function availableLocationsForAssignment(currentLocationId) {
+    // Return all locations, but exclude ones already assigned (except the current one)
+    const assignedIds = new Set(
+      editableAssignments.value
+        .filter(a => a.locationId && a.locationId !== currentLocationId)
+        .map(a => a.locationId)
+    )
+    return locationsList.value.filter(loc => !assignedIds.has(loc.id))
+  }
+  
+  function getMaxForAssignment(assignment) {
+    if (!selectedGear.value || !assignment.locationId) {
+      return selectedGear.value?.gear_amount || 0
+    }
+    
+    // Get current amount for this location in the editable list
+    const currentAmountForThisLocation = assignment.amount || 0
+    
+    // Calculate what's assigned to other locations
+    const assignedToOthers = editableAssignments.value.reduce((sum, a) => {
+      if (a.key === assignment.key || !a.locationId || a.amount <= 0) return sum
+      return sum + (Number(a.amount) || 0)
+    }, 0)
+    
+    // Max is: total gear - assigned to others
+    return Math.max(0, selectedGear.value.gear_amount - assignedToOthers)
+  }
+  
+  function validateAssignmentAmount(assignment) {
+    const max = getMaxForAssignment(assignment)
+    if (assignment.amount > max) {
+      assignment.amount = max
+    }
+    if (assignment.amount < 0) {
+      assignment.amount = 0
+    }
+  }
+  
+  function onAssignmentStageChange(assignment, index) {
+    // When stage changes, reset amount to 0 or 1 if available
+    if (assignment.locationId) {
+      const max = getMaxForAssignment(assignment)
+      assignment.amount = Math.min(1, max)
+    } else {
+      assignment.amount = 0
+    }
+  }
+  
   function closeAssignmentModal() {
     assignmentModalVisible.value = false
-    selectedGear.value        = null
-    assignmentStageId.value   = ''
-    assignmentAmount.value    = 1
+    selectedGear.value = null
+    editableAssignments.value = []
+    assignmentKeyCounter = 0
   }
 
   async function saveGearAssignments() {
@@ -1367,49 +1506,85 @@ setup(props) {
     }
   }
 
-  // Save from the single-assignment form
-  async function saveAssignment() {
+  // Save all assignments from the batch assignment form
+  async function saveAllAssignments() {
+    if (!selectedGear.value) {
+      toast.error('No gear selected')
+      return
+    }
+    
+    // Validate total doesn't exceed gear amount
+    if (remainingAvailable.value < 0) {
+      toast.error(`Total assigned (${totalAssignedInModal.value}) exceeds total gear (${selectedGear.value.gear_amount})`)
+      return
+    }
+    
+    // Validate all assignments have valid stage and amount
+    const validAssignments = editableAssignments.value.filter(a => 
+      a.locationId && a.amount > 0
+    )
+    
+    if (validAssignments.length === 0 && editableAssignments.value.some(a => a.locationId || a.amount > 0)) {
+      toast.error('Please complete all assignments or remove empty ones')
+      return
+    }
+    
+    loading.value = true
     try {
-      if (!selectedGear.value) { toast.error('No gear selected'); return }
-      if (!assignmentStageId.value) { toast.error('Please choose a stage'); return }
-      const amount = Number(assignmentAmount.value || 0)
-      if (amount < 1) { toast.error('Amount must be at least 1'); return }
-
       const gid = selectedGear.value.id
-      const sid = Number(assignmentStageId.value)
-
-      // Check existing assignment to calculate available amount correctly
-      const existing = await fetchTableData('gear_assignments', {
-        eq: { gear_id: gid, location_id: sid }
+      
+      // Get all existing assignments for this gear
+      const existingAssignments = await fetchTableData('gear_assignments', {
+        eq: { gear_id: gid }
       })
-
-      // Calculate available amount: unassigned + existing assignment for this stage (if any)
-      const existingAmount = existing.length ? (existing[0].assigned_amount || 0) : 0
-      const availableAmount = (selectedGear.value.unassigned_amount || 0) + existingAmount
-
-      if (amount > availableAmount) {
-        toast.error(`Amount exceeds available. Maximum: ${availableAmount}`)
-        return
+      
+      const existingMap = new Map()
+      existingAssignments.forEach(a => {
+        existingMap.set(a.location_id, a)
+      })
+      
+      // Process each assignment in the editor
+      const locationIdsToKeep = new Set()
+      
+      for (const assignment of validAssignments) {
+        const locationId = Number(assignment.locationId)
+        const amount = Number(assignment.amount)
+        locationIdsToKeep.add(locationId)
+        
+        if (existingMap.has(locationId)) {
+          // Update existing assignment
+          const existing = existingMap.get(locationId)
+          await mutateTableData('gear_assignments', 'update', {
+            id: existing.id,
+            assigned_amount: amount
+          })
+        } else {
+          // Create new assignment
+          await mutateTableData('gear_assignments', 'insert', {
+            gear_id: gid,
+            location_id: locationId,
+            assigned_amount: amount
+          })
+        }
       }
-
-      if (existing.length) {
-        await mutateTableData('gear_assignments', 'update', {
-          id: existing[0].id,
-          assigned_amount: amount,
-        })
-      } else {
-        await mutateTableData('gear_assignments', 'insert', {
-          gear_id: gid,
-          location_id: sid,
-          assigned_amount: amount,
-        })
+      
+      // Delete assignments that are no longer in the list
+      for (const existing of existingAssignments) {
+        if (!locationIdsToKeep.has(existing.location_id)) {
+          await mutateTableData('gear_assignments', 'delete', {
+            id: existing.id
+          })
+        }
       }
-
-      toast.success('Assignment saved')
+      
+      toast.success('All assignments saved successfully')
       closeAssignmentModal()
       await fetchGearList()
     } catch (err) {
-      toast.error(err.message || 'Failed to save assignment')
+      console.error('Error saving assignments:', err)
+      toast.error(err.message || 'Failed to save assignments')
+    } finally {
+      loading.value = false
     }
   }
 
@@ -2010,14 +2185,22 @@ setup(props) {
     openAssignmentModal,
     closeAssignmentModal,
     saveGearAssignments,
-    saveAssignment,
+    saveAllAssignments,
     assignmentModalVisible,
     currentAssignmentGear,
     gearAssignments,
-    // Single-assign form state
+    // Batch-assign form state
     selectedGear,
-    assignmentStageId,
-    assignmentAmount,
+    editableAssignments,
+    totalAssignedInModal,
+    remainingAvailable,
+    hasUnassignedStages,
+    addNewAssignment,
+    removeAssignment,
+    availableLocationsForAssignment,
+    getMaxForAssignment,
+    validateAssignmentAmount,
+    onAssignmentStageChange,
     openEditModal,
     closeEditModal,
     saveEdit,
@@ -2070,8 +2253,7 @@ setup(props) {
     route,
     currentProject,
     projectId,
-    isProjectOwner,
-    maxAssignableAmount
+    isProjectOwner
   }
 }
 }
@@ -2902,6 +3084,127 @@ setup(props) {
   font-size: 14px;
 }
 
+.summary-warning {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.summary-success {
+  color: #047857;
+  font-weight: 600;
+}
+
+.summary-error {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Assignment Editor */
+.assignments-editor {
+  margin-top: 20px;
+}
+
+.assignments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.assignments-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.assignments-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.assignment-editor-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.assignment-editor-item:hover {
+  border-color: #0066cc;
+  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.1);
+}
+
+.assignment-editor-stage {
+  flex: 1;
+}
+
+.assignment-select {
+  width: 100%;
+  min-width: 200px;
+}
+
+.assignment-editor-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.assignment-input {
+  width: 100%;
+  text-align: center;
+}
+
+.assignment-hint {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+  margin-top: 2px;
+}
+
+.assignment-editor-actions {
+  display: flex;
+  align-items: center;
+}
+
+.btn-icon-only {
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.btn-icon-only .btn-text {
+  display: none;
+}
+
+.empty-assignments {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.assignment-modal {
+  max-width: 700px;
+}
+
 /* Edit Form */
 .edit-form {
   display: flex;
@@ -3271,6 +3574,37 @@ setup(props) {
   
   .sort-buttons {
     flex-wrap: nowrap;
+  }
+}
+
+/* Responsive styles for assignment editor */
+@media (max-width: 600px) {
+  .assignment-editor-item {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .assignment-editor-actions {
+    justify-content: flex-end;
+  }
+  
+  .assignments-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .gear-summary-details {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .assignment-select {
+    min-width: 100%;
+  }
+  
+  .assignment-editor-amount {
+    min-width: 100%;
   }
 }
 </style>

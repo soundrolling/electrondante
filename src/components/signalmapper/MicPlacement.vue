@@ -25,6 +25,7 @@
       <button @click="zoomIn" :disabled="!bgImage" class="btn-secondary">🔍+</button>
       <button @click="zoomOut" :disabled="!bgImage" class="btn-secondary">🔍-</button>
       <button @click="resetImageView" :disabled="!bgImage" class="btn-secondary">Reset</button>
+      <button @click="openCropModal" :disabled="!bgImage" class="btn-secondary">✂️ Crop</button>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
       <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
     </div>
@@ -33,6 +34,7 @@
     </div>
     <div class="right-group">
       <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
+      <span v-if="selectedMics.size > 0" class="selection-count">{{ selectedMics.size }} selected</span>
       <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
     </div>
   </div>
@@ -52,11 +54,15 @@
       @dblclick="onDoubleClick"
     />
     <!-- Color Legend -->
-    <div v-if="showLegend" class="color-legend" :style="legendStyle">
+    <div 
+      v-if="showLegend" 
+      class="color-legend" 
+      :style="legendStyle"
+      @pointerdown="onLegendDragStart"
+    >
       <div class="legend-header">
         <h4>Color Legend</h4>
         <div class="legend-header-actions">
-          <button @click="cycleLegendCorner" class="legend-swap-btn" title="Move to next corner">⇄</button>
           <button @click="showLegend = false" class="legend-close-btn">×</button>
         </div>
       </div>
@@ -299,6 +305,35 @@
         <button @click="saveColorButton" class="btn-primary" :disabled="colorButtonBusy || !colorButtonForm.name || !colorButtonForm.color">
           {{ colorButtonBusy ? 'Saving...' : 'Save' }}
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crop Image Modal -->
+  <div v-if="showCropModal" class="modal-overlay" @click="closeCropModal">
+    <div class="modal-content crop-modal" @click.stop>
+      <div class="modal-header">
+        <h3>Crop Background Image</h3>
+        <button @click="closeCropModal" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="crop-container">
+          <canvas 
+            ref="cropCanvas" 
+            class="crop-canvas"
+            @mousedown="onCropMouseDown"
+            @mousemove="onCropMouseMove"
+            @mouseup="onCropMouseUp"
+            @mouseleave="onCropMouseUp"
+          ></canvas>
+          <div class="crop-instructions">
+            <p>Drag the corners or edges of the crop box to adjust the selection</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeCropModal" class="btn-secondary">Cancel</button>
+        <button @click="applyCrop" class="btn-primary" :disabled="cropBusy">Apply Crop</button>
       </div>
     </div>
   </div>
@@ -546,64 +581,174 @@ const showLegend = ref(false)
 const colorLegendMap = ref({}) // Map of color -> label
 const defaultColor = 'rgba(255,255,255,0.92)'
 
-// Legend position for DOM element (updates when nodes move)
+// Legend position for DOM element (manual drag positioning)
 const legendStyle = ref({})
-const legendCornerPreference = ref(0) // 0: bottom-right, 1: bottom-left, 2: top-right, 3: top-left
+const legendPosition = ref({ x: null, y: null }) // Canvas coordinates
+const legendDragging = ref(false)
+const legendDragStart = ref({ x: 0, y: 0 })
 
-// Update legend position - called when nodes move or canvas redraws
-function updateLegendPosition() {
+// Get localStorage key for legend position
+function getLegendPositionKey() {
+  const scope = props.locationId ?? 'default'
+  return `mic-placement-legend-pos-${props.projectId}-${scope}`
+}
+
+// Load saved legend position from localStorage
+function loadLegendPosition() {
+  try {
+    const key = getLegendPositionKey()
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      legendPosition.value = { x: parsed.x, y: parsed.y }
+      updateLegendStyle()
+      return true
+    }
+  } catch (err) {
+    console.error('Error loading legend position:', err)
+  }
+  return false
+}
+
+// Save legend position to localStorage
+function saveLegendPosition() {
+  try {
+    const key = getLegendPositionKey()
+    if (legendPosition.value.x !== null && legendPosition.value.y !== null) {
+      localStorage.setItem(key, JSON.stringify(legendPosition.value))
+    }
+  } catch (err) {
+    console.error('Error saving legend position:', err)
+  }
+}
+
+// Update legend style from position
+function updateLegendStyle() {
   if (!showLegend.value || Object.keys(colorLegendMap.value).length === 0) {
     legendStyle.value = {}
     return
   }
   
-  // Calculate legend dimensions
+  // If no saved position, calculate default position (bottom-right)
+  if (legendPosition.value.x === null || legendPosition.value.y === null) {
+    const legendItems = []
+    Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
+      const btn = colorButtons.value.find(b => b.id === buttonId)
+      if (btn) legendItems.push([btn.color, label || btn.name])
+    })
+    
+    if (legendItems.length === 0) {
+      legendStyle.value = {}
+      return
+    }
+    
+    // Estimate dimensions
+    const LEGEND_PADDING = 12
+    const LEGEND_ITEM_HEIGHT = 24
+    const LEGEND_ITEM_GAP = 8
+    const SWATCH_SIZE = 16
+    const SWATCH_MARGIN = 8
+    const estimatedTextWidth = 120
+    const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + estimatedTextWidth + LEGEND_PADDING * 2
+    const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
+    
+    // Calculate canvas offset within wrapper (canvas is centered)
+    const wrapperWidth = canvasWrapper.value ? canvasWrapper.value.clientWidth : canvasWidth.value
+    const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
+    
+    // Default to bottom-right of canvas area
+    const EDGE_MARGIN = 20
+    legendPosition.value = {
+      x: canvasOffsetX + canvasWidth.value - legendWidth - EDGE_MARGIN,
+      y: canvasHeight.value - legendHeight - EDGE_MARGIN
+    }
+    saveLegendPosition()
+  }
+  
+  legendStyle.value = {
+    left: legendPosition.value.x + 'px',
+    top: legendPosition.value.y + 'px',
+    bottom: 'auto',
+    right: 'auto',
+    cursor: legendDragging.value ? 'grabbing' : 'grab'
+  }
+}
+
+// Legend drag handlers
+function onLegendDragStart(e) {
+  // Don't start drag if clicking on close button
+  if (e.target.closest('.legend-close-btn')) {
+    return
+  }
+  
+  e.preventDefault()
+  e.stopPropagation()
+  
+  legendDragging.value = true
+  const rect = canvasWrapper.value.getBoundingClientRect()
+  legendDragStart.value = {
+    x: e.clientX - rect.left - legendPosition.value.x,
+    y: e.clientY - rect.top - legendPosition.value.y
+  }
+  
+  // Add global event listeners for drag
+  window.addEventListener('pointermove', onLegendDragMove)
+  window.addEventListener('pointerup', onLegendDragEnd)
+}
+
+function onLegendDragMove(e) {
+  if (!legendDragging.value) return
+  
+  e.preventDefault()
+  const rect = canvasWrapper.value.getBoundingClientRect()
+  const newX = e.clientX - rect.left - legendDragStart.value.x
+  const newY = e.clientY - rect.top - legendDragStart.value.y
+  
+  // Get legend dimensions to constrain within canvas
   const legendItems = []
   Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
     const btn = colorButtons.value.find(b => b.id === buttonId)
     if (btn) legendItems.push([btn.color, label || btn.name])
   })
   
-  if (legendItems.length === 0) {
-    legendStyle.value = {}
-    return
-  }
-  
-  // Estimate dimensions (approximate, will be close enough)
   const LEGEND_PADDING = 12
   const LEGEND_ITEM_HEIGHT = 24
   const LEGEND_ITEM_GAP = 8
   const SWATCH_SIZE = 16
   const SWATCH_MARGIN = 8
-  const estimatedTextWidth = 120 // Approximate average text width
+  const estimatedTextWidth = 120
   const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + estimatedTextWidth + LEGEND_PADDING * 2
   const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
   
-  // Calculate position
-  const pos = calculateLegendPosition(legendWidth, legendHeight, canvasWidth.value, canvasHeight.value, legendCornerPreference.value)
+  // Calculate canvas position within wrapper (canvas is centered)
+  const wrapperWidth = rect.width
+  const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
   
-  legendStyle.value = {
-    left: pos.x + 'px',
-    top: pos.y + 'px',
-    bottom: 'auto',
-    right: 'auto'
+  // Constrain to canvas bounds (accounting for canvas being centered in wrapper)
+  legendPosition.value = {
+    x: Math.max(canvasOffsetX, Math.min(newX, canvasOffsetX + canvasWidth.value - legendWidth)),
+    y: Math.max(0, Math.min(newY, canvasHeight.value - legendHeight))
   }
+  
+  updateLegendStyle()
 }
 
-// Cycle through legend corners
-function cycleLegendCorner() {
-  legendCornerPreference.value = (legendCornerPreference.value + 1) % 4
-  updateLegendPosition()
+function onLegendDragEnd(e) {
+  if (!legendDragging.value) return
+  
+  legendDragging.value = false
+  saveLegendPosition()
+  
+  // Remove global event listeners
+  window.removeEventListener('pointermove', onLegendDragMove)
+  window.removeEventListener('pointerup', onLegendDragEnd)
+  
+  updateLegendStyle()
 }
 
-// Watch for node changes and update legend position
-watch(() => props.nodes.map(n => ({ x: n.x, y: n.y })), () => {
-  updateLegendPosition()
-}, { deep: true })
-
-// Also update when legend visibility or content changes
-watch([showLegend, colorLegendMap], () => {
-  updateLegendPosition()
+// Update legend style when canvas size changes
+watch([showLegend, colorLegendMap, canvasWidth, canvasHeight], () => {
+  updateLegendStyle()
 }, { deep: true })
 
 // Filename modal state
@@ -617,6 +762,20 @@ const colorButtonForm = ref({ name: '', color: '', description: '' })
 const showColorButtonModal = ref(false)
 const colorButtonBusy = ref(false)
 const showLegendManagement = ref(false)
+
+// Crop modal state
+const showCropModal = ref(false)
+const cropCanvas = ref(null)
+const cropBusy = ref(false)
+const cropBox = ref({ x: 0, y: 0, width: 0, height: 0 })
+const cropImageObj = ref(null)
+const cropScale = ref(1)
+const cropOffsetX = ref(0)
+const cropOffsetY = ref(0)
+const cropDragging = ref(false)
+const cropDragType = ref(null) // 'move', 'resize-nw', 'resize-ne', 'resize-sw', 'resize-se', 'resize-n', 'resize-s', 'resize-w', 'resize-e'
+const cropDragStart = ref({ x: 0, y: 0 })
+const cropBoxStart = ref({ x: 0, y: 0, width: 0, height: 0 })
 
 const colorOptions = [
   { name: 'Red', value: '#ff4d4f' },
@@ -1292,6 +1451,323 @@ function triggerImageUpload() {
   document.getElementById('image-upload').click()
 }
 
+// Crop functionality
+function openCropModal() {
+  if (!bgImageObj.value) {
+    toast.error('No image to crop')
+    return
+  }
+  showCropModal.value = true
+  nextTick(() => {
+    initializeCropCanvas()
+  })
+}
+
+function closeCropModal() {
+  showCropModal.value = false
+  cropImageObj.value = null
+  cropBox.value = { x: 0, y: 0, width: 0, height: 0 }
+}
+
+function initializeCropCanvas() {
+  if (!cropCanvas.value || !bgImageObj.value) return
+  
+  const canvas = cropCanvas.value
+  const img = bgImageObj.value
+  const maxWidth = Math.min(800, window.innerWidth - 100)
+  const maxHeight = Math.min(600, window.innerHeight - 200)
+  
+  // Calculate scale to fit image in modal
+  const scaleX = maxWidth / img.width
+  const scaleY = maxHeight / img.height
+  cropScale.value = Math.min(scaleX, scaleY, 1) // Don't scale up
+  
+  const displayWidth = img.width * cropScale.value
+  const displayHeight = img.height * cropScale.value
+  
+  canvas.width = displayWidth
+  canvas.height = displayHeight
+  canvas.style.width = displayWidth + 'px'
+  canvas.style.height = displayHeight + 'px'
+  
+  cropOffsetX.value = 0
+  cropOffsetY.value = 0
+  
+  // Initialize crop box to full image
+  cropBox.value = {
+    x: 0,
+    y: 0,
+    width: displayWidth,
+    height: displayHeight
+  }
+  
+  // Load image for cropping
+  cropImageObj.value = new Image()
+  cropImageObj.value.crossOrigin = 'anonymous'
+  cropImageObj.value.onload = () => {
+    drawCropCanvas()
+  }
+  cropImageObj.value.src = bgImage.value
+}
+
+function drawCropCanvas() {
+  if (!cropCanvas.value || !cropImageObj.value) return
+  
+  const ctx = cropCanvas.value.getContext('2d')
+  const canvas = cropCanvas.value
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  // Draw image
+  ctx.drawImage(cropImageObj.value, 0, 0, canvas.width, canvas.height)
+  
+  // Draw overlay (darken outside crop area)
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  
+  // Clear crop area
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.fillRect(cropBox.value.x, cropBox.value.y, cropBox.value.width, cropBox.value.height)
+  ctx.restore()
+  
+  // Draw crop box border
+  ctx.strokeStyle = '#007bff'
+  ctx.lineWidth = 2
+  ctx.setLineDash([])
+  ctx.strokeRect(cropBox.value.x, cropBox.value.y, cropBox.value.width, cropBox.value.height)
+  
+  // Draw corner handles
+  const handleSize = 12
+  const handles = [
+    { x: cropBox.value.x, y: cropBox.value.y }, // NW
+    { x: cropBox.value.x + cropBox.value.width, y: cropBox.value.y }, // NE
+    { x: cropBox.value.x, y: cropBox.value.y + cropBox.value.height }, // SW
+    { x: cropBox.value.x + cropBox.value.width, y: cropBox.value.y + cropBox.value.height }, // SE
+  ]
+  
+  ctx.fillStyle = '#007bff'
+  handles.forEach(handle => {
+    ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
+  })
+  
+  // Draw edge handles
+  const edgeHandles = [
+    { x: cropBox.value.x + cropBox.value.width / 2, y: cropBox.value.y }, // N
+    { x: cropBox.value.x + cropBox.value.width / 2, y: cropBox.value.y + cropBox.value.height }, // S
+    { x: cropBox.value.x, y: cropBox.value.y + cropBox.value.height / 2 }, // W
+    { x: cropBox.value.x + cropBox.value.width, y: cropBox.value.y + cropBox.value.height / 2 }, // E
+  ]
+  
+  edgeHandles.forEach(handle => {
+    ctx.fillRect(handle.x - handleSize / 2, handle.y - handleSize / 2, handleSize, handleSize)
+  })
+}
+
+function getCropCanvasCoords(e) {
+  const rect = cropCanvas.value.getBoundingClientRect()
+  return {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top
+  }
+}
+
+function getCropDragType(x, y) {
+  const box = cropBox.value
+  const handleSize = 12
+  const threshold = handleSize + 5
+  
+  // Check corners
+  if (Math.abs(x - box.x) < threshold && Math.abs(y - box.y) < threshold) return 'resize-nw'
+  if (Math.abs(x - (box.x + box.width)) < threshold && Math.abs(y - box.y) < threshold) return 'resize-ne'
+  if (Math.abs(x - box.x) < threshold && Math.abs(y - (box.y + box.height)) < threshold) return 'resize-sw'
+  if (Math.abs(x - (box.x + box.width)) < threshold && Math.abs(y - (box.y + box.height)) < threshold) return 'resize-se'
+  
+  // Check edges
+  if (Math.abs(y - box.y) < threshold && x >= box.x && x <= box.x + box.width) return 'resize-n'
+  if (Math.abs(y - (box.y + box.height)) < threshold && x >= box.x && x <= box.x + box.width) return 'resize-s'
+  if (Math.abs(x - box.x) < threshold && y >= box.y && y <= box.y + box.height) return 'resize-w'
+  if (Math.abs(x - (box.x + box.width)) < threshold && y >= box.y && y <= box.y + box.height) return 'resize-e'
+  
+  // Check if inside box (for moving)
+  if (x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height) return 'move'
+  
+  return null
+}
+
+function onCropMouseDown(e) {
+  if (!cropCanvas.value) return
+  e.preventDefault()
+  
+  const { x, y } = getCropCanvasCoords(e)
+  cropDragType.value = getCropDragType(x, y)
+  
+  if (cropDragType.value) {
+    cropDragging.value = true
+    cropDragStart.value = { x, y }
+    cropBoxStart.value = { ...cropBox.value }
+    cropCanvas.value.style.cursor = getCropCursor(cropDragType.value)
+  }
+}
+
+function onCropMouseMove(e) {
+  if (!cropCanvas.value) return
+  
+  const { x, y } = getCropCanvasCoords(e)
+  
+  if (cropDragging.value && cropDragType.value) {
+    const dx = x - cropDragStart.value.x
+    const dy = y - cropDragStart.value.y
+    
+    let newBox = { ...cropBoxStart.value }
+    
+    switch (cropDragType.value) {
+      case 'move':
+        newBox.x = Math.max(0, Math.min(cropCanvas.value.width - newBox.width, cropBoxStart.value.x + dx))
+        newBox.y = Math.max(0, Math.min(cropCanvas.value.height - newBox.height, cropBoxStart.value.y + dy))
+        break
+      case 'resize-nw':
+        newBox.x = Math.max(0, cropBoxStart.value.x + dx)
+        newBox.y = Math.max(0, cropBoxStart.value.y + dy)
+        newBox.width = cropBoxStart.value.width - dx
+        newBox.height = cropBoxStart.value.height - dy
+        break
+      case 'resize-ne':
+        newBox.y = Math.max(0, cropBoxStart.value.y + dy)
+        newBox.width = cropBoxStart.value.width + dx
+        newBox.height = cropBoxStart.value.height - dy
+        break
+      case 'resize-sw':
+        newBox.x = Math.max(0, cropBoxStart.value.x + dx)
+        newBox.width = cropBoxStart.value.width - dx
+        newBox.height = cropBoxStart.value.height + dy
+        break
+      case 'resize-se':
+        newBox.width = cropBoxStart.value.width + dx
+        newBox.height = cropBoxStart.value.height + dy
+        break
+      case 'resize-n':
+        newBox.y = Math.max(0, cropBoxStart.value.y + dy)
+        newBox.height = cropBoxStart.value.height - dy
+        break
+      case 'resize-s':
+        newBox.height = cropBoxStart.value.height + dy
+        break
+      case 'resize-w':
+        newBox.x = Math.max(0, cropBoxStart.value.x + dx)
+        newBox.width = cropBoxStart.value.width - dx
+        break
+      case 'resize-e':
+        newBox.width = cropBoxStart.value.width + dx
+        break
+    }
+    
+    // Ensure minimum size
+    if (newBox.width < 50) {
+      newBox.width = 50
+      if (cropDragType.value.includes('w')) newBox.x = cropBoxStart.value.x + cropBoxStart.value.width - 50
+    }
+    if (newBox.height < 50) {
+      newBox.height = 50
+      if (cropDragType.value.includes('n')) newBox.y = cropBoxStart.value.y + cropBoxStart.value.height - 50
+    }
+    
+    // Clamp to canvas bounds
+    newBox.x = Math.max(0, Math.min(cropCanvas.value.width - newBox.width, newBox.x))
+    newBox.y = Math.max(0, Math.min(cropCanvas.value.height - newBox.height, newBox.y))
+    newBox.width = Math.min(cropCanvas.value.width - newBox.x, newBox.width)
+    newBox.height = Math.min(cropCanvas.value.height - newBox.y, newBox.height)
+    
+    cropBox.value = newBox
+    drawCropCanvas()
+  } else {
+    // Update cursor based on hover
+    const dragType = getCropDragType(x, y)
+    cropCanvas.value.style.cursor = dragType ? getCropCursor(dragType) : 'default'
+  }
+}
+
+function onCropMouseUp(e) {
+  if (cropDragging.value) {
+    cropDragging.value = false
+    cropDragType.value = null
+    if (cropCanvas.value) {
+      cropCanvas.value.style.cursor = 'default'
+    }
+  }
+}
+
+function getCropCursor(dragType) {
+  const cursors = {
+    'move': 'move',
+    'resize-nw': 'nw-resize',
+    'resize-ne': 'ne-resize',
+    'resize-sw': 'sw-resize',
+    'resize-se': 'se-resize',
+    'resize-n': 'n-resize',
+    'resize-s': 's-resize',
+    'resize-w': 'w-resize',
+    'resize-e': 'e-resize'
+  }
+  return cursors[dragType] || 'default'
+}
+
+async function applyCrop() {
+  if (!bgImageObj.value || !cropCanvas.value) return
+  
+  cropBusy.value = true
+  
+  try {
+    // Calculate crop area in original image coordinates
+    const scale = bgImageObj.value.width / cropCanvas.value.width
+    const cropX = cropBox.value.x * scale
+    const cropY = cropBox.value.y * scale
+    const cropW = cropBox.value.width * scale
+    const cropH = cropBox.value.height * scale
+    
+    // Create offscreen canvas for cropped image
+    const offCanvas = document.createElement('canvas')
+    offCanvas.width = cropW
+    offCanvas.height = cropH
+    const ctx = offCanvas.getContext('2d')
+    
+    // Draw cropped portion
+    ctx.drawImage(
+      bgImageObj.value,
+      cropX, cropY, cropW, cropH,
+      0, 0, cropW, cropH
+    )
+    
+    // Convert to blob
+    offCanvas.toBlob(async (blob) => {
+      if (!blob) {
+        toast.error('Failed to create cropped image')
+        cropBusy.value = false
+        return
+      }
+      
+      try {
+        // Upload cropped image
+        const file = new File([blob], 'cropped-bg.png', { type: 'image/png' })
+        const { url } = await uploadBgToStorage(file)
+        await setBackgroundImage(url)
+        toast.success('Image cropped and saved')
+        closeCropModal()
+      } catch (err) {
+        console.error('Error saving cropped image:', err)
+        toast.error(`Failed to save cropped image: ${err.message || err}`)
+      } finally {
+        cropBusy.value = false
+      }
+    }, 'image/png')
+  } catch (err) {
+    console.error('Error cropping image:', err)
+    toast.error('Failed to crop image')
+    cropBusy.value = false
+  }
+}
+
 // Coordinate transforms
 function canvasToImageCoords(canvasX, canvasY) {
   if (!bgImageObj.value) {
@@ -1344,21 +1820,46 @@ function onPointerDown(e) {
 
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+  const isMultiSelect = e.ctrlKey || e.metaKey // Ctrl on Windows/Linux, Cmd on Mac
 
   if (clickedMic) {
-    // Select the mic immediately (for highlighting)
-    selectedMic.value = clickedMic
-    // Start dragging tracking
-    draggingMic.value = clickedMic
+    // Multi-select logic
+    if (isMultiSelect) {
+      // Toggle selection: if already selected, remove it; otherwise add it
+      if (selectedMics.value.has(clickedMic)) {
+        selectedMics.value.delete(clickedMic)
+      } else {
+        selectedMics.value.add(clickedMic)
+      }
+    } else {
+      // Single select: replace selection
+      if (selectedMics.value.has(clickedMic) && selectedMics.value.size === 1) {
+        // Already selected and only one - keep it selected for dragging
+      } else {
+        // Replace selection with just this mic
+        selectedMics.value.clear()
+        selectedMics.value.add(clickedMic)
+      }
+    }
+    
+    // Start dragging tracking for all selected mics
+    draggingMics.value.clear()
+    selectedMics.value.forEach(mic => {
+      draggingMics.value.add(mic)
+      dragStartPositions.set(mic, { x: mic.x, y: mic.y })
+    })
     dragStart = { x: imgPt.imgX, y: imgPt.imgY }
-    dragStartPos = { x: clickedMic.x, y: clickedMic.y }
+    
     // Redraw to show selection highlight
     drawCanvas()
   } else {
     // Clicked empty space - deselect only if not clicking on context menu
     if (!showContextMenu.value) {
-      selectedMic.value = null
-      drawCanvas()
+      if (!isMultiSelect) {
+        // Only clear selection if not holding Ctrl/Cmd
+        selectedMics.value.clear()
+        drawCanvas()
+      }
     }
   }
 }
@@ -1393,13 +1894,23 @@ function onPointerMove(e) {
     return
   }
 
-  // Dragging mic
-  if (draggingMic.value && dragStart) {
+  // Dragging mics (all selected mics together)
+  if (draggingMics.value.size > 0 && dragStart) {
     const imgPt = canvasToImageCoords(x, y)
-    draggingMic.value.x = imgPt.imgX
-    draggingMic.value.y = imgPt.imgY
+    // Calculate the offset from the drag start point
+    const offsetX = imgPt.imgX - dragStart.x
+    const offsetY = imgPt.imgY - dragStart.y
+    
+    // Move all dragging mics by the same offset
+    draggingMics.value.forEach(mic => {
+      const startPos = dragStartPositions.get(mic)
+      if (startPos) {
+        mic.x = startPos.x + offsetX
+        mic.y = startPos.y + offsetY
+      }
+    })
+    
     drawCanvas()
-    updateLegendPosition() // Update legend position as node moves
   }
 }
 
@@ -1416,23 +1927,37 @@ async function onPointerUp(e) {
   }
 
   // Check if this was a click (no drag) or a drag
-  const wasDrag = draggingMic.value && dragStart && (
-    Math.abs(draggingMic.value.x - dragStartPos.x) > 0.001 ||
-    Math.abs(draggingMic.value.y - dragStartPos.y) > 0.001
-  )
+  let wasDrag = false
+  if (draggingMics.value.size > 0 && dragStart) {
+    // Check if any mic was actually moved
+    for (const mic of draggingMics.value) {
+      const startPos = dragStartPositions.get(mic)
+      if (startPos && (
+        Math.abs(mic.x - startPos.x) > 0.001 ||
+        Math.abs(mic.y - startPos.y) > 0.001
+      )) {
+        wasDrag = true
+        break
+      }
+    }
+  }
 
-  // Save mic position if it was dragged
-  if (draggingMic.value && wasDrag) {
-    await saveMicUpdate(draggingMic.value)
+  // Save all dragged mic positions if they were dragged
+  if (wasDrag && draggingMics.value.size > 0) {
+    // Save all mics in parallel
+    await Promise.all(
+      Array.from(draggingMics.value).map(mic => saveMicUpdate(mic))
+    )
   }
 
   // Clear dragging state but keep selection
-  draggingMic.value = null
+  draggingMics.value.clear()
+  dragStartPositions.clear()
   dragStart = null
   dragStartPos = null
   
   // Redraw to ensure selection highlight is visible
-  if (selectedMic.value) {
+  if (selectedMics.value.size > 0) {
     drawCanvas()
   }
 }
@@ -1479,11 +2004,16 @@ function getMicAt(imgX, imgY) {
 function onDoubleClick(e) {
   const { x, y } = getCanvasCoords(e)
   const imgPt = canvasToImageCoords(x, y)
-  const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+  // Check label clicks first, then mic node clicks
+  let clickedMic = getMicAtLabel(x, y)
+  if (!clickedMic) {
+    clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+  }
   
   if (clickedMic) {
-    // Select the mic and show context menu
-    selectedMic.value = clickedMic
+    // Select only this mic for context menu (single selection for editing)
+    selectedMics.value.clear()
+    selectedMics.value.add(clickedMic)
     // Redraw to show selection highlight before opening menu
     drawCanvas()
     // Use nextTick to ensure canvas is updated before opening menu
@@ -1996,8 +2526,8 @@ function drawLegend(ctx, canvasW = null, canvasH = null) {
   const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
   const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20 // +20 for header
   
-  // Calculate best position that avoids mic nodes (always recalculate)
-  const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h, legendCornerPreference.value)
+  // Calculate best position that avoids mic nodes (use bottom-right as default for exports)
+  const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h, 0)
   
   // Draw legend background
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
@@ -2103,13 +2633,20 @@ onMounted(() => {
   loadImageState()
   // Load color buttons
   fetchColorButtons()
-  nextTick(drawCanvas)
+  // Load saved legend position
+  nextTick(() => {
+    loadLegendPosition()
+    drawCanvas()
+  })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
   window.removeEventListener('keydown', handleKeyDown)
+  // Clean up legend drag listeners if still active
+  window.removeEventListener('pointermove', onLegendDragMove)
+  window.removeEventListener('pointerup', onLegendDragEnd)
 })
 
 function updateCanvasSize() {
@@ -2501,6 +3038,15 @@ defineExpose({ getCanvasDataURL })
 .mic-count {
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.selection-count {
+  color: var(--color-primary-600);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  background: var(--color-primary-50);
+  border-radius: 4px;
 }
 
 .mode-badge {
@@ -3177,8 +3723,6 @@ defineExpose({ getCanvasDataURL })
 /* Color Legend Styles */
 .color-legend {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 8px;
@@ -3188,6 +3732,8 @@ defineExpose({ getCanvasDataURL })
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10;
   backdrop-filter: blur(4px);
+  user-select: none;
+  touch-action: none;
 }
 
 .dark .color-legend {
@@ -3737,6 +4283,48 @@ defineExpose({ getCanvasDataURL })
 
 .swal2-icon-dark.swal2-warning .swal2-icon-content {
   color: var(--btn-warning-bg) !important;
+}
+
+/* Crop Modal Styles */
+.crop-modal {
+  max-width: 900px;
+  width: 95%;
+}
+
+.crop-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.crop-canvas {
+  max-width: 100%;
+  border: 2px solid var(--border-medium);
+  border-radius: 8px;
+  cursor: crosshair;
+  background: #f0f0f0;
+  display: block;
+}
+
+.crop-instructions {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 8px;
+}
+
+.crop-instructions p {
+  margin: 0;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 20px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-primary);
 }
 </style>
 
