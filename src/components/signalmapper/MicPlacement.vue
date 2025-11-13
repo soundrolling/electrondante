@@ -572,9 +572,12 @@ function saveImageState() {
 
 // Mic state
 const selectedMic = ref(null)
+const selectedMics = ref(new Set()) // Multi-select support
 
 // Safe two-way bindings so inputs remain mounted when nothing is selected
 const draggingMic = ref(null)
+const draggingMics = ref(new Set()) // Multi-drag support
+const dragStartPositions = new Map() // Track starting positions for all dragged mics
 let dragStart = null
 let dragStartPos = null
 // Pinch zoom helpers
@@ -1216,7 +1219,8 @@ function drawMic(ctx, mic, labelPos = null) {
   
   // Get color button for this mic
   const colorBtn = getColorButtonForMic(mic)
-  const borderColor = colorBtn ? colorBtn.color : (mic === selectedMic.value ? '#0056b3' : '#007bff')
+  const isSelected = selectedMics.value.has(mic)
+  const borderColor = colorBtn ? colorBtn.color : (isSelected ? '#0056b3' : '#007bff')
   const labelBgColor = colorBtn ? colorBtn.color : 'rgba(255,255,255,0.92)'
   const labelTextColor = colorBtn ? getContrastColor(colorBtn.color) : '#222'
   
@@ -1228,9 +1232,9 @@ function drawMic(ctx, mic, labelPos = null) {
   // Draw mic circle
   ctx.beginPath()
   ctx.arc(0, 0, 20, 0, 2 * Math.PI)
-  ctx.fillStyle = mic === selectedMic.value ? '#007bff' : '#fff'
+  ctx.fillStyle = isSelected ? '#007bff' : '#fff'
   ctx.strokeStyle = borderColor
-  ctx.lineWidth = (mic === selectedMic.value ? 3 : 2) / scale
+  ctx.lineWidth = (isSelected ? 3 : 2) / scale
   ctx.fill()
   ctx.stroke()
 
@@ -1240,11 +1244,11 @@ function drawMic(ctx, mic, labelPos = null) {
   ctx.lineTo(8, -2)  // Right bottom point, wider base
   ctx.lineTo(-8, -2) // Left bottom point, wider base
   ctx.closePath()
-  ctx.fillStyle = mic === selectedMic.value ? '#007bff' : '#495057'
+  ctx.fillStyle = isSelected ? '#007bff' : '#495057'
   ctx.fill()
 
   // Selection indicator - enhanced highlighting
-  if (mic === selectedMic.value) {
+  if (isSelected) {
     // Outer glow ring
     ctx.beginPath()
     ctx.arc(0, 0, 35, 0, 2 * Math.PI)
@@ -1863,6 +1867,8 @@ function onPointerDown(e) {
       } else {
         selectedMics.value.add(clickedMic)
       }
+      // Keep selectedMic in sync with selectedMics (use first item or null)
+      selectedMic.value = selectedMics.value.size > 0 ? Array.from(selectedMics.value)[0] : null
     } else {
       // Single select: replace selection
       if (selectedMics.value.has(clickedMic) && selectedMics.value.size === 1) {
@@ -1873,6 +1879,9 @@ function onPointerDown(e) {
         selectedMics.value.add(clickedMic)
       }
     }
+    
+    // Keep selectedMic in sync with selectedMics (use first item or null)
+    selectedMic.value = selectedMics.value.size > 0 ? Array.from(selectedMics.value)[0] : null
     
     // Start dragging tracking for all selected mics
     draggingMics.value.clear()
@@ -1890,6 +1899,7 @@ function onPointerDown(e) {
       if (!isMultiSelect) {
         // Only clear selection if not holding Ctrl/Cmd
         selectedMics.value.clear()
+        selectedMic.value = null
         drawCanvas()
       }
     }
@@ -2036,16 +2046,14 @@ function getMicAt(imgX, imgY) {
 function onDoubleClick(e) {
   const { x, y } = getCanvasCoords(e)
   const imgPt = canvasToImageCoords(x, y)
-  // Check label clicks first, then mic node clicks
-  let clickedMic = getMicAtLabel(x, y)
-  if (!clickedMic) {
-    clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
-  }
+  // Check mic node clicks
+  const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
   
   if (clickedMic) {
     // Select only this mic for context menu (single selection for editing)
     selectedMics.value.clear()
     selectedMics.value.add(clickedMic)
+    selectedMic.value = clickedMic
     // Redraw to show selection highlight before opening menu
     drawCanvas()
     // Use nextTick to ensure canvas is updated before opening menu

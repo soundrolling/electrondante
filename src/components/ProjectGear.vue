@@ -417,33 +417,96 @@
                 style="width:auto; min-height:unset;"
               />
             </div>
-            <div class="form-group">
-              <label for="addGearStage" class="form-label">Assign to Stage (Optional)</label>
-              <select id="addGearStage" v-model="selectedLocationId" class="form-select">
-                <option value="">None</option>
-                <option
-                  v-for="location in locationsList"
-                  :key="location.id"
-                  :value="String(location.id)"
+            <!-- Multi-stage assignment section -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <label class="form-label" style="margin: 0;">Assign to Stages (Optional)</label>
+                <button 
+                  type="button" 
+                  class="btn btn-secondary btn-sm" 
+                  @click="addNewGearAssignment"
+                  :disabled="remainingAvailableForNewGear <= 0 || !hasUnassignedStagesForNewGear"
+                  style="padding: 6px 12px; font-size: 14px; min-height: 32px;"
                 >
-                  {{ location.stage_name }} ({{ location.venue_name }})
-                </option>
-              </select>
-            </div>
-            <div v-if="selectedLocationId" class="form-group">
-              <label for="addGearAmount" class="form-label">Amount to Assign</label>
-              <input 
-                id="addGearAmount"
-                v-model.number="immediateAssignedAmount" 
-                type="number" 
-                min="0" 
-                :max="gearAmount"
-                placeholder="0" 
-                class="form-input"
-              />
-              <small style="color: var(--text-secondary); margin-top: 4px; display: block;">
-                Available: {{ gearAmount }} - Max assignable: {{ gearAmount }}
-              </small>
+                  <span class="btn-icon">➕</span>
+                  <span class="btn-text">Add Stage</span>
+                </button>
+              </div>
+              
+              <div v-if="newGearAssignments.length > 0" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;">
+                <div 
+                  v-for="(assignment, index) in newGearAssignments" 
+                  :key="assignment.key"
+                  style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: start; padding: 12px; background: var(--bg-secondary); border: 1px solid #e9ecef; border-radius: 8px;"
+                >
+                  <div>
+                    <select 
+                      v-model="assignment.locationId" 
+                      class="form-select"
+                      @change="onNewGearStageChange(assignment)"
+                      style="width: 100%;"
+                    >
+                      <option :value="null">Select stage</option>
+                      <option
+                        v-for="location in availableLocationsForNewGear(assignment.locationId)"
+                        :key="location.id"
+                        :value="location.id"
+                      >
+                        {{ location.stage_name }} ({{ location.venue_name }})
+                      </option>
+                    </select>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 4px; min-width: 100px;">
+                    <input 
+                      v-model.number="assignment.amount" 
+                      type="number" 
+                      min="0"
+                      :max="getMaxForNewGearAssignment(assignment)"
+                      class="form-input"
+                      @input="validateNewGearAssignmentAmount(assignment)"
+                      style="text-align: center;"
+                    />
+                    <small style="color: var(--text-secondary); font-size: 11px; text-align: center;">
+                      Max: {{ getMaxForNewGearAssignment(assignment) }}
+                    </small>
+                  </div>
+                  <div style="display: flex; align-items: center;">
+                    <button 
+                      type="button"
+                      class="btn btn-danger btn-sm btn-icon-only"
+                      @click="removeNewGearAssignment(index)"
+                      title="Remove assignment"
+                      style="padding: 8px; min-width: 44px; min-height: 44px;"
+                    >
+                      <span class="btn-icon">🗑️</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="newGearAssignments.length === 0" style="text-align: center; padding: 16px; color: var(--text-secondary); font-size: 14px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid #e9ecef;">
+                No assignments yet. Click "Add Stage" to assign gear to a stage.
+              </div>
+              
+              <div v-if="newGearAssignments.length > 0" style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid #e9ecef;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                  <span style="color: var(--text-secondary); font-size: 14px;">
+                    Total: {{ gearAmount }}
+                  </span>
+                  <span 
+                    style="font-size: 14px; font-weight: 500;"
+                    :style="{ color: remainingAvailableForNewGear < 0 ? '#dc2626' : '#047857' }"
+                  >
+                    Available: {{ remainingAvailableForNewGear }}
+                  </span>
+                  <span style="color: var(--text-secondary); font-size: 14px;">
+                    Assigned: {{ totalAssignedForNewGear }}
+                  </span>
+                </div>
+                <div v-if="remainingAvailableForNewGear < 0" style="margin-top: 8px; padding: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 6px; color: #dc2626; font-size: 12px; font-weight: 500;">
+                  ⚠️ Total assigned ({{ totalAssignedForNewGear }}) exceeds total gear ({{ gearAmount }})
+                </div>
+              </div>
             </div>
           </div>
           <div class="form-actions">
@@ -861,6 +924,10 @@ setup(props) {
   const selectedLocationId      = ref('')
   const immediateAssignedAmount = ref(0)
 
+  // Multi-stage assignment for new gear
+  const newGearAssignments      = ref([])
+  let newGearAssignmentKeyCounter = 0
+
   const assignmentModalVisible  = ref(false)
   const currentAssignmentGear   = ref(null)
   const gearAssignments         = ref({})
@@ -1218,6 +1285,8 @@ setup(props) {
       vendor.value                  = ''
       selectedLocationId.value      = ''
       immediateAssignedAmount.value = 0
+      newGearAssignments.value      = []
+      newGearAssignmentKeyCounter   = 0
       formError.value               = null
     }
   }
@@ -1228,10 +1297,13 @@ setup(props) {
       formError.value = 'Please fill required fields.'
       return
     }
-    if (selectedLocationId.value && immediateAssignedAmount.value > gearAmount.value) {
-      formError.value = 'Assigned amount cannot exceed total gear amount.'
+    
+    // Validate total assignments don't exceed gear amount
+    if (totalAssignedForNewGear.value > gearAmount.value) {
+      formError.value = `Total assigned (${totalAssignedForNewGear.value}) cannot exceed total gear amount (${gearAmount.value}).`
       return
     }
+    
     loading.value = true
     try {
       console.log('addGear: gearNumRecords.value =', gearNumRecords.value)
@@ -1248,14 +1320,23 @@ setup(props) {
         sort_order:  gearList.value.length + 1
       }
       const inserted = await mutateTableData('gear_table','insert',payload)
-      if (selectedLocationId.value && immediateAssignedAmount.value > 0) {
-        const assignAmount = Math.min(immediateAssignedAmount.value, gearAmount.value)
-        await mutateTableData('gear_assignments','insert',{ 
-          gear_id: inserted.id,
-          location_id: +selectedLocationId.value,
-          assigned_amount: assignAmount
-        })
-        toast.success(`Gear added and ${assignAmount} assigned to stage`)
+      
+      // Process multiple assignments
+      const validAssignments = newGearAssignments.value.filter(a => 
+        a.locationId && a.amount > 0
+      )
+      
+      if (validAssignments.length > 0) {
+        for (const assignment of validAssignments) {
+          const assignAmount = Math.min(Number(assignment.amount), gearAmount.value)
+          await mutateTableData('gear_assignments','insert',{ 
+            gear_id: inserted.id,
+            location_id: Number(assignment.locationId),
+            assigned_amount: assignAmount
+          })
+        }
+        const totalAssigned = validAssignments.reduce((sum, a) => sum + Number(a.amount), 0)
+        toast.success(`Gear added and ${totalAssigned} assigned across ${validAssignments.length} stage(s)`)
       } else {
         toast.success('Gear added')
       }
@@ -1474,6 +1555,85 @@ setup(props) {
     selectedGear.value = null
     editableAssignments.value = []
     assignmentKeyCounter = 0
+  }
+
+  // Computed properties for new gear assignment validation
+  const totalAssignedForNewGear = computed(() => {
+    return newGearAssignments.value.reduce((sum, a) => {
+      if (!a.locationId || a.amount <= 0) return sum
+      return sum + (Number(a.amount) || 0)
+    }, 0)
+  })
+  
+  const remainingAvailableForNewGear = computed(() => {
+    return gearAmount.value - totalAssignedForNewGear.value
+  })
+  
+  const hasUnassignedStagesForNewGear = computed(() => {
+    const assignedLocationIds = new Set(
+      newGearAssignments.value
+        .filter(a => a.locationId)
+        .map(a => a.locationId)
+    )
+    return locationsList.value.some(loc => !assignedLocationIds.has(loc.id))
+  })
+  
+  function addNewGearAssignment() {
+    newGearAssignments.value.push({
+      key: `new-${newGearAssignmentKeyCounter++}`,
+      locationId: null,
+      amount: 0,
+      isNew: true
+    })
+  }
+  
+  function removeNewGearAssignment(index) {
+    newGearAssignments.value.splice(index, 1)
+  }
+  
+  function availableLocationsForNewGear(currentLocationId) {
+    // Return all locations, but exclude ones already assigned (except the current one)
+    const assignedIds = new Set(
+      newGearAssignments.value
+        .filter(a => a.locationId && a.locationId !== currentLocationId)
+        .map(a => a.locationId)
+    )
+    return locationsList.value.filter(loc => !assignedIds.has(loc.id))
+  }
+  
+  function getMaxForNewGearAssignment(assignment) {
+    if (!assignment.locationId) {
+      return gearAmount.value || 0
+    }
+    
+    // Calculate what's assigned to other locations
+    const assignedToOthers = newGearAssignments.value.reduce((sum, a) => {
+      if (a.key === assignment.key || !a.locationId || a.amount <= 0) return sum
+      return sum + (Number(a.amount) || 0)
+    }, 0)
+    
+    // Max is: total gear - assigned to others
+    return Math.max(0, gearAmount.value - assignedToOthers)
+  }
+  
+  function validateNewGearAssignmentAmount(assignment) {
+    const max = getMaxForNewGearAssignment(assignment)
+    if (assignment.amount > max) {
+      assignment.amount = max
+    }
+    if (assignment.amount < 0) {
+      assignment.amount = 0
+    }
+  }
+  
+  function onNewGearStageChange(assignment) {
+    // When stage changes, reset amount to 0 or 1 if available
+    if (assignment.locationId) {
+      const max = getMaxForNewGearAssignment(assignment)
+      assignment.amount = Math.min(1, max)
+    } else {
+      assignment.amount = 0
+    }
   }
 
   async function saveGearAssignments() {
@@ -2172,6 +2332,17 @@ setup(props) {
     vendor,
     selectedLocationId,
     immediateAssignedAmount,
+    // New gear multi-stage assignment
+    newGearAssignments,
+    totalAssignedForNewGear,
+    remainingAvailableForNewGear,
+    hasUnassignedStagesForNewGear,
+    addNewGearAssignment,
+    removeNewGearAssignment,
+    availableLocationsForNewGear,
+    getMaxForNewGearAssignment,
+    validateNewGearAssignmentAmount,
+    onNewGearStageChange,
     toggleAddGear,
     addGear,
     filteredMainGearList,

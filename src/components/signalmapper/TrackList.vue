@@ -11,7 +11,7 @@
     <button @click="refetchSignalPaths" class="btn-refetch" :disabled="loading">
       🔄 {{ loading ? 'Refreshing...' : 'Refetch Signal Paths' }}
     </button>
-    <button @click="exportToPDF" class="btn-export">
+    <button @click="exportToPDF" class="btn-export" :disabled="signalPaths.length === 0">
       🖨️ Print / Export PDF
     </button>
     <button @click="exportCSV" class="btn-export">
@@ -102,6 +102,85 @@
     @confirm="handleInputConfirm"
     @cancel="handleInputCancel"
   />
+
+  <!-- PDF Export Options Modal -->
+  <div v-if="showPDFExportModal" class="modal-overlay" @click.self="closePDFExportModal">
+    <div class="modal pdf-export-modal">
+      <div class="modal-header">
+        <h3>PDF Export Options</h3>
+        <button class="modal-close" @click="closePDFExportModal">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- Filename -->
+        <div class="form-group">
+          <label class="form-label">Filename</label>
+          <input
+            v-model="pdfExportOptions.fileName"
+            type="text"
+            class="form-input"
+            placeholder="Enter filename..."
+          />
+        </div>
+
+        <!-- Include Signal Path -->
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+              v-model="pdfExportOptions.includeSignalPath"
+              type="checkbox"
+              class="checkbox-input"
+            />
+            <span>Include Signal Path column</span>
+          </label>
+        </div>
+
+        <!-- Recording Date Name -->
+        <div class="form-group">
+          <label class="form-label">Recording Date/Name (optional)</label>
+          <input
+            v-model="pdfExportOptions.recordingDateName"
+            type="text"
+            class="form-input"
+            placeholder="e.g., Day 1, Session 1, etc."
+          />
+        </div>
+
+        <!-- Recorder Selection -->
+        <div class="form-group">
+          <label class="form-label">Select Recorders to Export</label>
+          <div class="recorder-checkboxes">
+            <label
+              v-for="recorderName in availableRecorders"
+              :key="recorderName"
+              class="checkbox-label recorder-checkbox"
+            >
+              <input
+                v-model="pdfExportOptions.selectedRecorders"
+                type="checkbox"
+                :value="recorderName"
+                class="checkbox-input"
+              />
+              <span>{{ recorderName }}</span>
+            </label>
+          </div>
+          <div class="checkbox-actions">
+            <button type="button" class="btn-link" @click="selectAllRecorders">Select All</button>
+            <button type="button" class="btn-link" @click="deselectAllRecorders">Deselect All</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-warning cancel-button" @click="closePDFExportModal">Cancel</button>
+        <button
+          class="btn btn-positive confirm-button"
+          @click="confirmPDFExport"
+          :disabled="!canExportPDF"
+        >
+          Export PDF
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
@@ -153,6 +232,26 @@ const inputModalConfig = ref({
   onConfirm: null
 })
 
+// PDF Export modal state
+const showPDFExportModal = ref(false)
+const pdfExportOptions = ref({
+  fileName: '',
+  includeSignalPath: true,
+  recordingDateName: '',
+  selectedRecorders: []
+})
+
+// Available recorders for selection
+const availableRecorders = computed(() => {
+  return Object.keys(groupedByRecorder.value).sort()
+})
+
+// Check if export can proceed
+const canExportPDF = computed(() => {
+  return pdfExportOptions.value.selectedRecorders.length > 0 &&
+         pdfExportOptions.value.fileName.trim().length > 0
+})
+
 // Show input modal helper
 function showInput(title, message, defaultValue = '', label = '', placeholder = '') {
   return new Promise((resolve) => {
@@ -202,6 +301,31 @@ function handleTrackNameClick(connectionId) {
 
 function refetchSignalPaths() {
   emit('refetch-paths')
+}
+
+// PDF Export modal functions
+function openPDFExportModal() {
+  // Initialize with default values
+  const defaultName = `track-list-${Date.now()}`
+  pdfExportOptions.value = {
+    fileName: defaultName,
+    includeSignalPath: true,
+    recordingDateName: '',
+    selectedRecorders: [...availableRecorders.value] // Select all by default
+  }
+  showPDFExportModal.value = true
+}
+
+function closePDFExportModal() {
+  showPDFExportModal.value = false
+}
+
+function selectAllRecorders() {
+  pdfExportOptions.value.selectedRecorders = [...availableRecorders.value]
+}
+
+function deselectAllRecorders() {
+  pdfExportOptions.value.selectedRecorders = []
 }
 
 // Group paths by recorder, then sort by track number within each group
@@ -585,48 +709,53 @@ async function exportToPDF() {
     return
   }
   
+  // Open the PDF export options modal
+  openPDFExportModal()
+}
+
+// Confirm and execute PDF export with selected options
+async function confirmPDFExport() {
+  if (!canExportPDF.value) {
+    return
+  }
+  
   try {
-    // Prompt for filename
-    const defaultName = `track-list-${Date.now()}`
-    const fileName = await showInput(
-      'Export PDF',
-      'Enter a filename for the PDF export:',
-      defaultName,
-      'Filename',
-      'Enter filename...'
-    ) || defaultName
-    if (!fileName) {
-      return // User cancelled
-    }
+    closePDFExportModal()
     
     // Ensure filename has .pdf extension
+    const fileName = pdfExportOptions.value.fileName.trim()
     const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
     
     // Create PDF
     const doc = new jsPDF('portrait', 'mm', 'a4')
     const pageWidth = doc.internal.pageSize.getWidth()
     const margin = 15
-    let yPos = margin
     
-    // Add header
-    doc.setFontSize(18)
-    doc.text('Track List', pageWidth / 2, yPos, { align: 'center' })
-    yPos += 8
+    // Filter recorders based on selection
+    const selectedRecorderNames = pdfExportOptions.value.selectedRecorders.sort()
     
-    doc.setFontSize(12)
-    const subtitle = customTitle.value || 'Complete signal routing from source to recorder tracks'
-    doc.text(subtitle, pageWidth / 2, yPos, { align: 'center' })
-    yPos += 15
-    
-    // Group by recorder and create tables
-    const recorderNames = Object.keys(groupedByRecorder.value).sort()
-    
-    recorderNames.forEach((recorderName, index) => {
-      // Add new page if not first recorder and we're near the bottom
-      if (index > 0 && yPos > doc.internal.pageSize.getHeight() - 60) {
+    // Process each selected recorder on a separate page
+    selectedRecorderNames.forEach((recorderName, index) => {
+      // Start new page for each recorder (except first one which starts on first page)
+      if (index > 0) {
         doc.addPage()
-        yPos = margin
       }
+      
+      let yPos = margin
+      
+      // Add header
+      doc.setFontSize(18)
+      doc.text('Track List', pageWidth / 2, yPos, { align: 'center' })
+      yPos += 8
+      
+      // Add subtitle
+      doc.setFontSize(12)
+      let subtitle = customTitle.value || 'Complete signal routing from source to recorder tracks'
+      if (pdfExportOptions.value.recordingDateName) {
+        subtitle = `${subtitle} • ${pdfExportOptions.value.recordingDateName}`
+      }
+      doc.text(subtitle, pageWidth / 2, yPos, { align: 'center' })
+      yPos += 15
       
       // Add recorder header
       doc.setFontSize(14)
@@ -636,17 +765,28 @@ async function exportToPDF() {
       
       // Prepare table data
       const tracks = groupedByRecorder.value[recorderName]
+      
+      // Build table columns based on options
+      const tableHead = ['Track #', 'Source Name']
+      if (pdfExportOptions.value.includeSignalPath) {
+        tableHead.push('Signal Path')
+      }
+      
       const tableData = tracks.map(path => {
         const trackNum = path.track_number || '—'
         const sourceName = path.track_name || path.source_label || '—'
-        // Use "//" instead of "→" for PDF compatibility
-        const signalPath = reversedPath(path.path).join(' // ')
-        return [trackNum, sourceName, signalPath]
+        const row = [trackNum, sourceName]
+        if (pdfExportOptions.value.includeSignalPath) {
+          // Use "//" instead of "→" for PDF compatibility
+          const signalPath = reversedPath(path.path).join(' // ')
+          row.push(signalPath)
+        }
+        return row
       })
       
       // Add table
       autoTable(doc, {
-        head: [['Track #', 'Source Name', 'Signal Path']],
+        head: [tableHead],
         body: tableData,
         startY: yPos,
         margin: { left: margin, right: margin },
@@ -655,8 +795,6 @@ async function exportToPDF() {
         alternateRowStyles: { fillColor: [248, 249, 250] }
       })
       
-      // Update yPos after table
-      yPos = doc.lastAutoTable.finalY + 10
       doc.setTextColor(0, 0, 0) // Reset to black
     })
     
@@ -967,6 +1105,199 @@ async function exportToPDF() {
     page-break-inside: avoid;
     page-break-after: auto;
   }
+}
+
+/* PDF Export Modal Styles */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.pdf-export-modal {
+  background: var(--bg-primary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color, #e9ecef);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.modal-close:hover {
+  background: var(--bg-secondary);
+}
+
+.modal-body {
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary-500);
+}
+
+.recorder-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e9ecef);
+}
+
+.recorder-checkbox {
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.recorder-checkbox:hover {
+  background: var(--bg-primary);
+}
+
+.checkbox-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-primary-500);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.btn-link:hover {
+  color: var(--color-primary-600);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color, #e9ecef);
+}
+
+.confirm-button {
+  background: var(--color-success-500);
+  color: var(--text-inverse) !important;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.confirm-button:hover:not(:disabled) {
+  background: var(--color-success-600);
+}
+
+.confirm-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background: var(--color-secondary-400);
+  color: var(--text-inverse) !important;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.cancel-button:hover {
+  background: var(--color-secondary-500);
 }
 </style>
 

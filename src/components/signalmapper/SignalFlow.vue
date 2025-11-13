@@ -109,6 +109,92 @@
               <span class="value">Multiple ports mapped</span>
             </div>
           </template>
+          
+          <!-- Port Mapping Section for Recorder-to-Recorder Connections -->
+          <template v-if="needsPortMappingForSelected && isRecorderFrom && isRecorderTo">
+            <div class="port-mapping-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <label style="font-weight: 600; color: var(--text-secondary);">Track Mappings</label>
+                <button 
+                  v-if="editPortMappings.length === 0"
+                  @click="assignAsBackup" 
+                  class="btn-backup"
+                  style="padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;"
+                >
+                  📋 Assign as Backup
+                </button>
+              </div>
+              
+              <!-- Port Mappings List -->
+              <div v-if="editPortMappings.length > 0" class="port-mappings-list-edit" style="margin-bottom: 12px;">
+                <div 
+                  v-for="(mapping, idx) in displayedEditPortMappings" 
+                  :key="`${mapping.from_port}-${mapping.to_port}-${idx}`"
+                  class="port-mapping-row-edit"
+                >
+                  <span style="font-weight: 500;">
+                    {{ getFromPortDisplayForEdit(mapping.from_port) }}
+                  </span>
+                  <span class="arrow">→</span>
+                  <span style="font-weight: 500;">
+                    {{ getToRecorderTrackNameDisplayForEdit(mapping.to_port, mapping.from_port) }}
+                  </span>
+                  <button 
+                    @click="removeEditPortMapping(idx)" 
+                    class="btn-remove-small"
+                    title="Remove mapping"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              
+              <!-- Add New Mapping -->
+              <div v-if="editPortMappings.length > 0" class="port-mapping-add-edit">
+                <select 
+                  v-model="newMappingFromPort" 
+                  class="inline-select"
+                  style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary);"
+                >
+                  <option :value="null">Select source track</option>
+                  <option 
+                    v-for="opt in availableFromPortsForEdit" 
+                    :key="opt.value" 
+                    :value="opt.value"
+                  >
+                    {{ opt.label }}
+                  </option>
+                </select>
+                <span class="arrow">→</span>
+                <select 
+                  v-model="newMappingToPort" 
+                  class="inline-select"
+                  style="padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary);"
+                >
+                  <option :value="null">Select destination track</option>
+                  <option 
+                    v-for="opt in availableToPortsForEdit" 
+                    :key="opt.value" 
+                    :value="opt.value"
+                  >
+                    {{ opt.label }}
+                  </option>
+                </select>
+                <button 
+                  @click="addEditPortMapping" 
+                  class="btn-add-small"
+                  :disabled="!newMappingFromPort || !newMappingToPort"
+                >
+                  Add
+                </button>
+              </div>
+              
+              <div v-else style="color: var(--text-muted); font-size: 13px; padding: 12px; background: var(--bg-secondary); border-radius: 6px; text-align: center;">
+                No track mappings configured. Click "Assign as Backup" to map all tracks 1:1.
+              </div>
+            </div>
+          </template>
+          
           <!-- Signal Type Selector -->
           <div style="margin-top: 16px; display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 8px;">
             <label style="font-weight: 600; color: var(--text-secondary);">Signal Type</label>
@@ -1055,6 +1141,108 @@ function addEditPortMapping() {
   })
   newMappingFromPort.value = null
   newMappingToPort.value = null
+}
+
+// Assign as Backup: Create 1:1 mappings for all tracks (recorder 1 track 1 → recorder 2 track 1, etc.)
+async function assignAsBackup() {
+  const from = fromNodeOfSelected.value
+  const to = toNodeOfSelected.value
+  
+  if (!from || !to) {
+    toast.error('Cannot assign backup: nodes not found')
+    return
+  }
+  
+  // Get track counts for both recorders
+  const fromTrackCount = from.num_tracks || from.tracks || from.num_records || from.numrecord || from.num_outputs || from.outputs || 0
+  const toTrackCount = to.num_tracks || to.tracks || to.num_records || to.numrecord || to.num_inputs || to.inputs || 0
+  
+  if (fromTrackCount === 0 || toTrackCount === 0) {
+    toast.error('Cannot assign backup: one or both recorders have no tracks')
+    return
+  }
+  
+  // Ensure graph is loaded for checking port mappings
+  if (!graphRef.value) {
+    try {
+      graphRef.value = await buildGraph(props.projectId, props.locationId)
+    } catch (err) {
+      console.error('Error loading graph:', err)
+    }
+  }
+  
+  // Build upstream labels first to get track names
+  await buildUpstreamLabelsForEdit()
+  
+  // Get already used destination ports
+  const usedToPorts = new Set(editPortMappings.value.map(m => m.to_port).filter(Boolean))
+  
+  // Also check for ports already used by other connections
+  const otherConnections = props.connections.filter(c => 
+    c.id !== selectedConnectionId.value &&
+    (c.to_node_id === to.id || c.to === to.id)
+  )
+  
+  // Check port mappings from other connections
+  const otherConnIds = otherConnections.map(c => c.id).filter(Boolean)
+  if (otherConnIds.length > 0 && graphRef.value?.mapsByConnId) {
+    otherConnIds.forEach(connId => {
+      const maps = graphRef.value.mapsByConnId[connId] || []
+      maps.forEach(m => {
+        if (m.to_port) usedToPorts.add(m.to_port)
+      })
+    })
+  }
+  
+  // Also check direct connections (non-port-mapped) that use track_number or input_number
+  otherConnections.forEach(conn => {
+    if (conn.track_number) {
+      usedToPorts.add(conn.track_number)
+    } else if (conn.input_number) {
+      usedToPorts.add(conn.input_number)
+    }
+  })
+  
+  // Create 1:1 mappings for all available tracks
+  const mappings = []
+  const maxTracks = Math.min(fromTrackCount, toTrackCount)
+  
+  for (let track = 1; track <= maxTracks; track++) {
+    // Skip if destination track is already used
+    if (usedToPorts.has(track)) {
+      continue
+    }
+    
+    mappings.push({
+      from_port: track,
+      to_port: track
+    })
+  }
+  
+  if (mappings.length === 0) {
+    toast.warning('No available tracks to map. All destination tracks are already in use.')
+    return
+  }
+  
+  // Add all mappings
+  editPortMappings.value.push(...mappings)
+  
+  // Ensure upstream labels are set for display (they should already be loaded from buildUpstreamLabelsForEdit)
+  if (!upstreamLabelsForFromNode.value) {
+    upstreamLabelsForFromNode.value = {}
+  }
+  
+  // Use cached track names if available, otherwise use traceRecorderTrackName
+  mappings.forEach(mapping => {
+    if (!upstreamLabelsForFromNode.value[mapping.from_port]) {
+      const trackName = traceRecorderTrackName(from.id, mapping.from_port)
+      if (trackName) {
+        upstreamLabelsForFromNode.value[mapping.from_port] = trackName
+      }
+    }
+  })
+  
+  toast.success(`Assigned ${mappings.length} track${mappings.length === 1 ? '' : 's'} as backup (1:1 mapping)`)
 }
 
 // Add venue source port mapping from text input
