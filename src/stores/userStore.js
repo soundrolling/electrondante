@@ -216,7 +216,7 @@ export const useUserStore = defineStore('userStore', {
       try {
         const { data, error, status } = await supabase
           .from('user_profiles')
-          .select('id, user_id, full_name, phone, avatar_url, equipment')
+          .select('id, user_id, full_name, phone, avatar_url, equipment, calendar_event_toggles')
           .eq('id', this.user.id)
           .single();
         if (error && status !== 406) throw error;
@@ -230,7 +230,8 @@ export const useUserStore = defineStore('userStore', {
           full_name: this.user.user_metadata?.full_name ?? '',
           phone: '',
           avatar_url: '',
-          equipment: []
+          equipment: [],
+          calendar_event_toggles: {}
         };
         return this.userProfile;
       } catch (e) {
