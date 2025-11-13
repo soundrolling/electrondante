@@ -248,6 +248,83 @@
           </table>
         </div>
       </section>
+
+      <!-- Export History Section -->
+      <section class="exports-section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Export History</h2>
+            <p class="section-description">View and redownload previous exports including full project exports, signal mapper exports, and more</p>
+          </div>
+        </div>
+        <div class="exports-filters">
+          <select v-model="exportsFilter" @change="loadExports" class="filter-select">
+            <option value="">All Export Types</option>
+            <option value="full_export">Full Exports</option>
+            <option value="signal_mapper">Signal Mapper</option>
+            <option value="pdf">PDF</option>
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+            <option value="xml">XML</option>
+            <option value="png">PNG</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div v-if="isLoadingExports" class="loading-text">Loading exports...</div>
+        <div v-else-if="filteredExports.length === 0" class="empty-state">
+          <p>No exports found. Create an export using the "Export Selected as ZIP" button above to get started.</p>
+        </div>
+        <div v-else class="exports-table-container">
+          <table class="exports-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>File Name</th>
+                <th>Description</th>
+                <th>Size</th>
+                <th>Version</th>
+                <th>Created By</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="exportItem in filteredExports" :key="exportItem.id">
+                <td>
+                  <span class="export-type-badge">{{ formatExportType(exportItem.export_type) }}</span>
+                </td>
+                <td>{{ exportItem.file_name }}</td>
+                <td>{{ exportItem.description || '—' }}</td>
+                <td>{{ formatFileSize(exportItem.file_size) }}</td>
+                <td>
+                  <span class="version-badge">v{{ exportItem.version || 1 }}</span>
+                </td>
+                <td>{{ getExportCreatorName(exportItem) }}</td>
+                <td>{{ formatExportDate(exportItem.created_at) }}</td>
+                <td>
+                  <div class="export-actions">
+                    <button 
+                      class="btn btn-sm btn-primary" 
+                      @click="handleDownloadExport(exportItem.id)"
+                      :disabled="isDownloading && downloadingExportId === exportItem.id"
+                    >
+                      <span v-if="isDownloading && downloadingExportId === exportItem.id">⏳</span>
+                      <span v-else>⬇️</span>
+                      <span>{{ isDownloading && downloadingExportId === exportItem.id ? 'Downloading...' : 'Download' }}</span>
+                    </button>
+                    <button 
+                      class="btn btn-sm btn-secondary" 
+                      @click="handleDeleteExport(exportItem.id)"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
     <!-- Add Rushes File Modal -->
@@ -388,6 +465,11 @@ import {
   updateUploadStatus,
   createRushesUpload,
 } from '../services/rushesService';
+import { 
+  getProjectExports, 
+  downloadExport, 
+  deleteExport 
+} from '../services/exportsService';
 import { useToast } from 'vue-toastification';
 
 export default {
@@ -403,8 +485,10 @@ export default {
 
     const isLoading = ref(true);
     const isLoadingRushes = ref(false);
+    const isLoadingExports = ref(false);
     const isExporting = ref(false);
     const isSaving = ref(false);
+    const isDownloading = ref(false);
     const showEditModal = ref(false);
     const showAddModal = ref(false);
 
@@ -445,6 +529,9 @@ export default {
 
     const rushes = ref([]);
     const editingRush = ref(null);
+    const exports = ref([]);
+    const exportsFilter = ref('');
+    const downloadingExportId = ref(null);
     const editForm = ref({
       file_name: '',
       upload_status: 'not_uploaded',
@@ -483,6 +570,7 @@ export default {
     onMounted(async () => {
       await loadData();
       await loadRushes();
+      await loadExports();
     });
 
     async function loadData() {
@@ -627,11 +715,17 @@ export default {
           onProgress: (progress) => {
             exportProgress.value = progress;
           },
+          saveToStorage: true,
+          venueId: selectedVenueId.value || null,
+          locationId: selectedStageId.value || null,
         });
 
         const filename = `project-${projectId.value}-export-${Date.now()}.zip`;
         downloadZip(blob, filename);
         toast.success('Export completed successfully');
+        
+        // Reload exports list
+        await loadExports();
       } catch (error) {
         console.error('Error exporting:', error);
         toast.error('Failed to export project data');
@@ -751,6 +845,101 @@ export default {
       }
     }
 
+    async function loadExports() {
+      isLoadingExports.value = true;
+      try {
+        const filters = {};
+        if (exportsFilter.value) {
+          filters.exportType = exportsFilter.value;
+        }
+        exports.value = await getProjectExports(projectId.value, filters);
+      } catch (error) {
+        console.error('Error loading exports:', error);
+        toast.error('Failed to load exports');
+      } finally {
+        isLoadingExports.value = false;
+      }
+    }
+
+    async function handleDownloadExport(exportId) {
+      if (downloadingExportId.value === exportId) return;
+      
+      downloadingExportId.value = exportId;
+      isDownloading.value = true;
+      
+      try {
+        const result = await downloadExport(exportId);
+        if (result.success) {
+          const url = URL.createObjectURL(result.blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = result.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          toast.success('Export downloaded successfully');
+        } else {
+          toast.error(result.error || 'Failed to download export');
+        }
+      } catch (error) {
+        console.error('Error downloading export:', error);
+        toast.error('Failed to download export');
+      } finally {
+        downloadingExportId.value = null;
+        isDownloading.value = false;
+      }
+    }
+
+    async function handleDeleteExport(exportId) {
+      if (!confirm('Are you sure you want to delete this export? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const result = await deleteExport(exportId);
+        if (result.success) {
+          toast.success('Export deleted successfully');
+          await loadExports();
+        } else {
+          toast.error(result.error || 'Failed to delete export');
+        }
+      } catch (error) {
+        console.error('Error deleting export:', error);
+        toast.error('Failed to delete export');
+      }
+    }
+
+    function formatExportType(type) {
+      const typeMap = {
+        full_export: 'Full Export',
+        signal_mapper: 'Signal Mapper',
+        pdf: 'PDF',
+        csv: 'CSV',
+        json: 'JSON',
+        xml: 'XML',
+        png: 'PNG',
+        other: 'Other',
+      };
+      return typeMap[type] || type;
+    }
+
+    function formatExportDate(dateString) {
+      if (!dateString) return '—';
+      const date = new Date(dateString);
+      return date.toLocaleString();
+    }
+
+    function getExportCreatorName(exportRecord) {
+      if (!exportRecord.created_by) return 'Unknown';
+      // For now, show a truncated user ID. In the future, we could maintain a user lookup map
+      return exportRecord.created_by.substring(0, 8) + '...';
+    }
+
+    const filteredExports = computed(() => {
+      return exports.value;
+    });
+
     return {
       projectId,
       currentProject,
@@ -773,10 +962,22 @@ export default {
       hasSelection,
       editForm,
       addForm,
+      exports,
+      exportsFilter,
+      filteredExports,
+      isLoadingExports,
+      isDownloading,
+      downloadingExportId,
       loadRushes,
+      loadExports,
       selectAll,
       deselectAll,
       handleExport,
+      handleDownloadExport,
+      handleDeleteExport,
+      formatExportType,
+      formatExportDate,
+      getExportCreatorName,
       openEditModal,
       closeEditModal,
       saveEdit,
@@ -938,6 +1139,8 @@ export default {
 
 .overview-card.clickable {
   cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .overview-card.clickable:hover {
@@ -945,6 +1148,11 @@ export default {
   border-color: var(--color-primary-500);
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.overview-card.clickable:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .card-icon {
@@ -1093,6 +1301,73 @@ export default {
   background: var(--bg-secondary);
   border-radius: 12px;
   border: 1px solid var(--border-light);
+}
+
+/* Exports Section */
+.exports-section {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+}
+
+.exports-filters {
+  margin-bottom: 16px;
+}
+
+.exports-table-container {
+  overflow-x: auto;
+}
+
+.exports-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.exports-table th,
+.exports-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.exports-table th {
+  font-weight: 600;
+  color: var(--text-heading);
+  background: var(--bg-primary);
+}
+
+.exports-table td {
+  color: var(--text-primary);
+}
+
+.export-type-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--color-primary-100);
+  color: var(--color-primary-800);
+}
+
+.version-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.export-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .rushes-filters {

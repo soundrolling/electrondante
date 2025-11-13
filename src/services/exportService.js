@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { supabase } from '../supabase';
 import { fetchTableData } from './dataService';
 import { useToast } from 'vue-toastification';
+import { saveExport } from './exportsService';
 
 const toast = useToast();
 
@@ -10,7 +11,7 @@ const toast = useToast();
  * Export project data as ZIP archive
  * @param {number|string} projectId - Project ID
  * @param {Object} selections - Selected data types to export
- * @param {Object} options - Export options { onProgress }
+ * @param {Object} options - Export options { onProgress, saveToStorage, venueId, locationId }
  * @returns {Promise<Blob>} ZIP file blob
  */
 export async function exportProjectData(projectId, selections, options = {}) {
@@ -117,6 +118,33 @@ export async function exportProjectData(projectId, selections, options = {}) {
       onProgress({ current: totalSteps, total: totalSteps, message: 'Generating ZIP archive...' });
     }
     const blob = await zip.generateAsync({ type: 'blob' });
+    
+    // Save to storage if requested
+    if (options.saveToStorage) {
+      try {
+        const timestamp = Date.now();
+        const filename = `project-${projectId}-export-${timestamp}.zip`;
+        const description = `Full project export - ${Object.keys(selections).filter(k => selections[k] && k !== 'venueFilter' && k !== 'stageFilter').join(', ')}`;
+        
+        await saveExport(
+          blob,
+          filename,
+          'full_export',
+          projectId,
+          {
+            mimeType: 'application/zip',
+            description: description,
+            exportSelections: selections,
+            venueId: options.venueId || null,
+            locationId: options.locationId || null,
+          }
+        );
+      } catch (error) {
+        console.warn('Failed to save export to storage:', error);
+        // Don't fail the export if storage save fails
+      }
+    }
+    
     return blob;
   } catch (error) {
     console.error('Error exporting project data:', error);
