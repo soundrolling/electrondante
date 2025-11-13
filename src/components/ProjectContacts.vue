@@ -61,9 +61,14 @@
         <div class="contact-count">
           {{ filteredContacts.length }} contact{{ filteredContacts.length !== 1 ? 's' : '' }}
         </div>
-        <button @click="toggleAddContact" class="btn btn-positive add-contact-square" title="Add Contact">
-          <span class="icon-text">+</span>
-        </button>
+        <div class="action-buttons-group">
+          <button @click="toggleImportContacts" class="btn btn-secondary import-contact-btn" title="Import from other projects">
+            <span class="icon-text">📥</span>
+          </button>
+          <button @click="toggleAddContact" class="btn btn-positive add-contact-square" title="Add Contact">
+            <span class="icon-text">+</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -382,6 +387,138 @@
           {{ addingContact ? 'Adding...' : 'Add Contact' }}
         </button>
         <button class="btn btn-warning" @click="toggleAddContact">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Contacts Modal -->
+  <div
+    v-if="showImportModal"
+    class="modal-overlay"
+    @click.self="closeImportModal"
+  >
+    <div class="modal-content import-modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Import Contacts from Other Projects</h2>
+        <button class="modal-close" @click="closeImportModal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Loading State -->
+        <div v-if="loadingImportContacts" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading contacts from other projects...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div
+          v-else-if="availableImportContacts.length === 0"
+          class="empty-state"
+        >
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <h3>No contacts found</h3>
+          <p>You don't have any contacts in other projects to import.</p>
+        </div>
+
+        <!-- Contacts List -->
+        <div v-else class="import-contacts-section">
+          <div class="import-header-actions">
+            <div class="search-control">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
+              <input
+                v-model="importSearchFilter"
+                type="text"
+                placeholder="Search contacts..."
+                class="search-input"
+              />
+            </div>
+            <div class="select-all-controls">
+              <button
+                @click="selectAllImportContacts"
+                class="btn btn-secondary btn-small"
+              >
+                Select All
+              </button>
+              <button
+                @click="deselectAllImportContacts"
+                class="btn btn-secondary btn-small"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
+
+          <div class="import-contacts-list">
+            <div
+              v-for="contact in filteredImportContacts"
+              :key="`${contact.project_id}::${contact.id}`"
+              class="import-contact-item"
+              :class="{ 'is-duplicate': contact.isDuplicate }"
+            >
+              <label class="import-contact-checkbox">
+                <input
+                  type="checkbox"
+                  :value="`${contact.project_id}::${contact.id}`"
+                  v-model="selectedImportContacts"
+                  :disabled="contact.isDuplicate"
+                />
+                <div class="import-contact-info">
+                  <div class="import-contact-header">
+                    <div class="contact-avatar-small">
+                      {{ (contact.name || contact.email || '?').charAt(0).toUpperCase() }}
+                    </div>
+                    <div class="import-contact-details">
+                      <div class="contact-name">{{ contact.name || 'Unnamed Contact' }}</div>
+                      <div v-if="contact.role" class="contact-role">{{ displayRole(contact.role) }}</div>
+                      <div v-if="contact.email" class="contact-email-small">{{ contact.email }}</div>
+                      <div v-if="contact.phone" class="contact-phone-small">{{ contact.phone }}</div>
+                    </div>
+                  </div>
+                  <div class="import-contact-meta">
+                    <span class="project-badge">{{ contact.project_name }}</span>
+                    <span v-if="contact.isDuplicate" class="duplicate-badge">Already exists</span>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="import-summary">
+          {{ selectedImportContacts.length }} contact{{ selectedImportContacts.length !== 1 ? 's' : '' }} selected
+        </div>
+        <div class="modal-footer-actions">
+          <button
+            class="btn btn-positive"
+            @click="importSelectedContacts"
+            :disabled="importingContacts || selectedImportContacts.length === 0"
+          >
+            <svg v-if="importingContacts" class="spinner" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
+                <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+            {{ importingContacts ? 'Importing...' : `Import ${selectedImportContacts.length} Contact${selectedImportContacts.length !== 1 ? 's' : ''}` }}
+          </button>
+          <button class="btn btn-warning" @click="closeImportModal">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
@@ -753,6 +890,180 @@ function closeContactInfo() {
   selectedContact.value = null;
 }
 
+// Import contacts functionality
+const showImportModal = ref(false);
+const availableImportContacts = ref([]);
+const selectedImportContacts = ref([]);
+const loadingImportContacts = ref(false);
+const importingContacts = ref(false);
+const importSearchFilter = ref('');
+
+function toggleImportContacts() {
+  showImportModal.value = !showImportModal.value;
+  if (showImportModal.value) {
+    fetchImportContacts();
+  } else {
+    selectedImportContacts.value = [];
+    importSearchFilter.value = '';
+  }
+}
+
+function closeImportModal() {
+  showImportModal.value = false;
+  selectedImportContacts.value = [];
+  importSearchFilter.value = '';
+}
+
+async function fetchImportContacts() {
+  if (!currentProject.value?.id) return;
+  
+  loadingImportContacts.value = true;
+  try {
+    // Get current user's email
+    const { data: ses } = await supabase.auth.getSession();
+    const email = ses?.session?.user?.email?.toLowerCase();
+    if (!email) {
+      loadingImportContacts.value = false;
+      return;
+    }
+
+    // Get all projects where user is a member (excluding current project)
+    const { data: memberProjects } = await supabase
+      .from('project_members')
+      .select('project_id')
+      .eq('user_email', email)
+      .neq('project_id', currentProject.value.id);
+
+    if (!memberProjects || memberProjects.length === 0) {
+      availableImportContacts.value = [];
+      loadingImportContacts.value = false;
+      return;
+    }
+
+    const projectIds = memberProjects.map(m => m.project_id);
+
+    // Get project names
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, project_name')
+      .in('id', projectIds);
+
+    const projectMap = new Map((projects || []).map(p => [p.id, p.project_name]));
+
+    // Get contacts from those projects
+    const { data: otherContacts } = await supabase
+      .from('project_contacts')
+      .select('*')
+      .in('project_id', projectIds);
+
+    // Get current project contacts to check for duplicates
+    const currentEmails = new Set(
+      contacts.value
+        .map(c => c.email?.toLowerCase().trim())
+        .filter(Boolean)
+    );
+    const currentNames = new Set(
+      contacts.value
+        .map(c => c.name?.toLowerCase().trim())
+        .filter(Boolean)
+    );
+
+    // Process and mark duplicates
+    availableImportContacts.value = (otherContacts || []).map(contact => {
+      const emailMatch = contact.email && currentEmails.has(contact.email.toLowerCase().trim());
+      const nameMatch = contact.name && currentNames.has(contact.name.toLowerCase().trim());
+      return {
+        ...contact,
+        project_name: projectMap.get(contact.project_id) || 'Unknown Project',
+        isDuplicate: emailMatch || nameMatch
+      };
+    });
+
+    // Sort by project name, then by contact name
+    availableImportContacts.value.sort((a, b) => {
+      if (a.project_name !== b.project_name) {
+        return a.project_name.localeCompare(b.project_name);
+      }
+      return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+    });
+  } catch (error) {
+    console.error('Error fetching import contacts:', error);
+    alert('Failed to load contacts from other projects.');
+  } finally {
+    loadingImportContacts.value = false;
+  }
+}
+
+const filteredImportContacts = computed(() => {
+  if (!importSearchFilter.value.trim()) {
+    return availableImportContacts.value;
+  }
+  
+  const searchTerm = importSearchFilter.value.toLowerCase().trim();
+  return availableImportContacts.value.filter(contact =>
+    (contact.name && contact.name.toLowerCase().includes(searchTerm)) ||
+    (contact.email && contact.email.toLowerCase().includes(searchTerm)) ||
+    (contact.role && contact.role.toLowerCase().includes(searchTerm)) ||
+    (contact.project_name && contact.project_name.toLowerCase().includes(searchTerm))
+  );
+});
+
+function selectAllImportContacts() {
+  selectedImportContacts.value = filteredImportContacts.value
+    .filter(c => !c.isDuplicate)
+    .map(c => `${c.project_id}::${c.id}`);
+}
+
+function deselectAllImportContacts() {
+  selectedImportContacts.value = [];
+}
+
+async function importSelectedContacts() {
+  if (!currentProject.value?.id || selectedImportContacts.value.length === 0) return;
+
+  importingContacts.value = true;
+  try {
+    // Parse selected contacts
+    const contactsToImport = selectedImportContacts.value.map(selected => {
+      const [projectId, ...contactIdParts] = selected.split('::');
+      const contactId = contactIdParts.join('::'); // Rejoin in case ID contains '::'
+      return availableImportContacts.value.find(
+        c => String(c.project_id) === String(projectId) && String(c.id) === String(contactId)
+      );
+    }).filter(Boolean);
+
+    // Import each contact (create new records for current project)
+    const importPromises = contactsToImport.map(contact => {
+      const payload = {
+        project_id: currentProject.value.id,
+        name: contact.name || null,
+        email: contact.email || null,
+        phone: contact.phone || null,
+        role: contact.role || null,
+        comments: contact.comments || null,
+        stage_ids: contact.stage_ids || null,
+      };
+      return supabase.from('project_contacts').insert(payload);
+    });
+
+    await Promise.all(importPromises);
+    
+    // Refresh contacts list
+    await fetchContacts();
+    
+    // Close modal and reset
+    closeImportModal();
+    
+    // Show success message
+    alert(`Successfully imported ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''}.`);
+  } catch (error) {
+    console.error('Error importing contacts:', error);
+    alert('Failed to import some contacts. Please try again.');
+  } finally {
+    importingContacts.value = false;
+  }
+}
+
 // Copy to clipboard functionality
 async function copyToClipboard(text, type) {
   try {
@@ -882,6 +1193,19 @@ return {
   toggleStageAssignment,
 
   projectStageLocations,
+
+  showImportModal,
+  toggleImportContacts,
+  closeImportModal,
+  availableImportContacts,
+  selectedImportContacts,
+  loadingImportContacts,
+  importingContacts,
+  importSearchFilter,
+  filteredImportContacts,
+  selectAllImportContacts,
+  deselectAllImportContacts,
+  importSelectedContacts,
 };
 }
 };
@@ -1100,6 +1424,35 @@ box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   gap: 8px;
   margin-top: 0.5rem;
   padding-right: 12px;
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.import-contact-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background-color: var(--color-primary-600);
+  color: var(--text-inverse) !important;
+  border: 2px solid var(--color-primary-700);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.2);
+  font-size: 1.2rem;
+}
+
+.import-contact-btn:hover {
+  background-color: var(--color-primary-500);
+  border-color: var(--color-primary-600);
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.3);
+  transform: translateY(-1px);
 }
 
 .contact-count {
@@ -2188,6 +2541,214 @@ color: currentColor;
   
   .checkmark {
     font-size: 0.9rem;
+  }
+}
+
+/* Import Contacts Modal Styles */
+.import-modal-content {
+  max-width: 600px;
+  max-height: 85vh;
+}
+
+.import-contacts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.import-header-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.select-all-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+.import-contacts-list {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.import-contact-item {
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-primary);
+  transition: all 0.2s ease;
+}
+
+.import-contact-item:hover {
+  border-color: var(--color-primary-500);
+  background: var(--bg-secondary);
+}
+
+.import-contact-item.is-duplicate {
+  opacity: 0.6;
+  background: var(--bg-tertiary);
+}
+
+.import-contact-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.import-contact-checkbox input[type="checkbox"] {
+  margin-top: 4px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.import-contact-checkbox input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.import-contact-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-contact-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.contact-avatar-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary-600);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.import-contact-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-contact-details .contact-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.import-contact-details .contact-role {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.contact-email-small,
+.contact-phone-small {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.import-contact-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.project-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.duplicate-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background: var(--color-warning-100);
+  color: var(--color-warning-700);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.import-summary {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.modal-footer-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .import-modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+  }
+
+  .import-header-actions {
+    flex-direction: column;
+  }
+
+  .select-all-controls {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .btn-small {
+    width: 100%;
+  }
+
+  .import-contacts-list {
+    max-height: 300px;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .modal-footer-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .modal-footer-actions .btn {
+    width: 100%;
   }
 }
 </style>

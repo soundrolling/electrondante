@@ -3,7 +3,23 @@
   <div v-if="visible" class="modal-overlay">
     <div class="modal-content">
       <button class="close-button" @click="$emit('close')">×</button>
-      <h2 class="modal-title">{{ stage.stage_name }}</h2>
+      <div class="stage-selector-container">
+        <label for="stage-select" class="stage-select-label">Stage:</label>
+        <select 
+          id="stage-select"
+          v-model="selectedStageId" 
+          @change="onStageChange"
+          class="stage-select"
+        >
+          <option 
+            v-for="s in stages" 
+            :key="s.id" 
+            :value="s.id"
+          >
+            {{ s.stage_name }}
+          </option>
+        </select>
+      </div>
       
       <!-- Show Times / Managing Hours Section -->
       <div v-if="stageHours.length > 0" class="stage-hours-section">
@@ -137,16 +153,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '../../supabase';
 
 const props = defineProps({
 stage: { type: Object, required: true },
 projectId: { type: [String, Number], required: true },
+stages: { type: Array, default: () => [] },
 visible: { type: Boolean, default: false },
 });
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'stage-change']);
 const router = useRouter();
 
 const stageHours = ref([]);
@@ -161,7 +178,22 @@ const slotForm = ref({
   notes: ''
 });
 
+const selectedStageId = ref(null);
+
+// Watch for stage prop changes to update selectedStageId
+watch(() => props.stage, async (newStage) => {
+  if (newStage) {
+    selectedStageId.value = newStage.id;
+    await loadStageHours();
+    checkLiveStatus();
+    findNextTimeslot();
+  }
+}, { immediate: true });
+
 onMounted(async () => {
+  if (props.stage) {
+    selectedStageId.value = props.stage.id;
+  }
   await loadStageHours();
   checkLiveStatus();
   findNextTimeslot();
@@ -382,6 +414,18 @@ router.push({
 });
 emit('close');
 }
+
+function onStageChange() {
+  if (selectedStageId.value) {
+    const newStageId = typeof selectedStageId.value === 'string' 
+      ? parseInt(selectedStageId.value, 10) 
+      : selectedStageId.value;
+    const currentStageId = props.stage?.id;
+    if (newStageId !== currentStageId) {
+      emit('stage-change', newStageId);
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -426,12 +470,47 @@ padding: 2px 8px;
 background: var(--bg-secondary);
 color: var(--color-primary-600);
 }
-.modal-title {
-text-align: center;
-font-size: 1.2rem;
-color: var(--text-primary);
+
+.stage-selector-container {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 12px;
+margin-bottom: 24px;
+padding: 12px;
+background: var(--bg-secondary);
+border-radius: 8px;
+border: 1px solid #e2e8f0;
+}
+
+.stage-select-label {
+font-size: 0.95rem;
 font-weight: 600;
-margin-bottom: 18px;
+color: var(--text-secondary);
+}
+
+.stage-select {
+flex: 1;
+max-width: 300px;
+padding: 8px 12px;
+font-size: 1rem;
+font-weight: 600;
+color: var(--text-primary);
+background: var(--bg-primary);
+border: 1px solid #d1d5db;
+border-radius: 6px;
+cursor: pointer;
+transition: all 0.2s ease;
+}
+
+.stage-select:hover {
+border-color: var(--color-primary-500);
+}
+
+.stage-select:focus {
+outline: none;
+border-color: var(--color-primary-600);
+box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
 }
 
 /* Stage Hours Section */

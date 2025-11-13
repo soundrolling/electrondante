@@ -161,26 +161,14 @@
       </div>
     </div>
 
-    <div 
-      class="images-grid"
-      :class="{ 'images-grid--reorganize': reorganizeMode }"
-    >
+    <div class="images-grid">
       <div
         v-for="(img, idx) in images"
         :key="img.id"
         class="card"
         :class="{ 
-          'image-card--selected': selectedImages.includes(img.id),
-          'card--draggable': reorganizeMode,
-          'card--dragging': draggedImageId === img.id,
-          'card--drag-over': dragOverIndex === idx
+          'image-card--selected': selectedImages.includes(img.id)
         }"
-        :draggable="reorganizeMode"
-        @dragstart="onDragStart(img, idx, $event)"
-        @dragover.prevent="onDragOver(idx, $event)"
-        @dragleave="onDragLeave(idx)"
-        @drop="onDropImage(idx, $event)"
-        @dragend="onDragEnd"
       >
         <!-- Image Container -->
         <div class="image-container">
@@ -199,10 +187,9 @@
             :alt="img.name || 'Stage picture'"
             class="image-preview"
             :class="{ 
-              'image-preview--selectable': bulkMode,
-              'image-preview--reorganize': reorganizeMode
+              'image-preview--selectable': bulkMode
             }"
-            @click="reorganizeMode ? null : (bulkMode ? toggleImageSelection(img.id) : viewImage(img.file_path))"
+            @click="bulkMode ? toggleImageSelection(img.id) : viewImage(img.file_path)"
             @load="onImageLoad"
             :draggable="false"
           />
@@ -238,7 +225,7 @@
         </div>
 
           <!-- Unified Action Row -->
-        <div v-if="!reorganizeMode" class="card-action-row">
+        <div class="card-action-row">
           <button class="card-action-btn" @click="viewImage(img.file_path)" :title="'View full image'">
             <span class="card-action-icon">👁️</span>
           </button>
@@ -260,35 +247,11 @@
             <span class="card-action-icon">🗑️</span>
           </button>
         </div>
-        <!-- Reorganize Mode Indicator -->
-        <div v-if="reorganizeMode" class="reorganize-indicator">
-          <span class="reorganize-icon">↕️</span>
-          <span class="reorganize-text">Drag to reorder</span>
-        </div>
 
         <!-- Image Details -->
         <div class="image-details">
-          <div v-if="!reorganizeMode" class="image-order">
-            <button
-              class="order-btn"
-              @click="moveImageUp(img, idx)"
-              :disabled="idx === 0"
-              title="Move up"
-            >
-              ↑
-            </button>
+          <div class="image-order">
             <span class="order-number">{{ idx + 1 }}</span>
-            <button
-              class="order-btn"
-              @click="moveImageDown(img, idx)"
-              :disabled="idx === images.length - 1"
-              title="Move down"
-            >
-              ↓
-            </button>
-          </div>
-          <div v-else class="image-order">
-            <span class="order-number reorganize-order">{{ idx + 1 }}</span>
           </div>
 
           <input
@@ -299,7 +262,7 @@
           />
           <textarea
             v-model="img.description"
-            placeholder="Description"
+            placeholder="This will show on export descriptions"
             class="textarea-field"
             @blur="updateImage(img)"
           />
@@ -316,6 +279,49 @@
       Upload some pictures to get started with documenting this stage.
     </p>
   </div>
+
+  <!-- Reorganize Modal -->
+  <teleport to="body">
+    <div v-if="reorganizeMode" class="reorganize-modal-overlay" @click.self="toggleReorganizeMode">
+      <div class="reorganize-modal">
+        <div class="reorganize-modal-header">
+          <h2 class="reorganize-modal-title">Reorganize Images</h2>
+          <button class="reorganize-modal-close" @click="toggleReorganizeMode">×</button>
+        </div>
+        <div class="reorganize-modal-body">
+          <p class="reorganize-modal-instructions">Drag and drop items to reorder them</p>
+          <div class="reorganize-list">
+            <div
+              v-for="(img, idx) in reorganizeImages"
+              :key="img.id"
+              class="reorganize-list-item"
+              :class="{
+                'reorganize-list-item--dragging': draggedImageId === img.id,
+                'reorganize-list-item--drag-over': dragOverIndex === idx
+              }"
+              :draggable="true"
+              @dragstart="onDragStart(img, idx, $event)"
+              @dragover.prevent="onDragOver(idx, $event)"
+              @dragleave="onDragLeave(idx)"
+              @drop="onDropImage(idx, $event)"
+              @dragend="onDragEnd"
+            >
+              <div class="reorganize-item-handle">☰</div>
+              <div class="reorganize-item-content">
+                <div class="reorganize-item-name">{{ img.name || 'Untitled Image' }}</div>
+                <div class="reorganize-item-description">{{ img.description || 'No description' }}</div>
+              </div>
+              <div class="reorganize-item-number">{{ idx + 1 }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="reorganize-modal-footer">
+          <button class="btn btn-primary" @click="saveReorganizeOrder">Save Order</button>
+          <button class="btn btn-secondary" @click="toggleReorganizeMode">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </teleport>
 </div>
 </template>
 
@@ -618,25 +624,32 @@ function toggleBulkMode() {
 }
 
 // Reorganize mode
+const reorganizeImages = ref([]); // Working copy for reorganize modal
+
 function toggleReorganizeMode() {
   reorganizeMode.value = !reorganizeMode.value;
   if (reorganizeMode.value) {
     bulkMode.value = false; // Disable bulk mode when reorganizing
     selectedImages.value = [];
     editingCardId.value = null; // Close any open edit modes
+    // Create a working copy of images for the modal
+    reorganizeImages.value = [...images.value];
+  } else {
+    // Reset drag state when closing
+    draggedImageId.value = null;
+    draggedImageIndex.value = null;
+    dragOverIndex.value = null;
   }
-  draggedImageId.value = null;
-  draggedImageIndex.value = null;
-  dragOverIndex.value = null;
 }
 
-// Drag and drop handlers
+// Drag and drop handlers for reorganize modal
 function onDragStart(img, idx, event) {
   if (!reorganizeMode.value) return;
   draggedImageId.value = img.id;
   draggedImageIndex.value = idx;
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/html', img.id);
+  event.target.style.opacity = '0.5';
 }
 
 function onDragOver(idx, event) {
@@ -655,7 +668,7 @@ function onDragLeave(idx) {
   }
 }
 
-async function onDropImage(dropIndex, event) {
+function onDropImage(dropIndex, event) {
   if (!reorganizeMode.value || draggedImageIndex.value === null) return;
   event.preventDefault();
   
@@ -665,27 +678,34 @@ async function onDropImage(dropIndex, event) {
     return;
   }
   
-  // Reorder images array
-  const reorderedImages = [...images.value];
+  // Reorder reorganizeImages array (working copy)
+  const reorderedImages = [...reorganizeImages.value];
   const [draggedItem] = reorderedImages.splice(dragIndex, 1);
   reorderedImages.splice(dropIndex, 0, draggedItem);
   
-  // Update order values
-  reorderedImages.forEach((img, index) => {
-    img.order = index + 1;
-  });
+  // Update the working copy
+  reorganizeImages.value = reorderedImages;
   
-  // Update local state immediately for better UX
-  images.value = reorderedImages;
-  
-  // Save new order to database
+  dragOverIndex.value = null;
+}
+
+function onDragEnd(event) {
+  event.target.style.opacity = '1';
+  draggedImageId.value = null;
+  draggedImageIndex.value = null;
+  dragOverIndex.value = null;
+}
+
+// Save the reorganized order
+async function saveReorganizeOrder() {
   try {
-    const updates = reorderedImages.map((img, index) => ({
+    // Update order values based on reorganizeImages
+    const updates = reorganizeImages.value.map((img, index) => ({
       id: img.id,
       order: index + 1
     }));
     
-    // Update all images in a batch
+    // Update all images in the database
     for (const update of updates) {
       const { error } = await supabase
         .from('stage_pictures')
@@ -698,22 +718,17 @@ async function onDropImage(dropIndex, event) {
       }
     }
     
+    // Update the main images array with the new order
+    images.value = [...reorganizeImages.value];
+    
     toast.success('Images reordered successfully');
+    reorganizeMode.value = false;
   } catch (error) {
     console.error('Error saving new order:', error);
     toast.error('Failed to save new order. Refreshing...');
     // Revert by fetching images again
     await fetchImages();
   }
-  
-  dragOverIndex.value = null;
-}
-
-function onDragEnd(event) {
-  event.target.style.opacity = '1';
-  draggedImageId.value = null;
-  draggedImageIndex.value = null;
-  dragOverIndex.value = null;
 }
 
 function toggleImageSelection(imageId) {
@@ -742,40 +757,6 @@ async function deleteSelectedImages() {
   bulkMode.value = false;
 }
 
-// Reordering
-async function swapOrder(a, b) {
-  const oa = a.order, ob = b.order;
-  
-  try {
-    const { error: e1 } = await supabase
-      .from('stage_pictures')
-      .update({ order: ob })
-      .eq('id', a.id);
-    
-    const { error: e2 } = await supabase
-      .from('stage_pictures')
-      .update({ order: oa })
-      .eq('id', b.id);
-    
-    if (e1 || e2) {
-      console.error(e1 || e2);
-      toast.error('Reorder failed');
-    } else {
-      await fetchImages();
-      toast.success('Order updated');
-    }
-  } catch (error) {
-    toast.error('Error reordering images');
-  }
-}
-
-function moveImageUp(img, idx) {
-  if (idx > 0) swapOrder(img, images.value[idx - 1]);
-}
-
-function moveImageDown(img, idx) {
-  if (idx < images.value.length - 1) swapOrder(img, images.value[idx + 1]);
-}
 
 // Image viewing
 async function viewImage(path) {
@@ -849,12 +830,17 @@ async function exportPdf() {
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const availableWidth = pageWidth - (margin * 2);
     let y = margin;
     let isFirstPage = true;
 
     for (const img of images.value) {
-      // Check if we need a new page (account for image + text space)
-      if (y + 500 > pageHeight) {
+      // Check if we need a new page (account for image + description + spacing)
+      const estimatedImageHeight = 220; // Estimated height for downscaled image
+      const estimatedDescriptionHeight = img.description && img.description.trim() ? 30 : 0;
+      const totalSpaceNeeded = estimatedImageHeight + estimatedDescriptionHeight + 20;
+      
+      if (y + totalSpaceNeeded > pageHeight - margin) {
         doc.addPage();
         y = margin;
         isFirstPage = false;
@@ -886,8 +872,9 @@ async function exportPdf() {
         htmlImg.src = dataUrl;
       });
 
-      const maxH = 400;
-      const maxW = pageWidth - (margin * 2);
+      // Downscale images to fit multiple per page - max height of 200pt
+      const maxH = 200;
+      const maxW = availableWidth;
       const scale = Math.min(1, maxH / htmlImg.height, maxW / htmlImg.width);
       const imgW = htmlImg.width * scale;
       const imgH = htmlImg.height * scale;
@@ -897,21 +884,21 @@ async function exportPdf() {
 
       // Add the image
       doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
-      y += imgH + 12;
+      y += imgH + 8;
 
       // Add description if it exists
       if (img.description && img.description.trim()) {
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         const descLines = doc.splitTextToSize(
           img.description,
-          pageWidth - (margin * 2)
+          availableWidth
         );
         doc.text(descLines, margin, y);
-        y += descLines.length * 14;
+        y += descLines.length * 12;
       }
 
-      y += 20; // Space before next image
+      y += 12; // Space before next image
     }
 
     doc.save(`${stageName.value.replace(/\s+/g, '_')}_Pictures.pdf`);
@@ -934,6 +921,7 @@ async function exportSelectedPdf() {
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const availableWidth = pageWidth - (margin * 2);
     let y = margin;
     let isFirstPage = true;
 
@@ -941,8 +929,12 @@ async function exportSelectedPdf() {
     const selectedImagesData = images.value.filter(img => selectedImages.value.includes(img.id));
 
     for (const img of selectedImagesData) {
-      // Check if we need a new page (account for image + text space)
-      if (y + 500 > pageHeight) {
+      // Check if we need a new page (account for image + description + spacing)
+      const estimatedImageHeight = 220; // Estimated height for downscaled image
+      const estimatedDescriptionHeight = img.description && img.description.trim() ? 30 : 0;
+      const totalSpaceNeeded = estimatedImageHeight + estimatedDescriptionHeight + 20;
+      
+      if (y + totalSpaceNeeded > pageHeight - margin) {
         doc.addPage();
         y = margin;
         isFirstPage = false;
@@ -974,8 +966,9 @@ async function exportSelectedPdf() {
         htmlImg.src = dataUrl;
       });
 
-      const maxH = 400;
-      const maxW = pageWidth - (margin * 2);
+      // Downscale images to fit multiple per page - max height of 200pt
+      const maxH = 200;
+      const maxW = availableWidth;
       const scale = Math.min(1, maxH / htmlImg.height, maxW / htmlImg.width);
       const imgW = htmlImg.width * scale;
       const imgH = htmlImg.height * scale;
@@ -985,21 +978,21 @@ async function exportSelectedPdf() {
 
       // Add the image
       doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
-      y += imgH + 12;
+      y += imgH + 8;
 
       // Add description if it exists
       if (img.description && img.description.trim()) {
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
         const descLines = doc.splitTextToSize(
           img.description,
-          pageWidth - (margin * 2)
+          availableWidth
         );
         doc.text(descLines, margin, y);
-        y += descLines.length * 14;
+        y += descLines.length * 12;
       }
 
-      y += 20; // Space before next image
+      y += 12; // Space before next image
     }
 
     doc.save(`${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`);
@@ -1558,69 +1551,6 @@ watch(() => route.query.stageId, async (newVal) => {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
-.card--draggable {
-  cursor: move;
-  cursor: grab;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.card--draggable:active {
-  cursor: grabbing;
-}
-
-.card--dragging {
-  opacity: 0.5;
-  transform: scale(0.95);
-  z-index: 1000;
-}
-
-.card--drag-over {
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-  transform: scale(1.02);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.images-grid--reorganize {
-  cursor: move;
-}
-
-.image-preview--reorganize {
-  cursor: move;
-  cursor: grab;
-}
-
-.image-preview--reorganize:active {
-  cursor: grabbing;
-}
-
-.reorganize-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  background: var(--bg-secondary);
-  border-radius: 0 0 12px 12px;
-  border-top: 1px solid var(--border-light);
-  color: var(--color-primary-500);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.reorganize-icon {
-  font-size: 18px;
-}
-
-.reorganize-text {
-  color: var(--text-secondary);
-}
-
-.reorganize-order {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-primary-500);
-}
 
 .card-action-row {
   display: flex;
@@ -1967,5 +1897,169 @@ watch(() => route.query.stageId, async (newVal) => {
   box-shadow: 0 1px 2px rgba(0,0,0,0.03);
   border: 1px solid var(--border-light);
   min-width: 0;
+}
+
+/* Reorganize Modal */
+.reorganize-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.reorganize-modal {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-medium);
+}
+
+.reorganize-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.reorganize-modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.reorganize-modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.reorganize-modal-close:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.reorganize-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.reorganize-modal-instructions {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0 0 16px 0;
+}
+
+.reorganize-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reorganize-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  cursor: move;
+  transition: all 0.2s ease;
+}
+
+.reorganize-list-item:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
+}
+
+.reorganize-list-item--dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.reorganize-list-item--drag-over {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.reorganize-item-handle {
+  font-size: 20px;
+  color: var(--text-secondary);
+  cursor: grab;
+  user-select: none;
+}
+
+.reorganize-item-handle:active {
+  cursor: grabbing;
+}
+
+.reorganize-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.reorganize-item-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reorganize-item-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reorganize-item-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary-500);
+  min-width: 24px;
+  text-align: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.reorganize-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border-light);
 }
 </style>

@@ -14,8 +14,10 @@
     v-if="showStageModal && currentStage"
     :stage="currentStage"
     :project-id="currentProject?.id"
+    :stages="allStages"
     :visible="showStageModal"
     @close="closeStageModal"
+    @stage-change="handleStageChange"
   />
 </template>
 
@@ -36,6 +38,7 @@ export default {
     const showStageModal = ref(false);
     const currentStage = ref(null);
     const isLoadingStage = ref(false);
+    const allStages = ref([]);
 
     const currentProject = computed(() => userStore.getCurrentProject);
     
@@ -54,6 +57,15 @@ export default {
       return isProjectRoute.value && currentProject.value && locationId.value && !isLoadingStage.value;
     });
 
+    // Load all stages for the project
+    watch([currentProject], async ([project]) => {
+      if (project?.id) {
+        await loadAllStages(project.id);
+      } else {
+        allStages.value = [];
+      }
+    }, { immediate: true });
+
     // Load current stage when locationId changes
     watch([locationId, currentProject], async ([locId, project]) => {
       if (locId && project?.id) {
@@ -63,16 +75,38 @@ export default {
       }
     }, { immediate: true });
 
+    /* ---------------- Load all stages for project ---------------- */
+    async function loadAllStages(projectId) {
+      if (!projectId) return;
+      
+      try {
+        allStages.value = await fetchTableData('locations', {
+          eq: { project_id: projectId },
+          order: [{ column: 'order', ascending: true }],
+        });
+      } catch (err) {
+        console.error('Error loading all stages:', err.message);
+        allStages.value = [];
+      }
+    }
+
     /* ---------------- Load current stage ---------------- */
     async function loadCurrentStage(stageId) {
       if (!stageId) return;
       
       try {
         isLoadingStage.value = true;
-        const stages = await fetchTableData('locations', {
-          eq: { id: stageId },
-        });
-        currentStage.value = stages.length > 0 ? stages[0] : null;
+        // First try to find in already loaded stages
+        const foundStage = allStages.value.find(s => s.id === stageId);
+        if (foundStage) {
+          currentStage.value = foundStage;
+        } else {
+          // Fallback to fetching if not found
+          const stages = await fetchTableData('locations', {
+            eq: { id: stageId },
+          });
+          currentStage.value = stages.length > 0 ? stages[0] : null;
+        }
       } catch (err) {
         console.error('Error loading current stage:', err.message);
         currentStage.value = null;
@@ -92,13 +126,21 @@ export default {
       showStageModal.value = false;
     }
 
+    function handleStageChange(stageId) {
+      if (stageId) {
+        loadCurrentStage(stageId);
+      }
+    }
+
     return {
       currentProject,
       currentStage,
+      allStages,
       shouldShowButton,
       showStageModal,
       openStageMenu,
       closeStageModal,
+      handleStageChange,
     };
   },
 };

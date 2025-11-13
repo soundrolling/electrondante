@@ -530,6 +530,9 @@
               <div class="gear-summary-details">
                 <span class="summary-item">Available: {{ selectedGear.unassigned_amount }}</span>
                 <span class="summary-item">Total: {{ selectedGear.gear_amount }}</span>
+                <span v-if="assignmentStageId && selectedGear.assignments?.[assignmentStageId]" class="summary-item">
+                  Currently assigned to this stage: {{ selectedGear.assignments[assignmentStageId] }}
+                </span>
               </div>
             </div>
 
@@ -555,10 +558,16 @@
                     v-model="assignmentAmount" 
                     type="number" 
                     min="1" 
-                    :max="selectedGear.unassigned_amount"
+                    :max="maxAssignableAmount"
                     required 
                     class="form-input"
                   />
+                  <small v-if="assignmentStageId && selectedGear.assignments?.[assignmentStageId]" style="color: var(--text-secondary); margin-top: 4px; display: block;">
+                    Max: {{ maxAssignableAmount }} ({{ selectedGear.unassigned_amount }} unassigned + {{ selectedGear.assignments[assignmentStageId] }} currently assigned to this stage)
+                  </small>
+                  <small v-else style="color: var(--text-secondary); margin-top: 4px; display: block;">
+                    Max: {{ maxAssignableAmount }} available
+                  </small>
                 </div>
               </div>
               <div class="form-actions">
@@ -848,6 +857,16 @@ setup(props) {
   const userId = computed(() => userStore.user?.id)
   const projectId = computed(() => {
     return currentProject.value?.id || route.params.id || ''
+  })
+  
+  // Check if current user is project owner
+  const isProjectOwner = computed(() => {
+    if (!currentProject.value || !userId.value) return false
+    // Check if user is owner via role
+    if (currentProject.value.role === 'owner') return true
+    // Check if user_id matches project owner
+    if (currentProject.value.user_id === userId.value) return true
+    return false
   })
   
   // Tab management - check route query or props for initial tab
@@ -1213,6 +1232,13 @@ setup(props) {
     // Check if this is user gear
     const gearToDelete = gearList.value.find(g => g.id === gearId)
     const isUserGear = gearToDelete?.is_user_gear
+    
+    // Check permissions: owners can delete any gear
+    // Non-owners can delete: project gear (non-user gear) OR their own user gear
+    if (!isProjectOwner.value && isUserGear && gearToDelete?.owner_id !== userId.value) {
+      toast.error('You can only delete your own gear or project gear. Project owners can delete any gear.')
+      return
+    }
 
     const { isConfirmed } = await Swal.fire({
       title: 'Are you sure?',
@@ -1295,6 +1321,15 @@ setup(props) {
 
     assignmentModalVisible.value = true
   }
+  
+  // Computed property for max assignable amount (accounts for existing assignment to selected stage)
+  const maxAssignableAmount = computed(() => {
+    if (!selectedGear.value || !assignmentStageId.value) {
+      return selectedGear.value?.unassigned_amount || 0
+    }
+    const existingAssignment = selectedGear.value.assignments?.[assignmentStageId.value] || 0
+    return (selectedGear.value.unassigned_amount || 0) + existingAssignment
+  })
   function closeAssignmentModal() {
     assignmentModalVisible.value = false
     selectedGear.value        = null
@@ -1339,18 +1374,23 @@ setup(props) {
       if (!assignmentStageId.value) { toast.error('Please choose a stage'); return }
       const amount = Number(assignmentAmount.value || 0)
       if (amount < 1) { toast.error('Amount must be at least 1'); return }
-      if (amount > (selectedGear.value.unassigned_amount || 0)) {
-        toast.error('Amount exceeds available')
-        return
-      }
 
       const gid = selectedGear.value.id
       const sid = Number(assignmentStageId.value)
 
-      // Upsert by gear_id + location_id
+      // Check existing assignment to calculate available amount correctly
       const existing = await fetchTableData('gear_assignments', {
         eq: { gear_id: gid, location_id: sid }
       })
+
+      // Calculate available amount: unassigned + existing assignment for this stage (if any)
+      const existingAmount = existing.length ? (existing[0].assigned_amount || 0) : 0
+      const availableAmount = (selectedGear.value.unassigned_amount || 0) + existingAmount
+
+      if (amount > availableAmount) {
+        toast.error(`Amount exceeds available. Maximum: ${availableAmount}`)
+        return
+      }
 
       if (existing.length) {
         await mutateTableData('gear_assignments', 'update', {
@@ -1395,6 +1435,94 @@ setup(props) {
       toast.error('Please fill required fields.')
       return
     }
+    
+    // Check if reducing gear amount below total assigned
+    const currentTotalAssigned = currentEditGear.value.total_assigned || 0
+    const newGearAmount = Number(editGearAmount.value)
+    let newAssignments = null
+    
+    if (newGearAmount < currentTotalAssigned) {
+      // Need to reduce assignments proportionally
+      const reductionRatio = newGearAmount / currentTotalAssigned
+      const assignments = currentEditGear.value.assignments || {}
+      
+      // Calculate new assignment amounts proportionally
+      newAssignments = {}
+      const assignmentEntries = Object.entries(assignments).filter(([, amount]) => amount > 0)
+      let totalNewAssigned = 0
+      
+      // Special case: if new amount is less than number of assignments, 
+      // keep only the largest assignments
+      if (newGearAmount < assignmentEntries.length) {
+        // Sort by current amount (largest first) and keep only top N
+        const sortedByAmount = assignmentEntries
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, newGearAmount)
+        
+        for (const [locationId] of sortedByAmount) {
+          newAssignments[locationId] = 1
+          totalNewAssigned++
+        }
+        // All other assignments will be 0 (not in newAssignments)
+      } else {
+        // First pass: calculate proportional amounts (using floor to avoid going over)
+        for (const [locationId, currentAmount] of assignmentEntries) {
+          const proportionalAmount = currentAmount * reductionRatio
+          const newAmount = Math.floor(proportionalAmount)
+          newAssignments[locationId] = Math.max(1, newAmount) // At least 1 if there was an assignment
+          totalNewAssigned += newAssignments[locationId]
+        }
+        
+        // Second pass: distribute any remaining amount due to rounding
+        let remaining = newGearAmount - totalNewAssigned
+        if (remaining > 0) {
+          // Sort by fractional part (largest first) to distribute remaining fairly
+          const sortedByFraction = assignmentEntries
+            .map(([locationId, currentAmount]) => ({
+              locationId,
+              currentAmount,
+              fractional: (currentAmount * reductionRatio) % 1
+            }))
+            .sort((a, b) => b.fractional - a.fractional)
+          
+          // Distribute remaining to assignments with largest fractional parts
+          for (const { locationId } of sortedByFraction) {
+            if (remaining <= 0) break
+            newAssignments[locationId]++
+            remaining--
+            totalNewAssigned++
+          }
+        } else if (remaining < 0) {
+          // If we're over (shouldn't happen with floor, but just in case), reduce further
+          const sortedByAmount = Object.entries(newAssignments)
+            .sort(([, a], [, b]) => b - a)
+          
+          for (const [locationId] of sortedByAmount) {
+            if (remaining >= 0) break
+            if (newAssignments[locationId] > 1) {
+              newAssignments[locationId]--
+              remaining++
+              totalNewAssigned--
+            }
+          }
+        }
+      }
+      
+      // Show confirmation dialog
+      const { isConfirmed } = await Swal.fire({
+        title: 'Reduce Assignments?',
+        html: `Reducing total gear from ${currentEditGear.value.gear_amount} to ${newGearAmount} will automatically reduce assignments from ${currentTotalAssigned} to fit the new total.<br><br>This will update all stage assignments proportionally.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, reduce assignments',
+        cancelButtonText: 'Cancel'
+      })
+      
+      if (!isConfirmed) {
+        return
+      }
+    }
+    
     loading.value = true
     try {
       console.log('saveEdit: editNumRecords.value =', editNumRecords.value)
@@ -1409,7 +1537,58 @@ setup(props) {
         is_rented:   editIsRented.value,
         vendor:      editVendor.value
       })
-      toast.success('Gear updated')
+      
+      // Update assignments if gear amount was reduced
+      if (newAssignments) {
+        const gearId = currentEditGear.value.id
+        const originalAssignments = currentEditGear.value.assignments || {}
+        const allLocationIds = new Set([
+          ...Object.keys(newAssignments).map(Number),
+          ...Object.keys(originalAssignments).map(Number)
+        ])
+        
+        // Update or create assignments in newAssignments
+        for (const [locationId, newAmount] of Object.entries(newAssignments)) {
+          const existing = await fetchTableData('gear_assignments', {
+            eq: { gear_id: gearId, location_id: Number(locationId) }
+          })
+          
+          if (existing.length > 0) {
+            if (newAmount > 0) {
+              await mutateTableData('gear_assignments', 'update', {
+                id: existing[0].id,
+                assigned_amount: newAmount
+              })
+            } else {
+              await mutateTableData('gear_assignments', 'delete', { id: existing[0].id })
+            }
+          } else if (newAmount > 0) {
+            await mutateTableData('gear_assignments', 'insert', {
+              gear_id: gearId,
+              location_id: Number(locationId),
+              assigned_amount: newAmount
+            })
+          }
+        }
+        
+        // Delete assignments that are no longer in newAssignments (were reduced to 0)
+        for (const locationId of allLocationIds) {
+          const locationIdStr = String(locationId)
+          if (!(locationIdStr in newAssignments) && locationIdStr in originalAssignments) {
+            const existing = await fetchTableData('gear_assignments', {
+              eq: { gear_id: gearId, location_id: locationId }
+            })
+            if (existing.length > 0) {
+              await mutateTableData('gear_assignments', 'delete', { id: existing[0].id })
+            }
+          }
+        }
+        
+        toast.success(`Gear updated. Assignments reduced to fit new total of ${newGearAmount}.`)
+      } else {
+        toast.success('Gear updated')
+      }
+      
       closeEditModal()
       await fetchGearList()
     } catch (err) {
@@ -1890,7 +2069,9 @@ setup(props) {
     userId,
     route,
     currentProject,
-    projectId
+    projectId,
+    isProjectOwner,
+    maxAssignableAmount
   }
 }
 }
@@ -2852,6 +3033,22 @@ setup(props) {
   background-color: #dc2626 !important;
   color: #ffffff !important;
   border-color: #b91c1c !important;
+}
+
+/* Dark mode styling for delete button */
+.dark .btn-danger,
+.dark .btn-danger .btn-icon,
+.dark .btn-danger .btn-text {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+}
+
+.dark .btn-danger:hover,
+.dark .btn-danger:hover .btn-icon,
+.dark .btn-danger:hover .btn-text {
+  background-color: #f87171 !important;
+  border-color: #ef4444 !important;
 }
 
 .btn-secondary,
