@@ -58,10 +58,12 @@
       v-if="showLegend" 
       class="color-legend" 
       :style="legendStyle"
+      draggable="false"
       @pointerdown="onLegendDragStart"
+      @dragstart.prevent
     >
       <div class="legend-header">
-        <h4>Color Legend</h4>
+        <h4>{{ stageName || 'Color Legend' }}</h4>
         <div class="legend-header-actions">
           <button @click="showLegend = false" class="legend-close-btn">×</button>
         </div>
@@ -443,7 +445,8 @@ const props = defineProps({
   projectId: { type: [String, Number], required: true },
   locationId: { type: [String, Number], default: null },
   nodes: { type: Array, default: () => [] },
-  gearList: { type: Array, default: () => [] }
+  gearList: { type: Array, default: () => [] },
+  stageName: { type: String, default: null }
 })
 
 const emit = defineEmits(['node-updated', 'node-added', 'node-deleted'])
@@ -719,6 +722,11 @@ function onLegendDragStart(e) {
   e.preventDefault()
   e.stopPropagation()
   
+  // Prevent default drag behavior to avoid ghost image
+  if (e.target.closest('.color-legend')) {
+    e.target.closest('.color-legend').setPointerCapture(e.pointerId)
+  }
+  
   legendDragging.value = true
   const rect = canvasWrapper.value.getBoundingClientRect()
   legendDragStart.value = {
@@ -772,6 +780,16 @@ function onLegendDragEnd(e) {
   if (!legendDragging.value) return
   
   legendDragging.value = false
+  
+  // Release pointer capture
+  if (e.target && e.target.releasePointerCapture) {
+    try {
+      e.target.releasePointerCapture(e.pointerId)
+    } catch (err) {
+      // Ignore if pointer capture wasn't set
+    }
+  }
+  
   saveLegendPosition()
   
   // Remove global event listeners
@@ -2796,7 +2814,7 @@ function drawLegend(ctx, canvasW = null, canvasH = null) {
   ctx.font = 'bold 13px sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  ctx.fillText('Color Legend', legendX + LEGEND_PADDING, legendY + LEGEND_PADDING)
+  ctx.fillText(props.stageName || 'Color Legend', legendX + LEGEND_PADDING, legendY + LEGEND_PADDING)
   
   // Draw legend items
   let itemY = legendY + LEGEND_PADDING + 20
@@ -3968,6 +3986,11 @@ defineExpose({ getCanvasDataURL })
   backdrop-filter: blur(4px);
   user-select: none;
   touch-action: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
 }
 
 .dark .color-legend {

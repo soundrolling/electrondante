@@ -50,6 +50,7 @@
       :locationId="effectiveLocationId"
       :nodes="sourceNodes"
       :gearList="gearList"
+      :stageName="currentLocation?.stage_name"
       @node-updated="handleNodeUpdated"
       @node-added="handleNodeAdded"
       @node-deleted="handleNodeDeleted"
