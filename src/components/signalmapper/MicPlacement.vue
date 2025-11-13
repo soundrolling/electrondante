@@ -338,6 +338,26 @@
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal -->
+  <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDelete">
+    <div class="modal-content delete-confirm-modal" @click.stop>
+      <div class="modal-header">
+        <h3>🗑️ Confirm Delete</h3>
+        <button @click="cancelDelete" class="close-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="delete-confirm-content">
+          <p class="delete-confirm-message">{{ deleteConfirmMessage }}</p>
+          <p v-if="deleteConfirmWarning" class="delete-confirm-warning">{{ deleteConfirmWarning }}</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="cancelDelete" class="btn-secondary">Cancel</button>
+        <button @click="confirmDelete" class="btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Gear Selection Modal -->
   <div v-if="showGearModal" class="modal-overlay" @click="closeGearModal">
     <div class="modal-content" @click.stop>
@@ -418,7 +438,6 @@ import { useToast } from 'vue-toastification'
 import { addNode, updateNode, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import { fetchTableData, mutateTableData } from '@/services/dataService'
 import { useUserStore } from '@/stores/userStore'
-import Swal from 'sweetalert2'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -777,6 +796,12 @@ const cropDragType = ref(null) // 'move', 'resize-nw', 'resize-ne', 'resize-sw',
 const cropDragStart = ref({ x: 0, y: 0 })
 const cropBoxStart = ref({ x: 0, y: 0, width: 0, height: 0 })
 
+// Delete confirmation modal state
+const showDeleteConfirm = ref(false)
+const deleteConfirmMessage = ref('')
+const deleteConfirmWarning = ref('')
+const pendingDeleteAction = ref(null) // Store the delete function to execute
+
 const colorOptions = [
   { name: 'Red', value: '#ff4d4f' },
   { name: 'Orange', value: '#fa8c16' },
@@ -915,41 +940,48 @@ async function saveColorButton() {
   }
 }
 
+// Delete confirmation modal functions
+function showDeleteConfirmation(message, warning, deleteAction) {
+  deleteConfirmMessage.value = message
+  deleteConfirmWarning.value = warning || ''
+  pendingDeleteAction.value = deleteAction
+  showDeleteConfirm.value = true
+}
+
+function cancelDelete() {
+  showDeleteConfirm.value = false
+  deleteConfirmMessage.value = ''
+  deleteConfirmWarning.value = ''
+  pendingDeleteAction.value = null
+}
+
+async function confirmDelete() {
+  if (pendingDeleteAction.value) {
+    await pendingDeleteAction.value()
+  }
+  cancelDelete()
+}
+
 async function deleteColorButton(id, idx) {
-  // Check if dark mode is active
-  const isDark = document.documentElement.classList.contains('dark')
+  const btn = colorButtons.value[idx]
+  const usageCount = props.nodes.filter(n => n.color_button_id === btn.id).length
   
-  const result = await Swal.fire({
-    title: 'Delete Colour Legend Entry?',
-    text: 'This will remove the colour legend entry. Mic nodes using this colour will revert to default.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    confirmButtonText: 'Delete',
-    cancelButtonText: 'Cancel',
-    background: isDark ? '#1a1a1a' : '#fff',
-    color: isDark ? '#ffffff' : '#000000',
-    customClass: {
-      popup: isDark ? 'swal2-dark' : '',
-      title: isDark ? 'swal2-title-dark' : '',
-      htmlContainer: isDark ? 'swal2-html-dark' : '',
-      confirmButton: isDark ? 'swal2-confirm-dark' : '',
-      cancelButton: isDark ? 'swal2-cancel-dark' : '',
-      icon: isDark ? 'swal2-icon-dark' : ''
+  const message = `Delete colour legend entry "${btn.name}"?`
+  const warning = usageCount > 0 
+    ? `This colour is used by ${usageCount} mic${usageCount !== 1 ? 's' : ''}. They will revert to the default colour.`
+    : 'This will permanently remove the colour legend entry.'
+  
+  showDeleteConfirmation(message, warning, async () => {
+    try {
+      await mutateTableData('mic_color_buttons', 'delete', { id })
+      colorButtons.value.splice(idx, 1)
+      toast.success('Color button deleted')
+      updateColorLegend()
+    } catch (err) {
+      console.error('Error deleting color button:', err)
+      toast.error('Failed to delete color button')
     }
   })
-  
-  if (!result.isConfirmed) return
-  
-  try {
-    await mutateTableData('mic_color_buttons', 'delete', { id })
-    colorButtons.value.splice(idx, 1)
-    toast.success('Color button deleted')
-    updateColorLegend()
-  } catch (err) {
-    console.error('Error deleting color button:', err)
-    toast.error('Failed to delete color button')
-  }
 }
 
 function applyColorButton(buttonId) {
@@ -2166,17 +2198,21 @@ async function deleteSelected() {
   }
   
   const micLabel = selectedMic.value.track_name || selectedMic.value.label
+  const message = `Delete microphone "${micLabel}"?`
+  const warning = 'This will permanently delete the microphone and all its connections. This action cannot be undone.'
 
-  try {
-    await cascadeDeleteNode(selectedMic.value.id)
-    selectedMic.value = null
-    closeContextMenu()
-    toast.success(`${micLabel} and connections deleted`)
-    nextTick(drawCanvas)
-  } catch (err) {
-    console.error('Error deleting mic:', err)
-    toast.error('Failed to delete microphone')
-  }
+  showDeleteConfirmation(message, warning, async () => {
+    try {
+      await cascadeDeleteNode(selectedMic.value.id)
+      selectedMic.value = null
+      closeContextMenu()
+      toast.success(`${micLabel} and connections deleted`)
+      nextTick(drawCanvas)
+    } catch (err) {
+      console.error('Error deleting mic:', err)
+      toast.error('Failed to delete microphone')
+    }
+  })
 }
 
 // Color presets for label background - 8 unique colors
@@ -2297,18 +2333,22 @@ async function deleteMicFromContextMenu() {
   }
   
   const micLabel = selectedMic.value.track_name || selectedMic.value.label
+  const message = `Delete microphone "${micLabel}"?`
+  const warning = 'This will permanently delete the microphone and all its connections. This action cannot be undone.'
 
-  try {
-    await cascadeDeleteNode(selectedMic.value.id)
-    const deletedLabel = micLabel
-    selectedMic.value = null
-    closeContextMenu()
-    toast.success(`${deletedLabel} and connections deleted`)
-    nextTick(drawCanvas)
-  } catch (err) {
-    console.error('Error deleting mic:', err)
-    toast.error('Failed to delete microphone')
-  }
+  showDeleteConfirmation(message, warning, async () => {
+    try {
+      await cascadeDeleteNode(selectedMic.value.id)
+      const deletedLabel = micLabel
+      selectedMic.value = null
+      closeContextMenu()
+      toast.success(`${deletedLabel} and connections deleted`)
+      nextTick(drawCanvas)
+    } catch (err) {
+      console.error('Error deleting mic:', err)
+      toast.error('Failed to delete microphone')
+    }
+  })
 }
 
 // Generate a readable color name from color value
@@ -4240,51 +4280,6 @@ defineExpose({ getCanvasDataURL })
   font-style: italic;
 }
 
-/* SweetAlert2 Dark Mode Styling */
-.swal2-dark {
-  background: var(--bg-primary) !important;
-  color: var(--text-primary) !important;
-}
-
-.swal2-title-dark {
-  color: var(--text-primary) !important;
-}
-
-.swal2-html-dark {
-  color: var(--text-secondary) !important;
-}
-
-.swal2-confirm-dark {
-  background: var(--btn-danger-bg) !important;
-  border-color: var(--btn-danger-border) !important;
-  color: var(--btn-danger-text) !important;
-}
-
-.swal2-confirm-dark:hover {
-  background: var(--btn-danger-hover-bg) !important;
-  border-color: var(--btn-danger-hover-border) !important;
-}
-
-.swal2-cancel-dark {
-  background: var(--btn-secondary-bg) !important;
-  border-color: var(--btn-secondary-border) !important;
-  color: var(--btn-secondary-text) !important;
-}
-
-.swal2-cancel-dark:hover {
-  background: var(--btn-secondary-hover-bg) !important;
-  border-color: var(--btn-secondary-hover-border) !important;
-}
-
-.swal2-icon-dark.swal2-warning {
-  border-color: var(--btn-warning-border) !important;
-  color: var(--btn-warning-bg) !important;
-}
-
-.swal2-icon-dark.swal2-warning .swal2-icon-content {
-  color: var(--btn-warning-bg) !important;
-}
-
 /* Crop Modal Styles */
 .crop-modal {
   max-width: 900px;
@@ -4325,6 +4320,36 @@ defineExpose({ getCanvasDataURL })
   padding: 20px;
   border-top: 1px solid var(--border-light);
   background: var(--bg-primary);
+}
+
+/* Delete Confirmation Modal Styles */
+.delete-confirm-modal {
+  max-width: 480px;
+  width: 90%;
+}
+
+.delete-confirm-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.delete-confirm-message {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.delete-confirm-warning {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--color-error-500);
 }
 </style>
 
