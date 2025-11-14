@@ -238,8 +238,13 @@
           
           <!-- Show buffering indicator when buffering audio -->
           <div v-if="hasSource && isBuffering && !isSource" class="buffering-indicator">
-            <span class="buffering-badge">⏳ Buffering...</span>
-            <span class="buffering-info">Accumulating audio data for smooth playback. This should only take a moment.</span>
+            <div class="buffering-content">
+              <div class="buffering-spinner"></div>
+              <div class="buffering-text">
+                <span class="buffering-badge">⏳ Buffering Audio...</span>
+                <span class="buffering-info">Accumulating audio data for smooth playback. Please wait...</span>
+              </div>
+            </div>
           </div>
           
           <!-- Listener/Mixer Section (for monitoring and mixing) -->
@@ -1137,6 +1142,14 @@ watch(() => mixer.value, (newMixer) => {
   min-height: 100vh;
   background: var(--bg-primary, #ffffff);
   padding: 2rem;
+  color: var(--text-primary, #1f2937);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dante-monitor-mixer {
+    background: var(--bg-primary, #1f2937);
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .mixer-container {
@@ -1184,6 +1197,12 @@ watch(() => mixer.value, (newMixer) => {
   color: var(--text-secondary, #6b7280);
 }
 
+@media (prefers-color-scheme: dark) {
+  .latency-info {
+    color: var(--text-secondary, #9ca3af);
+  }
+}
+
 .auth-section {
   max-width: 400px;
   margin: 4rem auto;
@@ -1209,6 +1228,16 @@ watch(() => mixer.value, (newMixer) => {
   border: 1px solid var(--border-light, #e2e8f0);
   border-radius: 4px;
   font-size: 1rem;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+}
+
+@media (prefers-color-scheme: dark) {
+  .form-input {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .error-message {
@@ -1239,18 +1268,34 @@ watch(() => mixer.value, (newMixer) => {
 .debug-panel {
   margin-top: 1rem;
   padding: 1rem;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: var(--bg-secondary, #f3f4f6);
+  border: 1px solid var(--border-light, #d1d5db);
   border-radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .debug-panel {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+  }
 }
 
 .debug-content {
   margin-top: 1rem;
   padding: 1rem;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-primary, white);
+  border: 1px solid var(--border-light, #e5e7eb);
   border-radius: 4px;
   font-size: 0.875rem;
+  color: var(--text-primary, #1f2937);
+}
+
+@media (prefers-color-scheme: dark) {
+  .debug-content {
+    background: var(--bg-primary, #1f2937);
+    border-color: var(--border-light, #4b5563);
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .debug-content h4 {
@@ -1358,36 +1403,49 @@ watch(() => mixer.value, (newMixer) => {
 }
 
 .buffering-indicator {
-  padding: 1rem;
-  background: #fef3c7;
-  border: 2px solid #f59e0b;
+  padding: 1.5rem;
+  background: var(--bg-secondary, #fef3c7);
+  border: 2px solid var(--border-warning, #f59e0b);
   border-radius: 8px;
   margin-bottom: 1rem;
+}
+
+.buffering-content {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.buffering-badge {
-  padding: 0.5rem 1rem;
-  background: #f59e0b;
-  color: white;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  animation: pulse 1.5s ease-in-out infinite;
+.buffering-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(245, 158, 11, 0.2);
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.buffering-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.buffering-badge {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary, #92400e);
 }
 
 .buffering-info {
-  color: #92400e;
-  font-size: 0.875rem;
-  flex: 1;
+  color: var(--text-secondary, #78350f);
+  font-size: 0.8125rem;
 }
 
 .section-title {
@@ -1404,6 +1462,13 @@ watch(() => mixer.value, (newMixer) => {
   background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
   border: 1px solid var(--border-light, #e2e8f0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .source-setup-section {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+  }
 }
 
 .source-control-bar {
@@ -1451,9 +1516,16 @@ watch(() => mixer.value, (newMixer) => {
 
 .listener-mixer-section {
   padding: 1.5rem;
-  background: white;
+  background: var(--bg-primary, white);
   border-radius: 8px;
   border: 1px solid var(--border-light, #e2e8f0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .listener-mixer-section {
+    background: var(--bg-primary, #1f2937);
+    border-color: var(--border-light, #4b5563);
+  }
 }
 
 .no-source-message {
@@ -1567,7 +1639,16 @@ watch(() => mixer.value, (newMixer) => {
   border: 1px solid var(--border-light, #e2e8f0);
   border-radius: 4px;
   font-size: 0.875rem;
-  background: white;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+}
+
+@media (prefers-color-scheme: dark) {
+  .device-select {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .btn-small {
@@ -1579,6 +1660,12 @@ watch(() => mixer.value, (newMixer) => {
   font-size: 0.875rem;
   color: var(--text-secondary, #6b7280);
   margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .info-message {
+    color: var(--text-secondary, #9ca3af);
+  }
 }
 
 .source-badge,
@@ -1618,7 +1705,16 @@ watch(() => mixer.value, (newMixer) => {
   border: 1px solid var(--border-light, #e2e8f0);
   border-radius: 4px;
   font-size: 1rem;
-  background: white;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+}
+
+@media (prefers-color-scheme: dark) {
+  .preset-select {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .btn {
@@ -1722,10 +1818,18 @@ watch(() => mixer.value, (newMixer) => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--bg-primary, white);
   padding: 2rem;
   border-radius: 8px;
   min-width: 300px;
+  color: var(--text-primary, #1f2937);
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-content {
+    background: var(--bg-primary, #1f2937);
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .modal-content h3 {

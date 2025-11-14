@@ -57,9 +57,11 @@ export class AudioMixerEngine {
     // This reduces processing frequency and prevents buffer underruns
     this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 0, 2);
     
-    // Minimum buffer threshold before starting playback (accumulate ~2 packets worth = ~682ms)
-    this.minBufferSamples = 32768; // ~682ms at 48kHz (2 * 16384 samples)
+    // Minimum buffer threshold before starting playback (accumulate ~1 packet worth = ~341ms)
+    // Reduced from 2 packets to 1 packet for faster startup
+    this.minBufferSamples = 16384; // ~341ms at 48kHz (1 * 16384 samples from one batch)
     this.isBuffering = true; // Start in buffering mode
+    this.bufferStartTime = null; // Track when buffering started
     
     this.scriptProcessor.onaudioprocess = (e) => {
       this.processAudio(e);
@@ -92,11 +94,23 @@ export class AudioMixerEngine {
     
     // If buffering, check if we have enough data to start
     if (this.isBuffering) {
+      if (!this.bufferStartTime) {
+        this.bufferStartTime = Date.now();
+      }
+      
       if (minBufferSize >= this.minBufferSamples) {
+        const bufferingTime = Date.now() - this.bufferStartTime;
         this.isBuffering = false;
-        console.log(`✅ [MIXER] Buffer filled (${minBufferSize} samples), starting playback`);
+        this.bufferStartTime = null;
+        console.log(`✅ [MIXER] Buffer filled (${minBufferSize} samples) in ${bufferingTime}ms, starting playback`);
       } else {
         // Still buffering - output silence
+        // Log progress every 500ms
+        const elapsed = Date.now() - this.bufferStartTime;
+        if (elapsed % 500 < 50) { // Log roughly every 500ms
+          const progress = Math.min(100, (minBufferSize / this.minBufferSamples) * 100);
+          console.log(`⏳ [MIXER] Buffering... ${progress.toFixed(0)}% (${minBufferSize}/${this.minBufferSamples} samples)`);
+        }
         return;
       }
     }
