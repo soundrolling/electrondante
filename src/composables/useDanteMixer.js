@@ -42,7 +42,11 @@ export class AudioMixerEngine {
     }
 
     // Create audio buffers for incoming WebSocket audio
+    // Initialize as empty arrays (not null) to ensure length property works
     this.channelBuffers = new Array(channelCount).fill(null).map(() => []);
+    
+    // Debug: Log buffer initialization
+    console.log(`🎵 [MIXER] Initialized ${channelCount} channel buffers, each starting with length 0`);
     
     // Opus decoder for compressed audio
     this.opusDecoder = new OpusDecoderManager(sampleRate, 1); // 1 channel per decoder
@@ -211,13 +215,18 @@ export class AudioMixerEngine {
       }
       
       // Track data addition for debugging
-      if (!this._dataReceivedCount) this._dataReceivedCount = 0;
-      this._dataReceivedCount++;
-      if (this._dataReceivedCount <= 5 || this._dataReceivedCount % 100 === 0) {
-        console.log(`🎵 [MIXER] Adding ${samples.length} samples to channel ${channel} buffer (total: ${this.channelBuffers[channel].length + samples.length})`);
-      }
+      if (!this._dataReceivedCount) this._dataReceivedCount = {};
+      if (!this._dataReceivedCount[channel]) this._dataReceivedCount[channel] = 0;
+      this._dataReceivedCount[channel]++;
       
+      const beforeLength = this.channelBuffers[channel].length;
       this.channelBuffers[channel].push(...samples);
+      const afterLength = this.channelBuffers[channel].length;
+      
+      // Log first few additions and periodically
+      if (this._dataReceivedCount[channel] <= 5 || this._dataReceivedCount[channel] % 100 === 0) {
+        console.log(`🎵 [MIXER] Channel ${channel}: Added ${samples.length} samples (${beforeLength} → ${afterLength} total)`);
+      }
       
       // Prevent buffer overflow - allow larger buffer for smoother playback
       // Keep up to 2 seconds of audio (2 * sampleRate samples)

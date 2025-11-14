@@ -129,8 +129,9 @@ class DanteBridgeServer {
       // Attach WebSocket server to HTTP server (Railway-friendly)
       this.wss = new WebSocket.Server({ 
         server: this.httpServer,
-        perMessageDeflate: false, // Disable compression for lower latency
+        perMessageDeflate: false, // Disable compression for lower latency (audio is already compressed if using Opus)
         clientTracking: true,
+        maxPayload: 10 * 1024 * 1024, // 10MB max payload (for large audio batches)
         verifyClient: (info) => {
           console.log(`🔍 WebSocket upgrade request from: ${info.origin || 'no origin'}`);
           return true; // Accept all connections
@@ -352,23 +353,59 @@ class DanteBridgeServer {
           
           // Relay audio to all listeners (single channel packet format)
           if (data.channel !== undefined && data.data) {
+            const audioMessage = JSON.stringify({
+              type: 'audio',
+              channel: data.channel,
+              data: data.data,
+              encoding: data.encoding || 'pcm', // Preserve encoding (opus or pcm)
+              timestamp: data.timestamp || Date.now(),
+              sequence: data.sequence, // Preserve sequence number for jitter buffering
+              bufferCount: data.bufferCount, // Preserve buffer count
+            });
+            
+            // Relay to all listeners efficiently
+            let relayedCount = 0;
+            let errorCount = 0;
+            
             this.listeners.forEach((listener, listenerId) => {
               if (listener.ws.readyState === WebSocket.OPEN) {
                 try {
-                  listener.ws.send(JSON.stringify({
-                    type: 'audio',
-                    channel: data.channel,
-                    data: data.data,
-                    encoding: data.encoding || 'pcm', // Preserve encoding (opus or pcm)
-                    timestamp: data.timestamp || Date.now(),
-                    sequence: data.sequence, // Preserve sequence number for jitter buffering
-                    bufferCount: data.bufferCount, // Preserve buffer count
-                  }));
+                  // Use send with error callback for better error handling
+                  listener.ws.send(audioMessage, (error) => {
+                    if (error) {
+                      errorCount++;
+                      console.error(`Error relaying audio to listener ${listenerId}:`, error.message);
+                      // Remove listener if connection is broken
+                      if (listener.ws.readyState !== WebSocket.OPEN) {
+                        this.listeners.delete(listenerId);
+                      }
+                    } else {
+                      relayedCount++;
+                    }
+                  });
                 } catch (error) {
-                  console.error(`Error relaying audio to listener ${listenerId}:`, error);
+                  errorCount++;
+                  console.error(`Error relaying audio to listener ${listenerId}:`, error.message);
+                  // Remove broken connections
+                  if (listener.ws.readyState !== WebSocket.OPEN) {
+                    this.listeners.delete(listenerId);
+                  }
                 }
+              } else {
+                // Remove closed connections
+                this.listeners.delete(listenerId);
               }
             });
+            
+            // Log relay stats periodically for debugging
+            if (!this._audioRelayStats) this._audioRelayStats = { total: 0, relayed: 0, errors: 0 };
+            this._audioRelayStats.total++;
+            this._audioRelayStats.relayed += relayedCount;
+            this._audioRelayStats.errors += errorCount;
+            
+            if (this._audioRelayStats.total % 1000 === 0) {
+              console.log(`📊 [SERVER] Audio relay stats: ${this._audioRelayStats.total} packets, ${this._audioRelayStats.relayed} relayed, ${this._audioRelayStats.errors} errors, ${this.listeners.size} listeners`);
+            }
           }
           break;
 
@@ -603,8 +640,15 @@ class DanteBridgeServer {
       });
       
       // Keep server alive - Railway needs shorter timeouts
-      this.httpServer.keepAliveTimeout = 61000; // 61 seconds
-      this.httpServer.headersTimeout = 62000; // 62 seconds
+      // Railway may close idle connections, so we use keepalive
+      this.httpServer.keepAliveTimeout = 65000; // 65 seconds (Railway default is 60s)
+      this.httpServer.headersTimeout = 66000; // 66 seconds (slightly longer than keepAliveTimeout)
+      
+      // Enable TCP keepalive for WebSocket connections (Railway optimization)
+      this.httpServer.on('connection', (socket) => {
+        socket.setKeepAlive(true, 30000); // Send keepalive every 30 seconds
+        socket.setNoDelay(true); // Disable Nagle's algorithm for lower latency
+      });
       
       // Handle server errors
       this.httpServer.on('clientError', (err, socket) => {
