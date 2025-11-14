@@ -84,7 +84,13 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       // Get stream settings to determine actual channel count
       const audioTrack = mediaStream.value.getAudioTracks()[0];
       const settings = audioTrack.getSettings();
-      const actualChannelCount = settings.channelCount || 2; // Default to stereo
+      
+      // Ensure we have a valid channel count (at least 1, default to 2 for stereo)
+      let actualChannelCount = settings.channelCount;
+      if (!actualChannelCount || actualChannelCount < 1) {
+        // Try to get channel count from constraints or default to 2
+        actualChannelCount = 2;
+      }
       const actualSampleRate = settings.sampleRate || audioContext.value.sampleRate;
       
       console.log('🎤 Audio stream settings:', {
@@ -92,6 +98,7 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
         channelCount: actualChannelCount,
         sampleRate: actualSampleRate,
         requestedChannels: channelCount,
+        settings: settings,
       });
       
       // Note: Most browsers only support stereo (2 channels) via getUserMedia
@@ -103,12 +110,30 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       // Create media stream source
       mediaStreamSource.value = audioContext.value.createMediaStreamSource(mediaStream.value);
       
+      // Determine the actual number of channels available from the source
+      // The MediaStreamSource might have a different channel count than what we requested
+      const sourceChannelCount = mediaStreamSource.value.channelCount || actualChannelCount;
+      const finalChannelCount = Math.max(1, Math.min(sourceChannelCount, actualChannelCount));
+      
+      console.log('📊 Channel configuration:', {
+        requested: channelCount,
+        settingsChannelCount: actualChannelCount,
+        sourceChannelCount: sourceChannelCount,
+        finalChannelCount: finalChannelCount,
+      });
+      
       // Create script processor to capture audio data
       // Buffer size: 256 samples for low latency
       // Note: ScriptProcessorNode requires at least 1 output channel to connect to destination
       // We use 1 output channel (mono) even though we don't need it - it's required for the node to work
+      // Input channels: use the actual available channels (at least 1)
+      // Output channels: use 1 (required for connection, but we'll silence it)
       const bufferSize = 256;
-      scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, actualChannelCount, 1);
+      const inputChannels = Math.max(1, finalChannelCount);
+      const outputChannels = 1; // Always 1 - we don't need output, just capture
+      
+      console.log(`Creating ScriptProcessorNode: ${inputChannels} input channels, ${outputChannels} output channel`);
+      scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, inputChannels, outputChannels);
       
       scriptProcessor.value.onaudioprocess = (e) => {
         // Re-check WebSocket connection
@@ -118,24 +143,33 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
         }
         
         // Process each input channel
-        const inputChannels = [];
-        for (let ch = 0; ch < actualChannelCount; ch++) {
-          const inputData = e.inputBuffer.getChannelData(ch);
-          // Convert Float32Array to regular array for JSON serialization
-          const samples = Array.from(inputData);
-          inputChannels.push(samples);
+        const inputChannelData = [];
+        const availableInputChannels = e.inputBuffer.numberOfChannels;
+        
+        for (let ch = 0; ch < availableInputChannels; ch++) {
+          try {
+            const inputData = e.inputBuffer.getChannelData(ch);
+            // Convert Float32Array to regular array for JSON serialization
+            const samples = Array.from(inputData);
+            inputChannelData.push(samples);
+          } catch (error) {
+            console.warn(`Error reading channel ${ch}:`, error);
+          }
         }
         
         // Send audio data to Railway via WebSocket
         // Send each channel separately for compatibility with existing server
         try {
-          for (let ch = 0; ch < Math.min(actualChannelCount, channelCount); ch++) {
-            currentWs.send(JSON.stringify({
-              type: 'audio',
-              channel: ch,
-              data: inputChannels[ch],
-              sampleRate: audioContext.value.sampleRate,
-            }));
+          const channelsToSend = Math.min(availableInputChannels, channelCount);
+          for (let ch = 0; ch < channelsToSend; ch++) {
+            if (inputChannelData[ch]) {
+              currentWs.send(JSON.stringify({
+                type: 'audio',
+                channel: ch,
+                data: inputChannelData[ch],
+                sampleRate: audioContext.value.sampleRate,
+              }));
+            }
           }
         } catch (error) {
           console.error('Error sending audio data:', error);
@@ -144,8 +178,15 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
         
         // Clear the output buffer (we don't need to output anything, just capture)
         // This prevents any audio from being played back
-        const outputData = e.outputBuffer.getChannelData(0);
-        outputData.fill(0);
+        try {
+          const outputChannels = e.outputBuffer.numberOfChannels;
+          for (let ch = 0; ch < outputChannels; ch++) {
+            const outputData = e.outputBuffer.getChannelData(ch);
+            outputData.fill(0);
+          }
+        } catch (error) {
+          console.warn('Error clearing output buffer:', error);
+        }
       };
       
       // Connect: mediaStreamSource -> scriptProcessor -> destination
@@ -154,10 +195,10 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       scriptProcessor.value.connect(audioContext.value.destination);
       
       isCapturing.value = true;
-      console.log(`✅ Audio capture started: ${actualChannelCount} channels @ ${audioContext.value.sampleRate}Hz`);
+      console.log(`✅ Audio capture started: ${inputChannels} input channels, ${outputChannels} output channel @ ${audioContext.value.sampleRate}Hz`);
       
-      if (actualChannelCount < channelCount) {
-        console.warn(`⚠️ Device only provides ${actualChannelCount} channels, but ${channelCount} were requested.`);
+      if (finalChannelCount < channelCount) {
+        console.warn(`⚠️ Device only provides ${finalChannelCount} channels, but ${channelCount} were requested.`);
         console.warn('For multi-channel devices like Dante Virtual Soundcard, consider using the local client.js for full support.');
       }
       
