@@ -578,7 +578,12 @@ const result = await savePDFToStorage(
   description
 )
 
-showExportSuccessToast(toast, result, fileName)
+showExportSuccessToast(toast, result, fileName, {
+  projectId: props.projectId,
+  venueId,
+  stageId: props.locationId,
+  mimeType: 'application/pdf'
+})
 }
 
 async function exportSignalFlowDoc() {
@@ -647,7 +652,12 @@ const result = await savePDFToStorage(
   description
 )
 
-showExportSuccessToast(toast, result, fileName)
+showExportSuccessToast(toast, result, fileName, {
+  projectId: props.projectId,
+  venueId,
+  stageId: props.locationId,
+  mimeType: 'application/pdf'
+})
 }
 
 function exportConnectionMatrix() {

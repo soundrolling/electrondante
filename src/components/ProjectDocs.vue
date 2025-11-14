@@ -607,7 +607,12 @@ async function exportPdf() {
       description
     )
     
-    showExportSuccessToast(toast, result, filename)
+    showExportSuccessToast(toast, result, filename, {
+      projectId,
+      venueId: null,
+      stageId: null,
+      mimeType: 'application/pdf'
+    })
   } catch (error) {
     console.error('PDF export error:', error)
     toast.error('Failed to export PDF')

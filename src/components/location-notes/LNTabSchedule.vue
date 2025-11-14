@@ -1004,7 +1004,12 @@ export default {
           description
         )
         
-        showExportSuccessToast(toast, result, filename)
+        showExportSuccessToast(toast, result, filename, {
+          projectId,
+          venueId,
+          stageId: props.locationId,
+          mimeType: 'application/pdf'
+        })
         closeExportModal()
       } catch (error) {
         console.error('Export error:', error)

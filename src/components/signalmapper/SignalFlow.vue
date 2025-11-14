@@ -3255,31 +3255,13 @@ async function exportToPNG() {
       description
     )
     
-    if (result.success) {
-      // Navigate to Data Management first
-      router.push({ name: 'DataManagement', params: { id: props.projectId } })
-      
-      // Show toast with link to documents
-      const navigateToDocs = () => {
-        if (venueId && stageId) {
-          router.push({ 
-            name: 'StageDocs', 
-            params: { id: props.projectId },
-            query: { venueId, stageId }
-          })
-        } else {
-          router.push({ name: 'ProjectDocs', params: { id: props.projectId } })
-        }
-      }
-      
-      toast.success('Export saved! Click here to view in Documents', {
-        onClick: navigateToDocs,
-        closeOnClick: true,
-        timeout: 5000
-      })
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
+    const { showExportSuccessModal } = await import('@/services/exportStorageService')
+    showExportSuccessModal(result, finalFileName, {
+      projectId: props.projectId,
+      venueId,
+      stageId,
+      mimeType: 'image/png'
+    })
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export signal flow')

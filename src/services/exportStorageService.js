@@ -209,13 +209,23 @@ export async function savePNGToStorage(
   }
 }
 
+// Global modal state for export success
+let exportSuccessModalState = {
+  show: false,
+  filename: '',
+  result: null,
+  onDownload: null,
+  onNavigate: null,
+  onClose: null
+};
+
 /**
- * Helper function to show export success toast with download option
- * @param {Object} toast - Toast instance from useToast()
+ * Show export success modal
  * @param {Object} result - Result from savePDFToStorage or savePNGToStorage
  * @param {string} filename - Filename for download
+ * @param {Object} options - Options object with projectId, venueId, stageId, mimeType
  */
-export function showExportSuccessToast(toast, result, filename) {
+export function showExportSuccessModal(result, filename, options = {}) {
   if (!result.success) {
     toast.error(`Failed to save export: ${result.error || 'Unknown error'}`);
     return;
@@ -247,32 +257,65 @@ export function showExportSuccessToast(toast, result, filename) {
         document.body.removeChild(link);
       }
       toast.success('File downloaded');
+      closeExportSuccessModal();
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download file');
     }
   };
 
-  // Show toast with download action button
-  // The action button works with both click and touch events automatically
-  toast.success('Saved to Data Management', {
-    timeout: 6000,
-    closeOnClick: false,
-    onClick: undefined, // Don't download on click, use action button instead
-    action: {
-      text: 'Download',
-      onClick: (e, toastObject) => {
-        // Prevent default to avoid any issues
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        downloadFile();
-        toastObject.close();
-      },
-      // Ensure touch events are handled
-      class: 'toast-download-action'
-    }
-  });
+  // Navigation will be handled by the modal component
+  const navigateToDataManagement = () => {
+    // This will be handled by ExportSuccessModal component
+  };
+
+  // Set modal state
+  exportSuccessModalState = {
+    show: true,
+    filename,
+    result: {
+      ...result,
+      projectId: options.projectId || result.projectId,
+      venueId: options.venueId || result.venueId,
+      stageId: options.stageId || result.stageId,
+      mimeType: options.mimeType || (filename.endsWith('.pdf') ? 'application/pdf' : 'image/png')
+    },
+    onDownload: downloadFile,
+    onNavigate: navigateToDataManagement,
+    onClose: closeExportSuccessModal
+  };
+
+  // Trigger custom event to show modal
+  window.dispatchEvent(new CustomEvent('show-export-success-modal', {
+    detail: exportSuccessModalState
+  }));
+}
+
+/**
+ * Close export success modal
+ */
+export function closeExportSuccessModal() {
+  exportSuccessModalState.show = false;
+  window.dispatchEvent(new CustomEvent('close-export-success-modal'));
+}
+
+/**
+ * Get current export success modal state
+ */
+export function getExportSuccessModalState() {
+  return exportSuccessModalState;
+}
+
+/**
+ * Helper function to show export success toast with download option (deprecated - use showExportSuccessModal)
+ * @deprecated Use showExportSuccessModal instead
+ * @param {Object} toast - Toast instance (unused, kept for compatibility)
+ * @param {Object} result - Result from savePDFToStorage or savePNGToStorage
+ * @param {string} filename - Filename for download
+ * @param {Object} options - Optional navigation options (projectId, venueId, stageId, mimeType)
+ */
+export function showExportSuccessToast(toast, result, filename, options = {}) {
+  // For backward compatibility, show modal instead
+  showExportSuccessModal(result, filename, options);
 }
 

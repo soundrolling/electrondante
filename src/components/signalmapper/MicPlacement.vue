@@ -3107,31 +3107,13 @@ async function confirmExport() {
       description
     )
     
-    if (result.success) {
-      // Navigate to Data Management first
-      router.push({ name: 'DataManagement', params: { id: props.projectId } })
-      
-      // Show toast with link to documents
-      const navigateToDocs = () => {
-        if (venueId && props.locationId) {
-          router.push({ 
-            name: 'StageDocs', 
-            params: { id: props.projectId },
-            query: { venueId, stageId: props.locationId }
-          })
-        } else {
-          router.push({ name: 'ProjectDocs', params: { id: props.projectId } })
-        }
-      }
-      
-      toast.success('Export saved! Click here to view in Documents', {
-        onClick: navigateToDocs,
-        closeOnClick: true,
-        timeout: 5000
-      })
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
+    const { showExportSuccessModal } = await import('@/services/exportStorageService')
+    showExportSuccessModal(result, filename, {
+      projectId: props.projectId,
+      venueId,
+      stageId: props.locationId,
+      mimeType: 'image/png'
+    })
   } catch (e) {
     console.error('Error exporting canvas:', e)
     toast.error('Failed to export mic placement')

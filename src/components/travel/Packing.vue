@@ -287,7 +287,12 @@ async function printBagInventory(bag) {
       description
     )
     
-    showExportSuccessToast(toast, result, filename)
+    showExportSuccessToast(toast, result, filename, {
+      projectId,
+      venueId: null,
+      stageId: null,
+      mimeType: 'application/pdf'
+    })
   } catch (err) {
     console.error('Failed to print bag inventory:', err)
     toast.error(err.message || 'Failed to print inventory')

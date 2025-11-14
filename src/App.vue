@@ -54,6 +54,16 @@
 
   <!-- Quick Access Menu (available on all project pages) -->
   <QuickAccessMenu />
+
+  <!-- Export Success Modal -->
+  <ExportSuccessModal
+    :visible="exportSuccessModal.show"
+    :filename="exportSuccessModal.filename"
+    :result="exportSuccessModal.result"
+    @download="exportSuccessModal.onDownload"
+    @navigate="exportSuccessModal.onNavigate"
+    @close="exportSuccessModal.onClose"
+  />
 </div>
 </template>
 
@@ -66,12 +76,14 @@ import Header from './components/Header.vue'
 import Footer from './components/Footer.vue'
 import ChangeoverNotificationModal from './components/ChangeoverNotificationModal.vue'
 import QuickAccessMenu from './components/QuickAccessMenu.vue'
+import ExportSuccessModal from './components/ExportSuccessModal.vue'
 import { useToast } from 'vue-toastification'
 import { syncOfflineChanges } from '@/services/dataService'
 import { startScheduleNotifications, stopScheduleNotifications, setChangeoverModalCallbacks } from '@/services/scheduleNotificationService'
+import { getExportSuccessModalState } from '@/services/exportStorageService'
 
 export default {
-components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
+components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu, ExportSuccessModal },
   setup() {
   const userStore = useUserStore()
   const themeStore = useThemeStore()
@@ -91,6 +103,16 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
     startTime: '',
     locationId: null,
     projectId: null
+  })
+
+  // Export success modal state
+  const exportSuccessModal = ref({
+    show: false,
+    filename: '',
+    result: null,
+    onDownload: null,
+    onNavigate: null,
+    onClose: null
   })
 
   // Set up modal callbacks for notification service
@@ -180,6 +202,26 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
     }
   }, { immediate: false })
 
+  // Handle export success modal events
+  const handleShowExportModal = (event) => {
+    const state = event.detail || getExportSuccessModalState()
+    exportSuccessModal.value = {
+      show: true,
+      filename: state.filename || '',
+      result: state.result,
+      onDownload: state.onDownload || (() => {}),
+      onNavigate: state.onNavigate || (() => {}),
+      onClose: () => {
+        exportSuccessModal.value.show = false
+        if (state.onClose) state.onClose()
+      }
+    }
+  }
+
+  const handleCloseExportModal = () => {
+    exportSuccessModal.value.show = false
+  }
+
   onMounted(async () => {
     try {
       // Initialize theme first, before other initialization
@@ -194,6 +236,10 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
       // Register modal callbacks with notification service
       setChangeoverModalCallbacks(setChangeoverModal, showChangeoverModal)
       
+      // Listen for export success modal events
+      window.addEventListener('show-export-success-modal', handleShowExportModal)
+      window.addEventListener('close-export-success-modal', handleCloseExportModal)
+      
       // Start schedule notifications if authenticated and have a project
       if (userStore.isAuthenticated && userStore.getCurrentProject) {
         await startScheduleNotifications(userStore.getCurrentProject.id)
@@ -206,6 +252,8 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
   onBeforeUnmount(() => {
     window.removeEventListener('online', handleOnline)
     window.removeEventListener('offline', updateOnlineStatus)
+    window.removeEventListener('show-export-success-modal', handleShowExportModal)
+    window.removeEventListener('close-export-success-modal', handleCloseExportModal)
     stopScheduleNotifications()
   })
 
@@ -222,7 +270,8 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu },
     signOut,
     retryInitialization,
     changeoverModal,
-    closeChangeoverModal
+    closeChangeoverModal,
+    exportSuccessModal
   }
 }
 }

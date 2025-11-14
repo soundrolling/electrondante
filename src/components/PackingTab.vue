@@ -678,7 +678,12 @@ async function printBagInventory(bag) {
   const result = await printBagInventoryHelper(bag, effectiveProjectId, currentProject)
   const { showExportSuccessToast } = await import('@/services/exportStorageService')
   const filename = `packing_bag_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
-  showExportSuccessToast(toast, result, filename)
+  showExportSuccessToast(toast, result, filename, {
+    projectId: effectiveProjectId.value,
+    venueId: null,
+    stageId: null,
+    mimeType: 'application/pdf'
+  })
 }
 
 async function fetchLocations() {
@@ -713,7 +718,12 @@ async function printMyGearInventory() {
   const result = await printMyGearInventoryHelper(bags, effectiveProjectId, currentProject)
   const { showExportSuccessToast } = await import('@/services/exportStorageService')
   const filename = `all_packing_bags_${new Date().toISOString().slice(0, 10)}.pdf`
-  showExportSuccessToast(toast, result, filename)
+  showExportSuccessToast(toast, result, filename, {
+    projectId: effectiveProjectId.value,
+    venueId: null,
+    stageId: null,
+    mimeType: 'application/pdf'
+  })
 }
 
 // Watch for projectId changes and reload gear when it becomes available

@@ -828,7 +828,12 @@ async function confirmPDFExport() {
       description
     )
     
-    showExportSuccessToast(toast, result, finalFileName)
+    showExportSuccessToast(toast, result, finalFileName, {
+      projectId: props.projectId,
+      venueId,
+      stageId: props.locationId,
+      mimeType: 'application/pdf'
+    })
   } catch (e) {
     console.error('Error exporting track list:', e)
     alert('Failed to export track list. Please try again.')

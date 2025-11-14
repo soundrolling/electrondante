@@ -1167,7 +1167,12 @@ async function doExportPdf() {
       description
     )
     
-    showExportSuccessToast(toast, result, filename)
+    showExportSuccessToast(toast, result, filename, {
+      projectId,
+      venueId,
+      stageId: props.locationId,
+      mimeType: 'application/pdf'
+    })
     saveExportPrefs();
     closeExportModal();
   } catch (error) {

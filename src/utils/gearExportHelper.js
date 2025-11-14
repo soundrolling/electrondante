@@ -50,7 +50,12 @@ export async function exportGearToPDF(filteredMainGearList, filteredAccessoriesL
     description
   )
 
-  showExportSuccessToast(toast, result, filename)
+  showExportSuccessToast(toast, result, filename, {
+    projectId,
+    venueId: null,
+    stageId: null,
+    mimeType: 'application/pdf'
+  })
   
   return result
 }

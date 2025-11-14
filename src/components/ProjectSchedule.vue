@@ -589,7 +589,12 @@ try {
     description
   )
   
-  showExportSuccessToast(toast, result, filename)
+  showExportSuccessToast(toast, result, filename, {
+    projectId,
+    venueId,
+    stageId,
+    mimeType: 'application/pdf'
+  })
 } catch (err) {
   toast.error(err.message)
 } finally {

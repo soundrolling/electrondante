@@ -915,7 +915,12 @@ async function exportPdf() {
       description
     );
     
-    showExportSuccessToast(toast, result, filename);
+    showExportSuccessToast(toast, result, filename, {
+      projectId,
+      venueId,
+      stageId,
+      mimeType: 'application/pdf'
+    });
   } catch (error) {
     console.error('PDF export error:', error);
     toast.error('Failed to export PDF');
@@ -1022,7 +1027,12 @@ async function exportSelectedPdf() {
       description
     );
     
-    showExportSuccessToast(toast, result, filename);
+    showExportSuccessToast(toast, result, filename, {
+      projectId,
+      venueId,
+      stageId,
+      mimeType: 'application/pdf'
+    });
   } catch (error) {
     console.error('PDF export error:', error);
     toast.error('Failed to export selected images as PDF');
