@@ -729,7 +729,8 @@ const handleServerMessage = (message) => {
       // Receive audio data for a channel
       // Note: Jitter buffering would be handled here if implemented
       if (mixer.value) {
-        mixer.value.addChannelData(message.channel, message.data);
+        const encoding = message.encoding || 'pcm'; // Default to PCM if not specified
+        mixer.value.addChannelData(message.channel, message.data, encoding);
       }
       // Update connection quality stats if available
       if (message.sequence !== undefined && connectionQuality) {

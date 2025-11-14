@@ -1,6 +1,15 @@
 // Dante Bridge Client Core - Extracted for Electron app
 const WebSocket = require('ws');
 const EventEmitter = require('events');
+const path = require('path');
+
+// Load Opus encoder (relative to this file)
+let OpusEncoder = null;
+try {
+  OpusEncoder = require(path.join(__dirname, '..', 'opus-encoder'));
+} catch (error) {
+  console.warn('⚠️ Opus encoder not available:', error.message);
+}
 
 // Lazy load naudiodon
 let portAudio = null;
@@ -43,6 +52,10 @@ class DanteBridgeClient extends EventEmitter {
     this.reconnectTimer = null;
     this.selectedDeviceId = config.deviceId || -1;
     this.availableDevices = [];
+    
+    // Opus encoders (one per channel)
+    this.opusEncoders = [];
+    this.useOpus = OpusEncoder !== null; // Enable Opus if available
     
     this.emit('status', { type: 'initialized', message: 'Client initialized' });
   }
@@ -318,10 +331,36 @@ class DanteBridgeClient extends EventEmitter {
         
         if (combinedSamples.length > 0) {
           try {
+            let audioData;
+            let encoding = 'pcm';
+            
+            if (this.useOpus && OpusEncoder) {
+              // Initialize Opus encoder for this channel if needed
+              if (!this.opusEncoders[chIndex]) {
+                this.opusEncoders[chIndex] = new OpusEncoder(this.config.sampleRate, 1, 64000);
+              }
+              
+              // Encode to Opus
+              const opusBuffer = this.opusEncoders[chIndex].encode(combinedSamples);
+              if (opusBuffer && opusBuffer.length > 0) {
+                // Convert Buffer to array for JSON transmission
+                audioData = Array.from(opusBuffer);
+                encoding = 'opus';
+              } else {
+                // Fallback to PCM if encoding fails
+                audioData = combinedSamples;
+                encoding = 'pcm';
+              }
+            } else {
+              audioData = combinedSamples;
+              encoding = 'pcm';
+            }
+            
             this.ws.send(JSON.stringify({
               type: 'audio',
               channel: chIndex,
-              data: combinedSamples,
+              data: audioData,
+              encoding: encoding, // Indicate encoding type
               timestamp: batch[0].timestamp, // Use first buffer's timestamp
               bufferCount: batch.length,
               sequence: this.sequenceNumber, // Add sequence number for jitter buffering

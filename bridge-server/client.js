@@ -4,6 +4,7 @@
 const WebSocket = require('ws');
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
+const OpusEncoder = require('./opus-encoder');
 require('dotenv').config();
 
 // Lazy load naudiodon - required for client mode
@@ -70,6 +71,11 @@ class DanteBridgeClient {
     this.selectedDeviceId = parseInt(process.env.DANTE_DEVICE_ID) || -1;
     this.availableDevices = [];
     this.httpServer = null;
+    
+    // Opus encoders (one per channel)
+    this.opusEncoders = [];
+    this.useOpus = true; // Enable Opus encoding by default
+    
     this.initLocalHTTPServer();
   }
 
@@ -441,10 +447,36 @@ class DanteBridgeClient {
         
         if (combinedSamples.length > 0) {
           try {
+            let audioData;
+            let encoding = 'pcm';
+            
+            if (this.useOpus) {
+              // Initialize Opus encoder for this channel if needed
+              if (!this.opusEncoders[chIndex]) {
+                this.opusEncoders[chIndex] = new OpusEncoder(CONFIG.sampleRate, 1, 64000);
+              }
+              
+              // Encode to Opus
+              const opusBuffer = this.opusEncoders[chIndex].encode(combinedSamples);
+              if (opusBuffer && opusBuffer.length > 0) {
+                // Convert Buffer to base64 or array for JSON transmission
+                audioData = Array.from(opusBuffer);
+                encoding = 'opus';
+              } else {
+                // Fallback to PCM if encoding fails
+                audioData = combinedSamples;
+                encoding = 'pcm';
+              }
+            } else {
+              audioData = combinedSamples;
+              encoding = 'pcm';
+            }
+            
             this.ws.send(JSON.stringify({
               type: 'audio',
               channel: chIndex,
-              data: combinedSamples,
+              data: audioData,
+              encoding: encoding, // Indicate encoding type
               timestamp: batch[0].timestamp, // Use first buffer's timestamp
               bufferCount: batch.length,
               sequence: this.sequenceNumber, // Add sequence number for jitter buffering
@@ -468,6 +500,20 @@ class DanteBridgeClient {
 
   stop() {
     console.log('🛑 Stopping client...');
+    
+    // Clean up Opus encoders
+    if (this.opusEncoders) {
+      this.opusEncoders.forEach((encoder, index) => {
+        if (encoder) {
+          try {
+            encoder.destroy();
+          } catch (error) {
+            console.warn(`⚠️ Error destroying Opus encoder for channel ${index}:`, error);
+          }
+        }
+      });
+      this.opusEncoders = [];
+    }
     
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

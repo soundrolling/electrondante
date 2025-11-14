@@ -359,7 +359,10 @@ class DanteBridgeServer {
                     type: 'audio',
                     channel: data.channel,
                     data: data.data,
+                    encoding: data.encoding || 'pcm', // Preserve encoding (opus or pcm)
                     timestamp: data.timestamp || Date.now(),
+                    sequence: data.sequence, // Preserve sequence number for jitter buffering
+                    bufferCount: data.bufferCount, // Preserve buffer count
                   }));
                 } catch (error) {
                   console.error(`Error relaying audio to listener ${listenerId}:`, error);

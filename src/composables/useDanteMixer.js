@@ -2,6 +2,7 @@
 // Manages Web Audio API nodes and peak level meters
 
 import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { OpusDecoderManager } from './useOpusDecoder';
 
 export class AudioMixerEngine {
   constructor(channelCount, sampleRate) {
@@ -42,6 +43,9 @@ export class AudioMixerEngine {
 
     // Create audio buffers for incoming WebSocket audio
     this.channelBuffers = new Array(channelCount).fill(null).map(() => []);
+    
+    // Opus decoder for compressed audio
+    this.opusDecoder = new OpusDecoderManager(sampleRate, 1); // 1 channel per decoder
     
     // Create a master gain node for the final mix
     this.masterGain = this.audioContext.createGain();
@@ -117,11 +121,40 @@ export class AudioMixerEngine {
     }
   }
 
-  addChannelData(channel, data) {
+  async addChannelData(channel, data, encoding = 'pcm') {
     if (channel >= 0 && channel < this.channelCount) {
       if (!data || data.length === 0) return;
       
-      this.channelBuffers[channel].push(...data);
+      let samples;
+      
+      if (encoding === 'opus') {
+        // Decode Opus-encoded data
+        try {
+          // Convert data to Uint8Array if needed
+          let opusData;
+          if (data instanceof Uint8Array) {
+            opusData = data;
+          } else if (Array.isArray(data)) {
+            opusData = new Uint8Array(data);
+          } else if (data instanceof ArrayBuffer) {
+            opusData = new Uint8Array(data);
+          } else {
+            console.warn(`⚠️ [MIXER] Unsupported Opus data type for channel ${channel}`);
+            return;
+          }
+          
+          const decoded = await this.opusDecoder.decode(channel, opusData);
+          samples = Array.from(decoded); // Convert Float32Array to array
+        } catch (error) {
+          console.error(`❌ [MIXER] Opus decode error for channel ${channel}:`, error);
+          return;
+        }
+      } else {
+        // PCM data (already decoded)
+        samples = Array.isArray(data) ? data : Array.from(data);
+      }
+      
+      this.channelBuffers[channel].push(...samples);
       
       // Prevent buffer overflow
       if (this.channelBuffers[channel].length > this.sampleRate) {
@@ -220,6 +253,12 @@ export class AudioMixerEngine {
     if (this.meterAnimationFrame) {
       cancelAnimationFrame(this.meterAnimationFrame);
       this.meterAnimationFrame = null;
+    }
+    
+    // Clean up Opus decoder
+    if (this.opusDecoder) {
+      this.opusDecoder.destroy();
+      this.opusDecoder = null;
     }
     
     this.scriptProcessor.disconnect();
