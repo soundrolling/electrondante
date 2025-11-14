@@ -355,6 +355,7 @@ const sourceRegistrationError = ref('');
 const isYourSource = ref(false); // True if current user is the source (even if reconnected as listener)
 const reconnectTimer = ref(null);
 const pingInterval = ref(null);
+const audioPacketCount = ref(0); // Track received audio packets for debugging
 
 // Browser audio capture - pass isSource ref so it stops sending when not source
 const {
@@ -765,6 +766,11 @@ const handleServerMessage = async (message) => {
       // Note: Jitter buffering would be handled here if implemented
       if (mixer.value) {
         const encoding = message.encoding || 'pcm'; // Default to PCM if not specified
+        // Log first few audio packets for debugging
+        audioPacketCount.value++;
+        if (audioPacketCount.value <= 5 || audioPacketCount.value % 100 === 0) {
+          console.log(`🎧 [LISTENER] Received audio packet #${audioPacketCount.value} for channel ${message.channel}, encoding: ${encoding}, data length: ${message.data?.length || 0}`);
+        }
         mixer.value.addChannelData(message.channel, message.data, encoding);
       }
       // Update connection quality stats if available
