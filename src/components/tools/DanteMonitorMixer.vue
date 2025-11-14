@@ -72,6 +72,39 @@
               No audio source active. Register as source if you have Dante Virtual Soundcard running.
             </p>
           </div>
+          
+          <!-- Audio Device Selection (only show if source is registered) -->
+          <div v-if="isSource" class="device-selection">
+            <label class="device-label">Audio Input Device:</label>
+            <div class="device-controls">
+              <select 
+                v-model="selectedDeviceId"
+                @change="changeAudioDevice"
+                :disabled="deviceLoading"
+                class="device-select"
+              >
+                <option value="-1">Auto-detect (Default)</option>
+                <option 
+                  v-for="device in availableDevices" 
+                  :key="device.id" 
+                  :value="device.id"
+                >
+                  {{ device.name }} ({{ device.maxInputChannels }}ch, {{ device.defaultSampleRate }}Hz)
+                </option>
+              </select>
+              <button 
+                @click="refreshDevices"
+                :disabled="deviceLoading"
+                class="btn btn-secondary btn-small"
+              >
+                {{ deviceLoading ? 'Loading...' : 'Refresh' }}
+              </button>
+            </div>
+            <p v-if="deviceError" class="error-message">{{ deviceError }}</p>
+            <p v-if="!deviceError && availableDevices.length === 0" class="info-message">
+              No devices found. Make sure the local client is running on {{ localClientUrl }}
+            </p>
+          </div>
         </div>
 
         <!-- Preset Bar -->
@@ -173,6 +206,15 @@ const connectionError = ref('');
 const isSource = ref(false);
 const hasSource = ref(false);
 const sourceRegistrationError = ref('');
+const reconnectTimer = ref(null);
+const pingInterval = ref(null);
+
+// Audio device selection
+const availableDevices = ref([]);
+const selectedDeviceId = ref(-1);
+const deviceLoading = ref(false);
+const deviceError = ref('');
+const localClientUrl = ref('http://127.0.0.1:3002'); // Local client HTTP server
 
 // Mixer state
 const channels = ref([]);
@@ -225,6 +267,13 @@ onBeforeUnmount(() => {
   if (mixer.value) {
     mixer.value.stop();
   }
+  // Clear any remaining timers
+  if (reconnectTimer.value) {
+    clearTimeout(reconnectTimer.value);
+  }
+  if (pingInterval.value) {
+    clearInterval(pingInterval.value);
+  }
 });
 
 // Authentication
@@ -271,14 +320,44 @@ const connectWebSocket = async () => {
       url = url.slice(0, -1);
     }
     
+    // Ensure protocol is correct
+    if (url.startsWith('https://')) {
+      url = url.replace('https://', 'wss://');
+    } else if (url.startsWith('http://')) {
+      url = url.replace('http://', 'ws://');
+    } else if (!url.startsWith('ws')) {
+      // Default to wss for production URLs
+      url = `wss://${url}`;
+    }
+    
     console.log(`🔌 Attempting WebSocket connection to: ${url}`);
     const ws = new WebSocket(url);
     wsRef.value = ws;
 
     ws.onopen = async () => {
-      console.log('Connected to bridge server');
+      console.log('✅ Connected to bridge server');
       connected.value = true;
       connectionError.value = ''; // Clear any previous errors
+      
+      // Clear any pending reconnect timer
+      if (reconnectTimer.value) {
+        clearTimeout(reconnectTimer.value);
+        reconnectTimer.value = null;
+      }
+      
+      // Set up ping interval to keep connection alive (every 30 seconds)
+      if (pingInterval.value) {
+        clearInterval(pingInterval.value);
+      }
+      pingInterval.value = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          } catch (error) {
+            console.warn('Failed to send ping:', error);
+          }
+        }
+      }, 30000);
 
       // Authenticate with server
       const { data: { session } } = await supabase.auth.getSession();
@@ -373,15 +452,31 @@ const connectWebSocket = async () => {
     };
 
     ws.onclose = (event) => {
-      console.log('Disconnected from bridge server', event.code, event.reason);
+      console.log('❌ Disconnected from bridge server', event.code, event.reason || 'no reason');
       connected.value = false;
       isSource.value = false;
       hasSource.value = false;
-      if (event.code !== 1000) { // Not a normal closure
-        connectionError.value = `Connection closed (code: ${event.code}). Retrying...`;
+      
+      // Clear ping interval
+      if (pingInterval.value) {
+        clearInterval(pingInterval.value);
+        pingInterval.value = null;
       }
-      // Reconnect after 3 seconds
-      setTimeout(connectWebSocket, 3000);
+      
+      // Clear any existing reconnect timer
+      if (reconnectTimer.value) {
+        clearTimeout(reconnectTimer.value);
+      }
+      
+      // Don't reconnect if it was a normal closure (1000) or if we're shutting down
+      if (event.code !== 1000) {
+        connectionError.value = `Connection closed (code: ${event.code}). Retrying...`;
+        // Reconnect after 3 seconds with exponential backoff
+        reconnectTimer.value = setTimeout(() => {
+          console.log('🔄 Attempting to reconnect...');
+          connectWebSocket();
+        }, 3000);
+      }
     };
 
     ws.onerror = (error) => {
@@ -397,8 +492,22 @@ const connectWebSocket = async () => {
 };
 
 const disconnectWebSocket = () => {
+  // Clear timers
+  if (reconnectTimer.value) {
+    clearTimeout(reconnectTimer.value);
+    reconnectTimer.value = null;
+  }
+  if (pingInterval.value) {
+    clearInterval(pingInterval.value);
+    pingInterval.value = null;
+  }
+  
   if (wsRef.value) {
-    wsRef.value.close();
+    try {
+      wsRef.value.close(1000, 'Client disconnecting');
+    } catch (e) {
+      // Ignore errors
+    }
     wsRef.value = null;
   }
 };
@@ -432,6 +541,8 @@ const handleServerMessage = (message) => {
       isSource.value = true;
       hasSource.value = true;
       sourceRegistrationError.value = '';
+      // Load available devices when registered as source
+      loadAudioDevices();
       break;
 
     case 'sourceStatus':
@@ -447,6 +558,10 @@ const handleServerMessage = (message) => {
       loadPresets();
       showSavePresetModal.value = false;
       presetName.value = '';
+      break;
+
+    case 'pong':
+      // Server responded to ping - connection is alive
       break;
 
     case 'error':
@@ -641,7 +756,66 @@ const unregisterAsSource = () => {
   isSource.value = false;
   hasSource.value = false;
   sourceRegistrationError.value = '';
+  availableDevices.value = [];
   // Reconnect will happen automatically via onclose handler
+};
+
+// Audio device management
+const loadAudioDevices = async () => {
+  deviceLoading.value = true;
+  deviceError.value = '';
+  
+  try {
+    const response = await fetch(`${localClientUrl.value}/devices`);
+    if (!response.ok) {
+      throw new Error(`Failed to load devices: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    availableDevices.value = data.devices || [];
+    selectedDeviceId.value = data.currentDeviceId !== undefined ? data.currentDeviceId : -1;
+    
+    console.log(`✅ Loaded ${availableDevices.value.length} audio devices`);
+  } catch (error) {
+    console.error('Error loading audio devices:', error);
+    deviceError.value = `Cannot connect to local client at ${localClientUrl.value}. Make sure client.js is running.`;
+    availableDevices.value = [];
+  } finally {
+    deviceLoading.value = false;
+  }
+};
+
+const refreshDevices = () => {
+  loadAudioDevices();
+};
+
+const changeAudioDevice = async () => {
+  deviceLoading.value = true;
+  deviceError.value = '';
+  
+  try {
+    const response = await fetch(`${localClientUrl.value}/device`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ deviceId: selectedDeviceId.value }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to change device');
+    }
+    
+    const data = await response.json();
+    console.log('✅ Audio device changed:', data.message);
+    deviceError.value = '';
+  } catch (error) {
+    console.error('Error changing audio device:', error);
+    deviceError.value = error.message || 'Failed to change audio device';
+  } finally {
+    deviceLoading.value = false;
+  }
 };
 
 // Update latency periodically
@@ -780,6 +954,40 @@ watch(() => mixer.value, (newMixer) => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.device-selection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light, #e2e8f0);
+}
+
+.device-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary, #1f2937);
+  margin-bottom: 0.5rem;
+}
+
+.device-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.device-select {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: white;
+}
+
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
 }
 
 .info-message {

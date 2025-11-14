@@ -185,6 +185,9 @@ class DanteBridgeServer {
       ws.on('ping', () => {
         ws.pong();
       });
+      
+      // Handle ping messages from client (keepalive)
+      // Note: ws library handles ping/pong automatically, but we can also handle JSON ping messages
     });
   }
 
@@ -365,6 +368,15 @@ class DanteBridgeServer {
           } catch (error) {
             console.error('Save preset error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Failed to save preset' }));
+          }
+          break;
+
+        case 'ping':
+          // Respond to client ping (keepalive)
+          try {
+            client.ws.send(JSON.stringify({ type: 'pong' }));
+          } catch (error) {
+            console.error(`Error sending pong to ${clientId}:`, error);
           }
           break;
 

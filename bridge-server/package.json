@@ -17,6 +17,9 @@
     "@supabase/supabase-js": "^2.49.8",
     "dotenv": "^16.4.5"
   },
+  "peerDependencies": {
+    "express": "^4.18.2"
+  },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },

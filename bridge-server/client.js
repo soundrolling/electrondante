@@ -2,6 +2,7 @@
 // Captures audio from virtual soundcard and sends to Railway relay server
 
 const WebSocket = require('ws');
+const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -22,6 +23,7 @@ const CONFIG = {
   channels: parseInt(process.env.CHANNEL_COUNT) || 16,
   bufferSize: 128,
   reconnectDelay: 3000, // 3 seconds
+  localHttpPort: parseInt(process.env.LOCAL_HTTP_PORT) || 3002, // Local HTTP server for device management
 };
 
 // Ensure Railway URL uses wss:// protocol
@@ -64,6 +66,115 @@ class DanteBridgeClient {
     this.registered = false;
     this.reconnectTimer = null;
     this.accessToken = null;
+    this.selectedDeviceId = parseInt(process.env.DANTE_DEVICE_ID) || -1;
+    this.availableDevices = [];
+    this.httpServer = null;
+    this.initLocalHTTPServer();
+  }
+
+  initLocalHTTPServer() {
+    const app = express();
+    app.use(express.json());
+    
+    // CORS middleware
+    app.use((req, res, next) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+      next();
+    });
+
+    // Get available audio devices
+    app.get('/devices', (req, res) => {
+      try {
+        if (!portAudio) {
+          return res.status(503).json({ error: 'naudiodon not available' });
+        }
+        
+        const devices = portAudio.getDevices();
+        const inputDevices = devices
+          .filter(d => d.maxInputChannels > 0)
+          .map(d => ({
+            id: d.id,
+            name: d.name,
+            maxInputChannels: d.maxInputChannels,
+            defaultSampleRate: d.defaultSampleRate,
+            isDefault: d.isDefault,
+          }));
+        
+        this.availableDevices = inputDevices;
+        res.json({ devices: inputDevices, currentDeviceId: this.selectedDeviceId });
+      } catch (error) {
+        console.error('Error getting devices:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Set selected device
+    app.post('/device', (req, res) => {
+      try {
+        const { deviceId } = req.body;
+        if (deviceId === undefined) {
+          return res.status(400).json({ error: 'deviceId is required' });
+        }
+
+        const deviceIdInt = parseInt(deviceId);
+        this.selectedDeviceId = deviceIdInt;
+        
+        // Restart audio input with new device
+        if (this.audioInput) {
+          try {
+            this.audioInput.quit();
+            this.audioInput = null;
+          } catch (e) {
+            console.warn('Error stopping old audio input:', e);
+          }
+        }
+
+        // Reinitialize with new device
+        this.initAudioInput();
+        
+        res.json({ 
+          success: true, 
+          deviceId: this.selectedDeviceId,
+          message: `Audio device changed to device ID ${this.selectedDeviceId}`
+        });
+      } catch (error) {
+        console.error('Error setting device:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Get current device
+    app.get('/device', (req, res) => {
+      res.json({ deviceId: this.selectedDeviceId });
+    });
+
+    // Health check
+    app.get('/health', (req, res) => {
+      res.json({
+        status: 'ok',
+        connected: this.connected,
+        registered: this.registered,
+        audioActive: !!this.audioInput,
+        currentDeviceId: this.selectedDeviceId,
+      });
+    });
+
+    try {
+      this.httpServer = app.listen(CONFIG.localHttpPort, '127.0.0.1', () => {
+        console.log(`🌐 Local HTTP server listening on http://127.0.0.1:${CONFIG.localHttpPort}`);
+        console.log(`   GET  /devices - List available audio devices`);
+        console.log(`   GET  /device  - Get current device`);
+        console.log(`   POST /device  - Set audio device (body: {deviceId: number})`);
+        console.log(`   GET  /health  - Health check`);
+      });
+    } catch (error) {
+      console.error('Failed to start local HTTP server:', error);
+    }
   }
 
   async connect() {
@@ -224,12 +335,17 @@ class DanteBridgeClient {
       return;
     }
 
-    console.log('🎤 Initializing audio input from Dante Virtual Soundcard...');
+    console.log('🎤 Initializing audio input...');
     
     try {
       // List available audio devices
       const devices = portAudio.getDevices();
-      console.log('Available audio devices:', devices.map(d => ({ id: d.id, name: d.name })));
+      const inputDevices = devices.filter(d => d.maxInputChannels > 0);
+      console.log('Available audio input devices:');
+      inputDevices.forEach(d => {
+        const isSelected = d.id === this.selectedDeviceId || (this.selectedDeviceId === -1 && d.isDefault);
+        console.log(`  ${isSelected ? '→' : ' '} [${d.id}] ${d.name} (${d.maxInputChannels} channels, ${d.defaultSampleRate}Hz)`);
+      });
       
       // Create audio input stream
       this.audioInput = new portAudio.AudioIO({
@@ -237,7 +353,7 @@ class DanteBridgeClient {
           channelCount: CONFIG.channels,
           sampleFormat: portAudio.SampleFormat32Bit,
           sampleRate: CONFIG.sampleRate,
-          deviceId: parseInt(process.env.DANTE_DEVICE_ID) || -1, // Auto-select or specify device ID
+          deviceId: this.selectedDeviceId, // Use selected device ID
           closeOnError: false,
         },
       });
@@ -248,10 +364,15 @@ class DanteBridgeClient {
       });
 
       this.audioInput.start();
-      console.log(`✅ Audio input started: ${CONFIG.channels} channels @ ${CONFIG.sampleRate}Hz`);
+      const deviceName = inputDevices.find(d => d.id === this.selectedDeviceId)?.name || 
+                        (this.selectedDeviceId === -1 ? 'Default' : `Device ${this.selectedDeviceId}`);
+      console.log(`✅ Audio input started: ${deviceName} - ${CONFIG.channels} channels @ ${CONFIG.sampleRate}Hz`);
     } catch (error) {
       console.error('❌ Error initializing audio input:', error);
-      console.error('Make sure Dante Virtual Soundcard is installed and configured');
+      console.error('Make sure the selected audio device is available and configured');
+      if (this.selectedDeviceId !== -1) {
+        console.error(`Trying to use device ID ${this.selectedDeviceId} - it may not be available`);
+      }
     }
   }
 
@@ -317,6 +438,16 @@ class DanteBridgeClient {
         this.ws = null;
       } catch (error) {
         console.error('Error closing WebSocket:', error);
+      }
+    }
+
+    if (this.httpServer) {
+      try {
+        this.httpServer.close(() => {
+          console.log('✅ Local HTTP server stopped');
+        });
+      } catch (error) {
+        console.error('Error stopping HTTP server:', error);
       }
     }
   }
