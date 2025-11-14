@@ -15,11 +15,17 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
   
   // Enumerate available audio input devices
   const enumerateDevices = async () => {
+    console.log('🔍 [AUDIO CAPTURE] Starting device enumeration...');
     try {
+      console.log('🔍 [AUDIO CAPTURE] Requesting microphone permission...');
       // Request permission first (required for device labels)
       await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('✅ [AUDIO CAPTURE] Microphone permission granted');
       
+      console.log('🔍 [AUDIO CAPTURE] Enumerating devices...');
       const devices = await navigator.mediaDevices.enumerateDevices();
+      console.log(`📋 [AUDIO CAPTURE] Found ${devices.length} total devices`);
+      
       const audioInputs = devices
         .filter(device => device.kind === 'audioinput')
         .map(device => ({
@@ -28,38 +34,61 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
           groupId: device.groupId,
         }));
       
+      console.log(`✅ [AUDIO CAPTURE] Found ${audioInputs.length} audio input devices:`, audioInputs);
       availableDevices.value = audioInputs;
-      console.log(`✅ Found ${audioInputs.length} audio input devices`);
       return audioInputs;
     } catch (error) {
-      console.error('Error enumerating devices:', error);
-      captureError.value = `Failed to enumerate devices: ${error.message}`;
+      console.error('❌ [AUDIO CAPTURE] Error enumerating devices:', error);
+      console.error('❌ [AUDIO CAPTURE] Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+      captureError.value = `Failed to enumerate devices: ${error.name} - ${error.message}`;
       return [];
     }
   };
   
   // Start capturing audio from selected device
   const startCapture = async (deviceId = null) => {
+    console.log('🎤 [AUDIO CAPTURE] Starting capture...', { deviceId, isCapturing: isCapturing.value });
+    
     if (isCapturing.value) {
-      console.warn('Already capturing audio');
+      console.warn('⚠️ [AUDIO CAPTURE] Already capturing audio, skipping');
+      captureError.value = 'Already capturing audio';
       return;
     }
     
     // Access wsRef value (it's a ref)
     const ws = typeof wsRef === 'function' ? wsRef() : (wsRef?.value || wsRef);
+    console.log('🔌 [AUDIO CAPTURE] WebSocket check:', {
+      wsExists: !!ws,
+      readyState: ws ? ws.readyState : 'N/A',
+      readyStateNames: { 0: 'CONNECTING', 1: 'OPEN', 2: 'CLOSING', 3: 'CLOSED' },
+    });
+    
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      captureError.value = 'WebSocket not connected';
+      const errorMsg = `WebSocket not connected (state: ${ws ? ws.readyState : 'null'})`;
+      console.error('❌ [AUDIO CAPTURE]', errorMsg);
+      captureError.value = errorMsg;
       return;
     }
     
     try {
+      console.log('🧹 [AUDIO CAPTURE] Clearing previous errors');
       captureError.value = '';
       
       // Create audio context
+      console.log('🎵 [AUDIO CAPTURE] Creating AudioContext...', { sampleRate, latencyHint: 'interactive' });
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       audioContext.value = new AudioContextClass({
         sampleRate: sampleRate,
         latencyHint: 'interactive',
+      });
+      console.log('✅ [AUDIO CAPTURE] AudioContext created:', {
+        state: audioContext.value.state,
+        sampleRate: audioContext.value.sampleRate,
+        baseLatency: audioContext.value.baseLatency,
       });
       
       // Request audio stream with device selection
@@ -79,26 +108,42 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
             },
       };
       
+      console.log('📡 [AUDIO CAPTURE] Requesting media stream with constraints:', JSON.stringify(constraints, null, 2));
       mediaStream.value = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('✅ [AUDIO CAPTURE] Media stream obtained:', {
+        id: mediaStream.value.id,
+        active: mediaStream.value.active,
+        audioTracks: mediaStream.value.getAudioTracks().length,
+      });
       
       // Get stream settings to determine actual channel count
       const audioTrack = mediaStream.value.getAudioTracks()[0];
+      console.log('🎵 [AUDIO CAPTURE] Audio track:', {
+        id: audioTrack.id,
+        kind: audioTrack.kind,
+        label: audioTrack.label,
+        enabled: audioTrack.enabled,
+        muted: audioTrack.muted,
+        readyState: audioTrack.readyState,
+      });
+      
       const settings = audioTrack.getSettings();
+      console.log('⚙️ [AUDIO CAPTURE] Track settings:', settings);
       
       // Ensure we have a valid channel count (at least 1, default to 2 for stereo)
       let actualChannelCount = settings.channelCount;
       if (!actualChannelCount || actualChannelCount < 1) {
-        // Try to get channel count from constraints or default to 2
+        console.warn('⚠️ [AUDIO CAPTURE] No channel count in settings, defaulting to 2');
         actualChannelCount = 2;
       }
       const actualSampleRate = settings.sampleRate || audioContext.value.sampleRate;
       
-      console.log('🎤 Audio stream settings:', {
+      console.log('🎤 [AUDIO CAPTURE] Audio stream settings:', {
         deviceId: settings.deviceId,
         channelCount: actualChannelCount,
         sampleRate: actualSampleRate,
         requestedChannels: channelCount,
-        settings: settings,
+        allSettings: settings,
       });
       
       // Note: Most browsers only support stereo (2 channels) via getUserMedia
@@ -108,14 +153,22 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       // For now, we'll capture what's available (typically 1-2 channels)
       
       // Create media stream source
+      console.log('🔗 [AUDIO CAPTURE] Creating MediaStreamSource...');
       mediaStreamSource.value = audioContext.value.createMediaStreamSource(mediaStream.value);
+      console.log('✅ [AUDIO CAPTURE] MediaStreamSource created:', {
+        channelCount: mediaStreamSource.value.channelCount,
+        channelCountMode: mediaStreamSource.value.channelCountMode,
+        channelInterpretation: mediaStreamSource.value.channelInterpretation,
+        numberOfInputs: mediaStreamSource.value.numberOfInputs,
+        numberOfOutputs: mediaStreamSource.value.numberOfOutputs,
+      });
       
       // Determine the actual number of channels available from the source
       // The MediaStreamSource might have a different channel count than what we requested
       const sourceChannelCount = mediaStreamSource.value.channelCount || actualChannelCount;
       const finalChannelCount = Math.max(1, Math.min(sourceChannelCount, actualChannelCount));
       
-      console.log('📊 Channel configuration:', {
+      console.log('📊 [AUDIO CAPTURE] Channel configuration:', {
         requested: channelCount,
         settingsChannelCount: actualChannelCount,
         sourceChannelCount: sourceChannelCount,
@@ -132,13 +185,40 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       const inputChannels = Math.max(1, finalChannelCount);
       const outputChannels = 1; // Always 1 - we don't need output, just capture
       
-      console.log(`Creating ScriptProcessorNode: ${inputChannels} input channels, ${outputChannels} output channel`);
-      scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, inputChannels, outputChannels);
+      console.log(`🔧 [AUDIO CAPTURE] Creating ScriptProcessorNode:`, {
+        bufferSize,
+        inputChannels,
+        outputChannels,
+        sampleRate: audioContext.value.sampleRate,
+      });
       
+      try {
+        scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, inputChannels, outputChannels);
+        console.log('✅ [AUDIO CAPTURE] ScriptProcessorNode created successfully');
+      } catch (error) {
+        console.error('❌ [AUDIO CAPTURE] Failed to create ScriptProcessorNode:', error);
+        throw new Error(`Failed to create ScriptProcessorNode: ${error.message}`);
+      }
+      
+      let audioProcessCount = 0;
       scriptProcessor.value.onaudioprocess = (e) => {
+        audioProcessCount++;
+        if (audioProcessCount === 1) {
+          console.log('🎵 [AUDIO CAPTURE] First audio buffer received:', {
+            inputChannels: e.inputBuffer.numberOfChannels,
+            inputLength: e.inputBuffer.length,
+            outputChannels: e.outputBuffer.numberOfChannels,
+            outputLength: e.outputBuffer.length,
+            sampleRate: e.inputBuffer.sampleRate,
+          });
+        }
+        
         // Re-check WebSocket connection
         const currentWs = typeof wsRef === 'function' ? wsRef() : (wsRef?.value || wsRef);
         if (!currentWs || currentWs.readyState !== WebSocket.OPEN) {
+          if (audioProcessCount % 100 === 0) {
+            console.warn('⚠️ [AUDIO CAPTURE] WebSocket not connected, skipping audio send');
+          }
           return;
         }
         
@@ -153,7 +233,7 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
             const samples = Array.from(inputData);
             inputChannelData.push(samples);
           } catch (error) {
-            console.warn(`Error reading channel ${ch}:`, error);
+            console.error(`❌ [AUDIO CAPTURE] Error reading channel ${ch}:`, error);
           }
         }
         
@@ -171,9 +251,13 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
               }));
             }
           }
+          
+          if (audioProcessCount % 100 === 0) {
+            console.log(`📤 [AUDIO CAPTURE] Sent ${audioProcessCount} audio buffers (${channelsToSend} channels each)`);
+          }
         } catch (error) {
-          console.error('Error sending audio data:', error);
-          captureError.value = 'Failed to send audio data';
+          console.error('❌ [AUDIO CAPTURE] Error sending audio data:', error);
+          captureError.value = `Failed to send audio data: ${error.message}`;
         }
         
         // Clear the output buffer (we don't need to output anything, just capture)
@@ -185,14 +269,23 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
             outputData.fill(0);
           }
         } catch (error) {
-          console.warn('Error clearing output buffer:', error);
+          console.warn('⚠️ [AUDIO CAPTURE] Error clearing output buffer:', error);
         }
       };
       
       // Connect: mediaStreamSource -> scriptProcessor -> destination
       // Note: ScriptProcessorNode must be connected to destination to work, even if output is silent
-      mediaStreamSource.value.connect(scriptProcessor.value);
-      scriptProcessor.value.connect(audioContext.value.destination);
+      console.log('🔗 [AUDIO CAPTURE] Connecting audio nodes...');
+      try {
+        mediaStreamSource.value.connect(scriptProcessor.value);
+        console.log('✅ [AUDIO CAPTURE] MediaStreamSource connected to ScriptProcessor');
+        
+        scriptProcessor.value.connect(audioContext.value.destination);
+        console.log('✅ [AUDIO CAPTURE] ScriptProcessor connected to destination');
+      } catch (error) {
+        console.error('❌ [AUDIO CAPTURE] Error connecting audio nodes:', error);
+        throw new Error(`Failed to connect audio nodes: ${error.message}`);
+      }
       
       isCapturing.value = true;
       console.log(`✅ Audio capture started: ${inputChannels} input channels, ${outputChannels} output channel @ ${audioContext.value.sampleRate}Hz`);
@@ -203,46 +296,64 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       }
       
     } catch (error) {
-      console.error('Error starting audio capture:', error);
-      captureError.value = `Failed to start capture: ${error.message}`;
+      console.error('❌ [AUDIO CAPTURE] Error starting audio capture:', error);
+      console.error('❌ [AUDIO CAPTURE] Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        constraint: error.constraint,
+      });
+      captureError.value = `Failed to start capture: ${error.name} - ${error.message}`;
       stopCapture();
     }
   };
   
   // Stop capturing audio
   const stopCapture = () => {
+    console.log('🛑 [AUDIO CAPTURE] Stopping capture...');
+    
     if (scriptProcessor.value) {
       try {
+        console.log('🔌 [AUDIO CAPTURE] Disconnecting ScriptProcessor...');
         scriptProcessor.value.disconnect();
+        console.log('✅ [AUDIO CAPTURE] ScriptProcessor disconnected');
       } catch (e) {
-        console.warn('Error disconnecting script processor:', e);
+        console.warn('⚠️ [AUDIO CAPTURE] Error disconnecting script processor:', e);
       }
       scriptProcessor.value = null;
     }
     
     if (mediaStreamSource.value) {
       try {
+        console.log('🔌 [AUDIO CAPTURE] Disconnecting MediaStreamSource...');
         mediaStreamSource.value.disconnect();
+        console.log('✅ [AUDIO CAPTURE] MediaStreamSource disconnected');
       } catch (e) {
-        console.warn('Error disconnecting media stream source:', e);
+        console.warn('⚠️ [AUDIO CAPTURE] Error disconnecting media stream source:', e);
       }
       mediaStreamSource.value = null;
     }
     
     if (mediaStream.value) {
-      mediaStream.value.getTracks().forEach(track => track.stop());
+      console.log('🛑 [AUDIO CAPTURE] Stopping media stream tracks...');
+      mediaStream.value.getTracks().forEach((track, index) => {
+        console.log(`🛑 [AUDIO CAPTURE] Stopping track ${index}:`, track.label || track.id);
+        track.stop();
+      });
       mediaStream.value = null;
     }
     
     if (audioContext.value) {
+      console.log('🔌 [AUDIO CAPTURE] Closing AudioContext...');
       audioContext.value.close().catch(e => {
-        console.warn('Error closing audio context:', e);
+        console.warn('⚠️ [AUDIO CAPTURE] Error closing audio context:', e);
       });
       audioContext.value = null;
     }
     
     isCapturing.value = false;
-    console.log('🛑 Audio capture stopped');
+    console.log('✅ [AUDIO CAPTURE] Capture stopped completely');
   };
   
   // Cleanup on unmount

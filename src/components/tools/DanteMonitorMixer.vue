@@ -93,6 +93,47 @@
             <p v-if="!isSource && availableDevices.length > 0" class="info-message">
               <strong>Note:</strong> Most browsers only support stereo (2 channels) via web audio. For multi-channel devices like Dante Virtual Soundcard with 16+ channels, the browser will typically only capture 1-2 channels. For full multi-channel support, use the local client.js.
             </p>
+            
+            <!-- Debug Panel (for testing) -->
+            <div class="debug-panel">
+              <button 
+                @click="showDebugPanel = !showDebugPanel"
+                class="btn btn-secondary btn-small"
+                style="margin-top: 0.5rem;"
+              >
+                {{ showDebugPanel ? 'Hide' : 'Show' }} Debug Info
+              </button>
+              <div v-if="showDebugPanel" class="debug-content">
+                <h4>Debug Information</h4>
+                <div class="debug-section">
+                  <strong>Audio Capture State:</strong>
+                  <ul>
+                    <li>Is Capturing: {{ isCapturing }}</li>
+                    <li>Selected Device ID: {{ selectedDeviceId || 'Default' }}</li>
+                    <li>Available Devices: {{ availableDevices.length }}</li>
+                    <li>Capture Error: {{ captureError || 'None' }}</li>
+                    <li>Device Error: {{ deviceError || 'None' }}</li>
+                  </ul>
+                </div>
+                <div class="debug-section">
+                  <strong>WebSocket State:</strong>
+                  <ul>
+                    <li>Connected: {{ connected }}</li>
+                    <li>Is Source: {{ isSource }}</li>
+                    <li>Has Source: {{ hasSource }}</li>
+                    <li>Source Registration Error: {{ sourceRegistrationError || 'None' }}</li>
+                    <li>Connection Error: {{ connectionError || 'None' }}</li>
+                  </ul>
+                </div>
+                <div class="debug-section">
+                  <strong>Instructions:</strong>
+                  <p style="font-size: 0.875rem; margin-top: 0.5rem;">
+                    Check browser console (F12) for detailed logs prefixed with [AUDIO CAPTURE].<br>
+                    Copy any errors you see here or in the console and share them for debugging.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
           
           <div class="source-controls">
@@ -236,6 +277,7 @@ const {
 
 const deviceLoading = ref(false);
 const deviceError = ref('');
+const showDebugPanel = ref(false);
 
 // User role check
 const userRole = ref(null);
@@ -980,6 +1022,52 @@ watch(() => mixer.value, (newMixer) => {
   font-size: 0.875rem;
   color: #7f1d1d;
   font-family: monospace;
+}
+
+.debug-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.debug-content {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.debug-content h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: var(--text-primary, #1f2937);
+}
+
+.debug-section {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.debug-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.debug-section ul {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.5rem;
+}
+
+.debug-section li {
+  margin: 0.25rem 0;
+  font-family: monospace;
+  font-size: 0.8125rem;
 }
 
 .mixer-interface {
