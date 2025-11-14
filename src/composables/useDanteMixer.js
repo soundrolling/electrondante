@@ -228,6 +228,11 @@ export class AudioMixerEngine {
         console.log(`🎵 [MIXER] Channel ${channel}: Added ${samples.length} samples (${beforeLength} → ${afterLength} total)`);
       }
       
+      // Log if buffer is still empty after adding samples (potential issue)
+      if (this._dataReceivedCount[channel] === 1 && afterLength === 0) {
+        console.warn(`⚠️ [MIXER] Channel ${channel}: Added ${samples.length} samples but buffer length is still 0 - possible array issue`);
+      }
+      
       // Prevent buffer overflow - allow larger buffer for smoother playback
       // Keep up to 2 seconds of audio (2 * sampleRate samples)
       const maxBufferSize = this.sampleRate * 2;

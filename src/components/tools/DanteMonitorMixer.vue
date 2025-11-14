@@ -236,7 +236,7 @@
             <span class="streaming-info">Audio is being captured and streamed. You can switch tabs freely - streaming will continue.</span>
           </div>
           
-          <!-- Show buffering indicator when buffering audio -->
+          <!-- Show buffering indicator when buffering audio (only for listeners) -->
           <div v-if="hasSource && isBuffering && !isSource" class="buffering-indicator">
             <div class="buffering-content">
               <div class="buffering-spinner"></div>
@@ -850,6 +850,13 @@ const handleServerMessage = async (message) => {
 
     case 'audio':
       // Receive audio data for a channel
+      // Only process if we're NOT the source (sources don't receive their own audio)
+      if (isSource.value) {
+        // Source shouldn't receive audio - this is unexpected
+        console.warn(`⚠️ [LISTENER] Source received audio packet (this shouldn't happen)`);
+        return;
+      }
+      
       // Note: Jitter buffering would be handled here if implemented
       if (mixer.value) {
         const encoding = message.encoding || 'pcm'; // Default to PCM if not specified
@@ -864,6 +871,8 @@ const handleServerMessage = async (message) => {
           }
         }
         mixer.value.addChannelData(message.channel, message.data, encoding);
+      } else {
+        console.warn(`⚠️ [LISTENER] Received audio but mixer is not initialized`);
       }
       // Update connection quality stats if available
       if (message.sequence !== undefined && connectionQuality) {
