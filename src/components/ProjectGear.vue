@@ -455,14 +455,6 @@ setup(props) {
   const locationsList           = ref([])
 
   const showAddGearForm         = ref(false)
-  const gearName                = ref('')
-  const gearType                = ref('transformer')
-  const gearNumInputs           = ref(1)
-  const gearNumOutputs          = ref(1)
-  const gearNumRecords          = ref(1)
-  const gearAmount              = ref(1)
-  const isRented                = ref(false)
-  const vendor                  = ref('')
   
   // Pre-selected color options for gear
   const gearColorOptions = [
@@ -485,13 +477,6 @@ setup(props) {
     return validColor ? validColor.value : '#1890ff'
   }
   
-  const gearDefaultColor        = ref('#1890ff') // Default blue color
-  const selectedLocationId      = ref('')
-  const immediateAssignedAmount = ref(0)
-
-  // Multi-stage assignment for new gear
-  const newGearAssignments      = ref([])
-  let newGearAssignmentKeyCounter = 0
 
   const assignmentModalVisible  = ref(false)
   const currentAssignmentGear   = ref(null)
@@ -499,20 +484,9 @@ setup(props) {
 
   // Batch-assignment workflow state (used by Assign modal form)
   const selectedGear            = ref(null)
-  const editableAssignments     = ref([])
-  let assignmentKeyCounter      = 0
 
   const editModalVisible        = ref(false)
   const currentEditGear         = ref({})
-  const editGearName            = ref('')
-  const editGearType            = ref('transformer')
-  const editNumInputs           = ref(1)
-  const editNumOutputs          = ref(1)
-  const editNumRecords          = ref(1)
-  const editGearAmount          = ref(1)
-  const editVendor              = ref('')
-  const editGearDefaultColor   = ref('#1890ff')
-  const editIsRented            = ref(false)
 
   const reorderModalVisible     = ref(false)
   const reorderList             = ref([])
@@ -953,205 +927,14 @@ setup(props) {
 
   function openAssignmentModal(gear) {
     selectedGear.value = gear
-    
-    // Initialize editable assignments from current assignments
-    editableAssignments.value = []
-    assignmentKeyCounter = 0
-    
-    // Add existing assignments
-    if (gear.assignments) {
-      Object.entries(gear.assignments).forEach(([locationId, amount]) => {
-        if (amount > 0) {
-          editableAssignments.value.push({
-            key: `existing-${assignmentKeyCounter++}`,
-            locationId: Number(locationId),
-            amount: amount,
-            isNew: false
-          })
-        }
-      })
-    }
-    
-    // If no assignments exist, add one empty row
-    if (editableAssignments.value.length === 0) {
-      addNewAssignment()
-    }
-
     assignmentModalVisible.value = true
-  }
-  
-  // Computed properties for batch assignment validation
-  const totalAssignedInModal = computed(() => {
-    return editableAssignments.value.reduce((sum, a) => {
-      if (!a.locationId || a.amount <= 0) return sum
-      return sum + (Number(a.amount) || 0)
-    }, 0)
-  })
-  
-  const remainingAvailable = computed(() => {
-    if (!selectedGear.value) return 0
-    return selectedGear.value.gear_amount - totalAssignedInModal.value
-  })
-  
-  const hasUnassignedStages = computed(() => {
-    const assignedLocationIds = new Set(
-      editableAssignments.value
-        .filter(a => a.locationId)
-        .map(a => a.locationId)
-    )
-    return locationsList.value.some(loc => !assignedLocationIds.has(loc.id))
-  })
-  
-  function addNewAssignment() {
-    editableAssignments.value.push({
-      key: `new-${assignmentKeyCounter++}`,
-      locationId: null,
-      amount: 0,
-      isNew: true
-    })
-  }
-  
-  function removeAssignment(index) {
-    editableAssignments.value.splice(index, 1)
-    // If no assignments left, add one empty row
-    if (editableAssignments.value.length === 0) {
-      addNewAssignment()
-    }
-  }
-  
-  function availableLocationsForAssignment(currentLocationId) {
-    // Return all locations, but exclude ones already assigned (except the current one)
-    const assignedIds = new Set(
-      editableAssignments.value
-        .filter(a => a.locationId && a.locationId !== currentLocationId)
-        .map(a => a.locationId)
-    )
-    return locationsList.value.filter(loc => !assignedIds.has(loc.id))
-  }
-  
-  function getMaxForAssignment(assignment) {
-    if (!selectedGear.value || !assignment.locationId) {
-      return selectedGear.value?.gear_amount || 0
-    }
-    
-    // Get current amount for this location in the editable list
-    const currentAmountForThisLocation = assignment.amount || 0
-    
-    // Calculate what's assigned to other locations
-    const assignedToOthers = editableAssignments.value.reduce((sum, a) => {
-      if (a.key === assignment.key || !a.locationId || a.amount <= 0) return sum
-      return sum + (Number(a.amount) || 0)
-    }, 0)
-    
-    // Max is: total gear - assigned to others
-    return Math.max(0, selectedGear.value.gear_amount - assignedToOthers)
-  }
-  
-  function validateAssignmentAmount(assignment) {
-    const max = getMaxForAssignment(assignment)
-    if (assignment.amount > max) {
-      assignment.amount = max
-    }
-    if (assignment.amount < 0) {
-      assignment.amount = 0
-    }
-  }
-  
-  function onAssignmentStageChange(assignment, index) {
-    // When stage changes, reset amount to 0 or 1 if available
-    if (assignment.locationId) {
-      const max = getMaxForAssignment(assignment)
-      assignment.amount = Math.min(1, max)
-    } else {
-      assignment.amount = 0
-    }
   }
   
   function closeAssignmentModal() {
     assignmentModalVisible.value = false
     selectedGear.value = null
-    editableAssignments.value = []
-    assignmentKeyCounter = 0
   }
 
-  // Computed properties for new gear assignment validation
-  const totalAssignedForNewGear = computed(() => {
-    return newGearAssignments.value.reduce((sum, a) => {
-      if (!a.locationId || a.amount <= 0) return sum
-      return sum + (Number(a.amount) || 0)
-    }, 0)
-  })
-  
-  const remainingAvailableForNewGear = computed(() => {
-    return gearAmount.value - totalAssignedForNewGear.value
-  })
-  
-  const hasUnassignedStagesForNewGear = computed(() => {
-    const assignedLocationIds = new Set(
-      newGearAssignments.value
-        .filter(a => a.locationId)
-        .map(a => a.locationId)
-    )
-    return locationsList.value.some(loc => !assignedLocationIds.has(loc.id))
-  })
-  
-  function addNewGearAssignment() {
-    newGearAssignments.value.push({
-      key: `new-${newGearAssignmentKeyCounter++}`,
-      locationId: null,
-      amount: 0,
-      isNew: true
-    })
-  }
-  
-  function removeNewGearAssignment(index) {
-    newGearAssignments.value.splice(index, 1)
-  }
-  
-  function availableLocationsForNewGear(currentLocationId) {
-    // Return all locations, but exclude ones already assigned (except the current one)
-    const assignedIds = new Set(
-      newGearAssignments.value
-        .filter(a => a.locationId && a.locationId !== currentLocationId)
-        .map(a => a.locationId)
-    )
-    return locationsList.value.filter(loc => !assignedIds.has(loc.id))
-  }
-  
-  function getMaxForNewGearAssignment(assignment) {
-    if (!assignment.locationId) {
-      return gearAmount.value || 0
-    }
-    
-    // Calculate what's assigned to other locations
-    const assignedToOthers = newGearAssignments.value.reduce((sum, a) => {
-      if (a.key === assignment.key || !a.locationId || a.amount <= 0) return sum
-      return sum + (Number(a.amount) || 0)
-    }, 0)
-    
-    // Max is: total gear - assigned to others
-    return Math.max(0, gearAmount.value - assignedToOthers)
-  }
-  
-  function validateNewGearAssignmentAmount(assignment) {
-    const max = getMaxForNewGearAssignment(assignment)
-    if (assignment.amount > max) {
-      assignment.amount = max
-    }
-    if (assignment.amount < 0) {
-      assignment.amount = 0
-    }
-  }
-  
-  function onNewGearStageChange(assignment) {
-    // When stage changes, reset amount to 0 or 1 if available
-    if (assignment.locationId) {
-      const max = getMaxForNewGearAssignment(assignment)
-      assignment.amount = Math.min(1, max)
-    } else {
-      assignment.amount = 0
-    }
-  }
 
   async function saveGearAssignments() {
     if (!currentAssignmentGear.value) return
