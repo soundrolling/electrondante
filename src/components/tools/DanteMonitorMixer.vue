@@ -18,7 +18,7 @@
             Playback: {{ latency.toFixed(1) }}ms | 
             Stream: ~{{ streamLatency.toFixed(0) }}ms | 
             Network: {{ connectionQuality.averageLatency }}ms | 
-            Quality: <span :style="{ color: connectionQuality.qualityColor }">{{ String(connectionQuality.qualityLevel || 'unknown').toUpperCase() }}</span>
+            Quality: <span :style="{ color: connectionQuality.qualityColor }">{{ qualityLevelDisplay }}</span>
             <span v-if="connectionQuality.packetLoss > 0" style="color: #ef4444;">
               ({{ connectionQuality.packetLoss.toFixed(1) }}% loss)
             </span>
@@ -356,6 +356,13 @@ const showDebugPanel = ref(false);
 
 // Connection quality monitoring
 const connectionQuality = useConnectionQuality();
+
+// Computed property to unwrap quality level for display
+const qualityLevelDisplay = computed(() => {
+  // Access .value explicitly since qualityLevel is a computed ref
+  const level = connectionQuality.qualityLevel?.value ?? 'unknown';
+  return String(level).toUpperCase();
+});
 
 // User role check
 const userRole = ref(null);
