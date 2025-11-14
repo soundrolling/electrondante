@@ -327,551 +327,51 @@
   </div>
 
   <!-- ADD GEAR MODAL -->
-  <div v-if="showAddGearForm" class="modal-overlay" @click="toggleAddGear">
-      <div class="modal" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">Add New Gear</h3>
-          <button class="modal-close" @click="toggleAddGear">✕</button>
-        </div>
-        <form @submit.prevent="addGear" class="modal-form">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="gearName" class="form-label">Gear Name<span class="required">*</span></label>
-              <input 
-                id="gearName"
-                v-model="gearName" 
-                required 
-                placeholder="Enter Gear Name" 
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label for="gearType" class="form-label">Type<span class="required">*</span></label>
-              <select id="gearType" v-model="gearType" required class="form-select">
-                <option disabled value="">Select type</option>
-                <option value="source">Source (Microphones)</option>
-                <option value="transformer">Transformer</option>
-                <option value="recorder">Recorder</option>
-                <option value="accessories_cables">Accessories + Cables</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="gearAmount" class="form-label">Amount<span class="required">*</span></label>
-              <input 
-                id="gearAmount"
-                v-model="gearAmount" 
-                type="number" 
-                min="1" 
-                required 
-                placeholder="1" 
-                class="form-input"
-              />
-            </div>
-            <!-- Optional IO fields (hidden for sources and accessories_cables) -->
-            <div v-if="gearType !== 'source' && gearType !== 'accessories_cables'" class="form-group">
-              <label for="gearNumInputs" class="form-label">Inputs</label>
-              <input 
-                id="gearNumInputs"
-                v-model.number="gearNumInputs" 
-                type="number" 
-                min="0" 
-                class="form-input"
-              />
-            </div>
-            <div v-if="gearType !== 'source' && gearType !== 'accessories_cables'" class="form-group">
-              <label for="gearNumOutputs" class="form-label">Outputs</label>
-              <input 
-                id="gearNumOutputs"
-                v-model.number="gearNumOutputs" 
-                type="number" 
-                min="0" 
-                class="form-input"
-              />
-            </div>
-            <!-- Tracks for recorders -->
-            <div v-if="gearType === 'recorder'" class="form-group">
-              <label for="gearNumRecords" class="form-label">Tracks</label>
-              <input 
-                id="gearNumRecords"
-                v-model.number="gearNumRecords" 
-                type="number" 
-                min="1" 
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label for="gearVendor" class="form-label">Vendor</label>
-              <input 
-                id="gearVendor"
-                v-model="vendor" 
-                placeholder="Vendor name (optional)" 
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label for="gearIsRented" class="form-label">Rented?</label>
-              <input 
-                id="gearIsRented"
-                v-model="isRented" 
-                type="checkbox"
-                style="width:auto; min-height:unset;"
-              />
-            </div>
-            <!-- Default color for source gear -->
-            <div v-if="gearType === 'source'" class="form-group">
-              <label for="gearDefaultColor" class="form-label">Default Color</label>
-              <select 
-                id="gearDefaultColor"
-                v-model="gearDefaultColor" 
-                class="form-input"
-              >
-                <option v-for="color in gearColorOptions" :key="color.value" :value="color.value">
-                  {{ color.label }}
-                </option>
-              </select>
-              <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
-                This color will be used when placing this microphone in mic placement view
-              </small>
-            </div>
-            <!-- Multi-stage assignment section -->
-            <div class="form-group" style="grid-column: 1 / -1;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <label class="form-label" style="margin: 0;">Assign to Stages (Optional)</label>
-                <button 
-                  type="button" 
-                  class="btn btn-secondary btn-sm" 
-                  @click="addNewGearAssignment"
-                  :disabled="remainingAvailableForNewGear <= 0 || !hasUnassignedStagesForNewGear"
-                  style="padding: 6px 12px; font-size: 14px; min-height: 32px;"
-                >
-                  <span class="btn-icon">➕</span>
-                  <span class="btn-text">Add Stage</span>
-                </button>
-              </div>
-              
-              <div v-if="newGearAssignments.length > 0" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;">
-                <div 
-                  v-for="(assignment, index) in newGearAssignments" 
-                  :key="assignment.key"
-                  style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: start; padding: 12px; background: var(--bg-secondary); border: 1px solid #e9ecef; border-radius: 8px;"
-                >
-                  <div>
-                    <select 
-                      v-model="assignment.locationId" 
-                      class="form-select"
-                      @change="onNewGearStageChange(assignment)"
-                      style="width: 100%;"
-                    >
-                      <option :value="null">Select stage</option>
-                      <option
-                        v-for="location in availableLocationsForNewGear(assignment.locationId)"
-                        :key="location.id"
-                        :value="location.id"
-                      >
-                        {{ location.stage_name }} ({{ location.venue_name }})
-                      </option>
-                    </select>
-                  </div>
-                  <div style="display: flex; flex-direction: column; gap: 4px; min-width: 100px;">
-                    <input 
-                      v-model.number="assignment.amount" 
-                      type="number" 
-                      min="0"
-                      :max="getMaxForNewGearAssignment(assignment)"
-                      class="form-input"
-                      @input="validateNewGearAssignmentAmount(assignment)"
-                      style="text-align: center;"
-                    />
-                    <small style="color: var(--text-secondary); font-size: 11px; text-align: center;">
-                      Max: {{ getMaxForNewGearAssignment(assignment) }}
-                    </small>
-                  </div>
-                  <div style="display: flex; align-items: center;">
-                    <button 
-                      type="button"
-                      class="btn btn-danger btn-sm btn-icon-only"
-                      @click="removeNewGearAssignment(index)"
-                      title="Remove assignment"
-                      style="padding: 8px; min-width: 44px; min-height: 44px;"
-                    >
-                      <span class="btn-icon">🗑️</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div v-if="newGearAssignments.length === 0" style="text-align: center; padding: 16px; color: var(--text-secondary); font-size: 14px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid #e9ecef;">
-                No assignments yet. Click "Add Stage" to assign gear to a stage.
-              </div>
-              
-              <div v-if="newGearAssignments.length > 0" style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid #e9ecef;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-                  <span style="color: var(--text-secondary); font-size: 14px;">
-                    Total: {{ gearAmount }}
-                  </span>
-                  <span 
-                    style="font-size: 14px; font-weight: 500;"
-                    :style="{ color: remainingAvailableForNewGear < 0 ? '#dc2626' : '#047857' }"
-                  >
-                    Available: {{ remainingAvailableForNewGear }}
-                  </span>
-                  <span style="color: var(--text-secondary); font-size: 14px;">
-                    Assigned: {{ totalAssignedForNewGear }}
-                  </span>
-                </div>
-                <div v-if="remainingAvailableForNewGear < 0" style="margin-top: 8px; padding: 8px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 6px; color: #dc2626; font-size: 12px; font-weight: 500;">
-                  ⚠️ Total assigned ({{ totalAssignedForNewGear }}) exceeds total gear ({{ gearAmount }})
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-positive">Add Gear</button>
-            <button type="button" @click="toggleAddGear" class="btn btn-warning">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
+  <AddGearModal
+    :visible="showAddGearForm"
+    :locations-list="locationsList"
+    :loading="loading"
+    @close="toggleAddGear"
+    @submit="handleAddGearSubmit"
+  />
 
     <!-- GEAR INFO MODAL -->
-    <div v-if="gearInfoModalVisible" class="modal-overlay" @click="closeGearInfoModal">
-      <div class="modal" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">Gear Information</h3>
-          <button class="modal-close" @click="closeGearInfoModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div v-if="currentGearInfo && Object.keys(currentGearInfo).length" class="gear-info">
-            <div class="info-section">
-              <h4 class="info-title">Basic Details</h4>
-              <div class="info-grid">
-                <div class="info-item">
-                  <span class="info-label">Name:</span>
-                  <span class="info-value">{{ currentGearInfo.gear_name }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Type:</span>
-                  <span class="info-value">{{ currentGearInfo.gear_type || 'No type' }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Total Amount:</span>
-                  <span class="info-value">{{ currentGearInfo.gear_amount }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Available:</span>
-                  <span class="info-value">{{ currentGearInfo.unassigned_amount }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Assigned:</span>
-                  <span class="info-value">{{ currentGearInfo.total_assigned }}</span>
-                </div>
-                <div v-if="currentGearInfo.vendor" class="info-item">
-                  <span class="info-label">Vendor:</span>
-                  <span class="info-value">{{ currentGearInfo.vendor }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="currentGearAssignmentsList.length" class="info-section">
-              <h4 class="info-title">Current Assignments</h4>
-              <div class="assignments-list">
-                <div 
-                  v-for="assignment in currentGearAssignmentsList" 
-                  :key="assignment.location_id"
-                  class="assignment-item"
-                >
-                  <div class="assignment-header">
-                    <span class="assignment-stage">{{ assignment.stage_name }}</span>
-                    <span class="assignment-amount">{{ assignment.amount }}</span>
-                  </div>
-                  <div class="assignment-details">
-                    <span class="assignment-venue">{{ assignment.venue_name }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <GearInfoModal
+      :visible="gearInfoModalVisible"
+      :gear-info="currentGearInfo"
+      :assignments-list="currentGearAssignmentsList"
+      @close="closeGearInfoModal"
+    />
 
     <!-- ASSIGNMENT MODAL -->
-    <div v-if="assignmentModalVisible" class="modal-overlay" @click="closeAssignmentModal">
-      <div class="modal assignment-modal" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">Assign & Unassign Gear</h3>
-          <button class="modal-close" @click="closeAssignmentModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div v-if="selectedGear" class="assignment-form">
-            <div class="gear-summary">
-              <h4 class="gear-summary-title">{{ selectedGear.gear_name }}</h4>
-              <div class="gear-summary-details">
-                <span class="summary-item">Total: {{ selectedGear.gear_amount }}</span>
-                <span class="summary-item" :class="{ 'summary-warning': remainingAvailable < 0, 'summary-success': remainingAvailable >= 0 }">
-                  Available: {{ remainingAvailable }}
-                </span>
-                <span class="summary-item">Assigned: {{ totalAssignedInModal }}</span>
-              </div>
-              <div v-if="remainingAvailable < 0" class="summary-error">
-                ⚠️ Total assigned ({{ totalAssignedInModal }}) exceeds total gear ({{ selectedGear.gear_amount }})
-              </div>
-            </div>
-
-            <div class="assignments-editor">
-              <div class="assignments-header">
-                <h4 class="assignments-title">Current Assignments</h4>
-                <button 
-                  type="button" 
-                  class="btn btn-secondary btn-sm" 
-                  @click="addNewAssignment"
-                  :disabled="remainingAvailable <= 0 || !hasUnassignedStages"
-                >
-                  <span class="btn-icon">➕</span>
-                  <span class="btn-text">Add Stage</span>
-                </button>
-              </div>
-
-              <div class="assignments-list-editor">
-                <div 
-                  v-for="(assignment, index) in editableAssignments" 
-                  :key="assignment.key"
-                  class="assignment-editor-item"
-                >
-                  <div class="assignment-editor-stage">
-                    <select 
-                      v-model="assignment.locationId" 
-                      class="form-select assignment-select"
-                      @change="onAssignmentStageChange(assignment, index)"
-                    >
-                      <option value="">Select stage</option>
-                      <option
-                        v-for="location in availableLocationsForAssignment(assignment.locationId)"
-                        :key="location.id"
-                        :value="location.id"
-                      >
-                        {{ location.stage_name }} ({{ location.venue_name }})
-                      </option>
-                    </select>
-                  </div>
-                  <div class="assignment-editor-amount">
-                    <input 
-                      v-model.number="assignment.amount" 
-                      type="number" 
-                      min="0"
-                      :max="getMaxForAssignment(assignment)"
-                      class="form-input assignment-input"
-                      @input="validateAssignmentAmount(assignment)"
-                    />
-                    <small class="assignment-hint">
-                      Max: {{ getMaxForAssignment(assignment) }}
-                    </small>
-                  </div>
-                  <div class="assignment-editor-actions">
-                    <button 
-                      type="button"
-                      class="btn btn-danger btn-sm btn-icon-only"
-                      @click="removeAssignment(index)"
-                      title="Remove assignment"
-                    >
-                      <span class="btn-icon">🗑️</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="editableAssignments.length === 0" class="empty-assignments">
-                  <p>No assignments yet. Click "Add Stage" to assign gear to a stage.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button 
-                type="button" 
-                class="btn btn-positive" 
-                @click="saveAllAssignments"
-                :disabled="remainingAvailable < 0 || loading"
-              >
-                <span class="btn-icon">💾</span>
-                <span class="btn-text">Save All Changes</span>
-              </button>
-              <button type="button" @click="closeAssignmentModal" class="btn btn-warning">
-                <span class="btn-icon">✕</span>
-                <span class="btn-text">Cancel</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <GearAssignmentModal
+      :visible="assignmentModalVisible"
+      :gear="selectedGear"
+      :locations-list="locationsList"
+      :loading="loading"
+      @close="closeAssignmentModal"
+      @save="handleSaveAssignments"
+    />
 
     <!-- EDIT GEAR MODAL -->
-    <div v-if="editModalVisible" class="modal-overlay" @click="closeEditModal">
-      <div class="modal" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">Edit Gear</h3>
-          <button class="modal-close" @click="closeEditModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div v-if="currentEditGear" class="edit-form">
-            <form @submit.prevent="saveEdit" class="edit-form-content">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="editGearName" class="form-label">Gear Name<span class="required">*</span></label>
-                  <input 
-                    id="editGearName"
-                    v-model="editGearName" 
-                    required 
-                    class="form-input"
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="editGearType" class="form-label">Type<span class="required">*</span></label>
-                  <select id="editGearType" v-model="editGearType" required class="form-select">
-                    <option value="source">Source (Microphones)</option>
-                    <option value="transformer">Transformer</option>
-                    <option value="recorder">Recorder</option>
-                    <option value="accessories_cables">Accessories + Cables</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="editGearAmount" class="form-label">Amount<span class="required">*</span></label>
-                  <input 
-                    id="editGearAmount"
-                    v-model="editGearAmount" 
-                    type="number" 
-                    min="1" 
-                    required 
-                    class="form-input"
-                  />
-                </div>
-                <!-- Inputs/Outputs (hidden for sources) -->
-                <div v-if="editGearType !== 'source'" class="form-group">
-                  <label for="editNumInputs" class="form-label">Inputs</label>
-                  <input 
-                    id="editNumInputs"
-                    v-model.number="editNumInputs"
-                    type="number"
-                    min="0"
-                    class="form-input"
-                  />
-                </div>
-                <div v-if="editGearType !== 'source'" class="form-group">
-                  <label for="editNumOutputs" class="form-label">Outputs</label>
-                  <input 
-                    id="editNumOutputs"
-                    v-model.number="editNumOutputs"
-                    type="number"
-                    min="0"
-                    class="form-input"
-                  />
-                </div>
-                <!-- Tracks (for recorders) -->
-                <div v-if="editGearType === 'recorder'" class="form-group">
-                  <label for="editNumRecords" class="form-label">Tracks</label>
-                  <input 
-                    id="editNumRecords"
-                    v-model.number="editNumRecords"
-                    type="number"
-                    min="1"
-                    class="form-input"
-                  />
-                </div>
-                <div class="form-group">
-                  <label for="editGearVendor" class="form-label">Vendor</label>
-                  <input 
-                    id="editGearVendor"
-                    v-model="editGearVendor" 
-                    class="form-input"
-                  />
-                </div>
-                <!-- Default color for source gear -->
-                <div v-if="editGearType === 'source'" class="form-group">
-                  <label for="editGearDefaultColor" class="form-label">Default Color</label>
-                  <select 
-                    id="editGearDefaultColor"
-                    v-model="editGearDefaultColor" 
-                    class="form-input"
-                  >
-                    <option v-for="color in gearColorOptions" :key="color.value" :value="color.value">
-                      {{ color.label }}
-                    </option>
-                  </select>
-                  <small style="color: var(--text-secondary); font-size: 12px; margin-top: 4px; display: block;">
-                    This color will be used when placing this microphone in mic placement view
-                  </small>
-                </div>
-                <div class="form-group">
-                  <label for="editIsRented" class="form-label">Rented?</label>
-                  <input 
-                    id="editIsRented"
-                    v-model="editIsRented" 
-                    type="checkbox"
-                    style="width:auto; min-height:unset;"
-                  />
-                </div>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-positive">Save Changes</button>
-                <button type="button" @click="closeEditModal" class="btn btn-warning">Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+    <EditGearModal
+      :visible="editModalVisible"
+      :gear="currentEditGear"
+      :loading="loading"
+      @close="closeEditModal"
+      @submit="handleEditGearSubmit"
+    />
 
     <!-- REORDER MODAL -->
-    <div v-if="reorderModalVisible" class="modal-overlay" @click="closeReorderModal">
-      <div class="modal" @click.stop>
-        <div class="modal-header">
-          <h3 class="modal-title">Reorder Gear</h3>
-          <button class="modal-close" @click="closeReorderModal">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="reorder-sort-options">
-            <span class="sort-label">Quick Sort:</span>
-            <div class="sort-buttons">
-              <button class="btn btn-secondary btn-sm" @click="sortReorderList('name-asc')">A-Z</button>
-              <button class="btn btn-secondary btn-sm" @click="sortReorderList('name-desc')">Z-A</button>
-              <button class="btn btn-secondary btn-sm" @click="sortReorderList('group-asc')">Group (A-Z)</button>
-              <button class="btn btn-secondary btn-sm" @click="sortReorderList('group-desc')">Group (Z-A)</button>
-            </div>
-          </div>
-          <div class="reorder-list">
-            <div 
-              v-for="(g, i) in reorderList" 
-              :key="g.id" 
-              class="reorder-item"
-              :class="{ 'dragging': draggedIndex === i, 'drag-over': dragOverIndex === i }"
-              draggable="true"
-              @dragstart="handleDragStart($event, i)"
-              @dragend="handleDragEnd"
-              @dragover.prevent="handleDragOver($event, i)"
-              @dragenter.prevent="handleDragEnter(i)"
-              @dragleave="handleDragLeave"
-              @drop.prevent="handleDrop($event, i)"
-              @touchstart="handleTouchStart($event, i)"
-              @touchmove="handleTouchMove"
-              @touchend="handleTouchEnd"
-            >
-              <div class="drag-handle" title="Drag to reorder">
-                <span class="drag-icon">☰</span>
-              </div>
-              <span class="reorder-name">{{ g.gear_name }}</span>
-              <div class="reorder-actions">
-                <button class="btn btn-secondary btn-arrow" @click="moveInReorder(i, -1)" title="Move up">↑</button>
-                <button class="btn btn-secondary btn-arrow" @click="moveInReorder(i, 1)" title="Move down">↓</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-actions" style="margin-top: 12px;">
-            <button class="btn btn-positive" @click="saveReorder">Save Order</button>
-            <button class="btn btn-warning" @click="closeReorderModal">Cancel</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ReorderGearModal
+      :visible="reorderModalVisible"
+      :gear-list="reorderList"
+      @close="closeReorderModal"
+      @sort="sortReorderList"
+      @move="moveInReorder"
+      @save="saveReorder"
+      @reorder="handleReorder"
+    />
 
     <!-- USER GEAR SELECTOR MODAL -->
     <div v-if="showUserGearSelector" class="modal-overlay" @click="closeUserGearSelector">
@@ -910,6 +410,11 @@ import UserGearSelector from './UserGearSelector.vue'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
 import PackingTab from './PackingTab.vue'
 import RepackingTab from './RepackingTab.vue'
+import AddGearModal from './gear-modals/AddGearModal.vue'
+import EditGearModal from './gear-modals/EditGearModal.vue'
+import GearAssignmentModal from './gear-modals/GearAssignmentModal.vue'
+import GearInfoModal from './gear-modals/GearInfoModal.vue'
+import ReorderGearModal from './gear-modals/ReorderGearModal.vue'
 
 export default {
 name: 'ProjectGear',
@@ -917,7 +422,12 @@ components: {
   UserGearSelector,
   ProjectBreadcrumbs,
   PackingTab,
-  RepackingTab
+  RepackingTab,
+  AddGearModal,
+  EditGearModal,
+  GearAssignmentModal,
+  GearInfoModal,
+  ReorderGearModal
 },
 props: {
   locationId: {
@@ -1214,26 +724,6 @@ setup(props) {
       })
   })
 
-  watch(gearType, t => {
-    if (t === 'source') {
-      gearNumInputs.value  = 0
-      gearNumOutputs.value = 1
-    } else if (t === 'accessories_cables') {
-      gearNumInputs.value  = null
-      gearNumOutputs.value = null
-      gearNumRecords.value = null
-    }
-  })
-  watch(editGearType, t => {
-    if (t === 'source') {
-      editNumInputs.value  = 0
-      editNumOutputs.value = 1
-    } else if (t === 'accessories_cables') {
-      editNumInputs.value  = null
-      editNumOutputs.value = null
-      editNumRecords.value = null
-    }
-  })
 
   async function fetchLocations() {
     if (!currentProject.value?.id) return
@@ -1330,63 +820,33 @@ setup(props) {
 
   function toggleAddGear() {
     showAddGearForm.value = !showAddGearForm.value
-    if (showAddGearForm.value) {
-      gearName.value                = ''
-      gearType.value                = 'transformer'
-      gearNumInputs.value           = 1
-      gearNumOutputs.value          = 1
-      gearNumRecords.value          = 1
-      gearAmount.value              = 1
-      isRented.value                = false
-      vendor.value                  = ''
-      gearDefaultColor.value        = '#1890ff'
-      selectedLocationId.value      = ''
-      immediateAssignedAmount.value = 0
-      newGearAssignments.value      = []
-      newGearAssignmentKeyCounter   = 0
-      formError.value               = null
-    }
   }
 
-  async function addGear() {
-    formError.value = null
-    if (!gearName.value || gearAmount.value < 1) {
-      formError.value = 'Please fill required fields.'
-      return
-    }
-    
-    // Validate total assignments don't exceed gear amount
-    if (totalAssignedForNewGear.value > gearAmount.value) {
-      formError.value = `Total assigned (${totalAssignedForNewGear.value}) cannot exceed total gear amount (${gearAmount.value}).`
-      return
-    }
-    
+  async function handleAddGearSubmit(formData) {
     loading.value = true
     try {
-      console.log('addGear: gearNumRecords.value =', gearNumRecords.value)
+      console.log('handleAddGearSubmit: gearNumRecords =', formData.gearNumRecords)
       const payload = {
-        gear_name:   gearName.value,
-        gear_type:   gearType.value,
-        num_inputs:  gearType.value === 'source' ? 0 : (gearType.value === 'accessories_cables' ? null : gearNumInputs.value),
-        num_outputs: gearType.value === 'source' ? 1 : (gearType.value === 'accessories_cables' ? null : gearNumOutputs.value),
-        num_records: gearType.value === 'recorder' ? Number(gearNumRecords.value) : null,
-        gear_amount: gearAmount.value,
-        is_rented:   isRented.value,
-        vendor:      vendor.value,
-        default_color: gearType.value === 'source' ? gearDefaultColor.value : null,
+        gear_name:   formData.gearName,
+        gear_type:   formData.gearType,
+        num_inputs:  formData.gearType === 'source' ? 0 : (formData.gearType === 'accessories_cables' ? null : formData.gearNumInputs),
+        num_outputs: formData.gearType === 'source' ? 1 : (formData.gearType === 'accessories_cables' ? null : formData.gearNumOutputs),
+        num_records: formData.gearType === 'recorder' ? Number(formData.gearNumRecords) : null,
+        gear_amount: formData.gearAmount,
+        is_rented:   formData.isRented,
+        vendor:      formData.vendor,
+        default_color: formData.gearType === 'source' ? formData.gearDefaultColor : null,
         project_id:  currentProject.value.id,
         sort_order:  gearList.value.length + 1
       }
       const inserted = await mutateTableData('gear_table','insert',payload)
       
       // Process multiple assignments
-      const validAssignments = newGearAssignments.value.filter(a => 
-        a.locationId && a.amount > 0
-      )
+      const validAssignments = formData.assignments || []
       
       if (validAssignments.length > 0) {
         for (const assignment of validAssignments) {
-          const assignAmount = Math.min(Number(assignment.amount), gearAmount.value)
+          const assignAmount = Math.min(Number(assignment.amount), formData.gearAmount)
           await mutateTableData('gear_assignments','insert',{ 
             gear_id: inserted.id,
             location_id: Number(assignment.locationId),
@@ -1401,7 +861,6 @@ setup(props) {
       toggleAddGear()
       await fetchGearList()
     } catch (err) {
-      formError.value = err.message
       toast.error(err.message)
     } finally {
       loading.value = false
@@ -1725,35 +1184,14 @@ setup(props) {
   }
 
   // Save all assignments from the batch assignment form
-  async function saveAllAssignments() {
-    if (!selectedGear.value) {
-      toast.error('No gear selected')
-      return
-    }
-    
-    // Validate total doesn't exceed gear amount
-    if (remainingAvailable.value < 0) {
-      toast.error(`Total assigned (${totalAssignedInModal.value}) exceeds total gear (${selectedGear.value.gear_amount})`)
-      return
-    }
-    
-    // Validate all assignments have valid stage and amount
-    const validAssignments = editableAssignments.value.filter(a => 
-      a.locationId && a.amount > 0
-    )
-    
-    if (validAssignments.length === 0 && editableAssignments.value.some(a => a.locationId || a.amount > 0)) {
-      toast.error('Please complete all assignments or remove empty ones')
-      return
-    }
+  async function handleSaveAssignments(data) {
+    const { gearId, assignments: validAssignments } = data
     
     loading.value = true
     try {
-      const gid = selectedGear.value.id
-      
       // Get all existing assignments for this gear
       const existingAssignments = await fetchTableData('gear_assignments', {
-        eq: { gear_id: gid }
+        eq: { gear_id: gearId }
       })
       
       const existingMap = new Map()
@@ -1779,7 +1217,7 @@ setup(props) {
         } else {
           // Create new assignment
           await mutateTableData('gear_assignments', 'insert', {
-            gear_id: gid,
+            gear_id: gearId,
             location_id: locationId,
             assigned_amount: amount
           })
@@ -1807,32 +1245,32 @@ setup(props) {
   }
 
   function openEditModal(gear) {
-    currentEditGear.value  = gear
-    editGearName.value     = gear.gear_name
-    editGearType.value     = gear.gear_type
-    editNumInputs.value    = gear.num_inputs
-    editNumOutputs.value   = gear.num_outputs
-    editNumRecords.value   = gear.num_records || 1
-    editGearAmount.value   = gear.gear_amount
-    editVendor.value       = gear.vendor || ''
-    editGearDefaultColor.value = normalizeGearColor(gear.default_color)
-    editIsRented.value     = gear.is_rented
+    currentEditGear.value = gear
     editModalVisible.value = true
   }
   function closeEditModal() {
     editModalVisible.value = false
   }
 
-  async function saveEdit() {
-    formError.value = null
-    if (!editGearName.value || editGearAmount.value < 1) {
+  async function handleEditGearSubmit(formData) {
+    const editGearName = formData.gearName
+    const editGearType = formData.gearType
+    const editNumInputs = formData.numInputs
+    const editNumOutputs = formData.numOutputs
+    const editNumRecords = formData.numRecords
+    const editGearAmount = formData.gearAmount
+    const editVendor = formData.vendor
+    const editGearDefaultColor = formData.gearDefaultColor
+    const editIsRented = formData.isRented
+    
+    if (!editGearName || editGearAmount < 1) {
       toast.error('Please fill required fields.')
       return
     }
     
     // Check if reducing gear amount below total assigned
     const currentTotalAssigned = currentEditGear.value.total_assigned || 0
-    const newGearAmount = Number(editGearAmount.value)
+    const newGearAmount = Number(editGearAmount)
     let newAssignments = null
     
     if (newGearAmount < currentTotalAssigned) {
@@ -1919,18 +1357,18 @@ setup(props) {
     
     loading.value = true
     try {
-      console.log('saveEdit: editNumRecords.value =', editNumRecords.value)
+      console.log('handleEditGearSubmit: editNumRecords =', editNumRecords)
       await mutateTableData('gear_table','update',{ 
         id: currentEditGear.value.id,
-        gear_name:   editGearName.value,
-        gear_type:   editGearType.value,
-        num_inputs:  editGearType==='source' ? 0 : editNumInputs.value,
-        num_outputs: editGearType==='source'?1:editNumOutputs.value,
-        num_records: editGearType.value === 'recorder' ? Number(editNumRecords.value) : null,
-        gear_amount: editGearAmount.value,
-        is_rented:   editIsRented.value,
-        vendor:      editVendor.value,
-        default_color: editGearType.value === 'source' ? editGearDefaultColor.value : null
+        gear_name:   editGearName,
+        gear_type:   editGearType,
+        num_inputs:  editGearType==='source' ? 0 : editNumInputs,
+        num_outputs: editGearType==='source'?1:editNumOutputs,
+        num_records: editGearType === 'recorder' ? Number(editNumRecords) : null,
+        gear_amount: editGearAmount,
+        is_rented:   editIsRented,
+        vendor:      editVendor,
+        default_color: editGearType === 'source' ? editGearDefaultColor : null
       })
       
       // Update assignments if gear amount was reduced
@@ -2109,6 +1547,14 @@ setup(props) {
 
     draggedIndex.value = null
     dragOverIndex.value = null
+  }
+
+  function handleReorder(fromIndex, toIndex) {
+    const items = [...reorderList.value]
+    const draggedItem = items[fromIndex]
+    items.splice(fromIndex, 1)
+    items.splice(toIndex, 0, draggedItem)
+    reorderList.value = items
   }
 
   // Touch Handlers (Mobile)
@@ -2401,29 +1847,8 @@ setup(props) {
     gearList,
     locationsList,
     showAddGearForm,
-    gearName,
-    gearType,
-    gearNumInputs,
-    gearNumOutputs,
-    gearNumRecords,
-    gearAmount,
-    isRented,
-    vendor,
-    selectedLocationId,
-    immediateAssignedAmount,
-    // New gear multi-stage assignment
-    newGearAssignments,
-    totalAssignedForNewGear,
-    remainingAvailableForNewGear,
-    hasUnassignedStagesForNewGear,
-    addNewGearAssignment,
-    removeNewGearAssignment,
-    availableLocationsForNewGear,
-    getMaxForNewGearAssignment,
-    validateNewGearAssignmentAmount,
-    onNewGearStageChange,
     toggleAddGear,
-    addGear,
+    handleAddGearSubmit,
     filteredMainGearList,
     filteredAccessoriesList,
     activeTab,
@@ -2434,55 +1859,22 @@ setup(props) {
     confirmDelete,
     openAssignmentModal,
     closeAssignmentModal,
-    saveGearAssignments,
-    saveAllAssignments,
+    handleSaveAssignments,
     assignmentModalVisible,
-    currentAssignmentGear,
-    gearAssignments,
-    // Batch-assign form state
     selectedGear,
-    editableAssignments,
-    totalAssignedInModal,
-    remainingAvailable,
-    hasUnassignedStages,
-    addNewAssignment,
-    removeAssignment,
-    availableLocationsForAssignment,
-    getMaxForAssignment,
-    validateAssignmentAmount,
-    onAssignmentStageChange,
     openEditModal,
     closeEditModal,
-    saveEdit,
+    handleEditGearSubmit,
     editModalVisible,
     currentEditGear,
-    editGearName,
-    editGearType,
-    editNumInputs,
-    editNumOutputs,
-    editNumRecords,
-    editGearAmount,
-    editVendor,
-    editIsRented,
     openReorderModal,
     closeReorderModal,
     moveInReorder,
     sortReorderList,
     saveReorder,
+    handleReorder,
     reorderModalVisible,
     reorderList,
-    // Drag and drop
-    draggedIndex,
-    dragOverIndex,
-    handleDragStart,
-    handleDragEnd,
-    handleDragOver,
-    handleDragEnter,
-    handleDragLeave,
-    handleDrop,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
     exportGearToPDF,
     calcMaxAssignment,
     // Gear Info Modal

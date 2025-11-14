@@ -487,6 +487,62 @@ function checkScreenSize() {
   isMobile.value = window.innerWidth < 768
 }
 
+// Project information for export header
+const projectName = ref('')
+const projectDateRange = ref('')
+
+// Fetch project information
+async function fetchProjectInfo() {
+  try {
+    if (props.projectId) {
+      const { data: projectData } = await supabase
+        .from('projects')
+        .select('project_name, main_show_days')
+        .eq('id', props.projectId)
+        .single()
+      
+      if (projectData) {
+        projectName.value = projectData.project_name || ''
+        
+        // Format date range from main_show_days
+        if (projectData.main_show_days && Array.isArray(projectData.main_show_days) && projectData.main_show_days.length > 0) {
+          const dates = projectData.main_show_days
+            .map(d => new Date(d))
+            .filter(d => !isNaN(d.getTime()))
+            .sort((a, b) => a - b)
+          
+          if (dates.length > 0) {
+            const start = dates[0]
+            const end = dates[dates.length - 1]
+            
+            const formatDate = (date) => {
+              return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: start.getFullYear() !== end.getFullYear() ? 'numeric' : undefined
+              })
+            }
+            
+            if (start.getTime() === end.getTime()) {
+              projectDateRange.value = formatDate(start)
+            } else {
+              projectDateRange.value = `${formatDate(start)} - ${formatDate(end)}`
+            }
+          } else {
+            projectDateRange.value = ''
+          }
+        } else {
+          projectDateRange.value = ''
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching project info:', error)
+    projectName.value = ''
+    projectDateRange.value = ''
+  }
+}
+
 // No local persistence - background lives in Supabase storage
 
 async function loadImageState() {
@@ -1113,10 +1169,8 @@ function drawCanvas() {
     drawMic(ctx, mic, labelPositions[idx])
   })
 
-  // Draw legend on canvas if it should be visible
-  if (showLegend.value && Object.keys(colorLegendMap.value).length > 0) {
-drawLegend(ctx)
-  }
+  // Note: Legend is only drawn on canvas during export, not during normal display
+  // The HTML legend (with close button) is shown instead during normal display
 }
 
 // Calculate label positions with collision avoidance
@@ -2929,11 +2983,18 @@ onMounted(() => {
   loadImageState()
   // Load color buttons
   fetchColorButtons()
+  // Fetch project information for export header
+  fetchProjectInfo()
   // Load saved legend position
   nextTick(() => {
     loadLegendPosition()
     drawCanvas()
   })
+})
+
+// Watch for projectId changes to refetch project info
+watch(() => props.projectId, () => {
+  fetchProjectInfo()
 })
 
 onBeforeUnmount(() => {
@@ -3168,9 +3229,38 @@ function getCanvasDataURL() {
     }
   }
 
-  // Apply padding
+  // Calculate header dimensions if project info is available
+  const HEADER_PADDING = 20
+  const HEADER_BOTTOM_PADDING = 15
+  let headerHeight = 0
+  let headerText = ''
+  let headerDateText = ''
+  
+  if (projectName.value || projectDateRange.value) {
+    const headerMeasure = document.createElement('canvas').getContext('2d')
+    if (headerMeasure) {
+      // Measure project name
+      headerMeasure.font = 'bold 28px sans-serif'
+      const nameWidth = projectName.value ? headerMeasure.measureText(projectName.value).width : 0
+      
+      // Measure date range
+      headerMeasure.font = '18px sans-serif'
+      const dateWidth = projectDateRange.value ? headerMeasure.measureText(projectDateRange.value).width : 0
+      
+      // Calculate header height (name + spacing + date + padding)
+      const nameHeight = 34 // Approximate height for 28px font
+      const dateHeight = 22 // Approximate height for 18px font
+      const nameDateGap = 8
+      headerHeight = HEADER_PADDING + nameHeight + nameDateGap + dateHeight + HEADER_BOTTOM_PADDING
+      
+      headerText = projectName.value || ''
+      headerDateText = projectDateRange.value || ''
+    }
+  }
+
+  // Apply padding and add header height
   const exportW = Math.max(1, Math.ceil((maxX - minX) + PADDING * 2))
-  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2))
+  const exportH = Math.max(1, Math.ceil((maxY - minY) + PADDING * 2 + headerHeight))
 
   // Prepare offscreen canvas
   const off = document.createElement('canvas')
@@ -3184,9 +3274,44 @@ function getCanvasDataURL() {
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, exportW, exportH)
 
-  // Shift drawing so that minX/minY are inside the frame with padding
+  // Draw header if project info is available
+  if (headerHeight > 0) {
+    ctx.save()
+    
+    // Draw project name
+    if (headerText) {
+      ctx.font = 'bold 28px sans-serif'
+      ctx.fillStyle = '#1a1a1a'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      ctx.fillText(headerText, exportW / 2, HEADER_PADDING)
+    }
+    
+    // Draw date range
+    if (headerDateText) {
+      ctx.font = '18px sans-serif'
+      ctx.fillStyle = '#666666'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      const nameHeight = 34
+      const nameDateGap = 8
+      ctx.fillText(headerDateText, exportW / 2, HEADER_PADDING + nameHeight + nameDateGap)
+    }
+    
+    // Draw a subtle line separator below header
+    ctx.strokeStyle = '#e0e0e0'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(PADDING, headerHeight - HEADER_BOTTOM_PADDING)
+    ctx.lineTo(exportW - PADDING, headerHeight - HEADER_BOTTOM_PADDING)
+    ctx.stroke()
+    
+    ctx.restore()
+  }
+
+  // Shift drawing so that minX/minY are inside the frame with padding, accounting for header
   ctx.save()
-  ctx.translate(-minX + PADDING, -minY + PADDING)
+  ctx.translate(-minX + PADDING, -minY + PADDING + headerHeight)
 
   // Draw background image (with current opacity)
   if (bgImageObj.value) {
