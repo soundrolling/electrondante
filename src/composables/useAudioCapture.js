@@ -206,7 +206,6 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       let audioProcessCount = 0;
       let audioBufferQueue = []; // Queue to batch audio before sending
       const BATCH_SIZE = 4; // Send every 4 buffers (reduces WebSocket overhead)
-      const bufferLatencyMs = (bufferSize / audioContext.value.sampleRate) * 1000;
       const effectiveLatencyMs = bufferLatencyMs * BATCH_SIZE;
       
       // Update stream latency
