@@ -144,9 +144,8 @@
                 </div>
               </div>
             </div>
-          </div>
-          
-          <div class="source-controls">
+            
+            <div class="source-controls">
             <button 
               v-if="!isSource && !isYourSource"
               @click="registerAsSource"
@@ -176,6 +175,7 @@
             <p v-if="!hasSource && !isSource && !isYourSource" class="info-message">
               No audio source active. Select an audio device above, then register as source to start streaming.
             </p>
+            </div>
           </div>
         </div>
         
