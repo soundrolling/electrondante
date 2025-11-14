@@ -882,7 +882,7 @@ async function exportPdf() {
 
     // Save PDF to storage instead of downloading
     const filename = `${stageName.value.replace(/\s+/g, '_')}_Documents.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
     const description = `Stage documents export - ${stageName.value || 'Stage'}`
     
     const result = await savePDFToStorage(
@@ -894,11 +894,7 @@ async function exportPdf() {
       description
     )
     
-    if (result.success) {
-      toast.success('PDF exported to Data Management successfully')
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
+    showExportSuccessToast(toast, result, filename)
   } catch (error) {
     console.error('PDF export error:', error)
     toast.error('Failed to export PDF')

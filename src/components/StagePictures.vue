@@ -903,7 +903,7 @@ async function exportPdf() {
 
     // Save PDF to storage instead of downloading
     const filename = `${stageName.value.replace(/\s+/g, '_')}_Pictures.pdf`;
-    const { savePDFToStorage } = await import('@/services/exportStorageService');
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService');
     const description = `Stage pictures export - ${stageName.value || 'Stage'}`;
     
     const result = await savePDFToStorage(
@@ -915,11 +915,7 @@ async function exportPdf() {
       description
     );
     
-    if (result.success) {
-      toast.success('PDF exported to Data Management successfully');
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`);
-    }
+    showExportSuccessToast(toast, result, filename);
   } catch (error) {
     console.error('PDF export error:', error);
     toast.error('Failed to export PDF');
@@ -1014,7 +1010,7 @@ async function exportSelectedPdf() {
 
     // Save PDF to storage instead of downloading
     const filename = `${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`;
-    const { savePDFToStorage } = await import('@/services/exportStorageService');
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService');
     const description = `Selected stage pictures export - ${stageName.value || 'Stage'}`;
     
     const result = await savePDFToStorage(
@@ -1026,11 +1022,7 @@ async function exportSelectedPdf() {
       description
     );
     
-    if (result.success) {
-      toast.success(`PDF exported to Data Management successfully with ${selectedImages.value.length} selected image${selectedImages.value.length === 1 ? '' : 's'}`);
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`);
-    }
+    showExportSuccessToast(toast, result, filename);
   } catch (error) {
     console.error('PDF export error:', error);
     toast.error('Failed to export selected images as PDF');

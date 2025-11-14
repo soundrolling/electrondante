@@ -444,6 +444,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, watchEffect } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
+import { useRouter } from 'vue-router'
 import { addNode, updateNode, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import { fetchTableData, mutateTableData } from '@/services/dataService'
 import { useUserStore } from '@/stores/userStore'
@@ -459,6 +460,7 @@ const props = defineProps({
 const emit = defineEmits(['node-updated', 'node-added', 'node-deleted'])
 
 const toast = useToast()
+const router = useRouter()
 const store = useUserStore()
 const canvas = ref(null)
 const canvasWrapper = ref(null)
@@ -3106,7 +3108,27 @@ async function confirmExport() {
     )
     
     if (result.success) {
-      toast.success('Mic placement exported to Data Management successfully')
+      // Navigate to Data Management first
+      router.push({ name: 'DataManagement', params: { id: props.projectId } })
+      
+      // Show toast with link to documents
+      const navigateToDocs = () => {
+        if (venueId && props.locationId) {
+          router.push({ 
+            name: 'StageDocs', 
+            params: { id: props.projectId },
+            query: { venueId, stageId: props.locationId }
+          })
+        } else {
+          router.push({ name: 'ProjectDocs', params: { id: props.projectId } })
+        }
+      }
+      
+      toast.success('Export saved! Click here to view in Documents', {
+        onClick: navigateToDocs,
+        closeOnClick: true,
+        timeout: 5000
+      })
     } else {
       toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
     }

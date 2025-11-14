@@ -59,11 +59,7 @@ export async function printBagInventory(bag, effectiveProjectId, currentProject)
       description
     )
 
-    if (result.success) {
-      return { success: true }
-    } else {
-      return { success: false, error: result.error }
-    }
+    return result
   } catch (err) {
     console.error('Failed to print bag inventory:', err)
     return { success: false, error: err.message }
@@ -140,11 +136,7 @@ export async function printMyGearInventory(bags, effectiveProjectId, currentProj
       description
     )
 
-    if (result.success) {
-      return { success: true }
-    } else {
-      return { success: false, error: result.error }
-    }
+    return result
   } catch (err) {
     console.error('Failed to print gear inventory:', err)
     return { success: false, error: err.message }

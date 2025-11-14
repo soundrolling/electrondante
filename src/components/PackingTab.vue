@@ -676,11 +676,9 @@ async function removeItemFromBag(itemId) {
 
 async function printBagInventory(bag) {
   const result = await printBagInventoryHelper(bag, effectiveProjectId, currentProject)
-    if (result.success) {
-      toast.success('PDF exported to Data Management successfully')
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-  }
+  const { showExportSuccessToast } = await import('@/services/exportStorageService')
+  const filename = `packing_bag_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
+  showExportSuccessToast(toast, result, filename)
 }
 
 async function fetchLocations() {
@@ -713,11 +711,9 @@ async function printMyGearInventory() {
     }
     
   const result = await printMyGearInventoryHelper(bags, effectiveProjectId, currentProject)
-    if (result.success) {
-      toast.success('PDF exported to Data Management successfully')
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-  }
+  const { showExportSuccessToast } = await import('@/services/exportStorageService')
+  const filename = `all_packing_bags_${new Date().toISOString().slice(0, 10)}.pdf`
+  showExportSuccessToast(toast, result, filename)
 }
 
 // Watch for projectId changes and reload gear when it becomes available

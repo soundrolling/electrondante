@@ -274,7 +274,7 @@ async function printBagInventory(bag) {
 
     // Save PDF to storage instead of downloading
     const filename = `bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
     const description = `Bag inventory export - ${bag.name}`
     const projectId = props.id ? String(props.id) : null
     
@@ -287,11 +287,7 @@ async function printBagInventory(bag) {
       description
     )
     
-    if (result.success) {
-      toast.success('PDF exported to Data Management successfully')
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
+    showExportSuccessToast(toast, result, filename)
   } catch (err) {
     console.error('Failed to print bag inventory:', err)
     toast.error(err.message || 'Failed to print inventory')

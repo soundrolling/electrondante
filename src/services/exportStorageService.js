@@ -78,7 +78,7 @@ export async function saveExportToStorage(
     }
 
     // Create database entry
-    const { error: dbError } = await supabase
+    const { data: docData, error: dbError } = await supabase
       .from('stage_docs')
       .insert({
         project_id: projectId,
@@ -89,7 +89,9 @@ export async function saveExportToStorage(
         mime_type: mimeType,
         description: description || `Exported ${mimeType === 'application/pdf' ? 'PDF' : 'PNG'}`,
         order: maxOrder + 1,
-      });
+      })
+      .select()
+      .single();
 
     if (dbError) {
       console.error('Database insert error:', dbError);
@@ -98,7 +100,14 @@ export async function saveExportToStorage(
       return { success: false, error: dbError.message };
     }
 
-    return { success: true };
+    return { 
+      success: true, 
+      docId: docData?.id,
+      venueId: venueId,
+      stageId: stageId,
+      fileBlob: fileBlob, // Return blob for immediate download option
+      filename: filename
+    };
   } catch (error) {
     console.error('Error saving export to storage:', error);
     return { success: false, error: error.message || 'Unknown error' };
@@ -130,7 +139,7 @@ export async function savePDFToStorage(
     // Ensure filename has .pdf extension
     const finalFileName = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
 
-    return await saveExportToStorage(
+    const result = await saveExportToStorage(
       pdfBlob,
       finalFileName,
       'application/pdf',
@@ -139,6 +148,13 @@ export async function savePDFToStorage(
       stageId,
       description
     );
+    
+    // Also return the pdfDoc for download capability
+    if (result.success) {
+      result.pdfDoc = pdfDoc;
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error generating PDF blob:', error);
     return { success: false, error: error.message || 'Failed to generate PDF' };
@@ -171,7 +187,7 @@ export async function savePNGToStorage(
     // Ensure filename has .png extension
     const finalFileName = filename.endsWith('.png') ? filename : `${filename}.png`;
 
-    return await saveExportToStorage(
+    const result = await saveExportToStorage(
       pngBlob,
       finalFileName,
       'image/png',
@@ -180,9 +196,75 @@ export async function savePNGToStorage(
       stageId,
       description
     );
+    
+    // Also return the dataURL for download capability
+    if (result.success) {
+      result.dataURL = dataURL;
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error converting PNG data URL to blob:', error);
     return { success: false, error: error.message || 'Failed to convert PNG' };
   }
+}
+
+/**
+ * Helper function to show export success toast with download option
+ * @param {Object} toast - Toast instance from useToast()
+ * @param {Object} result - Result from savePDFToStorage or savePNGToStorage
+ * @param {string} filename - Filename for download
+ */
+export function showExportSuccessToast(toast, result, filename) {
+  if (!result.success) {
+    toast.error(`Failed to save export: ${result.error || 'Unknown error'}`);
+    return;
+  }
+
+  // Create download function
+  const downloadFile = () => {
+    try {
+      if (result.pdfDoc) {
+        // For PDFs, use jsPDF's save method
+        result.pdfDoc.save(filename);
+      } else if (result.fileBlob) {
+        // For blobs, create download link
+        const url = URL.createObjectURL(result.fileBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else if (result.dataURL) {
+        // For PNG data URLs
+        const link = document.createElement('a');
+        link.href = result.dataURL;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      toast.success('File downloaded');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download file');
+    }
+  };
+
+  // Show toast with download action button
+  toast.success('Saved to Data Management', {
+    timeout: 6000,
+    closeOnClick: false,
+    onClick: undefined, // Don't download on click, use action button instead
+    action: {
+      text: 'Download',
+      onClick: (e, toastObject) => {
+        downloadFile();
+        toastObject.close();
+      }
+    }
+  });
 }
 

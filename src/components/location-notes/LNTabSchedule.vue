@@ -992,7 +992,7 @@ export default {
         const store = useUserStore()
         const projectId = store.getCurrentProject?.id || route.params.id
         
-        const { savePDFToStorage } = await import('@/services/exportStorageService')
+        const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
         const description = `Stage schedule export${exportInfo ? ` - ${exportInfo}` : ''}`
         
         const result = await savePDFToStorage(
@@ -1004,11 +1004,7 @@ export default {
           description
         )
         
-        if (result.success) {
-          toast.success('PDF exported to Data Management successfully')
-        } else {
-          toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-        }
+        showExportSuccessToast(toast, result, filename)
         closeExportModal()
       } catch (error) {
         console.error('Export error:', error)

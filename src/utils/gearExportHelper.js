@@ -37,7 +37,7 @@ export async function exportGearToPDF(filteredMainGearList, filteredAccessoriesL
   
   // Save PDF to storage
   const filename = `gear_${new Date().toISOString().slice(0, 10)}.pdf`
-  const { savePDFToStorage } = await import('@/services/exportStorageService')
+  const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
   const description = `Gear export - ${title}`
   const projectId = route?.params?.id
 
@@ -50,11 +50,7 @@ export async function exportGearToPDF(filteredMainGearList, filteredAccessoriesL
     description
   )
 
-  if (result.success) {
-    toast.success('PDF exported to Data Management successfully')
-  } else {
-    toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-  }
+  showExportSuccessToast(toast, result, filename)
   
   return result
 }

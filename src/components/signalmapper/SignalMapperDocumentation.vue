@@ -566,7 +566,7 @@ if (props.locationId) {
   }
 }
 
-const { savePDFToStorage } = await import('@/services/exportStorageService')
+const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
 const description = 'Signal mapper documentation export'
 
 const result = await savePDFToStorage(
@@ -578,11 +578,7 @@ const result = await savePDFToStorage(
   description
 )
 
-if (result.success) {
-  toast.success('PDF exported to Data Management successfully')
-} else {
-  toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-}
+showExportSuccessToast(toast, result, fileName)
 }
 
 async function exportSignalFlowDoc() {
@@ -639,7 +635,7 @@ if (props.locationId) {
   }
 }
 
-const { savePDFToStorage } = await import('@/services/exportStorageService')
+const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
 const description = 'Signal flow report export'
 
 const result = await savePDFToStorage(
@@ -651,11 +647,7 @@ const result = await savePDFToStorage(
   description
 )
 
-if (result.success) {
-  toast.success('PDF exported to Data Management successfully')
-} else {
-  toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-}
+showExportSuccessToast(toast, result, fileName)
 }
 
 function exportConnectionMatrix() {

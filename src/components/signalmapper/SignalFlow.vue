@@ -335,6 +335,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { buildGraph } from '@/services/signalGraph'
 import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as svcResolveTransformerInputLabel, hydrateVenueLabels } from '@/services/portLabelService'
 import { useToast } from 'vue-toastification'
+import { useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 // Legacy modal removed; inspector-based editing is used instead
@@ -357,6 +358,7 @@ const emit = defineEmits([
 ])
 
 const toast = useToast()
+const router = useRouter()
 const canvas = ref(null)
 const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
@@ -3254,7 +3256,27 @@ async function exportToPNG() {
     )
     
     if (result.success) {
-      toast.success('Signal flow exported to Data Management successfully')
+      // Navigate to Data Management first
+      router.push({ name: 'DataManagement', params: { id: props.projectId } })
+      
+      // Show toast with link to documents
+      const navigateToDocs = () => {
+        if (venueId && stageId) {
+          router.push({ 
+            name: 'StageDocs', 
+            params: { id: props.projectId },
+            query: { venueId, stageId }
+          })
+        } else {
+          router.push({ name: 'ProjectDocs', params: { id: props.projectId } })
+        }
+      }
+      
+      toast.success('Export saved! Click here to view in Documents', {
+        onClick: navigateToDocs,
+        closeOnClick: true,
+        timeout: 5000
+      })
     } else {
       toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
     }

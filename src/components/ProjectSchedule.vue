@@ -577,7 +577,7 @@ try {
   }
   
   const projectId = route.params.id
-  const { savePDFToStorage } = await import('@/services/exportStorageService')
+  const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
   const description = `Schedule export - ${loc}${dateInfo}`
   
   const result = await savePDFToStorage(
@@ -589,11 +589,7 @@ try {
     description
   )
   
-  if (result.success) {
-    toast.success('PDF exported to Data Management successfully')
-  } else {
-    toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-  }
+  showExportSuccessToast(toast, result, filename)
 } catch (err) {
   toast.error(err.message)
 } finally {

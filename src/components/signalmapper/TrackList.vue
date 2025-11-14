@@ -816,7 +816,7 @@ async function confirmPDFExport() {
       }
     }
     
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
     const description = `Track list export${customTitle.value ? ` - ${customTitle.value}` : ''}${pdfExportOptions.value.recordingDateName ? ` (${pdfExportOptions.value.recordingDateName})` : ''}`
     
     const result = await savePDFToStorage(
@@ -828,10 +828,7 @@ async function confirmPDFExport() {
       description
     )
     
-    if (result.success) {
-      toast.success('Track list exported to Data Management successfully')
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
+    showExportSuccessToast(toast, result, finalFileName)
     }
   } catch (e) {
     console.error('Error exporting track list:', e)
