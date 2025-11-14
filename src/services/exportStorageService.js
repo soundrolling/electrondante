@@ -254,6 +254,7 @@ export function showExportSuccessToast(toast, result, filename) {
   };
 
   // Show toast with download action button
+  // The action button works with both click and touch events automatically
   toast.success('Saved to Data Management', {
     timeout: 6000,
     closeOnClick: false,
@@ -261,9 +262,16 @@ export function showExportSuccessToast(toast, result, filename) {
     action: {
       text: 'Download',
       onClick: (e, toastObject) => {
+        // Prevent default to avoid any issues
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         downloadFile();
         toastObject.close();
-      }
+      },
+      // Ensure touch events are handled
+      class: 'toast-download-action'
     }
   });
 }

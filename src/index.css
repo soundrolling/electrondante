@@ -84,6 +84,39 @@ p, span, div, label {
   color: #000000 !important;
 }
 
+/* Toast Action Button Styling for Touch Devices */
+.Vue-Toastification__toast .Vue-Toastification__toast-action {
+  min-height: 44px !important; /* iOS minimum touch target */
+  min-width: 80px !important;
+  padding: 8px 16px !important;
+  margin-left: 12px !important;
+  cursor: pointer !important;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
+  touch-action: manipulation !important; /* Prevents double-tap zoom on iOS */
+  user-select: none !important;
+  border-radius: 4px !important;
+  font-weight: 600 !important;
+  transition: background-color 0.2s ease, transform 0.1s ease !important;
+}
+
+.Vue-Toastification__toast .Vue-Toastification__toast-action:hover {
+  opacity: 0.9 !important;
+  transform: scale(1.02) !important;
+}
+
+.Vue-Toastification__toast .Vue-Toastification__toast-action:active {
+  transform: scale(0.98) !important;
+  opacity: 0.8 !important;
+}
+
+/* Ensure touch events work on action buttons */
+@media (hover: none) and (pointer: coarse) {
+  .Vue-Toastification__toast .Vue-Toastification__toast-action {
+    min-height: 48px !important; /* Larger touch target for tablets */
+    padding: 10px 20px !important;
+  }
+}
+
 /* Override any Tailwind or conflicting styles */
 * {
   color: inherit !important;
