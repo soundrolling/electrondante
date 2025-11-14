@@ -1141,9 +1141,9 @@ export default {
 }
 
 .tab-button.active {
-  color: var(--color-primary-600);
+  color: var(--color-primary-700);
   border-bottom-color: var(--color-primary-500);
-  background: var(--bg-secondary);
+  background: rgba(59, 130, 246, 0.1); /* Light muted blue background */
 }
 
 .tab-content {
