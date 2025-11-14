@@ -79,7 +79,16 @@ export class AudioMixerEngine {
     // Process each channel: buffer -> gain -> analyser (for metering) -> pan -> mix
     for (let ch = 0; ch < this.channelCount; ch++) {
       const buffer = this.channelBuffers[ch];
-      if (buffer.length < frameCount) continue;
+      if (buffer.length < frameCount) {
+        // Log when buffer is too small (first few times)
+        if (!this._bufferTooSmallCount) this._bufferTooSmallCount = {};
+        if (!this._bufferTooSmallCount[ch]) this._bufferTooSmallCount[ch] = 0;
+        this._bufferTooSmallCount[ch]++;
+        if (this._bufferTooSmallCount[ch] <= 3) {
+          console.warn(`⚠️ [MIXER] Channel ${ch} buffer too small: ${buffer.length} < ${frameCount} (need more data)`);
+        }
+        continue;
+      }
 
       const gain = this.gainNodes[ch].gain.value;
       const pan = this.panNodes[ch].pan.value;
@@ -152,6 +161,13 @@ export class AudioMixerEngine {
       } else {
         // PCM data (already decoded)
         samples = Array.isArray(data) ? data : Array.from(data);
+      }
+      
+      // Track data addition for debugging
+      if (!this._dataReceivedCount) this._dataReceivedCount = 0;
+      this._dataReceivedCount++;
+      if (this._dataReceivedCount <= 5 || this._dataReceivedCount % 100 === 0) {
+        console.log(`🎵 [MIXER] Adding ${samples.length} samples to channel ${channel} buffer (total: ${this.channelBuffers[channel].length + samples.length})`);
       }
       
       this.channelBuffers[channel].push(...samples);
@@ -233,7 +249,9 @@ export class AudioMixerEngine {
     try {
       // Resume audio context (may require user interaction)
       if (this.audioContext.state === 'suspended') {
+        console.log('🎵 [MIXER] Resuming suspended audio context...');
         await this.audioContext.resume();
+        console.log(`✅ [MIXER] Audio context resumed, state: ${this.audioContext.state}`);
       }
       // Connect script processor to master gain, then to destination
       // The script processor will call processAudio() which mixes audio
@@ -241,10 +259,13 @@ export class AudioMixerEngine {
       if (this.masterGain.context.state !== 'closed') {
         this.scriptProcessor.connect(this.masterGain);
         this.masterGain.connect(this.audioContext.destination);
-        console.log('Audio mixer started, script processor connected');
+        console.log('✅ [MIXER] Audio mixer started, script processor connected');
+        console.log(`🎵 [MIXER] Audio context state: ${this.audioContext.state}, sample rate: ${this.audioContext.sampleRate}Hz`);
+      } else {
+        console.error('❌ [MIXER] Cannot start - audio context is closed');
       }
     } catch (error) {
-      console.error('Error starting audio mixer:', error);
+      console.error('❌ [MIXER] Error starting audio mixer:', error);
       throw error;
     }
   }

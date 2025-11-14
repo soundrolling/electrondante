@@ -179,8 +179,11 @@
               :disabled="!connected || hasSource"
               class="btn btn-primary"
             >
-              {{ hasSource ? 'Source Already Active' : 'Register as Source' }}
+              {{ hasSource ? 'Source Already Active (Another User)' : 'Register as Source' }}
             </button>
+            <p v-if="hasSource && !isYourSource" class="info-message" style="background: #fef3c7; border: 1px solid #f59e0b; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem;">
+              <strong>⚠️ Another user is already the source.</strong> Only one source can be active at a time. Wait for the current source to stop, or ask them to transfer control.
+            </p>
             <button 
               v-if="isSource"
               @click="unregisterAsSource"
@@ -196,8 +199,8 @@
               Stop My Source (Reconnected)
             </button>
             <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
-            <p v-if="isYourSource && !isSource" class="info-message" style="background: #fef3c7; border: 1px solid #f59e0b; padding: 0.75rem; border-radius: 4px;">
-              <strong>⚠️ You are the active source</strong> but reconnected as a listener. Click "Stop My Source" to stop streaming, or register again to reclaim control.
+            <p v-if="isYourSource && !isSource" class="info-message" style="background: #dbeafe; border: 1px solid #3b82f6; padding: 0.75rem; border-radius: 4px;">
+              <strong>ℹ️ You are the active source on another device.</strong> This device is in listener mode. You can stop the source from here, or switch to the source device to control it directly.
             </p>
             <p v-if="!hasSource && !isSource && !isYourSource" class="info-message">
               No audio source active. Select an audio device above, then register as source to start streaming.
@@ -227,6 +230,12 @@
 
         <!-- Tab Content: Monitor Mixer -->
         <div v-show="activeTab === 'mixer'" class="tab-content mixer-tab">
+          <!-- Show active source indicator when streaming as source -->
+          <div v-if="isSource && isCapturing" class="streaming-indicator">
+            <span class="streaming-badge">● Streaming Active</span>
+            <span class="streaming-info">Audio is being captured and streamed. You can switch tabs freely - streaming will continue.</span>
+          </div>
+          
           <!-- Listener/Mixer Section (for monitoring and mixing) -->
           <div class="listener-mixer-section" v-if="hasSource || !isSource">
           <h3 class="section-title">🎧 Monitor Mixer</h3>
@@ -353,6 +362,7 @@ const isSource = ref(false);
 const hasSource = ref(false);
 const sourceRegistrationError = ref('');
 const isYourSource = ref(false); // True if current user is the source (even if reconnected as listener)
+const sourceUserId = ref(null); // ID of the user who is currently the source
 const reconnectTimer = ref(null);
 const pingInterval = ref(null);
 const audioPacketCount = ref(0); // Track received audio packets for debugging
@@ -830,15 +840,18 @@ const handleServerMessage = async (message) => {
       // Update source status from server
       hasSource.value = message.hasSource;
       isYourSource.value = message.isYourSource || false;
+      sourceUserId.value = message.sourceUserId || null;
       
-      // Check if this user is the source (even if reconnected as listener)
+      // If user is the source on another device, automatically switch to listener tab
       if (message.isYourSource && !isSource.value) {
-        // User is the source but reconnected as listener
-        console.log('⚠️ You are the source but reconnected as listener. You can stop the source.');
+        // User is the source but on a different device - switch to listener tab
+        console.log('⚠️ You are the source on another device. Switching to listener mode.');
+        activeTab.value = 'mixer';
       } else if (!message.hasSource && isSource.value) {
         // We were source but server says no source - connection lost
         isSource.value = false;
         isYourSource.value = false;
+        sourceUserId.value = null;
       }
       break;
 
@@ -1309,6 +1322,33 @@ watch(() => mixer.value, (newMixer) => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.streaming-indicator {
+  padding: 1rem;
+  background: #f0fdf4;
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.streaming-badge {
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.streaming-info {
+  color: #065f46;
+  font-size: 0.875rem;
+  flex: 1;
 }
 
 .section-title {
