@@ -1,16 +1,46 @@
 # Buffering and Railway Optimizations
 
-## Buffering Flow Verification
+## Buffering Architecture
 
-### How Buffering Works
+### Two-Stage Buffering System
 
-1. **Source → Server**: Audio packets are sent from source (browser/Electron) to Railway server
-2. **Server → Listeners**: Railway relays audio packets to all connected listeners
-3. **Listener Buffering**: Each listener accumulates audio in buffers before playback
+The system uses a **two-stage buffering approach** for optimal performance:
 
-### Buffer Accumulation
+1. **Source → Railway Server**: **Fast (no delay)**
+   - Source sends audio packets immediately to Railway
+   - No buffering delay on source side
+   - Low latency from source to server
 
-- **Initial State**: Buffers start empty (length 0)
+2. **Railway Server → Listeners**: **Buffered (delayed relay)**
+   - Railway buffers audio packets before relaying
+   - Default buffer: 500ms (configurable via `LISTENER_BUFFER_MS`)
+   - Relays at consistent rate (341ms intervals) for smooth playback
+   - Absorbs network jitter between source and listeners
+
+3. **Listener → Playback**: **Client-side buffering**
+   - Each listener accumulates audio in buffers before playback
+   - Additional buffering for network variations
+   - User-configurable buffer size (50-2000ms)
+
+### How Server-Side Buffering Works
+
+1. **Source sends audio**: Packets arrive at Railway immediately (fast)
+2. **Railway buffers**: Packets stored in per-channel FIFO queues
+3. **Buffer fills**: Server waits until buffer reaches target size (~500ms)
+4. **Relay starts**: Server begins relaying at consistent rate (341ms intervals)
+5. **Listeners receive**: Smooth, consistent audio stream despite network variations
+
+### Server-Side Buffer Accumulation
+
+- **Initial State**: Server buffers start empty when source registers
+- **Source Sends**: Audio packets arrive at Railway and are buffered immediately (no delay)
+- **Buffer Check**: Server checks if buffer has enough packets (~500ms worth)
+- **Relay Start**: Once buffer is filled, server starts relaying at consistent rate
+- **Continuous Relay**: Server maintains buffer and relays packets every 341ms
+
+### Client-Side Buffer Accumulation
+
+- **Initial State**: Listener buffers start empty (length 0)
 - **Data Reception**: Audio samples are added to channel buffers via `addChannelData()`
 - **Buffer Check**: `processAudio()` checks if minimum buffer size is reached
 - **Playback Start**: Once `minBufferSamples` is reached, playback begins
@@ -62,10 +92,21 @@ If you see:
 
 ### Railway Environment Variables
 
-No additional Railway-specific variables needed. The server automatically:
-- Uses `PORT` environment variable (set by Railway)
+**Required:**
+- `PORT` - Automatically set by Railway (don't override)
+- `SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_SERVICE_KEY` - Your Supabase service role key
+
+**Optional:**
+- `LISTENER_BUFFER_MS` - Server-side buffer size in milliseconds (default: 500ms)
+  - Larger = smoother playback for listeners, but longer initial delay
+  - Smaller = lower latency, but more prone to dropouts
+  - Recommended: 300-1000ms depending on network conditions
+
+The server automatically:
 - Detects Railway environment from `RAILWAY_ENVIRONMENT`
 - Configures timeouts appropriately
+- Calculates buffer size in samples from `LISTENER_BUFFER_MS` and sample rate
 
 ## Monitoring in Railway
 
@@ -75,7 +116,9 @@ Look for these patterns:
 
 **Good Signs:**
 ```
-📊 [SERVER] Audio relay stats: 1000 packets, 2000 relayed, 0 errors, 2 listeners
+✅ [SERVER] Buffer filled (10 packets, ~163840 samples) in 500ms, starting relay to listeners
+🔄 [SERVER] Starting relay interval: 341ms (targeting consistent playback for listeners)
+📊 [SERVER] Relay stats: 100 cycles, avg 2 relayed per cycle, 0 errors (0.00%), buffer sizes: [5,5,5,5], listeners: 2
 ✅ WebSocket server attached to HTTP server on port 3000
 ```
 
@@ -138,10 +181,34 @@ Default: ~341ms (16384 samples at 48kHz)
 3. **Timeout Settings**: Current settings (65s keepalive) should prevent premature closures
 4. **Logging**: Railway logs are available in dashboard - check for errors
 
+## Server-Side Buffering Configuration
+
+### Adjusting Buffer Size
+
+Set `LISTENER_BUFFER_MS` environment variable in Railway:
+- **300ms**: Lower latency, faster startup, but more prone to dropouts
+- **500ms** (default): Balanced - good for most use cases
+- **1000ms**: Smoother playback, longer initial delay, better for unstable networks
+
+### How It Works
+
+1. Source sends audio packets → Railway buffers them immediately
+2. Railway accumulates packets until buffer target is reached
+3. Railway starts relaying at consistent rate (341ms intervals)
+4. Listeners receive smooth, consistent stream
+
+### Benefits
+
+- **Source doesn't wait**: Can send audio as fast as possible
+- **Consistent playback**: Listeners get smooth audio despite network jitter
+- **Network resilience**: Server buffer absorbs variations
+- **Configurable**: Adjust buffer size based on network conditions
+
 ## Next Steps for Optimization
 
 1. **Opus Compression**: Already implemented for Node.js clients, reduces bandwidth
 2. **Adaptive Buffering**: Could adjust buffer size based on network conditions
 3. **Jitter Buffer**: Could add packet reordering for out-of-order delivery
 4. **Connection Pooling**: For multiple listeners, could optimize relay logic
+5. **Dynamic Buffer Adjustment**: Could adjust server buffer based on listener count and network quality
 
