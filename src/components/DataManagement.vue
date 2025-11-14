@@ -77,7 +77,7 @@
               <div class="card-label">Calendar Events</div>
             </div>
           </div>
-          <div class="overview-card clickable" @click="scrollToRushes">
+          <div class="overview-card clickable" @click="showRushesModal = true">
             <div class="card-icon">🎵</div>
             <div class="card-content">
               <div class="card-value">{{ dataCounts?.rushes || 0 }}</div>
@@ -87,7 +87,15 @@
         </div>
       </section>
 
-      <!-- Export Selection Section -->
+      <!-- Frame.io Upload Tracking Button -->
+      <section class="rushes-button-section">
+        <button class="btn btn-primary" @click="showRushesModal = true">
+          <span>🎵</span>
+          <span>Frame.io Upload Tracking</span>
+        </button>
+      </section>
+
+      <!-- Export Section (Combined Export Selection and History) -->
       <section class="export-section">
         <h2 class="section-title">Export Selection</h2>
         <div class="export-controls">
@@ -176,63 +184,6 @@
         </div>
       </section>
 
-      <!-- Frame.io Upload Tracking Section -->
-      <section class="rushes-section">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Frame.io Upload Tracking</h2>
-            <p class="section-description">Track BWF rushes files and supporting documents uploaded to Frame.io for recording days</p>
-          </div>
-        </div>
-        <div v-if="isLoadingRushes" class="loading-text">Loading rushes files...</div>
-        <div v-else-if="stagesWithRecordingDays.length === 0" class="empty-state">
-          <p>No stages with recording days found. Add recording days (stage hours) in Project Locations to track uploads.</p>
-        </div>
-        <div v-else class="rushes-stages-container">
-          <div v-for="stageData in stagesWithRecordingDays" :key="stageData.stage.id" class="stage-group">
-            <h3 class="stage-name">{{ stageData.stage.stage_name }}</h3>
-            <div v-if="stageData.recordingDays.length === 0" class="no-recording-days">
-              <p class="text-muted">No recording days for this stage</p>
-            </div>
-            <div v-else class="recording-days-list">
-              <div v-for="day in stageData.recordingDays" :key="day.id" class="recording-day-item">
-                <div class="recording-day-header">
-                  <span class="recording-day-name">{{ getRecordingDayName(day) }}</span>
-                </div>
-                <div class="recorders-row">
-                  <div class="recorder-column">
-                    <label class="recorder-label">Main Recorder</label>
-                    <select 
-                      :value="getRecorderStatus(stageData.stage.id, day.id, 'main')"
-                      @change="updateStatus(stageData.stage.id, day.id, 'main', $event.target.value)"
-                      class="status-select"
-                      :class="`status-${getRecorderStatus(stageData.stage.id, day.id, 'main')}`"
-                    >
-                      <option value="not_uploaded">Not Uploaded</option>
-                      <option value="uploaded">Uploaded</option>
-                      <option value="failed">Failed</option>
-                    </select>
-                  </div>
-                  <div class="recorder-column">
-                    <label class="recorder-label">Backup Recorder</label>
-                    <select 
-                      :value="getRecorderStatus(stageData.stage.id, day.id, 'backup')"
-                      @change="updateStatus(stageData.stage.id, day.id, 'backup', $event.target.value)"
-                      class="status-select"
-                      :class="`status-${getRecorderStatus(stageData.stage.id, day.id, 'backup')}`"
-                    >
-                      <option value="not_uploaded">Not Uploaded</option>
-                      <option value="uploaded">Uploaded</option>
-                      <option value="failed">Failed</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- Export History Section -->
       <section class="exports-section">
         <div class="section-header">
@@ -311,6 +262,70 @@
       </section>
     </div>
 
+    <!-- Frame.io Upload Tracking Modal -->
+    <div v-if="showRushesModal" class="modal-backdrop" @click.self="showRushesModal = false">
+      <div class="modal-content rushes-modal-content">
+        <div class="modal-header">
+          <div>
+            <h3>Frame.io Upload Tracking</h3>
+            <p class="section-description">Track BWF rushes files and supporting documents uploaded to Frame.io for recording days</p>
+          </div>
+          <button class="modal-close" @click="showRushesModal = false">×</button>
+        </div>
+        <div class="modal-body rushes-modal-body">
+          <div v-if="isLoadingRushes" class="loading-text">Loading rushes files...</div>
+          <div v-else-if="stagesWithRecordingDays.length === 0" class="empty-state">
+            <p>No stages with recording days found. Add recording days (stage hours) in Project Locations to track uploads.</p>
+          </div>
+          <div v-else class="rushes-stages-container">
+            <div v-for="stageData in stagesWithRecordingDays" :key="stageData.stage.id" class="stage-group">
+              <h3 class="stage-name">{{ stageData.stage.stage_name }}</h3>
+              <div v-if="stageData.recordingDays.length === 0" class="no-recording-days">
+                <p class="text-muted">No recording days for this stage</p>
+              </div>
+              <div v-else class="recording-days-list">
+                <div v-for="day in stageData.recordingDays" :key="day.id" class="recording-day-item">
+                  <div class="recording-day-header">
+                    <span class="recording-day-name">{{ getRecordingDayName(day) }}</span>
+                  </div>
+                  <div class="recorders-row">
+                    <div class="recorder-column">
+                      <label class="recorder-label">Main Recorder</label>
+                      <select 
+                        :value="getRecorderStatus(stageData.stage.id, day.id, 'main')"
+                        @change="updateStatus(stageData.stage.id, day.id, 'main', $event.target.value)"
+                        class="status-select"
+                        :class="`status-${getRecorderStatus(stageData.stage.id, day.id, 'main')}`"
+                      >
+                        <option value="not_uploaded">Not Uploaded</option>
+                        <option value="uploaded">Uploaded</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+                    <div class="recorder-column">
+                      <label class="recorder-label">Backup Recorder</label>
+                      <select 
+                        :value="getRecorderStatus(stageData.stage.id, day.id, 'backup')"
+                        @change="updateStatus(stageData.stage.id, day.id, 'backup', $event.target.value)"
+                        class="status-select"
+                        :class="`status-${getRecorderStatus(stageData.stage.id, day.id, 'backup')}`"
+                      >
+                        <option value="not_uploaded">Not Uploaded</option>
+                        <option value="uploaded">Uploaded</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showRushesModal = false">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -347,10 +362,8 @@ export default {
     const isLoadingRushes = ref(false);
     const isLoadingExports = ref(false);
     const isExporting = ref(false);
-    const isSaving = ref(false);
     const isDownloading = ref(false);
-    const showEditModal = ref(false);
-    const showAddModal = ref(false);
+    const showRushesModal = ref(false);
 
     const dataCounts = ref({
       stages: 0,
@@ -645,12 +658,6 @@ export default {
       router.push({ name: 'Calendar', params: { id: projectId.value } });
     }
 
-    function scrollToRushes() {
-      const rushesSection = document.querySelector('.rushes-section');
-      if (rushesSection) {
-        rushesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
 
     async function loadExports() {
       isLoadingExports.value = true;
@@ -753,6 +760,7 @@ export default {
       isLoading,
       isLoadingRushes,
       isExporting,
+      showRushesModal,
       dataCounts,
       venues,
       stages,
@@ -791,7 +799,6 @@ export default {
       navigateToContacts,
       navigateToTravel,
       navigateToCalendar,
-      scrollToRushes,
     };
   },
 };
@@ -1090,13 +1097,31 @@ export default {
   margin: 0;
 }
 
-/* Rushes Section */
-.rushes-section {
+/* Rushes Button Section */
+.rushes-button-section {
   margin-bottom: 32px;
-  padding: 24px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-light);
+  display: flex;
+  justify-content: center;
+}
+
+.rushes-button-section .btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Rushes Modal */
+.rushes-modal-content {
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+}
+
+.rushes-modal-body {
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
 }
 
 .rushes-stages-container {
@@ -1394,9 +1419,16 @@ export default {
 }
 
 .modal-header h3 {
-  margin: 0;
+  margin: 0 0 8px 0;
   font-size: 20px;
   font-weight: 600;
+  color: var(--text-heading);
+}
+
+.modal-header .section-description {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 .modal-close {
