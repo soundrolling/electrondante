@@ -18,7 +18,7 @@
             Playback: {{ latency.toFixed(1) }}ms | 
             Stream: ~{{ streamLatency.toFixed(0) }}ms | 
             Network: {{ connectionQuality.averageLatency }}ms | 
-            Quality: <span :style="{ color: connectionQuality.qualityColor }">{{ connectionQuality.qualityLevel.toUpperCase() }}</span>
+            Quality: <span :style="{ color: connectionQuality.qualityColor }">{{ (connectionQuality.qualityLevel || 'unknown').toUpperCase() }}</span>
             <span v-if="connectionQuality.packetLoss > 0" style="color: #ef4444;">
               ({{ connectionQuality.packetLoss.toFixed(1) }}% loss)
             </span>
