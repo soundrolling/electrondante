@@ -1221,11 +1221,23 @@ watch(() => mixer.value, (newMixer) => {
   border-bottom: 2px solid var(--border-light, #e2e8f0);
 }
 
+@media (prefers-color-scheme: dark) {
+  .mixer-header {
+    border-bottom-color: var(--border-light, #4b5563);
+  }
+}
+
 .mixer-title {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary, #1f2937);
   margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mixer-title {
+    color: var(--text-primary, #f9fafb);
+  }
 }
 
 .status-bar {
@@ -1395,6 +1407,12 @@ watch(() => mixer.value, (newMixer) => {
   margin-bottom: 1.5rem;
 }
 
+@media (prefers-color-scheme: dark) {
+  .tab-navigation {
+    border-bottom-color: var(--border-light, #4b5563);
+  }
+}
+
 .tab-button {
   padding: 0.75rem 1.5rem;
   background: transparent;
@@ -1417,6 +1435,22 @@ watch(() => mixer.value, (newMixer) => {
   color: var(--primary, #3b82f6);
   border-bottom-color: var(--primary, #3b82f6);
   background: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tab-button {
+    color: var(--text-secondary, #9ca3af);
+  }
+  
+  .tab-button:hover {
+    color: var(--text-primary, #f9fafb);
+    background: var(--bg-secondary, #374151);
+  }
+  
+  .tab-button.active {
+    color: var(--primary, #60a5fa);
+    border-bottom-color: var(--primary, #60a5fa);
+  }
 }
 
 .tab-content {
@@ -1610,6 +1644,13 @@ watch(() => mixer.value, (newMixer) => {
   margin: 0 0 1rem 0;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--border-light, #e2e8f0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .section-title {
+    color: var(--text-primary, #f9fafb);
+    border-bottom-color: var(--border-light, #4b5563);
+  }
 }
 
 .source-setup-section {
