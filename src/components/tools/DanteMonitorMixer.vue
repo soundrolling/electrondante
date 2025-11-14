@@ -659,7 +659,7 @@ const connectWebSocket = async () => {
             console.warn('Failed to send ping:', error);
           }
         }
-      }, 5000); // Ping every 5 seconds for better quality monitoring
+      }, 5000); // Ping every 5 seconds for connection keepalive
 
       // Authenticate with server
       const { data: { session } } = await supabase.auth.getSession();

@@ -89,15 +89,16 @@ export class AudioMixerEngine {
     // Check if we have enough buffered data across all channels before starting playback
     let minBufferSize = Infinity;
     for (let ch = 0; ch < this.channelCount; ch++) {
-      if (this.channelBuffers[ch].length < minBufferSize) {
-        minBufferSize = this.channelBuffers[ch].length;
+      const bufferLength = this.channelBuffers[ch]?.length || 0;
+      if (bufferLength < minBufferSize) {
+        minBufferSize = bufferLength;
       }
     }
     
-    // Update buffer stats
-    this.currentBufferSize = minBufferSize;
-    if (minBufferSize > this.maxBufferSize) {
-      this.maxBufferSize = minBufferSize;
+    // Update buffer stats (always, even when not buffering)
+    this.currentBufferSize = minBufferSize === Infinity ? 0 : minBufferSize;
+    if (this.currentBufferSize > this.maxBufferSize) {
+      this.maxBufferSize = this.currentBufferSize;
     }
     
     // If buffering, check if we have enough data to start
@@ -106,11 +107,11 @@ export class AudioMixerEngine {
         this.bufferStartTime = Date.now();
       }
       
-      if (minBufferSize >= this.minBufferSamples) {
+      if (this.currentBufferSize >= this.minBufferSamples) {
         const bufferingTime = Date.now() - this.bufferStartTime;
         this.isBuffering = false;
         this.bufferStartTime = null;
-        console.log(`✅ [MIXER] Buffer filled (${minBufferSize} samples) in ${bufferingTime}ms, starting playback`);
+        console.log(`✅ [MIXER] Buffer filled (${this.currentBufferSize} samples) in ${bufferingTime}ms, starting playback`);
       } else {
         // Still buffering - output silence
         return;
@@ -362,11 +363,26 @@ export class AudioMixerEngine {
   }
 
   getBufferStats() {
-    const progress = this.isBuffering ? Math.min(100, (this.currentBufferSize / this.minBufferSamples) * 100) : 100;
+    // Recalculate current buffer size to ensure it's accurate
+    let minBufferSize = Infinity;
+    for (let ch = 0; ch < this.channelCount; ch++) {
+      const bufferLength = this.channelBuffers[ch]?.length || 0;
+      if (bufferLength < minBufferSize) {
+        minBufferSize = bufferLength;
+      }
+    }
+    const currentSize = minBufferSize === Infinity ? 0 : minBufferSize;
+    
+    // Update max if needed
+    if (currentSize > this.maxBufferSize) {
+      this.maxBufferSize = currentSize;
+    }
+    
+    const progress = this.isBuffering ? Math.min(100, (currentSize / this.minBufferSamples) * 100) : 100;
     const bufferTimeMs = (this.minBufferSamples / this.sampleRate) * 1000;
-    const currentTimeMs = (this.currentBufferSize / this.sampleRate) * 1000;
+    const currentTimeMs = (currentSize / this.sampleRate) * 1000;
     return {
-      current: this.currentBufferSize,
+      current: currentSize,
       target: this.minBufferSamples,
       max: this.maxBufferSize,
       progress: progress,
@@ -387,7 +403,7 @@ export function useDanteMixer(channelCount, sampleRate) {
   onMounted(() => {
     mixer.value = new AudioMixerEngine(channelCount, sampleRate);
     
-    // Update reactive refs from mixer engine every frame
+    // Update reactive refs from mixer engine every frame (for peak levels - needs to be smooth)
     const updatePeakLevels = () => {
       if (mixer.value) {
         // Directly read from the mixer's peakLevels array
@@ -401,6 +417,14 @@ export function useDanteMixer(channelCount, sampleRate) {
             peakHolds.value[i] = hold;
           }
         }
+        requestAnimationFrame(updatePeakLevels);
+      }
+    };
+    updatePeakLevels();
+    
+    // Update buffering state and buffer stats every 500ms (not real-time)
+    const updateBufferStats = () => {
+      if (mixer.value) {
         // Update buffering state
         if (mixer.value.isBuffering !== undefined) {
           isBuffering.value = mixer.value.isBuffering;
@@ -409,15 +433,16 @@ export function useDanteMixer(channelCount, sampleRate) {
         if (mixer.value.getBufferStats) {
           bufferStats.value = mixer.value.getBufferStats();
         }
-        requestAnimationFrame(updatePeakLevels);
       }
     };
-    updatePeakLevels();
+    updateBufferStats(); // Initial update
+    updateInterval = setInterval(updateBufferStats, 500); // Update every 500ms
   });
 
   onBeforeUnmount(() => {
     if (updateInterval) {
-      cancelAnimationFrame(updateInterval);
+      clearInterval(updateInterval);
+      updateInterval = null;
     }
     if (mixer.value) {
       mixer.value.stop();
