@@ -1185,15 +1185,96 @@ watch(() => mixer.value, (newMixer) => {
 .mixer-interface {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
-.source-control-bar {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-light, #e2e8f0);
+}
+
+.source-setup-section {
+  padding: 1.5rem;
   background: var(--bg-secondary, #f8f9fa);
   border-radius: 8px;
   border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.source-control-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.active-source-status {
+  padding: 1.5rem;
+  background: #f0fdf4;
+  border-radius: 8px;
+  border: 2px solid #10b981;
+}
+
+.source-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.status-info {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: #10b981;
+  color: white;
+}
+
+.status-badge.device {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.listener-mixer-section {
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.no-source-message {
+  padding: 2rem;
+  text-align: center;
+}
+
+.info-card {
+  padding: 2rem;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+}
+
+.info-card h3 {
+  margin: 0 0 0.75rem 0;
+  color: #92400e;
+}
+
+.info-card p {
+  margin: 0.5rem 0;
+  color: #78350f;
 }
 
 .source-controls {
