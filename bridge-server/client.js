@@ -21,7 +21,8 @@ const CONFIG = {
   railwayWsUrl: process.env.RAILWAY_WS_URL || process.env.RAILWAY_URL || 'wss://proapp2149-production.up.railway.app',
   sampleRate: 48000, // Dante standard
   channels: parseInt(process.env.CHANNEL_COUNT) || 16,
-  bufferSize: 128,
+  bufferSize: 4096, // Increased from 128 for better quality (~85ms at 48kHz)
+  batchSize: 4, // Batch 4 buffers before sending (reduces WebSocket overhead)
   reconnectDelay: 3000, // 3 seconds
   localHttpPort: parseInt(process.env.LOCAL_HTTP_PORT) || 3002, // Local HTTP server for device management
 };
@@ -347,7 +348,8 @@ class DanteBridgeClient {
         console.log(`  ${isSelected ? '→' : ' '} [${d.id}] ${d.name} (${d.maxInputChannels} channels, ${d.defaultSampleRate}Hz)`);
       });
       
-      // Create audio input stream
+      // Create audio input stream with larger buffer for better quality
+      // Buffer size: 4096 frames = ~85ms at 48kHz (prioritizing quality over latency)
       this.audioInput = new portAudio.AudioIO({
         inOptions: {
           channelCount: CONFIG.channels,
@@ -355,7 +357,18 @@ class DanteBridgeClient {
           sampleRate: CONFIG.sampleRate,
           deviceId: this.selectedDeviceId, // Use selected device ID
           closeOnError: false,
+          framesPerBuffer: CONFIG.bufferSize, // Use configured buffer size
         },
+      });
+      
+      const bufferLatencyMs = (CONFIG.bufferSize / CONFIG.sampleRate) * 1000;
+      const effectiveLatencyMs = bufferLatencyMs * CONFIG.batchSize;
+      console.log(`📊 Audio buffer configuration:`, {
+        bufferSize: CONFIG.bufferSize,
+        batchSize: CONFIG.batchSize,
+        bufferLatencyMs: bufferLatencyMs.toFixed(1),
+        effectiveLatencyMs: effectiveLatencyMs.toFixed(1),
+        sampleRate: CONFIG.sampleRate,
       });
 
       // Process incoming audio in real-time

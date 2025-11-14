@@ -21,7 +21,8 @@ class DanteBridgeClient extends EventEmitter {
       railwayWsUrl: config.railwayWsUrl || 'wss://proapp2149-production.up.railway.app',
       sampleRate: config.sampleRate || 48000,
       channels: config.channels || 16,
-      bufferSize: 128,
+      bufferSize: 4096, // Increased from 128 for better quality (~85ms at 48kHz)
+      batchSize: 4, // Batch 4 buffers before sending (reduces WebSocket overhead)
       reconnectDelay: 3000,
       accessToken: config.accessToken,
     };
@@ -230,6 +231,10 @@ class DanteBridgeClient extends EventEmitter {
       
       this.emit('devices', this.availableDevices);
       
+      // Create audio input with larger buffer for better quality
+      const bufferLatencyMs = (this.config.bufferSize / this.config.sampleRate) * 1000;
+      const effectiveLatencyMs = bufferLatencyMs * this.config.batchSize;
+      
       this.audioInput = new portAudio.AudioIO({
         inOptions: {
           channelCount: this.config.channels,
@@ -237,7 +242,13 @@ class DanteBridgeClient extends EventEmitter {
           sampleRate: this.config.sampleRate,
           deviceId: this.selectedDeviceId,
           closeOnError: false,
+          framesPerBuffer: this.config.bufferSize, // Use configured buffer size
         },
+      });
+      
+      this.emit('status', { 
+        type: 'audio-config', 
+        message: `Audio buffer: ${this.config.bufferSize} samples, batch: ${this.config.batchSize}, latency: ~${effectiveLatencyMs.toFixed(1)}ms` 
       });
 
       this.audioInput.on('data', (buffer) => {
@@ -278,18 +289,53 @@ class DanteBridgeClient extends EventEmitter {
       }
     }
 
-    channels.forEach((channelData, chIndex) => {
-      try {
-        this.ws.send(JSON.stringify({
-          type: 'audio',
-          channel: chIndex,
-          data: Array.from(channelData),
-          timestamp: Date.now(),
-        }));
-      } catch (error) {
-        console.error(`Error sending audio for channel ${chIndex}:`, error);
-      }
+    // Initialize batch queue if not exists
+    if (!this.audioBatchQueue) {
+      this.audioBatchQueue = [];
+      this.bufferCount = 0;
+    }
+    
+    // Add to batch queue
+    this.audioBatchQueue.push({
+      channels: channels,
+      timestamp: Date.now(),
     });
+    this.bufferCount++;
+    
+    // Send batched audio when queue reaches batch size
+    if (this.audioBatchQueue.length >= this.config.batchSize) {
+      const batch = this.audioBatchQueue.splice(0, this.config.batchSize);
+      
+      // Combine all buffers in batch for each channel
+      channels.forEach((_, chIndex) => {
+        const combinedSamples = [];
+        for (const buffer of batch) {
+          if (buffer.channels[chIndex]) {
+            combinedSamples.push(...Array.from(buffer.channels[chIndex]));
+          }
+        }
+        
+        if (combinedSamples.length > 0) {
+          try {
+            this.ws.send(JSON.stringify({
+              type: 'audio',
+              channel: chIndex,
+              data: combinedSamples,
+              timestamp: batch[0].timestamp, // Use first buffer's timestamp
+              bufferCount: batch.length,
+            }));
+          } catch (error) {
+            console.error(`Error sending audio for channel ${chIndex}:`, error);
+          }
+        }
+      });
+      
+      if (this.bufferCount % 50 === 0) {
+        const bufferLatencyMs = (this.config.bufferSize / this.config.sampleRate) * 1000;
+        const effectiveLatencyMs = bufferLatencyMs * this.config.batchSize;
+        console.log(`📤 Sent ${this.bufferCount} buffers (batched: ${this.config.batchSize} buffers, ~${effectiveLatencyMs.toFixed(1)}ms latency)`);
+      }
+    }
   }
 
   stop() {

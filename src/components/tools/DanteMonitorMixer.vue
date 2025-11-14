@@ -14,7 +14,7 @@
           <span v-if="isSource" class="source-badge">🎤 Source</span>
           <span v-else-if="hasSource" class="listener-badge">👂 Listener</span>
           <span v-else class="no-source-badge">⚠️ No Source</span>
-          <span class="latency-info">Latency: {{ latency.toFixed(1) }}ms</span>
+          <span class="latency-info">Playback Latency: {{ latency.toFixed(1) }}ms | Stream Latency: ~{{ streamLatency.toFixed(0) }}ms</span>
         </div>
         <div v-if="connectionError" class="connection-error">
           <p>⚠️ Connection Error: {{ connectionError }}</p>
@@ -267,6 +267,7 @@ const authError = ref('');
 const connected = ref(false);
 const wsRef = ref(null);
 const latency = ref(0);
+const streamLatency = ref(340); // Default: ~340ms (4096 samples * 4 batches / 48000 * 1000)
 const connectionError = ref('');
 const isSource = ref(false);
 const hasSource = ref(false);
@@ -281,10 +282,18 @@ const {
   captureError,
   availableDevices,
   selectedDeviceId,
+  streamLatency: captureStreamLatency,
   enumerateDevices,
   startCapture,
   stopCapture,
 } = useAudioCapture(wsRef, 32, 48000);
+
+// Use stream latency from capture, or default
+watch(captureStreamLatency, (newLatency) => {
+  if (newLatency) {
+    streamLatency.value = newLatency;
+  }
+});
 
 const deviceLoading = ref(false);
 const deviceError = ref('');

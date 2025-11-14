@@ -176,20 +176,23 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       });
       
       // Create script processor to capture audio data
-      // Buffer size: 256 samples for low latency
+      // Buffer size: 4096 samples for better quality (higher latency but better quality)
+      // At 48kHz: 4096 samples = ~85ms latency
       // Note: ScriptProcessorNode requires at least 1 output channel to connect to destination
       // We use 1 output channel (mono) even though we don't need it - it's required for the node to work
       // Input channels: use the actual available channels (at least 1)
       // Output channels: use 1 (required for connection, but we'll silence it)
-      const bufferSize = 256;
+      const bufferSize = 4096; // Increased from 256 for better quality
       const inputChannels = Math.max(1, finalChannelCount);
       const outputChannels = 1; // Always 1 - we don't need output, just capture
       
+      const bufferLatencyMs = (bufferSize / audioContext.value.sampleRate) * 1000;
       console.log(`🔧 [AUDIO CAPTURE] Creating ScriptProcessorNode:`, {
         bufferSize,
         inputChannels,
         outputChannels,
         sampleRate: audioContext.value.sampleRate,
+        bufferLatencyMs: bufferLatencyMs.toFixed(1),
       });
       
       try {
@@ -201,6 +204,14 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       }
       
       let audioProcessCount = 0;
+      let audioBufferQueue = []; // Queue to batch audio before sending
+      const BATCH_SIZE = 4; // Send every 4 buffers (reduces WebSocket overhead)
+      const bufferLatencyMs = (bufferSize / audioContext.value.sampleRate) * 1000;
+      const effectiveLatencyMs = bufferLatencyMs * BATCH_SIZE;
+      
+      // Update stream latency
+      streamLatency.value = effectiveLatencyMs;
+      
       scriptProcessor.value.onaudioprocess = (e) => {
         audioProcessCount++;
         if (audioProcessCount === 1) {
@@ -210,6 +221,9 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
             outputChannels: e.outputBuffer.numberOfChannels,
             outputLength: e.outputBuffer.length,
             sampleRate: e.inputBuffer.sampleRate,
+            bufferLatencyMs: bufferLatencyMs.toFixed(1),
+            batchSize: BATCH_SIZE,
+            effectiveLatencyMs: (bufferLatencyMs * BATCH_SIZE).toFixed(1),
           });
         }
         
@@ -237,27 +251,49 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
           }
         }
         
-        // Send audio data to Railway via WebSocket
-        // Send each channel separately for compatibility with existing server
-        try {
-          const channelsToSend = Math.min(availableInputChannels, channelCount);
-          for (let ch = 0; ch < channelsToSend; ch++) {
-            if (inputChannelData[ch]) {
-              currentWs.send(JSON.stringify({
-                type: 'audio',
-                channel: ch,
-                data: inputChannelData[ch],
-                sampleRate: audioContext.value.sampleRate,
-              }));
+        // Add to batch queue
+        audioBufferQueue.push({
+          channels: inputChannelData,
+          timestamp: Date.now(),
+        });
+        
+        // Send batched audio data when queue reaches batch size
+        if (audioBufferQueue.length >= BATCH_SIZE) {
+          try {
+            const channelsToSend = Math.min(availableInputChannels, channelCount);
+            const batch = audioBufferQueue.splice(0, BATCH_SIZE); // Remove from queue
+            
+            // Combine all buffers in batch for each channel
+            for (let ch = 0; ch < channelsToSend; ch++) {
+              const combinedSamples = [];
+              for (const buffer of batch) {
+                if (buffer.channels[ch]) {
+                  combinedSamples.push(...buffer.channels[ch]);
+                }
+              }
+              
+              if (combinedSamples.length > 0) {
+                currentWs.send(JSON.stringify({
+                  type: 'audio',
+                  channel: ch,
+                  data: combinedSamples,
+                  sampleRate: audioContext.value.sampleRate,
+                  bufferCount: batch.length,
+                  timestamp: batch[0].timestamp, // Use first buffer's timestamp
+                }));
+              }
             }
+            
+            if (audioProcessCount % 50 === 0) {
+              const effectiveLatency = (bufferLatencyMs * BATCH_SIZE).toFixed(1);
+              console.log(`📤 [AUDIO CAPTURE] Sent ${audioProcessCount} buffers (batched: ${BATCH_SIZE} buffers, ~${effectiveLatency}ms latency)`);
+            }
+          } catch (error) {
+            console.error('❌ [AUDIO CAPTURE] Error sending audio data:', error);
+            captureError.value = `Failed to send audio data: ${error.message}`;
+            // Clear queue on error to prevent buildup
+            audioBufferQueue = [];
           }
-          
-          if (audioProcessCount % 100 === 0) {
-            console.log(`📤 [AUDIO CAPTURE] Sent ${audioProcessCount} audio buffers (${channelsToSend} channels each)`);
-          }
-        } catch (error) {
-          console.error('❌ [AUDIO CAPTURE] Error sending audio data:', error);
-          captureError.value = `Failed to send audio data: ${error.message}`;
         }
         
         // Clear the output buffer (we don't need to output anything, just capture)
@@ -361,11 +397,20 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
     stopCapture();
   });
   
+  // Calculate stream latency based on buffer size and batch size
+  const calculateStreamLatency = (bufferSize, batchSize, sampleRate) => {
+    const bufferLatencyMs = (bufferSize / sampleRate) * 1000;
+    return bufferLatencyMs * batchSize;
+  };
+  
+  const streamLatency = ref(calculateStreamLatency(4096, 4, sampleRate)); // Default values
+  
   return {
     isCapturing,
     captureError,
     availableDevices,
     selectedDeviceId,
+    streamLatency,
     enumerateDevices,
     startCapture,
     stopCapture,
