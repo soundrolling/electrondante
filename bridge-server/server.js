@@ -120,10 +120,13 @@ class DanteBridgeServer {
     // Relay one packet from each channel that has data
     let relayedCount = 0;
     let errorCount = 0;
+    const channelsRelayed = [];
     
     for (let channel = 0; channel < this.channelBuffers.length; channel++) {
       const buffer = this.channelBuffers[channel];
       if (buffer.length === 0) continue;
+      
+      channelsRelayed.push(channel);
       
       // Get oldest packet (FIFO)
       const packet = buffer.shift();
@@ -176,7 +179,8 @@ class DanteBridgeServer {
       const avgRelayed = this.listeners.size > 0 ? Math.round(this._relayStats.relayed / this._relayStats.total) : 0;
       const errorRate = this._relayStats.total > 0 ? ((this._relayStats.errors / this._relayStats.total) * 100).toFixed(2) : '0.00';
       const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
-      console.log(`📊 [SERVER] Relay stats: ${this._relayStats.total} cycles, avg ${avgRelayed} relayed per cycle, ${this._relayStats.errors} errors (${errorRate}%), buffer sizes: [${bufferSizes}], listeners: ${this.listeners.size}`);
+      const channelsRelayedStr = channelsRelayed.length > 0 ? channelsRelayed.join(',') : 'none';
+      console.log(`📊 [SERVER] Relay stats: ${this._relayStats.total} cycles, avg ${avgRelayed} relayed per cycle, ${this._relayStats.errors} errors (${errorRate}%), buffer sizes: [${bufferSizes}], channels relayed this cycle: [${channelsRelayedStr}], listeners: ${this.listeners.size}`);
     }
   }
 
@@ -429,10 +433,12 @@ class DanteBridgeServer {
             this.isBuffering = true;
             this.bufferStartTime = null;
             this.relaySequence = 0;
+            this._channelsReceived = new Set(); // Reset channel tracking
             this.stopRelayInterval(); // Stop any existing relay
             
             console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
             console.log(`📦 [SERVER] Buffering enabled: ${CONFIG.listenerBufferMs}ms (${CONFIG.listenerBufferSamples} samples) before relaying to listeners`);
+            console.log(`📊 [SERVER] Ready to receive audio on ${CONFIG.channels} channels`);
             client.ws.send(JSON.stringify({ 
               type: 'sourceRegistered', 
               userId: user.user.id,
@@ -520,11 +526,15 @@ class DanteBridgeServer {
           
           // Log audio reception periodically for debugging
           if (!this._audioReceivedCount) this._audioReceivedCount = 0;
+          if (!this._channelsReceived) this._channelsReceived = new Set();
           this._audioReceivedCount++;
+          this._channelsReceived.add(data.channel);
+          
           if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
             const bufferStatus = this.isBuffering ? 'buffering' : 'relaying';
             const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
-            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], listeners: ${this.listeners.size})`);
+            const channelsReceivedList = Array.from(this._channelsReceived).sort((a, b) => a - b).join(',');
+            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], channels received so far: [${channelsReceivedList}], listeners: ${this.listeners.size})`);
           }
           
           // Buffer audio from source (fast acceptance, no delay)
