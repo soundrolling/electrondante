@@ -71,7 +71,7 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
       const errorMsg = `WebSocket not connected (state: ${ws ? ws.readyState : 'null'})`;
       console.error('❌ [AUDIO CAPTURE]', errorMsg);
       captureError.value = errorMsg;
-      return;
+      throw new Error(errorMsg);
     }
     
     try {
@@ -288,6 +288,7 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
                   type: 'audio',
                   channel: ch,
                   data: combinedSamples,
+                  encoding: 'pcm', // Indicate PCM encoding
                   sampleRate: audioContext.value.sampleRate,
                   bufferCount: batch.length,
                   timestamp: batch[0].timestamp, // Use first buffer's timestamp
@@ -355,8 +356,10 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
         code: error.code,
         constraint: error.constraint,
       });
-      captureError.value = `Failed to start capture: ${error.name} - ${error.message}`;
+      const errorMsg = `Failed to start capture: ${error.name} - ${error.message}`;
+      captureError.value = errorMsg;
       stopCapture();
+      throw new Error(errorMsg);
     }
   };
   
