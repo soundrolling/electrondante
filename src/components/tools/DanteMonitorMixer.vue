@@ -152,8 +152,9 @@
                 </div>
               </div>
             </div>
+          </div>
             
-            <div class="source-controls">
+          <div class="source-controls">
             <button 
               v-if="!isSource && !isYourSource"
               @click="registerAsSource"
