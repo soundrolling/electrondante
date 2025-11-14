@@ -57,11 +57,13 @@ export class AudioMixerEngine {
     // This reduces processing frequency and prevents buffer underruns
     this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 0, 2);
     
-    // Minimum buffer threshold before starting playback (accumulate ~1 packet worth = ~341ms)
-    // Reduced from 2 packets to 1 packet for faster startup
-    this.minBufferSamples = 16384; // ~341ms at 48kHz (1 * 16384 samples from one batch)
+    // Minimum buffer threshold before starting playback (user-configurable)
+    // Default: ~341ms at 48kHz (1 * 16384 samples from one batch)
+    this.minBufferSamples = 16384;
     this.isBuffering = true; // Start in buffering mode
     this.bufferStartTime = null; // Track when buffering started
+    this.currentBufferSize = 0; // Current buffer size across all channels
+    this.maxBufferSize = 0; // Maximum buffer size seen
     
     this.scriptProcessor.onaudioprocess = (e) => {
       this.processAudio(e);
@@ -92,6 +94,12 @@ export class AudioMixerEngine {
       }
     }
     
+    // Update buffer stats
+    this.currentBufferSize = minBufferSize;
+    if (minBufferSize > this.maxBufferSize) {
+      this.maxBufferSize = minBufferSize;
+    }
+    
     // If buffering, check if we have enough data to start
     if (this.isBuffering) {
       if (!this.bufferStartTime) {
@@ -105,12 +113,6 @@ export class AudioMixerEngine {
         console.log(`✅ [MIXER] Buffer filled (${minBufferSize} samples) in ${bufferingTime}ms, starting playback`);
       } else {
         // Still buffering - output silence
-        // Log progress every 500ms
-        const elapsed = Date.now() - this.bufferStartTime;
-        if (elapsed % 500 < 50) { // Log roughly every 500ms
-          const progress = Math.min(100, (minBufferSize / this.minBufferSamples) * 100);
-          console.log(`⏳ [MIXER] Buffering... ${progress.toFixed(0)}% (${minBufferSize}/${this.minBufferSamples} samples)`);
-        }
         return;
       }
     }
@@ -344,6 +346,34 @@ export class AudioMixerEngine {
   getPeakHold(channel) {
     return this.peakHolds[channel] || -60;
   }
+
+  setBufferSize(samples) {
+    // Convert from milliseconds to samples if needed
+    if (samples < 1000) {
+      // Assume it's milliseconds, convert to samples
+      samples = Math.round((samples / 1000) * this.sampleRate);
+    }
+    this.minBufferSamples = Math.max(4096, Math.min(96000, samples)); // Clamp between 4096 and 96000 samples
+    // If currently buffering, reset to allow new threshold
+    if (this.isBuffering) {
+      this.bufferStartTime = null;
+    }
+    console.log(`🔧 [MIXER] Buffer size set to ${this.minBufferSamples} samples (~${(this.minBufferSamples / this.sampleRate * 1000).toFixed(0)}ms)`);
+  }
+
+  getBufferStats() {
+    const progress = this.isBuffering ? Math.min(100, (this.currentBufferSize / this.minBufferSamples) * 100) : 100;
+    const bufferTimeMs = (this.minBufferSamples / this.sampleRate) * 1000;
+    const currentTimeMs = (this.currentBufferSize / this.sampleRate) * 1000;
+    return {
+      current: this.currentBufferSize,
+      target: this.minBufferSamples,
+      max: this.maxBufferSize,
+      progress: progress,
+      currentTimeMs: currentTimeMs,
+      targetTimeMs: bufferTimeMs,
+    };
+  }
 }
 
 export function useDanteMixer(channelCount, sampleRate) {
@@ -351,6 +381,7 @@ export function useDanteMixer(channelCount, sampleRate) {
   const peakLevels = ref(new Array(channelCount).fill(-60));
   const peakHolds = ref(new Array(channelCount).fill(-60));
   const isBuffering = ref(true); // Track buffering state
+  const bufferStats = ref({ current: 0, target: 16384, max: 0, progress: 0, currentTimeMs: 0, targetTimeMs: 341 });
   let updateInterval = null;
 
   onMounted(() => {
@@ -374,6 +405,10 @@ export function useDanteMixer(channelCount, sampleRate) {
         if (mixer.value.isBuffering !== undefined) {
           isBuffering.value = mixer.value.isBuffering;
         }
+        // Update buffer stats
+        if (mixer.value.getBufferStats) {
+          bufferStats.value = mixer.value.getBufferStats();
+        }
         requestAnimationFrame(updatePeakLevels);
       }
     };
@@ -394,6 +429,7 @@ export function useDanteMixer(channelCount, sampleRate) {
     peakLevels,
     peakHolds,
     isBuffering,
+    bufferStats,
   };
 }
 

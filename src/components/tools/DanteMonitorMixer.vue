@@ -242,8 +242,49 @@
               <div class="buffering-spinner"></div>
               <div class="buffering-text">
                 <span class="buffering-badge">⏳ Buffering Audio...</span>
-                <span class="buffering-info">Accumulating audio data for smooth playback. Please wait...</span>
+                <div class="buffering-details">
+                  <span class="buffering-info">
+                    Buffer: {{ bufferStats.current.toLocaleString() }} / {{ bufferStats.target.toLocaleString() }} samples
+                    ({{ bufferStats.currentTimeMs.toFixed(0) }}ms / {{ bufferStats.targetTimeMs.toFixed(0) }}ms)
+                  </span>
+                  <div class="buffering-progress-bar">
+                    <div 
+                      class="buffering-progress-fill" 
+                      :style="{ width: `${bufferStats.progress}%` }"
+                    ></div>
+                  </div>
+                  <span class="buffering-progress-text">{{ bufferStats.progress.toFixed(1) }}% - Max seen: {{ bufferStats.max.toLocaleString() }} samples</span>
+                </div>
               </div>
+            </div>
+          </div>
+          
+          <!-- Buffer Settings (when not buffering or always visible) -->
+          <div v-if="hasSource && !isSource" class="buffer-settings">
+            <button 
+              @click="showBufferSettings = !showBufferSettings"
+              class="btn btn-secondary btn-small"
+            >
+              {{ showBufferSettings ? 'Hide' : 'Show' }} Buffer Settings
+            </button>
+            <div v-if="showBufferSettings" class="buffer-settings-panel">
+              <label class="buffer-settings-label">
+                Buffer Size (milliseconds):
+                <input 
+                  v-model.number="bufferSizeMs"
+                  type="number"
+                  min="50"
+                  max="2000"
+                  step="50"
+                  @change="updateBufferSize"
+                  class="buffer-size-input"
+                />
+                <span class="buffer-size-hint">(~{{ Math.round((bufferSizeMs / 1000) * 48000).toLocaleString() }} samples at 48kHz)</span>
+              </label>
+              <p class="buffer-settings-info">
+                Larger buffers = smoother playback but longer initial delay. 
+                Current: {{ bufferStats.targetTimeMs.toFixed(0) }}ms ({{ bufferStats.target.toLocaleString() }} samples)
+              </p>
             </div>
           </div>
           
@@ -426,7 +467,11 @@ const showSavePresetModal = ref(false);
 const presetName = ref('');
 
 // Audio engine - support up to 32 channels
-const { mixer, peakLevels, peakHolds, isBuffering } = useDanteMixer(32, 48000);
+const { mixer, peakLevels, peakHolds, isBuffering, bufferStats } = useDanteMixer(32, 48000);
+
+// Buffer size setting (in milliseconds, converted to samples)
+const bufferSizeMs = ref(341); // Default ~341ms
+const showBufferSettings = ref(false);
 
 // Computed: only show enabled channels
 const enabledChannels = computed(() => {
@@ -1123,9 +1168,19 @@ const refreshDevices = async () => {
   await loadAudioDevices();
 };
 
+// Update buffer size
+const updateBufferSize = () => {
+  if (mixer.value && bufferSizeMs.value) {
+    mixer.value.setBufferSize(bufferSizeMs.value);
+  }
+};
+
 // Update latency periodically
 watch(() => mixer.value, (newMixer) => {
   if (newMixer) {
+    // Set initial buffer size
+    updateBufferSize();
+    
     const updateLatency = () => {
       if (newMixer) {
         latency.value = newMixer.getLatency();
@@ -1446,6 +1501,106 @@ watch(() => mixer.value, (newMixer) => {
 .buffering-info {
   color: var(--text-secondary, #78350f);
   font-size: 0.8125rem;
+}
+
+.buffering-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.buffering-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(245, 158, 11, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.buffering-progress-fill {
+  height: 100%;
+  background: #f59e0b;
+  transition: width 0.3s ease;
+}
+
+.buffering-progress-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #78350f);
+  font-family: monospace;
+}
+
+.buffer-settings {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary, #f8f9fa);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 6px;
+}
+
+.buffer-settings-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-primary, white);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 4px;
+}
+
+.buffer-settings-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+}
+
+.buffer-size-input {
+  padding: 0.5rem;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 4px;
+  font-size: 1rem;
+  background: var(--bg-primary, white);
+  color: var(--text-primary, #1f2937);
+  width: 150px;
+}
+
+.buffer-size-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+  font-weight: normal;
+}
+
+.buffer-settings-info {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+@media (prefers-color-scheme: dark) {
+  .buffer-settings {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+  }
+  
+  .buffer-settings-panel {
+    background: var(--bg-primary, #1f2937);
+    border-color: var(--border-light, #4b5563);
+  }
+  
+  .buffer-settings-label {
+    color: var(--text-primary, #f9fafb);
+  }
+  
+  .buffer-size-input {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+    color: var(--text-primary, #f9fafb);
+  }
+  
+  .buffer-size-hint,
+  .buffer-settings-info {
+    color: var(--text-secondary, #9ca3af);
+  }
 }
 
 .section-title {
