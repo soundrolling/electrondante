@@ -183,69 +183,53 @@
             <h2 class="section-title">Frame.io Upload Tracking</h2>
             <p class="section-description">Track BWF rushes files and supporting documents uploaded to Frame.io for recording days</p>
           </div>
-          <button class="btn btn-primary" @click="openAddModal">
-            <span>➕</span>
-            <span>Add Rushes File</span>
-          </button>
-        </div>
-        <div class="rushes-filters">
-          <select v-model="rushesFilter" class="filter-select">
-            <option value="">All Status</option>
-            <option value="not_uploaded">Not Uploaded</option>
-            <option value="uploaded">Uploaded</option>
-            <option value="failed">Failed</option>
-          </select>
         </div>
         <div v-if="isLoadingRushes" class="loading-text">Loading rushes files...</div>
-        <div v-else-if="filteredRushes.length === 0" class="empty-state">
-          <p>No rushes files tracked yet. Click "Add Rushes File" to manually track a BWF file and its Frame.io upload status.</p>
+        <div v-else-if="stagesWithRecordingDays.length === 0" class="empty-state">
+          <p>No stages with recording days found. Add recording days (stage hours) in Project Locations to track uploads.</p>
         </div>
-        <div v-else class="rushes-table-container">
-          <table class="rushes-table">
-            <thead>
-              <tr>
-                <th>File Name</th>
-                <th>Stage</th>
-                <th>Size</th>
-                <th>Status</th>
-                <th>Frame.io URL</th>
-                <th>Uploaded By</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="rush in filteredRushes" :key="rush.id">
-                <td>{{ rush.file_name }}</td>
-                <td>{{ getStageName(rush.location_id) }}</td>
-                <td>{{ formatFileSize(rush.file_size) }}</td>
-                <td>
-                  <span :class="['status-badge', `status-${rush.upload_status}`]">
-                    {{ formatStatus(rush.upload_status) }}
-                  </span>
-                </td>
-                <td>
-                  <a 
-                    v-if="rush.frame_io_url" 
-                    :href="rush.frame_io_url" 
-                    target="_blank"
-                    class="frame-io-link"
-                  >
-                    {{ rush.frame_io_url }}
-                  </a>
-                  <span v-else class="text-muted">—</span>
-                </td>
-                <td>{{ rush.uploaded_by || '—' }}</td>
-                <td>
-                  <button 
-                    class="btn btn-sm btn-secondary" 
-                    @click="openEditModal(rush)"
-                  >
-                    Edit
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else class="rushes-stages-container">
+          <div v-for="stageData in stagesWithRecordingDays" :key="stageData.stage.id" class="stage-group">
+            <h3 class="stage-name">{{ stageData.stage.stage_name }}</h3>
+            <div v-if="stageData.recordingDays.length === 0" class="no-recording-days">
+              <p class="text-muted">No recording days for this stage</p>
+            </div>
+            <div v-else class="recording-days-list">
+              <div v-for="day in stageData.recordingDays" :key="day.id" class="recording-day-item">
+                <div class="recording-day-header">
+                  <span class="recording-day-name">{{ getRecordingDayName(day) }}</span>
+                </div>
+                <div class="recorders-row">
+                  <div class="recorder-column">
+                    <label class="recorder-label">Main Recorder</label>
+                    <select 
+                      :value="getRecorderStatus(stageData.stage.id, day.id, 'main')"
+                      @change="updateStatus(stageData.stage.id, day.id, 'main', $event.target.value)"
+                      class="status-select"
+                      :class="`status-${getRecorderStatus(stageData.stage.id, day.id, 'main')}`"
+                    >
+                      <option value="not_uploaded">Not Uploaded</option>
+                      <option value="uploaded">Uploaded</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                  </div>
+                  <div class="recorder-column">
+                    <label class="recorder-label">Backup Recorder</label>
+                    <select 
+                      :value="getRecorderStatus(stageData.stage.id, day.id, 'backup')"
+                      @change="updateStatus(stageData.stage.id, day.id, 'backup', $event.target.value)"
+                      class="status-select"
+                      :class="`status-${getRecorderStatus(stageData.stage.id, day.id, 'backup')}`"
+                    >
+                      <option value="not_uploaded">Not Uploaded</option>
+                      <option value="uploaded">Uploaded</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -327,129 +311,6 @@
       </section>
     </div>
 
-    <!-- Add Rushes File Modal -->
-    <div v-if="showAddModal" class="modal-backdrop" @click.self="closeAddModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Add Rushes File</h3>
-          <button class="modal-close" @click="closeAddModal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>File Name <span class="required">*</span></label>
-            <input 
-              v-model="addForm.file_name" 
-              type="text" 
-              class="form-control"
-              placeholder="e.g., Recording_Day_01_Scene_01.bwf"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label>Stage (optional)</label>
-            <select v-model="addForm.location_id" class="form-control">
-              <option :value="null">No Stage</option>
-              <option v-for="stage in stages" :key="stage.id" :value="stage.id">
-                {{ stage.stage_name }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>File Size (optional)</label>
-            <input 
-              v-model="addForm.file_size" 
-              type="number" 
-              class="form-control"
-              placeholder="Size in bytes"
-            />
-          </div>
-          <div class="form-group">
-            <label>Upload Status</label>
-            <select v-model="addForm.upload_status" class="form-control">
-              <option value="not_uploaded">Not Uploaded</option>
-              <option value="uploaded">Uploaded</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Frame.io URL (optional)</label>
-            <input 
-              v-model="addForm.frame_io_url" 
-              type="url" 
-              class="form-control"
-              placeholder="https://frame.io/..."
-            />
-          </div>
-          <div class="form-group">
-            <label>Notes (optional)</label>
-            <textarea 
-              v-model="addForm.notes" 
-              class="form-control"
-              rows="3"
-              placeholder="Recording date, scene info, etc."
-            ></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeAddModal">Cancel</button>
-          <button class="btn btn-primary" @click="saveAdd" :disabled="isSaving || !addForm.file_name">
-            {{ isSaving ? 'Saving...' : 'Add File' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Upload Status Modal -->
-    <div v-if="showEditModal" class="modal-backdrop" @click.self="closeEditModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Edit Upload Status</h3>
-          <button class="modal-close" @click="closeEditModal">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>File Name</label>
-            <input 
-              v-model="editForm.file_name" 
-              type="text" 
-              class="form-control"
-              disabled
-            />
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <select v-model="editForm.upload_status" class="form-control">
-              <option value="not_uploaded">Not Uploaded</option>
-              <option value="uploaded">Uploaded</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Frame.io URL (optional)</label>
-            <input 
-              v-model="editForm.frame_io_url" 
-              type="url" 
-              class="form-control"
-              placeholder="https://frame.io/..."
-            />
-          </div>
-          <div class="form-group">
-            <label>Notes (optional)</label>
-            <textarea 
-              v-model="editForm.notes" 
-              class="form-control"
-              rows="3"
-            ></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeEditModal">Cancel</button>
-          <button class="btn btn-primary" @click="saveEdit" :disabled="isSaving">
-            {{ isSaving ? 'Saving...' : 'Save' }}
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -462,8 +323,7 @@ import { fetchTableData } from '../services/dataService';
 import { exportProjectData, downloadZip } from '../services/exportService';
 import { 
   fetchRushesFiles, 
-  updateUploadStatus,
-  createRushesUpload,
+  updateRecorderStatus,
 } from '../services/rushesService';
 import { 
   getProjectExports, 
@@ -528,39 +388,30 @@ export default {
     });
 
     const rushes = ref([]);
-    const editingRush = ref(null);
+    const stageHours = ref([]);
     const exports = ref([]);
     const exportsFilter = ref('');
     const downloadingExportId = ref(null);
-    const editForm = ref({
-      file_name: '',
-      upload_status: 'not_uploaded',
-      frame_io_url: '',
-      notes: '',
-    });
-    const addForm = ref({
-      file_name: '',
-      location_id: null,
-      file_size: null,
-      upload_status: 'not_uploaded',
-      frame_io_url: '',
-      notes: '',
-    });
 
     const filteredStages = computed(() => {
       if (!selectedVenueId.value) return stages.value;
       return stages.value.filter(s => s.venue_id === selectedVenueId.value);
     });
 
-    const filteredRushes = computed(() => {
-      let filtered = rushes.value;
-      if (rushesFilter.value) {
-        filtered = filtered.filter(r => r.upload_status === rushesFilter.value);
-      }
-      if (selectedStageId.value) {
-        filtered = filtered.filter(r => r.location_id === parseInt(selectedStageId.value));
-      }
-      return filtered;
+    // Group stages with their recording days
+    const stagesWithRecordingDays = computed(() => {
+      return stages.value.map(stage => {
+        // stage_hours uses stage_id which matches locations.id
+        const recordingDays = stageHours.value.filter(sh => sh.stage_id === stage.id);
+        return {
+          stage,
+          recordingDays: recordingDays.sort((a, b) => {
+            const dateA = new Date(a.start_datetime);
+            const dateB = new Date(b.start_datetime);
+            return dateA - dateB;
+          })
+        };
+      }).filter(s => s.recordingDays.length > 0);
     });
 
     const hasSelection = computed(() => {
@@ -616,7 +467,16 @@ export default {
     async function loadRushes() {
       isLoadingRushes.value = true;
       try {
-        rushes.value = await fetchRushesFiles(projectId.value);
+        // Load rushes uploads and stage hours
+        const [rushesData, stageHoursData] = await Promise.all([
+          fetchRushesFiles(projectId.value),
+          fetchTableData('stage_hours', {
+            eq: { project_id: projectId.value },
+            order: { column: 'start_datetime', ascending: true }
+          })
+        ]);
+        rushes.value = rushesData;
+        stageHours.value = stageHoursData;
       } catch (error) {
         console.error('Error loading rushes:', error);
         toast.error('Failed to load rushes files');
@@ -625,63 +485,45 @@ export default {
       }
     }
 
-    function openAddModal() {
-      addForm.value = {
-        file_name: '',
-        location_id: null,
-        file_size: null,
-        upload_status: 'not_uploaded',
-        frame_io_url: '',
-        notes: '',
-      };
-      showAddModal.value = true;
+    function getRecorderStatus(locationId, stageHourId, recorderType) {
+      const record = rushes.value.find(r => 
+        r.location_id === locationId && 
+        r.stage_hour_id === stageHourId && 
+        r.recorder_type === recorderType
+      );
+      return record?.upload_status || 'not_uploaded';
     }
 
-    function closeAddModal() {
-      showAddModal.value = false;
-      addForm.value = {
-        file_name: '',
-        location_id: null,
-        file_size: null,
-        upload_status: 'not_uploaded',
-        frame_io_url: '',
-        notes: '',
-      };
-    }
-
-    async function saveAdd() {
-      if (!addForm.value.file_name) {
-        toast.warning('Please enter a file name');
-        return;
-      }
-
-      isSaving.value = true;
+    async function updateStatus(locationId, stageHourId, recorderType, status) {
       try {
         const user = userStore.user?.email || userStore.user?.name || 'Unknown';
-        await createRushesUpload({
-          project_id: projectId.value,
-          location_id: addForm.value.location_id || null,
-          venue_id: null, // Could be derived from location_id if needed
-          file_path: `manual/${addForm.value.file_name}`, // Placeholder path since not in storage
-          file_name: addForm.value.file_name,
-          file_size: addForm.value.file_size ? parseInt(addForm.value.file_size) : null,
-          upload_status: addForm.value.upload_status,
-          frame_io_url: addForm.value.frame_io_url || null,
-          uploaded_by: addForm.value.upload_status === 'uploaded' ? user : null,
-          uploaded_at: addForm.value.upload_status === 'uploaded' ? new Date().toISOString() : null,
-          notes: addForm.value.notes || null,
-        });
-        toast.success('Rushes file added successfully');
+        await updateRecorderStatus(
+          projectId.value,
+          locationId,
+          stageHourId,
+          recorderType,
+          status,
+          status === 'uploaded' ? user : null
+        );
+        // Reload rushes to get updated data
         await loadRushes();
-        await loadData(); // Refresh counts
-        closeAddModal();
+        toast.success('Status updated');
       } catch (error) {
-        console.error('Error adding rushes file:', error);
-        toast.error('Failed to add rushes file');
-      } finally {
-        isSaving.value = false;
+        console.error('Error updating status:', error);
+        toast.error('Failed to update status');
       }
     }
+
+    function getRecordingDayName(stageHour) {
+      if (stageHour.notes) {
+        return stageHour.notes;
+      }
+      const start = new Date(stageHour.start_datetime);
+      const dayNum = stageHour.order_index || '';
+      const nice = start.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      return `Day ${dayNum} (${nice})`;
+    }
+
 
     function selectAll() {
       Object.keys(exportSelections.value).forEach(key => {
@@ -743,49 +585,6 @@ export default {
       }
     }
 
-    function openEditModal(rush) {
-      editingRush.value = rush;
-      editForm.value = {
-        file_name: rush.file_name,
-        upload_status: rush.upload_status,
-        frame_io_url: rush.frame_io_url || '',
-        notes: rush.notes || '',
-      };
-      showEditModal.value = true;
-    }
-
-    function closeEditModal() {
-      showEditModal.value = false;
-      editingRush.value = null;
-      editForm.value = {
-        upload_status: 'not_uploaded',
-        frame_io_url: '',
-        notes: '',
-      };
-    }
-
-    async function saveEdit() {
-      if (!editingRush.value) return;
-
-      isSaving.value = true;
-      try {
-        const user = userStore.user?.email || userStore.user?.name || 'Unknown';
-        await updateUploadStatus(
-          editingRush.value.id,
-          editForm.value.upload_status,
-          editForm.value.frame_io_url || null,
-          user,
-          editForm.value.notes || null
-        );
-        await loadRushes();
-        closeEditModal();
-      } catch (error) {
-        console.error('Error saving edit:', error);
-        toast.error('Failed to update upload status');
-      } finally {
-        isSaving.value = false;
-      }
-    }
 
     function getStageName(locationId) {
       if (!locationId) return '—';
@@ -954,22 +753,16 @@ export default {
       isLoading,
       isLoadingRushes,
       isExporting,
-      isSaving,
-      showEditModal,
-      showAddModal,
       dataCounts,
       venues,
       stages,
       selectedVenueId,
       selectedStageId,
-      rushesFilter,
       exportSelections,
       exportProgress,
       filteredStages,
-      filteredRushes,
+      stagesWithRecordingDays,
       hasSelection,
-      editForm,
-      addForm,
       exports,
       exportsFilter,
       filteredExports,
@@ -986,15 +779,10 @@ export default {
       formatExportType,
       formatExportDate,
       getExportCreatorName,
-      openEditModal,
-      closeEditModal,
-      saveEdit,
-      openAddModal,
-      closeAddModal,
-      saveAdd,
-      getStageName,
+      getRecorderStatus,
+      updateStatus,
+      getRecordingDayName,
       formatFileSize,
-      formatStatus,
       goBack,
       navigateToStages,
       navigateToDocuments,
@@ -1311,6 +1099,116 @@ export default {
   border: 1px solid var(--border-light);
 }
 
+.rushes-stages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.stage-group {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.stage-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--text-heading);
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--border-light);
+}
+
+.no-recording-days {
+  padding: 16px;
+  text-align: center;
+}
+
+.recording-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recording-day-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.recording-day-header {
+  margin-bottom: 12px;
+}
+
+.recording-day-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.recorders-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.recorder-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recorder-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.status-select {
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-500-rgb), 0.1);
+}
+
+.status-select.status-not_uploaded {
+  background: var(--color-warning-50);
+  border-color: var(--color-warning-300);
+  color: var(--color-warning-800);
+}
+
+.status-select.status-uploaded {
+  background: var(--color-success-50);
+  border-color: var(--color-success-300);
+  color: var(--color-success-800);
+}
+
+.status-select.status-failed {
+  background: var(--color-error-50);
+  border-color: var(--color-error-300);
+  color: var(--color-error-800);
+}
+
+@media (max-width: 768px) {
+  .recorders-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Exports Section */
 .exports-section {
   margin-bottom: 32px;
@@ -1617,4 +1515,5 @@ export default {
   }
 }
 </style>
+
 

@@ -85,6 +85,84 @@ export async function updateUploadStatus(uploadId, status, frameIoUrl = null, up
 }
 
 /**
+ * Update or create upload status for a recorder on a recording day
+ * @param {number|string} projectId - Project ID
+ * @param {number|string} locationId - Stage/location ID
+ * @param {number|string} stageHourId - Recording day (stage hour) ID
+ * @param {string} recorderType - 'main' or 'backup'
+ * @param {string} status - Upload status: 'not_uploaded', 'uploaded', 'failed'
+ * @param {string} uploadedBy - User email/name
+ * @returns {Promise<Object>} Updated or created record
+ */
+export async function updateRecorderStatus(projectId, locationId, stageHourId, recorderType, status, uploadedBy = null) {
+  try {
+    // Find existing record
+    const { data: existing, error: findError } = await supabase
+      .from('rushes_uploads')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('location_id', locationId)
+      .eq('stage_hour_id', stageHourId)
+      .eq('recorder_type', recorderType)
+      .maybeSingle();
+
+    if (findError && findError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      throw findError;
+    }
+
+    const updateData = {
+      upload_status: status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (uploadedBy) {
+      updateData.uploaded_by = uploadedBy;
+    }
+    if (status === 'uploaded') {
+      updateData.uploaded_at = new Date().toISOString();
+    }
+
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('rushes_uploads')
+        .update(updateData)
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } else {
+      // Create new record
+      const insertData = {
+        project_id: projectId,
+        location_id: locationId,
+        stage_hour_id: stageHourId,
+        recorder_type: recorderType,
+        file_path: `manual/${locationId}/${stageHourId}/${recorderType}`,
+        file_name: `${recorderType}_recorder.bwf`,
+        upload_status: status,
+        ...updateData,
+      };
+
+      const { data, error } = await supabase
+        .from('rushes_uploads')
+        .insert([insertData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+  } catch (error) {
+    console.error('Error updating recorder status:', error);
+    toast.error('Failed to update recorder status');
+    throw error;
+  }
+}
+
+/**
  * Create a new rushes upload record
  * @param {Object} rushesData - Rushes file data
  * @returns {Promise<Object>} Created record

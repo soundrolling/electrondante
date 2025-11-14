@@ -829,7 +829,6 @@ async function confirmPDFExport() {
     )
     
     showExportSuccessToast(toast, result, finalFileName)
-    }
   } catch (e) {
     console.error('Error exporting track list:', e)
     alert('Failed to export track list. Please try again.')
