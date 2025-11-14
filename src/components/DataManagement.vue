@@ -722,7 +722,15 @@ export default {
 
         const filename = `project-${projectId.value}-export-${Date.now()}.zip`;
         downloadZip(blob, filename);
-        toast.success('Export completed successfully');
+        toast.success('Export completed! Scroll down to view in Export History', {
+          onClick: () => {
+            const exportsSection = document.querySelector('.exports-section');
+            if (exportsSection) {
+              exportsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          },
+          closeOnClick: true
+        });
         
         // Reload exports list
         await loadExports();

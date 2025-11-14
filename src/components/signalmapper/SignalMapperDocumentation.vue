@@ -256,11 +256,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useGraphStore } from '@/stores/graphStore'
 import { jsPDF } from 'jspdf'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
 import { getNodes, getConnections } from '@/services/signalMapperService'
+import { saveExport } from '@/services/exportsService'
+import { useToast } from 'vue-toastification'
 
 const props = defineProps({
 locationId: {
@@ -282,6 +285,8 @@ connections: {
 })
 
 const graphStore = useGraphStore()
+const router = useRouter()
+const toast = useToast()
 
 // Loading states
 const loadingNodes = ref(false)
@@ -685,7 +690,7 @@ link.href = URL.createObjectURL(blob)
 link.click()
 }
 
-function exportJSON() {
+async function exportJSON() {
 const data = {
   nodes: nodes.value,
   connections: connections.value,
@@ -704,9 +709,61 @@ const link = document.createElement('a')
 link.download = 'signal-mapper-data.json'
 link.href = URL.createObjectURL(blob)
 link.click()
+
+// Save to exports table
+try {
+  let venueId = null
+  if (props.locationId) {
+    try {
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('venue_id')
+        .eq('id', props.locationId)
+        .single()
+      
+      if (locationData) {
+        venueId = locationData.venue_id || null
+      }
+    } catch (err) {
+      console.warn('Error fetching venue_id:', err)
+    }
+  }
+
+  const filename = `signal-mapper-data-${Date.now()}.json`
+  const result = await saveExport(
+    blob,
+    filename,
+    'signal_mapper',
+    props.projectId,
+    {
+      mimeType: 'application/json',
+      description: 'Signal mapper JSON export',
+      locationId: props.locationId || null,
+      venueId: venueId,
+      metadata: {
+        export_format: 'json',
+        summary: data.summary
+      }
+    }
+  )
+
+  if (result.success) {
+    toast.success('Export saved! Click here to view in Data Management', {
+      onClick: () => {
+        router.push({ name: 'DataManagement', params: { id: props.projectId } })
+      },
+      closeOnClick: true
+    })
+  } else {
+    console.warn('Failed to save export:', result.error)
+    toast.warning('Export downloaded but could not be saved to history')
+  }
+} catch (error) {
+  console.error('Error saving export:', error)
+}
 }
 
-function exportXML() {
+async function exportXML() {
 let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
 xml += '<signal-mapper>\n'
 xml += `  <exported-at>${new Date().toISOString()}</exported-at>\n`
@@ -747,6 +804,63 @@ const link = document.createElement('a')
 link.download = 'signal-mapper-data.xml'
 link.href = URL.createObjectURL(blob)
 link.click()
+
+// Save to exports table
+try {
+  let venueId = null
+  if (props.locationId) {
+    try {
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('venue_id')
+        .eq('id', props.locationId)
+        .single()
+      
+      if (locationData) {
+        venueId = locationData.venue_id || null
+      }
+    } catch (err) {
+      console.warn('Error fetching venue_id:', err)
+    }
+  }
+
+  const filename = `signal-mapper-data-${Date.now()}.xml`
+  const result = await saveExport(
+    blob,
+    filename,
+    'signal_mapper',
+    props.projectId,
+    {
+      mimeType: 'application/xml',
+      description: 'Signal mapper XML export',
+      locationId: props.locationId || null,
+      venueId: venueId,
+      metadata: {
+        export_format: 'xml',
+        summary: {
+          sources: totalSources.value,
+          transformers: totalTransformers.value,
+          recorders: totalRecorders.value,
+          connections: totalConnections.value
+        }
+      }
+    }
+  )
+
+  if (result.success) {
+    toast.success('Export saved! Click here to view in Data Management', {
+      onClick: () => {
+        router.push({ name: 'DataManagement', params: { id: props.projectId } })
+      },
+      closeOnClick: true
+    })
+  } else {
+    console.warn('Failed to save export:', result.error)
+    toast.warning('Export downloaded but could not be saved to history')
+  }
+} catch (error) {
+  console.error('Error saving export:', error)
+}
 }
 
 function printDocumentation() {
