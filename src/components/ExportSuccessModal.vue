@@ -7,7 +7,7 @@
       </div>
       <div class="modal-body">
         <div class="success-icon">✓</div>
-        <p class="success-message">Your file has been saved to Data Management</p>
+        <p class="success-message">Your file has been saved to Documents</p>
         <p class="filename">{{ filename }}</p>
       </div>
       <div class="modal-footer">
@@ -20,7 +20,7 @@
         </button>
         <button class="btn btn-primary" @click="handleNavigate">
           <span>📁</span>
-          <span>View in Data Management</span>
+          <span>View Documents</span>
         </button>
       </div>
     </div>
@@ -57,10 +57,10 @@ export default {
     }
 
     const handleNavigate = () => {
-      // Navigate to Data Management
+      // Navigate to Documents (ProjectDocs)
       const projectId = props.result?.projectId || userStore.getCurrentProject?.id
       if (projectId) {
-        router.push({ name: 'DataManagement', params: { id: projectId } })
+        router.push({ name: 'ProjectDocs', params: { id: projectId } })
       }
       emit('navigate')
       handleClose()
