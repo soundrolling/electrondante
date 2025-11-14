@@ -412,19 +412,58 @@ class DanteBridgeClient {
       }
     }
 
-    // Send each channel as separate audio message to Railway
-    channels.forEach((channelData, chIndex) => {
-      try {
-        this.ws.send(JSON.stringify({
-          type: 'audio',
-          channel: chIndex,
-          data: Array.from(channelData), // Convert Float32Array to Array for JSON
-          timestamp: Date.now(),
-        }));
-      } catch (error) {
-        console.error(`Error sending audio for channel ${chIndex}:`, error);
-      }
+    // Initialize batch queue if not exists
+    if (!this.audioBatchQueue) {
+      this.audioBatchQueue = [];
+      this.bufferCount = 0;
+      this.sequenceNumber = 0; // Sequence number for packet ordering
+    }
+    
+    // Add to batch queue
+    this.audioBatchQueue.push({
+      channels: channels,
+      timestamp: Date.now(),
     });
+    this.bufferCount++;
+    
+    // Send batched audio when queue reaches batch size
+    if (this.audioBatchQueue.length >= CONFIG.batchSize) {
+      const batch = this.audioBatchQueue.splice(0, CONFIG.batchSize);
+      
+      // Combine all buffers in batch for each channel
+      channels.forEach((_, chIndex) => {
+        const combinedSamples = [];
+        for (const buffer of batch) {
+          if (buffer.channels[chIndex]) {
+            combinedSamples.push(...Array.from(buffer.channels[chIndex]));
+          }
+        }
+        
+        if (combinedSamples.length > 0) {
+          try {
+            this.ws.send(JSON.stringify({
+              type: 'audio',
+              channel: chIndex,
+              data: combinedSamples,
+              timestamp: batch[0].timestamp, // Use first buffer's timestamp
+              bufferCount: batch.length,
+              sequence: this.sequenceNumber, // Add sequence number for jitter buffering
+            }));
+          } catch (error) {
+            console.error(`Error sending audio for channel ${chIndex}:`, error);
+          }
+        }
+      });
+      
+      // Increment sequence number after sending all channels
+      this.sequenceNumber++;
+      
+      if (this.bufferCount % 50 === 0) {
+        const bufferLatencyMs = (CONFIG.bufferSize / CONFIG.sampleRate) * 1000;
+        const effectiveLatencyMs = bufferLatencyMs * CONFIG.batchSize;
+        console.log(`📤 Sent ${this.bufferCount} buffers (batched: ${CONFIG.batchSize} buffers, ~${effectiveLatencyMs.toFixed(1)}ms latency)`);
+      }
+    }
   }
 
   stop() {
