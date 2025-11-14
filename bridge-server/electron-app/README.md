@@ -1,25 +1,57 @@
 # Dante Audio Client - Electron App
 
-A packaged desktop application for streaming audio from your computer to Railway.
+A packaged desktop application for streaming audio from your computer to Railway. This app includes all dependencies and works out of the box - no Node.js or build tools required for end users.
 
-## Building the App
+## Quick Start
 
-### Prerequisites
-- Node.js 20+ installed
-- npm or yarn
+### For End Users
 
-### Install Dependencies
+1. **Download** the installer for your platform:
+   - macOS: `Dante Audio Client-1.0.0.dmg`
+   - Windows: `Dante Audio Client Setup 1.0.0.exe`
+   - Linux: `Dante Audio Client-1.0.0.AppImage`
+
+2. **Install** the app (standard installer process)
+
+3. **Run** the app and configure:
+   - Enter Railway WebSocket URL
+   - Paste your Supabase Access Token (get from browser DevTools)
+   - Select your audio device
+   - Click "Start Client"
+
+### For Developers (Building Installers)
+
+#### Prerequisites
+
+**macOS:**
 ```bash
-cd electron-app
+xcode-select --install  # Install Xcode Command Line Tools
+```
+
+**Windows:**
+- Install Visual Studio Build Tools with "Desktop development with C++" workload
+- Download from: https://visualstudio.microsoft.com/downloads/
+
+**Linux:**
+```bash
+sudo apt-get install build-essential libasound2-dev
+```
+
+#### Setup
+
+Run the setup script:
+```bash
+cd bridge-server/electron-app
+./install.sh
+```
+
+Or manually:
+```bash
 npm install
+npm run rebuild  # Rebuild native modules for Electron
 ```
 
-### Development
-```bash
-npm start
-```
-
-### Build for Production
+#### Build Installers
 
 **macOS:**
 ```bash
@@ -41,52 +73,101 @@ npm run build:linux
 npm run build
 ```
 
-Built applications will be in the `dist/` directory.
+Built installers will be in the `dist/` directory.
 
-## Usage
+#### Development
 
-1. **Download and Install**: Download the built app for your platform and install it.
-
-2. **Get Access Token**: 
-   - Sign in to your Vue app at https://pro.soundrolling.com
-   - Open browser DevTools (F12)
-   - Go to Console tab
-   - Run: `JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token`
-   - Copy the token
-
-3. **Configure**:
-   - Enter Railway WebSocket URL (default: `wss://proapp2149-production.up.railway.app`)
-   - Paste your Supabase Access Token
-   - Set Channel Count (1-32, default: 32)
-
-4. **Start Client**:
-   - Click "Start Client"
-   - Select your audio device from the list
-   - The client will connect to Railway and start streaming
-
-5. **Monitor**: Watch the status bar and logs for connection status and any errors.
+Test the app before building:
+```bash
+npm start
+```
 
 ## Features
 
-- ✅ GUI-based configuration (no command line needed)
-- ✅ Device selection with live switching
-- ✅ Real-time status monitoring
-- ✅ Error logging and display
-- ✅ Automatic reconnection
-- ✅ Multi-channel audio support (up to 32 channels)
-- ✅ Works with Dante Virtual Soundcard and other audio devices
+- ✅ **Self-contained**: All dependencies included, no Node.js needed
+- ✅ **Native audio support**: Full multi-channel audio capture (up to 32 channels)
+- ✅ **GUI configuration**: No command line required
+- ✅ **Device selection**: Choose from all available audio input devices
+- ✅ **Real-time status**: See connection and streaming status
+- ✅ **Auto-reconnect**: Automatically reconnects if connection drops
+- ✅ **Works with Dante Virtual Soundcard**: Full support for all channels
+
+## Configuration
+
+### Getting Your Supabase Access Token
+
+1. Sign in to your Vue app at https://pro.soundrolling.com
+2. Open browser DevTools (F12)
+3. Go to Console tab
+4. Run:
+   ```javascript
+   JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token
+   ```
+5. Copy the token and paste it into the app
+
+### Railway WebSocket URL
+
+Default: `wss://proapp2149-production.up.railway.app`
+
+If you're using a different Railway deployment, update the URL in the app.
 
 ## Troubleshooting
 
-- **No devices found**: Make sure your audio device is connected and recognized by your OS
-- **Connection failed**: Check that the Railway URL is correct and the server is running
-- **Authentication failed**: Verify your access token is valid (they expire, get a new one)
-- **Audio not streaming**: Check that you've selected a device and it's not muted
+### "naudiodon not available" Error
+
+This means native modules weren't built correctly. Run:
+```bash
+npm run rebuild
+```
+
+### No Audio Devices Found
+
+- Make sure your audio device is connected and recognized by your OS
+- On macOS, grant microphone permissions in System Preferences → Security & Privacy
+- On Windows, check Device Manager for audio devices
+
+### Connection Failed
+
+- Verify Railway URL is correct
+- Check that Railway server is running
+- Ensure your access token is valid (they expire - get a new one)
+
+### Build Errors
+
+**macOS:**
+- Ensure Xcode Command Line Tools are installed: `xcode-select --install`
+
+**Windows:**
+- Install Visual Studio Build Tools with C++ workload
+- Ensure Python 3.x is installed and in PATH
+
+**Linux:**
+- Install build essentials: `sudo apt-get install build-essential libasound2-dev`
 
 ## Distribution
 
-After building, you can distribute:
-- **macOS**: `.dmg` file from `dist/`
-- **Windows**: `.exe` installer from `dist/`
-- **Linux**: `.AppImage` from `dist/`
+The built installers are completely standalone:
+- ✅ Include Electron runtime
+- ✅ Include all JavaScript dependencies
+- ✅ Include native audio libraries
+- ✅ Include system libraries (where possible)
 
+Users can install and run without any additional setup.
+
+## File Structure
+
+```
+electron-app/
+├── main.js           # Electron main process
+├── preload.js        # Preload script (security bridge)
+├── renderer.js       # UI logic
+├── client-core.js    # Audio client core logic
+├── index.html        # UI markup
+├── package.json      # Dependencies and build config
+├── install.sh        # Setup script
+└── build/            # Build resources (icons, entitlements)
+```
+
+## License
+
+Same as main project.

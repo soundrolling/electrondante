@@ -1,6 +1,14 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const DanteBridgeClient = require('./client-core');
+
+// Try to load client-core, handle errors gracefully
+let DanteBridgeClient = null;
+try {
+  DanteBridgeClient = require('./client-core');
+} catch (error) {
+  console.error('Failed to load client-core:', error);
+  // Will show error in UI
+}
 
 let mainWindow = null;
 let client = null;
@@ -52,6 +60,13 @@ app.on('window-all-closed', () => {
 // IPC handlers
 ipcMain.handle('start-client', async (event, config) => {
   try {
+    if (!DanteBridgeClient) {
+      return { 
+        success: false, 
+        error: 'Client core not available. Please rebuild native dependencies: npm run rebuild' 
+      };
+    }
+    
     if (client) {
       client.stop();
     }

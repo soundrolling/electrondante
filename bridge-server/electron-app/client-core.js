@@ -4,10 +4,14 @@ const EventEmitter = require('events');
 
 // Lazy load naudiodon
 let portAudio = null;
+let naudiodonError = null;
 try {
   portAudio = require('naudiodon');
 } catch (error) {
-  console.error('❌ naudiodon not available');
+  naudiodonError = error;
+  console.error('❌ naudiodon not available:', error.message);
+  console.error('   This usually means native modules need to be rebuilt.');
+  console.error('   Run: npm run rebuild');
 }
 
 class DanteBridgeClient extends EventEmitter {
@@ -44,6 +48,10 @@ class DanteBridgeClient extends EventEmitter {
 
   getAvailableDevices() {
     if (!portAudio) {
+      const errorMsg = naudiodonError 
+        ? `naudiodon not available: ${naudiodonError.message}. Please rebuild: npm run rebuild`
+        : 'naudiodon not available. Please rebuild native modules: npm run rebuild';
+      this.emit('error', { type: 'device-enumeration', message: errorMsg });
       return [];
     }
     
@@ -201,7 +209,10 @@ class DanteBridgeClient extends EventEmitter {
     }
 
     if (!portAudio) {
-      this.emit('error', { type: 'audio', message: 'naudiodon not available' });
+      const errorMsg = naudiodonError 
+        ? `naudiodon not available: ${naudiodonError.message}. Please rebuild: npm run rebuild`
+        : 'naudiodon not available. Please rebuild native modules: npm run rebuild';
+      this.emit('error', { type: 'audio', message: errorMsg });
       return;
     }
 

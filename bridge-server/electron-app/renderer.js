@@ -114,8 +114,13 @@ async function refreshDevices() {
     if (status.deviceId !== null) {
       selectedDeviceId = status.deviceId;
     }
+    
+    if (devices.length === 0) {
+      showMessage('No audio devices found. Make sure your audio device is connected and recognized by your OS.', 'error');
+    }
   } catch (error) {
     showMessage(`Error refreshing devices: ${error.message}`, 'error');
+    addLog(`Error: ${error.message}`, 'error');
   }
 }
 
