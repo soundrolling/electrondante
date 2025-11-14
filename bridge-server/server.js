@@ -1,19 +1,10 @@
-// Dante Personal Monitor Mixer - Bridge Server
-// Receives Dante audio channels and streams to web clients via WebSocket
+// Dante Personal Monitor Mixer - Bridge Server (Railway Relay)
+// Relays audio from source (local bridge server) to all listeners (Vue apps)
 
 const express = require('express');
 const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
-
-// Lazy load naudiodon - only if audio hardware is available
-let portAudio = null;
-try {
-  portAudio = require('naudiodon');
-} catch (error) {
-  console.warn('naudiodon not available (no audio hardware):', error.message);
-  console.warn('Server will run without audio input - suitable for cloud deployment');
-}
 
 // Configuration
 const CONFIG = {
@@ -52,104 +43,41 @@ try {
 
 class DanteBridgeServer {
   constructor() {
-    this.clients = new Map(); // clientId -> { ws, userId }
+    this.listeners = new Map(); // clientId -> { ws, userId, type: 'listener' }
+    this.sourceConnection = null; // { ws, userId, clientId, type: 'source' }
     this.audioBuffer = null;
     this.httpServer = null;
     this.wss = null;
     // Initialize HTTP server first, then WebSocket (which attaches to HTTP server)
     this.initHTTP();
     // initWebSocket will be called after HTTP server is ready
-    this.initAudioInput();
+    // No local audio input on Railway - audio comes from source connection
   }
 
-  initAudioInput() {
-    // Skip audio input if naudiodon is not available (cloud deployment)
-    if (!portAudio) {
-      console.log('Audio input disabled - naudiodon not available (cloud deployment mode)');
-      console.log('Server will accept WebSocket connections but no audio will be streamed');
-      console.log('For audio input, deploy to a machine with audio hardware (Raspberry Pi, VPS, etc.)');
-      console.log('No test tone will be generated - waiting for real Dante audio input');
+  // Relay audio from source to all listeners
+  relayAudioToListeners(channels) {
+    if (!channels || channels.length === 0) return;
+    if (!this.sourceConnection) {
+      console.warn('No source connection - cannot relay audio');
       return;
     }
-
-    console.log('Initializing audio input from Dante Virtual Soundcard...');
     
-    try {
-      // List available audio devices
-      const devices = portAudio.getDevices();
-      console.log('Available audio devices:', devices.map(d => ({ id: d.id, name: d.name })));
-      
-      // Create audio input stream from Dante Virtual Soundcard
-      this.audioInput = new portAudio.AudioIO({
-        inOptions: {
-          channelCount: CONFIG.channels,
-          sampleFormat: portAudio.SampleFormat32Bit,
-          sampleRate: CONFIG.sampleRate,
-          deviceId: parseInt(process.env.DANTE_DEVICE_ID) || -1, // Auto-select or specify Dante device ID
-          closeOnError: false,
-        },
-      });
-
-      // Process incoming audio in real-time
-      this.audioInput.on('data', (buffer) => {
-        this.processAudioBuffer(buffer);
-      });
-
-      this.audioInput.start();
-      console.log(`Audio input started: ${CONFIG.channels} channels @ ${CONFIG.sampleRate}Hz`);
-    } catch (error) {
-      console.error('Error initializing audio input:', error);
-      console.warn('Continuing without audio input (for testing without Dante hardware)');
-    }
-  }
-
-  processAudioBuffer(interleavedBuffer) {
-    if (!interleavedBuffer || interleavedBuffer.length === 0) return;
-    
-    // Convert interleaved buffer to separate channel arrays
-    const frameCount = interleavedBuffer.length / CONFIG.channels / 4; // 32-bit = 4 bytes
-    const channels = [];
-    
-    for (let ch = 0; ch < CONFIG.channels; ch++) {
-      channels[ch] = new Float32Array(frameCount);
-    }
-
-    // Deinterleave
-    for (let frame = 0; frame < frameCount; frame++) {
-      for (let ch = 0; ch < CONFIG.channels; ch++) {
-        const index = (frame * CONFIG.channels + ch) * 4;
-        const sample = interleavedBuffer.readInt32LE(index) / 2147483648.0; // Convert to -1.0 to 1.0
-        channels[ch][frame] = sample;
-      }
-    }
-
-    // Store for WebRTC streaming
-    this.audioBuffer = channels;
-    
-    // Send to all connected clients
-    this.broadcastAudio(channels);
-  }
-  
-  broadcastAudio(channels) {
-    // Only broadcast if we have audio data (naudiodon available)
-    if (!channels || channels.length === 0) return;
-    
-    this.clients.forEach((client, clientId) => {
-      if (client.ws.readyState === WebSocket.OPEN) {
+    // Send audio to all listener connections (not source)
+    this.listeners.forEach((listener, clientId) => {
+      if (listener.ws.readyState === WebSocket.OPEN) {
         // Send audio data via WebSocket
-        // Format: channelIndex, audioData
         channels.forEach((channelData, chIndex) => {
           const message = {
             type: 'audio',
             channel: chIndex,
-            data: Array.from(channelData), // Convert Float32Array to Array for JSON
+            data: Array.isArray(channelData) ? channelData : Array.from(channelData),
             timestamp: Date.now(),
           };
           
           try {
-            client.ws.send(JSON.stringify(message));
+            listener.ws.send(JSON.stringify(message));
           } catch (error) {
-            console.error(`Error sending audio to client ${clientId}:`, error);
+            console.error(`Error relaying audio to listener ${clientId}:`, error);
           }
         });
       }
@@ -197,7 +125,9 @@ class DanteBridgeServer {
       const clientIp = req.socket.remoteAddress || 'unknown';
       console.log(`✅ Client connected: ${clientId} from ${clientIp}`);
       console.log(`📡 Request URL: ${req.url}`);
-      this.clients.set(clientId, { ws, userId: null });
+      
+      // Initially add as listener - will be changed to source if connection type message received
+      this.listeners.set(clientId, { ws, userId: null, type: 'listener' });
 
       // Send initial configuration immediately
       try {
@@ -218,7 +148,14 @@ class DanteBridgeServer {
 
       ws.on('close', (code, reason) => {
         console.log(`❌ Client disconnected: ${clientId} (code: ${code}, reason: ${reason || 'none'})`);
-        this.clients.delete(clientId);
+        
+        // Check if this was the source connection
+        if (this.sourceConnection && this.sourceConnection.clientId === clientId) {
+          console.log('⚠️ Source connection lost - audio streaming stopped');
+          this.sourceConnection = null;
+        } else {
+          this.listeners.delete(clientId);
+        }
       });
 
       ws.on('error', (error) => {
@@ -234,13 +171,87 @@ class DanteBridgeServer {
   async handleClientMessage(clientId, message) {
     try {
       const data = JSON.parse(message);
-      const client = this.clients.get(clientId);
+      
+      // Check if this is a source connection or listener
+      const isSource = this.sourceConnection && this.sourceConnection.clientId === clientId;
+      const client = isSource ? this.sourceConnection : this.listeners.get(clientId);
       
       if (!client) return;
 
       switch (data.type) {
+        case 'registerSource':
+          // Register this connection as the audio source
+          if (this.sourceConnection) {
+            client.ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Source already registered. Only one source allowed at a time.' 
+            }));
+            return;
+          }
+          
+          // Authenticate source
+          if (!supabase) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
+            return;
+          }
+          
+          try {
+            const { data: user, error } = await supabase.auth.getUser(data.token);
+            if (error) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+              return;
+            }
+            
+            // Remove from listeners and set as source
+            this.listeners.delete(clientId);
+            this.sourceConnection = {
+              ws: client.ws,
+              userId: user.user.id,
+              clientId: clientId,
+              type: 'source'
+            };
+            
+            console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
+            client.ws.send(JSON.stringify({ 
+              type: 'sourceRegistered', 
+              userId: user.user.id,
+              channels: CONFIG.channels,
+              sampleRate: CONFIG.sampleRate
+            }));
+          } catch (error) {
+            console.error('Source registration error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Source registration error' }));
+          }
+          break;
+
+        case 'audio':
+          // Audio data from source - relay to all listeners
+          if (!isSource) {
+            console.warn(`Received audio from non-source client ${clientId}`);
+            return;
+          }
+          
+          // Relay audio to all listeners (single channel packet format)
+          if (data.channel !== undefined && data.data) {
+            this.listeners.forEach((listener, listenerId) => {
+              if (listener.ws.readyState === WebSocket.OPEN) {
+                try {
+                  listener.ws.send(JSON.stringify({
+                    type: 'audio',
+                    channel: data.channel,
+                    data: data.data,
+                    timestamp: data.timestamp || Date.now(),
+                  }));
+                } catch (error) {
+                  console.error(`Error relaying audio to listener ${listenerId}:`, error);
+                }
+              }
+            });
+          }
+          break;
+
         case 'authenticate':
-          // Verify JWT token with Supabase
+          // Verify JWT token with Supabase (for listeners)
           if (!supabase) {
             client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
             return;
@@ -253,6 +264,7 @@ class DanteBridgeServer {
             }
             client.userId = user.user.id;
             client.ws.send(JSON.stringify({ type: 'authenticated', userId: user.user.id }));
+            console.log(`✅ Listener authenticated: ${clientId} by user ${user.user.id}`);
           } catch (error) {
             console.error('Authentication error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication error' }));
@@ -260,6 +272,12 @@ class DanteBridgeServer {
           break;
 
         case 'loadPreset':
+          // Only listeners can load presets
+          if (isSource) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Presets not available for source connections' }));
+            return;
+          }
+          
           if (!client.userId) {
             client.ws.send(JSON.stringify({ type: 'error', message: 'Not authenticated' }));
             return;
@@ -290,6 +308,12 @@ class DanteBridgeServer {
           break;
 
         case 'savePreset':
+          // Only listeners can save presets
+          if (isSource) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Presets not available for source connections' }));
+            return;
+          }
+          
           if (!client.userId) {
             client.ws.send(JSON.stringify({ type: 'error', message: 'Not authenticated' }));
             return;
@@ -386,9 +410,9 @@ class DanteBridgeServer {
         res.status(200).json({
           status: 'ok',
           channels: CONFIG.channels,
-          connectedClients: this.clients.size,
+          connectedListeners: this.listeners.size,
+          hasSource: !!this.sourceConnection,
           platform: process.env.RAILWAY_ENVIRONMENT || 'local',
-          audioAvailable: !!portAudio,
           websocketEnabled: true,
           port: CONFIG.port,
           uptime: Math.floor(process.uptime()),
@@ -471,7 +495,7 @@ try {
     if (server && server.httpServer) {
       const uptime = process.uptime();
       if (uptime % 60 === 0) { // Log every minute
-        console.log(`💓 Server heartbeat - uptime: ${Math.floor(uptime)}s, clients: ${server.clients.size}`);
+        console.log(`💓 Server heartbeat - uptime: ${Math.floor(uptime)}s, listeners: ${server.listeners.size}, source: ${server.sourceConnection ? 'connected' : 'none'}`);
       }
     }
   }, 1000);
@@ -496,13 +520,6 @@ process.on('unhandledRejection', (reason, promise) => {
 // Graceful shutdown
 const shutdown = () => {
   console.log('Shutting down gracefully...');
-  if (server.audioInput && portAudio) {
-    try {
-      server.audioInput.quit();
-    } catch (error) {
-      console.error('Error stopping audio input:', error);
-    }
-  }
   if (server.httpServer) {
     server.httpServer.close(() => {
       console.log('HTTP server closed');

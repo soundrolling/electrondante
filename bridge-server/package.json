@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "client": "node client.js",
     "dev": "nodemon server.js",
     "build": "npm install --legacy-peer-deps",
     "postinstall": "echo 'Dependencies installed'"
