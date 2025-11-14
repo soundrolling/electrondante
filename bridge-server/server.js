@@ -487,13 +487,6 @@ class DanteBridgeServer {
             console.error(`Error sending pong to ${clientId}:`, error);
           }
           break;
-          // Respond to client ping (keepalive)
-          try {
-            client.ws.send(JSON.stringify({ type: 'pong' }));
-          } catch (error) {
-            console.error(`Error sending pong to ${clientId}:`, error);
-          }
-          break;
 
         default:
           console.log('Unknown message type:', data.type);
