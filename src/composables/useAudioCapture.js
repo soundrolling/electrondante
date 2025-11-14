@@ -230,8 +230,8 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
         // Re-check WebSocket connection and source registration
         const currentWs = typeof wsRef === 'function' ? wsRef() : (wsRef?.value || wsRef);
         if (!currentWs || currentWs.readyState !== WebSocket.OPEN) {
-          if (audioProcessCount % 100 === 0) {
-            console.warn('⚠️ [AUDIO CAPTURE] WebSocket not connected, skipping audio send');
+          if (audioProcessCount === 1 || audioProcessCount % 100 === 0) {
+            console.warn(`⚠️ [AUDIO CAPTURE] WebSocket not connected (buffer #${audioProcessCount}), skipping audio send. WS exists: ${!!currentWs}, readyState: ${currentWs ? currentWs.readyState : 'N/A'}`);
           }
           return;
         }
@@ -240,10 +240,12 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
         const isSource = isSourceRef ? (typeof isSourceRef === 'function' ? isSourceRef() : (isSourceRef?.value ?? false)) : true;
         if (!isSource) {
           // Not registered as source - stop sending audio
-          if (audioProcessCount % 100 === 0) {
-            console.warn('⚠️ [AUDIO CAPTURE] Not registered as source, stopping capture');
+          if (audioProcessCount === 1 || audioProcessCount % 100 === 0) {
+            console.warn(`⚠️ [AUDIO CAPTURE] Not registered as source (buffer #${audioProcessCount}), stopping capture. isSourceRef: ${!!isSourceRef}, isSource value: ${isSource}`);
           }
-          stopCapture();
+          if (audioProcessCount === 1) {
+            stopCapture();
+          }
           return;
         }
         
@@ -273,6 +275,11 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
           try {
             const channelsToSend = Math.min(availableInputChannels, channelCount);
             const batch = audioBufferQueue.splice(0, BATCH_SIZE); // Remove from queue
+            
+            // Log batch info for first few batches
+            if (audioProcessCount <= BATCH_SIZE * 3 || audioProcessCount % 200 === 0) {
+              console.log(`📦 [AUDIO CAPTURE] Processing batch (buffer #${audioProcessCount}): ${batch.length} buffers, ${channelsToSend} channels to send, available: ${availableInputChannels}, requested: ${channelCount}`);
+            }
             
             // Combine all buffers in batch for each channel
             for (let ch = 0; ch < channelsToSend; ch++) {
