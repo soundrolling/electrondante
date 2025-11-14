@@ -298,7 +298,6 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
             
             // Increment sequence number after sending all channels
             sequenceNumber++;
-            }
             
             if (audioProcessCount % 50 === 0) {
               const effectiveLatency = (bufferLatencyMs * BATCH_SIZE).toFixed(1);
