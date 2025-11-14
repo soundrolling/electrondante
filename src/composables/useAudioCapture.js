@@ -284,6 +284,15 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
               }
               
               if (combinedSamples.length > 0) {
+                // Log first few sends per channel for debugging
+                if (!this._channelSendCount) this._channelSendCount = {};
+                if (!this._channelSendCount[ch]) this._channelSendCount[ch] = 0;
+                this._channelSendCount[ch]++;
+                
+                if (this._channelSendCount[ch] <= 3 || this._channelSendCount[ch] % 100 === 0) {
+                  console.log(`📤 [AUDIO CAPTURE] Sending audio for channel ${ch}: ${combinedSamples.length} samples (packet #${this._channelSendCount[ch]})`);
+                }
+                
                 currentWs.send(JSON.stringify({
                   type: 'audio',
                   channel: ch,
@@ -294,6 +303,8 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
                   timestamp: batch[0].timestamp, // Use first buffer's timestamp
                   sequence: sequenceNumber, // Add sequence number for jitter buffering
                 }));
+              } else {
+                console.warn(`⚠️ [AUDIO CAPTURE] Channel ${ch} has no samples to send (combinedSamples.length = 0)`);
               }
             }
             
