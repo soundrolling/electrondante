@@ -55,20 +55,39 @@ class DanteBridgeServer {
   }
 
   // Notify all listeners about source status
-  notifySourceStatus() {
+  notifySourceStatus(userId = null) {
     const hasSource = !!this.sourceConnection;
+    const sourceUserId = this.sourceConnection?.userId || null;
+    const isCurrentUserSource = userId && userId === sourceUserId;
+    
     this.listeners.forEach((listener, listenerId) => {
       if (listener.ws.readyState === WebSocket.OPEN) {
         try {
           listener.ws.send(JSON.stringify({
             type: 'sourceStatus',
             hasSource: hasSource,
+            sourceUserId: sourceUserId,
+            isYourSource: listener.userId === sourceUserId, // Tell listener if they are the source
           }));
         } catch (error) {
           console.error(`Error notifying source status to listener ${listenerId}:`, error);
         }
       }
     });
+    
+    // Also notify source connection if it exists
+    if (this.sourceConnection && this.sourceConnection.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.sourceConnection.ws.send(JSON.stringify({
+          type: 'sourceStatus',
+          hasSource: true,
+          sourceUserId: sourceUserId,
+          isYourSource: true,
+        }));
+      } catch (error) {
+        console.error(`Error notifying source status to source:`, error);
+      }
+    }
   }
 
   // Relay audio from source to all listeners
@@ -147,6 +166,9 @@ class DanteBridgeServer {
       this.listeners.set(clientId, { ws, userId: null, type: 'listener' });
 
       // Send initial configuration immediately
+      // Get user ID if authenticated (will be set after authentication)
+      let currentUserId = null;
+      
       try {
         ws.send(JSON.stringify({
           type: 'config',
@@ -154,6 +176,7 @@ class DanteBridgeServer {
           sampleRate: CONFIG.sampleRate,
           clientId,
           hasSource: !!this.sourceConnection,
+          sourceUserId: this.sourceConnection?.userId || null,
         }));
         console.log(`📤 Sent config to client ${clientId}`);
       } catch (error) {
@@ -204,15 +227,7 @@ class DanteBridgeServer {
       switch (data.type) {
         case 'registerSource':
           // Register this connection as the audio source
-          if (this.sourceConnection) {
-            client.ws.send(JSON.stringify({ 
-              type: 'error', 
-              message: 'Source already registered. Only one source allowed at a time.' 
-            }));
-            return;
-          }
-          
-          // Authenticate source
+          // Authenticate source first
           if (!supabase) {
             client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
             return;
@@ -222,6 +237,27 @@ class DanteBridgeServer {
             const { data: user, error } = await supabase.auth.getUser(data.token);
             if (error) {
               client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+              return;
+            }
+            
+            // Check if this user is already the source (reconnection scenario)
+            if (this.sourceConnection && this.sourceConnection.userId === user.user.id) {
+              // User is reclaiming their source - replace the old connection
+              console.log(`🔄 User ${user.user.id} reclaiming source connection`);
+              try {
+                this.sourceConnection.ws.close();
+              } catch (e) {
+                // Ignore errors closing old connection
+              }
+              this.sourceConnection = null;
+            }
+            
+            // Check if another source is already registered
+            if (this.sourceConnection) {
+              client.ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Source already registered. Only one source allowed at a time.' 
+              }));
               return;
             }
             
@@ -247,6 +283,63 @@ class DanteBridgeServer {
           } catch (error) {
             console.error('Source registration error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Source registration error' }));
+          }
+          break;
+
+        case 'unregisterSource':
+          // Unregister as source - can be called from source connection OR listener if they are the source user
+          if (!supabase || !data.token) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
+            return;
+          }
+          
+          try {
+            const { data: user, error } = await supabase.auth.getUser(data.token);
+            if (error) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+              return;
+            }
+            
+            // Check if this user is the source (either as source connection or as listener)
+            if (!this.sourceConnection || this.sourceConnection.userId !== user.user.id) {
+              client.ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'You are not the registered source' 
+              }));
+              return;
+            }
+            
+            console.log(`🛑 Source unregistered: ${this.sourceConnection.clientId} by user ${user.user.id}`);
+            
+            // Close the source connection (might be different from current client)
+            if (this.sourceConnection.clientId !== clientId) {
+              // User is unregistering from a different connection (reconnection scenario)
+              try {
+                this.sourceConnection.ws.close();
+              } catch (e) {
+                // Ignore errors
+              }
+            } else {
+              // Same connection - move back to listeners
+              this.listeners.set(clientId, {
+                ws: client.ws,
+                userId: user.user.id,
+                type: 'listener'
+              });
+            }
+            
+            this.sourceConnection = null;
+            
+            // Send confirmation to the client that requested unregistration
+            client.ws.send(JSON.stringify({ 
+              type: 'sourceUnregistered'
+            }));
+            
+            // Notify all listeners that source is no longer available
+            this.notifySourceStatus();
+          } catch (error) {
+            console.error('Source unregistration error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Source unregistration error' }));
           }
           break;
 
@@ -291,6 +384,18 @@ class DanteBridgeServer {
             client.userId = user.user.id;
             client.ws.send(JSON.stringify({ type: 'authenticated', userId: user.user.id }));
             console.log(`✅ Listener authenticated: ${clientId} by user ${user.user.id}`);
+            
+            // Send source status after authentication so client knows if they are the source
+            const hasSource = !!this.sourceConnection;
+            const sourceUserId = this.sourceConnection?.userId || null;
+            const isYourSource = user.user.id === sourceUserId;
+            
+            client.ws.send(JSON.stringify({
+              type: 'sourceStatus',
+              hasSource: hasSource,
+              sourceUserId: sourceUserId,
+              isYourSource: isYourSource,
+            }));
           } catch (error) {
             console.error('Authentication error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication error' }));

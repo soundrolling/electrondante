@@ -138,7 +138,7 @@
           
           <div class="source-controls">
             <button 
-              v-if="!isSource"
+              v-if="!isSource && !isYourSource"
               @click="registerAsSource"
               :disabled="!connected || hasSource"
               class="btn btn-primary"
@@ -146,14 +146,24 @@
               {{ hasSource ? 'Source Already Active' : 'Register as Source' }}
             </button>
             <button 
-              v-else
+              v-if="isSource"
               @click="unregisterAsSource"
               class="btn btn-secondary"
             >
               Stop Source
             </button>
+            <button 
+              v-if="!isSource && isYourSource"
+              @click="unregisterAsSource"
+              class="btn btn-danger"
+            >
+              Stop My Source (Reconnected)
+            </button>
             <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
-            <p v-if="!hasSource && !isSource" class="info-message">
+            <p v-if="isYourSource && !isSource" class="info-message" style="background: #fef3c7; border: 1px solid #f59e0b; padding: 0.75rem; border-radius: 4px;">
+              <strong>⚠️ You are the active source</strong> but reconnected as a listener. Click "Stop My Source" to stop streaming, or register again to reclaim control.
+            </p>
+            <p v-if="!hasSource && !isSource && !isYourSource" class="info-message">
               No audio source active. Select an audio device above, then register as source to start streaming.
             </p>
           </div>
@@ -261,6 +271,7 @@ const connectionError = ref('');
 const isSource = ref(false);
 const hasSource = ref(false);
 const sourceRegistrationError = ref('');
+const isYourSource = ref(false); // True if current user is the source (even if reconnected as listener)
 const reconnectTimer = ref(null);
 const pingInterval = ref(null);
 
@@ -503,10 +514,16 @@ const connectWebSocket = async () => {
         if (message.type === 'config') {
           console.log('✅ Received config:', message);
           
-          // Update source status from config
-          if (message.hasSource !== undefined) {
-            hasSource.value = message.hasSource;
-          }
+        // Update source status from config
+        if (message.hasSource !== undefined) {
+          hasSource.value = message.hasSource;
+        }
+        
+        // Check if current user is the source (reconnection scenario)
+        if (message.sourceUserId) {
+          // We'll check this after authentication
+          console.log('Source user ID from config:', message.sourceUserId);
+        }
           
           // Initialize channel state
           // Only channels 1-2 (index 0-1) are enabled and unmuted by default
@@ -655,6 +672,8 @@ const handleServerMessage = (message) => {
     case 'authenticated':
       console.log('Authenticated with server');
       loadPresets();
+      // Request source status update after authentication
+      // Server will send sourceStatus message with isYourSource flag
       break;
 
     case 'sourceRegistered':
@@ -668,12 +687,28 @@ const handleServerMessage = (message) => {
       }
       break;
 
+    case 'sourceUnregistered':
+      console.log('✅ Unregistered as source');
+      isSource.value = false;
+      hasSource.value = false;
+      isYourSource.value = false;
+      sourceRegistrationError.value = '';
+      stopCapture();
+      break;
+
     case 'sourceStatus':
       // Update source status from server
       hasSource.value = message.hasSource;
-      if (!message.hasSource && isSource.value) {
+      isYourSource.value = message.isYourSource || false;
+      
+      // Check if this user is the source (even if reconnected as listener)
+      if (message.isYourSource && !isSource.value) {
+        // User is the source but reconnected as listener
+        console.log('⚠️ You are the source but reconnected as listener. You can stop the source.');
+      } else if (!message.hasSource && isSource.value) {
         // We were source but server says no source - connection lost
         isSource.value = false;
+        isYourSource.value = false;
       }
       break;
 
@@ -870,19 +905,42 @@ const registerAsSource = async () => {
   }
 };
 
-const unregisterAsSource = () => {
+const unregisterAsSource = async () => {
   // Stop audio capture first
   stopCapture();
   
-  // Note: The server will handle disconnection automatically
-  // We just need to disconnect and reconnect as a listener
-  if (wsRef.value) {
-    wsRef.value.close();
+  if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
+    // If not connected, just reset state
+    isSource.value = false;
+    hasSource.value = false;
+    sourceRegistrationError.value = '';
+    return;
   }
-  isSource.value = false;
-  hasSource.value = false;
-  sourceRegistrationError.value = '';
-  // Reconnect will happen automatically via onclose handler
+  
+  try {
+    // Get access token for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      sourceRegistrationError.value = 'Not authenticated. Please sign in first.';
+      return;
+    }
+    
+    // Send unregister message to server
+    wsRef.value.send(JSON.stringify({
+      type: 'unregisterSource',
+      token: session.access_token,
+    }));
+    
+    console.log('📤 Sent source unregistration request');
+    
+    // Reset state immediately (server will confirm)
+    isSource.value = false;
+    hasSource.value = false;
+    sourceRegistrationError.value = '';
+  } catch (error) {
+    console.error('Error unregistering as source:', error);
+    sourceRegistrationError.value = error.message || 'Failed to unregister as source';
+  }
 };
 
 // Browser audio device management
