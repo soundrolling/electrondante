@@ -90,17 +90,24 @@ export class AudioMixerEngine {
     outputL.fill(0);
     outputR.fill(0);
 
-    // Check if we have enough buffered data across all channels before starting playback
+    // Check if we have enough buffered data across channels that have received data
+    // Only consider channels that have actually received data (non-empty buffers)
     let minBufferSize = Infinity;
+    let channelsWithData = 0;
+    
     for (let ch = 0; ch < this.channelCount; ch++) {
       const bufferLength = this.channelBuffers[ch]?.length || 0;
-      if (bufferLength < minBufferSize) {
-        minBufferSize = bufferLength;
+      if (bufferLength > 0) {
+        channelsWithData++;
+        if (bufferLength < minBufferSize) {
+          minBufferSize = bufferLength;
+        }
       }
     }
     
     // Update buffer stats (always, even when not buffering)
-    this.currentBufferSize = minBufferSize === Infinity ? 0 : minBufferSize;
+    // If no channels have data, use 0. Otherwise use minimum of channels with data.
+    this.currentBufferSize = channelsWithData === 0 ? 0 : (minBufferSize === Infinity ? 0 : minBufferSize);
     if (this.currentBufferSize > this.maxBufferSize) {
       this.maxBufferSize = this.currentBufferSize;
     }
@@ -378,14 +385,27 @@ export class AudioMixerEngine {
 
   getBufferStats() {
     // Recalculate current buffer size to ensure it's accurate
+    // Only consider channels that have actually received data (non-empty buffers)
     let minBufferSize = Infinity;
+    let maxBufferSize = 0;
+    let channelsWithData = 0;
+    
     for (let ch = 0; ch < this.channelCount; ch++) {
       const bufferLength = this.channelBuffers[ch]?.length || 0;
-      if (bufferLength < minBufferSize) {
-        minBufferSize = bufferLength;
+      if (bufferLength > 0) {
+        channelsWithData++;
+        if (bufferLength < minBufferSize) {
+          minBufferSize = bufferLength;
+        }
+        if (bufferLength > maxBufferSize) {
+          maxBufferSize = bufferLength;
+        }
       }
     }
-    const currentSize = minBufferSize === Infinity ? 0 : minBufferSize;
+    
+    // If no channels have data, return 0
+    // Otherwise, use the minimum of channels that have data
+    const currentSize = channelsWithData === 0 ? 0 : (minBufferSize === Infinity ? 0 : minBufferSize);
     
     // Update max if needed
     if (currentSize > this.maxBufferSize) {
