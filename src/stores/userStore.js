@@ -9,7 +9,7 @@ import { saveSetting, getSetting, clearAllData } from '@/utils/indexedDB';
 
 const toast = useToast();
 
-const ENCRYPTION_KEY = process.env.VUE_APP_ENCRYPTION_KEY;
+const ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY || process.env.VUE_APP_ENCRYPTION_KEY;
 if (!ENCRYPTION_KEY) {
   throw new Error(
     'Encryption key not set in env vars (VUE_APP_ENCRYPTION_KEY).'

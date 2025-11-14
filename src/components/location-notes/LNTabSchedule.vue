@@ -928,7 +928,7 @@ export default {
     }
 
     // PDF export
-    function doExportPdf(){
+    async function doExportPdf(){
       try {
         const doc = new jsPDF({ unit:'pt', format:'a4' })
         const exportedSchedules = getExportedSchedules()
@@ -1144,7 +1144,8 @@ export default {
         await setDefaultWarningMinutes(defaultWarningMinutes.value)
         
         // Restart notifications with new scope if service is running
-        const { startScheduleNotifications, stopScheduleNotifications } = await import('@/services/scheduleNotificationService')
+        const scheduleNotificationService = await import('@/services/scheduleNotificationService')
+        const { startScheduleNotifications, stopScheduleNotifications } = scheduleNotificationService
         stopScheduleNotifications()
         if (notificationsEnabled.value && store.getCurrentProject) {
           startScheduleNotifications(store.getCurrentProject.id)

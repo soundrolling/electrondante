@@ -400,11 +400,9 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { useUserStore } from '../stores/userStore'
 import { useToast } from 'vue-toastification'
-import { fetchTableData, mutateTableData } from '../services/dataService'
+import { mutateTableData } from '../services/dataService'
 import { supabase } from '../supabase'
 import UserGearSelector from './UserGearSelector.vue'
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue'
@@ -415,6 +413,10 @@ import EditGearModal from './gear-modals/EditGearModal.vue'
 import GearAssignmentModal from './gear-modals/GearAssignmentModal.vue'
 import GearInfoModal from './gear-modals/GearInfoModal.vue'
 import ReorderGearModal from './gear-modals/ReorderGearModal.vue'
+import { useGearManagement } from '@/composables/useGearManagement'
+import { useGearFilters } from '@/composables/useGearFilters'
+import { useGearAssignments } from '@/composables/useGearAssignments'
+import { exportGearToPDF as exportGearToPDFHelper } from '@/utils/gearExportHelper'
 
 export default {
 name: 'ProjectGear',
@@ -445,17 +447,50 @@ setup(props) {
   const toast     = useToast()
   const userStore = useUserStore()
 
-  // Ensure route and route.query are available
-  const filterLocationId        = ref(route?.query?.locationId || 'all')
-  const filterOwner              = ref('all')
-  const sortBy                  = ref('default')
-  const loading                 = ref(false)
-  const error                   = ref(null)
-  const formError               = ref(null)
-  const gearList                = ref([])
-  const locationsList           = ref([])
+  // Get current project and project ID
+  const currentProject = computed(() => {
+    if (!userStore || typeof userStore.getCurrentProject !== 'function') return null
+    return userStore.getCurrentProject() || null
+  })
+  const projectId = computed(() => {
+    return currentProject.value?.id || route?.params?.id || ''
+  })
 
-  const showAddGearForm         = ref(false)
+  // Use gear management composable
+  const {
+    loading,
+    error,
+    gearList,
+    locationsList,
+    fetchLocations,
+    fetchGearList,
+    addGear: addGearToProject,
+    deleteGear: deleteGearFromProject,
+    updateGear: updateGearInProject,
+    saveReorder: saveGearReorder
+  } = useGearManagement(projectId, userStore)
+
+  // Use gear filters composable
+  const {
+    filterLocationId,
+    filterOwner,
+    sortBy,
+    filterAccessoriesLocationId,
+    filterAccessoriesOwner,
+    sortAccessoriesBy,
+    uniqueOwners,
+    filteredMainGearList,
+    filteredAccessoriesList
+  } = useGearFilters(gearList, locationsList, route)
+
+  // Use gear assignments composable
+  const {
+    saveAssignments: saveGearAssignments,
+    calculateProportionalAssignments
+  } = useGearAssignments()
+
+  const formError = ref(null)
+  const showAddGearForm = ref(false)
   
   // Pre-selected color options for gear
   const gearColorOptions = [
@@ -480,10 +515,6 @@ setup(props) {
   
 
   const assignmentModalVisible  = ref(false)
-  const currentAssignmentGear   = ref(null)
-  const gearAssignments         = ref({})
-
-  // Batch-assignment workflow state (used by Assign modal form)
   const selectedGear            = ref(null)
 
   const editModalVisible        = ref(false)
@@ -507,14 +538,7 @@ setup(props) {
   const showUserGearSelector    = ref(false)
   const selectedUserGear        = ref([])
 
-  const currentProject = computed(() => {
-    if (!userStore || typeof userStore.getCurrentProject !== 'function') return null
-    return userStore.getCurrentProject() || null
-  })
   const userId = computed(() => userStore?.user?.id || null)
-  const projectId = computed(() => {
-    return currentProject.value?.id || route?.params?.id || ''
-  })
   
   // Check if current user is project owner
   const isProjectOwner = computed(() => {
@@ -568,122 +592,6 @@ setup(props) {
     }
   }
   
-  // Separate filters for accessories
-  const filterAccessoriesLocationId = ref(route?.query?.locationId || 'all')
-  const filterAccessoriesOwner       = ref('all')
-  const sortAccessoriesBy = ref('default')
-
-  // Split gear list into main gear and accessories
-  const mainGearList = computed(() => {
-    return gearList.value.filter(g => g.gear_type !== 'accessories_cables')
-  })
-  
-  const accessoriesList = computed(() => {
-    return gearList.value.filter(g => g.gear_type === 'accessories_cables')
-  })
-
-  // Get unique owners from gear list
-  const uniqueOwners = computed(() => {
-    const owners = new Set()
-    gearList.value.forEach(g => {
-      if (g.owner_name && g.is_user_gear) {
-        owners.add(g.owner_name)
-      }
-    })
-    return Array.from(owners).sort()
-  })
-
-  const filteredMainGearList = computed(() => {
-    let filtered = []
-    
-    // Apply location/assignment filter to main gear
-    if (filterLocationId.value === 'all') {
-      filtered = mainGearList.value
-    } else if (filterLocationId.value === 'unassigned') {
-      filtered = mainGearList.value.filter(g => g.unassigned_amount > 0)
-    } else if (filterLocationId.value === 'assigned') {
-      filtered = mainGearList.value.filter(g => g.total_assigned > 0)
-    } else {
-      filtered = mainGearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
-    }
-    
-    // Apply owner filter
-    if (filterOwner.value !== 'all') {
-      if (filterOwner.value === 'project') {
-        // Filter for project gear (non-user gear)
-        filtered = filtered.filter(g => !g.is_user_gear)
-      } else {
-        // Filter for specific owner
-        filtered = filtered.filter(g => g.owner_name === filterOwner.value)
-      }
-    }
-    
-    // Apply sorting
-    if (sortBy.value === 'default') {
-      // Keep original order (by sort_order)
-      return filtered
-    } else if (sortBy.value === 'name-asc') {
-      return [...filtered].sort((a, b) => 
-        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
-      )
-    } else if (sortBy.value === 'name-desc') {
-      return [...filtered].sort((a, b) => 
-        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
-      )
-    } else if (sortBy.value === 'quantity-desc') {
-      return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
-    } else if (sortBy.value === 'quantity-asc') {
-      return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
-    }
-    
-    return filtered
-  })
-
-  const filteredAccessoriesList = computed(() => {
-    let filtered = []
-    
-    // Apply location/assignment filter to accessories
-    if (filterAccessoriesLocationId.value === 'all') {
-      filtered = accessoriesList.value
-    } else if (filterAccessoriesLocationId.value === 'unassigned') {
-      filtered = accessoriesList.value.filter(g => g.unassigned_amount > 0)
-    } else if (filterAccessoriesLocationId.value === 'assigned') {
-      filtered = accessoriesList.value.filter(g => g.total_assigned > 0)
-    } else {
-      filtered = accessoriesList.value.filter(g => g.assignments?.[filterAccessoriesLocationId.value] > 0)
-    }
-    
-    // Apply owner filter
-    if (filterAccessoriesOwner.value !== 'all') {
-      if (filterAccessoriesOwner.value === 'project') {
-        // Filter for project gear (non-user gear)
-        filtered = filtered.filter(g => !g.is_user_gear)
-      } else {
-        // Filter for specific owner
-        filtered = filtered.filter(g => g.owner_name === filterAccessoriesOwner.value)
-      }
-    }
-    
-    // Apply sorting
-    if (sortAccessoriesBy.value === 'default') {
-      // Keep original order (by sort_order)
-      return filtered
-    } else if (sortAccessoriesBy.value === 'name-asc') {
-      return [...filtered].sort((a, b) => 
-        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
-      )
-    } else if (sortAccessoriesBy.value === 'name-desc') {
-      return [...filtered].sort((a, b) => 
-        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
-      )
-    } else if (sortAccessoriesBy.value === 'quantity-desc') {
-      return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
-    } else if (sortAccessoriesBy.value === 'quantity-asc') {
-      return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
-    }
-    
-    return filtered
-  })
 
   const currentGearAssignmentsList = computed(() => {
     const info = currentGearInfo.value
@@ -703,94 +611,6 @@ setup(props) {
   })
 
 
-  async function fetchLocations() {
-    if (!currentProject.value?.id) return
-    loading.value = true
-    try {
-      locationsList.value = await fetchTableData('locations',{ 
-        eq: { project_id: currentProject.value?.id },
-        order: [{ column:'order', ascending:true }]
-      })
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      loading.value = false
-    }
-  }
-
-  async function fetchGearList() {
-    if (!currentProject.value?.id) {
-      error.value = 'Project ID not found.'
-      return
-    }
-    loading.value = true
-    try {
-      // Use the regular gear_table instead of the view
-      const gearData = await fetchTableData('gear_table',{ 
-        eq: { project_id: currentProject.value?.id },
-        order: [{ column:'sort_order', ascending:true }]
-      })
-      
-      // If online, try to get user information for user gear
-      let userGearInfo = {}
-      if (navigator.onLine) {
-        try {
-          const userGearIds = gearData
-            .filter(g => g.is_user_gear && g.user_gear_id)
-            .map(g => g.user_gear_id)
-          
-          if (userGearIds.length > 0) {
-            const { data: userGearData, error } = await supabase
-              .from('user_gear_view')
-              .select('id, owner_name, owner_company')
-              .in('id', userGearIds)
-            
-            if (!error && userGearData) {
-              userGearData.forEach(ug => {
-                userGearInfo[ug.id] = ug
-              })
-            }
-          }
-        } catch (err) {
-          console.warn('Could not fetch user gear info:', err)
-        }
-      }
-      
-      const ids = gearData.map(g => g.id)
-      const asns = ids.length
-        ? await fetchTableData('gear_assignments',{ in:{ gear_id: ids }})
-        : []
-      const map = {}
-      asns.forEach(a=>{
-        map[a.gear_id] = map[a.gear_id]||{}
-        map[a.gear_id][a.location_id] = a.assigned_amount
-      })
-      
-      gearList.value = gearData.map(g=>{
-        const m = map[g.id]||{}
-        const tot = Object.values(m).reduce((s,v)=>s+v,0)
-        const userInfo = g.is_user_gear && g.user_gear_id ? userGearInfo[g.user_gear_id] : null
-        // Ensure num_tracks is always set for recorders
-        let num_tracks = g.num_tracks
-        if (!num_tracks && g.num_records) num_tracks = g.num_records
-        return {
-          ...g,
-          assignments: m,
-          total_assigned: tot,
-          unassigned_amount: g.gear_amount - tot,
-          owner_name: userInfo?.owner_name || (g.is_user_gear ? 'Unknown' : null),
-          owner_company: userInfo?.owner_company || null,
-          num_tracks // always present for recorders
-        }
-      })
-      error.value = null
-    } catch (err) {
-      error.value = err.message
-      toast.error(err.message)
-    } finally {
-      loading.value = false
-    }
-  }
 
   function goBack() {
     router.push({ name: 'ProjectLocations', params: { id: route?.params?.id } })
@@ -801,47 +621,13 @@ setup(props) {
   }
 
   async function handleAddGearSubmit(formData) {
-    loading.value = true
-    try {
-      console.log('handleAddGearSubmit: gearNumRecords =', formData.gearNumRecords)
-      const payload = {
-        gear_name:   formData.gearName,
-        gear_type:   formData.gearType,
-        num_inputs:  formData.gearType === 'source' ? 0 : (formData.gearType === 'accessories_cables' ? null : formData.gearNumInputs),
-        num_outputs: formData.gearType === 'source' ? 1 : (formData.gearType === 'accessories_cables' ? null : formData.gearNumOutputs),
-        num_records: formData.gearType === 'recorder' ? Number(formData.gearNumRecords) : null,
-        gear_amount: formData.gearAmount,
-        is_rented:   formData.isRented,
-        vendor:      formData.vendor,
-        default_color: formData.gearType === 'source' ? formData.gearDefaultColor : null,
-        project_id:  currentProject.value.id,
-        sort_order:  gearList.value.length + 1
-      }
-      const inserted = await mutateTableData('gear_table','insert',payload)
-      
-      // Process multiple assignments
-      const validAssignments = formData.assignments || []
-      
-      if (validAssignments.length > 0) {
-        for (const assignment of validAssignments) {
-          const assignAmount = Math.min(Number(assignment.amount), formData.gearAmount)
-          await mutateTableData('gear_assignments','insert',{ 
-            gear_id: inserted.id,
-            location_id: Number(assignment.locationId),
-            assigned_amount: assignAmount
-          })
-        }
-        const totalAssigned = validAssignments.reduce((sum, a) => sum + Number(a.amount), 0)
-        toast.success(`Gear added and ${totalAssigned} assigned across ${validAssignments.length} stage(s)`)
-      } else {
-        toast.success('Gear added')
-      }
+    if (!currentProject.value) {
+      toast.error('Project not found')
+      return
+    }
+    const success = await addGearToProject(formData, currentProject.value)
+    if (success) {
       toggleAddGear()
-      await fetchGearList()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      loading.value = false
     }
   }
 
@@ -851,12 +637,9 @@ setup(props) {
       return
     }
 
-    // Check if this is user gear
     const gearToDelete = gearList.value.find(g => g.id === gearId)
     const isUserGear = gearToDelete?.is_user_gear
     
-    // Check permissions: owners can delete any gear
-    // Non-owners can delete: project gear (non-user gear) OR their own user gear
     if (!isProjectOwner.value && isUserGear && gearToDelete?.owner_id !== userId.value) {
       toast.error('You can only delete your own gear or project gear. Project owners can delete any gear.')
       return
@@ -873,60 +656,7 @@ setup(props) {
     })
     if (!isConfirmed) return
 
-    loading.value = true
-    try {
-      if (isUserGear) {
-        // Try to use the database function to return user gear to owner
-        if (navigator.onLine) {
-          try {
-            // Decrement assigned_quantity by gear amount (quantity stays the same - it's total owned)
-            const userGearId = gearToDelete.user_gear_id;
-            const userGear = await fetchTableData('user_gear', { eq: { id: userGearId } });
-            if (!userGear || userGear.length === 0) {
-              console.warn('Could not find user gear to update:', userGearId)
-              return
-            }
-            
-            const currentAssigned = userGear[0]?.assigned_quantity || 0;
-            const currentQuantity = userGear[0]?.quantity || 0;
-            const gearAmount = gearToDelete.gear_amount || 1;
-            const newAssigned = Math.max(0, currentAssigned - gearAmount);
-            const availableQty = currentQuantity - newAssigned;
-            
-            await mutateTableData('user_gear', 'update', {
-              id: userGearId,
-              assigned_quantity: newAssigned,
-              availability: availableQty > 0 ? 'available' : 'unavailable'
-            });
-          } catch (err) {
-            console.warn('Could not update user gear assigned_quantity:', err)
-          }
-          try {
-            const { data, error } = await supabase.rpc('return_user_gear_to_owner', { gear_id: gearId })
-            if (error) throw error
-            toast.success('Gear returned to owner successfully.')
-          } catch (err) {
-            console.warn('Could not use database function, falling back to manual delete:', err)
-            // Fallback: manually delete the gear
-            await mutateTableData('gear_table', 'delete', { id: gearId })
-            toast.success('Gear removed from project.')
-          }
-        } else {
-          // Offline: just delete from project (queue update for later)
-          await mutateTableData('gear_table', 'delete', { id: gearId })
-          toast.success('Gear removed from project.')
-        }
-      } else {
-        await mutateTableData('gear_table', 'delete', { id: gearId })
-        toast.success('Gear and all related data deleted.')
-      }
-      await fetchGearList()
-    } catch (err) {
-      console.error('Delete error:', err)
-      toast.error(err.message || 'Failed to delete gear')
-    } finally {
-      loading.value = false
-    }
+    await deleteGearFromProject(gearId, isProjectOwner.value, currentProject.value)
   }
 
   function openAssignmentModal(gear) {
@@ -940,94 +670,12 @@ setup(props) {
   }
 
 
-  async function saveGearAssignments() {
-    if (!currentAssignmentGear.value) return
-    loading.value = true
-    try {
-      const gid = currentAssignmentGear.value.id
-      for (const loc in gearAssignments.value) {
-        const amt = gearAssignments.value[loc]
-        const existing = await fetchTableData('gear_assignments',{ 
-          eq: { gear_id: gid, location_id: +loc }
-        })
-        if (amt > 0) {
-          if (existing.length) {
-            await mutateTableData('gear_assignments','update',{ id: existing[0].id, assigned_amount: amt })
-          } else {
-            await mutateTableData('gear_assignments','insert',{ gear_id: gid, location_id: +loc, assigned_amount: amt })
-          }
-        } else if (existing.length) {
-          await mutateTableData('gear_assignments','delete',{ id: existing[0].id })
-        }
-      }
-      toast.success('Assignments saved')
-      closeAssignmentModal()
-      await fetchGearList()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      loading.value = false
-    }
-  }
-
-  // Save all assignments from the batch assignment form
   async function handleSaveAssignments(data) {
     const { gearId, assignments: validAssignments } = data
-    
-    loading.value = true
-    try {
-      // Get all existing assignments for this gear
-      const existingAssignments = await fetchTableData('gear_assignments', {
-        eq: { gear_id: gearId }
-      })
-      
-      const existingMap = new Map()
-      existingAssignments.forEach(a => {
-        existingMap.set(a.location_id, a)
-      })
-      
-      // Process each assignment in the editor
-      const locationIdsToKeep = new Set()
-      
-      for (const assignment of validAssignments) {
-        const locationId = Number(assignment.locationId)
-        const amount = Number(assignment.amount)
-        locationIdsToKeep.add(locationId)
-        
-        if (existingMap.has(locationId)) {
-          // Update existing assignment
-          const existing = existingMap.get(locationId)
-          await mutateTableData('gear_assignments', 'update', {
-            id: existing.id,
-            assigned_amount: amount
-          })
-        } else {
-          // Create new assignment
-          await mutateTableData('gear_assignments', 'insert', {
-            gear_id: gearId,
-            location_id: locationId,
-            assigned_amount: amount
-          })
-        }
-      }
-      
-      // Delete assignments that are no longer in the list
-      for (const existing of existingAssignments) {
-        if (!locationIdsToKeep.has(existing.location_id)) {
-          await mutateTableData('gear_assignments', 'delete', {
-            id: existing.id
-          })
-        }
-      }
-      
-      toast.success('All assignments saved successfully')
+    const success = await saveGearAssignments(gearId, validAssignments)
+    if (success) {
       closeAssignmentModal()
       await fetchGearList()
-    } catch (err) {
-      console.error('Error saving assignments:', err)
-      toast.error(err.message || 'Failed to save assignments')
-    } finally {
-      loading.value = false
     }
   }
 
@@ -1040,94 +688,22 @@ setup(props) {
   }
 
   async function handleEditGearSubmit(formData) {
-    const editGearName = formData.gearName
-    const editGearType = formData.gearType
-    const editNumInputs = formData.numInputs
-    const editNumOutputs = formData.numOutputs
-    const editNumRecords = formData.numRecords
-    const editGearAmount = formData.gearAmount
-    const editVendor = formData.vendor
-    const editGearDefaultColor = formData.gearDefaultColor
-    const editIsRented = formData.isRented
-    
-    if (!editGearName || editGearAmount < 1) {
+    if (!formData.gearName || formData.gearAmount < 1) {
       toast.error('Please fill required fields.')
       return
     }
     
-    // Check if reducing gear amount below total assigned
     const currentTotalAssigned = currentEditGear.value.total_assigned || 0
-    const newGearAmount = Number(editGearAmount)
+    const newGearAmount = Number(formData.gearAmount)
     let newAssignments = null
     
     if (newGearAmount < currentTotalAssigned) {
-      // Need to reduce assignments proportionally
-      const reductionRatio = newGearAmount / currentTotalAssigned
-      const assignments = currentEditGear.value.assignments || {}
+      newAssignments = calculateProportionalAssignments(
+        currentEditGear.value.assignments || {},
+        currentTotalAssigned,
+        newGearAmount
+      )
       
-      // Calculate new assignment amounts proportionally
-      newAssignments = {}
-      const assignmentEntries = Object.entries(assignments).filter(([, amount]) => amount > 0)
-      let totalNewAssigned = 0
-      
-      // Special case: if new amount is less than number of assignments, 
-      // keep only the largest assignments
-      if (newGearAmount < assignmentEntries.length) {
-        // Sort by current amount (largest first) and keep only top N
-        const sortedByAmount = assignmentEntries
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, newGearAmount)
-        
-        for (const [locationId] of sortedByAmount) {
-          newAssignments[locationId] = 1
-          totalNewAssigned++
-        }
-        // All other assignments will be 0 (not in newAssignments)
-      } else {
-        // First pass: calculate proportional amounts (using floor to avoid going over)
-        for (const [locationId, currentAmount] of assignmentEntries) {
-          const proportionalAmount = currentAmount * reductionRatio
-          const newAmount = Math.floor(proportionalAmount)
-          newAssignments[locationId] = Math.max(1, newAmount) // At least 1 if there was an assignment
-          totalNewAssigned += newAssignments[locationId]
-        }
-        
-        // Second pass: distribute any remaining amount due to rounding
-        let remaining = newGearAmount - totalNewAssigned
-        if (remaining > 0) {
-          // Sort by fractional part (largest first) to distribute remaining fairly
-          const sortedByFraction = assignmentEntries
-            .map(([locationId, currentAmount]) => ({
-              locationId,
-              currentAmount,
-              fractional: (currentAmount * reductionRatio) % 1
-            }))
-            .sort((a, b) => b.fractional - a.fractional)
-          
-          // Distribute remaining to assignments with largest fractional parts
-          for (const { locationId } of sortedByFraction) {
-            if (remaining <= 0) break
-            newAssignments[locationId]++
-            remaining--
-            totalNewAssigned++
-          }
-        } else if (remaining < 0) {
-          // If we're over (shouldn't happen with floor, but just in case), reduce further
-          const sortedByAmount = Object.entries(newAssignments)
-            .sort(([, a], [, b]) => b - a)
-          
-          for (const [locationId] of sortedByAmount) {
-            if (remaining >= 0) break
-            if (newAssignments[locationId] > 1) {
-              newAssignments[locationId]--
-              remaining++
-              totalNewAssigned--
-            }
-          }
-        }
-      }
-      
-      // Show confirmation dialog
       const { isConfirmed } = await Swal.fire({
         title: 'Reduce Assignments?',
         html: `Reducing total gear from ${currentEditGear.value.gear_amount} to ${newGearAmount} will automatically reduce assignments from ${currentTotalAssigned} to fit the new total.<br><br>This will update all stage assignments proportionally.`,
@@ -1137,84 +713,15 @@ setup(props) {
         cancelButtonText: 'Cancel'
       })
       
-      if (!isConfirmed) {
-        return
-      }
+      if (!isConfirmed) return
     }
     
-    loading.value = true
-    try {
-      console.log('handleEditGearSubmit: editNumRecords =', editNumRecords)
-      await mutateTableData('gear_table','update',{ 
-        id: currentEditGear.value.id,
-        gear_name:   editGearName,
-        gear_type:   editGearType,
-        num_inputs:  editGearType==='source' ? 0 : editNumInputs,
-        num_outputs: editGearType==='source'?1:editNumOutputs,
-        num_records: editGearType === 'recorder' ? Number(editNumRecords) : null,
-        gear_amount: editGearAmount,
-        is_rented:   editIsRented,
-        vendor:      editVendor,
-        default_color: editGearType === 'source' ? editGearDefaultColor : null
-      })
-      
-      // Update assignments if gear amount was reduced
+    const success = await updateGearInProject(currentEditGear.value.id, formData, newAssignments)
+    if (success) {
       if (newAssignments) {
-        const gearId = currentEditGear.value.id
-        const originalAssignments = currentEditGear.value.assignments || {}
-        const allLocationIds = new Set([
-          ...Object.keys(newAssignments).map(Number),
-          ...Object.keys(originalAssignments).map(Number)
-        ])
-        
-        // Update or create assignments in newAssignments
-        for (const [locationId, newAmount] of Object.entries(newAssignments)) {
-          const existing = await fetchTableData('gear_assignments', {
-            eq: { gear_id: gearId, location_id: Number(locationId) }
-          })
-          
-          if (existing.length > 0) {
-            if (newAmount > 0) {
-              await mutateTableData('gear_assignments', 'update', {
-                id: existing[0].id,
-                assigned_amount: newAmount
-              })
-            } else {
-              await mutateTableData('gear_assignments', 'delete', { id: existing[0].id })
-            }
-          } else if (newAmount > 0) {
-            await mutateTableData('gear_assignments', 'insert', {
-              gear_id: gearId,
-              location_id: Number(locationId),
-              assigned_amount: newAmount
-            })
-          }
-        }
-        
-        // Delete assignments that are no longer in newAssignments (were reduced to 0)
-        for (const locationId of allLocationIds) {
-          const locationIdStr = String(locationId)
-          if (!(locationIdStr in newAssignments) && locationIdStr in originalAssignments) {
-            const existing = await fetchTableData('gear_assignments', {
-              eq: { gear_id: gearId, location_id: locationId }
-            })
-            if (existing.length > 0) {
-              await mutateTableData('gear_assignments', 'delete', { id: existing[0].id })
-            }
-          }
-        }
-        
         toast.success(`Gear updated. Assignments reduced to fit new total of ${newGearAmount}.`)
-      } else {
-        toast.success('Gear updated')
       }
-      
       closeEditModal()
-      await fetchGearList()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      loading.value = false
     }
   }
 
@@ -1433,73 +940,19 @@ setup(props) {
   }
 
   async function saveReorder() {
-    loading.value = true
-    try {
-      await Promise.all(
-        reorderList.value.map((g, i) =>
-          mutateTableData('gear_table','update',{ id: g.id, sort_order: i + 1 })
-        )
-      )
-      toast.success('Order updated')
+    const success = await saveGearReorder(reorderList.value)
+    if (success) {
       closeReorderModal()
-      await fetchGearList()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      loading.value = false
     }
   }
 
-  function exportGearToPDF() {
-    const doc = new jsPDF()
-    const title =
-      filterLocationId.value==='all'        ? 'All Gear' :
-      filterLocationId.value==='unassigned' ? 'Unassigned Gear' :
-      filterLocationId.value==='assigned'   ? 'Assigned Gear' :
-      `Gear for ${locationsList.value.find(l=>String(l.id)===filterLocationId.value)?.stage_name}`
-    doc.setFontSize(16)
-    doc.text(title, 10, 20)
-    const mainData = filteredMainGearList.value.map(g => [
-      g.gear_name, g.gear_type, g.gear_amount,
-      g.unassigned_amount, g.total_assigned,
-      g.is_rented ? 'Yes' : 'No', g.vendor || ''
-    ])
-    const accessoriesData = filteredAccessoriesList.value.map(g => [
-      g.gear_name, g.gear_type, g.gear_amount,
-      g.unassigned_amount, g.total_assigned,
-      g.is_rented ? 'Yes' : 'No', g.vendor || ''
-    ])
-    const data = [...mainData, ...accessoriesData]
-    autoTable(doc, {
-      startY: 30,
-      head: [['Name','Type','Total','Unassigned','Assigned','Rented?','Vendor']],
-      body: data
-    })
-    // Save PDF to storage instead of downloading
-    const filename = `gear_${new Date().toISOString().slice(0,10)}.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
-    const description = `Gear export - ${title}`
-    const projectId = route?.params?.id
-    
-    const result = await savePDFToStorage(
-      doc,
-      filename,
-      projectId,
-      null, // venueId - project level
-      null, // stageId - project level
-      description
-    )
-    
-    if (result.success) {
-      toast.success('PDF exported to Data Management successfully')
-    } else {
-      toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
+  async function exportGearToPDF() {
+    await exportGearToPDFHelper(filteredMainGearList, filteredAccessoriesList, filterLocationId, locationsList, route)
   }
 
   function calcMaxAssignment(locId) {
-    const a = currentAssignmentGear.value?.assignments?.[locId] || 0
-    const u = currentAssignmentGear.value?.unassigned_amount || 0
+    const a = selectedGear.value?.assignments?.[locId] || 0
+    const u = selectedGear.value?.unassigned_amount || 0
     return a + u
   }
 

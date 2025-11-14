@@ -787,7 +787,7 @@ export default {
 
     const getPreviewUrl = (filePath) => {
       if (!filePath) return '';
-      const supabaseUrl = process.env.VUE_APP_SUPABASE_URL;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.VUE_APP_SUPABASE_URL;
       if (supabaseUrl) {
         return `${supabaseUrl}/storage/v1/object/public/travel-documents/${filePath}`;
       }

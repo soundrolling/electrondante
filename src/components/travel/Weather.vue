@@ -144,7 +144,7 @@
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
 
-const API_KEY     = process.env.VUE_APP_WEATHERAPI_KEY
+const API_KEY     = import.meta.env.VITE_WEATHERAPI_KEY || process.env.VUE_APP_WEATHERAPI_KEY
 const BASE_URL    = 'https://api.weatherapi.com/v1'
 const STORAGE_KEY = 'weather_favorites'
 

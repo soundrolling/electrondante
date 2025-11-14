@@ -160,7 +160,7 @@ const enabledChannels = computed(() => {
 
 // WebSocket URL from environment
 const wsUrl = computed(() => {
-  let url = process.env.VUE_APP_BRIDGE_WS_URL || 'ws://localhost:3001';
+  let url = import.meta.env.VITE_BRIDGE_WS_URL || process.env.VUE_APP_BRIDGE_WS_URL || 'ws://localhost:3001';
   // Remove trailing slash if present
   if (url.endsWith('/')) {
     url = url.slice(0, -1);

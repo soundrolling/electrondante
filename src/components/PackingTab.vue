@@ -56,9 +56,9 @@
           
           <div class="bag-weight-info">
             <span class="weight-label">Total Weight:</span>
-            <span class="weight-value">{{ formatBagWeight(bag.id) }}</span>
-            <div v-if="getBagWeightBreakdown(bag.id)" class="weight-breakdown">
-              {{ getBagWeightBreakdown(bag.id) }}
+            <span class="weight-value">{{ formatBagWeightWrapper(bag.id) }}</span>
+            <div v-if="getBagWeightBreakdownWrapper(bag.id)" class="weight-breakdown">
+              {{ getBagWeightBreakdownWrapper(bag.id) }}
             </div>
           </div>
 
@@ -348,12 +348,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useUserStore } from '../stores/userStore'
-import { supabase } from '../supabase'
 import { fetchTableData } from '../services/dataService'
-import PackingService from '../services/packingService'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import { formatWeight, getWeightUnit, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils'
+import { kgToLbs } from '../utils/weightUtils'
+import { usePackingBags } from '@/composables/usePackingBags'
+import { usePackingGear } from '@/composables/usePackingGear'
+import { usePackingBagItems } from '@/composables/usePackingBagItems'
+import { usePackingWeights } from '@/composables/usePackingWeights'
+import { printBagInventory as printBagInventoryHelper, printMyGearInventory as printMyGearInventoryHelper } from '@/utils/packingExportHelper'
 
 const props = defineProps({
   projectId: {
@@ -364,234 +365,124 @@ const props = defineProps({
 })
 
 const route = useRoute()
-
 const toast = useToast()
 const userStore = useUserStore()
-
-const loading = ref(false)
-const saving = ref(false)
-const bags = ref([])
-const bagItems = ref([])
-const showBagModal = ref(false)
-const showBagItemsModal = ref(false)
-const isEditingBag = ref(false)
-const currentBag = ref(null)
-const imageInput = ref(null)
-
-const bagForm = ref({
-  name: '',
-  description: '',
-  weight_kg: null,
-  weightInput: null,
-  weightInputUnit: 'kg',
-  imageFile: null,
-  imagePreview: null
-})
-
-const selectedGearToAdd = ref('')
-const gearQuantityToAdd = ref(1)
-const availableProjectGear = ref([])
-const availableUserGear = ref([])
-const locationsList = ref([])
-const gearAssignedCounts = ref({}) // Map of gear_id -> total quantity assigned to bags
-const showChangeBagModal = ref(false)
-const itemToMove = ref(null)
-const selectedDestinationBag = ref('')
-
-const availableBagsForMove = computed(() => {
-  if (!itemToMove.value || !currentBag.value) return []
-  // Return all bags except the current one
-  return bags.value.filter(bag => bag.id !== currentBag.value.id)
-})
 
 const userId = computed(() => userStore.user?.id)
 const currentProject = computed(() => userStore.getCurrentProject)
 
-// Get project ID from prop or route params - route params is most reliable
+// Get project ID from prop or route params
 const effectiveProjectId = computed(() => {
-  // Prefer route params since we're in a project route
   if (route.params.id) {
     return String(route.params.id)
   }
-  // Fallback to prop
   if (props.projectId && props.projectId.trim() !== '') {
     return props.projectId
   }
-  // Last resort: currentProject from store
   if (currentProject.value?.id) {
     return String(currentProject.value.id)
   }
   return ''
 })
 
-const totalBagQuantity = computed(() => {
-  return bagItems.value.reduce((sum, item) => sum + (item.quantity || 0), 0)
+// Use composables
+const gearAssignedCounts = ref({})
+const {
+  loading,
+  saving,
+  bags,
+  bagItems,
+  loadBags,
+  loadBagItems,
+  saveBag: saveBagToService,
+  deleteBag: deleteBagFromService,
+  totalBagQuantity,
+  getBagTotalQuantity
+} = usePackingBags(userId, effectiveProjectId)
+
+const {
+  availableProjectGear,
+  availableUserGear,
+  loadAvailableGear,
+  updateGearAssignedCounts,
+  getGearInBags: getGearInBagsFromComposable,
+  getGearAvailable: getGearAvailableFromComposable,
+  getMaxQuantityForSelectedGear: getMaxQuantity
+} = usePackingGear(userId, effectiveProjectId, gearAssignedCounts)
+
+const {
+  addItemToBag: addItemToBagService,
+  removeItemFromBag: removeItemFromBagService,
+  moveItemToBag: moveItemToBagService,
+  updateItemQuantity: updateItemQuantityService
+} = usePackingBagItems()
+
+const {
+  weightUnit,
+  getBagItemsWeight,
+  getBagTotalWeight,
+  getBagWeightBreakdown,
+  formatBagWeight,
+  convertBagFormWeight
+} = usePackingWeights()
+
+// UI state
+const showBagModal = ref(false)
+const showBagItemsModal = ref(false)
+const isEditingBag = ref(false)
+const currentBag = ref(null)
+const imageInput = ref(null)
+const selectedGearToAdd = ref('')
+const gearQuantityToAdd = ref(1)
+const locationsList = ref([])
+const showChangeBagModal = ref(false)
+const itemToMove = ref(null)
+const selectedDestinationBag = ref('')
+
+const bagForm = ref({
+  name: '',
+  description: '',
+  weight_kg: null,
+  empty_bag_weight_kg: null,
+  weightMode: 'empty_bag',
+  weightInput: null,
+  weightInputUnit: 'kg',
+  emptyBagWeightInput: null,
+  emptyBagWeightUnit: 'kg',
+  imageFile: null,
+  imagePreview: null
 })
 
-function getBagTotalQuantity(bagId) {
-  return bagItems.value
-    .filter(item => item.bag_id === bagId)
-    .reduce((sum, item) => sum + (item.quantity || 0), 0)
-}
+const availableBagsForMove = computed(() => {
+  if (!itemToMove.value || !currentBag.value) return []
+  return bags.value.filter(bag => bag.id !== currentBag.value.id)
+})
 
-const weightUnit = ref(getWeightUnit())
-
-function getBagItemsWeight(bagId) {
-  const itemsInBag = bagItems.value.filter(item => item.bag_id === bagId)
-  let itemsWeight = 0
-  
-  itemsInBag.forEach(item => {
-    if (item.gear_id) {
-      // Find gear in availableProjectGear to get its weight
-      const gear = availableProjectGear.value.find(g => g.id === item.gear_id)
-      if (gear && gear.weight_kg) {
-        itemsWeight += (Number(gear.weight_kg) || 0) * (item.quantity || 0)
-      }
-    }
-  })
-  
-  return itemsWeight
-}
-
-function getBagTotalWeight(bagId) {
-  const bag = bags.value.find(b => b.id === bagId)
-  if (!bag) return 0
-  
-  // Option 1: If override weight is set, use that
-  if (bag.weight_kg) {
-    return Number(bag.weight_kg)
-  }
-  
-  // Option 2: Empty bag weight + items weight
-  const emptyBagWeight = bag.empty_bag_weight_kg ? Number(bag.empty_bag_weight_kg) : 0
-  const itemsWeight = getBagItemsWeight(bagId)
-  
-  return emptyBagWeight + itemsWeight
-}
-
-function getBagWeightBreakdown(bagId) {
-  const bag = bags.value.find(b => b.id === bagId)
-  if (!bag) return null
-  
-  // If override weight, no breakdown needed
-  if (bag.weight_kg) {
-    return null
-  }
-  
-  const emptyBagWeight = bag.empty_bag_weight_kg ? Number(bag.empty_bag_weight_kg) : 0
-  const itemsWeight = getBagItemsWeight(bagId)
-  
-  if (emptyBagWeight > 0 && itemsWeight > 0) {
-    return `Bag: ${formatWeight(emptyBagWeight, weightUnit.value)} + Items: ${formatWeight(itemsWeight, weightUnit.value)}`
-  } else if (emptyBagWeight > 0) {
-    return `Bag: ${formatWeight(emptyBagWeight, weightUnit.value)} (no items yet)`
-  } else if (itemsWeight > 0) {
-    return `Items: ${formatWeight(itemsWeight, weightUnit.value)} (empty bag weight not set)`
-  }
-  
-  return null
-}
-
-function formatBagWeight(bagId) {
-  const weightKg = getBagTotalWeight(bagId)
-  return formatWeight(weightKg, weightUnit.value)
-}
-
-async function loadBags() {
-  if (!userId.value) return
-  loading.value = true
-  try {
-    const projectId = effectiveProjectId.value
-    bags.value = await PackingService.getUserBags(userId.value, projectId || null)
-    // Load items for all bags to show accurate counts
-    if (bags.value.length > 0) {
-      const allBagIds = bags.value.map(b => b.id)
-      const allItems = await Promise.all(
-        allBagIds.map(bagId => PackingService.getBagItems(bagId))
-      )
-      // Flatten all items into a single array
-      bagItems.value = allItems.flat()
-    }
-  } catch (err) {
-    toast.error(err.message || 'Failed to load bags')
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadBagItems(bagId) {
-  try {
-    bagItems.value = await PackingService.getBagItems(bagId)
-    // Reload assigned counts when viewing a bag
-    await updateGearAssignedCounts()
-  } catch (err) {
-    toast.error(err.message || 'Failed to load bag items')
-  }
-}
-
-async function updateGearAssignedCounts() {
-  try {
-    if (!userId.value) return
-    
-    // Get all bag items for this user's bags
-    const allBagIds = bags.value.map(b => b.id)
-    if (allBagIds.length === 0) {
-      gearAssignedCounts.value = {}
-      return
-    }
-    
-    // Query all gear_bag_items for this user's bags
-    const { data: allItems, error } = await supabase
-      .from('gear_bag_items')
-      .select('gear_id, quantity')
-      .in('bag_id', allBagIds)
-      .not('gear_id', 'is', null)
-    
-    if (error) {
-      console.error('[PackingTab] Error loading assigned counts:', error)
-      gearAssignedCounts.value = {}
-      return
-    }
-    
-    // Sum quantities per gear_id
-    const counts = {}
-    if (allItems) {
-      allItems.forEach(item => {
-        if (item.gear_id) {
-          counts[item.gear_id] = (counts[item.gear_id] || 0) + (item.quantity || 0)
-        }
-      })
-    }
-    gearAssignedCounts.value = counts
-    console.log('[PackingTab] Gear assigned counts:', counts)
-  } catch (err) {
-    console.error('[PackingTab] Failed to update assigned counts:', err)
-    gearAssignedCounts.value = {}
-  }
-}
-
+// Wrapper functions for template compatibility
 function getGearInBags(gearId) {
-  return gearAssignedCounts.value[gearId] || 0
+  return getGearInBagsFromComposable(gearId)
 }
 
 function getGearAvailable(gearId) {
-  const gear = availableProjectGear.value.find(g => g.id === gearId)
-  if (!gear) return 0
-  const total = gear.gear_amount || 0
-  const inBags = getGearInBags(gearId)
-  return Math.max(0, total - inBags)
+  return getGearAvailableFromComposable(gearId)
 }
 
 function getMaxQuantityForSelectedGear() {
-  if (!selectedGearToAdd.value) return 1
-  try {
-    const selection = JSON.parse(selectedGearToAdd.value)
-    const gear = selection.gear
-    const available = getGearAvailable(gear.id)
-    return Math.max(1, available)
-  } catch (err) {
-    return 1
-  }
+  return getMaxQuantity(selectedGearToAdd)
+}
+
+async function loadBagItemsWithCounts(bagId) {
+  await loadBagItems(bagId)
+  await updateGearAssignedCounts(bags)
+}
+
+// Wrapper functions for weight calculations (template compatibility)
+function formatBagWeightWrapper(bagId) {
+  return formatBagWeight(bagId, bags, bagItems, availableProjectGear)
+}
+
+function getBagWeightBreakdownWrapper(bagId) {
+  return getBagWeightBreakdown(bagId, bags, bagItems, availableProjectGear)
 }
 
 function enforceMaxQuantity() {
@@ -602,163 +493,6 @@ function enforceMaxQuantity() {
   }
   if (gearQuantityToAdd.value < 1) {
     gearQuantityToAdd.value = 1
-  }
-}
-
-async function loadAvailableGear() {
-  try {
-    // Load gear from the project that belongs to the current user - only if projectId is valid
-    // Note: We use gear_amount (total) regardless of stage assignments since packing happens separately
-    const projectId = effectiveProjectId.value
-    if (projectId && projectId.trim() !== '' && userId.value) {
-      console.log('[PackingTab] Loading gear for project:', projectId, 'user:', userId.value)
-      
-      // First, get all project gear - we don't need to check assignments, just get gear_amount
-      const allProjectGear = await fetchTableData('gear_table', {
-        eq: { project_id: projectId },
-        order: [{ column: 'gear_name', ascending: true }]
-      })
-      
-      console.log('[PackingTab] All project gear:', allProjectGear.length, allProjectGear)
-      
-      // Filter to only user gear (is_user_gear = true) and ensure gear_amount exists
-      // Note: Check for both boolean true and truthy values since database might return different formats
-      const userGearItems = allProjectGear.filter(g => {
-        const isUserGear = g.is_user_gear === true || g.is_user_gear === 1 || g.is_user_gear === 'true'
-        const hasUserGearId = !!g.user_gear_id
-        const hasAmount = (g.gear_amount || 0) > 0
-        console.log('[PackingTab] Gear filter check:', g.gear_name, {
-          isUserGear,
-          is_user_gear_value: g.is_user_gear,
-          hasUserGearId,
-          hasAmount,
-          gear_amount: g.gear_amount,
-          user_gear_id: g.user_gear_id
-        })
-        return isUserGear && hasUserGearId && hasAmount
-      })
-      
-      console.log('[PackingTab] User gear items after filter:', userGearItems.length, userGearItems)
-      
-      if (userGearItems.length > 0) {
-        // Get the user_gear_ids
-        const userGearIds = userGearItems.map(g => g.user_gear_id).filter(Boolean)
-        console.log('[PackingTab] User gear IDs:', userGearIds)
-        
-        // Fetch user_gear records to check ownership
-        const { data: userGearData, error } = await supabase
-          .from('user_gear')
-          .select('id, user_id')
-          .in('id', userGearIds)
-        
-        console.log('[PackingTab] User gear data:', userGearData, 'error:', error)
-        
-        if (!error && userGearData) {
-          // Create a map of user_gear_id to user_id
-          const userGearOwnershipMap = {}
-          userGearData.forEach(ug => {
-            userGearOwnershipMap[ug.id] = ug.user_id
-          })
-          
-          console.log('[PackingTab] Ownership map:', userGearOwnershipMap)
-          console.log('[PackingTab] Current user ID:', userId.value)
-          
-          // Filter to only gear owned by the current user
-          // Use gear_amount (total) - don't worry about assignments
-          // Convert both IDs to strings to ensure proper comparison
-          const currentUserIdStr = String(userId.value)
-          const ownedGear = userGearItems.filter(g => {
-            const gearUserId = userGearOwnershipMap[g.user_gear_id]
-            const gearUserIdStr = gearUserId ? String(gearUserId) : null
-            const matches = gearUserIdStr === currentUserIdStr
-            console.log('[PackingTab] Ownership check:', g.gear_name, {
-              gearUserId,
-              gearUserIdStr,
-              currentUserId: userId.value,
-              currentUserIdStr,
-              matches,
-              user_gear_id: g.user_gear_id
-            })
-            return matches
-          })
-          
-          console.log('[PackingTab] Owned gear:', ownedGear.length, ownedGear)
-          
-          // Fetch weight from user_gear table
-          const userGearIdsForWeight = ownedGear.map(g => g.user_gear_id).filter(Boolean)
-          let weightMap = {}
-          if (userGearIdsForWeight.length > 0) {
-            const { data: userGearWeightData, error: weightError } = await supabase
-              .from('user_gear')
-              .select('id, weight_kg')
-              .in('id', userGearIdsForWeight)
-            
-            if (!weightError && userGearWeightData) {
-              userGearWeightData.forEach(ug => {
-                weightMap[ug.id] = ug.weight_kg
-              })
-            }
-          }
-          
-          availableProjectGear.value = ownedGear.map(g => ({
-            ...g,
-            // Ensure gear_amount is always available, default to 0 if missing
-            gear_amount: g.gear_amount || 0,
-            // Add weight from user_gear
-            weight_kg: weightMap[g.user_gear_id] || null
-          }))
-        } else {
-          console.error('[PackingTab] Error fetching user_gear or no data:', error)
-          availableProjectGear.value = []
-        }
-      } else {
-        console.log('[PackingTab] No user gear items found')
-        availableProjectGear.value = []
-      }
-      
-      // Also get owner_name from user_gear_view for display
-      if (availableProjectGear.value.length > 0) {
-        const gearIds = availableProjectGear.value.map(g => g.user_gear_id).filter(Boolean)
-        if (gearIds.length > 0) {
-          const { data: userGearInfo, error: infoError } = await supabase
-            .from('user_gear_view')
-            .select('id, owner_name')
-            .in('id', gearIds)
-          
-          if (!infoError && userGearInfo) {
-            const ownerMap = {}
-            userGearInfo.forEach(ug => {
-              ownerMap[ug.id] = ug.owner_name
-            })
-            
-            // Add owner_name to gear items
-            availableProjectGear.value = availableProjectGear.value.map(g => ({
-              ...g,
-              owner_name: ownerMap[g.user_gear_id] || 'Unknown',
-              gear_amount: g.gear_amount || 0 // Ensure gear_amount is always set
-            }))
-          }
-        }
-      }
-      
-      console.log('[PackingTab] Final available gear:', availableProjectGear.value.length, availableProjectGear.value)
-    } else {
-      console.log('[PackingTab] Missing projectId or userId:', { 
-        projectId: projectId, 
-        effectiveProjectId: effectiveProjectId.value,
-        routeParamsId: route.params.id,
-        currentProjectId: currentProject.value?.id,
-        userId: userId.value 
-      })
-      availableProjectGear.value = []
-    }
-    
-    // Don't load user's personal gear - only show project gear
-    availableUserGear.value = []
-  } catch (err) {
-    console.error('[PackingTab] Failed to load available gear:', err)
-    availableProjectGear.value = []
-    availableUserGear.value = []
   }
 }
 
@@ -848,77 +582,27 @@ function clearImagePreview() {
 }
 
 async function saveBag() {
-  if (!bagForm.value.name.trim()) {
-    toast.error('Please enter a bag name')
-    return
-  }
-  if (!userId.value) {
-    toast.error('User not authenticated')
-    return
-  }
-
-  saving.value = true
-  try {
-    // Handle weight based on mode
-    let weight_kg = null
-    let empty_bag_weight_kg = null
-    
-    if (bagForm.value.weightMode === 'override') {
-      // Override mode: set total weight, clear empty bag weight
-      weight_kg = bagForm.value.weightInput 
-        ? convertInputToKg(bagForm.value.weightInput, bagForm.value.weightInputUnit)
-        : null
-      empty_bag_weight_kg = null
-    } else {
-      // Empty bag mode: set empty bag weight, clear override
-      empty_bag_weight_kg = bagForm.value.emptyBagWeightInput 
-        ? convertInputToKg(bagForm.value.emptyBagWeightInput, bagForm.value.emptyBagWeightUnit)
-        : null
-      weight_kg = null
-    }
-    
+  const { weight_kg, empty_bag_weight_kg } = convertBagFormWeight(bagForm.value)
     const bagData = {
-      name: bagForm.value.name.trim(),
-      description: bagForm.value.description?.trim() || null,
-      weight_kg: weight_kg,
-      empty_bag_weight_kg: empty_bag_weight_kg,
-      imageFile: bagForm.value.imageFile
-    }
-
-    if (isEditingBag.value && currentBag.value) {
-      await PackingService.updateBag(currentBag.value.id, bagData)
-      toast.success('Bag updated')
-    } else {
-      await PackingService.createBag(userId.value, bagData)
-      toast.success('Bag created')
-    }
-    
+    ...bagForm.value,
+    weight_kg,
+    empty_bag_weight_kg
+  }
+  const success = await saveBagToService(bagData, isEditingBag.value, currentBag.value)
+  if (success) {
     closeBagModal()
-    await loadBags()
-  } catch (err) {
-    toast.error(err.message || 'Failed to save bag')
-  } finally {
-    saving.value = false
   }
 }
 
 async function confirmDeleteBag(bag) {
   if (!confirm(`Delete "${bag.name}"? This will also remove all items in the bag.`)) return
-  
-  try {
-    await PackingService.deleteBag(bag.id)
-    toast.success('Bag deleted')
-    await loadBags()
-  } catch (err) {
-    toast.error(err.message || 'Failed to delete bag')
-  }
+  await deleteBagFromService(bag.id)
 }
 
-function viewBag(bag) {
+async function viewBag(bag) {
   currentBag.value = bag
-  loadBagItems(bag.id)
-  loadAvailableGear()
-  updateGearAssignedCounts()
+  await loadBagItemsWithCounts(bag.id)
+  await loadAvailableGear()
   showBagItemsModal.value = true
 }
 
@@ -936,45 +620,12 @@ function closeChangeBagModal() {
 
 async function moveItemToBag() {
   if (!itemToMove.value || !selectedDestinationBag.value || !currentBag.value) return
-  
-  try {
-    // Get the destination bag
-    const destBag = bags.value.find(b => b.id === selectedDestinationBag.value)
-    if (!destBag) {
-      toast.error('Destination bag not found')
-      return
-    }
-    
-    // Check if item already exists in destination bag
-    const existingItems = await PackingService.getBagItems(selectedDestinationBag.value)
-    const existingItem = existingItems.find(item => item.gear_id === itemToMove.value.gear_id)
-    
-    if (existingItem) {
-      // Update quantity in destination bag
-      await PackingService.updateBagItem(existingItem.id, {
-        quantity: (existingItem.quantity || 0) + (itemToMove.value.quantity || 0)
-      })
-      // Remove from source bag
-      await PackingService.removeItemFromBag(itemToMove.value.id)
-      toast.success(`Item moved and merged with existing item in "${destBag.name}"`)
-    } else {
-      // Update the bag_id of the item
-      await PackingService.updateBagItem(itemToMove.value.id, {
-        bag_id: selectedDestinationBag.value
-      })
-      toast.success(`Item moved to "${destBag.name}"`)
-    }
-    
-    // Reload items for current bag
-    await loadBagItems(currentBag.value.id)
-    // Reload all bags to refresh total counts on bag cards
+  const success = await moveItemToBagService(itemToMove.value.id, selectedDestinationBag.value, bags, itemToMove.value)
+  if (success) {
+    await loadBagItemsWithCounts(currentBag.value.id)
     await loadBags()
-    await updateGearAssignedCounts()
     await loadAvailableGear()
     closeChangeBagModal()
-  } catch (err) {
-    console.error('Failed to move item:', err)
-    toast.error(err.message || 'Failed to move item')
   }
 }
 
@@ -992,29 +643,21 @@ async function addItemToBag() {
   try {
     const selection = JSON.parse(selectedGearToAdd.value)
     const gear = selection.gear
-    const gearName = gear.gear_name
     const available = getGearAvailable(gear.id)
     
-    // Validate quantity doesn't exceed available
-    if (gearQuantityToAdd.value > available) {
-      toast.error(`Cannot add more than ${available} ${gearName}. Only ${available} available.`)
-      gearQuantityToAdd.value = Math.max(1, available)
-      return
-    }
-    
-    // Only use gear_id since we're only showing project gear now
-    await PackingService.addItemToBag(currentBag.value.id, {
-      gear_id: gear.id,
-      gear_name: gearName,
-      quantity: gearQuantityToAdd.value
-    })
+    const success = await addItemToBagService(
+      currentBag.value.id,
+      gear,
+      gearQuantityToAdd.value,
+      available
+    )
 
+    if (success) {
     const quantity = gearQuantityToAdd.value
     selectedGearToAdd.value = ''
     gearQuantityToAdd.value = 1
-    await loadBagItems(currentBag.value.id)
-    await updateGearAssignedCounts()
-    toast.success(`Added ${quantity} × ${gearName} to bag`)
+      await loadBagItemsWithCounts(currentBag.value.id)
+    }
   } catch (err) {
     console.error('Failed to add item:', err)
     toast.error(err.message || 'Failed to add item')
@@ -1022,132 +665,21 @@ async function addItemToBag() {
 }
 
 async function removeItemFromBag(itemId) {
-  if (!confirm('Remove this item from the bag?')) return
-  
-  try {
-    await PackingService.removeItemFromBag(itemId)
+  const success = await removeItemFromBagService(itemId)
+  if (success) {
     if (currentBag.value) {
-      await loadBagItems(currentBag.value.id)
+      await loadBagItemsWithCounts(currentBag.value.id)
     }
-    await updateGearAssignedCounts()
     await loadAvailableGear()
-    toast.success('Item removed')
-  } catch (err) {
-    console.error('Failed to remove item:', err)
-    toast.error(err.message || 'Failed to remove item')
   }
 }
 
 async function printBagInventory(bag) {
-  try {
-    const inventory = await PackingService.getBagInventoryForPrint(bag.id)
-    const items = await PackingService.getBagItems(bag.id)
-    
-    const doc = new jsPDF()
-    let yPosition = 20
-    
-    // Project name
-    doc.setFontSize(14)
-    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, yPosition)
-    yPosition += 10
-    
-    // Bag title
-    doc.setFontSize(18)
-    doc.setFont(undefined, 'bold')
-    doc.text(`Bag Inventory: ${inventory.name}`, 10, yPosition)
-    yPosition += 10
-    
-    // Bag image if available
-    if (bag.imageUrl) {
-      try {
-        // Fetch the image as a blob
-        const response = await fetch(bag.imageUrl)
-        const blob = await response.blob()
-        const imageDataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result)
-          reader.onerror = reject
-          reader.readAsDataURL(blob)
-        })
-        
-        // Create an image element to get actual dimensions
-        const img = new Image()
-        await new Promise((resolve, reject) => {
-          img.onload = resolve
-          img.onerror = reject
-          img.src = imageDataUrl
-        })
-        
-        // Calculate dimensions (max width 80mm, maintain aspect ratio)
-        // jsPDF uses mm as units, so we need to convert from pixels
-        // Standard DPI is 96, so 1 mm ≈ 3.779527559 pixels
-        const maxWidth = 80 // mm
-        const aspectRatio = img.height / img.width
-        const imgWidthMm = Math.min(maxWidth, img.width / 3.779527559) // Convert px to mm
-        const imgHeightMm = imgWidthMm * aspectRatio
-        
-        // Determine image format from data URL or blob type
-        const imageFormat = blob.type.includes('png') ? 'PNG' : 'JPEG'
-        doc.addImage(imageDataUrl, imageFormat, 10, yPosition, imgWidthMm, imgHeightMm)
-        yPosition += imgHeightMm + 10
-      } catch (imgErr) {
-        console.warn('Could not add bag image to PDF:', imgErr)
-        // Continue without image
-      }
-    }
-    
-    // Bag description if exists
-    if (inventory.description) {
-      doc.setFontSize(12)
-      doc.setFont(undefined, 'normal')
-      doc.text(`Description: ${inventory.description}`, 10, yPosition)
-      yPosition += 8
-    }
-
-    // Items table
-    if (items.length > 0) {
-      const data = items.map(item => [
-        item.gear_name || 'Unknown',
-        (item.quantity || 0).toString(),
-        item.notes || ''
-      ])
-      
-      autoTable(doc, {
-        startY: yPosition,
-        head: [['Gear Name', 'Quantity', 'Notes']],
-        body: data,
-        theme: 'grid',
-        headStyles: { fillColor: [23, 162, 184], textColor: [255, 255, 255] }
-      })
-    } else {
-      doc.setFontSize(12)
-      doc.setFont(undefined, 'normal')
-      doc.text('No items in this bag.', 10, yPosition)
-    }
-
-    // Save PDF to storage instead of downloading
-    const filename = `bag_inventory_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
-    const description = `Bag inventory export - ${bag.name}`
-    const projectId = effectiveProjectId.value || props.projectId
-    
-    const result = await savePDFToStorage(
-      doc,
-      filename,
-      projectId,
-      null, // venueId - project level
-      null, // stageId - project level
-      description
-    )
-    
+  const result = await printBagInventoryHelper(bag, effectiveProjectId, currentProject)
     if (result.success) {
       toast.success('PDF exported to Data Management successfully')
     } else {
       toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
-  } catch (err) {
-    console.error('Failed to print bag inventory:', err)
-    toast.error(err.message || 'Failed to print inventory')
   }
 }
 
@@ -1170,152 +702,21 @@ async function printMyGearInventory() {
     return
   }
   
-  const projectId = effectiveProjectId.value
-  if (!projectId || projectId.trim() === '') {
+  if (!effectiveProjectId.value || effectiveProjectId.value.trim() === '') {
     toast.error('No project selected')
     return
   }
 
-  try {
     // Ensure gear is loaded for weight calculations
     if (availableProjectGear.value.length === 0) {
       await loadAvailableGear()
     }
     
-    // Get all bags for the user, filtered by project
-    const projectId = effectiveProjectId.value
-    const userBags = await PackingService.getUserBags(userId.value, projectId || null)
-    
-    if (userBags.length === 0) {
-      toast.info('No bags found to print')
-      return
-    }
-    
-    const doc = new jsPDF()
-    let yPosition = 20
-    
-    // Header
-    doc.setFontSize(18)
-    doc.text('All Gear Bags', 10, yPosition)
-    yPosition += 10
-    
-    doc.setFontSize(12)
-    doc.text(`Project: ${currentProject.value?.project_name || 'Current Project'}`, 10, yPosition)
-    yPosition += 8
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, yPosition)
-    yPosition += 15
-    
-    // Process each bag
-    for (let i = 0; i < userBags.length; i++) {
-      const bag = userBags[i]
-      
-      // Check if we need a new page (leave space for header + at least one item)
-      if (yPosition > 250) {
-        doc.addPage()
-        yPosition = 20
-      }
-      
-      // Bag header
-      doc.setFontSize(16)
-      doc.setFont(undefined, 'bold')
-      doc.text(`${i + 1}. ${bag.name}`, 10, yPosition)
-      yPosition += 10
-      
-      // Bag description if exists
-      if (bag.description) {
-        doc.setFontSize(11)
-        doc.setFont(undefined, 'normal')
-        doc.text(bag.description, 10, yPosition)
-        yPosition += 7
-      }
-      
-      // Get bag items
-      const items = await PackingService.getBagItems(bag.id)
-      
-      // Calculate bag weight
-      let bagWeight = 0
-      // Option 1: If override weight is set, use that
-      if (bag.weight_kg) {
-        bagWeight = Number(bag.weight_kg)
-      } else {
-        // Option 2: Empty bag weight + items weight
-        const emptyBagWeight = bag.empty_bag_weight_kg ? Number(bag.empty_bag_weight_kg) : 0
-        let itemsWeight = 0
-        
-        // Calculate items weight from gear
-        items.forEach(item => {
-          if (item.gear_id) {
-            const gear = availableProjectGear.value.find(g => g.id === item.gear_id)
-            if (gear && gear.weight_kg) {
-              itemsWeight += (Number(gear.weight_kg) || 0) * (item.quantity || 0)
-            }
-          }
-        })
-        
-        bagWeight = emptyBagWeight + itemsWeight
-      }
-      
-      const weightText = bagWeight > 0 ? formatWeight(bagWeight, weightUnit.value) : 'Weight not calculated'
-      
-      // Bag weight info
-      doc.setFontSize(11)
-      doc.setFont(undefined, 'bold')
-      doc.text(`Weight: ${weightText}`, 10, yPosition)
-      yPosition += 8
-      
-      // Items table
-      if (items.length > 0) {
-        const itemData = items.map(item => [
-          item.gear_name || 'Unknown',
-          (item.quantity || 0).toString(),
-          item.notes || ''
-        ])
-        
-        autoTable(doc, {
-          startY: yPosition,
-          head: [['Gear Name', 'Quantity', 'Notes']],
-          body: itemData,
-          theme: 'grid',
-          headStyles: { fillColor: [23, 162, 184], textColor: [255, 255, 255] },
-          margin: { left: 10, right: 10 }
-        })
-        
-        // Get the final Y position after the table
-        yPosition = doc.lastAutoTable.finalY + 10
-      } else {
-        doc.setFontSize(10)
-        doc.setFont(undefined, 'italic')
-        doc.text('No items in this bag.', 10, yPosition)
-        yPosition += 10
-      }
-      
-      // Add spacing between bags
-      yPosition += 5
-    }
-    
-    // Save PDF to storage instead of downloading
-    const filename = `all_gear_bags_${new Date().toISOString().slice(0, 10)}.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
-    const description = 'All gear bags export'
-    const projectId = effectiveProjectId.value || props.projectId
-    
-    const result = await savePDFToStorage(
-      doc,
-      filename,
-      projectId,
-      null, // venueId - project level
-      null, // stageId - project level
-      description
-    )
-    
+  const result = await printMyGearInventoryHelper(bags, effectiveProjectId, currentProject)
     if (result.success) {
       toast.success('PDF exported to Data Management successfully')
     } else {
       toast.error(`Failed to save export: ${result.error || 'Unknown error'}`)
-    }
-  } catch (err) {
-    console.error('Failed to print all gear bags:', err)
-    toast.error(err.message || 'Failed to print bags')
   }
 }
 
