@@ -105,8 +105,10 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
       
       // Create script processor to capture audio data
       // Buffer size: 256 samples for low latency
+      // Note: ScriptProcessorNode requires at least 1 output channel to connect to destination
+      // We use 1 output channel (mono) even though we don't need it - it's required for the node to work
       const bufferSize = 256;
-      scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, actualChannelCount, 0);
+      scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, actualChannelCount, 1);
       
       scriptProcessor.value.onaudioprocess = (e) => {
         // Re-check WebSocket connection
@@ -139,11 +141,17 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
           console.error('Error sending audio data:', error);
           captureError.value = 'Failed to send audio data';
         }
+        
+        // Clear the output buffer (we don't need to output anything, just capture)
+        // This prevents any audio from being played back
+        const outputData = e.outputBuffer.getChannelData(0);
+        outputData.fill(0);
       };
       
-      // Connect: mediaStreamSource -> scriptProcessor -> (no output, just capture)
+      // Connect: mediaStreamSource -> scriptProcessor -> destination
+      // Note: ScriptProcessorNode must be connected to destination to work, even if output is silent
       mediaStreamSource.value.connect(scriptProcessor.value);
-      scriptProcessor.value.connect(audioContext.value.destination); // Must connect to destination to work
+      scriptProcessor.value.connect(audioContext.value.destination);
       
       isCapturing.value = true;
       console.log(`✅ Audio capture started: ${actualChannelCount} channels @ ${audioContext.value.sampleRate}Hz`);
