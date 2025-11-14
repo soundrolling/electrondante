@@ -123,9 +123,9 @@
             
             <!-- Electron App Download Info -->
             <div class="electron-app-info" v-if="!isSource">
-              <p class="info-message" style="margin-top: 1rem; padding: 1rem; background: #eff6ff; border: 1px solid #3b82f6; border-radius: 6px;">
+              <p class="info-message electron-app-message">
                 <strong>💻 For Multi-Channel Audio:</strong> Download the Electron app for full support of devices like Dante Virtual Soundcard (16+ channels). 
-                <a href="https://github.com/soundrolling/proapp2149/releases" target="_blank" style="color: #2563eb; text-decoration: underline;">Download from GitHub Releases</a>
+                <a href="https://github.com/soundrolling/proapp2149/releases" target="_blank" class="electron-app-link">Download from GitHub Releases</a>
               </p>
             </div>
             
@@ -181,7 +181,7 @@
             >
               {{ hasSource ? 'Source Already Active (Another User)' : 'Register as Source' }}
             </button>
-            <p v-if="hasSource && !isYourSource" class="info-message" style="background: #fef3c7; border: 1px solid #f59e0b; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem;">
+            <p v-if="hasSource && !isYourSource" class="info-message another-source-active">
               <strong>⚠️ Another user is already the source.</strong> Only one source can be active at a time. Wait for the current source to stop, or ask them to transfer control.
             </p>
             <button 
@@ -199,7 +199,7 @@
               Stop My Source (Reconnected)
             </button>
             <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
-            <p v-if="isYourSource && !isSource" class="info-message" style="background: #dbeafe; border: 1px solid #3b82f6; padding: 0.75rem; border-radius: 4px;">
+            <p v-if="isYourSource && !isSource" class="info-message source-on-other-device">
               <strong>ℹ️ You are the active source on another device.</strong> This device is in listener mode. You can stop the source from here, or switch to the source device to control it directly.
             </p>
             <p v-if="!hasSource && !isSource && !isYourSource" class="info-message">
@@ -1866,6 +1866,92 @@ watch(() => mixer.value, (newMixer) => {
 @media (prefers-color-scheme: dark) {
   .info-message {
     color: var(--text-secondary, #9ca3af);
+  }
+}
+
+.electron-app-message {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #1e40af;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  color: white;
+}
+
+.electron-app-message strong {
+  color: white;
+}
+
+.electron-app-link {
+  color: #bfdbfe;
+  text-decoration: underline;
+}
+
+.electron-app-link:hover {
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .electron-app-message {
+    background: #1e3a8a;
+    border-color: #60a5fa;
+  }
+  
+  .electron-app-link {
+    color: #bfdbfe;
+  }
+  
+  .electron-app-link:hover {
+    color: white;
+  }
+}
+
+.source-on-other-device {
+  background: #1e40af;
+  border: 1px solid #3b82f6;
+  padding: 0.75rem;
+  border-radius: 4px;
+  color: white;
+}
+
+.source-on-other-device strong {
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .source-on-other-device {
+    background: #1e3a8a;
+    border-color: #60a5fa;
+    color: white;
+  }
+  
+  .source-on-other-device strong {
+    color: white;
+  }
+}
+
+.another-source-active {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  color: #78350f;
+}
+
+.another-source-active strong {
+  color: #78350f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .another-source-active {
+    background: #92400e;
+    border-color: #f59e0b;
+    color: white;
+  }
+  
+  .another-source-active strong {
+    color: white;
   }
 }
 
