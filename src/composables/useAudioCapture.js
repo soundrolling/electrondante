@@ -3,7 +3,7 @@
 
 import { ref, onBeforeUnmount } from 'vue';
 
-export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
+export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, isSourceRef = null) {
   const audioContext = ref(null);
   const mediaStream = ref(null);
   const mediaStreamSource = ref(null);
@@ -226,12 +226,23 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000) {
           });
         }
         
-        // Re-check WebSocket connection
+        // Re-check WebSocket connection and source registration
         const currentWs = typeof wsRef === 'function' ? wsRef() : (wsRef?.value || wsRef);
         if (!currentWs || currentWs.readyState !== WebSocket.OPEN) {
           if (audioProcessCount % 100 === 0) {
             console.warn('⚠️ [AUDIO CAPTURE] WebSocket not connected, skipping audio send');
           }
+          return;
+        }
+        
+        // Check if we're registered as source (if isSourceRef is provided)
+        const isSource = isSourceRef ? (typeof isSourceRef === 'function' ? isSourceRef() : (isSourceRef?.value ?? false)) : true;
+        if (!isSource) {
+          // Not registered as source - stop sending audio
+          if (audioProcessCount % 100 === 0) {
+            console.warn('⚠️ [AUDIO CAPTURE] Not registered as source, stopping capture');
+          }
+          stopCapture();
           return;
         }
         

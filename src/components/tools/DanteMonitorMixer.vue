@@ -49,10 +49,12 @@
 
       <!-- Mixer Interface (if authenticated) -->
       <div v-else class="mixer-interface">
-        <!-- Source Control Bar -->
-        <div class="source-control-bar">
-          <!-- Audio Device Selection (available to all authenticated users) -->
-          <div class="device-selection">
+        <!-- Source Setup Section (for configuring audio source) -->
+        <div class="source-setup-section" v-if="!isSource || isYourSource">
+          <h3 class="section-title">🎤 Audio Source Setup</h3>
+          <div class="source-control-bar">
+            <!-- Audio Device Selection -->
+            <div class="device-selection">
             <div class="device-header">
               <label class="device-label">Audio Input Device:</label>
               <span v-if="isCapturing" class="client-status connected">● Capturing</span>
@@ -91,8 +93,16 @@
               Click "Refresh Devices" to load available audio input devices. You may need to grant microphone permissions.
             </p>
             <p v-if="!isSource && availableDevices.length > 0" class="info-message">
-              <strong>Note:</strong> Most browsers only support stereo (2 channels) via web audio. For multi-channel devices like Dante Virtual Soundcard with 16+ channels, the browser will typically only capture 1-2 channels. For full multi-channel support, use the local client.js.
+              <strong>Note:</strong> Most browsers only support stereo (2 channels) via web audio. For multi-channel devices like Dante Virtual Soundcard with 16+ channels, the browser will typically only capture 1-2 channels. For full multi-channel support, use the Electron app (see download link below).
             </p>
+            
+            <!-- Electron App Download Info -->
+            <div class="electron-app-info" v-if="!isSource">
+              <p class="info-message" style="margin-top: 1rem; padding: 1rem; background: #eff6ff; border: 1px solid #3b82f6; border-radius: 6px;">
+                <strong>💻 For Multi-Channel Audio:</strong> Download the Electron app for full support of devices like Dante Virtual Soundcard (16+ channels). 
+                <a href="https://github.com/soundrolling/proapp2149/releases" target="_blank" style="color: #2563eb; text-decoration: underline;">Download from GitHub Releases</a>
+              </p>
+            </div>
             
             <!-- Debug Panel (for testing) -->
             <div class="debug-panel">
@@ -168,8 +178,31 @@
             </p>
           </div>
         </div>
+        
+        <!-- Active Source Status (when source is active) -->
+        <div class="active-source-status" v-if="isSource">
+          <div class="source-status-card">
+            <h3 class="section-title">🎤 Active Source</h3>
+            <div class="status-info">
+              <span class="status-badge active">● Streaming Active</span>
+              <span class="status-badge device">Device: {{ selectedDeviceId ? availableDevices.find(d => d.id === selectedDeviceId)?.label || 'Selected Device' : 'Default Device' }}</span>
+            </div>
+            <button 
+              @click="unregisterAsSource"
+              class="btn btn-secondary"
+              style="margin-top: 1rem;"
+            >
+              Stop Source
+            </button>
+            <p v-if="sourceRegistrationError" class="error-message" style="margin-top: 0.5rem;">{{ sourceRegistrationError }}</p>
+          </div>
+        </div>
 
-        <!-- Preset Bar -->
+        <!-- Listener/Mixer Section (for monitoring and mixing) -->
+        <div class="listener-mixer-section" v-if="hasSource || !isSource">
+          <h3 class="section-title">🎧 Monitor Mixer</h3>
+          
+          <!-- Preset Bar -->
         <div class="preset-bar">
           <select 
             v-model="selectedPresetId"
@@ -193,8 +226,8 @@
           </button>
         </div>
 
-        <!-- Channel Grid -->
-        <div class="channels-grid">
+          <!-- Channel Grid -->
+          <div class="channels-grid">
           <DanteChannelStrip
             v-for="(channel, index) in enabledChannels"
             :key="channel.index"
@@ -216,6 +249,18 @@
             <span class="add-icon">+</span>
             <span class="add-label">Add Channel</span>
           </button>
+        </div>
+        </div>
+        
+        <!-- No Source Message -->
+        <div class="no-source-message" v-if="!hasSource && !isSource">
+          <div class="info-card">
+            <h3>⚠️ No Audio Source Active</h3>
+            <p>An audio source needs to be registered before you can monitor the mix.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
+              Use the "Audio Source Setup" section above to configure and register a source.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -276,7 +321,7 @@ const isYourSource = ref(false); // True if current user is the source (even if 
 const reconnectTimer = ref(null);
 const pingInterval = ref(null);
 
-// Browser audio capture
+// Browser audio capture - pass isSource ref so it stops sending when not source
 const {
   isCapturing,
   captureError,
@@ -286,7 +331,7 @@ const {
   enumerateDevices,
   startCapture,
   stopCapture,
-} = useAudioCapture(wsRef, 32, 48000);
+} = useAudioCapture(wsRef, 32, 48000, computed(() => isSource.value));
 
 // Use stream latency from capture, or default
 watch(captureStreamLatency, (newLatency) => {
