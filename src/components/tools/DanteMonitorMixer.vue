@@ -11,6 +11,9 @@
           >
             {{ connected ? '● Connected' : '○ Disconnected' }}
           </span>
+          <span v-if="isSource" class="source-badge">🎤 Source</span>
+          <span v-else-if="hasSource" class="listener-badge">👂 Listener</span>
+          <span v-else class="no-source-badge">⚠️ No Source</span>
           <span class="latency-info">Latency: {{ latency.toFixed(1) }}ms</span>
         </div>
         <div v-if="connectionError" class="connection-error">
@@ -46,6 +49,31 @@
 
       <!-- Mixer Interface (if authenticated) -->
       <div v-else class="mixer-interface">
+        <!-- Source Control Bar -->
+        <div class="source-control-bar">
+          <div class="source-controls">
+            <button 
+              v-if="!isSource"
+              @click="registerAsSource"
+              :disabled="!connected || hasSource"
+              class="btn btn-primary"
+            >
+              {{ hasSource ? 'Source Already Active' : 'Register as Source' }}
+            </button>
+            <button 
+              v-else
+              @click="unregisterAsSource"
+              class="btn btn-secondary"
+            >
+              Stop Source
+            </button>
+            <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
+            <p v-if="!hasSource && !isSource" class="info-message">
+              No audio source active. Register as source if you have Dante Virtual Soundcard running.
+            </p>
+          </div>
+        </div>
+
         <!-- Preset Bar -->
         <div class="preset-bar">
           <select 
@@ -142,6 +170,9 @@ const connected = ref(false);
 const wsRef = ref(null);
 const latency = ref(0);
 const connectionError = ref('');
+const isSource = ref(false);
+const hasSource = ref(false);
+const sourceRegistrationError = ref('');
 
 // Mixer state
 const channels = ref([]);
@@ -272,6 +303,11 @@ const connectWebSocket = async () => {
         if (message.type === 'config') {
           console.log('✅ Received config:', message);
           
+          // Update source status from config
+          if (message.hasSource !== undefined) {
+            hasSource.value = message.hasSource;
+          }
+          
           // Initialize channel state
           // Only channels 1-2 (index 0-1) are enabled and unmuted by default
           // Rest are muted and disabled until user adds them
@@ -339,6 +375,8 @@ const connectWebSocket = async () => {
     ws.onclose = (event) => {
       console.log('Disconnected from bridge server', event.code, event.reason);
       connected.value = false;
+      isSource.value = false;
+      hasSource.value = false;
       if (event.code !== 1000) { // Not a normal closure
         connectionError.value = `Connection closed (code: ${event.code}). Retrying...`;
       }
@@ -389,6 +427,22 @@ const handleServerMessage = (message) => {
       loadPresets();
       break;
 
+    case 'sourceRegistered':
+      console.log('✅ Registered as source');
+      isSource.value = true;
+      hasSource.value = true;
+      sourceRegistrationError.value = '';
+      break;
+
+    case 'sourceStatus':
+      // Update source status from server
+      hasSource.value = message.hasSource;
+      if (!message.hasSource && isSource.value) {
+        // We were source but server says no source - connection lost
+        isSource.value = false;
+      }
+      break;
+
     case 'presetSaved':
       loadPresets();
       showSavePresetModal.value = false;
@@ -397,6 +451,12 @@ const handleServerMessage = (message) => {
 
     case 'error':
       console.error('Server error:', message.message);
+      if (message.message.includes('Source already registered')) {
+        hasSource.value = true;
+        sourceRegistrationError.value = 'Another source is already active. Only one source allowed at a time.';
+      } else if (message.message.includes('Source registration')) {
+        sourceRegistrationError.value = message.message;
+      }
       break;
 
     default:
@@ -544,6 +604,46 @@ const addChannel = () => {
   }
 };
 
+// Source registration
+const registerAsSource = async () => {
+  if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
+    sourceRegistrationError.value = 'Not connected to server';
+    return;
+  }
+
+  sourceRegistrationError.value = '';
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      sourceRegistrationError.value = 'Not authenticated. Please sign in first.';
+      return;
+    }
+
+    wsRef.value.send(JSON.stringify({
+      type: 'registerSource',
+      token: session.access_token,
+    }));
+    
+    console.log('📤 Sent source registration request');
+  } catch (error) {
+    console.error('Error registering as source:', error);
+    sourceRegistrationError.value = error.message || 'Failed to register as source';
+  }
+};
+
+const unregisterAsSource = () => {
+  // Note: The server will handle disconnection automatically
+  // We just need to disconnect and reconnect as a listener
+  if (wsRef.value) {
+    wsRef.value.close();
+  }
+  isSource.value = false;
+  hasSource.value = false;
+  sourceRegistrationError.value = '';
+  // Reconnect will happen automatically via onclose handler
+};
+
 // Update latency periodically
 watch(() => mixer.value, (newMixer) => {
   if (newMixer) {
@@ -666,6 +766,51 @@ watch(() => mixer.value, (newMixer) => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.source-control-bar {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  border: 1px solid var(--border-light, #e2e8f0);
+}
+
+.source-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-message {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  margin: 0;
+}
+
+.source-badge,
+.listener-badge,
+.no-source-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.source-badge {
+  background: #10b981;
+  color: white;
+}
+
+.listener-badge {
+  background: #3b82f6;
+  color: white;
+}
+
+.no-source-badge {
+  background: #f59e0b;
+  color: white;
 }
 
 .preset-bar {

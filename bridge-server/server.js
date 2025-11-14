@@ -54,6 +54,23 @@ class DanteBridgeServer {
     // No local audio input on Railway - audio comes from source connection
   }
 
+  // Notify all listeners about source status
+  notifySourceStatus() {
+    const hasSource = !!this.sourceConnection;
+    this.listeners.forEach((listener, listenerId) => {
+      if (listener.ws.readyState === WebSocket.OPEN) {
+        try {
+          listener.ws.send(JSON.stringify({
+            type: 'sourceStatus',
+            hasSource: hasSource,
+          }));
+        } catch (error) {
+          console.error(`Error notifying source status to listener ${listenerId}:`, error);
+        }
+      }
+    });
+  }
+
   // Relay audio from source to all listeners
   relayAudioToListeners(channels) {
     if (!channels || channels.length === 0) return;
@@ -136,6 +153,7 @@ class DanteBridgeServer {
           channels: CONFIG.channels,
           sampleRate: CONFIG.sampleRate,
           clientId,
+          hasSource: !!this.sourceConnection,
         }));
         console.log(`📤 Sent config to client ${clientId}`);
       } catch (error) {
@@ -153,6 +171,8 @@ class DanteBridgeServer {
         if (this.sourceConnection && this.sourceConnection.clientId === clientId) {
           console.log('⚠️ Source connection lost - audio streaming stopped');
           this.sourceConnection = null;
+          // Notify all listeners that source is no longer available
+          this.notifySourceStatus();
         } else {
           this.listeners.delete(clientId);
         }
@@ -218,6 +238,9 @@ class DanteBridgeServer {
               channels: CONFIG.channels,
               sampleRate: CONFIG.sampleRate
             }));
+            
+            // Notify all listeners that source is now available
+            this.notifySourceStatus();
           } catch (error) {
             console.error('Source registration error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Source registration error' }));
