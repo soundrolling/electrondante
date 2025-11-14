@@ -163,8 +163,12 @@ class DanteBridgeServer {
       console.log(`✅ Client connected: ${clientId} from ${clientIp}`);
       console.log(`📡 Request URL: ${req.url}`);
       
+      // Track connection start time for duration logging
+      ws._connectionStartTime = Date.now();
+      
       // Initially add as listener - will be changed to source if connection type message received
       this.listeners.set(clientId, { ws, userId: null, type: 'listener' });
+      console.log(`📈 Total connections: ${this.listeners.size} listeners, ${this.sourceConnection ? 1 : 0} source`);
 
       // Send initial configuration immediately
       // Get user ID if authenticated (will be set after authentication)
@@ -189,7 +193,19 @@ class DanteBridgeServer {
       });
 
       ws.on('close', (code, reason) => {
-        console.log(`❌ Client disconnected: ${clientId} (code: ${code}, reason: ${reason || 'none'})`);
+        const reasonStr = reason ? reason.toString() : 'none';
+        console.log(`❌ Client disconnected: ${clientId} (code: ${code}, reason: ${reasonStr})`);
+        
+        // Log connection duration if available
+        if (ws._connectionStartTime) {
+          const duration = Date.now() - ws._connectionStartTime;
+          console.log(`⏱️ Connection duration: ${Math.round(duration / 1000)}s`);
+        }
+        
+        // Log specific error codes for debugging
+        if (code === 1006) {
+          console.warn(`⚠️ Abnormal closure (1006) for ${clientId} - connection closed without proper close frame`);
+        }
         
         // Check if this was the source connection
         if (this.sourceConnection && this.sourceConnection.clientId === clientId) {
@@ -199,6 +215,7 @@ class DanteBridgeServer {
           this.notifySourceStatus();
         } else {
           this.listeners.delete(clientId);
+          console.log(`📉 Listener count: ${this.listeners.size}`);
         }
       });
 
@@ -351,6 +368,13 @@ class DanteBridgeServer {
             return;
           }
           
+          // Log audio reception periodically for debugging
+          if (!this._audioReceivedCount) this._audioReceivedCount = 0;
+          this._audioReceivedCount++;
+          if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
+            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, listeners: ${this.listeners.size})`);
+          }
+          
           // Relay audio to all listeners (single channel packet format)
           if (data.channel !== undefined && data.data) {
             const audioMessage = JSON.stringify({
@@ -404,7 +428,9 @@ class DanteBridgeServer {
             this._audioRelayStats.errors += errorCount;
             
             if (this._audioRelayStats.total % 1000 === 0) {
-              console.log(`📊 [SERVER] Audio relay stats: ${this._audioRelayStats.total} packets, ${this._audioRelayStats.relayed} relayed, ${this._audioRelayStats.errors} errors, ${this.listeners.size} listeners`);
+              const avgRelayed = this.listeners.size > 0 ? Math.round(this._audioRelayStats.relayed / this._audioRelayStats.total) : 0;
+              const errorRate = this._audioRelayStats.total > 0 ? ((this._audioRelayStats.errors / this._audioRelayStats.total) * 100).toFixed(2) : '0.00';
+              console.log(`📊 [SERVER] Audio relay stats: ${this._audioRelayStats.total} packets received, avg ${avgRelayed} relayed per packet, ${this._audioRelayStats.errors} errors (${errorRate}%), ${this.listeners.size} listeners`);
             }
           }
           break;

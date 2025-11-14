@@ -640,6 +640,9 @@ const connectWebSocket = async () => {
       connected.value = true;
       connectionError.value = ''; // Clear any previous errors
       
+      // Track connection start time
+      ws._connectionStartTime = Date.now();
+      
       // Clear any pending reconnect timer
       if (reconnectTimer.value) {
         clearTimeout(reconnectTimer.value);
@@ -760,7 +763,25 @@ const connectWebSocket = async () => {
     };
 
     ws.onclose = (event) => {
-      console.log('❌ Disconnected from bridge server', event.code, event.reason || 'no reason');
+      const reason = event.reason || 'no reason';
+      const code = event.code;
+      console.log(`❌ Disconnected from bridge server (code: ${code}, reason: ${reason})`);
+      
+      // Log connection duration if tracked
+      if (ws._connectionStartTime) {
+        const duration = Date.now() - ws._connectionStartTime;
+        console.log(`⏱️ Connection duration: ${Math.round(duration / 1000)}s`);
+      }
+      
+      // Log specific error codes for debugging
+      if (code === 1006) {
+        console.warn('⚠️ Abnormal closure (1006) - connection closed without proper close frame. This may indicate network issues or Railway timeout.');
+      } else if (code === 1001) {
+        console.log('ℹ️ Going away (1001) - server or client is shutting down');
+      } else if (code === 1000) {
+        console.log('✅ Normal closure (1000)');
+      }
+      
       connected.value = false;
       isSource.value = false;
       hasSource.value = false;
@@ -777,8 +798,8 @@ const connectWebSocket = async () => {
       }
       
       // Don't reconnect if it was a normal closure (1000) or if we're shutting down
-      if (event.code !== 1000) {
-        connectionError.value = `Connection closed (code: ${event.code}). Retrying...`;
+      if (code !== 1000) {
+        connectionError.value = `Connection closed (code: ${code}). Retrying...`;
         // Reconnect after 3 seconds with exponential backoff
         reconnectTimer.value = setTimeout(() => {
           console.log('🔄 Attempting to reconnect...');
