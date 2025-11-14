@@ -445,7 +445,8 @@ setup(props) {
   const toast     = useToast()
   const userStore = useUserStore()
 
-  const filterLocationId        = ref(route.query.locationId || 'all')
+  // Ensure route and route.query are available
+  const filterLocationId        = ref(route?.query?.locationId || 'all')
   const filterOwner              = ref('all')
   const sortBy                  = ref('default')
   const loading                 = ref(false)
@@ -506,10 +507,13 @@ setup(props) {
   const showUserGearSelector    = ref(false)
   const selectedUserGear        = ref([])
 
-  const currentProject = computed(() => userStore.getCurrentProject)
-  const userId = computed(() => userStore.user?.id)
+  const currentProject = computed(() => {
+    if (!userStore || typeof userStore.getCurrentProject !== 'function') return null
+    return userStore.getCurrentProject() || null
+  })
+  const userId = computed(() => userStore?.user?.id || null)
   const projectId = computed(() => {
-    return currentProject.value?.id || route.params.id || ''
+    return currentProject.value?.id || route?.params?.id || ''
   })
   
   // Check if current user is project owner
@@ -523,17 +527,17 @@ setup(props) {
   })
   
   // Tab management - check route query or props for initial tab
-  const activeTab = ref(props.tab || route.query.tab || 'gear')
+  const activeTab = ref(props?.tab || route?.query?.tab || 'gear')
   
   // Watch for route changes to update active tab
-  watch(() => route.query.tab, (newTab) => {
+  watch(() => route?.query?.tab, (newTab) => {
     if (newTab === 'packing' || newTab === 'gear' || newTab === 'repacking') {
       activeTab.value = newTab
     }
   })
   
   // Watch props changes (when navigating to /packing or /repacking route)
-  watch(() => props.tab, (newTab) => {
+  watch(() => props?.tab, (newTab) => {
     if (newTab === 'packing' || newTab === 'gear' || newTab === 'repacking') {
       activeTab.value = newTab
     }
@@ -546,26 +550,26 @@ setup(props) {
     if (tab === 'packing') {
       router.push({ 
         name: 'ProjectPacking', 
-        params: { id: route.params.id },
-        query: { ...route.query }
+        params: { id: route?.params?.id },
+        query: { ...(route?.query || {}) }
       })
     } else if (tab === 'repacking') {
       router.push({ 
         name: 'ProjectRepacking', 
-        params: { id: route.params.id },
-        query: { ...route.query }
+        params: { id: route?.params?.id },
+        query: { ...(route?.query || {}) }
       })
     } else {
       router.push({ 
         name: 'ProjectGear', 
-        params: { id: route.params.id },
-        query: { ...route.query, tab: tab === 'gear' ? undefined : tab }
+        params: { id: route?.params?.id },
+        query: { ...(route?.query || {}), tab: tab === 'gear' ? undefined : tab }
       })
     }
   }
   
   // Separate filters for accessories
-  const filterAccessoriesLocationId = ref(route.query.locationId || 'all')
+  const filterAccessoriesLocationId = ref(route?.query?.locationId || 'all')
   const filterAccessoriesOwner       = ref('all')
   const sortAccessoriesBy = ref('default')
 
@@ -704,7 +708,7 @@ setup(props) {
     loading.value = true
     try {
       locationsList.value = await fetchTableData('locations',{ 
-        eq: { project_id: currentProject.value.id },
+        eq: { project_id: currentProject.value?.id },
         order: [{ column:'order', ascending:true }]
       })
     } catch (err) {
@@ -723,7 +727,7 @@ setup(props) {
     try {
       // Use the regular gear_table instead of the view
       const gearData = await fetchTableData('gear_table',{ 
-        eq: { project_id: currentProject.value.id },
+        eq: { project_id: currentProject.value?.id },
         order: [{ column:'sort_order', ascending:true }]
       })
       
@@ -789,7 +793,7 @@ setup(props) {
   }
 
   function goBack() {
-    router.push({ name: 'ProjectLocations', params: { id: route.params.id } })
+    router.push({ name: 'ProjectLocations', params: { id: route?.params?.id } })
   }
 
   function toggleAddGear() {
@@ -1475,7 +1479,7 @@ setup(props) {
     const filename = `gear_${new Date().toISOString().slice(0,10)}.pdf`
     const { savePDFToStorage } = await import('@/services/exportStorageService')
     const description = `Gear export - ${title}`
-    const projectId = route.params.id
+    const projectId = route?.params?.id
     
     const result = await savePDFToStorage(
       doc,
