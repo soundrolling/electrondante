@@ -477,6 +477,16 @@ class DanteBridgeServer {
           break;
 
         case 'ping':
+          // Respond to ping with pong (keepalive and latency measurement)
+          try {
+            client.ws.send(JSON.stringify({ 
+              type: 'pong', 
+              timestamp: data.timestamp || Date.now() 
+            }));
+          } catch (error) {
+            console.error(`Error sending pong to ${clientId}:`, error);
+          }
+          break;
           // Respond to client ping (keepalive)
           try {
             client.ws.send(JSON.stringify({ type: 'pong' }));

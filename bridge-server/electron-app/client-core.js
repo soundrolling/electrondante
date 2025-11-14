@@ -293,6 +293,7 @@ class DanteBridgeClient extends EventEmitter {
     if (!this.audioBatchQueue) {
       this.audioBatchQueue = [];
       this.bufferCount = 0;
+      this.sequenceNumber = 0; // Sequence number for packet ordering
     }
     
     // Add to batch queue
@@ -323,12 +324,16 @@ class DanteBridgeClient extends EventEmitter {
               data: combinedSamples,
               timestamp: batch[0].timestamp, // Use first buffer's timestamp
               bufferCount: batch.length,
+              sequence: this.sequenceNumber, // Add sequence number for jitter buffering
             }));
           } catch (error) {
             console.error(`Error sending audio for channel ${chIndex}:`, error);
           }
         }
       });
+      
+      // Increment sequence number after sending all channels
+      this.sequenceNumber++;
       
       if (this.bufferCount % 50 === 0) {
         const bufferLatencyMs = (this.config.bufferSize / this.config.sampleRate) * 1000;

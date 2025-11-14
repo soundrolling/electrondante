@@ -14,7 +14,15 @@
           <span v-if="isSource" class="source-badge">🎤 Source</span>
           <span v-else-if="hasSource" class="listener-badge">👂 Listener</span>
           <span v-else class="no-source-badge">⚠️ No Source</span>
-          <span class="latency-info">Playback Latency: {{ latency.toFixed(1) }}ms | Stream Latency: ~{{ streamLatency.toFixed(0) }}ms</span>
+          <span class="latency-info">
+            Playback: {{ latency.toFixed(1) }}ms | 
+            Stream: ~{{ streamLatency.toFixed(0) }}ms | 
+            Network: {{ connectionQuality.averageLatency }}ms | 
+            Quality: <span :style="{ color: connectionQuality.qualityColor }">{{ connectionQuality.qualityLevel.toUpperCase() }}</span>
+            <span v-if="connectionQuality.packetLoss > 0" style="color: #ef4444;">
+              ({{ connectionQuality.packetLoss.toFixed(1) }}% loss)
+            </span>
+          </span>
         </div>
         <div v-if="connectionError" class="connection-error">
           <p>⚠️ Connection Error: {{ connectionError }}</p>
@@ -296,6 +304,7 @@ import { supabase } from '@/supabase';
 import { useUserStore } from '@/stores/userStore';
 import { useDanteMixer } from '@/composables/useDanteMixer';
 import { useAudioCapture } from '@/composables/useAudioCapture';
+import { useConnectionQuality } from '@/composables/useConnectionQuality';
 import DanteChannelStrip from './DanteChannelStrip.vue';
 
 const router = useRouter();
@@ -343,6 +352,9 @@ watch(captureStreamLatency, (newLatency) => {
 const deviceLoading = ref(false);
 const deviceError = ref('');
 const showDebugPanel = ref(false);
+
+// Connection quality monitoring
+const connectionQuality = useConnectionQuality();
 
 // User role check
 const userRole = ref(null);
@@ -531,19 +543,20 @@ const connectWebSocket = async () => {
         reconnectTimer.value = null;
       }
       
-      // Set up ping interval to keep connection alive (every 30 seconds)
+      // Set up ping interval to keep connection alive and measure latency (every 5 seconds)
       if (pingInterval.value) {
         clearInterval(pingInterval.value);
       }
       pingInterval.value = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           try {
-            ws.send(JSON.stringify({ type: 'ping' }));
+            connectionQuality.startPing();
+            ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
           } catch (error) {
             console.warn('Failed to send ping:', error);
           }
         }
-      }, 30000);
+      }, 5000); // Ping every 5 seconds for better quality monitoring
 
       // Authenticate with server
       const { data: { session } } = await supabase.auth.getSession();
@@ -713,8 +726,16 @@ const handleServerMessage = (message) => {
 
     case 'audio':
       // Receive audio data for a channel
+      // Note: Jitter buffering would be handled here if implemented
       if (mixer.value) {
         mixer.value.addChannelData(message.channel, message.data);
+      }
+      // Update connection quality stats if available
+      if (message.sequence !== undefined && connectionQuality) {
+        // Track packet reception for quality monitoring
+        connectionQuality.updateStats({
+          packetsReceived: connectionQuality.packetsReceived + 1,
+        });
       }
       break;
 
@@ -774,6 +795,11 @@ const handleServerMessage = (message) => {
 
     case 'pong':
       // Server responded to ping - connection is alive
+      connectionQuality.recordPong();
+      if (message.timestamp) {
+        const roundTripTime = Date.now() - message.timestamp;
+        connectionQuality.updateLatency(roundTripTime / 2); // One-way latency
+      }
       break;
 
     case 'error':

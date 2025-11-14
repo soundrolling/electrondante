@@ -205,6 +205,7 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
       
       let audioProcessCount = 0;
       let audioBufferQueue = []; // Queue to batch audio before sending
+      let sequenceNumber = 0; // Sequence number for packet ordering
       const BATCH_SIZE = 4; // Send every 4 buffers (reduces WebSocket overhead)
       const effectiveLatencyMs = bufferLatencyMs * BATCH_SIZE;
       
@@ -290,8 +291,13 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
                   sampleRate: audioContext.value.sampleRate,
                   bufferCount: batch.length,
                   timestamp: batch[0].timestamp, // Use first buffer's timestamp
+                  sequence: sequenceNumber, // Add sequence number for jitter buffering
                 }));
               }
+            }
+            
+            // Increment sequence number after sending all channels
+            sequenceNumber++;
             }
             
             if (audioProcessCount % 50 === 0) {
