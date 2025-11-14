@@ -207,6 +207,7 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
       let audioBufferQueue = []; // Queue to batch audio before sending
       let sequenceNumber = 0; // Sequence number for packet ordering
       const BATCH_SIZE = 4; // Send every 4 buffers (reduces WebSocket overhead)
+      const _channelSendCount = {}; // Track send count per channel (closure variable, not this._channelSendCount)
       const effectiveLatencyMs = bufferLatencyMs * BATCH_SIZE;
       
       // Update stream latency
@@ -292,12 +293,11 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
               
               if (combinedSamples.length > 0) {
                 // Log first few sends per channel for debugging
-                if (!this._channelSendCount) this._channelSendCount = {};
-                if (!this._channelSendCount[ch]) this._channelSendCount[ch] = 0;
-                this._channelSendCount[ch]++;
+                if (!_channelSendCount[ch]) _channelSendCount[ch] = 0;
+                _channelSendCount[ch]++;
                 
-                if (this._channelSendCount[ch] <= 3 || this._channelSendCount[ch] % 100 === 0) {
-                  console.log(`📤 [AUDIO CAPTURE] Sending audio for channel ${ch}: ${combinedSamples.length} samples (packet #${this._channelSendCount[ch]})`);
+                if (_channelSendCount[ch] <= 3 || _channelSendCount[ch] % 100 === 0) {
+                  console.log(`📤 [AUDIO CAPTURE] Sending audio for channel ${ch}: ${combinedSamples.length} samples (packet #${_channelSendCount[ch]})`);
                 }
                 
                 currentWs.send(JSON.stringify({
