@@ -6,12 +6,13 @@ const getEnvVar = (key, fallback = null) => {
   // Vite uses import.meta.env, Vue CLI uses process.env
   let value = null
   
-  // Try Vite env vars first (import.meta.env.VITE_*)
+  // Try Vite env vars first (import.meta.env.VITE_* or VUE_APP_*)
   // In Vite, import.meta.env is always available at build time
-  // Access it directly - Vite will replace it at build time
+  // Vite config now exposes VUE_APP_* through import.meta.env
   // @ts-ignore
   const viteEnv = import.meta?.env
   if (viteEnv) {
+    // Try VITE_ prefix first, then VUE_APP_ prefix (exposed via vite.config.js define)
     value = viteEnv[`VITE_${key}`] || 
             viteEnv[`VUE_APP_${key}`] ||
             viteEnv[key] ||
@@ -19,6 +20,7 @@ const getEnvVar = (key, fallback = null) => {
   }
   
   // Fallback to process.env (Vue CLI legacy or Node.js)
+  // process.env is also defined in vite.config.js for compatibility
   if (!value) {
     value = process.env[`VITE_${key}`] || 
             process.env[`VUE_APP_${key}`] || 
