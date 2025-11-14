@@ -381,6 +381,14 @@ export class AudioMixerEngine {
     const progress = this.isBuffering ? Math.min(100, (currentSize / this.minBufferSamples) * 100) : 100;
     const bufferTimeMs = (this.minBufferSamples / this.sampleRate) * 1000;
     const currentTimeMs = (currentSize / this.sampleRate) * 1000;
+    
+    // Debug logging (first few times or periodically)
+    if (!this._bufferStatsLogCount) this._bufferStatsLogCount = 0;
+    this._bufferStatsLogCount++;
+    if (this._bufferStatsLogCount <= 5 || this._bufferStatsLogCount % 20 === 0) {
+      console.log(`📊 [MIXER] Buffer stats: current=${currentSize}, target=${this.minBufferSamples}, max=${this.maxBufferSize}, progress=${progress.toFixed(1)}%, isBuffering=${this.isBuffering}`);
+    }
+    
     return {
       current: currentSize,
       target: this.minBufferSamples,

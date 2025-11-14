@@ -836,6 +836,11 @@ const handleServerMessage = async (message) => {
         audioPacketCount.value++;
         if (audioPacketCount.value <= 5 || audioPacketCount.value % 100 === 0) {
           console.log(`🎧 [LISTENER] Received audio packet #${audioPacketCount.value} for channel ${message.channel}, encoding: ${encoding}, data length: ${message.data?.length || 0}`);
+          // Log buffer stats after receiving audio
+          if (mixer.value.getBufferStats) {
+            const stats = mixer.value.getBufferStats();
+            console.log(`📊 [LISTENER] Buffer after packet: current=${stats.current}, target=${stats.target}, progress=${stats.progress.toFixed(1)}%`);
+          }
         }
         mixer.value.addChannelData(message.channel, message.data, encoding);
       }
