@@ -51,6 +51,50 @@
       <div v-else class="mixer-interface">
         <!-- Source Control Bar -->
         <div class="source-control-bar">
+          <!-- Audio Device Selection (available to all authenticated users) -->
+          <div class="device-selection">
+            <div class="device-header">
+              <label class="device-label">Audio Input Device:</label>
+              <span v-if="isCapturing" class="client-status connected">● Capturing</span>
+              <span v-else class="client-status disconnected">○ Not Capturing</span>
+            </div>
+            
+            <div class="device-controls">
+              <select 
+                v-model="selectedDeviceId"
+                :disabled="deviceLoading || isSource"
+                class="device-select"
+              >
+                <option value="">Default Device</option>
+                <option 
+                  v-for="device in availableDevices" 
+                  :key="device.id" 
+                  :value="device.id"
+                >
+                  {{ device.label }}
+                </option>
+              </select>
+              <button 
+                @click="refreshDevices"
+                :disabled="deviceLoading"
+                class="btn btn-secondary btn-small"
+              >
+                {{ deviceLoading ? 'Loading...' : 'Refresh Devices' }}
+              </button>
+            </div>
+            
+            <p v-if="deviceError || captureError" class="error-message">{{ deviceError || captureError }}</p>
+            <p v-if="isSource" class="info-message">
+              Device selection disabled while source is active. Stop source to change device.
+            </p>
+            <p v-if="!isSource && availableDevices.length === 0" class="info-message">
+              Click "Refresh Devices" to load available audio input devices. You may need to grant microphone permissions.
+            </p>
+            <p v-if="!isSource && availableDevices.length > 0" class="info-message">
+              <strong>Note:</strong> Most browsers only support stereo (2 channels) via web audio. For multi-channel devices like Dante Virtual Soundcard with 16+ channels, the browser will typically only capture 1-2 channels. For full multi-channel support, use the local client.js.
+            </p>
+          </div>
+          
           <div class="source-controls">
             <button 
               v-if="!isSource"
@@ -69,40 +113,7 @@
             </button>
             <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
             <p v-if="!hasSource && !isSource" class="info-message">
-              No audio source active. Register as source if you have Dante Virtual Soundcard running.
-            </p>
-          </div>
-          
-          <!-- Audio Device Selection (only show if source is registered) -->
-          <div v-if="isSource" class="device-selection">
-            <label class="device-label">Audio Input Device:</label>
-            <div class="device-controls">
-              <select 
-                v-model="selectedDeviceId"
-                @change="changeAudioDevice"
-                :disabled="deviceLoading"
-                class="device-select"
-              >
-                <option value="-1">Auto-detect (Default)</option>
-                <option 
-                  v-for="device in availableDevices" 
-                  :key="device.id" 
-                  :value="device.id"
-                >
-                  {{ device.name }} ({{ device.maxInputChannels }}ch, {{ device.defaultSampleRate }}Hz)
-                </option>
-              </select>
-              <button 
-                @click="refreshDevices"
-                :disabled="deviceLoading"
-                class="btn btn-secondary btn-small"
-              >
-                {{ deviceLoading ? 'Loading...' : 'Refresh' }}
-              </button>
-            </div>
-            <p v-if="deviceError" class="error-message">{{ deviceError }}</p>
-            <p v-if="!deviceError && availableDevices.length === 0" class="info-message">
-              No devices found. Make sure the local client is running on {{ localClientUrl }}
+              No audio source active. Select an audio device above, then register as source to start streaming.
             </p>
           </div>
         </div>
@@ -186,10 +197,13 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '@/supabase';
+import { useUserStore } from '@/stores/userStore';
 import { useDanteMixer } from '@/composables/useDanteMixer';
+import { useAudioCapture } from '@/composables/useAudioCapture';
 import DanteChannelStrip from './DanteChannelStrip.vue';
 
 const router = useRouter();
+const userStore = useUserStore();
 
 // Auth state
 const authenticated = ref(false);
@@ -209,12 +223,25 @@ const sourceRegistrationError = ref('');
 const reconnectTimer = ref(null);
 const pingInterval = ref(null);
 
-// Audio device selection
-const availableDevices = ref([]);
-const selectedDeviceId = ref(-1);
+// Browser audio capture
+const {
+  isCapturing,
+  captureError,
+  availableDevices,
+  selectedDeviceId,
+  enumerateDevices,
+  startCapture,
+  stopCapture,
+} = useAudioCapture(wsRef, 32, 48000);
+
 const deviceLoading = ref(false);
 const deviceError = ref('');
-const localClientUrl = ref('http://127.0.0.1:3002'); // Local client HTTP server
+
+// User role check
+const userRole = ref(null);
+const isOwnerOrAdmin = computed(() => {
+  return userRole.value === 'owner' || userRole.value === 'admin';
+});
 
 // Mixer state
 const channels = ref([]);
@@ -241,6 +268,46 @@ const wsUrl = computed(() => {
   return url;
 });
 
+// Check user role
+const checkUserRole = async () => {
+  if (!userStore.currentProject?.id) {
+    userRole.value = null;
+    return;
+  }
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const email = session?.user?.email?.toLowerCase();
+    if (!email) {
+      userRole.value = null;
+      return;
+    }
+    
+    const { data, error } = await supabase
+      .from('project_members')
+      .select('role')
+      .eq('project_id', userStore.currentProject.id)
+      .eq('user_email', email)
+      .single();
+    
+    if (error) {
+      console.warn('Could not check user role:', error);
+      userRole.value = null;
+      return;
+    }
+    
+    userRole.value = data?.role || null;
+    
+    // Load audio devices for all authenticated users (not just owners/admins)
+    if (authenticated.value) {
+      loadAudioDevices();
+    }
+  } catch (error) {
+    console.error('Error checking user role:', error);
+    userRole.value = null;
+  }
+};
+
 // Check authentication on mount
 onMounted(async () => {
   const { data: { session } } = await supabase.auth.getSession();
@@ -248,6 +315,8 @@ onMounted(async () => {
     authenticated.value = true;
     connectWebSocket();
     loadPresets();
+    checkUserRole();
+    loadAudioDevices(); // Load browser audio devices
   }
 
   // Listen for auth changes
@@ -256,9 +325,18 @@ onMounted(async () => {
     if (authenticated.value) {
       connectWebSocket();
       loadPresets();
+      checkUserRole();
+      loadAudioDevices(); // Load browser audio devices
     } else {
       disconnectWebSocket();
+      userRole.value = null;
+      stopCapture(); // Stop any active capture
     }
+  });
+  
+  // Watch for project changes
+  watch(() => userStore.currentProject, () => {
+    checkUserRole();
   });
 });
 
@@ -274,6 +352,7 @@ onBeforeUnmount(() => {
   if (pingInterval.value) {
     clearInterval(pingInterval.value);
   }
+  stopCapture(); // Stop audio capture
 });
 
 // Authentication
@@ -541,8 +620,10 @@ const handleServerMessage = (message) => {
       isSource.value = true;
       hasSource.value = true;
       sourceRegistrationError.value = '';
-      // Load available devices when registered as source
-      loadAudioDevices();
+      // Start capturing audio from selected device
+      if (wsRef.value && wsRef.value.readyState === WebSocket.OPEN) {
+        startCapture(selectedDeviceId.value || null);
+      }
       break;
 
     case 'sourceStatus':
@@ -748,6 +829,9 @@ const registerAsSource = async () => {
 };
 
 const unregisterAsSource = () => {
+  // Stop audio capture first
+  stopCapture();
+  
   // Note: The server will handle disconnection automatically
   // We just need to disconnect and reconnect as a listener
   if (wsRef.value) {
@@ -756,66 +840,28 @@ const unregisterAsSource = () => {
   isSource.value = false;
   hasSource.value = false;
   sourceRegistrationError.value = '';
-  availableDevices.value = [];
   // Reconnect will happen automatically via onclose handler
 };
 
-// Audio device management
+// Browser audio device management
 const loadAudioDevices = async () => {
   deviceLoading.value = true;
   deviceError.value = '';
   
   try {
-    const response = await fetch(`${localClientUrl.value}/devices`);
-    if (!response.ok) {
-      throw new Error(`Failed to load devices: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    availableDevices.value = data.devices || [];
-    selectedDeviceId.value = data.currentDeviceId !== undefined ? data.currentDeviceId : -1;
-    
-    console.log(`✅ Loaded ${availableDevices.value.length} audio devices`);
-  } catch (error) {
-    console.error('Error loading audio devices:', error);
-    deviceError.value = `Cannot connect to local client at ${localClientUrl.value}. Make sure client.js is running.`;
-    availableDevices.value = [];
-  } finally {
-    deviceLoading.value = false;
-  }
-};
-
-const refreshDevices = () => {
-  loadAudioDevices();
-};
-
-const changeAudioDevice = async () => {
-  deviceLoading.value = true;
-  deviceError.value = '';
-  
-  try {
-    const response = await fetch(`${localClientUrl.value}/device`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ deviceId: selectedDeviceId.value }),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to change device');
-    }
-    
-    const data = await response.json();
-    console.log('✅ Audio device changed:', data.message);
+    const devices = await enumerateDevices();
+    console.log(`✅ Loaded ${devices.length} browser audio devices`);
     deviceError.value = '';
   } catch (error) {
-    console.error('Error changing audio device:', error);
-    deviceError.value = error.message || 'Failed to change audio device';
+    console.error('Error loading audio devices:', error);
+    deviceError.value = error.message || 'Failed to load audio devices. Check browser permissions.';
   } finally {
     deviceLoading.value = false;
   }
+};
+
+const refreshDevices = async () => {
+  await loadAudioDevices();
 };
 
 // Update latency periodically
@@ -960,6 +1006,62 @@ watch(() => mixer.value, (newMixer) => {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border-light, #e2e8f0);
+}
+
+.device-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.client-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.client-status.connected {
+  color: #10b981;
+  background: #d1fae5;
+}
+
+.client-status.disconnected {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.client-setup {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+}
+
+.setup-instructions {
+  margin-top: 0.75rem;
+}
+
+.setup-instructions ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.setup-instructions code {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.setup-note {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
 }
 
 .device-label {
