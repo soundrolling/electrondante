@@ -12,13 +12,22 @@ const CONFIG = {
   sampleRate: 48000, // Dante standard
   channels: parseInt(process.env.CHANNEL_COUNT) || 16, // Number of Dante input channels
   bufferSize: 128, // Smaller = lower latency, but higher CPU
+  // Server-side buffering for listeners (in milliseconds)
+  // Source sends fast → Server buffers → Listeners get consistent playback
+  listenerBufferMs: parseInt(process.env.LISTENER_BUFFER_MS) || 500, // 500ms default buffer
+  listenerBufferSamples: null, // Will be calculated from bufferMs and sampleRate
   // Railway/cloud platforms assign PORT automatically - use same port for HTTP and WebSocket
 };
+
+// Calculate buffer size in samples
+CONFIG.listenerBufferSamples = Math.round((CONFIG.listenerBufferMs / 1000) * CONFIG.sampleRate);
 
 console.log('🔧 Configuration:', {
   port: CONFIG.port,
   channels: CONFIG.channels,
   sampleRate: CONFIG.sampleRate,
+  listenerBufferMs: CONFIG.listenerBufferMs,
+  listenerBufferSamples: CONFIG.listenerBufferSamples,
   nodeEnv: process.env.NODE_ENV,
   railwayEnv: process.env.RAILWAY_ENVIRONMENT,
 });
@@ -48,10 +57,127 @@ class DanteBridgeServer {
     this.audioBuffer = null;
     this.httpServer = null;
     this.wss = null;
+    
+    // Server-side buffering for listeners
+    // Structure: channelBuffers[channelIndex] = [{ data, timestamp, sequence }, ...]
+    this.channelBuffers = new Array(CONFIG.channels).fill(null).map(() => []);
+    this.isBuffering = true; // Start in buffering mode
+    this.bufferStartTime = null; // When buffering started
+    this.relayInterval = null; // Interval for relaying buffered audio
+    this.relaySequence = 0; // Sequence number for relayed packets
+    
     // Initialize HTTP server first, then WebSocket (which attaches to HTTP server)
     this.initHTTP();
     // initWebSocket will be called after HTTP server is ready
     // No local audio input on Railway - audio comes from source connection
+  }
+
+  // Start relay interval to send buffered audio to listeners at consistent rate
+  startRelayInterval() {
+    if (this.relayInterval) {
+      return; // Already started
+    }
+    
+    // Calculate relay interval based on buffer size and sample rate
+    // Target: relay packets at the same rate they're being received
+    // Each packet represents ~341ms of audio (4096 samples * 4 batches / 48000)
+    const relayIntervalMs = 341; // Match the source's batch interval
+    
+    console.log(`🔄 [SERVER] Starting relay interval: ${relayIntervalMs}ms (targeting consistent playback for listeners)`);
+    
+    this.relayInterval = setInterval(() => {
+      this.relayBufferedAudio();
+    }, relayIntervalMs);
+  }
+  
+  // Stop relay interval
+  stopRelayInterval() {
+    if (this.relayInterval) {
+      clearInterval(this.relayInterval);
+      this.relayInterval = null;
+      console.log('🛑 [SERVER] Stopped relay interval');
+    }
+  }
+  
+  // Relay buffered audio to all listeners
+  relayBufferedAudio() {
+    if (this.listeners.size === 0) {
+      return; // No listeners to relay to
+    }
+    
+    // Find the channel with the most buffered packets
+    let maxBufferSize = 0;
+    for (let ch = 0; ch < this.channelBuffers.length; ch++) {
+      if (this.channelBuffers[ch].length > maxBufferSize) {
+        maxBufferSize = this.channelBuffers[ch].length;
+      }
+    }
+    
+    if (maxBufferSize === 0) {
+      return; // No buffered audio
+    }
+    
+    // Relay one packet from each channel that has data
+    let relayedCount = 0;
+    let errorCount = 0;
+    
+    for (let channel = 0; channel < this.channelBuffers.length; channel++) {
+      const buffer = this.channelBuffers[channel];
+      if (buffer.length === 0) continue;
+      
+      // Get oldest packet (FIFO)
+      const packet = buffer.shift();
+      
+      const audioMessage = JSON.stringify({
+        type: 'audio',
+        channel: channel,
+        data: packet.data,
+        encoding: packet.encoding,
+        timestamp: packet.timestamp,
+        sequence: this.relaySequence++,
+        bufferCount: packet.bufferCount,
+      });
+      
+      // Relay to all listeners
+      this.listeners.forEach((listener, listenerId) => {
+        if (listener.ws.readyState === WebSocket.OPEN) {
+          try {
+            listener.ws.send(audioMessage, (error) => {
+              if (error) {
+                errorCount++;
+                console.error(`Error relaying audio to listener ${listenerId}:`, error.message);
+                if (listener.ws.readyState !== WebSocket.OPEN) {
+                  this.listeners.delete(listenerId);
+                }
+              } else {
+                relayedCount++;
+              }
+            });
+          } catch (error) {
+            errorCount++;
+            console.error(`Error relaying audio to listener ${listenerId}:`, error.message);
+            if (listener.ws.readyState !== WebSocket.OPEN) {
+              this.listeners.delete(listenerId);
+            }
+          }
+        } else {
+          this.listeners.delete(listenerId);
+        }
+      });
+    }
+    
+    // Log relay stats periodically
+    if (!this._relayStats) this._relayStats = { total: 0, relayed: 0, errors: 0 };
+    this._relayStats.total++;
+    this._relayStats.relayed += relayedCount;
+    this._relayStats.errors += errorCount;
+    
+    if (this._relayStats.total % 100 === 0) {
+      const avgRelayed = this.listeners.size > 0 ? Math.round(this._relayStats.relayed / this._relayStats.total) : 0;
+      const errorRate = this._relayStats.total > 0 ? ((this._relayStats.errors / this._relayStats.total) * 100).toFixed(2) : '0.00';
+      const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
+      console.log(`📊 [SERVER] Relay stats: ${this._relayStats.total} cycles, avg ${avgRelayed} relayed per cycle, ${this._relayStats.errors} errors (${errorRate}%), buffer sizes: [${bufferSizes}], listeners: ${this.listeners.size}`);
+    }
   }
 
   // Notify all listeners about source status
@@ -211,11 +337,21 @@ class DanteBridgeServer {
         if (this.sourceConnection && this.sourceConnection.clientId === clientId) {
           console.log('⚠️ Source connection lost - audio streaming stopped');
           this.sourceConnection = null;
+          // Stop relay interval and clear buffers
+          this.stopRelayInterval();
+          this.channelBuffers.forEach(buffer => buffer.length = 0);
+          this.isBuffering = true;
+          this.bufferStartTime = null;
           // Notify all listeners that source is no longer available
           this.notifySourceStatus();
         } else {
           this.listeners.delete(clientId);
           console.log(`📉 Listener count: ${this.listeners.size}`);
+          
+          // Stop relay if no listeners
+          if (this.listeners.size === 0) {
+            this.stopRelayInterval();
+          }
         }
       });
 
@@ -288,7 +424,15 @@ class DanteBridgeServer {
               type: 'source'
             };
             
+            // Reset buffering state when new source registers
+            this.channelBuffers.forEach(buffer => buffer.length = 0);
+            this.isBuffering = true;
+            this.bufferStartTime = null;
+            this.relaySequence = 0;
+            this.stopRelayInterval(); // Stop any existing relay
+            
             console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
+            console.log(`📦 [SERVER] Buffering enabled: ${CONFIG.listenerBufferMs}ms (${CONFIG.listenerBufferSamples} samples) before relaying to listeners`);
             client.ws.send(JSON.stringify({ 
               type: 'sourceRegistered', 
               userId: user.user.id,
@@ -348,6 +492,12 @@ class DanteBridgeServer {
             
             this.sourceConnection = null;
             
+            // Stop relay interval and clear buffers
+            this.stopRelayInterval();
+            this.channelBuffers.forEach(buffer => buffer.length = 0);
+            this.isBuffering = true;
+            this.bufferStartTime = null;
+            
             // Send confirmation to the client that requested unregistration
             client.ws.send(JSON.stringify({ 
               type: 'sourceUnregistered'
@@ -362,7 +512,7 @@ class DanteBridgeServer {
           break;
 
         case 'audio':
-          // Audio data from source - relay to all listeners
+          // Audio data from source - buffer it, then relay to listeners at consistent rate
           if (!isSource) {
             console.warn(`Received audio from non-source client ${clientId}`);
             return;
@@ -372,65 +522,55 @@ class DanteBridgeServer {
           if (!this._audioReceivedCount) this._audioReceivedCount = 0;
           this._audioReceivedCount++;
           if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
-            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, listeners: ${this.listeners.size})`);
+            const bufferStatus = this.isBuffering ? 'buffering' : 'relaying';
+            const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
+            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], listeners: ${this.listeners.size})`);
           }
           
-          // Relay audio to all listeners (single channel packet format)
+          // Buffer audio from source (fast acceptance, no delay)
           if (data.channel !== undefined && data.data) {
-            const audioMessage = JSON.stringify({
-              type: 'audio',
-              channel: data.channel,
-              data: data.data,
-              encoding: data.encoding || 'pcm', // Preserve encoding (opus or pcm)
-              timestamp: data.timestamp || Date.now(),
-              sequence: data.sequence, // Preserve sequence number for jitter buffering
-              bufferCount: data.bufferCount, // Preserve buffer count
-            });
-            
-            // Relay to all listeners efficiently
-            let relayedCount = 0;
-            let errorCount = 0;
-            
-            this.listeners.forEach((listener, listenerId) => {
-              if (listener.ws.readyState === WebSocket.OPEN) {
-                try {
-                  // Use send with error callback for better error handling
-                  listener.ws.send(audioMessage, (error) => {
-                    if (error) {
-                      errorCount++;
-                      console.error(`Error relaying audio to listener ${listenerId}:`, error.message);
-                      // Remove listener if connection is broken
-                      if (listener.ws.readyState !== WebSocket.OPEN) {
-                        this.listeners.delete(listenerId);
-                      }
-                    } else {
-                      relayedCount++;
-                    }
-                  });
-                } catch (error) {
-                  errorCount++;
-                  console.error(`Error relaying audio to listener ${listenerId}:`, error.message);
-                  // Remove broken connections
-                  if (listener.ws.readyState !== WebSocket.OPEN) {
-                    this.listeners.delete(listenerId);
+            const channel = data.channel;
+            if (channel >= 0 && channel < this.channelBuffers.length) {
+              // Add to buffer immediately (source → server is fast)
+              this.channelBuffers[channel].push({
+                data: data.data,
+                encoding: data.encoding || 'pcm',
+                timestamp: data.timestamp || Date.now(),
+                sequence: data.sequence || this._audioReceivedCount,
+                bufferCount: data.bufferCount || 1,
+              });
+              
+              // Check if we have enough buffered data to start relaying
+              if (this.isBuffering) {
+                if (!this.bufferStartTime) {
+                  this.bufferStartTime = Date.now();
+                }
+                
+                // Check minimum buffer size across all channels
+                let minBufferSize = Infinity;
+                for (let ch = 0; ch < this.channelBuffers.length; ch++) {
+                  const bufferLength = this.channelBuffers[ch].length;
+                  if (bufferLength > 0 && bufferLength < minBufferSize) {
+                    minBufferSize = bufferLength;
                   }
                 }
-              } else {
-                // Remove closed connections
-                this.listeners.delete(listenerId);
+                
+                // Estimate samples in buffer (rough estimate: each packet is ~16384 samples when batched)
+                // This is approximate - actual sample count depends on encoding and batching
+                const estimatedSamplesPerPacket = 16384; // 4096 samples * 4 batches = ~16384 samples
+                const estimatedBufferSamples = minBufferSize * estimatedSamplesPerPacket;
+                
+                if (estimatedBufferSamples >= CONFIG.listenerBufferSamples || minBufferSize >= 10) {
+                  // Buffer filled - start relaying
+                  const bufferingTime = Date.now() - this.bufferStartTime;
+                  this.isBuffering = false;
+                  this.bufferStartTime = null;
+                  console.log(`✅ [SERVER] Buffer filled (${minBufferSize} packets, ~${estimatedBufferSamples} samples) in ${bufferingTime}ms, starting relay to listeners`);
+                  
+                  // Start relay interval if not already started
+                  this.startRelayInterval();
+                }
               }
-            });
-            
-            // Log relay stats periodically for debugging
-            if (!this._audioRelayStats) this._audioRelayStats = { total: 0, relayed: 0, errors: 0 };
-            this._audioRelayStats.total++;
-            this._audioRelayStats.relayed += relayedCount;
-            this._audioRelayStats.errors += errorCount;
-            
-            if (this._audioRelayStats.total % 1000 === 0) {
-              const avgRelayed = this.listeners.size > 0 ? Math.round(this._audioRelayStats.relayed / this._audioRelayStats.total) : 0;
-              const errorRate = this._audioRelayStats.total > 0 ? ((this._audioRelayStats.errors / this._audioRelayStats.total) * 100).toFixed(2) : '0.00';
-              console.log(`📊 [SERVER] Audio relay stats: ${this._audioRelayStats.total} packets received, avg ${avgRelayed} relayed per packet, ${this._audioRelayStats.errors} errors (${errorRate}%), ${this.listeners.size} listeners`);
             }
           }
           break;
