@@ -57,8 +57,25 @@
 
       <!-- Mixer Interface (if authenticated) -->
       <div v-else class="mixer-interface">
-        <!-- Source Setup Section (for configuring audio source) -->
-        <div class="source-setup-section" v-if="!isSource || isYourSource">
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+          <button 
+            @click="activeTab = 'source'"
+            :class="['tab-button', { active: activeTab === 'source' }]"
+          >
+            🎤 Audio Source
+          </button>
+          <button 
+            @click="activeTab = 'mixer'"
+            :class="['tab-button', { active: activeTab === 'mixer' }]"
+          >
+            🎧 Monitor Mixer
+          </button>
+        </div>
+
+        <!-- Tab Content: Audio Source Setup -->
+        <div v-show="activeTab === 'source'" class="tab-content source-tab">
+          <div class="source-setup-section">
           <h3 class="section-title">🎤 Audio Source Setup</h3>
           <div class="source-control-bar">
             <!-- Audio Device Selection -->
@@ -186,29 +203,31 @@
             </p>
             </div>
           </div>
-        </div>
-        
-        <!-- Active Source Status (when source is active) -->
-        <div class="active-source-status" v-if="isSource">
-          <div class="source-status-card">
-            <h3 class="section-title">🎤 Active Source</h3>
-            <div class="status-info">
-              <span class="status-badge active">● Streaming Active</span>
-              <span class="status-badge device">Device: {{ selectedDeviceId ? availableDevices.find(d => d.id === selectedDeviceId)?.label || 'Selected Device' : 'Default Device' }}</span>
+          
+          <!-- Active Source Status (when source is active) -->
+          <div class="active-source-status" v-if="isSource">
+            <div class="source-status-card">
+              <h3 class="section-title">🎤 Active Source</h3>
+              <div class="status-info">
+                <span class="status-badge active">● Streaming Active</span>
+                <span class="status-badge device">Device: {{ selectedDeviceId ? availableDevices.find(d => d.id === selectedDeviceId)?.label || 'Selected Device' : 'Default Device' }}</span>
+              </div>
+              <button 
+                @click="unregisterAsSource"
+                class="btn btn-secondary"
+                style="margin-top: 1rem;"
+              >
+                Stop Source
+              </button>
+              <p v-if="sourceRegistrationError" class="error-message" style="margin-top: 0.5rem;">{{ sourceRegistrationError }}</p>
             </div>
-            <button 
-              @click="unregisterAsSource"
-              class="btn btn-secondary"
-              style="margin-top: 1rem;"
-            >
-              Stop Source
-            </button>
-            <p v-if="sourceRegistrationError" class="error-message" style="margin-top: 0.5rem;">{{ sourceRegistrationError }}</p>
           </div>
         </div>
 
-        <!-- Listener/Mixer Section (for monitoring and mixing) -->
-        <div class="listener-mixer-section" v-if="hasSource || !isSource">
+        <!-- Tab Content: Monitor Mixer -->
+        <div v-show="activeTab === 'mixer'" class="tab-content mixer-tab">
+          <!-- Listener/Mixer Section (for monitoring and mixing) -->
+          <div class="listener-mixer-section" v-if="hasSource || !isSource">
           <h3 class="section-title">🎧 Monitor Mixer</h3>
           
           <!-- Preset Bar -->
@@ -259,16 +278,21 @@
             <span class="add-label">Add Channel</span>
           </button>
         </div>
-        </div>
-        
-        <!-- No Source Message -->
-        <div class="no-source-message" v-if="!hasSource && !isSource">
-          <div class="info-card">
-            <h3>⚠️ No Audio Source Active</h3>
-            <p>An audio source needs to be registered before you can monitor the mix.</p>
-            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">
-              Use the "Audio Source Setup" section above to configure and register a source.
-            </p>
+          </div>
+          
+          <!-- No Source Message -->
+          <div class="no-source-message" v-if="!hasSource && !isSource">
+            <div class="info-card">
+              <h3>⚠️ No Audio Source Active</h3>
+              <p>An audio source needs to be registered before you can monitor the mix.</p>
+              <button 
+                @click="activeTab = 'source'"
+                class="btn btn-primary"
+                style="margin-top: 1rem;"
+              >
+                Go to Audio Source Setup
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -353,6 +377,7 @@ watch(captureStreamLatency, (newLatency) => {
 const deviceLoading = ref(false);
 const deviceError = ref('');
 const showDebugPanel = ref(false);
+const activeTab = ref('mixer'); // 'source' or 'mixer' - default to mixer for listeners
 
 // Connection quality monitoring
 const connectionQuality = useConnectionQuality();
@@ -444,6 +469,8 @@ onMounted(async () => {
     loadPresets();
     checkUserRole();
     loadAudioDevices(); // Load browser audio devices
+    // Default to mixer tab for listeners
+    activeTab.value = 'mixer';
   }
 
   // Listen for auth changes
@@ -725,7 +752,7 @@ const disconnectWebSocket = () => {
   }
 };
 
-const handleServerMessage = (message) => {
+const handleServerMessage = async (message) => {
   switch (message.type) {
     case 'config':
       // Config is now handled in ws.onmessage directly
@@ -765,9 +792,21 @@ const handleServerMessage = (message) => {
       isSource.value = true;
       hasSource.value = true;
       sourceRegistrationError.value = '';
+      // Switch to source tab when registered as source
+      activeTab.value = 'source';
       // Start capturing audio from selected device
       if (wsRef.value && wsRef.value.readyState === WebSocket.OPEN) {
-        startCapture(selectedDeviceId.value || null);
+        console.log('🎤 Starting audio capture after source registration...');
+        try {
+          await startCapture(selectedDeviceId.value || null);
+          console.log('✅ Audio capture started successfully');
+        } catch (error) {
+          console.error('❌ Failed to start audio capture:', error);
+          sourceRegistrationError.value = `Failed to start audio capture: ${error.message || error}`;
+        }
+      } else {
+        console.error('❌ WebSocket not ready for audio capture');
+        sourceRegistrationError.value = 'WebSocket not connected. Cannot start audio capture.';
       }
       break;
 
@@ -1221,6 +1260,48 @@ watch(() => mixer.value, (newMixer) => {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+}
+
+.tab-navigation {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--border-light, #e2e8f0);
+  margin-bottom: 1.5rem;
+}
+
+.tab-button {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.tab-button:hover {
+  color: var(--text-primary, #1f2937);
+  background: var(--bg-secondary, #f8f9fa);
+}
+
+.tab-button.active {
+  color: var(--primary, #3b82f6);
+  border-bottom-color: var(--primary, #3b82f6);
+  background: transparent;
+}
+
+.tab-content {
+  min-height: 400px;
+}
+
+.source-tab,
+.mixer-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .section-title {
