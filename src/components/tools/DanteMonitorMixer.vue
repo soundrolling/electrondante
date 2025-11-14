@@ -236,6 +236,12 @@
             <span class="streaming-info">Audio is being captured and streamed. You can switch tabs freely - streaming will continue.</span>
           </div>
           
+          <!-- Show buffering indicator when buffering audio -->
+          <div v-if="hasSource && isBuffering && !isSource" class="buffering-indicator">
+            <span class="buffering-badge">⏳ Buffering...</span>
+            <span class="buffering-info">Accumulating audio data for smooth playback. This should only take a moment.</span>
+          </div>
+          
           <!-- Listener/Mixer Section (for monitoring and mixing) -->
           <div class="listener-mixer-section" v-if="hasSource || !isSource">
           <h3 class="section-title">🎧 Monitor Mixer</h3>
@@ -415,7 +421,7 @@ const showSavePresetModal = ref(false);
 const presetName = ref('');
 
 // Audio engine - support up to 32 channels
-const { mixer, peakLevels, peakHolds } = useDanteMixer(32, 48000);
+const { mixer, peakLevels, peakHolds, isBuffering } = useDanteMixer(32, 48000);
 
 // Computed: only show enabled channels
 const enabledChannels = computed(() => {
@@ -1347,6 +1353,39 @@ watch(() => mixer.value, (newMixer) => {
 
 .streaming-info {
   color: #065f46;
+  font-size: 0.875rem;
+  flex: 1;
+}
+
+.buffering-indicator {
+  padding: 1rem;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.buffering-badge {
+  padding: 0.5rem 1rem;
+  background: #f59e0b;
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.buffering-info {
+  color: #92400e;
   font-size: 0.875rem;
   flex: 1;
 }

@@ -53,7 +53,13 @@ export class AudioMixerEngine {
     
     // Create ScriptProcessorNode to process incoming audio and route through gain/analyser chains
     // Input: 0 channels (we provide data manually), Output: mixed stereo
-    this.scriptProcessor = this.audioContext.createScriptProcessor(256, 0, 2);
+    // Use larger buffer size (4096 samples = ~85ms at 48kHz) to match incoming packet size
+    // This reduces processing frequency and prevents buffer underruns
+    this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 0, 2);
+    
+    // Minimum buffer threshold before starting playback (accumulate ~2 packets worth = ~682ms)
+    this.minBufferSamples = 32768; // ~682ms at 48kHz (2 * 16384 samples)
+    this.isBuffering = true; // Start in buffering mode
     
     this.scriptProcessor.onaudioprocess = (e) => {
       this.processAudio(e);
@@ -76,6 +82,25 @@ export class AudioMixerEngine {
     outputL.fill(0);
     outputR.fill(0);
 
+    // Check if we have enough buffered data across all channels before starting playback
+    let minBufferSize = Infinity;
+    for (let ch = 0; ch < this.channelCount; ch++) {
+      if (this.channelBuffers[ch].length < minBufferSize) {
+        minBufferSize = this.channelBuffers[ch].length;
+      }
+    }
+    
+    // If buffering, check if we have enough data to start
+    if (this.isBuffering) {
+      if (minBufferSize >= this.minBufferSamples) {
+        this.isBuffering = false;
+        console.log(`✅ [MIXER] Buffer filled (${minBufferSize} samples), starting playback`);
+      } else {
+        // Still buffering - output silence
+        return;
+      }
+    }
+    
     // Process each channel: buffer -> gain -> analyser (for metering) -> pan -> mix
     for (let ch = 0; ch < this.channelCount; ch++) {
       const buffer = this.channelBuffers[ch];
@@ -86,6 +111,11 @@ export class AudioMixerEngine {
         this._bufferTooSmallCount[ch]++;
         if (this._bufferTooSmallCount[ch] <= 3) {
           console.warn(`⚠️ [MIXER] Channel ${ch} buffer too small: ${buffer.length} < ${frameCount} (need more data)`);
+        }
+        // If buffer gets too low, go back to buffering mode
+        if (buffer.length < this.minBufferSamples / 4) {
+          this.isBuffering = true;
+          console.warn(`⚠️ [MIXER] Buffer underrun on channel ${ch}, re-buffering...`);
         }
         continue;
       }
@@ -172,9 +202,12 @@ export class AudioMixerEngine {
       
       this.channelBuffers[channel].push(...samples);
       
-      // Prevent buffer overflow
-      if (this.channelBuffers[channel].length > this.sampleRate) {
-        this.channelBuffers[channel] = this.channelBuffers[channel].slice(-this.sampleRate / 2);
+      // Prevent buffer overflow - allow larger buffer for smoother playback
+      // Keep up to 2 seconds of audio (2 * sampleRate samples)
+      const maxBufferSize = this.sampleRate * 2;
+      if (this.channelBuffers[channel].length > maxBufferSize) {
+        // Keep the most recent 1 second, discard older data
+        this.channelBuffers[channel] = this.channelBuffers[channel].slice(-this.sampleRate);
       }
     }
   }
@@ -303,6 +336,7 @@ export function useDanteMixer(channelCount, sampleRate) {
   const mixer = ref(null);
   const peakLevels = ref(new Array(channelCount).fill(-60));
   const peakHolds = ref(new Array(channelCount).fill(-60));
+  const isBuffering = ref(true); // Track buffering state
   let updateInterval = null;
 
   onMounted(() => {
@@ -321,6 +355,10 @@ export function useDanteMixer(channelCount, sampleRate) {
           if (hold !== undefined) {
             peakHolds.value[i] = hold;
           }
+        }
+        // Update buffering state
+        if (mixer.value.isBuffering !== undefined) {
+          isBuffering.value = mixer.value.isBuffering;
         }
         requestAnimationFrame(updatePeakLevels);
       }
@@ -341,6 +379,7 @@ export function useDanteMixer(channelCount, sampleRate) {
     mixer,
     peakLevels,
     peakHolds,
+    isBuffering,
   };
 }
 
