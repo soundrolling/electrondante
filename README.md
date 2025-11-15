@@ -94,16 +94,15 @@ npm start
 
 ## Configuration
 
-### Getting Your Supabase Access Token
+### Getting Your Supabase API Key
 
-1. Sign in to your Vue app at https://pro.soundrolling.com
-2. Open browser DevTools (F12)
-3. Go to Console tab
-4. Run:
-   ```javascript
-   JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token
-   ```
-5. Copy the token and paste it into the app
+1. Go to your Supabase project dashboard
+2. Navigate to **Project Settings** → **API**
+3. Scroll down to **Secret keys** section
+4. Find the API key named **"dante"**
+5. Copy the key and paste it into the app
+
+**Note:** Secret keys allow privileged access to your project's APIs. Use in servers, functions, workers or other backend components of your application.
 
 ### Railway WebSocket URL
 
@@ -130,7 +129,7 @@ npm run rebuild
 
 - Verify Railway URL is correct
 - Check that Railway server is running
-- Ensure your access token is valid (they expire - get a new one)
+- Ensure your API key is valid and correctly copied
 
 ### Build Errors
 

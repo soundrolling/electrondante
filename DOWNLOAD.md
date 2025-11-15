@@ -93,15 +93,13 @@ After installing, you'll need to configure:
    - Default: `wss://proapp2149-production.up.railway.app`
    - Or your custom Railway deployment URL
 
-2. **Supabase Access Token:**
-   - Sign in to https://pro.soundrolling.com
-   - Open browser DevTools (F12)
-   - Go to Console tab
-   - Run:
-     ```javascript
-     JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token
-     ```
-   - Copy the token and paste into the app
+2. **Supabase API Key:**
+   - Go to your Supabase project dashboard
+   - Navigate to **Project Settings** → **API**
+   - Scroll down to **Secret keys** section
+   - Find the API key named **"dante"**
+   - Copy the key and paste into the app
+   - <small>These keys allow privileged access - use in backend components</small>
 
 3. **Select Audio Device:**
    - Choose your audio input device from the dropdown
@@ -126,7 +124,7 @@ npm run rebuild
 ### Connection Failed
 - Verify Railway URL is correct
 - Check that Railway server is running
-- Ensure your access token is valid (they expire - get a new one)
+- Ensure your API key is valid and correctly copied
 
 ## Support
 

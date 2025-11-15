@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Dante Audio Client</title>
+  <title>Dante Audio Client v1.0.8</title>
   <style>
     * {
       margin: 0;
@@ -243,7 +243,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎤 Dante Audio Client</h1>
+    <h1>🎤 Dante Audio Client <span style="font-size: 0.6em; font-weight: normal; color: #888;">v1.0.8</span></h1>
     <p class="subtitle">Stream audio from your device to Railway</p>
     
     <div id="statusBar" class="status-bar">
@@ -268,16 +268,16 @@
       </div>
       
       <div class="form-group">
-        <label for="accessToken">Supabase Access Token:</label>
+        <label for="accessToken">Supabase API Key:</label>
         <input 
           type="password" 
           id="accessToken" 
-          placeholder="Paste your access token here"
+          placeholder="Paste your Supabase API key here"
         />
         <div class="help-text">
-          Get this from your browser after signing in:<br>
-          Open DevTools (F12) → Console → Run:<br>
-          <code>JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token</code>
+          Get this from your Supabase dashboard:<br>
+          Go to Project Settings → API → Secret keys → Copy the "dante" key<br>
+          <small>(These keys allow privileged access - use in backend components)</small>
         </div>
       </div>
       

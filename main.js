@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
+const packageJson = require('./package.json');
 
 // Try to load client-core, handle errors gracefully
 let DanteBridgeClient = null;
@@ -17,6 +18,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 700,
+    title: `Dante Audio Client v${packageJson.version}`,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

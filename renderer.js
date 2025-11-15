@@ -53,7 +53,7 @@ async function startClient() {
   }
   
   if (!accessToken) {
-    showMessage('Please enter Supabase Access Token', 'error');
+    showMessage('Please enter Supabase API Key', 'error');
     return;
   }
   
