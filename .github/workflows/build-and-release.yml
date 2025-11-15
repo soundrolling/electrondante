@@ -53,10 +53,9 @@ jobs:
             npm run build:mac -- --publish never
           else
             echo "✅ Code signing enabled - building signed app"
-            # Set up notarization environment variables for electron-builder
-            export APPLE_TEAM_ID="$APPLE_TEAM_ID"
-            export APPLE_ID="$APPLE_ID"
-            export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD"
+            # Disable notarization for now (can be added later)
+            # Just code sign without notarization
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
             npm run build:mac -- --publish never
           fi
 
