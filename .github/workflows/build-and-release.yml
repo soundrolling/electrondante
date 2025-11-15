@@ -52,13 +52,25 @@ jobs:
             security unlock-keychain -p "" build.keychain
             security set-keychain-settings -t 3600 -u build.keychain
             
-            # Import certificate
+            # Decode and save certificate to file (electron-builder can use file path)
             echo "$CSC_LINK" | base64 --decode > certificate.p12
+            
+            # Import certificate into keychain
             security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security || true
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain || true
             
-            # Verify certificate
+            # Find and display the certificate identity name
+            echo "🔍 Available signing identities:"
             security find-identity -v -p codesigning build.keychain
+            
+            # Extract the identity name (usually "Developer ID Application: ...")
+            IDENTITY=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -1 | cut -d'"' -f2)
+            if [ -n "$IDENTITY" ]; then
+              echo "✅ Found identity: $IDENTITY"
+              echo "CSC_NAME=$IDENTITY" >> $GITHUB_ENV
+            else
+              echo "⚠️  Could not find Developer ID Application identity"
+            fi
           fi
 
       - name: Build macOS installer
@@ -73,6 +85,17 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_INSTALL_KEYCHAIN_NAME: "build.keychain"
         run: |
+          # Set CSC_LINK to the certificate file path (electron-builder prefers file paths)
+          if [ -f "certificate.p12" ]; then
+            export CSC_LINK="$(pwd)/certificate.p12"
+            echo "✅ Using certificate file: $CSC_LINK"
+          fi
+          
+          # Use CSC_NAME if we found the identity
+          if [ -n "$CSC_NAME" ]; then
+            export CSC_NAME="$CSC_NAME"
+            echo "✅ Using identity name: $CSC_NAME"
+          fi
           # Export environment variables for notarization (electron-builder needs these)
           export APPLE_ID="$APPLE_ID"
           export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD"
@@ -85,12 +108,16 @@ jobs:
             echo "⚠️  Notarization credentials missing - app will be signed but not notarized"
           fi
           
-          # Only sign if certificate is provided
+          # Verify signing setup
           if [ -z "$CSC_LINK" ]; then
             echo "⚠️  Code signing skipped - CSC_LINK not set. Building unsigned app."
             npm run build:mac -- --publish never
           else
             echo "✅ Code signing and notarization enabled - building signed and notarized app"
+            echo "📋 Signing configuration:"
+            echo "   CSC_LINK: $CSC_LINK"
+            echo "   CSC_NAME: ${CSC_NAME:-not set}"
+            echo "   CSC_INSTALL_KEYCHAIN_NAME: $CSC_INSTALL_KEYCHAIN_NAME"
             npm run build:mac -- --publish never
           fi
 
