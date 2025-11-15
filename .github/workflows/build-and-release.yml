@@ -91,8 +91,16 @@ jobs:
               print(f"{file_path} not found")
           EOF
 
-      - name: Rebuild native modules
+      - name: Rebuild native modules (macOS/Linux)
+        if: matrix.os != 'windows-latest'
         run: npm run rebuild || echo "Rebuild failed, electron-builder will handle it"
+        continue-on-error: true
+
+      - name: Rebuild native modules (Windows - naudiodon only)
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Only rebuild naudiodon on Windows, skip segfault-handler
+          npx electron-rebuild -f -w naudiodon || echo "Rebuild failed, electron-builder will handle it"
         continue-on-error: true
 
       - name: Build installer (macOS)
