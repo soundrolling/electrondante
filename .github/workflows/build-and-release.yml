@@ -52,6 +52,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Fix naudiodon C++ compilation issue (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Fix missing <string> include in PaContext.h
+          if [ -f "node_modules/naudiodon/src/PaContext.h" ]; then
+            sed -i '1a#include <string>' node_modules/naudiodon/src/PaContext.h || true
+          fi
+
       - name: Rebuild native modules
         run: npm run rebuild || echo "Rebuild failed, continuing - electron-builder will handle native modules"
         continue-on-error: true
