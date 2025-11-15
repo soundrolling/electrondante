@@ -138,7 +138,7 @@ jobs:
         if: matrix.platform == 'win'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:win -- --publish never
+        run: npm run build:win -- --publish never --win --x64
 
       - name: Build installer (Linux)
         if: matrix.platform == 'linux'
