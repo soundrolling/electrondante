@@ -129,7 +129,13 @@
             <div class="electron-app-info" v-if="!isSource">
               <p class="info-message electron-app-message">
                 <strong>💻 For Multi-Channel Audio:</strong> Download the Electron app for full support of devices like Dante Virtual Soundcard (16+ channels). 
-                <a href="https://github.com/soundrolling/proapp2149/releases" target="_blank" class="electron-app-link">Download from GitHub Releases</a>
+                <a 
+                  :href="electronAppDownloadUrl" 
+                  target="_blank" 
+                  class="electron-app-link"
+                >
+                  {{ electronAppDownloadText }}
+                </a>
               </p>
             </div>
             
@@ -490,6 +496,24 @@ const wsUrl = computed(() => {
     url = url.slice(0, -1);
   }
   return url;
+});
+
+// Electron app download URL from environment (can be overridden for private repos)
+const electronAppDownloadUrl = computed(() => {
+  return import.meta.env.VITE_ELECTRON_APP_DOWNLOAD_URL || 
+         process.env.VUE_APP_ELECTRON_APP_DOWNLOAD_URL || 
+         'https://github.com/soundrolling/proapp2149/releases';
+});
+
+const electronAppDownloadText = computed(() => {
+  const url = electronAppDownloadUrl.value;
+  if (url.includes('github.com')) {
+    return 'Download from GitHub Releases';
+  } else if (url.includes('releases') || url.includes('download')) {
+    return 'Download Electron App';
+  } else {
+    return 'Get Electron App';
+  }
 });
 
 // Check user role
