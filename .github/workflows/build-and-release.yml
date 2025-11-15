@@ -52,11 +52,9 @@ jobs:
             echo "⚠️  Code signing skipped - CSC_LINK not set. Building unsigned app."
             npm run build:mac -- --publish never
           else
-            echo "✅ Code signing enabled - building signed app"
-            # Export notarization credentials for electron-builder
-            export APPLE_TEAM_ID="$APPLE_TEAM_ID"
-            export APPLE_ID="$APPLE_ID"
-            export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD"
+            echo "✅ Code signing enabled - building signed app (notarization disabled for now)"
+            # Code sign only - notarization disabled due to configuration issues
+            # The app will be signed but not notarized
             npm run build:mac -- --publish never
           fi
 
