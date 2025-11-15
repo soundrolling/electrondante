@@ -502,7 +502,7 @@ const wsUrl = computed(() => {
 const electronAppDownloadUrl = computed(() => {
   return import.meta.env.VITE_ELECTRON_APP_DOWNLOAD_URL || 
          process.env.VUE_APP_ELECTRON_APP_DOWNLOAD_URL || 
-         'https://github.com/soundrolling/proapp2149/releases';
+         'https://github.com/soundrolling/electrondante/releases';
 });
 
 const electronAppDownloadText = computed(() => {
@@ -2206,20 +2206,34 @@ watch(() => mixer.value, (newMixer) => {
 }
 
 .btn-secondary {
-  background: #6b7280;
-  color: white;
-  border-color: #4b5563;
+  background: var(--bg-secondary, #f1f5f9);
+  color: var(--text-primary, #334155);
+  border-color: var(--border-light, #cbd5e1);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #4b5563;
-  border-color: #374151;
+  background: var(--bg-hover, #e2e8f0);
+  border-color: var(--border-medium, #94a3b8);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-secondary:active:not(:disabled) {
   transform: translateY(0);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-secondary {
+    background: var(--bg-secondary, #374151);
+    color: var(--text-primary, #f9fafb);
+    border-color: var(--border-light, #4b5563);
+  }
+  
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--bg-hover, #4b5563);
+    border-color: var(--border-medium, #6b7280);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .btn-danger {
@@ -2264,11 +2278,11 @@ watch(() => mixer.value, (newMixer) => {
   transition: all 0.2s;
   min-width: 100px;
   min-height: 200px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-primary, #1f2937);
 }
 
 .add-channel-btn:hover:not(:disabled) {
-  background: var(--bg-dark, #e5e7eb);
+  background: var(--bg-hover, #e5e7eb);
   border-color: var(--primary, #3b82f6);
   color: var(--primary, #3b82f6);
 }
@@ -2276,6 +2290,20 @@ watch(() => mixer.value, (newMixer) => {
 .add-channel-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .add-channel-btn {
+    background: var(--bg-secondary, #374151);
+    border-color: var(--border-light, #4b5563);
+    color: var(--text-primary, #f9fafb);
+  }
+  
+  .add-channel-btn:hover:not(:disabled) {
+    background: var(--bg-hover, #4b5563);
+    border-color: var(--primary, #60a5fa);
+    color: var(--primary, #60a5fa);
+  }
 }
 
 .add-icon {

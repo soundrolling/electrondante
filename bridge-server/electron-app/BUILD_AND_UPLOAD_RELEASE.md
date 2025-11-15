@@ -155,3 +155,4 @@ This will automatically:
 
 Once the installers are uploaded to the release, users clicking "Download from GitHub Releases" in the Vue app will see the installers and can download the appropriate one for their platform.
 
+

@@ -405,14 +405,14 @@ const holdStyle = computed(() => {
 @media (prefers-color-scheme: dark) {
   .mute-btn,
   .solo-btn {
-    background: var(--bg-primary, #374151);
-    border-color: var(--border-light, #4b5563);
+    background: var(--bg-secondary, #4b5563);
+    border-color: var(--border-light, #6b7280);
     color: var(--text-primary, #f9fafb);
   }
   
   .mute-btn:hover,
   .solo-btn:hover {
-    background: var(--bg-hover, #4b5563);
+    background: var(--bg-hover, #6b7280);
   }
 }
 

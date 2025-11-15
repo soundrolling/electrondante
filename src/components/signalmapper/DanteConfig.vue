@@ -676,6 +676,17 @@ onMounted(async () => {
   background: #c82333;
 }
 
+@media (prefers-color-scheme: dark) {
+  .btn-clear {
+    background: #ef4444;
+    color: white;
+  }
+  
+  .btn-clear:hover {
+    background: #dc2626;
+  }
+}
+
 .upload-form {
   margin-top: 20px;
   padding-top: 20px;
@@ -691,7 +702,7 @@ onMounted(async () => {
 
 .btn-upload {
   padding: 10px 20px;
-  background: var(--color-primary-500);
+  background: var(--color-primary-500, #0ea5e9);
   color: white;
   border: none;
   border-radius: 6px;
@@ -702,7 +713,18 @@ onMounted(async () => {
 }
 
 .btn-upload:hover {
-  background: var(--color-primary-600);
+  background: var(--color-primary-600, #0284c7);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-upload {
+    background: var(--color-primary-600, #0284c7);
+    color: white;
+  }
+  
+  .btn-upload:hover {
+    background: var(--color-primary-700, #0369a1);
+  }
 }
 
 .file-name {
@@ -798,21 +820,41 @@ onMounted(async () => {
 }
 
 .btn-download {
-  background: var(--color-primary-500);
+  background: var(--color-primary-500, #0ea5e9);
   color: white;
 }
 
 .btn-download:hover {
-  background: var(--color-primary-600);
+  background: var(--color-primary-600, #0284c7);
 }
 
 .btn-edit {
-  background: var(--color-secondary-500);
+  background: var(--color-secondary-500, #64748b);
   color: white;
 }
 
 .btn-edit:hover {
-  background: var(--color-secondary-600);
+  background: var(--color-secondary-600, #475569);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-download {
+    background: var(--color-primary-600, #0284c7);
+    color: white;
+  }
+  
+  .btn-download:hover {
+    background: var(--color-primary-700, #0369a1);
+  }
+  
+  .btn-edit {
+    background: var(--color-secondary-600, #475569);
+    color: white;
+  }
+  
+  .btn-edit:hover {
+    background: var(--color-secondary-700, #334155);
+  }
 }
 
 .btn-delete {
@@ -822,6 +864,17 @@ onMounted(async () => {
 
 .btn-delete:hover {
   background: #c82333;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-delete {
+    background: #ef4444;
+    color: white;
+  }
+  
+  .btn-delete:hover {
+    background: #dc2626;
+  }
 }
 
 .config-details {
@@ -884,7 +937,7 @@ onMounted(async () => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #6b7280);
   padding: 0;
   width: 30px;
   height: 30px;
@@ -892,10 +945,21 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   border-radius: 4px;
+  transition: background-color 0.2s;
 }
 
 .close-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-secondary, #f1f5f9);
+}
+
+@media (prefers-color-scheme: dark) {
+  .close-btn {
+    color: var(--text-secondary, #9ca3af);
+  }
+  
+  .close-btn:hover {
+    background: var(--bg-secondary, #374151);
+  }
 }
 
 .modal-body {
@@ -949,21 +1013,45 @@ onMounted(async () => {
 }
 
 .btn-secondary {
-  background: var(--color-secondary-500);
-  color: white;
+  background: var(--bg-secondary, #f1f5f9);
+  color: var(--text-primary, #334155);
+  border: 1px solid var(--border-light, #cbd5e1);
 }
 
 .btn-secondary:hover {
-  background: var(--color-secondary-600);
+  background: var(--bg-hover, #e2e8f0);
+  border-color: var(--border-medium, #94a3b8);
 }
 
 .btn-primary {
-  background: var(--color-primary-500);
+  background: var(--color-primary-500, #0ea5e9);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-600);
+  background: var(--color-primary-600, #0284c7);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-secondary {
+    background: var(--bg-secondary, #374151);
+    color: var(--text-primary, #f9fafb);
+    border-color: var(--border-light, #4b5563);
+  }
+  
+  .btn-secondary:hover {
+    background: var(--bg-hover, #4b5563);
+    border-color: var(--border-medium, #6b7280);
+  }
+  
+  .btn-primary {
+    background: var(--color-primary-600, #0284c7);
+    color: white;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-700, #0369a1);
+  }
 }
 
 .btn-primary:disabled {

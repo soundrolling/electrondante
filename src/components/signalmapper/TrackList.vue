@@ -174,9 +174,9 @@
         <button
           class="btn btn-positive confirm-button"
           @click="confirmPDFExport"
-          :disabled="!canExportPDF"
+          :disabled="!canExportPDF || isExportingPDF"
         >
-          Export PDF
+          {{ isExportingPDF ? 'Exporting...' : 'Export PDF' }}
         </button>
       </div>
     </div>
@@ -234,6 +234,7 @@ const inputModalConfig = ref({
 
 // PDF Export modal state
 const showPDFExportModal = ref(false)
+const isExportingPDF = ref(false)
 const pdfExportOptions = ref({
   fileName: '',
   includeSignalPath: true,
@@ -716,15 +717,26 @@ async function exportToPDF() {
 // Confirm and execute PDF export with selected options
 async function confirmPDFExport() {
   if (!canExportPDF.value) {
+    console.warn('Cannot export PDF: validation failed', {
+      hasRecorders: pdfExportOptions.value.selectedRecorders.length > 0,
+      hasFileName: pdfExportOptions.value.fileName.trim().length > 0
+    })
     return
   }
   
+  if (isExportingPDF.value) {
+    return // Prevent multiple simultaneous exports
+  }
+  
   try {
+    isExportingPDF.value = true
     closePDFExportModal()
     
     // Ensure filename has .pdf extension
     const fileName = pdfExportOptions.value.fileName.trim()
     const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
+    
+    console.log('Starting PDF export...', { finalFileName, selectedRecorders: pdfExportOptions.value.selectedRecorders })
     
     // Create PDF
     const doc = new jsPDF('portrait', 'mm', 'a4')
@@ -733,6 +745,10 @@ async function confirmPDFExport() {
     
     // Filter recorders based on selection
     const selectedRecorderNames = pdfExportOptions.value.selectedRecorders.sort()
+    
+    if (selectedRecorderNames.length === 0) {
+      throw new Error('No recorders selected for export')
+    }
     
     // Process each selected recorder on a separate page
     selectedRecorderNames.forEach((recorderName, index) => {
@@ -766,6 +782,14 @@ async function confirmPDFExport() {
       // Prepare table data
       const tracks = groupedByRecorder.value[recorderName]
       
+      if (!tracks || tracks.length === 0) {
+        console.warn(`No tracks found for recorder: ${recorderName}`)
+        doc.setFontSize(10)
+        doc.setTextColor(0, 0, 0)
+        doc.text('No tracks found for this recorder', margin, yPos)
+        return
+      }
+      
       // Build table columns based on options
       const tableHead = ['Track #', 'Source Name']
       if (pdfExportOptions.value.includeSignalPath) {
@@ -798,17 +822,21 @@ async function confirmPDFExport() {
       doc.setTextColor(0, 0, 0) // Reset to black
     })
     
+    console.log('PDF document created successfully')
+    
     // Save PDF to storage instead of downloading
     let venueId = null
     if (props.locationId) {
       try {
-        const { data: locationData } = await supabase
+        const { data: locationData, error: locationError } = await supabase
           .from('locations')
           .select('venue_id')
           .eq('id', props.locationId)
           .single()
         
-        if (locationData) {
+        if (locationError) {
+          console.warn('Error fetching venue_id:', locationError)
+        } else if (locationData) {
           venueId = locationData.venue_id || null
         }
       } catch (err) {
@@ -816,27 +844,47 @@ async function confirmPDFExport() {
       }
     }
     
-    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
-    const description = `Track list export${customTitle.value ? ` - ${customTitle.value}` : ''}${pdfExportOptions.value.recordingDateName ? ` (${pdfExportOptions.value.recordingDateName})` : ''}`
-    
-    const result = await savePDFToStorage(
-      doc,
-      finalFileName,
-      props.projectId,
-      venueId,
-      props.locationId,
-      description
-    )
-    
-    showExportSuccessToast(toast, result, finalFileName, {
-      projectId: props.projectId,
-      venueId,
-      stageId: props.locationId,
-      mimeType: 'application/pdf'
-    })
+    try {
+      const { savePDFToStorage, showExportSuccessModal } = await import('@/services/exportStorageService')
+      const description = `Track list export${customTitle.value ? ` - ${customTitle.value}` : ''}${pdfExportOptions.value.recordingDateName ? ` (${pdfExportOptions.value.recordingDateName})` : ''}`
+      
+      console.log('Saving PDF to storage...', { projectId: props.projectId, venueId, stageId: props.locationId })
+      
+      const result = await savePDFToStorage(
+        doc,
+        finalFileName,
+        props.projectId,
+        venueId,
+        props.locationId,
+        description
+      )
+      
+      console.log('Save result:', result)
+      
+      if (result.success) {
+        showExportSuccessModal(result, finalFileName, {
+          projectId: props.projectId,
+          venueId,
+          stageId: props.locationId,
+          mimeType: 'application/pdf'
+        })
+      } else {
+        // Fallback: download directly if storage fails
+        console.warn('Storage save failed, falling back to direct download:', result.error)
+        doc.save(finalFileName)
+        alert(`PDF exported successfully, but failed to save to storage: ${result.error || 'Unknown error'}. The file has been downloaded to your device.`)
+      }
+    } catch (storageError) {
+      console.error('Error saving to storage, falling back to direct download:', storageError)
+      // Fallback: download directly if storage service fails
+      doc.save(finalFileName)
+      alert(`PDF exported successfully, but failed to save to storage. The file has been downloaded to your device.`)
+    }
   } catch (e) {
     console.error('Error exporting track list:', e)
-    alert('Failed to export track list. Please try again.')
+    alert(`Failed to export track list: ${e.message || 'Unknown error'}. Please check the console for details.`)
+  } finally {
+    isExportingPDF.value = false
   }
 }
 </script>
