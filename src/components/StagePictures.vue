@@ -333,15 +333,31 @@ import { useToast } from 'vue-toastification';
 import jsPDF from 'jspdf';
 import { useUserStore } from '@/stores/userStore';
 
+// Define props
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: false
+  },
+  venueId: {
+    type: String,
+    required: false
+  },
+  stageId: {
+    type: String,
+    required: false
+  }
+});
+
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const userStore = useUserStore();
 
-// Pull IDs from route
-const projectId = route.params.id;
-const venueId = route.query.venueId;
-const stageId = route.query.stageId;
+// Pull IDs from props with fallback to route (for compatibility)
+const projectId = props.projectId || route.params.id;
+const venueId = props.venueId || route.query.venueId;
+const stageId = props.stageId || route.query.stageId;
 
 // Reactive state
 const venueName = ref('Loading…');
@@ -1169,11 +1185,23 @@ onMounted(async () => {
   await fetchAllStages();
 });
 
+// Watch for route changes (when navigating between stages)
 watch(() => route.query.stageId, async (newVal) => {
-  selectedStageId.value = newVal;
-  await fetchNames();
-  await fetchImages();
+  if (newVal) {
+    selectedStageId.value = newVal;
+    await fetchNames();
+    await fetchImages();
+  }
 });
+
+// Also watch props in case they change
+watch(() => [props.stageId, props.venueId], async ([newStageId, newVenueId]) => {
+  if (newStageId) {
+    selectedStageId.value = newStageId;
+    await fetchNames();
+    await fetchImages();
+  }
+}, { immediate: false });
 </script>
 
 <style scoped>

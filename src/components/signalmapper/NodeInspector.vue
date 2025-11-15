@@ -53,7 +53,17 @@
           <div class="map-unified">
             <!-- Upstream (Inputs/Tracks) Section -->
             <div class="map-section">
-              <h4>{{ type === 'recorder' ? 'Record Tracks' : 'Inputs' }}</h4>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h4>{{ type === 'recorder' ? 'Record Tracks' : 'Inputs' }}</h4>
+                <button 
+                  @click="refreshSourceNames" 
+                  class="btn-refresh"
+                  title="Refresh source names to show latest venue source names"
+                  style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
+                >
+                  🔄 Refresh Names
+                </button>
+              </div>
               <div class="map-inputs">
                 <div v-for="n in inputCount" :key="`in-${n}`" class="map-io-row">
                   <div class="map-io-label">
@@ -147,7 +157,7 @@ import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { buildGraph } from '@/services/signalGraph'
 import { hydrateVenueLabels, getOutputLabel, resolveTransformerInputLabel } from '@/services/portLabelService'
-import { getCompleteSignalPath, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+import { getCompleteSignalPath, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB, getSourceLabelFromNode } from '@/services/signalMapperService'
 import { updateNode } from '@/services/signalMapperService'
 import { invalidateTableCache } from '@/services/cacheService'
 
@@ -627,10 +637,13 @@ async function loadAvailableUpstreamSources() {
           try {
             const label = await getOutputLabel(e, port, graph.value)
             if (label && String(label).trim().length > 0) {
+              // Check if this traces back to a venue source
+              const originalSource = await traceToOriginalVenueSource(e.id, port, graph.value)
+              const labelSuffix = originalSource ? ' (Venue)' : ` (Transformer ${e.track_name || e.label || ''})`
               sources.push({
                 id: e.id,
                 port,
-                label: `${label} (Transformer ${e.track_name || e.label || ''})`.trim(),
+                label: `${label}${labelSuffix}`.trim(),
                 feedKey: `${e.id}:${port}`
               })
             }
@@ -1233,6 +1246,120 @@ function getDownstreamPortOptions(targetNodeId) {
     ? (n.num_tracks || n.tracks || n.num_records || n.numrecord || n.num_inputs || n.inputs || 0)
     : (n.num_inputs || n.inputs || 0)
   return Array.from({ length: Math.max(0, count) }, (_, i) => i + 1)
+}
+
+// Trace back through transformers to find if the original source is a venue source
+async function traceToOriginalVenueSource(nodeId, portNum, graph) {
+  try {
+    const node = props.elements.find(e => e.id === nodeId)
+    if (!node) return false
+    
+    const nodeType = (node.gear_type || node.type || '').toLowerCase()
+    
+    // If this is already a venue source, return true
+    if (nodeType === 'venue_sources') return true
+    
+    // If this is a source (not venue), return false
+    if (nodeType === 'source') return false
+    
+    // For transformers, trace back through the input that corresponds to this output port
+    if (nodeType === 'transformer') {
+      // For transformers, output port N typically corresponds to input N (1:1 pass-through)
+      const inputNum = portNum
+      
+      // Find connections feeding this transformer's input
+      const parents = (graph.parentsByToNode || {})[nodeId] || []
+      const portMaps = graph.mapsByConnId || {}
+      
+      // Check for port-mapped connections first
+      for (const parent of parents) {
+        const maps = portMaps[parent.id] || []
+        const relevantMap = maps.find(m => Number(m.to_port) === Number(inputNum))
+        
+        if (relevantMap) {
+          // Recursively trace from the upstream node's output port
+          const upstreamNodeId = parent.from_node_id
+          const upstreamPort = relevantMap.from_port
+          return await traceToOriginalVenueSource(upstreamNodeId, upstreamPort, graph)
+        }
+      }
+      
+      // Check for direct connections
+      const directParent = parents.find(p => Number(p.input_number) === Number(inputNum))
+      if (directParent) {
+        const upstreamNodeId = directParent.from_node_id
+        // For direct connections, infer the upstream port
+        const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
+        if (upstreamNode) {
+          const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
+          if (upstreamType === 'venue_sources') return true
+          if (upstreamType === 'source') return false
+          if (upstreamType === 'transformer') {
+            // Recursively trace
+            return await traceToOriginalVenueSource(upstreamNodeId, inputNum, graph)
+          }
+        }
+      }
+    }
+    
+    // For recorders, trace back through their inputs
+    if (nodeType === 'recorder') {
+      // Recorder output port N corresponds to track N, which is fed by input N
+      const trackNum = portNum
+      const parents = (graph.parentsByToNode || {})[nodeId] || []
+      const portMaps = graph.mapsByConnId || {}
+      
+      // Find connection feeding this recorder's track
+      for (const parent of parents) {
+        const maps = portMaps[parent.id] || []
+        const relevantMap = maps.find(m => Number(m.to_port) === Number(trackNum))
+        
+        if (relevantMap) {
+          const upstreamNodeId = parent.from_node_id
+          const upstreamPort = relevantMap.from_port
+          return await traceToOriginalVenueSource(upstreamNodeId, upstreamPort, graph)
+        }
+      }
+      
+      // Check direct connection
+      const directParent = parents.find(p => 
+        Number(p.input_number) === Number(trackNum) || Number(p.track_number) === Number(trackNum)
+      )
+      if (directParent) {
+        const upstreamNodeId = directParent.from_node_id
+        const upstreamNode = props.elements.find(e => e.id === upstreamNodeId)
+        if (upstreamNode) {
+          const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
+          if (upstreamType === 'venue_sources') return true
+          if (upstreamType === 'source') return false
+          // Recursively trace for transformers/recorders
+          return await traceToOriginalVenueSource(upstreamNodeId, directParent.input_number || trackNum, graph)
+        }
+      }
+    }
+    
+    return false
+  } catch (err) {
+    console.error('Error tracing to original venue source:', err)
+    return false
+  }
+}
+
+// Refresh source names to show latest venue source names
+async function refreshSourceNames() {
+  try {
+    toast.info('Refreshing source names...')
+    // Rebuild graph to get latest connections
+    graph.value = await buildGraph(props.projectId, props.locationId)
+    // Reload available sources with updated names
+    await loadAvailableUpstreamSources()
+    // Update upstream labels
+    await updateUpstreamLabels()
+    toast.success('Source names refreshed')
+  } catch (err) {
+    console.error('Error refreshing source names:', err)
+    toast.error('Failed to refresh source names')
+  }
 }
 
 async function clearUpstreamConnection(inputNum) {
