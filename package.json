@@ -55,7 +55,11 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": false
+      "notarize": false,
+      "type": "distribution",
+      "binaries": [
+        "node_modules/naudiodon/build/Release/*.node"
+      ]
     },
     "win": {
       "target": [
