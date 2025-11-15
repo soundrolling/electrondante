@@ -42,12 +42,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:mac -- --publish never
 
+      - name: List dist directory
+        run: ls -la dist/ || echo "dist directory not found"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mac-installer
           path: dist/*.dmg
           retention-days: 30
+          if-no-files-found: warn
 
   release:
     needs: build
@@ -63,17 +67,38 @@ jobs:
         with:
           path: artifacts
 
+      - name: List artifacts
+        run: |
+          echo "Artifacts directory contents:"
+          ls -la artifacts/ || echo "artifacts directory not found"
+          echo "mac-installer directory contents:"
+          ls -la artifacts/mac-installer/ || echo "mac-installer directory not found"
+
       - name: Create Release and Upload Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          gh release create "$TAG_NAME" \
-            --title "Release $TAG_NAME" \
-            --notes "Dante Audio Client Release $TAG_NAME" \
-            ./artifacts/mac-installer/*.dmg \
-            || echo "Release may already exist, uploading assets..."
           
-          # If release exists, upload assets separately
-          gh release upload "$TAG_NAME" ./artifacts/mac-installer/*.dmg --clobber || true
+          # Find DMG file
+          DMG_FILE=$(find ./artifacts -name "*.dmg" -type f | head -1)
+          
+          if [ -z "$DMG_FILE" ]; then
+            echo "No DMG file found in artifacts"
+            exit 1
+          fi
+          
+          echo "Found DMG file: $DMG_FILE"
+          
+          # Create or update release
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, uploading asset..."
+            gh release upload "$TAG_NAME" "$DMG_FILE" --clobber
+          else
+            echo "Creating new release $TAG_NAME..."
+            gh release create "$TAG_NAME" \
+              --title "Release $TAG_NAME" \
+              --notes "Dante Audio Client Release $TAG_NAME" \
+              "$DMG_FILE"
+          fi
 
