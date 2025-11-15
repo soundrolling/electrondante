@@ -302,6 +302,7 @@
         </div>
         <div class="preview-modal-body">
           <iframe v-if="isPdf(previewDoc?.mime_type)" :src="previewDoc?.url" class="preview-iframe"></iframe>
+          <img v-else-if="isImage(previewDoc?.mime_type)" :src="previewDoc?.url" :alt="previewDoc?.file_name" class="preview-image" />
           <div v-else class="preview-unsupported">
             <p>Preview not available for this file type.</p>
             <a :href="previewDoc?.url" target="_blank">Open in new tab</a>
@@ -914,17 +915,41 @@ await fetchDocs()
 })
 
 function isPdf(mime) { return mime && mime.includes('pdf') }
+function isImage(mime) { 
+  return mime && (mime.startsWith('image/') || ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp'].includes(mime))
+}
 function closePreviewModal() {
   showPreviewModal.value = false
   previewDoc.value = null
 }
 function printPreview() {
   const iframe = document.querySelector('.preview-iframe')
+  const img = document.querySelector('.preview-image')
   if (iframe) {
     iframe.contentWindow.focus()
     iframe.contentWindow.print()
+  } else if (img) {
+    // For images, open in new window and print
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Print ${previewDoc.value?.file_name || 'Image'}</title></head>
+          <body style="margin:0;padding:0;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+            <img src="${previewDoc.value?.url}" style="max-width:100%;max-height:100vh;object-fit:contain;" />
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.onload = () => {
+        printWindow.focus()
+        printWindow.print()
+      }
+    } else {
+      toast.error('Please allow popups to print images')
+    }
   } else {
-    toast.error('Print preview only available for PDFs')
+    toast.error('Print preview only available for PDFs and images')
   }
 }
 </script>
@@ -2027,6 +2052,20 @@ function printPreview() {
   height: 70vh;
   border: none;
   background: var(--bg-primary);
+}
+.preview-image {
+  max-width: 100%;
+  max-height: 70vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  /* Enable pinch zoom on iOS */
+  touch-action: pan-x pan-y pinch-zoom;
 }
 .preview-unsupported {
   padding: 32px;

@@ -386,16 +386,35 @@ function goTo(type) {
 const id = props.projectId;
 const s = props.stage;
 if (!s) return;
+
+// Ensure venue_id is available - use venue_id from stage, or try to find it from stages array
+let venueId = s.venue_id;
+if (!venueId && props.stages && props.stages.length > 0) {
+  const stageWithVenue = props.stages.find(st => st.id === s.id);
+  if (stageWithVenue && stageWithVenue.venue_id) {
+    venueId = stageWithVenue.venue_id;
+  }
+}
+
+// Build query object, only including venueId if it's defined
+const buildQuery = (includeVenueId = true) => {
+  const query = { stageId: s.id };
+  if (includeVenueId && venueId) {
+    query.venueId = venueId;
+  }
+  return query;
+};
+
 if (type === 'notes') {
   router.push({ name: 'LocationNotes', params: { id, locationId: s.id } });
 } else if (type === 'signal') {
-  router.push({ name: 'SignalMapper', params: { id, tab: 'placement' }, query: { venueId: s.venue_id, stageId: s.id, locationId: s.id } });
+  router.push({ name: 'SignalMapper', params: { id, tab: 'placement' }, query: { ...buildQuery(), locationId: s.id } });
 } else if (type === 'gear') {
   router.push({ name: 'ProjectGear', params: { id }, query: { locationId: s.id } });
 } else if (type === 'photos') {
-  router.push({ name: 'StagePictures', params: { id }, query: { venueId: s.venue_id, stageId: s.id } });
+  router.push({ name: 'StagePictures', params: { id }, query: buildQuery() });
 } else if (type === 'docs') {
-  router.push({ name: 'StageDocs', params: { id }, query: { venueId: s.venue_id, stageId: s.id } });
+  router.push({ name: 'StageDocs', params: { id }, query: buildQuery() });
 } else if (type === 'schedule') {
   // Route into Location Notes with schedule tab active for this stage
   router.push({ name: 'LocationNotes', params: { id, locationId: s.id }, query: { tab: 'schedule' } });
