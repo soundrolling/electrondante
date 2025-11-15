@@ -51,11 +51,10 @@
         }
       ],
       "icon": "build/icon.icns",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
-      "identity": null
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
       "target": [
