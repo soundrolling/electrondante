@@ -49,7 +49,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libasound2-dev
 
-      - name: Install dependencies
+      - name: Install dependencies (Linux - skip scripts to patch first)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (other platforms)
+        if: matrix.os != 'ubuntu-latest'
         run: npm ci
 
       - name: Fix naudiodon C++ compilation issue (Linux)
@@ -86,12 +91,7 @@ jobs:
               print(f"{file_path} not found")
           EOF
 
-      - name: Rebuild native modules (skip on Linux - electron-builder handles it)
-        if: matrix.os != 'ubuntu-latest'
-        run: npm run rebuild
-
-      - name: Rebuild native modules (Linux - with patch)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Rebuild native modules
         run: npm run rebuild || echo "Rebuild failed, electron-builder will handle it"
         continue-on-error: true
 
