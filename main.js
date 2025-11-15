@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
 
 // Try to load client-core, handle errors gracefully
@@ -103,6 +103,23 @@ ipcMain.handle('stop-client', async () => {
 });
 
 ipcMain.handle('get-devices', async () => {
+  // Request microphone permission on macOS
+  if (process.platform === 'darwin') {
+    try {
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      if (status !== 'granted') {
+        // Request permission - this will show the system dialog
+        const result = await systemPreferences.askForMediaAccess('microphone');
+        if (!result) {
+          console.warn('Microphone permission denied');
+          return [];
+        }
+      }
+    } catch (error) {
+      console.error('Error requesting microphone permission:', error);
+    }
+  }
+  
   // Try to get devices from running client first
   if (client) {
     return client.getAvailableDevices();
