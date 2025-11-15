@@ -118,7 +118,11 @@
               Click "Refresh Devices" to load available audio input devices. You may need to grant microphone permissions.
             </p>
             <p v-if="!isSource && availableDevices.length > 0" class="info-message">
-              <strong>Note:</strong> Most browsers only support stereo (2 channels) via web audio. For multi-channel devices like Dante Virtual Soundcard with 16+ channels, the browser will typically only capture 1-2 channels. For full multi-channel support, use the Electron app (see download link below).
+              <strong>⚠️ Browser Limitation:</strong> Most browsers only support 1-2 channels via web audio, even from multi-channel devices like Dante Virtual Soundcard (16+ channels). 
+              <br><br>
+              <strong>Channel Mapping:</strong> The browser will map available channels 1-to-1 (Browser channel 0 → Dante channel 0, Browser channel 1 → Dante channel 1), but channels 2-31 will have no audio.
+              <br><br>
+              <strong>For Full Multi-Channel Support:</strong> Use the Electron app below to access all 16+ channels from Dante Virtual Soundcard with proper 1-to-1 mapping.
             </p>
             
             <!-- Electron App Download Info -->

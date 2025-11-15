@@ -146,10 +146,20 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
         allSettings: settings,
       });
       
+      // Browser limitation warning
+      if (actualChannelCount < channelCount) {
+        console.warn(`⚠️ [AUDIO CAPTURE] Browser only provides ${actualChannelCount} channel(s), but ${channelCount} were requested.`);
+        console.warn(`⚠️ [AUDIO CAPTURE] Channel mapping: Browser channels 0-${actualChannelCount - 1} will map to Dante channels 0-${actualChannelCount - 1}.`);
+        console.warn(`⚠️ [AUDIO CAPTURE] Dante channels ${actualChannelCount}-${channelCount - 1} will have no audio (browser limitation).`);
+        console.warn(`⚠️ [AUDIO CAPTURE] For full multi-channel support (1-to-1 mapping with all Dante channels), use the Electron app.`);
+      } else {
+        console.log(`✅ [AUDIO CAPTURE] Full channel support: ${actualChannelCount} channels available. Channel mapping: 1-to-1 (Dante channel 0 → Mixer channel 0, etc.)`);
+      }
+      
       // Note: Most browsers only support stereo (2 channels) via getUserMedia
       // For multi-channel devices like Dante Virtual Soundcard, you may need:
       // 1. A browser extension that provides multi-channel access
-      // 2. Or use the local client.js for full multi-channel support
+      // 2. Or use the Electron app for full multi-channel support
       // For now, we'll capture what's available (typically 1-2 channels)
       
       // Create media stream source
