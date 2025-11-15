@@ -107,6 +107,18 @@ jobs:
           # This avoids issues with segfault-handler which isn't needed on Windows
           echo "Skipping rebuild on Windows, electron-builder will handle native modules"
 
+      - name: Remove segfault-handler on Windows (not needed)
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Remove segfault-handler to prevent electron-builder from trying to rebuild it
+          # It's not needed on Windows and causes build failures
+          if (Test-Path "node_modules\segfault-handler") {
+            Remove-Item -Recurse -Force "node_modules\segfault-handler"
+            Write-Host "Removed segfault-handler from node_modules"
+          } else {
+            Write-Host "segfault-handler not found, skipping removal"
+          }
+
       - name: Build installer (macOS)
         if: matrix.platform == 'mac'
         env:
