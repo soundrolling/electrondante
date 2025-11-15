@@ -64,7 +64,9 @@ jobs:
           fi
 
       - name: Verify code signing and notarization
-        if: secrets.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        if: env.CSC_LINK != ''
         run: |
           # Find the DMG file
           DMG_FILE=$(find dist -name "*.dmg" -type f | head -1)
