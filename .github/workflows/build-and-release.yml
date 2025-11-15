@@ -122,8 +122,10 @@ jobs:
       - name: Rebuild naudiodon for Electron (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          # Manually rebuild naudiodon for Electron to avoid electron-builder rebuild issues
-          npx electron-rebuild -f -w naudiodon || echo "Rebuild failed, electron-builder will try again"
+          # Manually rebuild naudiodon for Electron (x64 only) to avoid electron-builder rebuild issues
+          # Specify x64 architecture explicitly
+          $env:ELECTRON_REBUILD_ARCH = "x64"
+          npx electron-rebuild -f -w naudiodon --arch x64 || echo "Rebuild failed, electron-builder will try again"
         continue-on-error: true
 
       - name: Build installer (macOS)
