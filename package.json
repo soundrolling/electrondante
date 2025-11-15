@@ -57,7 +57,8 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": {
         "teamId": "$APPLE_TEAM_ID"
-      }
+      },
+      "appId": "com.soundrolling.dante-audio-client"
     },
     "win": {
       "target": [
