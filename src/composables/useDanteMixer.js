@@ -132,29 +132,52 @@ export class AudioMixerEngine {
     // Process each channel: buffer -> gain -> analyser (for metering) -> pan -> mix
     for (let ch = 0; ch < this.channelCount; ch++) {
       const buffer = this.channelBuffers[ch];
+      if (!buffer || buffer.length === 0) {
+        // No data for this channel - skip silently
+        continue;
+      }
+      
       if (buffer.length < frameCount) {
         // Log when buffer is too small (first few times)
         if (!this._bufferTooSmallCount) this._bufferTooSmallCount = {};
         if (!this._bufferTooSmallCount[ch]) this._bufferTooSmallCount[ch] = 0;
         this._bufferTooSmallCount[ch]++;
         if (this._bufferTooSmallCount[ch] <= 3) {
-          console.warn(`⚠️ [MIXER] Channel ${ch} buffer too small: ${buffer.length} < ${frameCount} (need more data)`);
+          console.warn(`⚠️ [MIXER] Channel ${ch + 1} buffer too small: ${buffer.length} < ${frameCount} (need more data)`);
         }
         // If buffer gets too low, go back to buffering mode
         if (buffer.length < this.minBufferSamples / 4) {
           this.isBuffering = true;
-          console.warn(`⚠️ [MIXER] Buffer underrun on channel ${ch}, re-buffering...`);
+          console.warn(`⚠️ [MIXER] Buffer underrun on channel ${ch + 1}, re-buffering...`);
         }
         continue;
       }
 
       const gain = this.gainNodes[ch].gain.value;
       const pan = this.panNodes[ch].pan.value;
+      
+      // Log if gain is 0 (muted) - first few times per channel
+      if (!this._gainZeroLogCount) this._gainZeroLogCount = {};
+      if (!this._gainZeroLogCount[ch]) this._gainZeroLogCount[ch] = 0;
+      if (gain === 0 && this._gainZeroLogCount[ch] < 3) {
+        this._gainZeroLogCount[ch]++;
+        console.warn(`⚠️ [MIXER] Channel ${ch + 1} is muted (gain=0) - no audio will play`);
+      }
+      
       const gainL = gain * (pan <= 0 ? 1 : 1 - pan);
       const gainR = gain * (pan >= 0 ? 1 : 1 + pan);
 
       // Get samples from buffer
       const samples = buffer.splice(0, frameCount);
+      
+      // Log first few times we actually process audio (for debugging)
+      if (!this._processCount) this._processCount = {};
+      if (!this._processCount[ch]) this._processCount[ch] = 0;
+      this._processCount[ch]++;
+      if (this._processCount[ch] <= 3 || this._processCount[ch] % 1000 === 0) {
+        const sampleMax = Math.max(...samples.map(Math.abs));
+        console.log(`🎵 [MIXER] Processing channel ${ch + 1}: ${samples.length} samples, gain=${gain.toFixed(2)}, maxSample=${sampleMax.toFixed(4)}, outputGainL=${gainL.toFixed(2)}, outputGainR=${gainR.toFixed(2)}`);
+      }
       
       // Feed samples through gain/analyser chain for metering
       // Create audio buffer and feed through gain node (analyser is connected to gain)

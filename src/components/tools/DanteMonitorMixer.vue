@@ -729,15 +729,16 @@ const connectWebSocket = async () => {
           // Initialize channel state
           // Only channels 1-2 (index 0-1) are enabled and unmuted by default
           // Rest are muted and disabled until user adds them
+          // Note: Channel 0 internally = Channel 1 in UI (1-indexed display)
           const maxChannels = Math.min(32, message.channels);
           const channelState = Array.from({ length: maxChannels }, (_, i) => ({
             index: i,
-            name: `Channel ${i + 1}`,
+            name: `Channel ${i + 1}`, // Display as 1-indexed (Channel 1, 2, 3...)
             gain: 0.7, // Default 70% volume
             pan: 0,
-            muted: i >= 2, // Mute channels 3+ by default
+            muted: i >= 2, // Mute channels 3+ by default (Channel 3, 4, 5...)
             solo: false,
-            enabled: i < 2, // Only enable channels 1-2 by default
+            enabled: i < 2, // Only enable channels 1-2 by default (Channel 1, 2)
           }));
           
           channels.value = channelState;
