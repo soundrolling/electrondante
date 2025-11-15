@@ -73,10 +73,17 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_INSTALL_KEYCHAIN_NAME: "build.keychain"
         run: |
-          # Export environment variables for notarization
+          # Export environment variables for notarization (electron-builder needs these)
           export APPLE_ID="$APPLE_ID"
           export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD"
           export APPLE_TEAM_ID="$APPLE_TEAM_ID"
+          
+          # Verify notarization credentials are set
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "✅ Notarization credentials found"
+          else
+            echo "⚠️  Notarization credentials missing - app will be signed but not notarized"
+          fi
           
           # Only sign if certificate is provided
           if [ -z "$CSC_LINK" ]; then
