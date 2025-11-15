@@ -56,8 +56,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           # Fix missing <string> include in PaContext.h
+          # Add it after the existing includes (after line with #include)
           if [ -f "node_modules/naudiodon/src/PaContext.h" ]; then
-            sed -i '1a#include <string>' node_modules/naudiodon/src/PaContext.h || true
+            # Find the last #include line and add <string> after it
+            awk '/^#include/ {print; if (!found) {print "#include <string>"; found=1; next}} {print}' node_modules/naudiodon/src/PaContext.h > /tmp/PaContext.h.tmp && mv /tmp/PaContext.h.tmp node_modules/naudiodon/src/PaContext.h || true
+            # Fallback: just add at the top if awk fails
+            if ! grep -q "#include <string>" node_modules/naudiodon/src/PaContext.h; then
+              sed -i '1i#include <string>' node_modules/naudiodon/src/PaContext.h || true
+            fi
           fi
 
       - name: Rebuild native modules
