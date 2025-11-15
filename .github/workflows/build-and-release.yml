@@ -55,21 +55,44 @@ jobs:
       - name: Fix naudiodon C++ compilation issue (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          # Fix missing <string> include in PaContext.h
-          if [ -f "node_modules/naudiodon/src/PaContext.h" ]; then
-            # Check if <string> is already included
-            if ! grep -q "#include <string>" node_modules/naudiodon/src/PaContext.h; then
-              # Add after the first #include line, or at the top if no includes found
-              if grep -q "^#include" node_modules/naudiodon/src/PaContext.h; then
-                sed -i '/^#include/a#include <string>' node_modules/naudiodon/src/PaContext.h
-              else
-                sed -i '1i#include <string>' node_modules/naudiodon/src/PaContext.h
-              fi
-            fi
-          fi
+          # Fix missing <string> include in PaContext.h using Python for reliability
+          python3 << 'EOF'
+          import os
+          file_path = "node_modules/naudiodon/src/PaContext.h"
+          if os.path.exists(file_path):
+              with open(file_path, 'r') as f:
+                  lines = f.readlines()
+              
+              # Check if <string> is already included
+              has_string = any('#include <string>' in line for line in lines)
+              
+              if not has_string:
+                  # Find the last #include line
+                  last_include_idx = -1
+                  for i, line in enumerate(lines):
+                      if line.strip().startswith('#include'):
+                          last_include_idx = i
+                  
+                  # Insert after the last include, or at the beginning
+                  insert_idx = last_include_idx + 1 if last_include_idx >= 0 else 0
+                  lines.insert(insert_idx, '#include <string>\n')
+                  
+                  with open(file_path, 'w') as f:
+                      f.writelines(lines)
+                  print(f"Added #include <string> to {file_path}")
+              else:
+                  print(f"{file_path} already has #include <string>")
+          else:
+              print(f"{file_path} not found")
+          EOF
 
-      - name: Rebuild native modules
-        run: npm run rebuild || echo "Rebuild failed, continuing - electron-builder will handle native modules"
+      - name: Rebuild native modules (skip on Linux - electron-builder handles it)
+        if: matrix.os != 'ubuntu-latest'
+        run: npm run rebuild
+
+      - name: Rebuild native modules (Linux - with patch)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run rebuild || echo "Rebuild failed, electron-builder will handle it"
         continue-on-error: true
 
       - name: Build installer (macOS)
