@@ -55,7 +55,9 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": false,
+      "notarize": {
+        "teamId": "$APPLE_TEAM_ID"
+      },
       "type": "distribution"
     },
     "win": {
