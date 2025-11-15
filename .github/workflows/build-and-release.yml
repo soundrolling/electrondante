@@ -119,6 +119,13 @@ jobs:
             Write-Host "segfault-handler not found, skipping removal"
           }
 
+      - name: Rebuild naudiodon for Electron (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Manually rebuild naudiodon for Electron to avoid electron-builder rebuild issues
+          npx electron-rebuild -f -w naudiodon || echo "Rebuild failed, electron-builder will try again"
+        continue-on-error: true
+
       - name: Build installer (macOS)
         if: matrix.platform == 'mac'
         env:
