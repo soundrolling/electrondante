@@ -53,8 +53,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: npm ci --ignore-scripts
 
-      - name: Install dependencies (other platforms)
-        if: matrix.os != 'ubuntu-latest'
+      - name: Install dependencies (Windows - skip scripts to avoid segfault-handler)
+        if: matrix.os == 'windows-latest'
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
         run: npm ci
 
       - name: Fix naudiodon C++ compilation issue (Linux)
