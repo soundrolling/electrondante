@@ -1,4 +1,7 @@
 // Renderer process - UI logic
+if (!window.electronAPI) {
+  console.error('electronAPI not available - preload script may not have loaded');
+}
 const { electronAPI } = window;
 
 let clientRunning = false;
@@ -107,7 +110,14 @@ async function stopClient() {
 
 async function refreshDevices() {
   try {
+    if (!electronAPI) {
+      showMessage('Electron API not available', 'error');
+      return;
+    }
+    
+    addLog('Requesting microphone permission and enumerating devices...', 'info');
     const devices = await electronAPI.getDevices();
+    addLog(`Found ${devices.length} audio device(s)`, devices.length > 0 ? 'success' : 'error');
     renderDevices(devices);
     
     const status = await electronAPI.getStatus();
@@ -116,11 +126,13 @@ async function refreshDevices() {
     }
     
     if (devices.length === 0) {
-      showMessage('No audio devices found. Make sure your audio device is connected and recognized by your OS.', 'error');
+      showMessage('No audio devices found. On macOS, make sure you granted microphone permission when prompted. Check System Settings → Privacy & Security → Microphone.', 'error');
+      addLog('No devices found - check microphone permission in System Settings', 'error');
     }
   } catch (error) {
     showMessage(`Error refreshing devices: ${error.message}`, 'error');
     addLog(`Error: ${error.message}`, 'error');
+    console.error('Device enumeration error:', error);
   }
 }
 

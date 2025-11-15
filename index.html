@@ -326,7 +326,28 @@
     </div>
   </div>
   
-  <script src="renderer.js"></script>
+  <script>
+    // Wait for DOM and electronAPI to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (window.electronAPI) {
+          const script = document.createElement('script');
+          script.src = 'renderer.js';
+          document.body.appendChild(script);
+        } else {
+          console.error('electronAPI not available');
+        }
+      });
+    } else {
+      if (window.electronAPI) {
+        const script = document.createElement('script');
+        script.src = 'renderer.js';
+        document.body.appendChild(script);
+      } else {
+        console.error('electronAPI not available');
+      }
+    }
+  </script>
 </body>
 </html>
 
