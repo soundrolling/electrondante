@@ -225,6 +225,7 @@ setInterval(async () => {
   }
 }, 2000);
 
-// Initial load
+// Initial load - try to get devices immediately
 addLog('Dante Audio Client ready', 'success');
+refreshDevices();
 
