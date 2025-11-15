@@ -96,12 +96,12 @@ jobs:
         run: npm run rebuild || echo "Rebuild failed, electron-builder will handle it"
         continue-on-error: true
 
-      - name: Rebuild native modules (Windows - naudiodon only)
+      - name: Rebuild native modules (Windows - skip, electron-builder handles it)
         if: matrix.os == 'windows-latest'
         run: |
-          # Only rebuild naudiodon on Windows, skip segfault-handler
-          npx electron-rebuild -f -w naudiodon || echo "Rebuild failed, electron-builder will handle it"
-        continue-on-error: true
+          # Skip rebuild on Windows - electron-builder will rebuild native modules during build
+          # This avoids issues with segfault-handler which isn't needed on Windows
+          echo "Skipping rebuild on Windows, electron-builder will handle native modules"
 
       - name: Build installer (macOS)
         if: matrix.platform == 'mac'
