@@ -8,20 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        include:
-          - os: macos-latest
-            platform: mac
-            artifact_name: mac
-          - os: windows-latest
-            platform: win
-            artifact_name: win
-          - os: ubuntu-latest
-            platform: linux
-            artifact_name: linux
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -33,124 +20,23 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Setup Python (for native module builds)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'  # Python 3.11 has distutils, needed for node-gyp
-
-      - name: Install Python setuptools (for distutils compatibility)
-        run: |
-          python -m pip install --upgrade pip
-          pip install setuptools
-
-      - name: Install Linux build dependencies
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libasound2-dev
-
-      - name: Install dependencies (Linux - skip scripts to patch first)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm ci --ignore-scripts
-
-      - name: Install dependencies (Windows - skip scripts to avoid segfault-handler)
-        if: matrix.os == 'windows-latest'
-        run: npm ci --ignore-scripts
-
-      - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Install dependencies
         run: npm ci
 
-      - name: Fix naudiodon C++ compilation issue (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # Fix missing <string> include in PaContext.h using Python for reliability
-          python3 << 'EOF'
-          import os
-          file_path = "node_modules/naudiodon/src/PaContext.h"
-          if os.path.exists(file_path):
-              with open(file_path, 'r') as f:
-                  lines = f.readlines()
-              
-              # Check if <string> is already included
-              has_string = any('#include <string>' in line for line in lines)
-              
-              if not has_string:
-                  # Find the last #include line
-                  last_include_idx = -1
-                  for i, line in enumerate(lines):
-                      if line.strip().startswith('#include'):
-                          last_include_idx = i
-                  
-                  # Insert after the last include, or at the beginning
-                  insert_idx = last_include_idx + 1 if last_include_idx >= 0 else 0
-                  lines.insert(insert_idx, '#include <string>\n')
-                  
-                  with open(file_path, 'w') as f:
-                      f.writelines(lines)
-                  print(f"Added #include <string> to {file_path}")
-              else:
-                  print(f"{file_path} already has #include <string>")
-          else:
-              print(f"{file_path} not found")
-          EOF
-
-      - name: Rebuild native modules (macOS/Linux)
-        if: matrix.os != 'windows-latest'
+      - name: Rebuild native modules
         run: npm run rebuild || echo "Rebuild failed, electron-builder will handle it"
         continue-on-error: true
 
-      - name: Rebuild native modules (Windows - skip, electron-builder handles it)
-        if: matrix.os == 'windows-latest'
-        run: |
-          # Skip rebuild on Windows - electron-builder will rebuild native modules during build
-          # This avoids issues with segfault-handler which isn't needed on Windows
-          echo "Skipping rebuild on Windows, electron-builder will handle native modules"
-
-      - name: Remove segfault-handler on Windows (not needed)
-        if: matrix.os == 'windows-latest'
-        run: |
-          # Remove segfault-handler to prevent electron-builder from trying to rebuild it
-          # It's not needed on Windows and causes build failures
-          if (Test-Path "node_modules\segfault-handler") {
-            Remove-Item -Recurse -Force "node_modules\segfault-handler"
-            Write-Host "Removed segfault-handler from node_modules"
-          } else {
-            Write-Host "segfault-handler not found, skipping removal"
-          }
-
-      - name: Rebuild naudiodon for Electron (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          # Manually rebuild naudiodon for Electron (x64 only) to avoid electron-builder rebuild issues
-          # Specify x64 architecture explicitly
-          $env:ELECTRON_REBUILD_ARCH = "x64"
-          npx electron-rebuild -f -w naudiodon --arch x64 || echo "Rebuild failed, electron-builder will try again"
-        continue-on-error: true
-
-      - name: Build installer (macOS)
-        if: matrix.platform == 'mac'
+      - name: Build macOS installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:mac -- --publish never
 
-      - name: Build installer (Windows)
-        if: matrix.platform == 'win'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:win -- --publish never --x64
-
-      - name: Build installer (Linux)
-        if: matrix.platform == 'linux'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:linux -- --publish never
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}-installer
-          path: dist/*
+          name: mac-installer
+          path: dist/*.dmg
           retention-days: 30
 
   release:
@@ -176,12 +62,8 @@ jobs:
             --title "Release $TAG_NAME" \
             --notes "Dante Audio Client Release $TAG_NAME" \
             ./artifacts/mac-installer/*.dmg \
-            ./artifacts/win-installer/*.exe \
-            ./artifacts/linux-installer/*.AppImage \
             || echo "Release may already exist, uploading assets..."
           
           # If release exists, upload assets separately
           gh release upload "$TAG_NAME" ./artifacts/mac-installer/*.dmg --clobber || true
-          gh release upload "$TAG_NAME" ./artifacts/win-installer/*.exe --clobber || true
-          gh release upload "$TAG_NAME" ./artifacts/linux-installer/*.AppImage --clobber || true
 
