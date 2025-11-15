@@ -1990,14 +1990,14 @@ watch(() => mixer.value, (newMixer) => {
   background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
   border: 2px solid #3b82f6;
   border-radius: 8px;
-  color: white;
+  color: white !important;
   font-size: 0.9375rem;
   line-height: 1.6;
   box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
 }
 
 .electron-app-message strong {
-  color: white;
+  color: white !important;
   font-weight: 700;
   display: block;
   margin-bottom: 0.5rem;
@@ -2037,11 +2037,11 @@ watch(() => mixer.value, (newMixer) => {
   border: 1px solid #3b82f6;
   padding: 0.75rem;
   border-radius: 4px;
-  color: white;
+  color: white !important;
 }
 
 .source-on-other-device strong {
-  color: white;
+  color: white !important;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -2191,6 +2191,24 @@ watch(() => mixer.value, (newMixer) => {
 
 .btn-secondary:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white !important;
+  border-color: #dc2626;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-danger:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
 }
 
 .btn:disabled {
