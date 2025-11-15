@@ -40,21 +40,26 @@ jobs:
       - name: Build macOS installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing (only if CSC_LINK is provided)
+          # Code signing and notarization
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_INSTALL_KEYCHAIN_NAME: ""
         run: |
+          # Export environment variables for notarization
+          export APPLE_ID="$APPLE_ID"
+          export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD"
+          export APPLE_TEAM_ID="$APPLE_TEAM_ID"
+          
           # Only sign if certificate is provided
           if [ -z "$CSC_LINK" ]; then
             echo "⚠️  Code signing skipped - CSC_LINK not set. Building unsigned app."
             npm run build:mac -- --publish never
           else
-            echo "✅ Code signing enabled - building signed app (notarization disabled for now)"
-            # Code sign only - notarization disabled due to configuration issues
-            # The app will be signed but not notarized
+            echo "✅ Code signing and notarization enabled - building signed and notarized app"
             npm run build:mac -- --publish never
           fi
 
