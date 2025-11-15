@@ -130,6 +130,11 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
       const settings = audioTrack.getSettings();
       console.log('⚙️ [AUDIO CAPTURE] Track settings:', settings);
       
+      // Check if this is a multi-channel device (like Dante Virtual Soundcard)
+      const deviceLabel = audioTrack.label || '';
+      const isDanteDevice = deviceLabel.toLowerCase().includes('dante') || 
+                           deviceLabel.toLowerCase().includes('virtual soundcard');
+      
       // Ensure we have a valid channel count (at least 1, default to 2 for stereo)
       let actualChannelCount = settings.channelCount;
       if (!actualChannelCount || actualChannelCount < 1) {
@@ -140,20 +145,29 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
       
       console.log('🎤 [AUDIO CAPTURE] Audio stream settings:', {
         deviceId: settings.deviceId,
+        deviceLabel: deviceLabel,
         channelCount: actualChannelCount,
         sampleRate: actualSampleRate,
         requestedChannels: channelCount,
+        isDanteDevice: isDanteDevice,
         allSettings: settings,
       });
+      
+      // For Dante/multi-channel devices, browser capture is not suitable
+      if (isDanteDevice && actualChannelCount < 4) {
+        const errorMsg = `Browser cannot access all channels from ${deviceLabel}. Use the Electron app for proper multi-channel support.`;
+        console.error(`❌ [AUDIO CAPTURE] ${errorMsg}`);
+        captureError.value = errorMsg;
+        throw new Error(errorMsg);
+      }
       
       // Browser limitation warning
       if (actualChannelCount < channelCount) {
         console.warn(`⚠️ [AUDIO CAPTURE] Browser only provides ${actualChannelCount} channel(s), but ${channelCount} were requested.`);
-        console.warn(`⚠️ [AUDIO CAPTURE] Channel mapping: Browser channels 0-${actualChannelCount - 1} will map to Dante channels 0-${actualChannelCount - 1}.`);
-        console.warn(`⚠️ [AUDIO CAPTURE] Dante channels ${actualChannelCount}-${channelCount - 1} will have no audio (browser limitation).`);
-        console.warn(`⚠️ [AUDIO CAPTURE] For full multi-channel support (1-to-1 mapping with all Dante channels), use the Electron app.`);
+        console.warn(`⚠️ [AUDIO CAPTURE] This device requires the Electron app for proper channel mapping.`);
+        console.warn(`⚠️ [AUDIO CAPTURE] Browser channels will NOT map correctly to Dante channels - use Electron app instead.`);
       } else {
-        console.log(`✅ [AUDIO CAPTURE] Full channel support: ${actualChannelCount} channels available. Channel mapping: 1-to-1 (Dante channel 0 → Mixer channel 0, etc.)`);
+        console.log(`✅ [AUDIO CAPTURE] Full channel support: ${actualChannelCount} channels available.`);
       }
       
       // Note: Most browsers only support stereo (2 channels) via getUserMedia
