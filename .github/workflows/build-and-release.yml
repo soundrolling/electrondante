@@ -55,7 +55,9 @@ jobs:
             echo "✅ Code signing enabled - building signed app"
             # Disable notarization for now (can be added later)
             # Just code sign without notarization
+            # Ensure all components are signed including native modules
             export CSC_IDENTITY_AUTO_DISCOVERY=false
+            export CSC_INSTALL_KEYCHAIN_NAME=""
             npm run build:mac -- --publish never
           fi
 
