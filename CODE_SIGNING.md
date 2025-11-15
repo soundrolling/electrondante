@@ -38,9 +38,30 @@ Add these secrets to your GitHub repository:
 - `APPLE_APP_SPECIFIC_PASSWORD`: The app-specific password you created
 - `APPLE_TEAM_ID`: Your Apple Team ID (found in Apple Developer account)
 
-**Optional (if using certificate file):**
-- `CSC_LINK`: Base64 encoded certificate file (if not using keychain)
-- `CSC_KEY_PASSWORD`: Certificate password
+**Required for automated signing in GitHub Actions:**
+- `CSC_LINK`: Base64 encoded .p12 certificate file (see export instructions below)
+- `CSC_KEY_PASSWORD`: Password you set when exporting the .p12 file
+
+### Export Certificate for GitHub Actions
+
+To use code signing in GitHub Actions, you need to export your certificate as a .p12 file:
+
+1. **Open Keychain Access**
+   - Find your "Developer ID Application" certificate
+   - Right-click it → Export "Developer ID Application: ..."
+   - Choose format: "Personal Information Exchange (.p12)"
+   - Save it (you'll be prompted for a password - remember this!)
+
+2. **Convert to Base64**
+   ```bash
+   # On your Mac, run:
+   base64 -i YourCertificate.p12 -o certificate_base64.txt
+   ```
+
+3. **Add to GitHub Secrets**
+   - Copy the entire contents of `certificate_base64.txt`
+   - Add as secret `CSC_LINK` in GitHub
+   - Add the password you set as `CSC_KEY_PASSWORD`
 
 ### 3. Update Build Configuration
 
@@ -86,4 +107,5 @@ The app is currently built unsigned. To enable signing:
 3. Update workflow to use signing (or sign manually)
 
 The workflow is ready to support signing once you add the secrets.
+
 
