@@ -66,7 +66,14 @@ sudo apt-get install build-essential libasound2-dev
 1. Download the `.dmg` file
 2. Open the `.dmg` file
 3. Drag "Dante Audio Client" to Applications folder
-4. Open from Applications (may need to allow in System Preferences → Security)
+4. **First time opening:** Right-click the app in Applications and select "Open", then click "Open" in the security dialog
+   - Alternatively, go to **System Settings** → **Privacy & Security** → Click "Open Anyway" next to the blocked app message
+5. After the first open, the app will open normally (the app is code-signed and notarized by Apple)
+
+**Note:** If you see "developer cannot be verified" even after right-clicking, remove the quarantine attribute:
+```bash
+xattr -d com.apple.quarantine "/Applications/Dante Audio Client.app"
+```
 
 ### Windows
 1. Download the `.exe` installer

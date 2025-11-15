@@ -63,6 +63,46 @@ jobs:
             npm run build:mac -- --publish never
           fi
 
+      - name: Verify code signing and notarization
+        if: env.CSC_LINK != ''
+        run: |
+          # Find the DMG file
+          DMG_FILE=$(find dist -name "*.dmg" -type f | head -1)
+          if [ -z "$DMG_FILE" ]; then
+            echo "⚠️  No DMG file found"
+            exit 0
+          fi
+          
+          echo "📦 DMG file: $DMG_FILE"
+          
+          # Mount the DMG to check the app
+          hdiutil attach "$DMG_FILE" -quiet -nobrowse -mountpoint /tmp/dmg_mount || true
+          
+          # Find the app inside the DMG
+          APP_PATH=$(find /tmp/dmg_mount -name "*.app" -type d | head -1)
+          
+          if [ -n "$APP_PATH" ]; then
+            echo "📱 App path: $APP_PATH"
+            
+            # Verify code signing
+            echo "🔍 Verifying code signature..."
+            codesign -vvv --deep --strict "$APP_PATH" || echo "⚠️  Code signature verification failed"
+            
+            # Check notarization ticket
+            echo "🎫 Checking notarization ticket..."
+            stapler validate "$APP_PATH" && echo "✅ Notarization ticket is stapled" || echo "⚠️  Notarization ticket not found or not stapled"
+            
+            # Check Gatekeeper assessment
+            echo "🛡️  Checking Gatekeeper assessment..."
+            spctl -a -vv "$APP_PATH" && echo "✅ Gatekeeper assessment passed" || echo "⚠️  Gatekeeper assessment failed"
+            
+            # Unmount
+            hdiutil detach /tmp/dmg_mount -quiet || true
+          else
+            echo "⚠️  No app found in DMG"
+            hdiutil detach /tmp/dmg_mount -quiet || true
+          fi
+
       - name: List dist directory
         run: ls -la dist/ || echo "dist directory not found"
 
