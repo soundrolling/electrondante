@@ -55,9 +55,7 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": {
-        "teamId": "$APPLE_TEAM_ID"
-      },
+      "notarize": true,
       "type": "distribution",
       "binaries": [
         "node_modules/naudiodon/build/Release/*.node"
