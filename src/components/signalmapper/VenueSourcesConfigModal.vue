@@ -89,6 +89,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
+import { propagateVenueSourceNameChanges } from '@/services/signalMapperService'
 
 const props = defineProps({
   nodeId: { type: [String, Number], required: true },
@@ -357,6 +358,22 @@ async function save() {
       .eq('id', props.nodeId)
     
     if (updateError) throw updateError
+    
+    // Propagate name changes to downstream transformers and recorders
+    try {
+      // Get the node's location_id for proper propagation
+      const { data: nodeData } = await supabase
+        .from('nodes')
+        .select('location_id')
+        .eq('id', props.nodeId)
+        .single()
+      
+      const locationId = nodeData?.location_id || null
+      await propagateVenueSourceNameChanges(props.nodeId, props.projectId, locationId)
+    } catch (propagateError) {
+      console.error('Error propagating venue source name changes:', propagateError)
+      // Don't fail the save if propagation fails
+    }
     
     toast.success('Venue Sources configuration saved')
     emit('saved')

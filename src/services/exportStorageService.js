@@ -103,6 +103,7 @@ export async function saveExportToStorage(
     return { 
       success: true, 
       docId: docData?.id,
+      projectId: projectId,
       venueId: venueId,
       stageId: stageId,
       fileBlob: fileBlob, // Return blob for immediate download option

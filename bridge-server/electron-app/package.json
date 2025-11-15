@@ -25,6 +25,7 @@
       "preload.js",
       "renderer.js",
       "client-core.js",
+      "opus-encoder.js",
       "index.html",
       "package.json",
       "!node_modules/**/*",

@@ -162,6 +162,7 @@ electron-app/
 ├── preload.js        # Preload script (security bridge)
 ├── renderer.js       # UI logic
 ├── client-core.js    # Audio client core logic
+├── opus-encoder.js   # Opus audio encoder utility
 ├── index.html        # UI markup
 ├── package.json      # Dependencies and build config
 ├── install.sh        # Setup script

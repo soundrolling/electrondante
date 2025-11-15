@@ -3,10 +3,10 @@ const WebSocket = require('ws');
 const EventEmitter = require('events');
 const path = require('path');
 
-// Load Opus encoder (relative to this file)
+// Load Opus encoder (local to electron app)
 let OpusEncoder = null;
 try {
-  OpusEncoder = require(path.join(__dirname, '..', 'opus-encoder'));
+  OpusEncoder = require('./opus-encoder');
 } catch (error) {
   console.warn('⚠️ Opus encoder not available:', error.message);
 }

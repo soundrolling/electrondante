@@ -451,6 +451,182 @@ export async function getSourceLabelFromNode(node, outputPort) {
   return `${base}${numSuffix}`
 }
 
+// Propagate venue source name changes to downstream transformers and recorders
+// This ensures that when venue source names change, all downstream nodes get updated labels
+export async function propagateVenueSourceNameChanges(venueSourceNodeId, projectId, locationId = null) {
+  try {
+    // Build graph to get all connections and nodes
+    const graph = await buildGraph(projectId, locationId)
+    const nodeMap = {}
+    graph.nodes.forEach(n => { nodeMap[n.id] = n })
+    
+    // Get the updated venue source node
+    const { data: venueSourceNode } = await supabase
+      .from('nodes')
+      .select('*')
+      .eq('id', venueSourceNodeId)
+      .single()
+    
+    if (!venueSourceNode) return
+    
+    // Find all connections from this venue source
+    const connections = graph.connections || []
+    const venueSourceConnections = connections.filter(c => c.from_node_id === venueSourceNodeId)
+    
+    // Track which nodes need updates
+    const nodesToUpdate = new Set()
+    
+    // Process each connection from the venue source
+    for (const conn of venueSourceConnections) {
+      const downstreamNodeId = conn.to_node_id
+      const downstreamNode = nodeMap[downstreamNodeId]
+      
+      if (!downstreamNode) continue
+      
+      const downstreamType = (downstreamNode.gear_type || downstreamNode.type || '').toLowerCase()
+      
+      // For transformers, update their output_port_labels
+      if (downstreamType === 'transformer') {
+        await updateTransformerOutputLabels(downstreamNodeId, projectId, locationId, graph, nodeMap, nodesToUpdate)
+      }
+      // For recorders, they compute labels dynamically, but we'll mark them for refresh
+      else if (downstreamType === 'recorder') {
+        nodesToUpdate.add(downstreamNodeId)
+      }
+    }
+    
+    // Invalidate cache for updated nodes
+    if (nodesToUpdate.size > 0) {
+      invalidateTableCache('nodes', projectId)
+    }
+  } catch (err) {
+    console.error('Error propagating venue source name changes:', err)
+    // Don't throw - this is a background update
+  }
+}
+
+// Recursively update transformer output labels based on upstream sources
+async function updateTransformerOutputLabels(transformerNodeId, projectId, locationId, graph, nodeMap, visitedNodes = new Set()) {
+  if (visitedNodes.has(transformerNodeId)) return
+  visitedNodes.add(transformerNodeId)
+  
+  const transformerNode = nodeMap[transformerNodeId]
+  if (!transformerNode) return
+  
+  // Find all connections feeding this transformer
+  const incomingConns = (graph.connections || []).filter(c => c.to_node_id === transformerNodeId)
+  const portMaps = graph.mapsByConnId || {}
+  
+  const newOutputLabels = {}
+  
+  // Process each input connection
+  for (const conn of incomingConns) {
+    const upstreamNodeId = conn.from_node_id
+    const upstreamNode = nodeMap[upstreamNodeId]
+    
+    if (!upstreamNode) continue
+    
+    const upstreamType = (upstreamNode.gear_type || upstreamNode.type || '').toLowerCase()
+    
+    // Get port mappings for this connection
+    const maps = portMaps[conn.id] || []
+    
+    if (maps.length > 0) {
+      // Port-mapped connection: process each mapping
+      for (const map of maps) {
+        const fromPort = map.from_port
+        const toInput = map.to_port
+        
+        // Get the label from upstream node
+        let upstreamLabel = null
+        
+        if (upstreamType === 'venue_sources' || upstreamType === 'source') {
+          upstreamLabel = await getSourceLabelFromNode(upstreamNode, fromPort)
+        } else if (upstreamType === 'transformer') {
+          // Recursively get upstream transformer's output label
+          // First ensure upstream transformer has updated labels
+          await updateTransformerOutputLabels(upstreamNodeId, projectId, locationId, graph, nodeMap, visitedNodes)
+          const upstreamTransformer = nodeMap[upstreamNodeId]
+          if (upstreamTransformer?.output_port_labels) {
+            upstreamLabel = upstreamTransformer.output_port_labels[String(fromPort)] || 
+                           upstreamTransformer.output_port_labels[fromPort]
+          }
+        } else if (upstreamType === 'recorder') {
+          // For recorders, labels are computed dynamically by tracing back
+          // We can't reliably get the label here without tracing, so skip updating
+          // The transformer will show the correct label when it traces back through the recorder
+          // This ensures transformers downstream of recorders still get updated if needed
+          continue
+        }
+        
+        // For transformers, output port typically matches input port (1:1 pass-through)
+        // Store the label for this output port
+        if (upstreamLabel) {
+          newOutputLabels[String(toInput)] = upstreamLabel
+        }
+      }
+    } else {
+      // Direct connection without port mapping
+      const inputNum = conn.input_number
+      if (inputNum !== null && inputNum !== undefined) {
+        let upstreamLabel = null
+        
+        if (upstreamType === 'venue_sources' || upstreamType === 'source') {
+          // For direct connections, infer the source output port
+          // For venue sources, input_number typically corresponds to the output port
+          upstreamLabel = await getSourceLabelFromNode(upstreamNode, inputNum)
+        } else if (upstreamType === 'transformer') {
+          // Recursively update upstream transformer first
+          await updateTransformerOutputLabels(upstreamNodeId, projectId, locationId, graph, nodeMap, visitedNodes)
+          const upstreamTransformer = nodeMap[upstreamNodeId]
+          if (upstreamTransformer?.output_port_labels) {
+            upstreamLabel = upstreamTransformer.output_port_labels[String(inputNum)] || 
+                           upstreamTransformer.output_port_labels[inputNum]
+          }
+        } else if (upstreamType === 'recorder') {
+          // For recorders, labels are computed dynamically by tracing back
+          // We can't reliably get the label here without tracing, so skip updating
+          // The transformer will show the correct label when it traces back through the recorder
+          continue
+        }
+        
+        if (upstreamLabel) {
+          newOutputLabels[String(inputNum)] = upstreamLabel
+        }
+      }
+    }
+  }
+  
+  // Update transformer's output_port_labels if we have new labels
+  if (Object.keys(newOutputLabels).length > 0) {
+    // Merge with existing labels
+    const existingLabels = transformerNode.output_port_labels || {}
+    const mergedLabels = { ...existingLabels, ...newOutputLabels }
+    
+    // Update in database
+    await supabase
+      .from('nodes')
+      .update({ output_port_labels: mergedLabels })
+      .eq('id', transformerNodeId)
+    
+    // Update in memory
+    transformerNode.output_port_labels = mergedLabels
+    
+    // Recursively update downstream transformers
+    const outgoingConns = (graph.connections || []).filter(c => c.from_node_id === transformerNodeId)
+    for (const conn of outgoingConns) {
+      const downstreamNodeId = conn.to_node_id
+      const downstreamNode = nodeMap[downstreamNodeId]
+      if (downstreamNode) {
+        const downstreamType = (downstreamNode.gear_type || downstreamNode.type || '').toLowerCase()
+        if (downstreamType === 'transformer') {
+          await updateTransformerOutputLabels(downstreamNodeId, projectId, locationId, graph, nodeMap, visitedNodes)
+        }
+      }
+    }
+  }
+}
+
 export async function getCompleteSignalPath(projectId, locationId = null) {
   const graph = await buildGraph(projectId, locationId)
   // Get all nodes and connections

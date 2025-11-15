@@ -818,6 +818,52 @@ function onImageLoad(event) {
   }
 }
 
+// Helper function to compress images for PDF export
+async function compressImageForPDF(imageDataUrl, maxDimension = 1200, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        // Calculate new dimensions (max 1200px on longest side)
+        let width = img.width;
+        let height = img.height;
+        const maxSize = maxDimension;
+        
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = (height / width) * maxSize;
+            width = maxSize;
+          } else {
+            width = (width / height) * maxSize;
+            height = maxSize;
+          }
+        }
+        
+        // Create canvas and draw compressed image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        // Use high-quality image rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Draw image to canvas
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to JPEG with quality setting to reduce file size
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    img.onerror = reject;
+    img.src = imageDataUrl;
+  });
+}
+
 // PDF Export
 async function exportPdf() {
   if (!images.value.length) {
@@ -860,16 +906,19 @@ async function exportPdf() {
       }
 
       const blob = await (await fetch(img.url)).blob();
-      const dataUrl = await new Promise(r => {
+      const originalDataUrl = await new Promise(r => {
         const fr = new FileReader();
         fr.onload = () => r(fr.result);
         fr.readAsDataURL(blob);
       });
       
+      // Compress image to reduce file size
+      const compressedDataUrl = await compressImageForPDF(originalDataUrl);
+      
       const htmlImg = new Image();
       await new Promise(r => {
         htmlImg.onload = r;
-        htmlImg.src = dataUrl;
+        htmlImg.src = compressedDataUrl;
       });
 
       // Downscale images to fit multiple per page - max height of 200pt
@@ -882,8 +931,8 @@ async function exportPdf() {
       // Center the image horizontally
       const imgX = margin + (maxW - imgW) / 2;
 
-      // Add the image
-      doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
+      // Add the compressed image as JPEG
+      doc.addImage(compressedDataUrl, 'JPEG', imgX, y, imgW, imgH);
       y += imgH + 8;
 
       // Add description if it exists
@@ -915,6 +964,13 @@ async function exportPdf() {
       description
     );
     
+    if (!result.success) {
+      console.error('PDF export failed:', result.error);
+      toast.error(`Failed to save PDF: ${result.error || 'Unknown error'}`);
+      return;
+    }
+    
+    // Show success modal with download and view options
     showExportSuccessToast(toast, result, filename, {
       projectId,
       venueId,
@@ -972,16 +1028,19 @@ async function exportSelectedPdf() {
       }
 
       const blob = await (await fetch(img.url)).blob();
-      const dataUrl = await new Promise(r => {
+      const originalDataUrl = await new Promise(r => {
         const fr = new FileReader();
         fr.onload = () => r(fr.result);
         fr.readAsDataURL(blob);
       });
       
+      // Compress image to reduce file size
+      const compressedDataUrl = await compressImageForPDF(originalDataUrl);
+      
       const htmlImg = new Image();
       await new Promise(r => {
         htmlImg.onload = r;
-        htmlImg.src = dataUrl;
+        htmlImg.src = compressedDataUrl;
       });
 
       // Downscale images to fit multiple per page - max height of 200pt
@@ -994,8 +1053,8 @@ async function exportSelectedPdf() {
       // Center the image horizontally
       const imgX = margin + (maxW - imgW) / 2;
 
-      // Add the image
-      doc.addImage(dataUrl, 'PNG', imgX, y, imgW, imgH);
+      // Add the compressed image as JPEG
+      doc.addImage(compressedDataUrl, 'JPEG', imgX, y, imgW, imgH);
       y += imgH + 8;
 
       // Add description if it exists
@@ -1027,6 +1086,13 @@ async function exportSelectedPdf() {
       description
     );
     
+    if (!result.success) {
+      console.error('PDF export failed:', result.error);
+      toast.error(`Failed to save PDF: ${result.error || 'Unknown error'}`);
+      return;
+    }
+    
+    // Show success modal with download and view options
     showExportSuccessToast(toast, result, filename, {
       projectId,
       venueId,

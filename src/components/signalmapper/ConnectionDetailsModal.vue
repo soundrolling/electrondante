@@ -189,7 +189,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { supabase } from '@/supabase'
-import { addConnection, updateConnection, deleteConnection, getSourceLabelFromNode } from '@/services/signalMapperService'
+import { addConnection, updateConnection, deleteConnection, getSourceLabelFromNode, propagateVenueSourceNameChanges } from '@/services/signalMapperService'
 import { useToast } from 'vue-toastification'
 
 const props = defineProps({
@@ -1825,6 +1825,15 @@ errorMsg.value = ''
           // Update the local node reference with the new output_port_labels
           // so the modal shows the updated labels immediately
           props.fromNode.output_port_labels = mergedLabels
+          
+          // Propagate name changes to downstream transformers and recorders
+          try {
+            const locationId = props.fromNode.location_id || null
+            await propagateVenueSourceNameChanges(props.fromNode.id, props.projectId, locationId)
+          } catch (propagateError) {
+            console.error('Error propagating venue source name changes:', propagateError)
+            // Don't fail the save if propagation fails
+          }
         }
       }
     }

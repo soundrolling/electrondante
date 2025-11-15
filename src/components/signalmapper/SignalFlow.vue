@@ -337,7 +337,7 @@ import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as sv
 import { useToast } from 'vue-toastification'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
-import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
+import { addNode, updateNode, deleteNode, addConnection as addConnectionToDB, updateConnection, deleteConnection as deleteConnectionFromDB, propagateVenueSourceNameChanges } from '@/services/signalMapperService'
 // Legacy modal removed; inspector-based editing is used instead
 // import ConnectionDetailsModal from './ConnectionDetailsModal.vue'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
@@ -1858,6 +1858,15 @@ async function saveSelectedConnection() {
             const nodeIndex = props.nodes.findIndex(n => n.id === fromNodeOfSelected.value.id)
             if (nodeIndex !== -1) {
               props.nodes[nodeIndex].output_port_labels = mergedLabels
+            }
+            
+            // Propagate name changes to downstream transformers and recorders
+            try {
+              const locationId = fromNodeOfSelected.value.location_id || props.locationId || null
+              await propagateVenueSourceNameChanges(fromNodeOfSelected.value.id, props.projectId, locationId)
+            } catch (propagateError) {
+              console.error('Error propagating venue source name changes:', propagateError)
+              // Don't fail the save if propagation fails
             }
           }
         }
