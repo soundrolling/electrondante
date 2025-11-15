@@ -153,21 +153,22 @@ export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, is
         allSettings: settings,
       });
       
-      // For Dante/multi-channel devices, browser capture is not suitable
+      // Browser limitation warning for Dante/multi-channel devices
+      // Allow capture to proceed, but warn about limitations
       if (isDanteDevice && actualChannelCount < 4) {
-        const errorMsg = `Browser cannot access all channels from ${deviceLabel}. Use the Electron app for proper multi-channel support.`;
-        console.error(`❌ [AUDIO CAPTURE] ${errorMsg}`);
-        captureError.value = errorMsg;
-        throw new Error(errorMsg);
-      }
-      
-      // Browser limitation warning
-      if (actualChannelCount < channelCount) {
+        console.warn(`⚠️ [AUDIO CAPTURE] Dante device detected (${deviceLabel}), but browser only provides ${actualChannelCount} channel(s).`);
+        console.warn(`⚠️ [AUDIO CAPTURE] Browser will capture what's available (typically 1-2 channels).`);
+        console.warn(`⚠️ [AUDIO CAPTURE] For full multi-channel support (all Dante channels), use the Electron app.`);
+        console.warn(`⚠️ [AUDIO CAPTURE] Continuing with browser capture - channel 0 will be mapped to Channel 1 in the mixer.`);
+        // Clear any previous errors and set a warning message (non-blocking)
+        captureError.value = ''; // Clear error - this is just a limitation, not a failure
+      } else if (actualChannelCount < channelCount) {
         console.warn(`⚠️ [AUDIO CAPTURE] Browser only provides ${actualChannelCount} channel(s), but ${channelCount} were requested.`);
-        console.warn(`⚠️ [AUDIO CAPTURE] This device requires the Electron app for proper channel mapping.`);
-        console.warn(`⚠️ [AUDIO CAPTURE] Browser channels will NOT map correctly to Dante channels - use Electron app instead.`);
+        console.warn(`⚠️ [AUDIO CAPTURE] Continuing with available channels - channel 0 will be mapped to Channel 1 in the mixer.`);
+        captureError.value = ''; // Clear error - this is just a limitation
       } else {
         console.log(`✅ [AUDIO CAPTURE] Full channel support: ${actualChannelCount} channels available.`);
+        captureError.value = ''; // Clear any previous errors
       }
       
       // Note: Most browsers only support stereo (2 channels) via getUserMedia
