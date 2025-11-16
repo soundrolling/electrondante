@@ -1,42 +1,82 @@
 // Renderer process - UI logic
-const { electronAPI } = window;
-
 let clientRunning = false;
 let selectedDeviceId = null;
 
-// DOM elements
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
-const railwayUrlInput = document.getElementById('railwayUrl');
-const accessTokenInput = document.getElementById('accessToken');
-const channelCountInput = document.getElementById('channelCount');
-const deviceList = document.getElementById('deviceList');
-const statusBar = document.getElementById('statusBar');
-const connectionIndicator = document.getElementById('connectionIndicator');
-const statusText = document.getElementById('statusText');
-const messagesDiv = document.getElementById('messages');
-const logArea = document.getElementById('logArea');
+// DOM elements (will be initialized)
+let startBtn;
+let stopBtn;
+let refreshDevicesBtn;
+let railwayUrlInput;
+let accessTokenInput;
+let channelCountInput;
+let deviceList;
+let statusBar;
+let connectionIndicator;
+let statusText;
+let messagesDiv;
+let logArea;
 
-// Event listeners
-startBtn.addEventListener('click', startClient);
-stopBtn.addEventListener('click', stopClient);
-refreshDevicesBtn.addEventListener('click', refreshDevices);
+// Waits for DOM and electronAPI
+function initializeApp() {
+  if (!window.electronAPI) {
+    setTimeout(initializeApp, 100);  // Retry
+    return;
+  }
 
-// Electron API event listeners
-electronAPI.onStatus((status) => {
-  updateStatus(status);
-  addLog(status.message, status.type === 'error' ? 'error' : 'success');
-});
+  const { electronAPI } = window;
 
-electronAPI.onError((error) => {
-  showMessage(error.message, 'error');
-  addLog(error.message, 'error');
-});
+  // Gets DOM elements
+  startBtn = document.getElementById('startBtn');
+  stopBtn = document.getElementById('stopBtn');
+  refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
+  railwayUrlInput = document.getElementById('railwayUrl');
+  accessTokenInput = document.getElementById('accessToken');
+  channelCountInput = document.getElementById('channelCount');
+  deviceList = document.getElementById('deviceList');
+  statusBar = document.getElementById('statusBar');
+  connectionIndicator = document.getElementById('connectionIndicator');
+  statusText = document.getElementById('statusText');
+  messagesDiv = document.getElementById('messages');
+  logArea = document.getElementById('logArea');
 
-electronAPI.onDevicesUpdated((devices) => {
-  renderDevices(devices);
-});
+  // Check if all elements exist
+  if (!startBtn || !stopBtn || !refreshDevicesBtn || !railwayUrlInput || 
+      !accessTokenInput || !channelCountInput || !deviceList || !statusBar ||
+      !connectionIndicator || !statusText || !messagesDiv || !logArea) {
+    setTimeout(initializeApp, 100);  // Retry if DOM not ready
+    return;
+  }
+
+  // Attaches listeners
+  startBtn.addEventListener('click', startClient);
+  stopBtn.addEventListener('click', stopClient);
+  refreshDevicesBtn.addEventListener('click', refreshDevices);
+
+  // Electron API event listeners
+  electronAPI.onStatus((status) => {
+    updateStatus(status);
+    addLog(status.message, status.type === 'error' ? 'error' : 'success');
+  });
+
+  electronAPI.onError((error) => {
+    showMessage(error.message, 'error');
+    addLog(error.message, 'error');
+  });
+
+  electronAPI.onDevicesUpdated((devices) => {
+    renderDevices(devices);
+  });
+
+  // Initial load
+  addLog('Dante Audio Client ready', 'success');
+}
+
+// Start when ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  initializeApp();
+}
 
 // Functions
 async function startClient() {
@@ -58,7 +98,7 @@ async function startClient() {
     startBtn.disabled = true;
     addLog('Starting client...', 'info');
     
-    const result = await electronAPI.startClient({
+    const result = await window.electronAPI.startClient({
       railwayWsUrl: railwayUrl,
       accessToken: accessToken,
       channels: channelCount,
@@ -89,7 +129,7 @@ async function stopClient() {
     stopBtn.disabled = true;
     addLog('Stopping client...', 'info');
     
-    const result = await electronAPI.stopClient();
+    const result = await window.electronAPI.stopClient();
     
     if (result.success) {
       clientRunning = false;
@@ -107,10 +147,10 @@ async function stopClient() {
 
 async function refreshDevices() {
   try {
-    const devices = await electronAPI.getDevices();
+    const devices = await window.electronAPI.getDevices();
     renderDevices(devices);
     
-    const status = await electronAPI.getStatus();
+    const status = await window.electronAPI.getStatus();
     if (status.deviceId !== null) {
       selectedDeviceId = status.deviceId;
     }
@@ -153,7 +193,7 @@ function renderDevices(devices) {
       // Update device if client is running
       if (clientRunning) {
         try {
-          const result = await electronAPI.setDevice(deviceId);
+          const result = await window.electronAPI.setDevice(deviceId);
           if (result.success) {
             showMessage(`Device changed to: ${item.querySelector('.device-name').textContent}`, 'success');
             addLog(`Device changed to ID ${deviceId}`, 'info');
@@ -210,9 +250,9 @@ function addLog(message, type = 'info') {
 
 // Initial status check
 setInterval(async () => {
-  if (clientRunning) {
+  if (clientRunning && window.electronAPI) {
     try {
-      const status = await electronAPI.getStatus();
+      const status = await window.electronAPI.getStatus();
       if (status.connected && !connectionIndicator.classList.contains('connected')) {
         updateStatus({ type: 'connected', message: 'Connected' });
       }
@@ -224,7 +264,3 @@ setInterval(async () => {
     }
   }
 }, 2000);
-
-// Initial load
-addLog('Dante Audio Client ready', 'success');
-
