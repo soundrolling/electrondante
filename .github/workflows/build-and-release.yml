@@ -192,7 +192,7 @@ jobs:
             export DEBUG=electron-notarize:*
             export ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache
             
-            # Try building with better error handling
+            # Try building with notarization first
             if ! npm run build:mac -- --publish never 2>&1 | tee build.log; then
               echo "❌ Build failed. Checking logs..."
               echo "Last 50 lines of build output:"
@@ -201,19 +201,36 @@ jobs:
               # Check if it's a notarization error
               if grep -q "not valid JSON\|notarization\|notarytool" build.log; then
                 echo ""
-                echo "⚠️  Notarization error detected. This might be:"
-                echo "   - Network issue with Apple's servers"
-                echo "   - Invalid credentials"
-                echo "   - Rate limiting"
-                echo "   - Service temporarily unavailable"
+                echo "⚠️  Notarization error detected. Attempting to build without notarization..."
+                echo "   This will create a signed DMG (but not notarized)"
+                echo "   Users will need to right-click → Open the first time"
                 echo ""
-                echo "The app may still be signed correctly. Check the verification step."
+                
+                # Disable notarization and rebuild
+                node -e "
+                  const fs = require('fs');
+                  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+                  pkg.build.mac.notarize = false;
+                  fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+                  console.log('✅ Disabled notarization for retry build');
+                "
+                
+                echo "🔄 Retrying build without notarization..."
+                if npm run build:mac -- --publish never 2>&1 | tee build-retry.log; then
+                  echo "✅ Build completed successfully (signed but not notarized)"
+                else
+                  echo "❌ Build failed even without notarization"
+                  echo "Last 50 lines of retry build:"
+                  tail -50 build-retry.log || cat build-retry.log
+                  exit 1
+                fi
+              else
+                echo "❌ Build failed for a different reason (not notarization)"
+                exit 1
               fi
-              
-              exit 1
+            else
+              echo "✅ Build completed successfully with notarization"
             fi
-            
-            echo "✅ Build completed successfully"
           fi
 
       - name: Verify code signing and notarization
