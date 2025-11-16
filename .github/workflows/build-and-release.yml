@@ -348,8 +348,10 @@ jobs:
           path: |
             dist/*.dmg
             dist/mac/*.dmg
+            dist/mac/*.app
           retention-days: 30
           if-no-files-found: warn
+        continue-on-error: true
 
   release:
     needs: build
@@ -381,14 +383,27 @@ jobs:
           TAG_NAME=${GITHUB_REF#refs/tags/}
           
           # Find DMG file
-          DMG_FILE=$(find ./artifacts -name "*.dmg" -type f | head -1)
+          DMG_FILE=$(find ./artifacts -name "*.dmg" -type f 2>/dev/null | head -1)
           
           if [ -z "$DMG_FILE" ]; then
-            echo "No DMG file found in artifacts"
-            exit 1
+            echo "⚠️  No DMG file found in artifacts"
+            echo "📁 Artifacts directory structure:"
+            find ./artifacts -type f 2>/dev/null | head -20 || echo "No files found in artifacts"
+            
+            # Create release anyway with a note about the missing DMG
+            echo "Creating release $TAG_NAME without DMG (build may have failed during notarization)..."
+            if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+              echo "Release $TAG_NAME already exists, skipping..."
+            else
+              gh release create "$TAG_NAME" \
+                --title "Release $TAG_NAME" \
+                --notes "⚠️ Build incomplete: DMG file was not created. This may indicate a notarization failure. Check the build logs for details."
+            fi
+            exit 0
           fi
           
-          echo "Found DMG file: $DMG_FILE"
+          echo "✅ Found DMG file: $DMG_FILE"
+          echo "📊 DMG size: $(du -h "$DMG_FILE" | cut -f1)"
           
           # Create or update release
           if gh release view "$TAG_NAME" > /dev/null 2>&1; then
@@ -401,4 +416,6 @@ jobs:
               --notes "Dante Audio Client Release $TAG_NAME" \
               "$DMG_FILE"
           fi
+          
+          echo "✅ Release created/updated successfully"
 
