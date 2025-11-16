@@ -171,18 +171,10 @@ jobs:
               "
             fi
             
-            # Build with timeout (notarization can take 10-20 minutes)
+            # Build (notarization can take 10-20 minutes)
+            # Note: GitHub Actions has a default timeout of 6 hours, which is sufficient
             echo "🚀 Starting build process (this may take 15-20 minutes with notarization)..."
-            timeout 1800 npm run build:mac -- --publish never || {
-              EXIT_CODE=$?
-              if [ $EXIT_CODE -eq 124 ]; then
-                echo "❌ Build timed out after 30 minutes"
-                exit 1
-              else
-                echo "❌ Build failed with exit code: $EXIT_CODE"
-                exit $EXIT_CODE
-              fi
-            }
+            npm run build:mac -- --publish never
             
             echo "✅ Build completed successfully"
           fi
