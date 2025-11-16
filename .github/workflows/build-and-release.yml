@@ -45,6 +45,10 @@ jobs:
         run: |
           if [ -n "$CSC_LINK" ]; then
             echo "📦 Importing code signing certificate..."
+            
+            # Clean up any existing keychain from previous runs
+            security delete-keychain build.keychain 2>/dev/null || true
+            
             # Create keychain
             security create-keychain -p "" build.keychain
             security list-keychains -s build.keychain
@@ -55,8 +59,18 @@ jobs:
             # Decode and save certificate to file (electron-builder can use file path)
             echo "$CSC_LINK" | base64 --decode > certificate.p12
             
+            # Verify certificate file was created
+            if [ ! -f "certificate.p12" ]; then
+              echo "❌ Failed to decode certificate"
+              exit 1
+            fi
+            
             # Import certificate into keychain
-            security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security || true
+            if ! security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security; then
+              echo "❌ Failed to import certificate into keychain"
+              exit 1
+            fi
+            
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain || true
             
             # Find and display the certificate identity name
@@ -72,9 +86,22 @@ jobs:
               IDENTITY_NAME=$(echo "$FULL_IDENTITY" | sed 's/^Developer ID Application: //')
               echo "✅ Using identity name (without prefix): $IDENTITY_NAME"
               echo "CSC_NAME=$IDENTITY_NAME" >> $GITHUB_ENV
+              
+              # Verify the identity can be used for signing
+              if security find-identity -v -p codesigning build.keychain | grep -q "$FULL_IDENTITY"; then
+                echo "✅ Identity verified and ready for signing"
+              else
+                echo "⚠️  Warning: Identity found but verification check failed"
+              fi
             else
-              echo "⚠️  Could not find Developer ID Application identity"
+              echo "❌ Could not find Developer ID Application identity"
+              echo "Available identities:"
+              security find-identity -v -p codesigning build.keychain
+              exit 1
             fi
+            
+            # Clean up certificate file (security best practice)
+            rm -f certificate.p12
           fi
 
       - name: Build macOS installer
@@ -134,10 +161,24 @@ jobs:
                 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
                 pkg.build.mac.notarize = { teamId: process.env.APPLE_TEAM_ID };
                 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+                console.log('✅ Updated notarize config with teamId:', process.env.APPLE_TEAM_ID);
               "
             fi
             
-            npm run build:mac -- --publish never
+            # Build with timeout (notarization can take 10-20 minutes)
+            echo "🚀 Starting build process (this may take 15-20 minutes with notarization)..."
+            timeout 1800 npm run build:mac -- --publish never || {
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -eq 124 ]; then
+                echo "❌ Build timed out after 30 minutes"
+                exit 1
+              else
+                echo "❌ Build failed with exit code: $EXIT_CODE"
+                exit $EXIT_CODE
+              fi
+            }
+            
+            echo "✅ Build completed successfully"
           fi
 
       - name: Verify code signing and notarization
@@ -145,42 +186,97 @@ jobs:
           CSC_LINK: ${{ secrets.CSC_LINK }}
         if: env.CSC_LINK != ''
         run: |
+          set -e
+          
           # Find the DMG file
           DMG_FILE=$(find dist -name "*.dmg" -type f | head -1)
           if [ -z "$DMG_FILE" ]; then
-            echo "⚠️  No DMG file found"
-            exit 0
+            echo "❌ No DMG file found in dist/"
+            ls -la dist/ || echo "dist/ directory does not exist"
+            exit 1
           fi
           
           echo "📦 DMG file: $DMG_FILE"
+          echo "📊 DMG size: $(du -h "$DMG_FILE" | cut -f1)"
           
           # Mount the DMG to check the app
-          hdiutil attach "$DMG_FILE" -quiet -nobrowse -mountpoint /tmp/dmg_mount || true
+          MOUNT_POINT="/tmp/dmg_mount_$$"
+          mkdir -p "$MOUNT_POINT"
+          
+          if ! hdiutil attach "$DMG_FILE" -quiet -nobrowse -mountpoint "$MOUNT_POINT"; then
+            echo "❌ Failed to mount DMG"
+            exit 1
+          fi
           
           # Find the app inside the DMG
-          APP_PATH=$(find /tmp/dmg_mount -name "*.app" -type d | head -1)
+          APP_PATH=$(find "$MOUNT_POINT" -name "*.app" -type d | head -1)
           
-          if [ -n "$APP_PATH" ]; then
-            echo "📱 App path: $APP_PATH"
-            
-            # Verify code signing
-            echo "🔍 Verifying code signature..."
-            codesign -vvv --deep --strict "$APP_PATH" || echo "⚠️  Code signature verification failed"
-            
-            # Check notarization ticket
-            echo "🎫 Checking notarization ticket..."
-            stapler validate "$APP_PATH" && echo "✅ Notarization ticket is stapled" || echo "⚠️  Notarization ticket not found or not stapled"
-            
-            # Check Gatekeeper assessment
-            echo "🛡️  Checking Gatekeeper assessment..."
-            spctl -a -vv "$APP_PATH" && echo "✅ Gatekeeper assessment passed" || echo "⚠️  Gatekeeper assessment failed"
-            
-            # Unmount
-            hdiutil detach /tmp/dmg_mount -quiet || true
-          else
-            echo "⚠️  No app found in DMG"
-            hdiutil detach /tmp/dmg_mount -quiet || true
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No app found in DMG"
+            hdiutil detach "$MOUNT_POINT" -quiet || true
+            exit 1
           fi
+          
+          echo "📱 App path: $APP_PATH"
+          
+          # Verify code signing with detailed output
+          echo ""
+          echo "🔍 Verifying code signature..."
+          if codesign -vvv --deep --strict "$APP_PATH" 2>&1; then
+            echo "✅ Code signature is valid"
+          else
+            echo "❌ Code signature verification failed"
+            hdiutil detach "$MOUNT_POINT" -quiet || true
+            exit 1
+          fi
+          
+          # Check signature details
+          echo ""
+          echo "📋 Signature details:"
+          codesign -d -vv "$APP_PATH" 2>&1 | head -20
+          
+          # Check notarization ticket
+          echo ""
+          echo "🎫 Checking notarization ticket..."
+          if stapler validate "$APP_PATH" 2>&1; then
+          then
+            echo "✅ Notarization ticket is stapled"
+          else
+            echo "⚠️  Notarization ticket not found or not stapled"
+            echo "   This may be normal if notarization is still processing"
+          fi
+          
+          # Check Gatekeeper assessment
+          echo ""
+          echo "🛡️  Checking Gatekeeper assessment..."
+          if spctl -a -vv "$APP_PATH" 2>&1; then
+            echo "✅ Gatekeeper assessment passed - app is trusted"
+          else
+            echo "⚠️  Gatekeeper assessment failed or pending"
+            echo "   This may be normal if notarization is still processing"
+          fi
+          
+          # Check for quarantine attribute (should not be present)
+          echo ""
+          echo "🔒 Checking quarantine attribute..."
+          if xattr -l "$APP_PATH" 2>/dev/null | grep -q "com.apple.quarantine"; then
+            echo "⚠️  Quarantine attribute found (unexpected for signed/notarized app)"
+          else
+            echo "✅ No quarantine attribute (expected for signed/notarized app)"
+          fi
+          
+          # Unmount
+          hdiutil detach "$MOUNT_POINT" -quiet || true
+          
+          echo ""
+          echo "✅ Verification complete"
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          # Clean up keychain even if build fails
+          security delete-keychain build.keychain 2>/dev/null || true
+          echo "🧹 Cleaned up build keychain"
 
       - name: List dist directory
         run: ls -la dist/ || echo "dist directory not found"
