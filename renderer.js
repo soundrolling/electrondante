@@ -110,6 +110,40 @@ async function stopClient() {
   }
 }
 
+async function requestMicrophonePermission() {
+  try {
+    if (!electronAPI) {
+      showMessage('Electron API not available', 'error');
+      return;
+    }
+    
+    requestPermissionBtn.disabled = true;
+    addLog('Requesting microphone permission...', 'info');
+    showMessage('Requesting microphone permission - a system dialog should appear', 'info');
+    
+    // Request permission explicitly
+    const result = await electronAPI.requestMicrophonePermission();
+    
+    if (result.granted) {
+      showMessage('Microphone permission granted! Refreshing devices...', 'success');
+      addLog('Microphone permission granted', 'success');
+      // Wait a moment for the system to register the permission
+      await new Promise(resolve => setTimeout(resolve, 500));
+      // Refresh devices now that permission is granted
+      await refreshDevices();
+    } else {
+      showMessage('Microphone permission denied. Please grant permission in System Settings → Privacy & Security → Microphone', 'error');
+      addLog('Microphone permission denied - grant in System Settings', 'error');
+    }
+  } catch (error) {
+    showMessage(`Error requesting permission: ${error.message}`, 'error');
+    addLog(`Error: ${error.message}`, 'error');
+    console.error('Permission request error:', error);
+  } finally {
+    requestPermissionBtn.disabled = false;
+  }
+}
+
 async function refreshDevices() {
   try {
     if (!electronAPI) {
@@ -117,7 +151,9 @@ async function refreshDevices() {
       return;
     }
     
-    addLog('Requesting microphone permission and enumerating devices...', 'info');
+    refreshDevicesBtn.disabled = true;
+    addLog('Enumerating audio devices...', 'info');
+    
     const devices = await electronAPI.getDevices();
     addLog(`Found ${devices.length} audio device(s)`, devices.length > 0 ? 'success' : 'error');
     renderDevices(devices);
@@ -128,13 +164,15 @@ async function refreshDevices() {
     }
     
     if (devices.length === 0) {
-      showMessage('No audio devices found. On macOS, make sure you granted microphone permission when prompted. Check System Settings → Privacy & Security → Microphone.', 'error');
-      addLog('No devices found - check microphone permission in System Settings', 'error');
+      showMessage('No audio devices found. Click "Request Microphone Permission" above, then check System Settings → Privacy & Security → Microphone.', 'error');
+      addLog('No devices found - request microphone permission first', 'error');
     }
   } catch (error) {
     showMessage(`Error refreshing devices: ${error.message}`, 'error');
     addLog(`Error: ${error.message}`, 'error');
     console.error('Device enumeration error:', error);
+  } finally {
+    refreshDevicesBtn.disabled = false;
   }
 }
 

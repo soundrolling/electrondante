@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startClient: (config) => ipcRenderer.invoke('start-client', config),
   stopClient: () => ipcRenderer.invoke('stop-client'),
   getDevices: () => ipcRenderer.invoke('get-devices'),
+  requestMicrophonePermission: () => ipcRenderer.invoke('request-microphone-permission'),
   setDevice: (deviceId) => ipcRenderer.invoke('set-device', deviceId),
   getStatus: () => ipcRenderer.invoke('get-status'),
   
