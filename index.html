@@ -307,7 +307,10 @@
         <div class="help-text" style="margin-top: 8px;">
           Click a device to select it. The client will restart with the new device.
           <br><br>
-          <strong>macOS Note:</strong> If no devices appear, grant microphone permission in System Settings → Privacy & Security → Microphone → Enable "Dante Audio Client"
+          <strong>macOS Note:</strong> If no devices appear, click "Request Microphone Permission" below, then check System Settings → Privacy & Security → Microphone → Enable "Dante Audio Client"
+        </div>
+        <div style="margin-top: 12px;">
+          <button id="requestPermissionBtn" class="btn-secondary" style="width: 100%;">Request Microphone Permission</button>
         </div>
       </div>
     </div>
@@ -316,7 +319,7 @@
       <div class="button-group">
         <button id="startBtn" class="btn-primary">Start Client</button>
         <button id="stopBtn" class="btn-danger" disabled>Stop Client</button>
-        <button id="refreshDevicesBtn" class="btn-secondary" disabled>Refresh Devices</button>
+        <button id="refreshDevicesBtn" class="btn-secondary">Refresh Devices</button>
       </div>
     </div>
     

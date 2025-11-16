@@ -11,6 +11,7 @@ let selectedDeviceId = null;
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
+const requestPermissionBtn = document.getElementById('requestPermissionBtn');
 const railwayUrlInput = document.getElementById('railwayUrl');
 const accessTokenInput = document.getElementById('accessToken');
 const channelCountInput = document.getElementById('channelCount');
@@ -25,6 +26,7 @@ const logArea = document.getElementById('logArea');
 startBtn.addEventListener('click', startClient);
 stopBtn.addEventListener('click', stopClient);
 refreshDevicesBtn.addEventListener('click', refreshDevices);
+requestPermissionBtn.addEventListener('click', requestMicrophonePermission);
 
 // Electron API event listeners
 electronAPI.onStatus((status) => {
