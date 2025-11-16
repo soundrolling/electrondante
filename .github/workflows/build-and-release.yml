@@ -234,9 +234,9 @@ jobs:
           fi
 
       - name: Create DMG manually if needed
-        if: env.CSC_LINK != ''
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
+        if: env.CSC_LINK != ''
         run: |
           # Check if DMG exists
           DMG_FILE=$(find dist -name "*.dmg" -type f 2>/dev/null | head -1)
