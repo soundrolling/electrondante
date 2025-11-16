@@ -222,22 +222,31 @@ jobs:
         if: env.CSC_LINK != ''
         continue-on-error: true
         run: |
+          # Don't use set -e here - we want to handle missing DMG gracefully
+          
           # Find the DMG file (check both dist/ and dist/mac/)
           DMG_FILE=$(find dist -name "*.dmg" -type f 2>/dev/null | head -1)
+          
           if [ -z "$DMG_FILE" ]; then
-            echo "⚠️  No DMG file found in dist/, checking dist/mac/..."
+            echo "⚠️  No DMG file found in dist/"
+            echo "📁 Contents of dist/:"
             ls -la dist/ 2>/dev/null || echo "dist/ directory does not exist"
+            echo "📁 Contents of dist/mac/ (if exists):"
             ls -la dist/mac/ 2>/dev/null || echo "dist/mac/ directory does not exist"
             
             # Try to find any DMG in the workspace
             DMG_FILE=$(find . -name "*.dmg" -type f 2>/dev/null | head -1)
             if [ -z "$DMG_FILE" ]; then
+              echo ""
               echo "⚠️  No DMG file found - build may have failed before creating DMG"
               echo "   This is expected if the build failed during signing/notarization"
+              echo "   Check the build logs above for the actual error"
               exit 0  # Don't fail the workflow, just skip verification
             else
               echo "✅ Found DMG file: $DMG_FILE"
             fi
+          else
+            echo "✅ Found DMG file: $DMG_FILE"
           fi
           
           if [ -z "$DMG_FILE" ]; then
@@ -245,7 +254,8 @@ jobs:
             exit 0
           fi
           
-          set -e  # Enable strict error handling only after we have a DMG file
+          # Now enable strict error handling for the actual verification
+          set -e
           
           echo "📦 DMG file: $DMG_FILE"
           echo "📊 DMG size: $(du -h "$DMG_FILE" | cut -f1)"
