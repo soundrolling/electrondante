@@ -223,12 +223,21 @@ jobs:
         run: |
           set -e
           
-          # Find the DMG file
+          # Find the DMG file (check both dist/ and dist/mac/)
           DMG_FILE=$(find dist -name "*.dmg" -type f | head -1)
           if [ -z "$DMG_FILE" ]; then
-            echo "❌ No DMG file found in dist/"
+            echo "⚠️  No DMG file found in dist/, checking dist/mac/..."
             ls -la dist/ || echo "dist/ directory does not exist"
-            exit 1
+            ls -la dist/mac/ 2>/dev/null || echo "dist/mac/ directory does not exist"
+            
+            # Try to find any DMG in the workspace
+            DMG_FILE=$(find . -name "*.dmg" -type f 2>/dev/null | head -1)
+            if [ -z "$DMG_FILE" ]; then
+              echo "❌ No DMG file found anywhere in the workspace"
+              exit 1
+            else
+              echo "✅ Found DMG file: $DMG_FILE"
+            fi
           fi
           
           echo "📦 DMG file: $DMG_FILE"
@@ -319,7 +328,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-installer
-          path: dist/*.dmg
+          path: |
+            dist/*.dmg
+            dist/mac/*.dmg
           retention-days: 30
           if-no-files-found: warn
 
