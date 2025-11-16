@@ -195,8 +195,17 @@ jobs:
             # Try building with notarization first
             if ! npm run build:mac -- --publish never 2>&1 | tee build.log; then
               echo "❌ Build failed. Checking logs..."
-              echo "Last 50 lines of build output:"
-              tail -50 build.log || cat build.log
+              echo "Last 100 lines of build output:"
+              tail -100 build.log || cat build.log
+              
+              # Extract and show notarization errors more clearly
+              echo ""
+              echo "🔍 Searching for notarization errors..."
+              if grep -i "notarization\|notarytool\|not valid JSON" build.log; then
+                echo ""
+                echo "📋 Full notarization error context:"
+                grep -A 10 -B 10 -i "notarization\|notarytool\|not valid JSON\|Error: HTT" build.log | head -50 || echo "No additional context found"
+              fi
               
               # Check if it's a notarization error
               if grep -q "not valid JSON\|notarization\|notarytool" build.log; then

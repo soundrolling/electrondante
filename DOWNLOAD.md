@@ -66,14 +66,19 @@ sudo apt-get install build-essential libasound2-dev
 1. Download the `.dmg` file
 2. Open the `.dmg` file
 3. Drag "Dante Audio Client" to Applications folder
-4. **First time opening:** Right-click the app in Applications and select "Open", then click "Open" in the security dialog
-   - Alternatively, go to **System Settings** → **Privacy & Security** → Click "Open Anyway" next to the blocked app message
-5. After the first open, the app will open normally (the app is code-signed and notarized by Apple)
+4. **First time opening:** The app is signed but may not be notarized yet. To open it:
+   - **Option 1 (Recommended):** Go to **System Settings** → **Privacy & Security** → Scroll down to see "Dante Audio Client.app was blocked" → Click **"Open Anyway"**
+   - **Option 2:** Right-click the app in Applications → Select "Open" → Click "Open" in the security dialog
+   - **Option 3:** Open Terminal and run:
+     ```bash
+     xattr -d com.apple.quarantine "/Applications/Dante Audio Client.app"
+     sudo spctl --master-disable  # Temporarily disable Gatekeeper (re-enable after)
+     open "/Applications/Dante Audio Client.app"
+     sudo spctl --master-enable  # Re-enable Gatekeeper
+     ```
+5. After the first open, the app will be added to your exceptions and will open normally
 
-**Note:** If you see "developer cannot be verified" even after right-clicking, remove the quarantine attribute:
-```bash
-xattr -d com.apple.quarantine "/Applications/Dante Audio Client.app"
-```
+**Note:** The app is code-signed with a Developer ID certificate. If notarization is working, you won't see these warnings. If you do see warnings, it means notarization is still being set up.
 
 ### Windows
 1. Download the `.exe` installer
