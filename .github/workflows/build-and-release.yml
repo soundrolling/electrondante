@@ -116,6 +116,12 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_INSTALL_KEYCHAIN_NAME: "build.keychain"
         run: |
+          # Recreate certificate file for electron-builder (it was cleaned up after import)
+          if [ -n "$CSC_LINK" ] && [ ! -f "certificate.p12" ]; then
+            echo "📦 Recreating certificate file for electron-builder..."
+            echo "$CSC_LINK" | base64 --decode > certificate.p12
+          fi
+          
           # Set CSC_LINK to the certificate file path (electron-builder prefers file paths)
           if [ -f "certificate.p12" ]; then
             export CSC_LINK="$(pwd)/certificate.p12"
