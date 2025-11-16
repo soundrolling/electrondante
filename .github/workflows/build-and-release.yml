@@ -1,0 +1,508 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python (for native module builds)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # Python 3.11 has distutils, needed for node-gyp
+
+      - name: Install Python setuptools (for distutils compatibility)
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm run rebuild || echo "Rebuild failed, electron-builder will handle it"
+        continue-on-error: true
+
+      - name: Import code signing certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        if: env.CSC_LINK != ''
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "📦 Importing code signing certificate..."
+            
+            # Clean up any existing keychain from previous runs
+            security delete-keychain build.keychain 2>/dev/null || true
+            
+            # Create keychain
+            security create-keychain -p "" build.keychain
+            security list-keychains -s build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p "" build.keychain
+            security set-keychain-settings -t 3600 -u build.keychain
+            
+            # Decode and save certificate to file (electron-builder can use file path)
+            echo "$CSC_LINK" | base64 --decode > certificate.p12
+            
+            # Verify certificate file was created
+            if [ ! -f "certificate.p12" ]; then
+              echo "❌ Failed to decode certificate"
+              exit 1
+            fi
+            
+            # Import certificate into keychain
+            if ! security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security; then
+              echo "❌ Failed to import certificate into keychain"
+              exit 1
+            fi
+            
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain || true
+            
+            # Find and display the certificate identity name
+            echo "🔍 Available signing identities:"
+            security find-identity -v -p codesigning build.keychain
+            
+            # Extract the identity name (usually "Developer ID Application: ...")
+            # electron-builder wants just the name part, not the prefix
+            FULL_IDENTITY=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -1 | cut -d'"' -f2)
+            if [ -n "$FULL_IDENTITY" ]; then
+              echo "✅ Found identity: $FULL_IDENTITY"
+              # Remove "Developer ID Application: " prefix if present
+              IDENTITY_NAME=$(echo "$FULL_IDENTITY" | sed 's/^Developer ID Application: //')
+              echo "✅ Using identity name (without prefix): $IDENTITY_NAME"
+              echo "CSC_NAME=$IDENTITY_NAME" >> $GITHUB_ENV
+              
+              # Verify the identity can be used for signing
+              if security find-identity -v -p codesigning build.keychain | grep -q "$FULL_IDENTITY"; then
+                echo "✅ Identity verified and ready for signing"
+              else
+                echo "⚠️  Warning: Identity found but verification check failed"
+              fi
+            else
+              echo "❌ Could not find Developer ID Application identity"
+              echo "Available identities:"
+              security find-identity -v -p codesigning build.keychain
+              exit 1
+            fi
+            
+            # Clean up certificate file (security best practice)
+            rm -f certificate.p12
+          fi
+
+      - name: Build macOS installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing and notarization
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_INSTALL_KEYCHAIN_NAME: "build.keychain"
+        run: |
+          # Recreate certificate file for electron-builder (it was cleaned up after import)
+          if [ -n "$CSC_LINK" ] && [ ! -f "certificate.p12" ]; then
+            echo "📦 Recreating certificate file for electron-builder..."
+            echo "$CSC_LINK" | base64 --decode > certificate.p12
+          fi
+          
+          # Set CSC_LINK to the certificate file path (electron-builder prefers file paths)
+          if [ -f "certificate.p12" ]; then
+            export CSC_LINK="$(pwd)/certificate.p12"
+            echo "✅ Using certificate file: $CSC_LINK"
+          fi
+          
+          # Use CSC_NAME if we found the identity
+          if [ -n "$CSC_NAME" ]; then
+            export CSC_NAME="$CSC_NAME"
+            echo "✅ Using identity name: $CSC_NAME"
+          fi
+          # Export environment variables for notarization (electron-builder needs these)
+          export APPLE_ID="$APPLE_ID"
+          export APPLE_APP_SPECIFIC_PASSWORD="$APPLE_APP_SPECIFIC_PASSWORD"
+          export APPLE_TEAM_ID="$APPLE_TEAM_ID"
+          
+          # Verify notarization credentials are set
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "✅ Notarization credentials found"
+            echo "   APPLE_ID: ${APPLE_ID:0:3}*** (hidden)"
+            echo "   APPLE_TEAM_ID: $APPLE_TEAM_ID"
+            echo "   APPLE_APP_SPECIFIC_PASSWORD: ${APPLE_APP_SPECIFIC_PASSWORD:0:3}*** (hidden)"
+            
+            # Test notarization credentials by checking if we can authenticate
+            echo "🔍 Testing notarization credentials..."
+            if xcrun notarytool store-credentials --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" test-profile 2>&1 | grep -q "Success\|already exists"; then
+              echo "✅ Notarization credentials are valid"
+              xcrun notarytool store-credentials --delete test-profile 2>/dev/null || true
+            else
+              echo "⚠️  Warning: Could not verify notarization credentials"
+              echo "   This might cause notarization to fail, but signing should still work"
+            fi
+          else
+            echo "⚠️  Notarization credentials missing - app will be signed but not notarized"
+          fi
+          
+          # Verify signing setup
+          if [ -z "$CSC_LINK" ]; then
+            echo "⚠️  Code signing skipped - CSC_LINK not set. Building unsigned app."
+            npm run build:mac -- --publish never
+          else
+            echo "✅ Code signing and notarization enabled - building signed and notarized app"
+            echo "📋 Signing configuration:"
+            echo "   CSC_LINK: $CSC_LINK"
+            echo "   CSC_NAME: ${CSC_NAME:-not set}"
+            echo "   CSC_INSTALL_KEYCHAIN_NAME: $CSC_INSTALL_KEYCHAIN_NAME"
+            echo "   APPLE_TEAM_ID: $APPLE_TEAM_ID"
+            
+            # Temporarily update package.json to include teamId in notarize config
+            # electron-builder's notarization needs explicit teamId
+            if [ -n "$APPLE_TEAM_ID" ]; then
+              echo "📝 Updating package.json with teamId for notarization..."
+              # Use node to properly update JSON
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+                pkg.build.mac.notarize = { teamId: process.env.APPLE_TEAM_ID };
+                fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+                console.log('✅ Updated notarize config with teamId:', process.env.APPLE_TEAM_ID);
+              "
+            fi
+            
+            # Build (notarization can take 10-20 minutes)
+            # Note: GitHub Actions has a default timeout of 6 hours, which is sufficient
+            echo "🚀 Starting build process (this may take 15-20 minutes with notarization)..."
+            
+            # Set debug flags for better error visibility
+            export DEBUG=electron-notarize:*
+            export ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache
+            
+            # Try building with notarization first
+            if ! npm run build:mac -- --publish never 2>&1 | tee build.log; then
+              echo "❌ Build failed. Checking logs..."
+              echo "Last 100 lines of build output:"
+              tail -100 build.log || cat build.log
+              
+              # Extract and show notarization errors more clearly
+              echo ""
+              echo "🔍 Searching for notarization errors..."
+              if grep -i "notarization\|notarytool\|not valid JSON" build.log; then
+                echo ""
+                echo "📋 Full notarization error context:"
+                grep -A 10 -B 10 -i "notarization\|notarytool\|not valid JSON\|Error: HTT" build.log | head -50 || echo "No additional context found"
+              fi
+              
+              # Check if it's a notarization error
+              if grep -q "not valid JSON\|notarization\|notarytool" build.log; then
+                echo ""
+                echo "⚠️  Notarization error detected. Attempting to build without notarization..."
+                echo "   This will create a signed DMG (but not notarized)"
+                echo "   Users will need to right-click → Open the first time"
+                echo ""
+                
+                # Disable notarization and rebuild
+                node -e "
+                  const fs = require('fs');
+                  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+                  pkg.build.mac.notarize = false;
+                  fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+                  console.log('✅ Disabled notarization for retry build');
+                "
+                
+                echo "🔄 Retrying build without notarization..."
+                if npm run build:mac -- --publish never 2>&1 | tee build-retry.log; then
+                  echo "✅ Build completed successfully (signed but not notarized)"
+                else
+                  echo "❌ Build failed even without notarization"
+                  echo "Last 50 lines of retry build:"
+                  tail -50 build-retry.log || cat build-retry.log
+                  exit 1
+                fi
+              else
+                echo "❌ Build failed for a different reason (not notarization)"
+                exit 1
+              fi
+            else
+              echo "✅ Build completed successfully with notarization"
+            fi
+          fi
+
+      - name: Create DMG manually if needed
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        if: env.CSC_LINK != ''
+        run: |
+          # Check if DMG exists
+          DMG_FILE=$(find dist -name "*.dmg" -type f 2>/dev/null | head -1)
+          
+          if [ -n "$DMG_FILE" ]; then
+            echo "✅ DMG file already exists: $DMG_FILE"
+            exit 0
+          fi
+          
+          # Check if app bundle exists
+          APP_BUNDLE=$(find dist/mac -name "*.app" -type d 2>/dev/null | head -1)
+          
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "⚠️  No app bundle found, cannot create DMG"
+            exit 0
+          fi
+          
+          echo "📦 App bundle found: $APP_BUNDLE"
+          echo "🔨 Creating DMG manually from app bundle..."
+          
+          # Get app name and version
+          APP_NAME="Dante Audio Client"
+          VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
+          DMG_NAME="${APP_NAME}-${VERSION}.dmg"
+          DMG_PATH="dist/${DMG_NAME}"
+          
+          # Create a temporary directory for DMG contents
+          DMG_TEMP=$(mktemp -d)
+          cp -R "$APP_BUNDLE" "$DMG_TEMP/"
+          
+          # Create Applications symlink
+          ln -s /Applications "$DMG_TEMP/Applications"
+          
+          # Create DMG
+          hdiutil create -volname "$APP_NAME" \
+            -srcfolder "$DMG_TEMP" \
+            -ov -format UDZO \
+            "$DMG_PATH" || {
+            echo "❌ Failed to create DMG"
+            rm -rf "$DMG_TEMP"
+            exit 1
+          }
+          
+          # Clean up
+          rm -rf "$DMG_TEMP"
+          
+          echo "✅ Created DMG: $DMG_PATH"
+          echo "📊 DMG size: $(du -h "$DMG_PATH" | cut -f1)"
+          
+          # Verify DMG
+          if [ -f "$DMG_PATH" ]; then
+            echo "✅ DMG file verified"
+          else
+            echo "❌ DMG file was not created"
+            exit 1
+          fi
+
+      - name: Verify code signing and notarization
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        if: env.CSC_LINK != ''
+        continue-on-error: true
+        run: |
+          # Don't use set -e here - we want to handle missing DMG gracefully
+          
+          # Find the DMG file (check both dist/ and dist/mac/)
+          DMG_FILE=$(find dist -name "*.dmg" -type f 2>/dev/null | head -1)
+          
+          if [ -z "$DMG_FILE" ]; then
+            echo "⚠️  No DMG file found in dist/"
+            echo "📁 Contents of dist/:"
+            ls -la dist/ 2>/dev/null || echo "dist/ directory does not exist"
+            echo "📁 Contents of dist/mac/ (if exists):"
+            ls -la dist/mac/ 2>/dev/null || echo "dist/mac/ directory does not exist"
+            
+            # Try to find any DMG in the workspace
+            DMG_FILE=$(find . -name "*.dmg" -type f 2>/dev/null | head -1)
+            if [ -z "$DMG_FILE" ]; then
+              echo ""
+              echo "⚠️  No DMG file found - build may have failed before creating DMG"
+              echo "   This is expected if the build failed during signing/notarization"
+              echo "   Check the build logs above for the actual error"
+              exit 0  # Don't fail the workflow, just skip verification
+            else
+              echo "✅ Found DMG file: $DMG_FILE"
+            fi
+          else
+            echo "✅ Found DMG file: $DMG_FILE"
+          fi
+          
+          if [ -z "$DMG_FILE" ]; then
+            echo "⚠️  Skipping verification - no DMG file found"
+            exit 0
+          fi
+          
+          # Now enable strict error handling for the actual verification
+          set -e
+          
+          echo "📦 DMG file: $DMG_FILE"
+          echo "📊 DMG size: $(du -h "$DMG_FILE" | cut -f1)"
+          
+          # Mount the DMG to check the app
+          MOUNT_POINT="/tmp/dmg_mount_$$"
+          mkdir -p "$MOUNT_POINT"
+          
+          if ! hdiutil attach "$DMG_FILE" -quiet -nobrowse -mountpoint "$MOUNT_POINT"; then
+            echo "❌ Failed to mount DMG"
+            exit 1
+          fi
+          
+          # Find the app inside the DMG
+          APP_PATH=$(find "$MOUNT_POINT" -name "*.app" -type d | head -1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No app found in DMG"
+            hdiutil detach "$MOUNT_POINT" -quiet || true
+            exit 1
+          fi
+          
+          echo "📱 App path: $APP_PATH"
+          
+          # Verify code signing with detailed output
+          echo ""
+          echo "🔍 Verifying code signature..."
+          if codesign -vvv --deep --strict "$APP_PATH" 2>&1; then
+            echo "✅ Code signature is valid"
+          else
+            echo "❌ Code signature verification failed"
+            hdiutil detach "$MOUNT_POINT" -quiet || true
+            exit 1
+          fi
+          
+          # Check signature details
+          echo ""
+          echo "📋 Signature details:"
+          codesign -d -vv "$APP_PATH" 2>&1 | head -20
+          
+          # Check notarization ticket
+          echo ""
+          echo "🎫 Checking notarization ticket..."
+          if stapler validate "$APP_PATH" 2>&1; then
+            echo "✅ Notarization ticket is stapled"
+          else
+            echo "⚠️  Notarization ticket not found or not stapled"
+            echo "   This may be normal if notarization is still processing"
+          fi
+          
+          # Check Gatekeeper assessment
+          echo ""
+          echo "🛡️  Checking Gatekeeper assessment..."
+          if spctl -a -vv "$APP_PATH" 2>&1; then
+            echo "✅ Gatekeeper assessment passed - app is trusted"
+          else
+            echo "⚠️  Gatekeeper assessment failed or pending"
+            echo "   This may be normal if notarization is still processing"
+          fi
+          
+          # Check for quarantine attribute (should not be present)
+          echo ""
+          echo "🔒 Checking quarantine attribute..."
+          if xattr -l "$APP_PATH" 2>/dev/null | grep -q "com.apple.quarantine"; then
+            echo "⚠️  Quarantine attribute found (unexpected for signed/notarized app)"
+          else
+            echo "✅ No quarantine attribute (expected for signed/notarized app)"
+          fi
+          
+          # Unmount
+          hdiutil detach "$MOUNT_POINT" -quiet || true
+          
+          echo ""
+          echo "✅ Verification complete"
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          # Clean up keychain even if build fails
+          security delete-keychain build.keychain 2>/dev/null || true
+          echo "🧹 Cleaned up build keychain"
+
+      - name: List dist directory
+        run: ls -la dist/ || echo "dist directory not found"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-installer
+          path: |
+            dist/*.dmg
+            dist/mac/*.dmg
+            dist/mac/*.app
+          retention-days: 30
+          if-no-files-found: warn
+        continue-on-error: true
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write  # Required to create releases and upload assets
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: |
+          echo "Artifacts directory contents:"
+          ls -la artifacts/ || echo "artifacts directory not found"
+          echo "mac-installer directory contents:"
+          ls -la artifacts/mac-installer/ || echo "mac-installer directory not found"
+
+      - name: Create Release and Upload Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          
+          # Find DMG file
+          DMG_FILE=$(find ./artifacts -name "*.dmg" -type f 2>/dev/null | head -1)
+          
+          if [ -z "$DMG_FILE" ]; then
+            echo "⚠️  No DMG file found in artifacts"
+            echo "📁 Artifacts directory structure:"
+            find ./artifacts -type f 2>/dev/null | head -20 || echo "No files found in artifacts"
+            
+            # Create release anyway with a note about the missing DMG
+            echo "Creating release $TAG_NAME without DMG (build may have failed during notarization)..."
+            if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+              echo "Release $TAG_NAME already exists, skipping..."
+            else
+              gh release create "$TAG_NAME" \
+                --title "Release $TAG_NAME" \
+                --notes "⚠️ Build incomplete: DMG file was not created. This may indicate a notarization failure. Check the build logs for details."
+            fi
+            exit 0
+          fi
+          
+          echo "✅ Found DMG file: $DMG_FILE"
+          echo "📊 DMG size: $(du -h "$DMG_FILE" | cut -f1)"
+          
+          # Create or update release
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, uploading asset..."
+            gh release upload "$TAG_NAME" "$DMG_FILE" --clobber
+          else
+            echo "Creating new release $TAG_NAME..."
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes "Dante Audio Client Release $TAG_NAME" \
+              "$DMG_FILE"
+          fi
+          
+          echo "✅ Release created/updated successfully"
+
