@@ -122,6 +122,21 @@ jobs:
             echo "   CSC_LINK: $CSC_LINK"
             echo "   CSC_NAME: ${CSC_NAME:-not set}"
             echo "   CSC_INSTALL_KEYCHAIN_NAME: $CSC_INSTALL_KEYCHAIN_NAME"
+            echo "   APPLE_TEAM_ID: $APPLE_TEAM_ID"
+            
+            # Temporarily update package.json to include teamId in notarize config
+            # electron-builder's notarization needs explicit teamId
+            if [ -n "$APPLE_TEAM_ID" ]; then
+              echo "📝 Updating package.json with teamId for notarization..."
+              # Use node to properly update JSON
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+                pkg.build.mac.notarize = { teamId: process.env.APPLE_TEAM_ID };
+                fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+              "
+            fi
+            
             npm run build:mac -- --publish never
           fi
 
