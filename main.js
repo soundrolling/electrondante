@@ -34,6 +34,13 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
+  // Wait for window to be ready before requesting permissions
+  mainWindow.webContents.once('did-finish-load', () => {
+    // Window is ready, but don't request permissions automatically
+    // Let the user trigger it when they need it
+    console.log('Window ready');
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (client) {
@@ -108,23 +115,52 @@ ipcMain.handle('get-devices', async () => {
   // Request microphone permission on macOS
   if (process.platform === 'darwin') {
     try {
+      // Check current status first
       const status = systemPreferences.getMediaAccessStatus('microphone');
+      console.log('Microphone permission status:', status);
+      
       if (status !== 'granted') {
-        // Request permission - this will show the system dialog
-        const result = await systemPreferences.askForMediaAccess('microphone');
-        if (!result) {
-          console.warn('Microphone permission denied');
+        // Only request if window is ready and visible
+        if (mainWindow && mainWindow.isVisible()) {
+          console.log('Requesting microphone permission...');
+          // Request permission - this will show the system dialog
+          // Use a timeout to prevent hanging
+          const permissionPromise = systemPreferences.askForMediaAccess('microphone');
+          const timeoutPromise = new Promise((resolve) => {
+            setTimeout(() => {
+              console.warn('Microphone permission request timed out');
+              resolve(false);
+            }, 30000); // 30 second timeout
+          });
+          
+          const result = await Promise.race([permissionPromise, timeoutPromise]);
+          
+          if (!result) {
+            console.warn('Microphone permission denied or timed out');
+            // Return empty array but don't crash
+            return [];
+          }
+          console.log('Microphone permission granted');
+        } else {
+          console.warn('Window not ready, skipping permission request');
+          // Return empty array - user can try again when window is ready
           return [];
         }
       }
     } catch (error) {
       console.error('Error requesting microphone permission:', error);
+      // Don't crash, just return empty array
+      return [];
     }
   }
   
   // Try to get devices from running client first
   if (client) {
-    return client.getAvailableDevices();
+    try {
+      return client.getAvailableDevices();
+    } catch (error) {
+      console.error('Error getting devices from client:', error);
+    }
   }
   
   // If no client, try to get devices directly using naudiodon
@@ -142,7 +178,7 @@ ipcMain.handle('get-devices', async () => {
       }));
     return inputDevices;
   } catch (error) {
-    console.error('Error getting devices:', error);
+    console.error('Error getting devices from naudiodon:', error);
     return [];
   }
 });
