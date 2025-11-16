@@ -64,10 +64,14 @@ jobs:
             security find-identity -v -p codesigning build.keychain
             
             # Extract the identity name (usually "Developer ID Application: ...")
-            IDENTITY=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -1 | cut -d'"' -f2)
-            if [ -n "$IDENTITY" ]; then
-              echo "✅ Found identity: $IDENTITY"
-              echo "CSC_NAME=$IDENTITY" >> $GITHUB_ENV
+            # electron-builder wants just the name part, not the prefix
+            FULL_IDENTITY=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -1 | cut -d'"' -f2)
+            if [ -n "$FULL_IDENTITY" ]; then
+              echo "✅ Found identity: $FULL_IDENTITY"
+              # Remove "Developer ID Application: " prefix if present
+              IDENTITY_NAME=$(echo "$FULL_IDENTITY" | sed 's/^Developer ID Application: //')
+              echo "✅ Using identity name (without prefix): $IDENTITY_NAME"
+              echo "CSC_NAME=$IDENTITY_NAME" >> $GITHUB_ENV
             else
               echo "⚠️  Could not find Developer ID Application identity"
             fi
