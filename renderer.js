@@ -1,47 +1,84 @@
 // Renderer process - UI logic
-if (!window.electronAPI) {
-  console.error('electronAPI not available - preload script may not have loaded');
-}
-const { electronAPI } = window;
 
+// Global state
 let clientRunning = false;
 let selectedDeviceId = null;
+let electronAPI = null;
 
-// DOM elements
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
-const requestPermissionBtn = document.getElementById('requestPermissionBtn');
-const railwayUrlInput = document.getElementById('railwayUrl');
-const accessTokenInput = document.getElementById('accessToken');
-const channelCountInput = document.getElementById('channelCount');
-const deviceList = document.getElementById('deviceList');
-const statusBar = document.getElementById('statusBar');
-const connectionIndicator = document.getElementById('connectionIndicator');
-const statusText = document.getElementById('statusText');
-const messagesDiv = document.getElementById('messages');
-const logArea = document.getElementById('logArea');
+// DOM element references (will be set after DOM is ready)
+let startBtn, stopBtn, refreshDevicesBtn, requestPermissionBtn;
+let railwayUrlInput, accessTokenInput;
+let channelCountInput, deviceList, statusBar, connectionIndicator;
+let statusText, messagesDiv, logArea;
+let statusPollingInterval = null;
 
-// Event listeners
-startBtn.addEventListener('click', startClient);
-stopBtn.addEventListener('click', stopClient);
-refreshDevicesBtn.addEventListener('click', refreshDevices);
-requestPermissionBtn.addEventListener('click', requestMicrophonePermission);
+// Initialization function - waits for DOM and electronAPI
+function initializeApp() {
+  // Check if electronAPI is available
+  if (!window.electronAPI) {
+    console.warn('electronAPI not available yet, retrying...');
+    setTimeout(initializeApp, 100);
+    return;
+  }
+  
+  electronAPI = window.electronAPI;
+  
+  // Get DOM elements
+  startBtn = document.getElementById('startBtn');
+  stopBtn = document.getElementById('stopBtn');
+  refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
+  requestPermissionBtn = document.getElementById('requestPermissionBtn');
+  railwayUrlInput = document.getElementById('railwayUrl');
+  accessTokenInput = document.getElementById('accessToken');
+  channelCountInput = document.getElementById('channelCount');
+  deviceList = document.getElementById('deviceList');
+  statusBar = document.getElementById('statusBar');
+  connectionIndicator = document.getElementById('connectionIndicator');
+  statusText = document.getElementById('statusText');
+  messagesDiv = document.getElementById('messages');
+  logArea = document.getElementById('logArea');
+  
+  // Check if all required elements exist
+  if (!startBtn || !stopBtn || !refreshDevicesBtn || !requestPermissionBtn || !railwayUrlInput || 
+      !accessTokenInput || !channelCountInput || !deviceList || !statusBar ||
+      !connectionIndicator || !statusText || !messagesDiv || !logArea) {
+    console.warn('Some DOM elements not found yet, retrying...');
+    setTimeout(initializeApp, 100);
+    return;
+  }
+  
+  // Attach event listeners to buttons
+  startBtn.addEventListener('click', startClient);
+  stopBtn.addEventListener('click', stopClient);
+  refreshDevicesBtn.addEventListener('click', refreshDevices);
+  requestPermissionBtn.addEventListener('click', requestMicrophonePermission);
+  
+  // Set up Electron API event listeners
+  electronAPI.onStatus((status) => {
+    updateStatus(status);
+    addLog(status.message, status.type === 'error' ? 'error' : 'success');
+  });
 
-// Electron API event listeners
-electronAPI.onStatus((status) => {
-  updateStatus(status);
-  addLog(status.message, status.type === 'error' ? 'error' : 'success');
-});
+  electronAPI.onError((error) => {
+    showMessage(error.message, 'error');
+    addLog(error.message, 'error');
+  });
 
-electronAPI.onError((error) => {
-  showMessage(error.message, 'error');
-  addLog(error.message, 'error');
-});
-
-electronAPI.onDevicesUpdated((devices) => {
-  renderDevices(devices);
-});
+  electronAPI.onDevicesUpdated((devices) => {
+    renderDevices(devices);
+  });
+  
+  // Start status polling
+  startStatusPolling();
+  
+  // Initial log
+  addLog('Dante Audio Client ready', 'success');
+  
+  // Initial load - try to get devices immediately
+  refreshDevices();
+  
+  console.log('App initialized successfully');
+}
 
 // Functions
 async function startClient() {
@@ -260,24 +297,34 @@ function addLog(message, type = 'info') {
   }
 }
 
-// Initial status check
-setInterval(async () => {
-  if (clientRunning) {
-    try {
-      const status = await electronAPI.getStatus();
-      if (status.connected && !connectionIndicator.classList.contains('connected')) {
-        updateStatus({ type: 'connected', message: 'Connected' });
-      }
-      if (status.registered && !connectionIndicator.classList.contains('registered')) {
-        updateStatus({ type: 'registered', message: 'Registered as Source' });
-      }
-    } catch (error) {
-      // Ignore errors
-    }
+// Status polling function
+function startStatusPolling() {
+  // Clear any existing interval
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval);
   }
-}, 2000);
+  
+  // Poll status every 2 seconds
+  statusPollingInterval = setInterval(async () => {
+    if (clientRunning) {
+      try {
+        const status = await electronAPI.getStatus();
+        if (status.connected && !connectionIndicator.classList.contains('connected')) {
+          updateStatus({ type: 'connected', message: 'Connected' });
+        }
+        if (status.registered && !connectionIndicator.classList.contains('registered')) {
+          updateStatus({ type: 'registered', message: 'Registered as Source' });
+        }
+      } catch (error) {
+        // Ignore errors during polling
+      }
+    }
+  }, 2000);
+}
 
-// Initial load - try to get devices immediately
-addLog('Dante Audio Client ready', 'success');
-refreshDevices();
-
+// Proper DOM Ready Detection
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  initializeApp(); // DOM already loaded
+}
