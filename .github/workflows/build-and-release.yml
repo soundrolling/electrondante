@@ -239,7 +239,6 @@ jobs:
           echo ""
           echo "🎫 Checking notarization ticket..."
           if stapler validate "$APP_PATH" 2>&1; then
-          then
             echo "✅ Notarization ticket is stapled"
           else
             echo "⚠️  Notarization ticket not found or not stapled"
