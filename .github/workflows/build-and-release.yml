@@ -233,6 +233,67 @@ jobs:
             fi
           fi
 
+      - name: Create DMG manually if needed
+        if: env.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+        run: |
+          # Check if DMG exists
+          DMG_FILE=$(find dist -name "*.dmg" -type f 2>/dev/null | head -1)
+          
+          if [ -n "$DMG_FILE" ]; then
+            echo "✅ DMG file already exists: $DMG_FILE"
+            exit 0
+          fi
+          
+          # Check if app bundle exists
+          APP_BUNDLE=$(find dist/mac -name "*.app" -type d 2>/dev/null | head -1)
+          
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "⚠️  No app bundle found, cannot create DMG"
+            exit 0
+          fi
+          
+          echo "📦 App bundle found: $APP_BUNDLE"
+          echo "🔨 Creating DMG manually from app bundle..."
+          
+          # Get app name and version
+          APP_NAME="Dante Audio Client"
+          VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
+          DMG_NAME="${APP_NAME}-${VERSION}.dmg"
+          DMG_PATH="dist/${DMG_NAME}"
+          
+          # Create a temporary directory for DMG contents
+          DMG_TEMP=$(mktemp -d)
+          cp -R "$APP_BUNDLE" "$DMG_TEMP/"
+          
+          # Create Applications symlink
+          ln -s /Applications "$DMG_TEMP/Applications"
+          
+          # Create DMG
+          hdiutil create -volname "$APP_NAME" \
+            -srcfolder "$DMG_TEMP" \
+            -ov -format UDZO \
+            "$DMG_PATH" || {
+            echo "❌ Failed to create DMG"
+            rm -rf "$DMG_TEMP"
+            exit 1
+          }
+          
+          # Clean up
+          rm -rf "$DMG_TEMP"
+          
+          echo "✅ Created DMG: $DMG_PATH"
+          echo "📊 DMG size: $(du -h "$DMG_PATH" | cut -f1)"
+          
+          # Verify DMG
+          if [ -f "$DMG_PATH" ]; then
+            echo "✅ DMG file verified"
+          else
+            echo "❌ DMG file was not created"
+            exit 1
+          fi
+
       - name: Verify code signing and notarization
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -428,9 +489,9 @@ jobs:
             gh release upload "$TAG_NAME" "$DMG_FILE" --clobber
           else
             echo "Creating new release $TAG_NAME..."
-            gh release create "$TAG_NAME" \
-              --title "Release $TAG_NAME" \
-              --notes "Dante Audio Client Release $TAG_NAME" \
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes "Dante Audio Client Release $TAG_NAME" \
               "$DMG_FILE"
           fi
           
