@@ -111,44 +111,6 @@ ipcMain.handle('stop-client', async () => {
   return { success: false, error: 'Client not running' };
 });
 
-ipcMain.handle('request-microphone-permission', async () => {
-  // Dedicated handler for requesting microphone permission
-  if (process.platform === 'darwin') {
-    try {
-      // Check current status first
-      const status = systemPreferences.getMediaAccessStatus('microphone');
-      console.log('Current microphone permission status:', status);
-      
-      if (status === 'granted') {
-        console.log('Microphone permission already granted');
-        return { granted: true, message: 'Permission already granted' };
-      }
-      
-      // Ensure window is ready and visible
-      if (!mainWindow || !mainWindow.isVisible()) {
-        return { granted: false, message: 'Window not ready. Please wait for the app to fully load.' };
-      }
-      
-      console.log('Requesting microphone permission...');
-      // Request permission - this will show the system dialog
-      const result = await systemPreferences.askForMediaAccess('microphone');
-      
-      if (result) {
-        console.log('Microphone permission granted');
-        return { granted: true, message: 'Permission granted successfully' };
-      } else {
-        console.warn('Microphone permission denied');
-        return { granted: false, message: 'Permission denied. Please grant access in System Settings → Privacy & Security → Microphone' };
-      }
-    } catch (error) {
-      console.error('Error requesting microphone permission:', error);
-      return { granted: false, message: `Error: ${error.message}` };
-    }
-  }
-  
-  return { granted: true, message: 'Not macOS - permission not required' };
-});
-
 ipcMain.handle('get-devices', async () => {
   // Check microphone permission on macOS before enumerating devices
   if (process.platform === 'darwin') {
