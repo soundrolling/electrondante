@@ -141,6 +141,19 @@ jobs:
           # Verify notarization credentials are set
           if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
             echo "✅ Notarization credentials found"
+            echo "   APPLE_ID: ${APPLE_ID:0:3}*** (hidden)"
+            echo "   APPLE_TEAM_ID: $APPLE_TEAM_ID"
+            echo "   APPLE_APP_SPECIFIC_PASSWORD: ${APPLE_APP_SPECIFIC_PASSWORD:0:3}*** (hidden)"
+            
+            # Test notarization credentials by checking if we can authenticate
+            echo "🔍 Testing notarization credentials..."
+            if xcrun notarytool store-credentials --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" test-profile 2>&1 | grep -q "Success\|already exists"; then
+              echo "✅ Notarization credentials are valid"
+              xcrun notarytool store-credentials --delete test-profile 2>/dev/null || true
+            else
+              echo "⚠️  Warning: Could not verify notarization credentials"
+              echo "   This might cause notarization to fail, but signing should still work"
+            fi
           else
             echo "⚠️  Notarization credentials missing - app will be signed but not notarized"
           fi
