@@ -17,8 +17,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
+      
+      - name: Setup Python for native builds
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Find electron-app directory
         run: |
@@ -35,7 +40,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ env.ELECTRON_APP_DIR }}
-        run: npm ci
+        run: |
+          # Install with legacy peer deps to avoid engine warnings
+          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
       - name: Rebuild native modules
         working-directory: ${{ env.ELECTRON_APP_DIR }}
@@ -81,4 +88,3 @@ jobs:
           
           # If release exists, upload assets separately
           gh release upload "$TAG_NAME" ./artifacts/mac-installer/*.dmg --clobber || true
-
