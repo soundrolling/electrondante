@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // Try to load client-core, handle errors gracefully
 let DanteBridgeClient = null;
@@ -14,6 +15,24 @@ let mainWindow = null;
 let client = null;
 
 function createWindow() {
+  // Try to find icon, but don't fail if it doesn't exist
+  let iconPath = null;
+  try {
+    const possibleIconPaths = [
+      path.join(__dirname, 'build', 'icon.icns'),
+      path.join(__dirname, 'icon.png'),
+      path.join(__dirname, 'icon.icns'),
+    ];
+    for (const icon of possibleIconPaths) {
+      if (fs.existsSync(icon)) {
+        iconPath = icon;
+        break;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not find icon file:', error.message);
+  }
+
   mainWindow = new BrowserWindow({
     width: 800,
     height: 700,
@@ -22,10 +41,33 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, 'icon.png'), // Add icon later
+    ...(iconPath && { icon: iconPath }),
+    show: false, // Don't show until ready
   });
 
-  mainWindow.loadFile('index.html');
+  // Show window when ready to prevent visual glitches
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) {
+      mainWindow.show();
+    }
+  });
+
+  mainWindow.loadFile('index.html').catch((error) => {
+    console.error('Failed to load index.html:', error);
+    // Try to show error in window if it exists
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('load-error', error.message);
+    }
+  });
+
+  // Handle window errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Window failed to load:', errorCode, errorDescription);
+  });
+
+  mainWindow.webContents.on('crashed', (event, killed) => {
+    console.error('Window crashed, killed:', killed);
+  });
 
   // Open DevTools in development
   if (process.env.NODE_ENV === 'development') {
@@ -41,7 +83,19 @@ function createWindow() {
   });
 }
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't exit - let Electron handle it
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 app.whenReady().then(() => {
+  console.log('App ready, creating window...');
   createWindow();
 
   // Handle permission requests (required for macOS microphone access)
