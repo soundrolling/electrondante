@@ -122,6 +122,7 @@ jobs:
           path: artifacts
           pattern: mac-installer
           merge-multiple: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List artifacts
         run: |
@@ -196,28 +197,53 @@ jobs:
           
           echo "DMG file size: $FILE_SIZE bytes"
           
-          # Check if release already exists
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists, uploading asset..."
-            gh release upload "$TAG_NAME" "$DMG_FILE" --clobber || {
-              echo "Upload failed, trying again..."
-              gh release upload "$TAG_NAME" "$DMG_FILE" --clobber
-            }
+          # Always try to upload, whether release exists or not
+          echo "Uploading DMG to release $TAG_NAME..."
+          
+          # First, try to create release with DMG (will fail if release exists, that's OK)
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes "Dante Audio Client Release $TAG_NAME" \
+            "$DMG_FILE" 2>&1 || echo "Release may already exist, will upload asset..."
+          
+          # Always try to upload the asset (works whether release exists or not)
+          echo "Uploading DMG file as asset..."
+          UPLOAD_RESULT=$(gh release upload "$TAG_NAME" "$DMG_FILE" --clobber 2>&1)
+          UPLOAD_EXIT=$?
+          
+          if [ $UPLOAD_EXIT -ne 0 ]; then
+            echo "Upload result: $UPLOAD_RESULT"
+            echo "Upload failed with exit code $UPLOAD_EXIT, trying alternative method..."
+            
+            # Try using curl as fallback
+            RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id')
+            if [ -n "$RELEASE_ID" ]; then
+              echo "Found release ID: $RELEASE_ID"
+              # Use GitHub API directly
+              curl -X POST \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary "@$DMG_FILE" \
+                "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$(basename "$DMG_FILE")" || echo "Curl upload also failed"
+            fi
           else
-            echo "Creating new release $TAG_NAME..."
-            gh release create "$TAG_NAME" \
-              --title "Release $TAG_NAME" \
-              --notes "Dante Audio Client Release $TAG_NAME" \
-              "$DMG_FILE" || {
-              echo "Release creation failed, trying upload to existing release..."
-              gh release upload "$TAG_NAME" "$DMG_FILE" --clobber
-            }
+            echo "Upload successful: $UPLOAD_RESULT"
           fi
           
-          echo "Release created/updated successfully!"
-          gh release view "$TAG_NAME"
+          echo "=== Verifying release assets ==="
+          gh release view "$TAG_NAME" --json assets --jq '.assets[] | "\(.name) - \(.size) bytes"'
           
-          # Verify the asset was uploaded
-          echo "=== Release assets ==="
-          gh release view "$TAG_NAME" --json assets --jq '.assets[].name'
+          # Final check
+          ASSET_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '.assets | length')
+          DMG_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '[.assets[] | select(.name | endswith(".dmg"))] | length')
+          
+          echo "Total assets: $ASSET_COUNT"
+          echo "DMG files: $DMG_COUNT"
+          
+          if [ "$DMG_COUNT" -eq 0 ]; then
+            echo "WARNING: No DMG file found in release assets!"
+            exit 1
+          else
+            echo "SUCCESS: DMG file uploaded to release!"
+          fi
 
