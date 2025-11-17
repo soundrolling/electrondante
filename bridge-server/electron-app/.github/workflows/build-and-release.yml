@@ -20,22 +20,38 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
+      - name: Find electron-app directory
+        run: |
+          if [ -d "bridge-server/electron-app" ]; then
+            echo "ELECTRON_APP_DIR=bridge-server/electron-app" >> $GITHUB_ENV
+          elif [ -f "package.json" ] && grep -q "dante-audio-client" package.json; then
+            echo "ELECTRON_APP_DIR=." >> $GITHUB_ENV
+          else
+            echo "ERROR: Could not find electron-app directory"
+            ls -la
+            exit 1
+          fi
+          echo "Using directory: $ELECTRON_APP_DIR"
+
       - name: Install dependencies
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: npm ci
 
       - name: Rebuild native modules
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: |
           # Try to run rebuild script, fallback to direct electron-rebuild
           npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings"
 
       - name: Build installer (macOS)
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: npm run build:mac
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mac-installer
-          path: dist/*
+          path: ${{ env.ELECTRON_APP_DIR }}/dist/*
           retention-days: 30
 
   release:
