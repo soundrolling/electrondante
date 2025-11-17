@@ -14,16 +14,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Python for native builds
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
       
-      - name: Setup Python for native builds
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Verify versions
+        run: |
+          echo "Node version: $(node -v)"
+          echo "Python version: $(python3 --version)"
+          echo "Python path: $(which python3)"
 
       - name: Find electron-app directory
         run: |
