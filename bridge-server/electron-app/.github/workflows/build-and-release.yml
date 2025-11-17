@@ -243,6 +243,13 @@ jobs:
           && apt update \
           && apt install gh -y
 
+      - name: Authenticate GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GITHUB_TOKEN" | gh auth login --with-token
+          gh auth status
+
       - name: Create Release and Upload Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -253,8 +260,10 @@ jobs:
           else
             TAG_NAME=${GITHUB_REF#refs/tags/}
           fi
-          echo "Creating release for tag: $TAG_NAME"
+          echo "=== Creating release for tag: $TAG_NAME ==="
           echo "Event: ${{ github.event_name }}"
+          echo "GitHub ref: ${{ github.ref }}"
+          echo "Tag name: $TAG_NAME"
           
           # Find ALL DMG files - check multiple possible locations
           DMG_FILES=$(find artifacts -name "*.dmg" -type f)
@@ -315,48 +324,53 @@ jobs:
           if [ "$RELEASE_EXISTS" = "false" ]; then
             echo "=== Creating release $TAG_NAME ==="
             
-            # Try with gh CLI first
-            echo "Attempting to create release with gh CLI..."
-            CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-              --title "Release $TAG_NAME" \
-              --notes "Dante Audio Client Release $TAG_NAME" \
-              --draft=false \
-              --prerelease=false 2>&1)
-            CREATE_EXIT=$?
+            # Use GitHub API directly (more reliable)
+            echo "Creating release via GitHub API..."
+            API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Content-Type: application/json" \
+              -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Release $TAG_NAME\",\"body\":\"Dante Audio Client Release $TAG_NAME\",\"draft\":false,\"prerelease\":false}" \
+              "https://api.github.com/repos/soundrolling/electrondante/releases" 2>&1)
             
-            if [ $CREATE_EXIT -eq 0 ]; then
-              echo "Release created successfully with gh CLI"
-            else
-              echo "gh CLI failed: $CREATE_OUTPUT"
-              echo "Trying GitHub API directly..."
-              
-              # Use GitHub API to create release
-              API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-                -H "Authorization: token $GITHUB_TOKEN" \
-                -H "Accept: application/vnd.github.v3+json" \
-                -H "Content-Type: application/json" \
-                -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Release $TAG_NAME\",\"body\":\"Dante Audio Client Release $TAG_NAME\",\"draft\":false,\"prerelease\":false}" \
-                "https://api.github.com/repos/soundrolling/electrondante/releases" 2>&1)
-              
-              HTTP_CODE=$(echo "$API_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
-              
-              if [ "$HTTP_CODE" = "201" ]; then
-                echo "Release created successfully via API"
-              elif [ "$HTTP_CODE" = "422" ]; then
-                echo "Release may already exist (422 error), checking..."
-                # Check again
-                if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-                  echo "Release exists now"
-                  RELEASE_EXISTS=true
-                else
-                  echo "API response: $API_RESPONSE"
-                  echo "WARNING: Could not create release, but continuing..."
-                fi
+            HTTP_CODE=$(echo "$API_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
+            API_BODY=$(echo "$API_RESPONSE" | sed '/HTTP_CODE:/d')
+            
+            echo "API Response HTTP Code: $HTTP_CODE"
+            echo "API Response Body: $API_BODY"
+            
+            if [ "$HTTP_CODE" = "201" ]; then
+              echo "✓ Release created successfully via API"
+              RELEASE_EXISTS=true
+            elif [ "$HTTP_CODE" = "422" ]; then
+              echo "422 error - checking if release already exists..."
+              # Check if it's because release already exists
+              if echo "$API_BODY" | grep -q "already_exists"; then
+                echo "Release already exists (according to API)"
+                RELEASE_EXISTS=true
               else
-                echo "API creation failed with HTTP $HTTP_CODE"
-                echo "API response: $API_RESPONSE"
-                echo "WARNING: Could not create release, but continuing..."
+                echo "422 error but not 'already_exists': $API_BODY"
+                # Try with gh CLI as fallback
+                echo "Trying gh CLI as fallback..."
+                CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
+                  --title "Release $TAG_NAME" \
+                  --notes "Dante Audio Client Release $TAG_NAME" \
+                  --draft=false \
+                  --prerelease=false 2>&1) || echo "gh CLI also failed: $CREATE_OUTPUT"
               fi
+            else
+              echo "⚠ API creation failed with HTTP $HTTP_CODE"
+              echo "Response: $API_BODY"
+              # Try gh CLI as fallback
+              echo "Trying gh CLI as fallback..."
+              CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
+                --title "Release $TAG_NAME" \
+                --notes "Dante Audio Client Release $TAG_NAME" \
+                --draft=false \
+                --prerelease=false 2>&1) && {
+                echo "✓ Release created with gh CLI"
+                RELEASE_EXISTS=true
+              } || echo "gh CLI also failed: $CREATE_OUTPUT"
             fi
             
             # Wait a moment for release to be created
@@ -365,9 +379,11 @@ jobs:
             # Verify release was created
             if gh release view "$TAG_NAME" >/dev/null 2>&1; then
               echo "✓ Release $TAG_NAME verified to exist"
+              RELEASE_EXISTS=true
             else
-              echo "⚠ WARNING: Release $TAG_NAME still does not exist after creation attempts"
-              echo "This may cause upload failures, but continuing..."
+              echo "⚠ ERROR: Release $TAG_NAME does not exist after creation attempts"
+              echo "This will cause upload failures!"
+              exit 1
             fi
           fi
           
