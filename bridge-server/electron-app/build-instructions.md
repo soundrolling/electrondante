@@ -109,6 +109,22 @@ Test the app in development mode:
 npm start
 ```
 
+## Code Signing and Notarization (macOS)
+
+For macOS distribution, the app must be code signed and notarized. See **[MACOS_SIGNING_GUIDE.md](./MACOS_SIGNING_GUIDE.md)** for complete documentation on:
+
+- Code signing configuration
+- Apple notarization setup
+- GitHub Actions workflow
+- Common issues and solutions
+- Required secrets and certificates
+
+**Quick Reference:**
+- Code signing is handled automatically in CI/CD via GitHub Actions
+- Requires Developer ID Application certificate
+- App is notarized automatically after signing
+- See `GITHUB_SECRETS.md` for required secrets
+
 ## Notes
 
 - The app requires microphone/audio input permissions
