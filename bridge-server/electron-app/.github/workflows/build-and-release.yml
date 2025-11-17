@@ -349,87 +349,56 @@ jobs:
               git ls-remote --tags origin | grep "refs/tags/v" | tail -5
             fi
             
-            # Use GitHub API directly (more reliable)
-            echo "Creating release via GitHub API..."
-            API_URL="https://api.github.com/repos/soundrolling/electrondante/releases"
-            echo "API URL: $API_URL"
+            # Try gh CLI first (it handles auth better)
+            echo "Creating release with gh CLI..."
+            CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
+              --title "Release $TAG_NAME" \
+              --notes "Dante Audio Client Release $TAG_NAME" \
+              --draft=false \
+              --prerelease=false 2>&1)
+            CREATE_EXIT=$?
             
-            API_RESPONSE=$(curl -v -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Content-Type: application/json" \
-              -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Release $TAG_NAME\",\"body\":\"Dante Audio Client Release $TAG_NAME\",\"draft\":false,\"prerelease\":false}" \
-              "$API_URL" 2>&1)
-            
-            HTTP_CODE=$(echo "$API_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
-            API_BODY=$(echo "$API_RESPONSE" | sed '/HTTP_CODE:/d' | sed '/^[*<>]/d')
-            
-            echo "=== API Response ==="
-            echo "HTTP Code: $HTTP_CODE"
-            echo "Response Body: $API_BODY"
-            echo "==================="
-            
-            if [ "$HTTP_CODE" = "201" ]; then
-              echo "✓ Release created successfully via API"
+            if [ $CREATE_EXIT -eq 0 ]; then
+              echo "✓ Release created successfully with gh CLI"
               RELEASE_EXISTS=true
-            elif [ "$HTTP_CODE" = "422" ]; then
-              echo "422 error - checking reason..."
-              if echo "$API_BODY" | grep -q "already_exists"; then
-                echo "Release already exists (according to API)"
-                RELEASE_EXISTS=true
-              elif echo "$API_BODY" | grep -q "Invalid request"; then
-                echo "Invalid request: $API_BODY"
-                echo "Trying gh CLI as fallback..."
-                CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-                  --title "Release $TAG_NAME" \
-                  --notes "Dante Audio Client Release $TAG_NAME" \
-                  --draft=false \
-                  --prerelease=false 2>&1) && {
-                  echo "✓ Release created with gh CLI"
-                  RELEASE_EXISTS=true
-                } || echo "gh CLI failed: $CREATE_OUTPUT"
-              else
-                echo "422 error details: $API_BODY"
-                echo "Trying gh CLI as fallback..."
-                CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-                  --title "Release $TAG_NAME" \
-                  --notes "Dante Audio Client Release $TAG_NAME" \
-                  --draft=false \
-                  --prerelease=false 2>&1) && {
-                  echo "✓ Release created with gh CLI"
-                  RELEASE_EXISTS=true
-                } || echo "gh CLI failed: $CREATE_OUTPUT"
-              fi
-            elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
-              echo "⚠ Authentication/Authorization error (HTTP $HTTP_CODE)"
-              echo "Response: $API_BODY"
-              echo "Checking GitHub CLI auth..."
-              gh auth status
-              echo "Trying gh CLI..."
-              CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-                --title "Release $TAG_NAME" \
-                --notes "Dante Audio Client Release $TAG_NAME" \
-                --draft=false \
-                --prerelease=false 2>&1) && {
-                echo "✓ Release created with gh CLI"
-                RELEASE_EXISTS=true
-              } || echo "gh CLI failed: $CREATE_OUTPUT"
             else
-              echo "⚠ API creation failed with HTTP $HTTP_CODE"
-              echo "Response: $API_BODY"
-              echo "Trying gh CLI as fallback..."
-              CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-                --title "Release $TAG_NAME" \
-                --notes "Dante Audio Client Release $TAG_NAME" \
-                --draft=false \
-                --prerelease=false 2>&1) && {
-                echo "✓ Release created with gh CLI"
+              echo "gh CLI failed (exit code $CREATE_EXIT): $CREATE_OUTPUT"
+              
+              # Check if it's because release already exists
+              if echo "$CREATE_OUTPUT" | grep -qi "already exists"; then
+                echo "Release already exists (according to gh CLI)"
                 RELEASE_EXISTS=true
-              } || {
-                echo "gh CLI also failed: $CREATE_OUTPUT"
-                echo "ERROR: Could not create release with either method"
-                exit 1
-              }
+              else
+                echo "Trying GitHub API as fallback..."
+                API_URL="https://api.github.com/repos/soundrolling/electrondante/releases"
+                
+                API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+                  -H "Authorization: token $GITHUB_TOKEN" \
+                  -H "Accept: application/vnd.github.v3+json" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Release $TAG_NAME\",\"body\":\"Dante Audio Client Release $TAG_NAME\",\"draft\":false,\"prerelease\":false}" \
+                  "$API_URL" 2>&1)
+                
+                HTTP_CODE=$(echo "$API_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
+                API_BODY=$(echo "$API_RESPONSE" | sed '/HTTP_CODE:/d')
+                
+                echo "API HTTP Code: $HTTP_CODE"
+                echo "API Response: $API_BODY"
+                
+                if [ "$HTTP_CODE" = "201" ]; then
+                  echo "✓ Release created successfully via API"
+                  RELEASE_EXISTS=true
+                elif [ "$HTTP_CODE" = "422" ] && echo "$API_BODY" | grep -q "already_exists"; then
+                  echo "Release already exists (according to API)"
+                  RELEASE_EXISTS=true
+                else
+                  echo "⚠ ERROR: Could not create release with either method"
+                  echo "gh CLI output: $CREATE_OUTPUT"
+                  echo "API HTTP Code: $HTTP_CODE"
+                  echo "API Response: $API_BODY"
+                  exit 1
+                fi
+              fi
             fi
             
             # Wait a moment for release to be created
