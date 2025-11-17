@@ -108,6 +108,8 @@ jobs:
           CSC_NAME: "matthew price (E2BVJ4CM5V)"
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_IDENTITY: "1B7A05CAB3EFB08A83A8DA07E9E362C25FE76900"
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_IDENTITY: "1B7A05CAB3EFB08A83A8DA07E9E362C25FE76900"
         run: npm run build:mac
 
       - name: Create DMG manually if needed
@@ -267,7 +269,7 @@ jobs:
           if [ "${{ github.event_name }}" == "release" ]; then
             TAG_NAME="${{ github.event.release.tag_name }}"
           else
-            TAG_NAME=${GITHUB_REF#refs/tags/}
+          TAG_NAME=${GITHUB_REF#refs/tags/}
           fi
           echo "=== Creating release for tag: $TAG_NAME ==="
           echo "Event: ${{ github.event_name }}"
@@ -358,8 +360,8 @@ jobs:
             # Try gh CLI first (it handles auth better)
             echo "Creating release with gh CLI..."
             CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-              --title "Release $TAG_NAME" \
-              --notes "Dante Audio Client Release $TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes "Dante Audio Client Release $TAG_NAME" \
               --draft=false \
               --prerelease=false 2>&1)
             CREATE_EXIT=$?
