@@ -15,6 +15,8 @@ let connectionIndicator;
 let statusText;
 let messagesDiv;
 let logArea;
+let permissionSection;
+let requestPermissionBtn;
 
 // Waits for DOM and electronAPI
 function initializeApp() {
@@ -38,6 +40,8 @@ function initializeApp() {
   statusText = document.getElementById('statusText');
   messagesDiv = document.getElementById('messages');
   logArea = document.getElementById('logArea');
+  permissionSection = document.getElementById('permissionSection');
+  requestPermissionBtn = document.getElementById('requestPermissionBtn');
 
   // Check if all elements exist
   if (!startBtn || !stopBtn || !refreshDevicesBtn || !railwayUrlInput || 
@@ -51,6 +55,12 @@ function initializeApp() {
   startBtn.addEventListener('click', startClient);
   stopBtn.addEventListener('click', stopClient);
   refreshDevicesBtn.addEventListener('click', refreshDevices);
+  if (requestPermissionBtn) {
+    requestPermissionBtn.addEventListener('click', requestMicrophonePermission);
+  }
+  
+  // Check microphone permission status on startup
+  checkMicrophonePermission();
 
   // Electron API event listeners
   electronAPI.onStatus((status) => {
@@ -69,6 +79,63 @@ function initializeApp() {
 
   // Initial load
   addLog('Dante Audio Client ready', 'success');
+}
+
+// Check microphone permission status
+async function checkMicrophonePermission() {
+  if (!window.electronAPI || !window.electronAPI.checkMicrophonePermission) {
+    return;
+  }
+  
+  try {
+    const result = await window.electronAPI.checkMicrophonePermission();
+    if (!result.granted && permissionSection) {
+      permissionSection.style.display = 'block';
+    } else if (result.granted && permissionSection) {
+      permissionSection.style.display = 'none';
+    }
+  } catch (error) {
+    // Ignore errors (might not be macOS)
+  }
+}
+
+// Request microphone permission
+async function requestMicrophonePermission() {
+  if (!window.electronAPI || !window.electronAPI.requestMicrophonePermission) {
+    showMessage('Permission API not available', 'error');
+    return;
+  }
+  
+  try {
+    if (requestPermissionBtn) {
+      requestPermissionBtn.disabled = true;
+      requestPermissionBtn.textContent = 'Requesting...';
+    }
+    
+    addLog('Requesting microphone permission...', 'info');
+    const result = await window.electronAPI.requestMicrophonePermission();
+    
+    if (result.granted) {
+      showMessage('Microphone permission granted!', 'success');
+      addLog('Microphone permission granted', 'success');
+      if (permissionSection) {
+        permissionSection.style.display = 'none';
+      }
+      // Refresh devices after permission is granted
+      setTimeout(refreshDevices, 500);
+    } else {
+      showMessage(result.error || 'Microphone permission denied. Please grant permission in System Preferences → Security & Privacy → Microphone', 'error');
+      addLog(`Permission denied: ${result.error || 'User denied permission'}`, 'error');
+    }
+  } catch (error) {
+    showMessage(`Error requesting permission: ${error.message}`, 'error');
+    addLog(`Error: ${error.message}`, 'error');
+  } finally {
+    if (requestPermissionBtn) {
+      requestPermissionBtn.disabled = false;
+      requestPermissionBtn.textContent = 'Request Microphone Permission';
+    }
+  }
 }
 
 // Start when ready
@@ -92,6 +159,30 @@ async function startClient() {
   if (!accessToken) {
     showMessage('Please enter Supabase Access Token', 'error');
     return;
+  }
+  
+  // Check microphone permission before starting (macOS)
+  if (window.electronAPI && window.electronAPI.checkMicrophonePermission) {
+    try {
+      const permResult = await window.electronAPI.checkMicrophonePermission();
+      if (!permResult.granted) {
+        const shouldRequest = confirm('Microphone permission is required to access audio devices. Would you like to request it now?');
+        if (shouldRequest) {
+          await requestMicrophonePermission();
+          // Re-check after requesting
+          const recheck = await window.electronAPI.checkMicrophonePermission();
+          if (!recheck.granted) {
+            showMessage('Microphone permission is required to start the client', 'error');
+            return;
+          }
+        } else {
+          showMessage('Microphone permission is required to start the client', 'error');
+          return;
+        }
+      }
+    } catch (error) {
+      // Ignore permission check errors (might not be macOS)
+    }
   }
   
   try {

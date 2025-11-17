@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
 
 // Try to load client-core, handle errors gracefully
@@ -43,6 +43,26 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // Handle permission requests (required for macOS microphone access)
+  app.on('web-contents-created', (event, contents) => {
+    contents.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (permission === 'media') {
+        // For macOS, we need to explicitly request microphone access
+        if (process.platform === 'darwin') {
+          systemPreferences.askForMediaAccess('microphone').then((granted) => {
+            callback(granted);
+          }).catch(() => {
+            callback(false);
+          });
+        } else {
+          callback(true); // Allow on other platforms
+        }
+      } else {
+        callback(false); // Deny other permissions
+      }
+    });
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -131,5 +151,46 @@ ipcMain.handle('get-status', async () => {
     deviceId: null,
     devices: [],
   };
+});
+
+// Request microphone permission (macOS)
+ipcMain.handle('request-microphone-permission', async () => {
+  if (process.platform !== 'darwin') {
+    return { granted: true, error: null }; // Not needed on other platforms
+  }
+
+  try {
+    // Ensure window is visible and focused (required for macOS Ventura+)
+    if (mainWindow && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    if (mainWindow) {
+      mainWindow.focus();
+    }
+
+    const status = systemPreferences.getMediaAccessStatus('microphone');
+    if (status === 'granted') {
+      return { granted: true, error: null };
+    }
+
+    const granted = await systemPreferences.askForMediaAccess('microphone');
+    return { granted, error: granted ? null : 'Permission denied by user' };
+  } catch (error) {
+    return { granted: false, error: error.message };
+  }
+});
+
+// Check microphone permission status
+ipcMain.handle('check-microphone-permission', async () => {
+  if (process.platform !== 'darwin') {
+    return { granted: true, status: 'granted' };
+  }
+
+  try {
+    const status = systemPreferences.getMediaAccessStatus('microphone');
+    return { granted: status === 'granted', status };
+  } catch (error) {
+    return { granted: false, status: 'unknown', error: error.message };
+  }
 });
 

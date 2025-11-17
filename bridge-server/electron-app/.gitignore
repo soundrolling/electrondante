@@ -11,4 +11,5 @@ build/icon.*
 !build/icon.png
 !build/icon.icns
 !build/icon.ico
+!build/entitlements.mac.plist
 

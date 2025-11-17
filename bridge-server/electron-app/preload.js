@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDevice: (deviceId) => ipcRenderer.invoke('set-device', deviceId),
   getStatus: () => ipcRenderer.invoke('get-status'),
   
+  // Permission handling (macOS)
+  requestMicrophonePermission: () => ipcRenderer.invoke('request-microphone-permission'),
+  checkMicrophonePermission: () => ipcRenderer.invoke('check-microphone-permission'),
+  
   // Event listeners
   onStatus: (callback) => ipcRenderer.on('client-status', (event, data) => callback(data)),
   onError: (callback) => ipcRenderer.on('client-error', (event, data) => callback(data)),

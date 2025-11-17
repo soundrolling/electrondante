@@ -1,6 +1,6 @@
 {
   "name": "dante-audio-client",
-  "version": "20.0.0",
+  "version": "1.0.24",
   "description": "Dante Audio Client - Stream audio to Railway",
   "main": "main.js",
   "scripts": {

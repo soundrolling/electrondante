@@ -297,6 +297,18 @@
     <div class="section">
       <div class="section-title">Audio Device</div>
       
+      <div id="permissionSection" class="form-group" style="display: none; padding: 16px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 16px;">
+        <div style="margin-bottom: 12px; font-weight: 500; color: #856404;">
+          ⚠️ Microphone Permission Required
+        </div>
+        <div style="margin-bottom: 12px; font-size: 13px; color: #856404;">
+          macOS requires microphone permission to access audio input devices (including Dante Virtual Soundcard).
+        </div>
+        <button id="requestPermissionBtn" class="btn-primary" style="width: auto;">
+          Request Microphone Permission
+        </button>
+      </div>
+      
       <div class="form-group">
         <label>Select Audio Input Device:</label>
         <div id="deviceList" class="device-list">
