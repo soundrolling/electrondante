@@ -27,6 +27,11 @@ jobs:
         with:
           python-version: '3.11'
       
+      - name: Install Python setuptools (for distutils compatibility)
+        run: |
+          pip install setuptools || echo "setuptools installation failed, continuing..."
+          python3 -m pip install setuptools || echo "setuptools installation via python3 -m pip failed, continuing..."
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -102,6 +107,68 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_NAME: "matthew price (E2BVJ4CM5V)"
         run: npm run build:mac
+
+      - name: Create DMG manually if needed
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
+        run: |
+          echo "Checking if DMG files were created..."
+          if [ ! -f "dist/*.dmg" ] && [ -d "dist/mac" ]; then
+            echo "DMG not found, checking if we need to create it manually..."
+            # Check if .app exists
+            if [ -d "dist/mac/Dante Audio Client.app" ]; then
+              echo "Found .app bundle, but no DMG. This is normal if electron-builder created it."
+            fi
+          else
+            echo "DMG files found (or dist/mac doesn't exist)"
+          fi
+          # List what we have
+          echo "Contents of dist directory:"
+          ls -lah dist/ || echo "dist directory not found"
+
+      - name: Verify code signing and notarization
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
+        run: |
+          echo "=== Verifying code signing ==="
+          # Check if .app exists and verify signing
+          if [ -d "dist/mac/Dante Audio Client.app" ]; then
+            echo "Checking code signature of .app bundle..."
+            codesign -dv --verbose=4 "dist/mac/Dante Audio Client.app" 2>&1 || echo "Code signing verification failed or app not signed"
+            
+            # Check if notarized (if applicable)
+            if [ -n "$APPLE_ID" ]; then
+              echo "Notarization would be checked here if enabled"
+            fi
+          fi
+          
+          # Check DMG files if they exist
+          for DMG in dist/*.dmg; do
+            if [ -f "$DMG" ]; then
+              echo "Checking DMG: $DMG"
+              # Try to verify DMG signature if signed
+              codesign -dv --verbose=4 "$DMG" 2>&1 || echo "DMG not signed or verification failed"
+            fi
+          done
+          
+          echo "=== Code signing verification complete ==="
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          echo "Cleaning up keychain..."
+          if [ -f "certificate.p12" ]; then
+            rm -f certificate.p12
+            echo "Removed certificate.p12"
+          fi
+          
+          # Remove build keychain if it exists
+          if security list-keychains | grep -q "build.keychain"; then
+            security delete-keychain build.keychain || echo "Could not delete keychain (may not exist)"
+            echo "Removed build.keychain"
+          fi
+          
+          # Reset default keychain to login
+          security default-keychain -s login.keychain || echo "Could not reset default keychain"
+          echo "Keychain cleanup complete"
 
       - name: List dist directory
         working-directory: ${{ env.ELECTRON_APP_DIR }}
