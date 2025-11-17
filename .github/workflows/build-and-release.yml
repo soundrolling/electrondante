@@ -123,14 +123,21 @@ jobs:
           CSC_IDENTITY: "1B7A05CAB3EFB08A83A8DA07E9E362C25FE76900"
           ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Ensure keychain is accessible
+          # Ensure keychain is accessible and in search list
           if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
             security unlock-keychain -p "" "$HOME/Library/Keychains/build.keychain-db" || true
+            # Add build keychain to search list
+            security list-keychains -s "$HOME/Library/Keychains/build.keychain-db" "$HOME/Library/Keychains/login.keychain-db" || true
           fi
           
           # Verify team ID is set
           echo "ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
           echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          
+          # Verify certificate can be found
+          echo "=== Checking for certificate ==="
+          security find-identity -v -p codesigning | grep -i "matthew price" || echo "Certificate not found by name"
+          security find-identity -v -p codesigning | grep "1B7A05CAB3EFB08A83A8DA07E9E362C25FE76900" || echo "Certificate not found by SHA"
           
           # Run build
           npm run build:mac
