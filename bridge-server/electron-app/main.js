@@ -59,6 +59,13 @@ function createWindow() {
       mainWindow.webContents.send('load-error', error.message);
     }
   });
+  
+  // Forward console logs to renderer for debugging
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    if (level >= 2) { // Error or warning
+      mainWindow.webContents.send('console-log', { level, message });
+    }
+  });
 
   // Handle window errors
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
@@ -185,7 +192,21 @@ ipcMain.handle('get-devices', async () => {
   // If no client, try to enumerate devices directly
   try {
     const naudiodon = require('naudiodon');
+    console.log('Attempting to enumerate devices with naudiodon...');
+    
+    // Check microphone permission first (macOS)
+    if (process.platform === 'darwin') {
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      console.log('Microphone permission status:', status);
+      if (status !== 'granted') {
+        console.warn('Microphone permission not granted, status:', status);
+        return [];
+      }
+    }
+    
     const devices = naudiodon.getDevices();
+    console.log(`Found ${devices.length} total devices from naudiodon`);
+    
     const inputDevices = devices
       .filter(d => d.maxInputChannels > 0)
       .map(d => ({
@@ -195,9 +216,12 @@ ipcMain.handle('get-devices', async () => {
         defaultSampleRate: d.defaultSampleRate,
         isDefault: d.isDefault,
       }));
+    
+    console.log(`Found ${inputDevices.length} input devices:`, inputDevices.map(d => d.name));
     return inputDevices;
   } catch (error) {
     console.error('Error enumerating devices:', error);
+    console.error('Error stack:', error.stack);
     return [];
   }
 });

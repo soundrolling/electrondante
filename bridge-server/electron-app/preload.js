@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onStatus: (callback) => ipcRenderer.on('client-status', (event, data) => callback(data)),
   onError: (callback) => ipcRenderer.on('client-error', (event, data) => callback(data)),
   onDevicesUpdated: (callback) => ipcRenderer.on('devices-updated', (event, data) => callback(data)),
+  onConsoleLog: (callback) => ipcRenderer.on('console-log', (event, data) => callback(data)),
   
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),

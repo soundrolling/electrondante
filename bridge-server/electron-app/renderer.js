@@ -76,6 +76,11 @@ function initializeApp() {
   electronAPI.onDevicesUpdated((devices) => {
     renderDevices(devices);
   });
+  
+  // Listen for console logs from main process
+  electronAPI.onConsoleLog?.((log) => {
+    addLog(`[Main] ${log.message}`, log.level >= 2 ? 'error' : 'info');
+  });
 
   // Initial load
   addLog('Dante Audio Client ready', 'success');
@@ -252,6 +257,18 @@ async function stopClient() {
 async function refreshDevices() {
   try {
     addLog('Enumerating audio devices...', 'info');
+    
+    // Check permission status first
+    if (window.electronAPI && window.electronAPI.checkMicrophonePermission) {
+      const permStatus = await window.electronAPI.checkMicrophonePermission();
+      addLog(`Microphone permission: ${permStatus.status || (permStatus.granted ? 'granted' : 'denied')}`, permStatus.granted ? 'success' : 'error');
+      
+      if (!permStatus.granted) {
+        showMessage('Microphone permission is required to see audio devices. Please grant permission first.', 'error');
+        return;
+      }
+    }
+    
     const devices = await window.electronAPI.getDevices();
     
     addLog(`Found ${devices.length} audio input device(s)`, devices.length > 0 ? 'success' : 'info');
@@ -263,7 +280,8 @@ async function refreshDevices() {
     }
     
     if (devices.length === 0) {
-      showMessage('No audio devices found. Make sure your audio device is connected and recognized by your OS. If you just granted microphone permission, try clicking "Refresh Devices" again.', 'error');
+      showMessage('No audio devices found. Make sure your audio device is connected and recognized by your OS. If you just granted microphone permission, try restarting the app or clicking "Refresh Devices" again.', 'error');
+      addLog('Tip: On macOS, you may need to restart the app after granting microphone permission for devices to appear.', 'info');
     } else {
       // Clear any previous error messages if devices are found
       const deviceNames = devices.map(d => d.name).join(', ');
@@ -272,6 +290,7 @@ async function refreshDevices() {
   } catch (error) {
     showMessage(`Error refreshing devices: ${error.message}`, 'error');
     addLog(`Error: ${error.message}`, 'error');
+    addLog(`Error details: ${JSON.stringify(error)}`, 'error');
   }
 }
 
