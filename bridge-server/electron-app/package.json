@@ -1,6 +1,6 @@
 {
   "name": "dante-audio-client",
-  "version": "1.0.57",
+  "version": "1.0.58",
   "description": "Dante Audio Client - Stream audio to Railway",
   "main": "main.js",
   "scripts": {
@@ -60,6 +60,13 @@
       "notarize": {
         "teamId": "${APPLE_TEAM_ID}"
       }
+    },
+    "osxSign": {
+      "optionsForFile": "entitlements",
+      "platform": "darwin",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlements-inherit": "build/entitlements.mac.plist"
     },
     "win": {
       "target": [
