@@ -230,6 +230,7 @@ This script:
     APPLE_ID: ${{ secrets.APPLE_ID }}
     APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
     APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
   run: |
     # Ensure keychain is accessible and in search list
     if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
@@ -252,6 +253,7 @@ This script:
 
 ### Critical Workflow Points
 
+- **DO set `ELECTRON_TEAM_ID`** - Required by @electron/osx-sign to extract team ID before processing entitlements
 - **DO NOT set `CSC_IDENTITY_AUTO_DISCOVERY: false`** - Let electron-builder auto-discover
 - **DO NOT set `CSC_NAME`** - electron-builder will find the certificate automatically
 - **DO import to both build.keychain AND login.keychain** - Ensures electron-builder can find it
@@ -272,9 +274,13 @@ Required secrets:
 
 ### Issue: "Could not automatically determine ElectronTeamID from identity"
 
-**Cause**: Missing `com.apple.application-identifier` with `$(TeamIdentifierPrefix)` in entitlements
+**Cause**: @electron/osx-sign cannot extract team ID from certificate SHA alone. It needs either:
+1. `ELECTRON_TEAM_ID` environment variable, OR
+2. `com.apple.application-identifier` with `$(TeamIdentifierPrefix)` in entitlements
 
-**Solution**: Add to entitlements.mac.plist:
+**Solution**: Set BOTH for maximum compatibility:
+1. Add `ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}` to workflow environment
+2. Add to entitlements.mac.plist:
 ```xml
 <key>com.apple.application-identifier</key>
 <string>$(TeamIdentifierPrefix)com.soundrolling.dante-audio-client</string>
@@ -359,6 +365,7 @@ Should show: "source=Notarized Developer ID"
 
 ✅ **DO:**
 - Use `type: "distribution"` in mac config
+- Set `ELECTRON_TEAM_ID` environment variable (CRITICAL)
 - Include `$(TeamIdentifierPrefix)` in entitlements
 - Use `CSC_LINK` and `CSC_KEY_PASSWORD` environment variables
 - Let electron-builder auto-discover identity
