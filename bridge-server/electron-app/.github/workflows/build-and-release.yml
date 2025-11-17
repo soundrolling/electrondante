@@ -89,7 +89,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_NAME: "Developer ID Application: matthew price (E2BVJ4CM5V)"
+          CSC_NAME: "matthew price (E2BVJ4CM5V)"
         run: npm run build:mac
 
       - name: List dist directory
