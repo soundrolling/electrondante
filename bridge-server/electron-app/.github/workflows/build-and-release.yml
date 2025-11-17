@@ -329,12 +329,24 @@ jobs:
             echo "Repository: soundrolling/electrondante"
             echo "Tag: $TAG_NAME"
             
-            # First, verify the tag exists
+            # First, verify the tag exists locally and remotely
             echo "Verifying tag exists..."
+            if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+              echo "✓ Tag $TAG_NAME exists locally"
+              git show "$TAG_NAME" --no-patch --format="Tag: %D%nCommit: %H%nDate: %ci"
+            else
+              echo "⚠ WARNING: Tag $TAG_NAME not found locally"
+            fi
+            
+            # Fetch tags from remote
+            git fetch --tags origin || echo "Could not fetch tags"
+            
             if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
               echo "✓ Tag $TAG_NAME exists on remote"
             else
               echo "⚠ WARNING: Tag $TAG_NAME not found on remote"
+              echo "Available tags:"
+              git ls-remote --tags origin | grep "refs/tags/v" | tail -5
             fi
             
             # Use GitHub API directly (more reliable)
