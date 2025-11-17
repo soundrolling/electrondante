@@ -118,7 +118,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_NAME: "Developer ID Application: matthew price (${{ secrets.APPLE_TEAM_ID }})"
+          CSC_NAME: "matthew price (${{ secrets.APPLE_TEAM_ID }})"
         run: |
           # Ensure keychain is accessible and in search list
           if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
