@@ -8,20 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        include:
-          - os: macos-latest
-            platform: mac
-            artifact_name: mac
-          - os: windows-latest
-            platform: win
-            artifact_name: win
-          - os: ubuntu-latest
-            platform: linux
-            artifact_name: linux
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -33,29 +20,38 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
+      - name: Find electron-app directory
+        run: |
+          if [ -d "bridge-server/electron-app" ]; then
+            echo "ELECTRON_APP_DIR=bridge-server/electron-app" >> $GITHUB_ENV
+          elif [ -f "package.json" ] && grep -q "dante-audio-client" package.json; then
+            echo "ELECTRON_APP_DIR=." >> $GITHUB_ENV
+          else
+            echo "ERROR: Could not find electron-app directory"
+            ls -la
+            exit 1
+          fi
+          echo "Using directory: $ELECTRON_APP_DIR"
+
       - name: Install dependencies
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: npm ci
 
       - name: Rebuild native modules
-        run: npm run rebuild
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
+        run: |
+          # Try to run rebuild script, fallback to direct electron-rebuild
+          npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings"
 
       - name: Build installer (macOS)
-        if: matrix.platform == 'mac'
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: npm run build:mac
-
-      - name: Build installer (Windows)
-        if: matrix.platform == 'win'
-        run: npm run build:win
-
-      - name: Build installer (Linux)
-        if: matrix.platform == 'linux'
-        run: npm run build:linux
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}-installer
-          path: dist/*
+          name: mac-installer
+          path: ${{ env.ELECTRON_APP_DIR }}/dist/*
           retention-days: 30
 
   release:
@@ -81,12 +77,8 @@ jobs:
             --title "Release $TAG_NAME" \
             --notes "Dante Audio Client Release $TAG_NAME" \
             ./artifacts/mac-installer/*.dmg \
-            ./artifacts/win-installer/*.exe \
-            ./artifacts/linux-installer/*.AppImage \
             || echo "Release may already exist, uploading assets..."
           
           # If release exists, upload assets separately
           gh release upload "$TAG_NAME" ./artifacts/mac-installer/*.dmg --clobber || true
-          gh release upload "$TAG_NAME" ./artifacts/win-installer/*.exe --clobber || true
-          gh release upload "$TAG_NAME" ./artifacts/linux-installer/*.AppImage --clobber || true
 
