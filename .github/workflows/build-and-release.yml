@@ -108,6 +108,7 @@ jobs:
           CSC_NAME: "matthew price (E2BVJ4CM5V)"
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_IDENTITY: "1B7A05CAB3EFB08A83A8DA07E9E362C25FE76900"
+          ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run build:mac
 
       - name: Create DMG manually if needed
