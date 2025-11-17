@@ -122,10 +122,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: |
-      startsWith(github.ref, 'refs/tags/v') || 
-      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))
+      (startsWith(github.ref, 'refs/tags/v') || 
+       (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v'))) &&
+      needs.build.result == 'success'
     
     steps:
+      - name: Debug job context
+        run: |
+          echo "GitHub ref: ${{ github.ref }}"
+          echo "Event name: ${{ github.event_name }}"
+          echo "Tag name: ${{ github.event.release.tag_name }}"
+          echo "Build result: ${{ needs.build.result }}"
       - name: Checkout code
         uses: actions/checkout@v4
         with:
