@@ -139,6 +139,29 @@ jobs:
           security find-identity -v -p codesigning || echo "No codesigning identities found"
           echo ""
           
+          # Extract team ID from certificate name if not already set
+          if [ -z "$ELECTRON_TEAM_ID" ] || [ -z "$CSC_TEAM_ID" ]; then
+            echo "Extracting team ID from certificate..."
+            CERT_NAME=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"Developer ID Application: [^"]* \(([^)]+)\)".*/\1/')
+            if [ -n "$CERT_NAME" ]; then
+              echo "Found team ID in certificate: $CERT_NAME"
+              export ELECTRON_TEAM_ID="$CERT_NAME"
+              export CSC_TEAM_ID="$CERT_NAME"
+              echo "Set ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
+              echo "Set CSC_TEAM_ID=$CSC_TEAM_ID"
+            elif [ -n "$APPLE_TEAM_ID" ]; then
+              echo "Using APPLE_TEAM_ID: $APPLE_TEAM_ID"
+              export ELECTRON_TEAM_ID="$APPLE_TEAM_ID"
+              export CSC_TEAM_ID="$APPLE_TEAM_ID"
+            fi
+          fi
+          
+          # Verify team ID is set
+          echo "Final team ID values:"
+          echo "  ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
+          echo "  CSC_TEAM_ID=$CSC_TEAM_ID"
+          echo "  APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          
           # Run build
           npm run build:mac
 
