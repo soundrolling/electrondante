@@ -56,15 +56,27 @@ jobs:
           # Try to run rebuild script, fallback to direct electron-rebuild
           npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings"
 
-      - name: Import code signing certificate (if available)
-        if: env.CSC_LINK != ''
+      - name: Import code signing certificate
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           if [ -n "$CSC_LINK" ]; then
             echo "Importing code signing certificate..."
-            # Certificate will be imported by electron-builder automatically
+            # Create keychain
+            security create-keychain -p "" build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p "" build.keychain
+            security set-keychain-settings -t 3600 -u build.keychain
+            
+            # Import certificate
+            echo "$CSC_LINK" | base64 --decode > certificate.p12
+            security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+            
+            # List identities
+            security find-identity -v -p codesigning build.keychain
+            echo "Certificate imported successfully"
           else
             echo "No certificate secret found, building without code signing"
           fi
@@ -76,6 +88,8 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_NAME: "Developer ID Application: matthew price (E2BVJ4CM5V)"
         run: npm run build:mac
 
       - name: List dist directory
