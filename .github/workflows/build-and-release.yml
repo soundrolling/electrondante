@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            platform: mac
+            artifact_name: mac
+          - os: windows-latest
+            platform: win
+            artifact_name: win
+          - os: ubuntu-latest
+            platform: linux
+            artifact_name: linux
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm run rebuild
+
+      - name: Build installer (macOS)
+        if: matrix.platform == 'mac'
+        run: npm run build:mac
+
+      - name: Build installer (Windows)
+        if: matrix.platform == 'win'
+        run: npm run build:win
+
+      - name: Build installer (Linux)
+        if: matrix.platform == 'linux'
+        run: npm run build:linux
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}-installer
+          path: dist/*
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release and Upload Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
+            --notes "Dante Audio Client Release $TAG_NAME" \
+            ./artifacts/mac-installer/*.dmg \
+            ./artifacts/win-installer/*.exe \
+            ./artifacts/linux-installer/*.AppImage \
+            || echo "Release may already exist, uploading assets..."
+          
+          # If release exists, upload assets separately
+          gh release upload "$TAG_NAME" ./artifacts/mac-installer/*.dmg --clobber || true
+          gh release upload "$TAG_NAME" ./artifacts/win-installer/*.exe --clobber || true
+          gh release upload "$TAG_NAME" ./artifacts/linux-installer/*.AppImage --clobber || true
+
