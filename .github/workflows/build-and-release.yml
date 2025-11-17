@@ -113,11 +113,13 @@ jobs:
       - name: Build installer (macOS)
         working-directory: ${{ env.ELECTRON_APP_DIR }}
         env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_NAME: "matthew price (${{ secrets.APPLE_TEAM_ID }})"
-          CSC_IDENTITY_AUTO_DISCOVERY: true
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_FOR_PULL_REQUEST: true
         run: |
           # Ensure keychain is accessible and in search list
           if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
@@ -126,14 +128,16 @@ jobs:
             security list-keychains -s "$HOME/Library/Keychains/build.keychain-db" "$HOME/Library/Keychains/login.keychain-db" || true
           fi
           
-          # Verify team ID is set
-          echo "ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
-          echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          # Verify environment
+          echo "Building with signing and notarization..."
+          echo "APPLE_ID: ${APPLE_ID:0:5}***"
+          echo "APPLE_TEAM_ID: $APPLE_TEAM_ID"
+          echo ""
           
-          # Verify certificate can be found
-          echo "=== Checking for certificate ==="
-          security find-identity -v -p codesigning | grep -i "matthew price" || echo "Certificate not found by name"
-          security find-identity -v -p codesigning | grep "1B7A05CAB3EFB08A83A8DA07E9E362C25FE76900" || echo "Certificate not found by SHA"
+          # Verify certificates in keychain
+          echo "=== Certificates available for signing ==="
+          security find-identity -v -p codesigning || echo "No codesigning identities found"
+          echo ""
           
           # Run build
           npm run build:mac
@@ -302,215 +306,76 @@ jobs:
           echo "GitHub ref: ${{ github.ref }}"
           echo "Tag name: $TAG_NAME"
           
-          # Find ALL DMG files - check multiple possible locations
-          DMG_FILES=$(find artifacts -name "*.dmg" -type f)
+          # Find all DMG files more robustly
+          echo "Searching for DMG files..."
+          DMG_FILES=()
+          while IFS= read -r -d '' file; do
+            DMG_FILES+=("$file")
+            echo "Found DMG: $file"
+          done < <(find artifacts -type f -name "*.dmg" -print0)
           
-          # Also check common artifact subdirectories
-          if [ -z "$DMG_FILES" ]; then
-            if [ -d "artifacts/mac-installer" ]; then
-              DMG_FILES=$(find artifacts/mac-installer -name "*.dmg" -type f)
-            fi
-          fi
-          
-          if [ -z "$DMG_FILES" ]; then
-            echo "ERROR: No DMG files found in artifacts"
-            echo "=== Full directory structure ==="
-            find artifacts -type f
-            echo "=== Artifacts root ==="
-            ls -lah artifacts/ || true
-            echo "=== mac-installer directory ==="
-            ls -lah artifacts/mac-installer/ || true
+          if [ ${#DMG_FILES[@]} -eq 0 ]; then
+            echo "ERROR: No DMG files found in artifacts!"
             exit 1
           fi
           
-          # Count DMG files found
-          DMG_COUNT=$(echo "$DMG_FILES" | wc -l | tr -d ' ')
-          echo "Found $DMG_COUNT DMG file(s):"
-          echo "$DMG_FILES" | while read -r DMG_FILE; do
-            if [ -n "$DMG_FILE" ]; then
-              echo "  - $DMG_FILE"
-              ls -lh "$DMG_FILE"
-              
-              # Verify file exists and has size
-              if [ ! -f "$DMG_FILE" ]; then
-                echo "ERROR: DMG file path exists but file not found: $DMG_FILE"
-                exit 1
-              fi
-              
-              FILE_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE" 2>/dev/null || echo "0")
-              if [ "$FILE_SIZE" -eq 0 ]; then
-                echo "ERROR: DMG file is empty: $DMG_FILE"
-                exit 1
-              fi
-              
-              echo "    Size: $FILE_SIZE bytes"
+          # Verify files exist and are not empty
+          for DMG in "${DMG_FILES[@]}"; do
+            if [ ! -f "$DMG" ]; then
+              echo "ERROR: DMG file not found: $DMG"
+              exit 1
+            fi
+            SIZE=$(stat -f%z "$DMG" 2>/dev/null || stat -c%s "$DMG" 2>/dev/null || echo "0")
+            echo "DMG: $(basename "$DMG") - Size: $SIZE bytes"
+            if [ "$SIZE" -eq 0 ]; then
+              echo "ERROR: DMG file is empty: $DMG"
+              exit 1
             fi
           done
           
-          # Check if release exists
-          echo "Checking if release $TAG_NAME exists..."
-          RELEASE_EXISTS=false
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists"
-            RELEASE_EXISTS=true
-          else
-            echo "Release $TAG_NAME does not exist, will create it"
-          fi
-          
-          # Always ensure release exists - create it if it doesn't
-          if [ "$RELEASE_EXISTS" = "false" ]; then
-            echo "=== Creating release $TAG_NAME ==="
-            echo "Repository: soundrolling/electrondante"
-            echo "Tag: $TAG_NAME"
-            
-            # First, verify the tag exists locally and remotely
-            echo "Verifying tag exists..."
-            if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-              echo "✓ Tag $TAG_NAME exists locally"
-              git show "$TAG_NAME" --no-patch --format="Tag: %D%nCommit: %H%nDate: %ci"
-            else
-              echo "⚠ WARNING: Tag $TAG_NAME not found locally"
-            fi
-            
-            # Fetch tags from remote
-            git fetch --tags origin || echo "Could not fetch tags"
-            
-            if git ls-remote --tags origin "$TAG_NAME" | grep -q "$TAG_NAME"; then
-              echo "✓ Tag $TAG_NAME exists on remote"
-            else
-              echo "⚠ WARNING: Tag $TAG_NAME not found on remote"
-              echo "Available tags:"
-              git ls-remote --tags origin | grep "refs/tags/v" | tail -5
-            fi
-            
-            # Try gh CLI first (it handles auth better)
-            echo "Creating release with gh CLI..."
-            CREATE_OUTPUT=$(gh release create "$TAG_NAME" \
-            --title "Release $TAG_NAME" \
-            --notes "Dante Audio Client Release $TAG_NAME" \
-              --draft=false \
-              --prerelease=false 2>&1)
-            CREATE_EXIT=$?
-            
-            if [ $CREATE_EXIT -eq 0 ]; then
-              echo "✓ Release created successfully with gh CLI"
-              RELEASE_EXISTS=true
-            else
-              echo "gh CLI failed (exit code $CREATE_EXIT): $CREATE_OUTPUT"
-              
-              # Check if it's because release already exists
-              if echo "$CREATE_OUTPUT" | grep -qi "already exists"; then
-                echo "Release already exists (according to gh CLI)"
-                RELEASE_EXISTS=true
-              else
-                echo "Trying GitHub API as fallback..."
-                API_URL="https://api.github.com/repos/soundrolling/electrondante/releases"
-                
-                API_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+          # Create release if it doesn't exist
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Creating release $TAG_NAME..."
+            gh release create "$TAG_NAME" \
+              --title "Dante Audio Client $TAG_NAME" \
+              --notes "Release $TAG_NAME - macOS signed and notarized installer" \
+              --repo soundrolling/electrondante \
+              || {
+                echo "Failed to create release with gh CLI, trying curl..."
+                curl -X POST \
                   -H "Authorization: token $GITHUB_TOKEN" \
                   -H "Accept: application/vnd.github.v3+json" \
-                  -H "Content-Type: application/json" \
-                  -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Release $TAG_NAME\",\"body\":\"Dante Audio Client Release $TAG_NAME\",\"draft\":false,\"prerelease\":false}" \
-                  "$API_URL" 2>&1)
-                
-                HTTP_CODE=$(echo "$API_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
-                API_BODY=$(echo "$API_RESPONSE" | sed '/HTTP_CODE:/d')
-                
-                echo "API HTTP Code: $HTTP_CODE"
-                echo "API Response: $API_BODY"
-                
-                if [ "$HTTP_CODE" = "201" ]; then
-                  echo "✓ Release created successfully via API"
-                  RELEASE_EXISTS=true
-                elif [ "$HTTP_CODE" = "422" ] && echo "$API_BODY" | grep -q "already_exists"; then
-                  echo "Release already exists (according to API)"
-                  RELEASE_EXISTS=true
-                else
-                  echo "⚠ ERROR: Could not create release with either method"
-                  echo "gh CLI output: $CREATE_OUTPUT"
-                  echo "API HTTP Code: $HTTP_CODE"
-                  echo "API Response: $API_BODY"
-                  exit 1
-                fi
-              fi
-            fi
-            
-            # Wait a moment for release to be created
-            sleep 3
-            
-            # Verify release was created
-            echo "Verifying release exists..."
-            if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-              echo "✓ Release $TAG_NAME verified to exist"
-              RELEASE_EXISTS=true
-            else
-              echo "⚠ ERROR: Release $TAG_NAME does not exist after creation attempts"
-              echo "Listing all releases to debug..."
-              gh release list --limit 5
-              exit 1
-            fi
+                  "https://api.github.com/repos/soundrolling/electrondante/releases" \
+                  -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Dante Audio Client $TAG_NAME\",\"body\":\"Release $TAG_NAME - macOS signed and notarized installer\",\"draft\":false,\"prerelease\":false}"
+              }
+          else
+            echo "Release $TAG_NAME already exists"
           fi
           
-          # Upload ALL DMG files
-          echo "Uploading DMG files to release $TAG_NAME..."
-          UPLOAD_SUCCESS=0
-          UPLOAD_FAILED=0
-          
-          echo "$DMG_FILES" | while read -r DMG_FILE; do
-            if [ -n "$DMG_FILE" ]; then
-              DMG_BASENAME=$(basename "$DMG_FILE")
-              echo "Uploading: $DMG_BASENAME"
-              
-              # Try gh CLI first
-              UPLOAD_RESULT=$(gh release upload "$TAG_NAME" "$DMG_FILE" --clobber 2>&1)
-              UPLOAD_EXIT=$?
-              
-              if [ $UPLOAD_EXIT -ne 0 ]; then
-                echo "gh CLI upload failed: $UPLOAD_RESULT"
-                echo "Trying GitHub API directly..."
-                
+          # Upload each DMG file
+          for DMG in "${DMG_FILES[@]}"; do
+            DMG_NAME=$(basename "$DMG")
+            echo "Uploading $DMG_NAME to release $TAG_NAME..."
+            
+            gh release upload "$TAG_NAME" "$DMG" --clobber \
+              --repo soundrolling/electrondante \
+              || {
+                echo "Failed to upload with gh CLI, trying curl..."
                 # Get release ID
-                RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id' 2>/dev/null)
-                
-                if [ -z "$RELEASE_ID" ]; then
-                  # Try to get release ID from API
-                  RELEASE_ID=$(curl -s \
-                    -H "Authorization: token $GITHUB_TOKEN" \
-                    -H "Accept: application/vnd.github.v3+json" \
-                    "https://api.github.com/repos/soundrolling/electrondante/releases/tags/$TAG_NAME" | \
-                    grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
-                fi
+                RELEASE_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                  "https://api.github.com/repos/soundrolling/electrondante/releases/tags/$TAG_NAME" \
+                  | jq -r '.id')
                 
                 if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
-                  echo "Found release ID: $RELEASE_ID"
-                  
-                  # Upload using GitHub API
-                  UPLOAD_RESPONSE=$(curl -X POST \
+                  curl -X POST \
                     -H "Authorization: token $GITHUB_TOKEN" \
-                    -H "Accept: application/vnd.github.v3+json" \
                     -H "Content-Type: application/octet-stream" \
-                    --data-binary "@$DMG_FILE" \
-                    "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$DMG_BASENAME" \
-                    -w "\nHTTP_CODE:%{http_code}" 2>&1)
-                  
-                  HTTP_CODE=$(echo "$UPLOAD_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
-                  
-                  if [ "$HTTP_CODE" = "201" ]; then
-                    echo "API upload successful: $DMG_BASENAME"
-                    UPLOAD_SUCCESS=$((UPLOAD_SUCCESS + 1))
-                  else
-                    echo "API upload failed (HTTP $HTTP_CODE): $UPLOAD_RESPONSE"
-                    UPLOAD_FAILED=$((UPLOAD_FAILED + 1))
-                  fi
-                else
-                  echo "ERROR: Could not get release ID for $TAG_NAME"
-                  UPLOAD_FAILED=$((UPLOAD_FAILED + 1))
+                    --data-binary "@$DMG" \
+                    "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$DMG_NAME"
                 fi
-              else
-                echo "Upload successful: $DMG_BASENAME"
-                UPLOAD_SUCCESS=$((UPLOAD_SUCCESS + 1))
-              fi
-            fi
+              }
+            
+            echo "✓ Uploaded $DMG_NAME"
           done
           
           echo "=== Verifying release assets ==="
