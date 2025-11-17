@@ -14,6 +14,107 @@ try {
 let mainWindow = null;
 let client = null;
 
+function mapInputDevices(devices) {
+  return devices
+    .filter((d) => d && d.maxInputChannels > 0)
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      maxInputChannels: d.maxInputChannels,
+      defaultSampleRate: d.defaultSampleRate,
+      isDefault: d.isDefault,
+    }));
+}
+
+async function enumerateDevicesWithRetry(maxAttempts = 3) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const naudiodon = require('naudiodon');
+      const devices = naudiodon.getDevices();
+      if (!Array.isArray(devices)) {
+        throw new Error('Naudiodon returned invalid device list');
+      }
+      appendAppLog('INFO', `Enumerated devices on attempt ${attempt}`);
+      return mapInputDevices(devices);
+    } catch (error) {
+      lastError = error;
+      appendAppLog('WARN', `Device enumeration attempt ${attempt} failed`, error);
+      if (attempt < maxAttempts) {
+        await delay(300 * attempt);
+      }
+    }
+  }
+  throw lastError || new Error('Device enumeration failed');
+}
+
+async function requestMicrophonePermissionWithRetries(maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const status = systemPreferences.getMediaAccessStatus('microphone');
+      if (status === 'granted') {
+        return { granted: true, status };
+      }
+      const granted = await systemPreferences.askForMediaAccess('microphone');
+      if (granted) {
+        return { granted: true, status: 'granted' };
+      }
+      appendAppLog('WARN', `Microphone permission denied on attempt ${attempt}`);
+    } catch (error) {
+      appendAppLog('ERROR', `Error requesting microphone permission on attempt ${attempt}`, error);
+    }
+    if (attempt < maxAttempts) {
+      await delay(500 * attempt);
+    }
+  }
+  return { granted: false, status: 'denied', error: 'Could not obtain microphone permission' };
+}
+
+function getMicrophonePermissionStatus() {
+  try {
+    const status = systemPreferences.getMediaAccessStatus('microphone');
+    return { granted: status === 'granted', status };
+  } catch (error) {
+    appendAppLog('ERROR', 'Failed to read microphone permission status', error);
+    return { granted: false, status: 'unknown', error: error.message };
+  }
+}
+
+const LOG_FILENAME = 'dante-audio-client.log';
+let appLogPath = null;
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function getAppLogPath() {
+  if (!appLogPath) {
+    appLogPath = path.join(app.getPath('userData'), LOG_FILENAME);
+  }
+  return appLogPath;
+}
+
+function appendAppLog(level, message, error = null) {
+  const timestamp = new Date().toISOString();
+  const stack = error ? ` | ${error.stack || error}` : '';
+  const entry = `${timestamp} [${level}] ${message}${stack}\n`;
+  const filePath = getAppLogPath();
+
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.appendFile(filePath, entry, (err) => {
+      if (err) {
+        console.error('Failed to write log file:', err);
+      }
+    });
+  } catch (writeError) {
+    console.error('Could not append to log file', writeError);
+  }
+}
+
+function logErrorContext(context, error) {
+  console.error(context, error);
+  appendAppLog('ERROR', context, error);
+}
+
 function createWindow() {
   // Try to find icon, but don't fail if it doesn't exist
   let iconPath = null;
@@ -92,13 +193,13 @@ function createWindow() {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  logErrorContext('Uncaught Exception', error);
   // Don't exit - let Electron handle it
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logErrorContext('Unhandled Rejection', reason);
 });
 
 app.whenReady().then(() => {
@@ -184,44 +285,25 @@ ipcMain.handle('stop-client', async () => {
 });
 
 ipcMain.handle('get-devices', async () => {
-  // Try to get devices from running client first
   if (client) {
     return client.getAvailableDevices();
   }
-  
-  // If no client, try to enumerate devices directly
-  try {
-    const naudiodon = require('naudiodon');
-    console.log('Attempting to enumerate devices with naudiodon...');
-    
-    // Check microphone permission first (macOS)
-    if (process.platform === 'darwin') {
-      const status = systemPreferences.getMediaAccessStatus('microphone');
-      console.log('Microphone permission status:', status);
-      if (status !== 'granted') {
-        console.warn('Microphone permission not granted, status:', status);
-        return [];
-      }
+
+  if (process.platform === 'darwin') {
+    const permission = getMicrophonePermissionStatus();
+    appendAppLog('INFO', `Microphone permission status: ${permission.status}`);
+    if (!permission.granted) {
+      appendAppLog('WARN', 'Microphone permission not granted; skipping device enumeration');
+      return [];
     }
-    
-    const devices = naudiodon.getDevices();
-    console.log(`Found ${devices.length} total devices from naudiodon`);
-    
-    const inputDevices = devices
-      .filter(d => d.maxInputChannels > 0)
-      .map(d => ({
-        id: d.id,
-        name: d.name,
-        maxInputChannels: d.maxInputChannels,
-        defaultSampleRate: d.defaultSampleRate,
-        isDefault: d.isDefault,
-      }));
-    
-    console.log(`Found ${inputDevices.length} input devices:`, inputDevices.map(d => d.name));
-    return inputDevices;
+  }
+
+  try {
+    const devices = await enumerateDevicesWithRetry();
+    appendAppLog('INFO', `Enumerated ${devices.length} input device(s)`);
+    return devices;
   } catch (error) {
-    console.error('Error enumerating devices:', error);
-    console.error('Error stack:', error.stack);
+    logErrorContext('Error enumerating devices', error);
     return [];
   }
 });
@@ -250,14 +332,47 @@ ipcMain.handle('get-status', async () => {
   };
 });
 
-// Request microphone permission (macOS)
-ipcMain.handle('request-microphone-permission', async () => {
-  if (process.platform !== 'darwin') {
-    return { granted: true, error: null }; // Not needed on other platforms
+ipcMain.handle('get-health-check', async () => {
+  const health = {
+    nativeModuleLoaded: !!DanteBridgeClient,
+    microphone: { granted: true, status: 'granted' },
+    deviceScan: { success: false, devices: 0, error: null },
+    timestamp: new Date().toISOString(),
+    logPath: getAppLogPath(),
+  };
+
+  if (process.platform === 'darwin') {
+    health.microphone = getMicrophonePermissionStatus();
+  }
+
+  if (!health.microphone.granted) {
+    health.deviceScan.error = 'Microphone permission not granted';
+    appendAppLog('WARN', 'Health check: microphone permission missing');
+    return health;
   }
 
   try {
-    // Ensure window is visible and focused (required for macOS Ventura+)
+    const devices = await enumerateDevicesWithRetry(2);
+    health.deviceScan.success = devices.length > 0;
+    health.deviceScan.devices = devices.length;
+    if (!health.deviceScan.success) {
+      health.deviceScan.error = 'No devices found';
+    }
+  } catch (error) {
+    health.deviceScan.error = error.message;
+    appendAppLog('ERROR', 'Health check device enumeration failed', error);
+  }
+
+  return health;
+});
+
+// Request microphone permission (macOS)
+ipcMain.handle('request-microphone-permission', async () => {
+  if (process.platform !== 'darwin') {
+    return { granted: true, error: null };
+  }
+
+  try {
     if (mainWindow && !mainWindow.isVisible()) {
       mainWindow.show();
     }
@@ -265,14 +380,11 @@ ipcMain.handle('request-microphone-permission', async () => {
       mainWindow.focus();
     }
 
-    const status = systemPreferences.getMediaAccessStatus('microphone');
-    if (status === 'granted') {
-      return { granted: true, error: null };
-    }
-
-    const granted = await systemPreferences.askForMediaAccess('microphone');
-    return { granted, error: granted ? null : 'Permission denied by user' };
+    const result = await requestMicrophonePermissionWithRetries();
+    appendAppLog('INFO', `Microphone permission request result: ${result.status || (result.granted ? 'granted' : 'denied')}`);
+    return result;
   } catch (error) {
+    logErrorContext('Exception while requesting microphone permission', error);
     return { granted: false, error: error.message };
   }
 });

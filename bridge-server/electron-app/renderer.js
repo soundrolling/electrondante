@@ -92,6 +92,8 @@ function initializeApp() {
   
   // Try to refresh devices on startup (will work if permission is granted)
   setTimeout(refreshDevices, 1000);
+  setTimeout(refreshHealthCheck, 1500);
+  setInterval(refreshHealthCheck, 30000);
 }
 
 // Check microphone permission status
@@ -109,6 +111,25 @@ async function checkMicrophonePermission() {
     }
   } catch (error) {
     // Ignore errors (might not be macOS)
+  }
+}
+
+// Health check helper
+async function refreshHealthCheck() {
+  if (!window.electronAPI?.getHealthCheck) {
+    return;
+  }
+
+  try {
+    const health = await window.electronAPI.getHealthCheck();
+    const micMessage = `Microphone: ${health.microphone.status || (health.microphone.granted ? 'granted' : 'denied')}`;
+    const deviceMessage = health.deviceScan.devices
+      ? `${health.deviceScan.devices} device(s)`
+      : health.deviceScan.error || 'No devices';
+    const level = health.deviceScan.success ? 'success' : 'error';
+    addLog(`Health check: module=${health.nativeModuleLoaded ? 'ready' : 'missing'}, ${micMessage}, ${deviceMessage}`, level);
+  } catch (error) {
+    addLog(`Health check error: ${error.message}`, 'error');
   }
 }
 
