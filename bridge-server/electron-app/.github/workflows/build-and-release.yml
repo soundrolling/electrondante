@@ -69,24 +69,27 @@ jobs:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
-          if [ -n "$CSC_LINK" ]; then
+          if [ -n "$CSC_LINK" ] && [ -n "$CSC_KEY_PASSWORD" ]; then
             echo "Importing code signing certificate..."
             # Create keychain
-            security create-keychain -p "" build.keychain
+            security create-keychain -p "" build.keychain || true
             security default-keychain -s build.keychain
             security unlock-keychain -p "" build.keychain
             security set-keychain-settings -t 3600 -u build.keychain
             
             # Import certificate
             echo "$CSC_LINK" | base64 --decode > certificate.p12
-            security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+            security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign || true
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
             
             # List identities
-            security find-identity -v -p codesigning build.keychain
-            echo "Certificate imported successfully"
+            echo "=== Available signing identities ==="
+            security find-identity -v -p codesigning build.keychain || security find-identity -v build.keychain
+            echo "=== All identities in keychain ==="
+            security find-identity -v build.keychain || echo "Could not list identities"
+            echo "Certificate import completed"
           else
-            echo "No certificate secret found, building without code signing"
+            echo "No certificate secret found (CSC_LINK or CSC_KEY_PASSWORD missing), building without code signing"
           fi
 
       - name: Build installer (macOS)
@@ -175,20 +178,18 @@ jobs:
           echo "Creating release for tag: $TAG_NAME"
           echo "Event: ${{ github.event_name }}"
           
-          # Find DMG file - check multiple possible locations
-          DMG_FILE=$(find artifacts -name "*.dmg" -type f | head -1)
+          # Find ALL DMG files - check multiple possible locations
+          DMG_FILES=$(find artifacts -name "*.dmg" -type f)
           
           # Also check common artifact subdirectories
-          if [ -z "$DMG_FILE" ]; then
-            if [ -f "artifacts/mac-installer/*.dmg" ]; then
-              DMG_FILE=$(ls artifacts/mac-installer/*.dmg | head -1)
-            elif [ -d "artifacts/mac-installer" ]; then
-              DMG_FILE=$(find artifacts/mac-installer -name "*.dmg" -type f | head -1)
+          if [ -z "$DMG_FILES" ]; then
+            if [ -d "artifacts/mac-installer" ]; then
+              DMG_FILES=$(find artifacts/mac-installer -name "*.dmg" -type f)
             fi
           fi
           
-          if [ -z "$DMG_FILE" ]; then
-            echo "ERROR: No DMG file found in artifacts"
+          if [ -z "$DMG_FILES" ]; then
+            echo "ERROR: No DMG files found in artifacts"
             echo "=== Full directory structure ==="
             find artifacts -type f
             echo "=== Artifacts root ==="
@@ -198,55 +199,75 @@ jobs:
             exit 1
           fi
           
-          echo "Found DMG file: $DMG_FILE"
-          ls -lh "$DMG_FILE"
-          
-          # Verify file exists and has size
-          if [ ! -f "$DMG_FILE" ]; then
-            echo "ERROR: DMG file path exists but file not found: $DMG_FILE"
-            exit 1
-          fi
-          
-          FILE_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE" 2>/dev/null || echo "0")
-          if [ "$FILE_SIZE" -eq 0 ]; then
-            echo "ERROR: DMG file is empty: $DMG_FILE"
-            exit 1
-          fi
-          
-          echo "DMG file size: $FILE_SIZE bytes"
+          # Count DMG files found
+          DMG_COUNT=$(echo "$DMG_FILES" | wc -l | tr -d ' ')
+          echo "Found $DMG_COUNT DMG file(s):"
+          echo "$DMG_FILES" | while read -r DMG_FILE; do
+            if [ -n "$DMG_FILE" ]; then
+              echo "  - $DMG_FILE"
+              ls -lh "$DMG_FILE"
+              
+              # Verify file exists and has size
+              if [ ! -f "$DMG_FILE" ]; then
+                echo "ERROR: DMG file path exists but file not found: $DMG_FILE"
+                exit 1
+              fi
+              
+              FILE_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE" 2>/dev/null || echo "0")
+              if [ "$FILE_SIZE" -eq 0 ]; then
+                echo "ERROR: DMG file is empty: $DMG_FILE"
+                exit 1
+              fi
+              
+              echo "    Size: $FILE_SIZE bytes"
+            fi
+          done
           
           # Always try to upload, whether release exists or not
-          echo "Uploading DMG to release $TAG_NAME..."
+          echo "Uploading DMG files to release $TAG_NAME..."
           
-          # First, try to create release with DMG (will fail if release exists, that's OK)
+          # First, try to create release (will fail if release exists, that's OK)
+          # Get first DMG for initial release creation
+          FIRST_DMG=$(echo "$DMG_FILES" | head -1)
           gh release create "$TAG_NAME" \
             --title "Release $TAG_NAME" \
             --notes "Dante Audio Client Release $TAG_NAME" \
-            "$DMG_FILE" 2>&1 || echo "Release may already exist, will upload asset..."
+            "$FIRST_DMG" 2>&1 || echo "Release may already exist, will upload assets..."
           
-          # Always try to upload the asset (works whether release exists or not)
-          echo "Uploading DMG file as asset..."
-          UPLOAD_RESULT=$(gh release upload "$TAG_NAME" "$DMG_FILE" --clobber 2>&1)
-          UPLOAD_EXIT=$?
-          
-          if [ $UPLOAD_EXIT -ne 0 ]; then
-            echo "Upload result: $UPLOAD_RESULT"
-            echo "Upload failed with exit code $UPLOAD_EXIT, trying alternative method..."
-            
-            # Try using curl as fallback
-            RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id')
-            if [ -n "$RELEASE_ID" ]; then
-              echo "Found release ID: $RELEASE_ID"
-              # Use GitHub API directly
-              curl -X POST \
-                -H "Authorization: token $GITHUB_TOKEN" \
-                -H "Content-Type: application/octet-stream" \
-                --data-binary "@$DMG_FILE" \
-                "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$(basename "$DMG_FILE")" || echo "Curl upload also failed"
+          # Upload ALL DMG files
+          UPLOAD_FAILED=0
+          echo "$DMG_FILES" | while read -r DMG_FILE; do
+            if [ -n "$DMG_FILE" ]; then
+              echo "Uploading: $(basename "$DMG_FILE")"
+              UPLOAD_RESULT=$(gh release upload "$TAG_NAME" "$DMG_FILE" --clobber 2>&1)
+              UPLOAD_EXIT=$?
+              
+              if [ $UPLOAD_EXIT -ne 0 ]; then
+                echo "Upload failed for $DMG_FILE: $UPLOAD_RESULT"
+                echo "Trying alternative method with curl..."
+                
+                # Try using curl as fallback
+                RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id')
+                if [ -n "$RELEASE_ID" ]; then
+                  echo "Found release ID: $RELEASE_ID"
+                  # Use GitHub API directly
+                  curl -X POST \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    -H "Content-Type: application/octet-stream" \
+                    --data-binary "@$DMG_FILE" \
+                    "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$(basename "$DMG_FILE")" || {
+                    echo "Curl upload also failed for $DMG_FILE"
+                    UPLOAD_FAILED=1
+                  }
+                else
+                  echo "Could not get release ID"
+                  UPLOAD_FAILED=1
+                fi
+              else
+                echo "Upload successful: $(basename "$DMG_FILE")"
+              fi
             fi
-          else
-            echo "Upload successful: $UPLOAD_RESULT"
-          fi
+          done
           
           echo "=== Verifying release assets ==="
           gh release view "$TAG_NAME" --json assets --jq '.assets[] | "\(.name) - \(.size) bytes"'
@@ -259,9 +280,9 @@ jobs:
           echo "DMG files: $DMG_COUNT"
           
           if [ "$DMG_COUNT" -eq 0 ]; then
-            echo "WARNING: No DMG file found in release assets!"
+            echo "ERROR: No DMG files found in release assets!"
             exit 1
           else
-            echo "SUCCESS: DMG file uploaded to release!"
+            echo "SUCCESS: $DMG_COUNT DMG file(s) uploaded to release!"
           fi
 
