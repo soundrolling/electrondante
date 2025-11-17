@@ -79,6 +79,14 @@ function initializeApp() {
 
   // Initial load
   addLog('Dante Audio Client ready', 'success');
+  
+  // Enable refresh devices button so users can see devices before starting
+  if (refreshDevicesBtn) {
+    refreshDevicesBtn.disabled = false;
+  }
+  
+  // Try to refresh devices on startup (will work if permission is granted)
+  setTimeout(refreshDevices, 1000);
 }
 
 // Check microphone permission status
@@ -121,8 +129,13 @@ async function requestMicrophonePermission() {
       if (permissionSection) {
         permissionSection.style.display = 'none';
       }
-      // Refresh devices after permission is granted
-      setTimeout(refreshDevices, 500);
+      // Refresh devices after permission is granted - wait a bit longer for macOS to update
+      addLog('Refreshing audio devices...', 'info');
+      setTimeout(() => {
+        refreshDevices();
+        // Try again after a longer delay in case macOS needs more time
+        setTimeout(refreshDevices, 2000);
+      }, 1000);
     } else {
       showMessage(result.error || 'Microphone permission denied. Please grant permission in System Preferences → Security & Privacy → Microphone', 'error');
       addLog(`Permission denied: ${result.error || 'User denied permission'}`, 'error');
@@ -238,7 +251,10 @@ async function stopClient() {
 
 async function refreshDevices() {
   try {
+    addLog('Enumerating audio devices...', 'info');
     const devices = await window.electronAPI.getDevices();
+    
+    addLog(`Found ${devices.length} audio input device(s)`, devices.length > 0 ? 'success' : 'info');
     renderDevices(devices);
     
     const status = await window.electronAPI.getStatus();
@@ -247,7 +263,11 @@ async function refreshDevices() {
     }
     
     if (devices.length === 0) {
-      showMessage('No audio devices found. Make sure your audio device is connected and recognized by your OS.', 'error');
+      showMessage('No audio devices found. Make sure your audio device is connected and recognized by your OS. If you just granted microphone permission, try clicking "Refresh Devices" again.', 'error');
+    } else {
+      // Clear any previous error messages if devices are found
+      const deviceNames = devices.map(d => d.name).join(', ');
+      addLog(`Devices: ${deviceNames}`, 'success');
     }
   } catch (error) {
     showMessage(`Error refreshing devices: ${error.message}`, 'error');

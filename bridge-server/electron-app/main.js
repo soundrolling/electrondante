@@ -177,10 +177,29 @@ ipcMain.handle('stop-client', async () => {
 });
 
 ipcMain.handle('get-devices', async () => {
+  // Try to get devices from running client first
   if (client) {
     return client.getAvailableDevices();
   }
-  return [];
+  
+  // If no client, try to enumerate devices directly
+  try {
+    const naudiodon = require('naudiodon');
+    const devices = naudiodon.getDevices();
+    const inputDevices = devices
+      .filter(d => d.maxInputChannels > 0)
+      .map(d => ({
+        id: d.id,
+        name: d.name,
+        maxInputChannels: d.maxInputChannels,
+        defaultSampleRate: d.defaultSampleRate,
+        isDefault: d.isDefault,
+      }));
+    return inputDevices;
+  } catch (error) {
+    console.error('Error enumerating devices:', error);
+    return [];
+  }
 });
 
 ipcMain.handle('set-device', async (event, deviceId) => {
