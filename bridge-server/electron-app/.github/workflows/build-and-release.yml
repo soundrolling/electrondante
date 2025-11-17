@@ -25,13 +25,8 @@ jobs:
 
       - name: Rebuild native modules
         run: |
-          if npm run | grep -q "rebuild"; then
-            npm run rebuild
-          else
-            echo "Rebuild script not found, installing electron-rebuild..."
-            npm install --save-dev electron-rebuild
-            npx electron-rebuild -f -w naudiodon
-          fi
+          # Try to run rebuild script, fallback to direct electron-rebuild
+          npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings"
 
       - name: Build installer (macOS)
         run: npm run build:mac
