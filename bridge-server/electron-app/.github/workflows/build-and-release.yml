@@ -230,64 +230,125 @@ jobs:
             fi
           done
           
-          # Always try to upload, whether release exists or not
-          echo "Uploading DMG files to release $TAG_NAME..."
+          # Check if release exists
+          echo "Checking if release $TAG_NAME exists..."
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists"
+            RELEASE_EXISTS=true
+          else
+            echo "Release $TAG_NAME does not exist, will create it"
+            RELEASE_EXISTS=false
+          fi
           
-          # First, try to create release (will fail if release exists, that's OK)
-          # Get first DMG for initial release creation
-          FIRST_DMG=$(echo "$DMG_FILES" | head -1)
-          gh release create "$TAG_NAME" \
-            --title "Release $TAG_NAME" \
-            --notes "Dante Audio Client Release $TAG_NAME" \
-            "$FIRST_DMG" 2>&1 || echo "Release may already exist, will upload assets..."
+          # Create release if it doesn't exist (without assets first)
+          if [ "$RELEASE_EXISTS" = "false" ]; then
+            echo "Creating release $TAG_NAME..."
+            gh release create "$TAG_NAME" \
+              --title "Release $TAG_NAME" \
+              --notes "Dante Audio Client Release $TAG_NAME" \
+              --draft=false \
+              --prerelease=false || {
+              echo "Failed to create release, trying to continue anyway..."
+            }
+            
+            # Wait a moment for release to be created
+            sleep 2
+            
+            # Verify release was created
+            if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+              echo "ERROR: Release $TAG_NAME still does not exist after creation attempt"
+              echo "Trying to create using GitHub API directly..."
+              
+              # Use GitHub API to create release
+              curl -X POST \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github.v3+json" \
+                -H "Content-Type: application/json" \
+                -d "{\"tag_name\":\"$TAG_NAME\",\"name\":\"Release $TAG_NAME\",\"body\":\"Dante Audio Client Release $TAG_NAME\",\"draft\":false,\"prerelease\":false}" \
+                "https://api.github.com/repos/soundrolling/electrondante/releases" || {
+                echo "API release creation also failed"
+              }
+              
+              sleep 2
+            fi
+          fi
           
           # Upload ALL DMG files
+          echo "Uploading DMG files to release $TAG_NAME..."
+          UPLOAD_SUCCESS=0
           UPLOAD_FAILED=0
+          
           echo "$DMG_FILES" | while read -r DMG_FILE; do
             if [ -n "$DMG_FILE" ]; then
-              echo "Uploading: $(basename "$DMG_FILE")"
+              DMG_BASENAME=$(basename "$DMG_FILE")
+              echo "Uploading: $DMG_BASENAME"
+              
+              # Try gh CLI first
               UPLOAD_RESULT=$(gh release upload "$TAG_NAME" "$DMG_FILE" --clobber 2>&1)
               UPLOAD_EXIT=$?
               
               if [ $UPLOAD_EXIT -ne 0 ]; then
-                echo "Upload failed for $DMG_FILE: $UPLOAD_RESULT"
-                echo "Trying alternative method with curl..."
+                echo "gh CLI upload failed: $UPLOAD_RESULT"
+                echo "Trying GitHub API directly..."
                 
-                # Try using curl as fallback
-                RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id')
-                if [ -n "$RELEASE_ID" ]; then
-                  echo "Found release ID: $RELEASE_ID"
-                  # Use GitHub API directly
-                  curl -X POST \
+                # Get release ID
+                RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id' 2>/dev/null)
+                
+                if [ -z "$RELEASE_ID" ]; then
+                  # Try to get release ID from API
+                  RELEASE_ID=$(curl -s \
                     -H "Authorization: token $GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github.v3+json" \
+                    "https://api.github.com/repos/soundrolling/electrondante/releases/tags/$TAG_NAME" | \
+                    grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+                fi
+                
+                if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
+                  echo "Found release ID: $RELEASE_ID"
+                  
+                  # Upload using GitHub API
+                  UPLOAD_RESPONSE=$(curl -X POST \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github.v3+json" \
                     -H "Content-Type: application/octet-stream" \
                     --data-binary "@$DMG_FILE" \
-                    "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$(basename "$DMG_FILE")" || {
-                    echo "Curl upload also failed for $DMG_FILE"
-                    UPLOAD_FAILED=1
-                  }
+                    "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$DMG_BASENAME" \
+                    -w "\nHTTP_CODE:%{http_code}" 2>&1)
+                  
+                  HTTP_CODE=$(echo "$UPLOAD_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
+                  
+                  if [ "$HTTP_CODE" = "201" ]; then
+                    echo "API upload successful: $DMG_BASENAME"
+                    UPLOAD_SUCCESS=$((UPLOAD_SUCCESS + 1))
+                  else
+                    echo "API upload failed (HTTP $HTTP_CODE): $UPLOAD_RESPONSE"
+                    UPLOAD_FAILED=$((UPLOAD_FAILED + 1))
+                  fi
                 else
-                  echo "Could not get release ID"
-                  UPLOAD_FAILED=1
+                  echo "ERROR: Could not get release ID for $TAG_NAME"
+                  UPLOAD_FAILED=$((UPLOAD_FAILED + 1))
                 fi
               else
-                echo "Upload successful: $(basename "$DMG_FILE")"
+                echo "Upload successful: $DMG_BASENAME"
+                UPLOAD_SUCCESS=$((UPLOAD_SUCCESS + 1))
               fi
             fi
           done
           
           echo "=== Verifying release assets ==="
-          gh release view "$TAG_NAME" --json assets --jq '.assets[] | "\(.name) - \(.size) bytes"'
+          gh release view "$TAG_NAME" --json assets --jq '.assets[] | "\(.name) - \(.size) bytes"' || echo "Could not view release"
           
           # Final check
-          ASSET_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '.assets | length')
-          DMG_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '[.assets[] | select(.name | endswith(".dmg"))] | length')
+          ASSET_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
+          DMG_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '[.assets[] | select(.name | endswith(".dmg"))] | length' 2>/dev/null || echo "0")
           
           echo "Total assets: $ASSET_COUNT"
           echo "DMG files: $DMG_COUNT"
           
           if [ "$DMG_COUNT" -eq 0 ]; then
             echo "ERROR: No DMG files found in release assets!"
+            echo "Upload success count: $UPLOAD_SUCCESS"
+            echo "Upload failed count: $UPLOAD_FAILED"
             exit 1
           else
             echo "SUCCESS: $DMG_COUNT DMG file(s) uploaded to release!"
