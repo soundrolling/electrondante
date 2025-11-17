@@ -56,8 +56,26 @@ jobs:
           # Try to run rebuild script, fallback to direct electron-rebuild
           npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings"
 
+      - name: Import code signing certificate (if available)
+        if: env.CSC_LINK != ''
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Importing code signing certificate..."
+            # Certificate will be imported by electron-builder automatically
+          else
+            echo "No certificate secret found, building without code signing"
+          fi
+
       - name: Build installer (macOS)
         working-directory: ${{ env.ELECTRON_APP_DIR }}
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
         run: npm run build:mac
 
       - name: List dist directory

@@ -1,6 +1,6 @@
 {
   "name": "dante-audio-client",
-  "version": "1.0.32",
+  "version": "1.0.33",
   "description": "Dante Audio Client - Stream audio to Railway",
   "main": "main.js",
   "scripts": {
@@ -51,11 +51,11 @@
         }
       ],
       "icon": "build/icon.icns",
-      "hardenedRuntime": false,
+      "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "identity": null
+      "identity": "Developer ID Application: matthew price (E2BVJ4CM5V)"
     },
     "win": {
       "target": [
