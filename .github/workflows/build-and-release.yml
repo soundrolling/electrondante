@@ -316,6 +316,9 @@ jobs:
           fi
           
           echo "Authenticating GitHub CLI..."
+          # Temporarily unset GH_TOKEN to avoid gh CLI warning about environment variable
+          # Then authenticate using the token from stdin
+          unset GH_TOKEN
           echo "$TOKEN" | gh auth login --with-token
           echo "Checking authentication status..."
           gh auth status
