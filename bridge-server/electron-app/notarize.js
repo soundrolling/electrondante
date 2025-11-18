@@ -123,10 +123,21 @@ exports.default = async function notarizing(context) {
     console.log(`Using constructed identity: ${identity}`);
   }
 
-  // Ensure all binaries are properly signed before notarization
-  if (teamId && identity) {
-    const entitlementsPath = path.join(__dirname, 'build', 'entitlements.mac.plist');
-    ensureAllBinariesSigned(appPath, identity, entitlementsPath);
+  // Skip re-signing since custom-sign.js already signed everything in afterPack hook
+  // Just verify the signature is valid
+  console.log('Verifying app is properly signed (custom-sign.js should have already signed everything)...');
+  try {
+    execSync(`codesign -vv --deep --strict "${appPath}"`, { stdio: 'pipe' });
+    console.log('✓ App signature is valid');
+  } catch (error) {
+    console.warn('⚠ Signature verification failed, attempting to fix...');
+    // Only re-sign if verification fails (shouldn't happen if custom-sign.js worked)
+    if (teamId && identity) {
+      const entitlementsPath = path.join(__dirname, 'build', 'entitlements.mac.plist');
+      ensureAllBinariesSigned(appPath, identity, entitlementsPath);
+    } else {
+      throw new Error('Cannot fix signature: missing teamId or identity');
+    }
   }
 
   // Now notarize
