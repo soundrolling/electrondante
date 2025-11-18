@@ -114,20 +114,44 @@ exports.default = async function(context) {
   }
   
   try {
-    // Find all binaries that need signing (nested in Frameworks, etc.)
-    console.log('Finding all binaries to sign...');
+    // Find all binaries that need signing (nested in Frameworks, Resources, etc.)
+    console.log('\n=== Finding All Binaries to Sign ===');
     const frameworksPath = path.join(appPath, 'Contents', 'Frameworks');
+    const resourcesPath = path.join(appPath, 'Contents', 'Resources');
     const binaries = [];
     
+    console.log(`Checking Frameworks: ${frameworksPath}`);
     if (fs.existsSync(frameworksPath)) {
       findBinaries(frameworksPath, binaries);
+      console.log(`  Found ${binaries.length} binaries in Frameworks`);
+    } else {
+      console.log(`  Frameworks directory not found`);
     }
     
-    // Also check Resources for ShipIt and other executables
-    const resourcesPath = path.join(appPath, 'Contents', 'Resources');
+    // Check Resources for ShipIt and other executables
+    console.log(`Checking Resources: ${resourcesPath}`);
     if (fs.existsSync(resourcesPath)) {
+      const beforeCount = binaries.length;
       findBinaries(resourcesPath, binaries);
+      const foundInResources = binaries.length - beforeCount;
+      console.log(`  Found ${foundInResources} additional binaries in Resources`);
+    } else {
+      console.log(`  Resources directory not found`);
     }
+    
+    // Specifically check app.asar.unpacked for native modules
+    const asarUnpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
+    console.log(`Checking app.asar.unpacked: ${asarUnpackedPath}`);
+    if (fs.existsSync(asarUnpackedPath)) {
+      const beforeCount = binaries.length;
+      findBinaries(asarUnpackedPath, binaries);
+      const foundInAsarUnpacked = binaries.length - beforeCount;
+      console.log(`  Found ${foundInAsarUnpacked} additional binaries in app.asar.unpacked`);
+    } else {
+      console.log(`  app.asar.unpacked directory not found`);
+    }
+    
+    console.log(`Total binaries found: ${binaries.length}`);
     
     // Sign all nested binaries first (bottom-up signing)
     // Separate binaries into categories: helpers first, then frameworks, then others
