@@ -17,6 +17,7 @@
   "build": {
     "appId": "com.soundrolling.dante-audio-client",
     "productName": "Dante Audio Client",
+    "afterPack": "custom-sign.js",
     "afterSign": "notarize.js",
     "directories": {
       "output": "dist",
@@ -58,6 +59,7 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
+      "identity": null,
       "notarize": {
         "teamId": "${APPLE_TEAM_ID}"
       }
