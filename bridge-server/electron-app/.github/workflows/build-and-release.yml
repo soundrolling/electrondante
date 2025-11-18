@@ -123,6 +123,8 @@ jobs:
           ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_NAME: "matthew price (E2BVJ4CM5V)"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Ensure keychain is accessible and in search list
           if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
@@ -334,14 +336,27 @@ jobs:
       - name: Authenticate GitHub CLI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Verify GITHUB_TOKEN is set (it's automatically provided by GitHub Actions)
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "ERROR: GITHUB_TOKEN is not set!"
+            echo "This should never happen - GITHUB_TOKEN is automatically provided by GitHub Actions"
+            exit 1
+          fi
+          echo "GITHUB_TOKEN is set (length: ${#GITHUB_TOKEN} characters)"
+          # Set GH_TOKEN as well (gh CLI can use either)
+          export GH_TOKEN="$GITHUB_TOKEN"
           echo "$GITHUB_TOKEN" | gh auth login --with-token
           gh auth status
 
       - name: Create Release and Upload Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Ensure GH_TOKEN is set for gh CLI commands
+          export GH_TOKEN="$GITHUB_TOKEN"
           # Get tag name from either tag push or release event
           if [ "${{ github.event_name }}" == "release" ]; then
             TAG_NAME="${{ github.event.release.tag_name }}"
