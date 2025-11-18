@@ -5,9 +5,9 @@
   <!-- Application identifier with team prefix - CRITICAL: Must use $(TeamIdentifierPrefix) for @electron/osx-sign -->
   <key>com.apple.application-identifier</key>
   <string>$(TeamIdentifierPrefix)com.soundrolling.dante-audio-client</string>
-  <!-- Must be YES for microphone permission to work -->
-  <key>com.apple.security.app-sandbox</key>
-  <true/>
+  <!-- App Sandbox disabled - not needed for Developer ID apps, and can cause crashes -->
+  <!-- <key>com.apple.security.app-sandbox</key> -->
+  <!-- <true/> -->
   <!-- Absolutely required for mic access -->
   <key>com.apple.security.device.audio-input</key>
   <true/>
