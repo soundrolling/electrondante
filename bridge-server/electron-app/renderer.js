@@ -167,8 +167,8 @@ function initializeApp() {
     addLog(`[Main] ${log.message}`, log.level >= 2 ? 'error' : 'info');
   });
 
-  // Load saved mode
-  const savedMode = localStorage.getItem('appMode') || 'broadcast';
+  // Load saved mode - default to listen mode
+  const savedMode = localStorage.getItem('appMode') || 'listen';
   switchMode(savedMode);
 
   // Check auth status
@@ -202,6 +202,15 @@ function switchMode(mode) {
   if (broadcastMode) broadcastMode.style.display = mode === 'broadcast' ? 'block' : 'none';
   if (listenMode) listenMode.style.display = mode === 'listen' ? 'block' : 'none';
 
+  // Update status message
+  if (mode === 'broadcast') {
+    updateStatus({ message: 'Broadcast Mode - Please login to create a room', type: 'info' });
+  } else {
+    updateStatus({ message: 'Listen Mode - Enter room code to join', type: 'info' });
+    // Auto-load public rooms when switching to listen mode
+    setTimeout(handleRefreshRooms, 500);
+  }
+
   // Stop any active connections when switching
   if (mode === 'broadcast' && isListening) {
     handleLeaveRoom();
@@ -217,8 +226,11 @@ async function checkAuthStatus() {
   try {
     const status = await window.electronAPI.getAuthStatus();
     if (status.authenticated) {
-      // User is logged in - show room creation section
-      showBroadcastRoomSection();
+      addLog(`Authenticated as ${status.user?.email || 'user'}`, 'success');
+      // Only show room creation section if in broadcast mode
+      if (currentMode === 'broadcast') {
+        showBroadcastRoomSection();
+      }
     }
   } catch (error) {
     console.error('Error checking auth status:', error);
