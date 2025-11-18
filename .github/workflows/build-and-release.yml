@@ -304,10 +304,19 @@ jobs:
 
       - name: Authenticate GitHub CLI
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
+          # Use GH_TOKEN if available, otherwise GITHUB_TOKEN
+          TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
+          
+          if [ -z "$TOKEN" ]; then
+            echo "ERROR: Neither GH_TOKEN nor GITHUB_TOKEN is set!"
+            exit 1
+          fi
+          
           echo "Authenticating GitHub CLI..."
-          echo "$GITHUB_TOKEN" | gh auth login --with-token
+          echo "$TOKEN" | gh auth login --with-token
           echo "Checking authentication status..."
           gh auth status
           echo "Verifying repository access..."
@@ -316,7 +325,8 @@ jobs:
 
       - name: Create Release and Upload Assets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           # Get tag name from either tag push or release event
           if [ "${{ github.event_name }}" == "release" ]; then
