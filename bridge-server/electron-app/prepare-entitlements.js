@@ -12,12 +12,13 @@ console.log(`CSC_TEAM_ID: ${process.env.CSC_TEAM_ID ? 'SET' : 'NOT SET'}`);
 const teamId = process.env.APPLE_TEAM_ID || process.env.ELECTRON_TEAM_ID || process.env.CSC_TEAM_ID;
 
 if (!teamId) {
-  console.error('\n❌ No team ID found in environment variables');
-  console.error('Checked: APPLE_TEAM_ID, ELECTRON_TEAM_ID, CSC_TEAM_ID');
-  process.exit(1);
+  console.warn('\n⚠️  No team ID found in environment variables');
+  console.warn('Checked: APPLE_TEAM_ID, ELECTRON_TEAM_ID, CSC_TEAM_ID');
+  console.warn('Continuing anyway - team ID will be extracted from certificate or set later');
+  console.warn('@electron/osx-sign can extract team ID from the signing certificate');
+} else {
+  console.log(`✓ Using team ID: ${teamId.substring(0, 3)}***`);
 }
-
-console.log(`✓ Using team ID: ${teamId.substring(0, 3)}***`);
 
 // NOTE: Do NOT replace $(TeamIdentifierPrefix) in entitlements!
 // @electron/osx-sign needs the placeholder to extract team ID from certificate.
@@ -60,10 +61,15 @@ const packageJsonPath = path.join(__dirname, 'package.json');
 let packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 if (packageJson.build && packageJson.build.mac && packageJson.build.mac.identity) {
-  const identity = packageJson.build.mac.identity.replace(/\$\{APPLE_TEAM_ID\}/g, teamId);
-  packageJson.build.mac.identity = identity;
-  fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n', 'utf8');
-  console.log(`✓ Package.json identity updated: ${identity}`);
+  if (teamId) {
+    const identity = packageJson.build.mac.identity.replace(/\$\{APPLE_TEAM_ID\}/g, teamId);
+    packageJson.build.mac.identity = identity;
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n', 'utf8');
+    console.log(`✓ Package.json identity updated: ${identity}`);
+  } else {
+    console.log('⚠️  Skipping package.json identity update - team ID not available yet');
+    console.log('   Identity will be set by electron-builder using certificate or environment variables');
+  }
 } else {
   console.log('No identity field found in package.json mac config');
 }
