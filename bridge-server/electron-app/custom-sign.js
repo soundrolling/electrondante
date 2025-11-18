@@ -15,14 +15,20 @@ function findBinaries(dir, binaries = []) {
         findBinaries(fullPath, binaries);
       }
     } else if (entry.isFile()) {
-      // Check if it's a binary (executable or dylib)
+      // Check if it's a binary (executable or dylib or .node file)
       try {
         const stat = fs.statSync(fullPath);
         if (stat.isFile()) {
-          // Check if it's a Mach-O binary or dylib
-          const fileOutput = execSync(`file "${fullPath}"`, { encoding: 'utf8', stdio: 'pipe' }).trim();
-          if (fileOutput.includes('Mach-O') || fullPath.endsWith('.dylib') || fullPath.endsWith('.so')) {
+          // Check for .node files (native Node.js modules) first
+          if (fullPath.endsWith('.node')) {
             binaries.push(fullPath);
+          }
+          // Check if it's a Mach-O binary or dylib
+          else {
+            const fileOutput = execSync(`file "${fullPath}"`, { encoding: 'utf8', stdio: 'pipe' }).trim();
+            if (fileOutput.includes('Mach-O') || fullPath.endsWith('.dylib') || fullPath.endsWith('.so')) {
+              binaries.push(fullPath);
+            }
           }
         }
       } catch (e) {
