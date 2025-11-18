@@ -13,7 +13,7 @@
     "rebuild": "electron-rebuild -f -w naudiodon",
     "build": "electron-builder",
     "prebuild:mac": "node prepare-entitlements.js",
-    "build:mac": "electron-builder --mac",
+    "build:mac": "electron-builder --mac --publish=never",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "dist": "npm run rebuild && electron-builder"
