@@ -35,47 +35,82 @@ function findBinaries(dir, binaries = []) {
 }
 
 exports.default = async function(context) {
+  console.log('=== Custom Signing Script Started ===');
+  console.log(`Platform: ${context.electronPlatformName}`);
+  console.log(`App Out Dir: ${context.appOutDir}`);
+  
   const { appOutDir, packager, electronPlatformName } = context;
   
   if (electronPlatformName !== 'darwin') {
+    console.log('Skipping custom signing (not macOS)');
     return;
   }
 
   const appName = packager.appInfo.productFilename;
   const appPath = path.join(appOutDir, `${appName}.app`);
   
+  console.log(`Looking for app at: ${appPath}`);
   if (!fs.existsSync(appPath)) {
-    console.error(`App not found at ${appPath}`);
-    return;
+    console.error(`❌ App not found at ${appPath}`);
+    console.error('Available files in appOutDir:');
+    try {
+      const files = fs.readdirSync(appOutDir);
+      files.forEach(file => console.error(`  - ${file}`));
+    } catch (e) {
+      console.error(`  Could not list directory: ${e.message}`);
+    }
+    throw new Error(`App not found at ${appPath}`);
   }
+  console.log(`✓ App found at ${appPath}`);
 
+  // Check environment variables
+  console.log('\n=== Environment Variables ===');
+  console.log(`APPLE_TEAM_ID: ${process.env.APPLE_TEAM_ID ? '***' : 'NOT SET'}`);
+  console.log(`ELECTRON_TEAM_ID: ${process.env.ELECTRON_TEAM_ID ? '***' : 'NOT SET'}`);
+  console.log(`CSC_TEAM_ID: ${process.env.CSC_TEAM_ID ? '***' : 'NOT SET'}`);
+  
   const teamId = process.env.APPLE_TEAM_ID || process.env.ELECTRON_TEAM_ID || process.env.CSC_TEAM_ID;
   if (!teamId) {
-    console.error('No team ID found in environment variables');
+    console.error('\n❌ No team ID found in environment variables');
+    console.error('Checked: APPLE_TEAM_ID, ELECTRON_TEAM_ID, CSC_TEAM_ID');
     throw new Error('Team ID required for code signing');
   }
+  console.log(`✓ Using team ID: ${teamId.substring(0, 3)}***`);
 
-  console.log(`Custom signing ${appPath} with team ID: ${teamId}`);
+  console.log(`\n=== Starting Custom Signing ===`);
+  console.log(`App: ${appPath}`);
   
   const entitlementsPath = path.join(__dirname, 'build', 'entitlements.mac.plist');
   
   // Use the certificate SHA or name - try to find it
+  console.log('\n=== Finding Signing Certificate ===');
   let identity;
   try {
-    // Try to find the certificate by team ID
+    console.log('Searching for Developer ID Application certificate...');
     const certOutput = execSync(`security find-identity -v -p codesigning | grep "Developer ID Application.*(${teamId})" | head -1`, { encoding: 'utf8' });
     if (certOutput) {
+      console.log(`Certificate search output: ${certOutput.trim()}`);
       // Extract the identity name from the output
       const match = certOutput.match(/"([^"]+)"/);
       if (match) {
         identity = match[1];
-        console.log(`Found certificate: ${identity}`);
+        console.log(`✓ Found certificate: ${identity}`);
+      } else {
+        console.warn('⚠ Could not extract identity from certificate output');
       }
+    } else {
+      console.warn('⚠ No certificate found matching team ID');
     }
   } catch (e) {
+    console.warn(`⚠ Certificate search failed: ${e.message}`);
+    console.log('Falling back to constructed identity...');
     // Fallback to constructing the identity name
     identity = `Developer ID Application: matthew price (${teamId})`;
     console.log(`Using constructed identity: ${identity}`);
+  }
+  
+  if (!identity) {
+    throw new Error('Could not determine signing identity');
   }
   
   try {
@@ -126,46 +161,107 @@ exports.default = async function(context) {
     
     console.log(`Found ${binaries.length} binaries to sign (${helpers.length} helpers, ${frameworks.length} frameworks, ${others.length} others)`);
     
+    let signedCount = 0;
+    let failedCount = 0;
+    
     for (const binary of signingOrder) {
       const relativePath = path.relative(appOutDir, binary);
-      console.log(`Signing: ${relativePath}`);
+      console.log(`\n[${signedCount + 1}/${signingOrder.length}] Signing: ${relativePath}`);
       
       try {
         // Sign with hardened runtime and timestamp
         // For frameworks, we need to sign nested components first, so use --deep
         // Note: --deep is deprecated but necessary for frameworks with nested components
+        let command;
         if (binary.includes('.framework')) {
-          // Sign framework with --deep to handle nested components
-          execSync(`codesign --force --deep --sign "${identity}" --options runtime --timestamp "${binary}"`, {
-            stdio: 'pipe'
-          });
+          command = `codesign --force --deep --sign "${identity}" --options runtime --timestamp "${binary}"`;
+          console.log(`  Using --deep flag for framework`);
         } else {
-          // Regular binary signing
-          execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
-            stdio: 'pipe'
-          });
+          command = `codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`;
+        }
+        
+        console.log(`  Command: ${command.replace(identity, 'IDENTITY')}`);
+        const startTime = Date.now();
+        execSync(command, { stdio: 'pipe' });
+        const duration = Date.now() - startTime;
+        console.log(`  ✓ Signed successfully (${duration}ms)`);
+        signedCount++;
+        
+        // Verify immediately after signing
+        try {
+          execSync(`codesign -v "${binary}"`, { stdio: 'pipe' });
+          console.log(`  ✓ Signature verified`);
+        } catch (verifyError) {
+          console.warn(`  ⚠ Signature verification failed: ${verifyError.message}`);
         }
       } catch (error) {
-        console.error(`Failed to sign ${relativePath}: ${error.message}`);
+        failedCount++;
+        console.error(`\n❌ Failed to sign ${relativePath}`);
+        console.error(`  Error: ${error.message}`);
+        if (error.stdout) {
+          console.error(`  stdout: ${error.stdout.toString()}`);
+        }
+        if (error.stderr) {
+          console.error(`  stderr: ${error.stderr.toString()}`);
+        }
         // Re-throw to fail the build
         throw error;
       }
     }
     
-    // Sign the main app bundle with entitlements
-    console.log(`Signing main app bundle: ${appPath}`);
-    execSync(`codesign --force --sign "${identity}" --entitlements "${entitlementsPath}" --options runtime --timestamp "${appPath}"`, {
-      stdio: 'inherit'
-    });
+    console.log(`\n=== Signing Summary ===`);
+    console.log(`  Signed: ${signedCount}/${signingOrder.length}`);
+    console.log(`  Failed: ${failedCount}`);
     
-    console.log('✓ Custom signing complete');
+    // Sign the main app bundle with entitlements
+    console.log(`\n=== Signing Main App Bundle ===`);
+    console.log(`App: ${appPath}`);
+    console.log(`Entitlements: ${entitlementsPath}`);
+    
+    if (!fs.existsSync(entitlementsPath)) {
+      throw new Error(`Entitlements file not found: ${entitlementsPath}`);
+    }
+    console.log(`✓ Entitlements file exists`);
+    
+    const mainSignCommand = `codesign --force --sign "${identity}" --entitlements "${entitlementsPath}" --options runtime --timestamp "${appPath}"`;
+    console.log(`Command: ${mainSignCommand.replace(identity, 'IDENTITY')}`);
+    
+    try {
+      const startTime = Date.now();
+      execSync(mainSignCommand, { stdio: 'inherit' });
+      const duration = Date.now() - startTime;
+      console.log(`✓ Main app bundle signed successfully (${duration}ms)`);
+    } catch (error) {
+      console.error(`\n❌ Failed to sign main app bundle`);
+      console.error(`  Error: ${error.message}`);
+      if (error.stdout) console.error(`  stdout: ${error.stdout.toString()}`);
+      if (error.stderr) console.error(`  stderr: ${error.stderr.toString()}`);
+      throw error;
+    }
     
     // Verify signing
-    console.log('Verifying signature...');
-    execSync(`codesign -dv --verbose=4 "${appPath}"`, { stdio: 'inherit' });
-    console.log('✓ Signature verified');
+    console.log(`\n=== Verifying Final Signature ===`);
+    try {
+      execSync(`codesign -vv --deep --strict "${appPath}"`, { stdio: 'pipe' });
+      console.log('✓ Deep signature verification passed');
+    } catch (verifyError) {
+      console.warn('⚠ Deep verification failed, trying basic verification...');
+      try {
+        execSync(`codesign -dv --verbose=4 "${appPath}"`, { stdio: 'inherit' });
+        console.log('✓ Basic signature verification passed');
+      } catch (basicError) {
+        console.error('❌ Basic verification also failed');
+        throw basicError;
+      }
+    }
+    
+    console.log('\n=== Custom Signing Complete ===');
   } catch (error) {
-    console.error('Custom signing failed:', error.message);
+    console.error('\n❌ Custom signing failed');
+    console.error(`Error: ${error.message}`);
+    console.error(`Stack: ${error.stack}`);
+    if (error.stdout) console.error(`stdout: ${error.stdout.toString()}`);
+    if (error.stderr) console.error(`stderr: ${error.stderr.toString()}`);
     throw error;
   }
 };
