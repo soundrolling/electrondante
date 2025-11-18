@@ -61,16 +61,25 @@ jobs:
         working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: |
           # Install with legacy peer deps to avoid engine warnings
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+          # Skip scripts to avoid native module rebuilds during install
+          # electron-builder will handle native module rebuilding during packaging
+          npm ci --legacy-peer-deps --ignore-scripts || npm install --legacy-peer-deps --ignore-scripts
 
-      - name: Rebuild native modules
+      - name: Install Electron (for native module rebuild)
         working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: |
-          # Verify electron version is installed
-          npx electron --version || echo "Electron not found, will be installed by electron-builder"
-          # Try to run rebuild script, fallback to direct electron-rebuild
-          # electron-builder will handle native module rebuilding if this fails
-          npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings - electron-builder will rebuild during packaging"
+          # Install electron explicitly so native modules can rebuild against it
+          # This is needed because we skipped scripts during npm install
+          npm install electron@^28.0.0 --save-dev --legacy-peer-deps || echo "Electron install failed, electron-builder will handle it"
+          
+      - name: Rebuild native modules (optional)
+        working-directory: ${{ env.ELECTRON_APP_DIR }}
+        run: |
+          # Try to rebuild native modules, but don't fail if it doesn't work
+          # electron-builder will automatically rebuild them during packaging
+          echo "Attempting to rebuild native modules..."
+          npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon 2>&1 || echo "⚠ Native module rebuild failed - electron-builder will rebuild during packaging"
+          echo "✓ Rebuild step completed (electron-builder will handle final rebuild)"
 
       - name: Import code signing certificate
         env:
