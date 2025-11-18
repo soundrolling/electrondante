@@ -118,8 +118,39 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_NAME: "matthew price (E2BVJ4CM5V)"
-        run: npm run build:mac
+        run: |
+          # Ensure keychain is accessible and in search list
+          if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
+            security unlock-keychain -p "" "$HOME/Library/Keychains/build.keychain-db" || true
+            security list-keychains -s "$HOME/Library/Keychains/build.keychain-db" "$HOME/Library/Keychains/login.keychain-db" || true
+          fi
+          
+          # Verify environment variables are set
+          echo "=== Environment Variables ==="
+          echo "APPLE_TEAM_ID: $APPLE_TEAM_ID"
+          echo "ELECTRON_TEAM_ID: $ELECTRON_TEAM_ID"
+          echo "CSC_TEAM_ID: $CSC_TEAM_ID"
+          echo ""
+          
+          # Ensure ELECTRON_TEAM_ID is exported (critical for @electron/osx-sign)
+          export ELECTRON_TEAM_ID="${ELECTRON_TEAM_ID:-$APPLE_TEAM_ID}"
+          export CSC_TEAM_ID="${CSC_TEAM_ID:-$APPLE_TEAM_ID}"
+          
+          echo "=== Final Team ID Values ==="
+          echo "ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
+          echo "CSC_TEAM_ID=$CSC_TEAM_ID"
+          echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          echo ""
+          
+          # Verify certificates
+          echo "=== Certificates available for signing ==="
+          security find-identity -v -p codesigning || echo "No codesigning identities found"
+          echo ""
+          
+          # Run build with explicit environment
+          npm run build:mac
 
       - name: Create DMG manually if needed
         working-directory: ${{ env.ELECTRON_APP_DIR }}
