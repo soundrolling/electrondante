@@ -160,15 +160,48 @@ exports.default = async function notarizing(context) {
     throw new Error('Could not determine signing identity');
   }
 
-  // Skip re-signing since custom-sign.js already signed everything in afterPack hook
-  // Just verify the signature is valid
-  console.log('Verifying app is properly signed (custom-sign.js should have already signed everything)...');
+  // Verify and fix any unsigned binaries (especially in app.asar.unpacked)
+  // custom-sign.js should have signed everything, but double-check and fix if needed
+  console.log('\n=== Verifying and Fixing Signatures ===');
+  console.log('Checking for any unsigned binaries (custom-sign.js should have signed everything)...');
+  
+  // First, check for binaries in app.asar.unpacked that might have been missed
+  const resourcesPath = path.join(appPath, 'Contents', 'Resources');
+  const asarUnpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
+  
+  if (fs.existsSync(asarUnpackedPath)) {
+    console.log(`Found app.asar.unpacked, checking for binaries...`);
+    const asarBinaries = [];
+    findBinaries(asarUnpackedPath, asarBinaries);
+    console.log(`Found ${asarBinaries.length} binaries in app.asar.unpacked`);
+    
+    if (asarBinaries.length > 0 && teamId && identity) {
+      console.log('Signing binaries in app.asar.unpacked...');
+      for (const binary of asarBinaries) {
+        const relPath = path.relative(appPath, binary);
+        try {
+          // Check if already signed
+          execSync(`codesign -v "${binary}"`, { stdio: 'pipe' });
+          console.log(`  ✓ Already signed: ${relPath}`);
+        } catch (e) {
+          console.log(`  Signing: ${relPath}`);
+          execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
+            stdio: 'pipe'
+          });
+          console.log(`  ✓ Signed: ${relPath}`);
+        }
+      }
+    }
+  }
+  
+  // Now verify the entire app
   try {
+    console.log('Running deep signature verification...');
     execSync(`codesign -vv --deep --strict "${appPath}"`, { stdio: 'pipe' });
     console.log('✓ App signature is valid');
   } catch (error) {
-    console.warn('⚠ Signature verification failed, attempting to fix...');
-    // Only re-sign if verification fails (shouldn't happen if custom-sign.js worked)
+    console.warn('⚠ Signature verification failed, attempting to fix all binaries...');
+    // Re-sign everything if verification fails
     if (teamId && identity) {
       const entitlementsPath = path.join(__dirname, 'build', 'entitlements.mac.plist');
       ensureAllBinariesSigned(appPath, identity, entitlementsPath);

@@ -150,14 +150,30 @@ exports.default = async function(context) {
     console.log(`Checking app.asar.unpacked: ${asarUnpackedPath}`);
     if (fs.existsSync(asarUnpackedPath)) {
       const beforeCount = binaries.length;
+      console.log(`  Recursively searching app.asar.unpacked...`);
       findBinaries(asarUnpackedPath, binaries);
       const foundInAsarUnpacked = binaries.length - beforeCount;
       console.log(`  Found ${foundInAsarUnpacked} additional binaries in app.asar.unpacked`);
+      
+      // List what we found for debugging
+      if (foundInAsarUnpacked > 0) {
+        console.log(`  Binaries found in app.asar.unpacked:`);
+        for (let i = beforeCount; i < binaries.length; i++) {
+          const relPath = path.relative(appPath, binaries[i]);
+          console.log(`    - ${relPath}`);
+        }
+      }
     } else {
-      console.log(`  app.asar.unpacked directory not found`);
+      console.log(`  ⚠ app.asar.unpacked directory not found`);
+      console.log(`  This is expected if asarUnpack is not configured, but may cause signing issues`);
     }
     
-    console.log(`Total binaries found: ${binaries.length}`);
+    console.log(`\nTotal binaries found: ${binaries.length}`);
+    
+    if (binaries.length === 0) {
+      console.warn('⚠ WARNING: No binaries found to sign!');
+      console.warn('  This may indicate a problem with the app bundle structure');
+    }
     
     // Sign all nested binaries first (bottom-up signing)
     // Separate binaries into categories: helpers first, then frameworks, then others
