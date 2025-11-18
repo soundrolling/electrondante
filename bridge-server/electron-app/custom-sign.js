@@ -3,16 +3,26 @@ const path = require('path');
 const fs = require('fs');
 
 // Recursively find all binaries that need signing
-function findBinaries(dir, binaries = []) {
+function findBinaries(dir, binaries = [], skipNodeModules = false) {
+  if (!fs.existsSync(dir)) {
+    return binaries;
+  }
+  
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     
     if (entry.isDirectory()) {
-      // Skip certain directories
-      if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
-        findBinaries(fullPath, binaries);
+      // Skip certain directories, but allow node_modules in app.asar.unpacked
+      const isNodeModules = entry.name === 'node_modules';
+      const isInAsarUnpacked = fullPath.includes('app.asar.unpacked');
+      
+      if (!entry.name.startsWith('.')) {
+        // Always recurse into node_modules if we're in app.asar.unpacked
+        if (isInAsarUnpacked || !isNodeModules || !skipNodeModules) {
+          findBinaries(fullPath, binaries, skipNodeModules && !isInAsarUnpacked);
+        }
       }
     } else if (entry.isFile()) {
       // Check if it's a binary (executable or dylib or .node file)
@@ -23,11 +33,19 @@ function findBinaries(dir, binaries = []) {
           if (fullPath.endsWith('.node')) {
             binaries.push(fullPath);
           }
-          // Check if it's a Mach-O binary or dylib
+          // Check for .dylib files
+          else if (fullPath.endsWith('.dylib')) {
+            binaries.push(fullPath);
+          }
+          // Check if it's a Mach-O binary
           else {
-            const fileOutput = execSync(`file "${fullPath}"`, { encoding: 'utf8', stdio: 'pipe' }).trim();
-            if (fileOutput.includes('Mach-O') || fullPath.endsWith('.dylib') || fullPath.endsWith('.so')) {
-              binaries.push(fullPath);
+            try {
+              const fileOutput = execSync(`file "${fullPath}"`, { encoding: 'utf8', stdio: 'pipe', timeout: 5000 }).trim();
+              if (fileOutput.includes('Mach-O')) {
+                binaries.push(fullPath);
+              }
+            } catch (fileError) {
+              // Skip if file command fails
             }
           }
         }
@@ -146,12 +164,23 @@ exports.default = async function(context) {
     }
     
     // Specifically check app.asar.unpacked for native modules
+    // This is critical - naudiodon.node and libportaudio.dylib are here
     const asarUnpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
-    console.log(`Checking app.asar.unpacked: ${asarUnpackedPath}`);
+    console.log(`\nChecking app.asar.unpacked: ${asarUnpackedPath}`);
     if (fs.existsSync(asarUnpackedPath)) {
       const beforeCount = binaries.length;
-      console.log(`  Recursively searching app.asar.unpacked...`);
-      findBinaries(asarUnpackedPath, binaries);
+      console.log(`  Recursively searching app.asar.unpacked (including node_modules)...`);
+      
+      // Explicitly search for known binary locations
+      const naudiodonPath = path.join(asarUnpackedPath, 'node_modules', 'naudiodon', 'build', 'Release');
+      if (fs.existsSync(naudiodonPath)) {
+        console.log(`  Found naudiodon build directory: ${naudiodonPath}`);
+        findBinaries(naudiodonPath, binaries, false); // Don't skip node_modules here
+      }
+      
+      // Also do a full recursive search
+      findBinaries(asarUnpackedPath, binaries, false); // Don't skip node_modules in asar.unpacked
+      
       const foundInAsarUnpacked = binaries.length - beforeCount;
       console.log(`  Found ${foundInAsarUnpacked} additional binaries in app.asar.unpacked`);
       
@@ -161,6 +190,38 @@ exports.default = async function(context) {
         for (let i = beforeCount; i < binaries.length; i++) {
           const relPath = path.relative(appPath, binaries[i]);
           console.log(`    - ${relPath}`);
+        }
+      } else {
+        console.warn(`  ⚠ WARNING: No binaries found in app.asar.unpacked!`);
+        console.warn(`  This may cause notarization to fail.`);
+        console.warn(`  Checking if directory structure is correct...`);
+        try {
+          const dirContents = fs.readdirSync(asarUnpackedPath, { recursive: true, withFileTypes: true });
+          console.warn(`  Directory contents: ${dirContents.length} items`);
+          // Look for .node and .dylib files manually
+          const allFiles = [];
+          function walkDir(dir) {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const fullPath = path.join(dir, entry.name);
+              if (entry.isDirectory()) {
+                walkDir(fullPath);
+              } else if (entry.isFile() && (fullPath.endsWith('.node') || fullPath.endsWith('.dylib'))) {
+                allFiles.push(fullPath);
+              }
+            }
+          }
+          walkDir(asarUnpackedPath);
+          if (allFiles.length > 0) {
+            console.warn(`  Found ${allFiles.length} .node/.dylib files manually:`);
+            allFiles.forEach(file => {
+              const relPath = path.relative(appPath, file);
+              console.warn(`    - ${relPath}`);
+              binaries.push(file); // Add them to the list
+            });
+          }
+        } catch (walkError) {
+          console.error(`  Error walking directory: ${walkError.message}`);
         }
       }
     } else {
