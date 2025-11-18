@@ -42,6 +42,7 @@
       "node_modules/naudiodon/**/*",
       "node_modules/opusscript/**/*",
       "node_modules/bindings/**/*",
+      "node_modules/segfault-handler/**/*",
       "node_modules/file-uri-to-path/**/*",
       "node_modules/update-electron-app/**/*",
       "!node_modules/naudiodon/{test,examples,*.md,*.ts}",
@@ -135,7 +136,8 @@
     "express": "^4.18.2",
     "opusscript": "^0.0.8",
     "update-electron-app": "^2.0.1",
-    "file-uri-to-path": "^1.0.0"
+    "file-uri-to-path": "^1.0.0",
+    "segfault-handler": "^1.3.0"
   },
   "devDependencies": {
     "electron": "^28.0.0",
