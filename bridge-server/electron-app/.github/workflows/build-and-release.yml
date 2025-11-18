@@ -149,6 +149,16 @@ jobs:
           security find-identity -v -p codesigning || echo "No codesigning identities found"
           echo ""
           
+          # Verify entitlements file has $(TeamIdentifierPrefix) placeholder
+          echo "=== Verifying entitlements file ==="
+          if grep -q '\$(TeamIdentifierPrefix)' build/entitlements.mac.plist; then
+            echo "✓ Entitlements file contains \$(TeamIdentifierPrefix) placeholder"
+          else
+            echo "⚠ WARNING: Entitlements file does not contain \$(TeamIdentifierPrefix) placeholder"
+            echo "This may cause @electron/osx-sign to fail team ID detection"
+          fi
+          echo ""
+          
           # Run build with explicit environment
           npm run build:mac
 
