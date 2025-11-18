@@ -56,6 +56,7 @@ class DanteBridgeClient extends EventEmitter {
     // Opus encoders (one per channel)
     this.opusEncoders = [];
     this.useOpus = OpusEncoder !== null; // Enable Opus if available
+    this.audioChannelCount = Math.max(1, this.config.channels);
     
     this.emit('status', { type: 'initialized', message: 'Client initialized' });
   }
@@ -248,12 +249,14 @@ class DanteBridgeClient extends EventEmitter {
       const bufferLatencyMs = (this.config.bufferSize / this.config.sampleRate) * 1000;
       const effectiveLatencyMs = bufferLatencyMs * this.config.batchSize;
       
+      const targetDevice = this.selectDeviceForCapture(inputDevices);
+
       this.audioInput = new portAudio.AudioIO({
         inOptions: {
-          channelCount: this.config.channels,
+          channelCount: this.audioChannelCount,
           sampleFormat: portAudio.SampleFormat32Bit,
           sampleRate: this.config.sampleRate,
-          deviceId: this.selectedDeviceId,
+          deviceId: targetDevice.id,
           closeOnError: false,
           framesPerBuffer: this.config.bufferSize, // Use configured buffer size
         },
@@ -270,15 +273,55 @@ class DanteBridgeClient extends EventEmitter {
 
       this.audioInput.start();
       
-      const deviceName = inputDevices.find(d => d.id === this.selectedDeviceId)?.name || 
+      const deviceName = targetDevice.name || 
                         (this.selectedDeviceId === -1 ? 'Default' : `Device ${this.selectedDeviceId}`);
       this.emit('status', { 
         type: 'audio-started', 
-        message: `Audio capture started: ${deviceName} (${this.config.channels} channels @ ${this.config.sampleRate}Hz)` 
+        message: `Audio capture started: ${deviceName} (${this.audioChannelCount} channels @ ${this.config.sampleRate}Hz)` 
       });
     } catch (error) {
       this.emit('error', { type: 'audio', message: `Failed to start audio: ${error.message}` });
     }
+  }
+
+  selectDeviceForCapture(inputDevices = []) {
+    if (!Array.isArray(inputDevices) || inputDevices.length === 0) {
+      throw new Error('No available audio input devices');
+    }
+
+    const desiredChannels = Math.max(1, this.config.channels);
+    let targetDevice = null;
+
+    if (this.selectedDeviceId >= 0) {
+      targetDevice = inputDevices.find((d) => d.id === this.selectedDeviceId);
+    }
+
+    if (!targetDevice) {
+      targetDevice = inputDevices.find((d) => d.isDefault) || inputDevices[0];
+    }
+
+    if (!targetDevice) {
+      throw new Error('Unable to determine an audio input device');
+    }
+
+    const maxChannels = targetDevice.maxInputChannels || desiredChannels;
+    let channelCount = Math.min(desiredChannels, maxChannels);
+    if (channelCount < 1) {
+      channelCount = 1;
+    }
+
+    const previousChannelCount = this.audioChannelCount;
+    this.audioChannelCount = channelCount;
+    this.selectedDeviceId = targetDevice.id;
+
+    if (channelCount !== previousChannelCount) {
+      this.emit('status', {
+        type: 'audio-channel-adjust',
+        message: `Adjusted to ${channelCount} channel(s) for ${targetDevice.name} (device max ${maxChannels})`,
+      });
+    }
+
+    return targetDevice;
   }
 
   processAudioBuffer(interleavedBuffer) {
@@ -286,17 +329,21 @@ class DanteBridgeClient extends EventEmitter {
     if (!this.registered || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return;
     }
+
+    if (!this.audioChannelCount || this.audioChannelCount < 1) {
+      return;
+    }
     
-    const frameCount = interleavedBuffer.length / this.config.channels / 4;
+    const frameCount = interleavedBuffer.length / this.audioChannelCount / 4;
     const channels = [];
     
-    for (let ch = 0; ch < this.config.channels; ch++) {
+    for (let ch = 0; ch < this.audioChannelCount; ch++) {
       channels[ch] = new Float32Array(frameCount);
     }
 
     for (let frame = 0; frame < frameCount; frame++) {
-      for (let ch = 0; ch < this.config.channels; ch++) {
-        const index = (frame * this.config.channels + ch) * 4;
+      for (let ch = 0; ch < this.audioChannelCount; ch++) {
+        const index = (frame * this.audioChannelCount + ch) * 4;
         const sample = interleavedBuffer.readInt32LE(index) / 2147483648.0;
         channels[ch][frame] = sample;
       }
