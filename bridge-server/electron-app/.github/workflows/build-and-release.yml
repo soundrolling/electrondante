@@ -66,8 +66,11 @@ jobs:
       - name: Rebuild native modules
         working-directory: ${{ env.ELECTRON_APP_DIR }}
         run: |
+          # Verify electron version is installed
+          npx electron --version || echo "Electron not found, will be installed by electron-builder"
           # Try to run rebuild script, fallback to direct electron-rebuild
-          npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings"
+          # electron-builder will handle native module rebuilding if this fails
+          npm run rebuild 2>&1 || npx electron-rebuild -f -w naudiodon || echo "Rebuild completed with warnings - electron-builder will rebuild during packaging"
 
       - name: Import code signing certificate
         env:
