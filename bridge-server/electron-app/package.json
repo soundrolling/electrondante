@@ -121,7 +121,8 @@
           "path": "/Applications"
         }
       ]
-    }
+    },
+    "publish": null
   },
   "dependencies": {
     "ws": "^8.14.2",

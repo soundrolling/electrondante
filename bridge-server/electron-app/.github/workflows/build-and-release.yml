@@ -196,10 +196,16 @@ jobs:
           fi
           echo ""
           
-          # Debug: Verify ELECTRON_TEAM_ID is available to Node.js
+          # Debug: Verify environment variables are available to Node.js
           echo "=== Testing Node.js environment variable access ==="
-          node -e "console.log('ELECTRON_TEAM_ID from Node.js:', process.env.ELECTRON_TEAM_ID)" || echo "Node.js test failed"
+          node -e "console.log('ELECTRON_TEAM_ID:', process.env.ELECTRON_TEAM_ID); console.log('GITHUB_TOKEN:', process.env.GITHUB_TOKEN ? 'SET (' + process.env.GITHUB_TOKEN.length + ' chars)' : 'NOT SET'); console.log('GH_TOKEN:', process.env.GH_TOKEN ? 'SET (' + process.env.GH_TOKEN.length + ' chars)' : 'NOT SET');" || echo "Node.js test failed"
           echo ""
+          
+          # Verify tokens are set before building
+          if [ -z "$GH_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
+            echo "ERROR: Neither GH_TOKEN nor GITHUB_TOKEN is set!"
+            exit 1
+          fi
           
           # Run build with explicit environment
           # Pass all required environment variables explicitly to ensure they're available to electron-builder
