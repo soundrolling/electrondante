@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- Application identifier with team prefix -->
+  <!-- Application identifier with team prefix - CRITICAL: Must use $(TeamIdentifierPrefix) for @electron/osx-sign -->
   <key>com.apple.application-identifier</key>
   <string>$(TeamIdentifierPrefix)com.soundrolling.dante-audio-client</string>
   <!-- Must be YES for microphone permission to work -->
