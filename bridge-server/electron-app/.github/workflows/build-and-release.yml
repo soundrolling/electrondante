@@ -253,13 +253,20 @@ jobs:
         run: |
           echo "Contents of dist directory:"
           ls -lah dist/ || echo "dist directory not found"
+          echo ""
+          echo "DMG files:"
           find dist -type f -name "*.dmg" || echo "No DMG files found"
+          echo ""
+          echo "ZIP files:"
+          find dist -type f -name "*.zip" || echo "No ZIP files found"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mac-installer
-          path: ${{ env.ELECTRON_APP_DIR }}/dist/*.dmg
+          path: |
+            ${{ env.ELECTRON_APP_DIR }}/dist/*.dmg
+            ${{ env.ELECTRON_APP_DIR }}/dist/*.zip
           retention-days: 30
           if-no-files-found: error
 
@@ -344,13 +351,19 @@ jobs:
           echo "GitHub ref: ${{ github.ref }}"
           echo "Tag name: $TAG_NAME"
           
-          # Find ALL DMG files - check multiple possible locations
+          # Find ALL DMG and ZIP files - check multiple possible locations
           DMG_FILES=$(find artifacts -name "*.dmg" -type f)
+          ZIP_FILES=$(find artifacts -name "*.zip" -type f)
           
           # Also check common artifact subdirectories
-          if [ -z "$DMG_FILES" ]; then
+          if [ -z "$DMG_FILES" ] || [ -z "$ZIP_FILES" ]; then
             if [ -d "artifacts/mac-installer" ]; then
-              DMG_FILES=$(find artifacts/mac-installer -name "*.dmg" -type f)
+              if [ -z "$DMG_FILES" ]; then
+                DMG_FILES=$(find artifacts/mac-installer -name "*.dmg" -type f)
+              fi
+              if [ -z "$ZIP_FILES" ]; then
+                ZIP_FILES=$(find artifacts/mac-installer -name "*.zip" -type f)
+              fi
             fi
           fi
           
@@ -363,6 +376,13 @@ jobs:
             echo "=== mac-installer directory ==="
             ls -lah artifacts/mac-installer/ || true
             exit 1
+          fi
+          
+          if [ -z "$ZIP_FILES" ]; then
+            echo "WARNING: No ZIP files found in artifacts"
+            echo "ZIP files are required for auto-updates (Squirrel.Mac)"
+            echo "Checking if ZIP files exist in dist directory..."
+            find artifacts -type f -name "*.zip" || echo "No ZIP files found anywhere"
           fi
           
           # Count DMG files found
@@ -555,22 +575,88 @@ jobs:
             fi
           done
           
+          # Upload ZIP files (required for auto-updates)
+          if [ -n "$ZIP_FILES" ]; then
+            echo ""
+            echo "=== Uploading ZIP files for auto-updates ==="
+            ZIP_COUNT=$(echo "$ZIP_FILES" | wc -l | tr -d ' ')
+            echo "Found $ZIP_COUNT ZIP file(s):"
+            echo "$ZIP_FILES" | while read -r ZIP_FILE; do
+              if [ -n "$ZIP_FILE" ]; then
+                ZIP_BASENAME=$(basename "$ZIP_FILE")
+                echo "Uploading: $ZIP_BASENAME"
+                
+                # Try gh CLI first
+                UPLOAD_RESULT=$(gh release upload "$TAG_NAME" "$ZIP_FILE" --clobber 2>&1)
+                UPLOAD_EXIT=$?
+                
+                if [ $UPLOAD_EXIT -ne 0 ]; then
+                  echo "gh CLI upload failed: $UPLOAD_RESULT"
+                  echo "Trying GitHub API directly..."
+                  
+                  # Get release ID
+                  RELEASE_ID=$(gh release view "$TAG_NAME" --json id --jq '.id' 2>/dev/null)
+                  
+                  if [ -z "$RELEASE_ID" ]; then
+                    RELEASE_ID=$(curl -s \
+                      -H "Authorization: token $GITHUB_TOKEN" \
+                      -H "Accept: application/vnd.github.v3+json" \
+                      "https://api.github.com/repos/soundrolling/electrondante/releases/tags/$TAG_NAME" | \
+                      grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+                  fi
+                  
+                  if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
+                    UPLOAD_RESPONSE=$(curl -X POST \
+                      -H "Authorization: token $GITHUB_TOKEN" \
+                      -H "Accept: application/vnd.github.v3+json" \
+                      -H "Content-Type: application/octet-stream" \
+                      --data-binary "@$ZIP_FILE" \
+                      "https://uploads.github.com/repos/soundrolling/electrondante/releases/$RELEASE_ID/assets?name=$ZIP_BASENAME" \
+                      -w "\nHTTP_CODE:%{http_code}" 2>&1)
+                    
+                    HTTP_CODE=$(echo "$UPLOAD_RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d':' -f2)
+                    
+                    if [ "$HTTP_CODE" = "201" ]; then
+                      echo "API upload successful: $ZIP_BASENAME"
+                    else
+                      echo "API upload failed (HTTP $HTTP_CODE): $UPLOAD_RESPONSE"
+                    fi
+                  fi
+                else
+                  echo "Upload successful: $ZIP_BASENAME"
+                fi
+              fi
+            done
+          else
+            echo "WARNING: No ZIP files to upload (auto-updates may not work)"
+          fi
+          
+          echo ""
           echo "=== Verifying release assets ==="
           gh release view "$TAG_NAME" --json assets --jq '.assets[] | "\(.name) - \(.size) bytes"' || echo "Could not view release"
           
           # Final check
           ASSET_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
           DMG_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '[.assets[] | select(.name | endswith(".dmg"))] | length' 2>/dev/null || echo "0")
+          ZIP_COUNT=$(gh release view "$TAG_NAME" --json assets --jq '[.assets[] | select(.name | endswith(".zip"))] | length' 2>/dev/null || echo "0")
           
+          echo ""
+          echo "=== Release Asset Summary ==="
           echo "Total assets: $ASSET_COUNT"
           echo "DMG files: $DMG_COUNT"
+          echo "ZIP files: $ZIP_COUNT"
           
           if [ "$DMG_COUNT" -eq 0 ]; then
             echo "ERROR: No DMG files found in release assets!"
-            echo "Upload success count: $UPLOAD_SUCCESS"
-            echo "Upload failed count: $UPLOAD_FAILED"
             exit 1
           else
-            echo "SUCCESS: $DMG_COUNT DMG file(s) uploaded to release!"
+            echo "✓ SUCCESS: $DMG_COUNT DMG file(s) uploaded to release!"
+          fi
+          
+          if [ "$ZIP_COUNT" -eq 0 ]; then
+            echo "⚠ WARNING: No ZIP files found in release assets!"
+            echo "  Auto-updates will not work without ZIP files"
+          else
+            echo "✓ SUCCESS: $ZIP_COUNT ZIP file(s) uploaded to release!"
           fi
 

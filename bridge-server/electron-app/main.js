@@ -2,6 +2,24 @@ const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Auto-updater for GitHub Releases
+// This must be called before app.whenReady() and requires the repository field in package.json
+try {
+  require('update-electron-app')({
+    repo: 'soundrolling/electrondante',
+    updateInterval: '1 hour',
+    logger: {
+      info: (...args) => console.log('[Auto-updater]', ...args),
+      warn: (...args) => console.warn('[Auto-updater]', ...args),
+      error: (...args) => console.error('[Auto-updater]', ...args)
+    }
+  });
+  console.log('Auto-updater initialized');
+} catch (error) {
+  console.warn('Auto-updater not available:', error.message);
+  // Continue without auto-updates if the module fails to load
+}
+
 // Try to load client-core, handle errors gracefully
 let DanteBridgeClient = null;
 try {
