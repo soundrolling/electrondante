@@ -13,6 +13,9 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     if: |
       startsWith(github.ref, 'refs/tags/v') || 
       (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')) ||
@@ -126,6 +129,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Export tokens to ensure they're available to all subprocesses
+          export GITHUB_TOKEN="$GITHUB_TOKEN"
+          export GH_TOKEN="$GH_TOKEN"
+          
+          # Verify tokens are set
+          if [ -z "$GH_TOKEN" ]; then
+            echo "WARNING: GH_TOKEN is not set, but continuing..."
+          else
+            echo "GH_TOKEN is set (length: ${#GH_TOKEN} characters)"
+          fi
+          
           # Ensure keychain is accessible and in search list
           if [ -f "$HOME/Library/Keychains/build.keychain-db" ]; then
             security unlock-keychain -p "" "$HOME/Library/Keychains/build.keychain-db" || true
@@ -187,8 +201,11 @@ jobs:
           echo ""
           
           # Run build with explicit environment
-          # Pass ELECTRON_TEAM_ID explicitly to ensure it's available
-          ELECTRON_TEAM_ID="$ELECTRON_TEAM_ID" npm run build:mac
+          # Pass all required environment variables explicitly to ensure they're available to electron-builder
+          ELECTRON_TEAM_ID="$ELECTRON_TEAM_ID" \
+          GITHUB_TOKEN="$GITHUB_TOKEN" \
+          GH_TOKEN="$GH_TOKEN" \
+          npm run build:mac
 
       - name: Create DMG manually if needed
         working-directory: ${{ env.ELECTRON_APP_DIR }}
