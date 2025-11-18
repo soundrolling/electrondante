@@ -95,41 +95,60 @@ exports.default = async function(context) {
     }
     
     // Sign all nested binaries first (bottom-up signing)
-    // Sort by path depth to ensure deepest nested binaries are signed first
-    binaries.sort((a, b) => {
+    // Separate binaries into categories: helpers first, then frameworks, then others
+    const helpers = [];
+    const frameworks = [];
+    const others = [];
+    
+    for (const binary of binaries) {
+      if (binary.includes('Helpers/') || binary.includes('Helper')) {
+        helpers.push(binary);
+      } else if (binary.includes('.framework')) {
+        frameworks.push(binary);
+      } else {
+        others.push(binary);
+      }
+    }
+    
+    // Sort each category by depth (deepest first)
+    const sortByDepth = (a, b) => {
       const depthA = a.split(path.sep).length;
       const depthB = b.split(path.sep).length;
-      return depthB - depthA; // Deeper paths first
-    });
+      return depthB - depthA;
+    };
     
-    console.log(`Found ${binaries.length} binaries to sign`);
-    for (const binary of binaries) {
+    helpers.sort(sortByDepth);
+    frameworks.sort(sortByDepth);
+    others.sort(sortByDepth);
+    
+    // Sign in order: helpers first, then others, then frameworks
+    const signingOrder = [...helpers, ...others, ...frameworks];
+    
+    console.log(`Found ${binaries.length} binaries to sign (${helpers.length} helpers, ${frameworks.length} frameworks, ${others.length} others)`);
+    
+    for (const binary of signingOrder) {
       const relativePath = path.relative(appOutDir, binary);
       console.log(`Signing: ${relativePath}`);
       
       try {
-        // Use hardened runtime and timestamp for all binaries
-        // Use --deep flag for frameworks to sign nested components
-        if (binary.includes('.framework') || binary.endsWith('.app')) {
+        // Sign with hardened runtime and timestamp
+        // For frameworks, we need to sign nested components first, so use --deep
+        // Note: --deep is deprecated but necessary for frameworks with nested components
+        if (binary.includes('.framework')) {
+          // Sign framework with --deep to handle nested components
           execSync(`codesign --force --deep --sign "${identity}" --options runtime --timestamp "${binary}"`, {
             stdio: 'pipe'
           });
         } else {
+          // Regular binary signing
           execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
             stdio: 'pipe'
           });
         }
       } catch (error) {
-        // If signing fails, try without --deep first, then with --deep
-        console.warn(`First attempt failed for ${relativePath}, retrying...`);
-        try {
-          execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
-            stdio: 'pipe'
-          });
-        } catch (retryError) {
-          console.error(`Failed to sign ${relativePath}: ${retryError.message}`);
-          throw retryError;
-        }
+        console.error(`Failed to sign ${relativePath}: ${error.message}`);
+        // Re-throw to fail the build
+        throw error;
       }
     }
     
