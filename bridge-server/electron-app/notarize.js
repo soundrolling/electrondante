@@ -135,6 +135,16 @@ exports.default = async function notarizing(context) {
     return;
   }
 
+  // Verify the app is properly signed before notarization
+  console.log('Verifying app signature before notarization...');
+  try {
+    execSync(`codesign -vv --deep --strict "${appPath}"`, { stdio: 'inherit' });
+    console.log('✓ App signature verified');
+  } catch (error) {
+    console.error('⚠ Signature verification failed, but continuing with notarization...');
+    console.error('Error:', error.message);
+  }
+
   console.log(`Notarizing ${appPath}...`);
 
   try {
@@ -143,10 +153,23 @@ exports.default = async function notarizing(context) {
       appleId,
       appleIdPassword,
       teamId,
+      tool: 'notarytool', // Use notarytool (newer, recommended)
     });
     console.log('Notarization complete!');
   } catch (error) {
     console.error('Notarization failed:', error);
+    
+    // If it's a signature check error, try to get more details
+    if (error.message && error.message.includes('signature')) {
+      console.error('Signature check failed. Verifying manually...');
+      try {
+        execSync(`codesign -dv --verbose=4 "${appPath}"`, { stdio: 'inherit' });
+        execSync(`spctl -a -vv "${appPath}"`, { stdio: 'inherit' });
+      } catch (verifyError) {
+        console.error('Manual verification also failed:', verifyError.message);
+      }
+    }
+    
     throw error;
   }
 };
