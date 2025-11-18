@@ -302,30 +302,26 @@ jobs:
           && sudo apt update \
           && sudo apt install gh -y
 
-      - name: Authenticate GitHub CLI
+      - name: Verify GitHub CLI Authentication
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # Use GH_TOKEN if available, otherwise GITHUB_TOKEN
-          TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
+          # In GitHub Actions, when GH_TOKEN or GITHUB_TOKEN is set in the environment,
+          # the GitHub CLI automatically uses it for authentication. No explicit login needed.
           
-          if [ -z "$TOKEN" ]; then
+          if [ -z "$GH_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
             echo "ERROR: Neither GH_TOKEN nor GITHUB_TOKEN is set!"
             exit 1
           fi
           
-          echo "Authenticating GitHub CLI..."
-          echo "Token length: ${#TOKEN} characters"
+          echo "GitHub CLI will use token from environment (GH_TOKEN or GITHUB_TOKEN)"
+          echo "Token is set: ${GH_TOKEN:+GH_TOKEN}${GITHUB_TOKEN:+GITHUB_TOKEN}"
           
-          # Temporarily unset GH_TOKEN and GITHUB_TOKEN to avoid gh CLI warning about environment variable
-          # Then authenticate using the token from stdin
-          unset GH_TOKEN
-          unset GITHUB_TOKEN
-          
-          # Authenticate with token from stdin
-          echo "$TOKEN" | gh auth login --with-token 2>&1 || {
-            echo "ERROR: GitHub CLI authentication failed"
+          # Verify authentication status (gh CLI will show it's using env token)
+          echo "Checking authentication status..."
+          gh auth status || {
+            echo "ERROR: GitHub CLI authentication check failed"
             echo "This might be due to:"
             echo "  1. Invalid token"
             echo "  2. Token doesn't have required permissions (repo scope)"
@@ -333,11 +329,9 @@ jobs:
             exit 1
           }
           
-          echo "Checking authentication status..."
-          gh auth status
           echo "Verifying repository access..."
           gh repo view soundrolling/electrondante --json name,owner || echo "Could not view repo (this is OK if permissions are correct)"
-          echo "✓ GitHub CLI authenticated successfully"
+          echo "✓ GitHub CLI is ready to use"
 
       - name: Create Release and Upload Assets
         env:
