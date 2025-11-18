@@ -235,10 +235,12 @@ jobs:
           # Run build with explicit environment
           # Pass all required environment variables explicitly to ensure they're available to electron-builder
           # Set ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES to avoid dependency checks
+          # Set GH_TOKEN and GITHUB_TOKEN to prevent electron-builder from complaining
           ELECTRON_TEAM_ID="$ELECTRON_TEAM_ID" \
           GITHUB_TOKEN="$GITHUB_TOKEN" \
           GH_TOKEN="$GH_TOKEN" \
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true \
+          ELECTRON_BUILDER_CACHE=/tmp/electron-builder-cache \
           npm run build:mac
 
       - name: Create DMG manually if needed
