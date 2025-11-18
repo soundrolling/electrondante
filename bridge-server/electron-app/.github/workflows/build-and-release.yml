@@ -105,6 +105,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ELECTRON_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_NAME: "matthew price (E2BVJ4CM5V)"
         run: npm run build:mac
 
