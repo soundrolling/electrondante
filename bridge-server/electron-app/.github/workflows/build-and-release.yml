@@ -70,7 +70,8 @@ jobs:
         run: |
           # Install electron explicitly so native modules can rebuild against it
           # This is needed because we skipped scripts during npm install
-          npm install electron@^28.0.0 --save-dev --legacy-peer-deps || echo "Electron install failed, electron-builder will handle it"
+          # Use --ignore-scripts to prevent postinstall from running
+          npm install electron@^28.0.0 --save-dev --legacy-peer-deps --ignore-scripts || echo "Electron install failed, electron-builder will handle it"
           
       - name: Rebuild native modules (optional)
         working-directory: ${{ env.ELECTRON_APP_DIR }}
@@ -128,15 +129,32 @@ jobs:
           fi
           
           # Verify environment variables are set
-          echo "=== Environment Variables ==="
+          echo "=== Environment Variables (before extraction) ==="
           echo "APPLE_TEAM_ID: $APPLE_TEAM_ID"
           echo "ELECTRON_TEAM_ID: $ELECTRON_TEAM_ID"
           echo "CSC_TEAM_ID: $CSC_TEAM_ID"
           echo ""
           
-          # Ensure ELECTRON_TEAM_ID is exported (critical for @electron/osx-sign)
-          export ELECTRON_TEAM_ID="${ELECTRON_TEAM_ID:-$APPLE_TEAM_ID}"
-          export CSC_TEAM_ID="${CSC_TEAM_ID:-$APPLE_TEAM_ID}"
+          # Extract team ID from certificate name if not already set
+          if [ -z "$ELECTRON_TEAM_ID" ] || [ -z "$CSC_TEAM_ID" ]; then
+            echo "Extracting team ID from certificate..."
+            CERT_NAME=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"Developer ID Application: [^"]* \(([^)]+)\)".*/\1/')
+            if [ -n "$CERT_NAME" ]; then
+              echo "Found team ID in certificate: $CERT_NAME"
+              export ELECTRON_TEAM_ID="$CERT_NAME"
+              export CSC_TEAM_ID="$CERT_NAME"
+              echo "Set ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
+              echo "Set CSC_TEAM_ID=$CSC_TEAM_ID"
+            elif [ -n "$APPLE_TEAM_ID" ]; then
+              echo "Using APPLE_TEAM_ID: $APPLE_TEAM_ID"
+              export ELECTRON_TEAM_ID="$APPLE_TEAM_ID"
+              export CSC_TEAM_ID="$APPLE_TEAM_ID"
+            fi
+          else
+            # Ensure they're exported even if already set
+            export ELECTRON_TEAM_ID="${ELECTRON_TEAM_ID:-$APPLE_TEAM_ID}"
+            export CSC_TEAM_ID="${CSC_TEAM_ID:-$APPLE_TEAM_ID}"
+          fi
           
           echo "=== Final Team ID Values ==="
           echo "ELECTRON_TEAM_ID=$ELECTRON_TEAM_ID"
