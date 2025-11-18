@@ -95,15 +95,42 @@ exports.default = async function(context) {
     }
     
     // Sign all nested binaries first (bottom-up signing)
+    // Sort by path depth to ensure deepest nested binaries are signed first
+    binaries.sort((a, b) => {
+      const depthA = a.split(path.sep).length;
+      const depthB = b.split(path.sep).length;
+      return depthB - depthA; // Deeper paths first
+    });
+    
     console.log(`Found ${binaries.length} binaries to sign`);
     for (const binary of binaries) {
       const relativePath = path.relative(appOutDir, binary);
       console.log(`Signing: ${relativePath}`);
       
-      // Use hardened runtime and timestamp for all binaries
-      execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
-        stdio: 'pipe'
-      });
+      try {
+        // Use hardened runtime and timestamp for all binaries
+        // Use --deep flag for frameworks to sign nested components
+        if (binary.includes('.framework') || binary.endsWith('.app')) {
+          execSync(`codesign --force --deep --sign "${identity}" --options runtime --timestamp "${binary}"`, {
+            stdio: 'pipe'
+          });
+        } else {
+          execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
+            stdio: 'pipe'
+          });
+        }
+      } catch (error) {
+        // If signing fails, try without --deep first, then with --deep
+        console.warn(`First attempt failed for ${relativePath}, retrying...`);
+        try {
+          execSync(`codesign --force --sign "${identity}" --options runtime --timestamp "${binary}"`, {
+            stdio: 'pipe'
+          });
+        } catch (retryError) {
+          console.error(`Failed to sign ${relativePath}: ${retryError.message}`);
+          throw retryError;
+        }
+      }
     }
     
     // Sign the main app bundle with entitlements
