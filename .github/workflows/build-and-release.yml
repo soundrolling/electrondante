@@ -316,10 +316,23 @@ jobs:
           fi
           
           echo "Authenticating GitHub CLI..."
-          # Temporarily unset GH_TOKEN to avoid gh CLI warning about environment variable
+          echo "Token length: ${#TOKEN} characters"
+          
+          # Temporarily unset GH_TOKEN and GITHUB_TOKEN to avoid gh CLI warning about environment variable
           # Then authenticate using the token from stdin
           unset GH_TOKEN
-          echo "$TOKEN" | gh auth login --with-token
+          unset GITHUB_TOKEN
+          
+          # Authenticate with token from stdin
+          echo "$TOKEN" | gh auth login --with-token 2>&1 || {
+            echo "ERROR: GitHub CLI authentication failed"
+            echo "This might be due to:"
+            echo "  1. Invalid token"
+            echo "  2. Token doesn't have required permissions (repo scope)"
+            echo "  3. Token expired"
+            exit 1
+          }
+          
           echo "Checking authentication status..."
           gh auth status
           echo "Verifying repository access..."
