@@ -6,6 +6,11 @@ const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
+// Import utilities
+const { generateAccessToken, generateRefreshToken, generateRoomToken, verifyToken, extractTokenFromHeader } = require('./utils/token');
+const { hashPassword, verifyPassword, validatePasswordStrength, generateRoomCode } = require('./utils/password');
+const { createRateLimit } = require('./middleware/rate-limit');
+
 // Configuration
 const CONFIG = {
   port: parseInt(process.env.PORT) || 3000, // Railway sets PORT - must be parsed as integer
@@ -52,24 +57,228 @@ try {
 
 class DanteBridgeServer {
   constructor() {
-    this.listeners = new Map(); // clientId -> { ws, userId, type: 'listener' }
-    this.sourceConnection = null; // { ws, userId, clientId, type: 'source' }
+    // Multi-room management
+    // rooms: Map<roomId, { broadcaster, listeners, passwordHash, metadata, suspendedUntil, state, channelBuffers, isBuffering, bufferStartTime, relayInterval, relaySequence }>
+    this.rooms = new Map();
+    
+    // Legacy single-room support (for backward compatibility during migration)
+    this.listeners = new Map(); // clientId -> { ws, userId, type: 'listener', roomId? }
+    this.sourceConnection = null; // { ws, userId, clientId, type: 'source', roomId? }
     this.audioBuffer = null;
     this.httpServer = null;
     this.wss = null;
     
-    // Server-side buffering for listeners
-    // Structure: channelBuffers[channelIndex] = [{ data, timestamp, sequence }, ...]
+    // Legacy server-side buffering (will be per-room)
     this.channelBuffers = new Array(CONFIG.channels).fill(null).map(() => []);
-    this.isBuffering = true; // Start in buffering mode
-    this.bufferStartTime = null; // When buffering started
-    this.relayInterval = null; // Interval for relaying buffered audio
-    this.relaySequence = 0; // Sequence number for relayed packets
+    this.isBuffering = true;
+    this.bufferStartTime = null;
+    this.relayInterval = null;
+    this.relaySequence = 0;
+    
+    // Metrics
+    this.metrics = {
+      totalRoomsCreated: 0,
+      totalListeners: 0,
+      totalPacketsSent: 0,
+      totalPacketsReceived: 0,
+      authSuccesses: 0,
+      authFailures: 0,
+      roomDurations: [],
+    };
+    
+    // Room cleanup interval (check for suspended rooms to close)
+    this.roomCleanupInterval = setInterval(() => {
+      this.cleanupSuspendedRooms();
+    }, 60000); // Check every minute
     
     // Initialize HTTP server first, then WebSocket (which attaches to HTTP server)
     this.initHTTP();
     // initWebSocket will be called after HTTP server is ready
     // No local audio input on Railway - audio comes from source connection
+  }
+  
+  // Clean up suspended rooms that have exceeded grace period
+  cleanupSuspendedRooms() {
+    const now = Date.now();
+    const GRACE_PERIOD_MS = 5 * 60 * 1000; // 5 minutes
+    
+    for (const [roomId, room] of this.rooms.entries()) {
+      if (room.state === 'suspended' && room.suspendedUntil && now > room.suspendedUntil) {
+        console.log(`🗑️ Closing suspended room ${roomId} (grace period expired)`);
+        this.closeRoom(roomId);
+      }
+    }
+  }
+  
+  // Create a new room
+  async createRoom(broadcasterUserId, password, metadata = {}) {
+    let roomCode;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    // Generate unique room code
+    do {
+      roomCode = generateRoomCode();
+      attempts++;
+      if (attempts > maxAttempts) {
+        throw new Error('Failed to generate unique room code');
+      }
+    } while (this.rooms.has(roomCode));
+    
+    const roomId = roomCode;
+    const passwordHash = await hashPassword(password);
+    
+    const room = {
+      broadcaster: null, // Will be set when broadcaster connects
+      listeners: new Map(), // clientId -> { ws, userId, nickname, joinedAt }
+      passwordHash: passwordHash,
+      metadata: {
+        createdBy: broadcasterUserId,
+        createdAt: new Date().toISOString(),
+        name: metadata.name || `Room ${roomCode}`,
+        public: metadata.public !== false, // Default to public
+        ...metadata,
+      },
+      suspendedUntil: null,
+      state: 'active', // 'active', 'suspended', 'closed'
+      // Per-room audio buffering
+      channelBuffers: new Array(CONFIG.channels).fill(null).map(() => []),
+      isBuffering: true,
+      bufferStartTime: null,
+      relayInterval: null,
+      relaySequence: 0,
+      _channelsReceived: new Set(),
+      _audioReceivedCount: 0,
+    };
+    
+    // Persist to database if Supabase is available
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('audio_rooms')
+          .insert({
+            id: roomId,
+            code: roomCode,
+            password_hash: passwordHash,
+            created_by: broadcasterUserId,
+            active: true,
+            metadata: room.metadata,
+          });
+        
+        if (error) {
+          console.error('Error persisting room to database:', error);
+          // Continue anyway - room is created in memory
+        } else {
+          console.log(`✅ Room ${roomId} persisted to database`);
+        }
+      } catch (error) {
+        console.error('Error persisting room to database:', error);
+        // Continue anyway
+      }
+    }
+    
+    this.rooms.set(roomId, room);
+    this.metrics.totalRoomsCreated++;
+    
+    // Hash password asynchronously
+    hashPassword(password).then((hash) => {
+      room.passwordHash = hash;
+    }).catch((error) => {
+      console.error(`Error hashing password for room ${roomId}:`, error);
+    });
+    
+    console.log(`✅ Room created: ${roomId} by user ${broadcasterUserId}`);
+    return { roomId, roomCode };
+  }
+  
+  // Close a room
+  async closeRoom(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    
+    // Stop relay interval
+    if (room.relayInterval) {
+      clearInterval(room.relayInterval);
+      room.relayInterval = null;
+    }
+    
+    // Close all connections
+    if (room.broadcaster && room.broadcaster.ws) {
+      try {
+        room.broadcaster.ws.close();
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
+    room.listeners.forEach((listener) => {
+      if (listener.ws) {
+        try {
+          listener.ws.send(JSON.stringify({ type: 'roomClosed', roomId }));
+          listener.ws.close();
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
+    
+    // Calculate room duration if it had a broadcaster
+    if (room.broadcaster && room.metadata.createdAt) {
+      const duration = Date.now() - new Date(room.metadata.createdAt).getTime();
+      this.metrics.roomDurations.push(duration);
+      // Keep only last 1000 durations
+      if (this.metrics.roomDurations.length > 1000) {
+        this.metrics.roomDurations.shift();
+      }
+    }
+    
+    // Update database
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('audio_rooms')
+          .update({ active: false })
+          .eq('id', roomId);
+        
+        if (error) {
+          console.error('Error updating room in database:', error);
+        } else {
+          console.log(`✅ Room ${roomId} marked as inactive in database`);
+        }
+      } catch (error) {
+        console.error('Error updating room in database:', error);
+      }
+    }
+    
+    this.rooms.delete(roomId);
+    console.log(`🗑️ Room closed: ${roomId}`);
+  }
+  
+  // Suspend a room (grace period for broadcaster reconnection)
+  suspendRoom(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    
+    room.state = 'suspended';
+    room.suspendedUntil = Date.now() + 5 * 60 * 1000; // 5 minutes grace period
+    room.broadcaster = null;
+    
+    // Notify listeners
+    room.listeners.forEach((listener) => {
+      if (listener.ws && listener.ws.readyState === WebSocket.OPEN) {
+        try {
+          listener.ws.send(JSON.stringify({
+            type: 'roomSuspended',
+            roomId,
+            suspendedUntil: room.suspendedUntil,
+          }));
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
+    
+    console.log(`⏸️ Room suspended: ${roomId} (grace period until ${new Date(room.suspendedUntil).toISOString()})`);
   }
 
   // Start relay interval to send buffered audio to listeners at consistent rate
@@ -184,7 +393,7 @@ class DanteBridgeServer {
     }
   }
 
-  // Notify all listeners about source status
+  // Notify all listeners about source status (legacy)
   notifySourceStatus(userId = null) {
     const hasSource = !!this.sourceConnection;
     const sourceUserId = this.sourceConnection?.userId || null;
@@ -197,7 +406,7 @@ class DanteBridgeServer {
             type: 'sourceStatus',
             hasSource: hasSource,
             sourceUserId: sourceUserId,
-            isYourSource: listener.userId === sourceUserId, // Tell listener if they are the source
+            isYourSource: listener.userId === sourceUserId,
           }));
         } catch (error) {
           console.error(`Error notifying source status to listener ${listenerId}:`, error);
@@ -205,7 +414,6 @@ class DanteBridgeServer {
       }
     });
     
-    // Also notify source connection if it exists
     if (this.sourceConnection && this.sourceConnection.ws.readyState === WebSocket.OPEN) {
       try {
         this.sourceConnection.ws.send(JSON.stringify({
@@ -217,6 +425,123 @@ class DanteBridgeServer {
       } catch (error) {
         console.error(`Error notifying source status to source:`, error);
       }
+    }
+  }
+  
+  // Notify room participants about room status
+  notifyRoomStatus(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    
+    const hasBroadcaster = !!room.broadcaster;
+    const broadcasterUserId = room.broadcaster?.userId || null;
+    
+    // Notify broadcaster
+    if (room.broadcaster && room.broadcaster.ws.readyState === WebSocket.OPEN) {
+      try {
+        room.broadcaster.ws.send(JSON.stringify({
+          type: 'roomStatus',
+          roomId: roomId,
+          hasBroadcaster: true,
+          listenerCount: room.listeners.size,
+          state: room.state,
+        }));
+      } catch (error) {
+        console.error(`Error notifying room status to broadcaster:`, error);
+      }
+    }
+    
+    // Notify listeners
+    room.listeners.forEach((listener, listenerId) => {
+      if (listener.ws && listener.ws.readyState === WebSocket.OPEN) {
+        try {
+          listener.ws.send(JSON.stringify({
+            type: 'roomStatus',
+            roomId: roomId,
+            hasBroadcaster: hasBroadcaster,
+            broadcasterUserId: broadcasterUserId,
+            listenerCount: room.listeners.size,
+            state: room.state,
+          }));
+        } catch (error) {
+          console.error(`Error notifying room status to listener ${listenerId}:`, error);
+        }
+      }
+    });
+  }
+  
+  // Start relay interval for a specific room
+  startRoomRelayInterval(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room || room.relayInterval) return;
+    
+    const relayIntervalMs = 341; // Match source batch interval
+    
+    room.relayInterval = setInterval(() => {
+      this.relayRoomAudio(roomId);
+    }, relayIntervalMs);
+    
+    console.log(`🔄 [ROOM ${roomId}] Starting relay interval: ${relayIntervalMs}ms`);
+  }
+  
+  // Stop relay interval for a specific room
+  stopRoomRelayInterval(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.relayInterval) return;
+    
+    clearInterval(room.relayInterval);
+    room.relayInterval = null;
+    console.log(`🛑 [ROOM ${roomId}] Stopped relay interval`);
+  }
+  
+  // Relay buffered audio for a specific room
+  relayRoomAudio(roomId) {
+    const room = this.rooms.get(roomId);
+    if (!room || room.listeners.size === 0) return;
+    
+    // Find max buffer size across channels
+    let maxBufferSize = 0;
+    for (let ch = 0; ch < room.channelBuffers.length; ch++) {
+      if (room.channelBuffers[ch].length > maxBufferSize) {
+        maxBufferSize = room.channelBuffers[ch].length;
+      }
+    }
+    
+    if (maxBufferSize === 0) return;
+    
+    // Relay one packet from each channel
+    for (let channel = 0; channel < room.channelBuffers.length; channel++) {
+      const buffer = room.channelBuffers[channel];
+      if (buffer.length === 0) continue;
+      
+      const packet = buffer.shift();
+      
+      const audioMessage = JSON.stringify({
+        type: 'audio',
+        channel: channel,
+        data: packet.data,
+        encoding: packet.encoding,
+        timestamp: packet.timestamp,
+        sequence: room.relaySequence++,
+        bufferCount: packet.bufferCount,
+      });
+      
+      // Relay to all room listeners
+      room.listeners.forEach((listener, listenerId) => {
+        if (listener.ws && listener.ws.readyState === WebSocket.OPEN) {
+          try {
+            listener.ws.send(audioMessage);
+            this.metrics.totalPacketsSent++;
+          } catch (error) {
+            console.error(`Error relaying audio to listener ${listenerId} in room ${roomId}:`, error);
+            if (listener.ws.readyState !== WebSocket.OPEN) {
+              room.listeners.delete(listenerId);
+            }
+          }
+        } else {
+          room.listeners.delete(listenerId);
+        }
+      });
     }
   }
 
@@ -323,6 +648,11 @@ class DanteBridgeServer {
       });
 
       ws.on('close', (code, reason) => {
+        // Clean up heartbeat
+        if (ws._heartbeatInterval) {
+          clearInterval(ws._heartbeatInterval);
+        }
+        
         const reasonStr = reason ? reason.toString() : 'none';
         console.log(`❌ Client disconnected: ${clientId} (code: ${code}, reason: ${reasonStr})`);
         
@@ -337,22 +667,47 @@ class DanteBridgeServer {
           console.warn(`⚠️ Abnormal closure (1006) for ${clientId} - connection closed without proper close frame`);
         }
         
-        // Check if this was the source connection
-        if (this.sourceConnection && this.sourceConnection.clientId === clientId) {
+        // Check if this client is a broadcaster in a room
+        let roomId = null;
+        let room = null;
+        for (const [rid, r] of this.rooms.entries()) {
+          if (r.broadcaster && r.broadcaster.clientId === clientId) {
+            roomId = rid;
+            room = r;
+            break;
+          } else if (r.listeners.has(clientId)) {
+            // This is a listener in a room
+            r.listeners.delete(clientId);
+            console.log(`👂 Listener left room ${rid}: ${clientId} (remaining: ${r.listeners.size})`);
+            this.notifyRoomStatus(rid);
+            
+            // Stop relay if no listeners
+            if (r.listeners.size === 0 && r.relayInterval) {
+              this.stopRoomRelayInterval(rid);
+            }
+            return; // Already handled
+          }
+        }
+        
+        if (roomId && room) {
+          // Broadcaster disconnected - suspend room
+          console.log(`⚠️ Broadcaster disconnected from room ${roomId} - suspending room`);
+          this.suspendRoom(roomId);
+          this.stopRoomRelayInterval(roomId);
+        } else if (this.sourceConnection && this.sourceConnection.clientId === clientId) {
+          // Legacy single-room mode - source disconnected
           console.log('⚠️ Source connection lost - audio streaming stopped');
           this.sourceConnection = null;
-          // Stop relay interval and clear buffers
           this.stopRelayInterval();
           this.channelBuffers.forEach(buffer => buffer.length = 0);
           this.isBuffering = true;
           this.bufferStartTime = null;
-          // Notify all listeners that source is no longer available
           this.notifySourceStatus();
         } else {
+          // Legacy listener disconnected
           this.listeners.delete(clientId);
           console.log(`📉 Listener count: ${this.listeners.size}`);
           
-          // Stop relay if no listeners
           if (this.listeners.size === 0) {
             this.stopRelayInterval();
           }
@@ -367,8 +722,25 @@ class DanteBridgeServer {
         ws.pong();
       });
       
-      // Handle ping messages from client (keepalive)
+      // Handle JSON ping messages from client (keepalive and latency measurement)
       // Note: ws library handles ping/pong automatically, but we can also handle JSON ping messages
+      
+      // Set up heartbeat: ping client every 30 seconds
+      ws._heartbeatInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({
+              type: 'ping',
+              timestamp: Date.now(),
+            }));
+          } catch (error) {
+            console.error(`Error sending heartbeat to ${clientId}:`, error);
+            clearInterval(ws._heartbeatInterval);
+          }
+        } else {
+          clearInterval(ws._heartbeatInterval);
+        }
+      }, 30000); // 30 seconds
     });
   }
 
@@ -384,73 +756,228 @@ class DanteBridgeServer {
 
       switch (data.type) {
         case 'registerSource':
-          // Register this connection as the audio source
-          // Authenticate source first
-          if (!supabase) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
-            return;
-          }
-          
+          // Register this connection as the audio source for a room
+          // Supports both room-based (new) and legacy single-room modes
           try {
-            const { data: user, error } = await supabase.auth.getUser(data.token);
-            if (error) {
-              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
-              return;
-            }
+            const roomId = data.roomId;
+            const roomToken = data.roomToken || data.token; // Support both room token and legacy Supabase token
             
-            // Check if this user is already the source (reconnection scenario)
-            if (this.sourceConnection && this.sourceConnection.userId === user.user.id) {
-              // User is reclaiming their source - replace the old connection
-              console.log(`🔄 User ${user.user.id} reclaiming source connection`);
-              try {
-                this.sourceConnection.ws.close();
-              } catch (e) {
-                // Ignore errors closing old connection
+            if (roomId && roomToken) {
+              // Room-based registration
+              const room = this.rooms.get(roomId);
+              if (!room) {
+                client.ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
+                return;
               }
-              this.sourceConnection = null;
-            }
-            
-            // Check if another source is already registered
-            if (this.sourceConnection) {
+              
+              if (room.state !== 'active' && room.state !== 'suspended') {
+                client.ws.send(JSON.stringify({ type: 'error', message: 'Room is not available' }));
+                return;
+              }
+              
+              // Verify room token
+              let decoded;
+              try {
+                decoded = verifyToken(roomToken);
+                if (decoded.type !== 'room' || decoded.roomId !== roomId) {
+                  throw new Error('Invalid room token');
+                }
+              } catch (error) {
+                client.ws.send(JSON.stringify({ type: 'error', message: 'Invalid room token' }));
+                return;
+              }
+              
+              // Check if room already has a broadcaster
+              if (room.broadcaster && room.broadcaster.clientId !== clientId) {
+                // Check if this is the same user reclaiming
+                if (decoded.userId && room.broadcaster.userId === decoded.userId) {
+                  console.log(`🔄 User ${decoded.userId} reclaiming broadcaster for room ${roomId}`);
+                  try {
+                    room.broadcaster.ws.close();
+                  } catch (e) {
+                    // Ignore
+                  }
+                } else {
+                  client.ws.send(JSON.stringify({ 
+                    type: 'error', 
+                    message: 'Room already has a broadcaster' 
+                  }));
+                  return;
+                }
+              }
+              
+              // Remove from legacy listeners if present
+              this.listeners.delete(clientId);
+              
+              // Set as room broadcaster
+              room.broadcaster = {
+                ws: client.ws,
+                userId: decoded.userId,
+                clientId: clientId,
+                type: 'source',
+                roomId: roomId,
+              };
+              
+              // Resume room if suspended
+              if (room.state === 'suspended') {
+                room.state = 'active';
+                room.suspendedUntil = null;
+                console.log(`▶️ Room ${roomId} resumed by broadcaster`);
+              }
+              
+              // Reset room buffering state
+              room.channelBuffers.forEach(buffer => buffer.length = 0);
+              room.isBuffering = true;
+              room.bufferStartTime = null;
+              room.relaySequence = 0;
+              room._channelsReceived = new Set();
+              if (room.relayInterval) {
+                clearInterval(room.relayInterval);
+                room.relayInterval = null;
+              }
+              
+              console.log(`🎤 Broadcaster registered for room ${roomId}: ${clientId}`);
               client.ws.send(JSON.stringify({ 
-                type: 'error', 
-                message: 'Source already registered. Only one source allowed at a time.' 
+                type: 'sourceRegistered', 
+                roomId: roomId,
+                userId: decoded.userId,
+                channels: CONFIG.channels,
+                sampleRate: CONFIG.sampleRate,
+                listenerCount: room.listeners.size,
               }));
-              return;
+              
+              // Notify room listeners
+              this.notifyRoomStatus(roomId);
+            } else {
+              // Legacy single-room mode (backward compatibility)
+              if (!supabase) {
+                client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
+                return;
+              }
+              
+              const { data: user, error } = await supabase.auth.getUser(data.token);
+              if (error) {
+                client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+                return;
+              }
+              
+              // Check if this user is already the source (reconnection scenario)
+              if (this.sourceConnection && this.sourceConnection.userId === user.user.id) {
+                console.log(`🔄 User ${user.user.id} reclaiming source connection`);
+                try {
+                  this.sourceConnection.ws.close();
+                } catch (e) {
+                  // Ignore errors closing old connection
+                }
+                this.sourceConnection = null;
+              }
+              
+              // Check if another source is already registered
+              if (this.sourceConnection) {
+                client.ws.send(JSON.stringify({ 
+                  type: 'error', 
+                  message: 'Source already registered. Only one source allowed at a time.' 
+                }));
+                return;
+              }
+              
+              // Remove from listeners and set as source
+              this.listeners.delete(clientId);
+              this.sourceConnection = {
+                ws: client.ws,
+                userId: user.user.id,
+                clientId: clientId,
+                type: 'source'
+              };
+              
+              // Reset buffering state when new source registers
+              this.channelBuffers.forEach(buffer => buffer.length = 0);
+              this.isBuffering = true;
+              this.bufferStartTime = null;
+              this.relaySequence = 0;
+              this._channelsReceived = new Set();
+              this.stopRelayInterval();
+              
+              console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
+              client.ws.send(JSON.stringify({ 
+                type: 'sourceRegistered', 
+                userId: user.user.id,
+                channels: CONFIG.channels,
+                sampleRate: CONFIG.sampleRate
+              }));
+              
+              this.notifySourceStatus();
             }
-            
-            // Remove from listeners and set as source
-            this.listeners.delete(clientId);
-            this.sourceConnection = {
-              ws: client.ws,
-              userId: user.user.id,
-              clientId: clientId,
-              type: 'source'
-            };
-            
-            // Reset buffering state when new source registers
-            this.channelBuffers.forEach(buffer => buffer.length = 0);
-            this.isBuffering = true;
-            this.bufferStartTime = null;
-            this.relaySequence = 0;
-            this._channelsReceived = new Set(); // Reset channel tracking
-            this.stopRelayInterval(); // Stop any existing relay
-            
-            console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
-            console.log(`📦 [SERVER] Buffering enabled: ${CONFIG.listenerBufferMs}ms (${CONFIG.listenerBufferSamples} samples) before relaying to listeners`);
-            console.log(`📊 [SERVER] Ready to receive audio on ${CONFIG.channels} channels`);
-            client.ws.send(JSON.stringify({ 
-              type: 'sourceRegistered', 
-              userId: user.user.id,
-              channels: CONFIG.channels,
-              sampleRate: CONFIG.sampleRate
-            }));
-            
-            // Notify all listeners that source is now available
-            this.notifySourceStatus();
           } catch (error) {
             console.error('Source registration error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Source registration error' }));
+          }
+          break;
+        
+        case 'registerListener':
+          // Register as listener for a room
+          try {
+            const { roomId, roomToken } = data;
+            
+            if (!roomId || !roomToken) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Room ID and token required' }));
+              return;
+            }
+            
+            const room = this.rooms.get(roomId);
+            if (!room) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
+              return;
+            }
+            
+            if (room.state !== 'active' && room.state !== 'suspended') {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Room is not available' }));
+              return;
+            }
+            
+            // Verify room token
+            let decoded;
+            try {
+              decoded = verifyToken(roomToken);
+              if (decoded.type !== 'room' || decoded.roomId !== roomId) {
+                throw new Error('Invalid room token');
+              }
+            } catch (error) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Invalid room token' }));
+              return;
+            }
+            
+            // Remove from legacy listeners if present
+            this.listeners.delete(clientId);
+            
+            // Add to room listeners
+            room.listeners.set(clientId, {
+              ws: client.ws,
+              userId: decoded.userId || null,
+              nickname: data.nickname || null,
+              joinedAt: Date.now(),
+              clientId: clientId,
+            });
+            
+            console.log(`👂 Listener joined room ${roomId}: ${clientId} (total: ${room.listeners.size})`);
+            
+            // Send room status
+            client.ws.send(JSON.stringify({
+              type: 'listenerRegistered',
+              roomId: roomId,
+              roomName: room.metadata.name,
+              hasBroadcaster: !!room.broadcaster,
+              listenerCount: room.listeners.size,
+              state: room.state,
+              channels: CONFIG.channels,
+              sampleRate: CONFIG.sampleRate,
+            }));
+            
+            // Notify room status to all
+            this.notifyRoomStatus(roomId);
+          } catch (error) {
+            console.error('Listener registration error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Listener registration error' }));
           }
           break;
 
@@ -519,66 +1046,148 @@ class DanteBridgeServer {
 
         case 'audio':
           // Audio data from source - buffer it, then relay to listeners at consistent rate
-          if (!isSource) {
-            console.warn(`Received audio from non-source client ${clientId}`);
-            return;
+          // Supports both room-based (new) and legacy single-room modes
+          let roomId = null;
+          let room = null;
+          
+          // Determine if this is room-based or legacy
+          if (isSource && this.sourceConnection && this.sourceConnection.roomId) {
+            roomId = this.sourceConnection.roomId;
+            room = this.rooms.get(roomId);
+          } else if (!isSource) {
+            // Check if client is in a room
+            for (const [rid, r] of this.rooms.entries()) {
+              if (r.broadcaster && r.broadcaster.clientId === clientId) {
+                roomId = rid;
+                room = r;
+                break;
+              }
+            }
           }
           
-          // Log audio reception periodically for debugging
-          if (!this._audioReceivedCount) this._audioReceivedCount = 0;
-          if (!this._channelsReceived) this._channelsReceived = new Set();
-          this._audioReceivedCount++;
-          this._channelsReceived.add(data.channel);
-          
-          if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
-            const bufferStatus = this.isBuffering ? 'buffering' : 'relaying';
-            const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
-            const channelsReceivedList = Array.from(this._channelsReceived).sort((a, b) => a - b).join(',');
-            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], channels received so far: [${channelsReceivedList}], listeners: ${this.listeners.size})`);
-          }
-          
-          // Buffer audio from source (fast acceptance, no delay)
-          if (data.channel !== undefined && data.data) {
-            const channel = data.channel;
-            if (channel >= 0 && channel < this.channelBuffers.length) {
-              // Add to buffer immediately (source → server is fast)
-              this.channelBuffers[channel].push({
-                data: data.data,
-                encoding: data.encoding || 'pcm',
-                timestamp: data.timestamp || Date.now(),
-                sequence: data.sequence || this._audioReceivedCount,
-                bufferCount: data.bufferCount || 1,
-              });
-              
-              // Check if we have enough buffered data to start relaying
-              if (this.isBuffering) {
-                if (!this.bufferStartTime) {
-                  this.bufferStartTime = Date.now();
-                }
+          if (roomId && room) {
+            // Room-based audio routing
+            if (!room.broadcaster || room.broadcaster.clientId !== clientId) {
+              console.warn(`Received audio from non-broadcaster client ${clientId} in room ${roomId}`);
+              return;
+            }
+            
+            this.metrics.totalPacketsReceived++;
+            
+            // Log periodically
+            room._audioReceivedCount = (room._audioReceivedCount || 0) + 1;
+            room._channelsReceived.add(data.channel);
+            
+            if (room._audioReceivedCount <= 5 || room._audioReceivedCount % 1000 === 0) {
+              const bufferStatus = room.isBuffering ? 'buffering' : 'relaying';
+              const bufferSizes = room.channelBuffers.map(buf => buf.length).join(',');
+              const channelsReceivedList = Array.from(room._channelsReceived).sort((a, b) => a - b).join(',');
+              console.log(`🎤 [ROOM ${roomId}] Received audio packet #${room._audioReceivedCount} (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], channels: [${channelsReceivedList}], listeners: ${room.listeners.size})`);
+            }
+            
+            // Buffer audio
+            if (data.channel !== undefined && data.data) {
+              const channel = data.channel;
+              if (channel >= 0 && channel < room.channelBuffers.length) {
+                room.channelBuffers[channel].push({
+                  data: data.data,
+                  encoding: data.encoding || 'pcm',
+                  timestamp: data.timestamp || Date.now(),
+                  sequence: data.sequence || room._audioReceivedCount,
+                  bufferCount: data.bufferCount || 1,
+                });
                 
-                // Check minimum buffer size across all channels
-                let minBufferSize = Infinity;
-                for (let ch = 0; ch < this.channelBuffers.length; ch++) {
-                  const bufferLength = this.channelBuffers[ch].length;
-                  if (bufferLength > 0 && bufferLength < minBufferSize) {
-                    minBufferSize = bufferLength;
+                // Check if buffer is filled
+                if (room.isBuffering) {
+                  if (!room.bufferStartTime) {
+                    room.bufferStartTime = Date.now();
+                  }
+                  
+                  let minBufferSize = Infinity;
+                  for (let ch = 0; ch < room.channelBuffers.length; ch++) {
+                    const bufferLength = room.channelBuffers[ch].length;
+                    if (bufferLength > 0 && bufferLength < minBufferSize) {
+                      minBufferSize = bufferLength;
+                    }
+                  }
+                  
+                  const estimatedSamplesPerPacket = 16384;
+                  const estimatedBufferSamples = minBufferSize * estimatedSamplesPerPacket;
+                  
+                  if (estimatedBufferSamples >= CONFIG.listenerBufferSamples || minBufferSize >= 10) {
+                    const bufferingTime = Date.now() - room.bufferStartTime;
+                    room.isBuffering = false;
+                    room.bufferStartTime = null;
+                    console.log(`✅ [ROOM ${roomId}] Buffer filled (${minBufferSize} packets, ~${estimatedBufferSamples} samples) in ${bufferingTime}ms, starting relay`);
+                    
+                    this.startRoomRelayInterval(roomId);
                   }
                 }
+              }
+            }
+          } else {
+            // Legacy single-room mode
+            if (!isSource) {
+              console.warn(`Received audio from non-source client ${clientId}`);
+              return;
+            }
+            
+            // Log audio reception periodically for debugging
+            if (!this._audioReceivedCount) this._audioReceivedCount = 0;
+            if (!this._channelsReceived) this._channelsReceived = new Set();
+            this._audioReceivedCount++;
+            this._channelsReceived.add(data.channel);
+            
+            if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
+              const bufferStatus = this.isBuffering ? 'buffering' : 'relaying';
+              const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
+              const channelsReceivedList = Array.from(this._channelsReceived).sort((a, b) => a - b).join(',');
+              console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], channels received so far: [${channelsReceivedList}], listeners: ${this.listeners.size})`);
+            }
+            
+            // Buffer audio from source (fast acceptance, no delay)
+            if (data.channel !== undefined && data.data) {
+              const channel = data.channel;
+              if (channel >= 0 && channel < this.channelBuffers.length) {
+                // Add to buffer immediately (source → server is fast)
+                this.channelBuffers[channel].push({
+                  data: data.data,
+                  encoding: data.encoding || 'pcm',
+                  timestamp: data.timestamp || Date.now(),
+                  sequence: data.sequence || this._audioReceivedCount,
+                  bufferCount: data.bufferCount || 1,
+                });
                 
-                // Estimate samples in buffer (rough estimate: each packet is ~16384 samples when batched)
-                // This is approximate - actual sample count depends on encoding and batching
-                const estimatedSamplesPerPacket = 16384; // 4096 samples * 4 batches = ~16384 samples
-                const estimatedBufferSamples = minBufferSize * estimatedSamplesPerPacket;
-                
-                if (estimatedBufferSamples >= CONFIG.listenerBufferSamples || minBufferSize >= 10) {
-                  // Buffer filled - start relaying
-                  const bufferingTime = Date.now() - this.bufferStartTime;
-                  this.isBuffering = false;
-                  this.bufferStartTime = null;
-                  console.log(`✅ [SERVER] Buffer filled (${minBufferSize} packets, ~${estimatedBufferSamples} samples) in ${bufferingTime}ms, starting relay to listeners`);
+                // Check if we have enough buffered data to start relaying
+                if (this.isBuffering) {
+                  if (!this.bufferStartTime) {
+                    this.bufferStartTime = Date.now();
+                  }
                   
-                  // Start relay interval if not already started
-                  this.startRelayInterval();
+                  // Check minimum buffer size across all channels
+                  let minBufferSize = Infinity;
+                  for (let ch = 0; ch < this.channelBuffers.length; ch++) {
+                    const bufferLength = this.channelBuffers[ch].length;
+                    if (bufferLength > 0 && bufferLength < minBufferSize) {
+                      minBufferSize = bufferLength;
+                    }
+                  }
+                  
+                  // Estimate samples in buffer (rough estimate: each packet is ~16384 samples when batched)
+                  // This is approximate - actual sample count depends on encoding and batching
+                  const estimatedSamplesPerPacket = 16384; // 4096 samples * 4 batches = ~16384 samples
+                  const estimatedBufferSamples = minBufferSize * estimatedSamplesPerPacket;
+                  
+                  if (estimatedBufferSamples >= CONFIG.listenerBufferSamples || minBufferSize >= 10) {
+                    // Buffer filled - start relaying
+                    const bufferingTime = Date.now() - this.bufferStartTime;
+                    this.isBuffering = false;
+                    this.bufferStartTime = null;
+                    console.log(`✅ [SERVER] Buffer filled (${minBufferSize} packets, ~${estimatedBufferSamples} samples) in ${bufferingTime}ms, starting relay to listeners`);
+                    
+                    // Start relay interval if not already started
+                    this.startRelayInterval();
+                  }
                 }
               }
             }
@@ -783,6 +1392,252 @@ class DanteBridgeServer {
           status: 'error',
           error: error.message 
         });
+      }
+    });
+
+    // Authentication endpoints
+    
+    // POST /auth/broadcaster - Login with email/password, get access + refresh tokens
+    app.post('/auth/broadcaster', createRateLimit({ windowMs: 15 * 60 * 1000, maxRequests: 5 }), async (req, res) => {
+      try {
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+          return res.status(400).json({ error: 'Email and password are required' });
+        }
+        
+        if (!supabase) {
+          return res.status(503).json({ error: 'Authentication service unavailable' });
+        }
+        
+        // Authenticate with Supabase
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (authError || !authData.user) {
+          this.metrics.authFailures++;
+          return res.status(401).json({ error: 'Invalid email or password' });
+        }
+        
+        // Generate tokens
+        const accessToken = generateAccessToken({ userId: authData.user.id, email: authData.user.email });
+        const refreshToken = generateRefreshToken({ userId: authData.user.id });
+        
+        this.metrics.authSuccesses++;
+        
+        res.json({
+          accessToken,
+          refreshToken,
+          user: {
+            id: authData.user.id,
+            email: authData.user.email,
+          },
+        });
+      } catch (error) {
+        console.error('Broadcaster auth error:', error);
+        this.metrics.authFailures++;
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+    
+    // POST /auth/refresh - Refresh access token using refresh token
+    app.post('/auth/refresh', createRateLimit({ windowMs: 15 * 60 * 1000, maxRequests: 10 }), (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const refreshToken = extractTokenFromHeader(authHeader) || req.body.refreshToken;
+        
+        if (!refreshToken) {
+          return res.status(400).json({ error: 'Refresh token required' });
+        }
+        
+        const decoded = verifyToken(refreshToken);
+        
+        if (decoded.type !== 'refresh') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        // Generate new access token
+        const accessToken = generateAccessToken({ userId: decoded.userId, email: decoded.email });
+        
+        res.json({ accessToken });
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        res.status(401).json({ error: error.message || 'Invalid refresh token' });
+      }
+    });
+    
+    // POST /auth/room/create - Create a new room (requires authenticated broadcaster)
+    app.post('/auth/room/create', createRateLimit({ windowMs: 60 * 60 * 1000, maxRequests: 3, keyGenerator: (req) => {
+      // Rate limit by user ID if available, otherwise by IP
+      const authHeader = req.headers.authorization;
+      const token = extractTokenFromHeader(authHeader);
+      if (token) {
+        try {
+          const decoded = verifyToken(token);
+          return decoded.userId || req.ip;
+        } catch (e) {
+          return req.ip;
+        }
+      }
+      return req.ip;
+    } }), async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        const { password, name, metadata = {} } = req.body;
+        
+        if (!password) {
+          return res.status(400).json({ error: 'Password is required' });
+        }
+        
+        // Validate password strength
+        const passwordValidation = validatePasswordStrength(password);
+        if (!passwordValidation.valid) {
+          return res.status(400).json({ error: passwordValidation.error });
+        }
+        
+        // Create room
+        const { roomId, roomCode } = await this.createRoom(decoded.userId, password, { name, ...metadata });
+        
+        // Generate room token for the broadcaster
+        const roomToken = generateRoomToken(roomId, decoded.userId);
+        
+        res.json({
+          roomId,
+          roomCode,
+          roomToken,
+          name: name || `Room ${roomCode}`,
+        });
+      } catch (error) {
+        console.error('Room creation error:', error);
+        res.status(500).json({ error: error.message || 'Failed to create room' });
+      }
+    });
+    
+    // POST /auth/room/join - Join a room with code and password
+    app.post('/auth/room/join', createRateLimit({ windowMs: 5 * 60 * 1000, maxRequests: 10 }), async (req, res) => {
+      try {
+        const { roomCode, password } = req.body;
+        
+        if (!roomCode || !password) {
+          return res.status(400).json({ error: 'Room code and password are required' });
+        }
+        
+        const room = this.rooms.get(roomCode);
+        
+        if (!room) {
+          this.metrics.authFailures++;
+          return res.status(404).json({ error: 'Room not found' });
+        }
+        
+        if (room.state !== 'active' && room.state !== 'suspended') {
+          return res.status(400).json({ error: 'Room is not available' });
+        }
+        
+        // Verify password
+        if (!room.passwordHash) {
+          // Password hasn't been hashed yet, wait a bit
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        
+        if (!room.passwordHash) {
+          return res.status(500).json({ error: 'Room password not ready' });
+        }
+        
+        const passwordValid = await verifyPassword(password, room.passwordHash);
+        
+        if (!passwordValid) {
+          this.metrics.authFailures++;
+          return res.status(401).json({ error: 'Invalid room password' });
+        }
+        
+        // Generate room token (no user ID for anonymous listeners)
+        const roomToken = generateRoomToken(roomCode, null);
+        
+        this.metrics.authSuccesses++;
+        
+        res.json({
+          roomId: roomCode,
+          roomToken,
+          roomName: room.metadata.name,
+          listenerCount: room.listeners.size,
+          state: room.state,
+        });
+      } catch (error) {
+        console.error('Room join error:', error);
+        this.metrics.authFailures++;
+        res.status(500).json({ error: error.message || 'Failed to join room' });
+      }
+    });
+    
+    // GET /metrics - Server metrics endpoint
+    // Public rooms endpoint
+    app.get('/api/rooms/public', (req, res) => {
+      try {
+        const publicRooms = [];
+        
+        for (const [roomId, room] of this.rooms.entries()) {
+          // Only include active rooms (not suspended or closed)
+          if (room.state === 'active' && room.metadata) {
+            publicRooms.push({
+              code: roomId,
+              name: room.metadata.name || `Room ${roomId}`,
+              listenerCount: room.listeners.size,
+              hasBroadcaster: !!room.broadcaster,
+              createdAt: room.metadata.createdAt,
+            });
+          }
+        }
+        
+        res.json({
+          success: true,
+          rooms: publicRooms,
+        });
+      } catch (error) {
+        console.error('Error fetching public rooms:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch public rooms',
+        });
+      }
+    });
+
+    app.get('/metrics', (req, res) => {
+      try {
+        const activeRooms = Array.from(this.rooms.values()).filter(r => r.state === 'active').length;
+        const totalListeners = Array.from(this.rooms.values()).reduce((sum, room) => sum + room.listeners.size, 0);
+        const avgRoomDuration = this.metrics.roomDurations.length > 0
+          ? this.metrics.roomDurations.reduce((a, b) => a + b, 0) / this.metrics.roomDurations.length
+          : 0;
+        
+        res.json({
+          activeRooms,
+          totalRooms: this.rooms.size,
+          totalListeners,
+          totalRoomsCreated: this.metrics.totalRoomsCreated,
+          totalPacketsSent: this.metrics.totalPacketsSent,
+          totalPacketsReceived: this.metrics.totalPacketsReceived,
+          authSuccesses: this.metrics.authSuccesses,
+          authFailures: this.metrics.authFailures,
+          avgRoomDurationMs: Math.round(avgRoomDuration),
+          uptime: Math.floor(process.uptime()),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('Metrics error:', error);
+        res.status(500).json({ error: 'Failed to get metrics' });
       }
     });
 

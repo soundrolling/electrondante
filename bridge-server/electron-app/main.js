@@ -11,8 +11,28 @@ try {
   // Will show error in UI
 }
 
+// Load AuthClient
+let AuthClient = null;
+try {
+  AuthClient = require('./services/auth-client');
+} catch (error) {
+  console.error('Failed to load auth-client:', error);
+}
+
+// Load AudioListener
+let AudioListener = null;
+try {
+  AudioListener = require('./services/audio-listener');
+} catch (error) {
+  console.error('Failed to load audio-listener:', error);
+}
+
 let mainWindow = null;
-let client = null;
+let client = null; // Legacy client
+let broadcasterClient = null; // Room-based broadcaster
+let listenerClient = null; // Room-based listener
+let audioListener = null; // Audio playback engine
+let authClient = null; // Authentication client
 
 function mapInputDevices(devices) {
   return devices
@@ -424,5 +444,269 @@ ipcMain.handle('check-microphone-permission', async () => {
   } catch (error) {
     return { granted: false, status: 'unknown', error: error.message };
   }
+});
+
+// Authentication IPC handlers
+ipcMain.handle('auth-login', async (event, email, password, railwayUrl) => {
+  try {
+    if (!AuthClient) {
+      return { success: false, error: 'Auth client not available' };
+    }
+    
+    if (!authClient) {
+      authClient = new AuthClient(railwayUrl || 'wss://proapp2149-production.up.railway.app');
+    }
+    
+    const result = await authClient.login(email, password);
+    return { success: true, user: result.user };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('auth-logout', async () => {
+  if (authClient) {
+    authClient.logout();
+    authClient = null;
+  }
+  return { success: true };
+});
+
+ipcMain.handle('auth-refresh-token', async () => {
+  try {
+    if (!authClient) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    
+    await authClient.refreshAccessToken();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('auth-get-status', async () => {
+  if (!authClient) {
+    return { authenticated: false };
+  }
+  
+  return {
+    authenticated: authClient.isAuthenticated(),
+    user: authClient.getCurrentUser(),
+  };
+});
+
+// Room management IPC handlers
+ipcMain.handle('room-create', async (event, password, name, metadata) => {
+  try {
+    if (!authClient || !authClient.isAuthenticated()) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    
+    const result = await authClient.createRoom(password, name, metadata);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('room-end-broadcast', async () => {
+  if (broadcasterClient) {
+    broadcasterClient.stop();
+    broadcasterClient = null;
+  }
+  return { success: true };
+});
+
+ipcMain.handle('room-join', async (event, roomCode, password, railwayUrl) => {
+  try {
+    if (!AuthClient) {
+      return { success: false, error: 'Auth client not available' };
+    }
+    
+    // Create temporary auth client for joining
+    const tempAuthClient = new AuthClient(railwayUrl || 'wss://proapp2149-production.up.railway.app');
+    const result = await tempAuthClient.joinRoom(roomCode, password);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('room-leave', async () => {
+  if (listenerClient) {
+    listenerClient.stop();
+    listenerClient = null;
+  }
+  if (audioListener) {
+    audioListener.destroy();
+    audioListener = null;
+  }
+  return { success: true };
+});
+
+// Broadcasting IPC handlers
+ipcMain.handle('broadcast-start', async (event, config) => {
+  try {
+    if (!DanteBridgeClient) {
+      return { success: false, error: 'Client core not available' };
+    }
+    
+    if (!authClient || !authClient.isAuthenticated()) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    
+    if (broadcasterClient) {
+      broadcasterClient.stop();
+    }
+    
+    // Get valid access token
+    const accessToken = await authClient.getValidAccessToken();
+    
+    broadcasterClient = new DanteBridgeClient({
+      ...config,
+      accessToken: config.roomToken || accessToken, // Use room token if provided
+      roomId: config.roomId,
+    });
+    
+    // Set up event forwarding
+    broadcasterClient.on('status', (status) => {
+      mainWindow?.webContents.send('client-status', status);
+    });
+    
+    broadcasterClient.on('error', (error) => {
+      mainWindow?.webContents.send('client-error', error);
+    });
+    
+    broadcasterClient.on('devices', (devices) => {
+      mainWindow?.webContents.send('devices-updated', devices);
+    });
+    
+    await broadcasterClient.connect();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('broadcast-stop', async () => {
+  if (broadcasterClient) {
+    broadcasterClient.stop();
+    broadcasterClient = null;
+    return { success: true };
+  }
+  return { success: false, error: 'Broadcaster not running' };
+});
+
+// Listening IPC handlers
+ipcMain.handle('listen-start', async (event, config) => {
+  try {
+    if (!DanteBridgeClient) {
+      return { success: false, error: 'Client core not available' };
+    }
+    
+    if (listenerClient) {
+      listenerClient.stop();
+    }
+    
+    if (!AudioListener) {
+      return { success: false, error: 'Audio listener not available' };
+    }
+    
+    // Create listener WebSocket client
+    listenerClient = new DanteBridgeClient({
+      railwayWsUrl: config.railwayWsUrl,
+      roomId: config.roomId,
+      roomToken: config.roomToken,
+      mode: 'listener',
+    });
+    
+    // Create audio listener
+    // NOTE: AudioListener uses Web Audio API which requires renderer context
+    // For now, we'll forward audio to renderer via IPC for playback
+    // A proper implementation would use node-speaker or similar for main process audio
+    if (AudioListener) {
+      try {
+        audioListener = new AudioListener({
+          sampleRate: config.sampleRate || 48000,
+          channels: config.channels || 1,
+          volume: config.volume || 1.0,
+        });
+        
+        // Try to initialize (will fail in main process, that's OK for now)
+        try {
+          await audioListener.initialize();
+        } catch (error) {
+          console.warn('AudioListener initialization failed (expected in main process):', error.message);
+          // Audio playback will be handled in renderer process via IPC
+          audioListener = null;
+        }
+      } catch (error) {
+        console.warn('AudioListener creation failed:', error.message);
+        audioListener = null;
+      }
+    }
+    
+    // Set up event forwarding
+    listenerClient.on('status', (status) => {
+      mainWindow?.webContents.send('client-status', status);
+    });
+    
+    listenerClient.on('error', (error) => {
+      mainWindow?.webContents.send('client-error', error);
+    });
+    
+    listenerClient.on('audio', (audioData) => {
+      // Forward audio to renderer for playback (Web Audio API works there)
+      mainWindow?.webContents.send('audio-data', audioData);
+      
+      // Also try to add to audio listener if available (for future Node.js audio support)
+      if (audioListener) {
+        try {
+          audioListener.addAudioPacket(audioData);
+        } catch (error) {
+          // Ignore - audio listener may not be fully initialized
+        }
+      }
+    });
+    
+    listenerClient.on('roomStatus', (status) => {
+      mainWindow?.webContents.send('room-status', status);
+    });
+    
+    await listenerClient.connect();
+    
+    // Start audio listener if available
+    if (audioListener) {
+      try {
+        audioListener.start();
+      } catch (error) {
+        console.warn('Could not start audio listener:', error.message);
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('listen-stop', async () => {
+  if (audioListener) {
+    audioListener.stop();
+  }
+  if (listenerClient) {
+    listenerClient.stop();
+    listenerClient = null;
+  }
+  return { success: true };
+});
+
+ipcMain.handle('listen-set-volume', async (event, volume) => {
+  if (audioListener) {
+    audioListener.setVolume(volume / 100); // Convert 0-100 to 0.0-1.0
+    return { success: true };
+  }
+  return { success: false, error: 'Audio listener not running' };
 });
 

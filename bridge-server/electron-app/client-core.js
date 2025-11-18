@@ -34,6 +34,9 @@ class DanteBridgeClient extends EventEmitter {
       batchSize: 4, // Batch 4 buffers before sending (reduces WebSocket overhead)
       reconnectDelay: 3000,
       accessToken: config.accessToken,
+      roomId: config.roomId,
+      roomToken: config.roomToken,
+      mode: config.mode || 'broadcaster', // 'broadcaster' or 'listener'
     };
     
     // Ensure Railway URL uses wss:// protocol
@@ -52,6 +55,8 @@ class DanteBridgeClient extends EventEmitter {
     this.reconnectTimer = null;
     this.selectedDeviceId = config.deviceId || -1;
     this.availableDevices = [];
+    this.heartbeatInterval = null;
+    this.lastPongTime = null;
     
     // Opus encoders (one per channel)
     this.opusEncoders = [];
@@ -130,10 +135,16 @@ class DanteBridgeClient extends EventEmitter {
         this.connected = true;
         this.emit('status', { type: 'connected', message: 'Connected to Railway' });
         
-        if (this.config.accessToken) {
+        // Start heartbeat
+        this.startHeartbeat();
+        
+        // Register based on mode
+        if (this.config.mode === 'listener') {
+          await this.registerAsListener();
+        } else if (this.config.accessToken || this.config.roomToken) {
           await this.registerAsSource();
         } else {
-          this.emit('error', { type: 'auth', message: 'No access token provided' });
+          this.emit('error', { type: 'auth', message: 'No access token or room token provided' });
         }
       });
 
@@ -149,6 +160,7 @@ class DanteBridgeClient extends EventEmitter {
       this.ws.on('close', (code, reason) => {
         this.connected = false;
         this.registered = false;
+        this.stopHeartbeat();
         this.emit('status', { type: 'disconnected', message: `Disconnected (code: ${code})` });
         
         if (this.audioInput) {
@@ -181,19 +193,75 @@ class DanteBridgeClient extends EventEmitter {
       return;
     }
 
-    if (!this.config.accessToken) {
-      this.emit('error', { type: 'auth', message: 'No access token' });
+    const token = this.config.roomToken || this.config.accessToken;
+    if (!token) {
+      this.emit('error', { type: 'auth', message: 'No access token or room token' });
+      return;
+    }
+
+    try {
+      const message = {
+        type: 'registerSource',
+      };
+      
+      // Room-based registration
+      if (this.config.roomId && this.config.roomToken) {
+        message.roomId = this.config.roomId;
+        message.roomToken = this.config.roomToken;
+      } else {
+        // Legacy mode
+        message.token = token;
+      }
+      
+      this.ws.send(JSON.stringify(message));
+      this.emit('status', { type: 'registering', message: 'Registering as source...' });
+    } catch (error) {
+      this.emit('error', { type: 'registration', message: error.message });
+    }
+  }
+  
+  async registerAsListener() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    if (!this.config.roomId || !this.config.roomToken) {
+      this.emit('error', { type: 'auth', message: 'Room ID and token required for listener mode' });
       return;
     }
 
     try {
       this.ws.send(JSON.stringify({
-        type: 'registerSource',
-        token: this.config.accessToken,
+        type: 'registerListener',
+        roomId: this.config.roomId,
+        roomToken: this.config.roomToken,
       }));
-      this.emit('status', { type: 'registering', message: 'Registering as source...' });
+      this.emit('status', { type: 'registering', message: 'Registering as listener...' });
     } catch (error) {
       this.emit('error', { type: 'registration', message: error.message });
+    }
+  }
+  
+  startHeartbeat() {
+    // Send ping every 30 seconds
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify({
+            type: 'ping',
+            timestamp: Date.now(),
+          }));
+        } catch (error) {
+          console.error('Error sending ping:', error);
+        }
+      }
+    }, 30000);
+  }
+  
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
   }
 
@@ -201,11 +269,40 @@ class DanteBridgeClient extends EventEmitter {
     switch (message.type) {
       case 'sourceRegistered':
         this.registered = true;
+        const roomInfo = message.roomId ? ` in room ${message.roomId}` : '';
         this.emit('status', { 
           type: 'registered', 
-          message: `Registered as source (${message.channels} channels @ ${message.sampleRate}Hz)` 
+          message: `Registered as source${roomInfo} (${message.channels} channels @ ${message.sampleRate}Hz)` 
         });
-        this.initAudioInput();
+        if (this.config.mode === 'broadcaster') {
+          this.initAudioInput();
+        }
+        break;
+      
+      case 'listenerRegistered':
+        this.registered = true;
+        this.emit('status', { 
+          type: 'registered', 
+          message: `Joined room ${message.roomId}: ${message.roomName}` 
+        });
+        this.emit('roomStatus', {
+          roomId: message.roomId,
+          roomName: message.roomName,
+          hasBroadcaster: message.hasBroadcaster,
+          listenerCount: message.listenerCount,
+          state: message.state,
+        });
+        break;
+
+      case 'roomStatus':
+        this.emit('roomStatus', message);
+        break;
+      
+      case 'audio':
+        // Audio data for listeners
+        if (this.config.mode === 'listener') {
+          this.emit('audio', message);
+        }
         break;
 
       case 'error':
@@ -214,6 +311,34 @@ class DanteBridgeClient extends EventEmitter {
 
       case 'authenticated':
         this.emit('status', { type: 'authenticated', message: 'Authenticated with server' });
+        break;
+      
+      case 'ping':
+        // Respond to server ping
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          try {
+            this.ws.send(JSON.stringify({
+              type: 'pong',
+              timestamp: message.timestamp || Date.now(),
+            }));
+          } catch (error) {
+            console.error('Error sending pong:', error);
+          }
+        }
+        break;
+      
+      case 'pong':
+        // Update last pong time for connection health
+        this.lastPongTime = Date.now();
+        break;
+      
+      case 'roomClosed':
+        this.emit('status', { type: 'roomClosed', message: `Room ${message.roomId} has been closed` });
+        this.emit('error', { type: 'room', message: 'Room has been closed by broadcaster' });
+        break;
+      
+      case 'roomSuspended':
+        this.emit('status', { type: 'roomSuspended', message: `Room ${message.roomId} is suspended` });
         break;
     }
   }
@@ -430,6 +555,8 @@ class DanteBridgeClient extends EventEmitter {
   }
 
   stop() {
+    this.stopHeartbeat();
+    
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
