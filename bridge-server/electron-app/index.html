@@ -278,16 +278,14 @@
     <h1>🎤 Dante Audio Client</h1>
     <p class="subtitle">Multi-room audio broadcast and listening</p>
     
-    <!-- Mode Toggle -->
-    <div class="section" style="border-bottom: 2px solid #3b82f6; padding-bottom: 16px;">
-      <div class="button-group" style="justify-content: center; margin-bottom: 0;">
-        <button id="broadcastModeBtn" class="btn-primary" style="flex: 1; max-width: 200px;">
-          🎤 Broadcast Mode
-        </button>
-        <button id="listenModeBtn" class="btn-secondary" style="flex: 1; max-width: 200px;">
-          🎧 Listen Mode
-        </button>
+    <div class="section" style="border-bottom: 2px solid #3b82f6; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h2 style="font-size: 18px; margin-bottom: 4px;">Join a Stream</h2>
+        <p style="font-size: 13px; color: #666;">Enter room details to listen</p>
       </div>
+      <button id="broadcasterLoginToggleBtn" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;">
+        Broadcaster Login
+      </button>
     </div>
     
     <div id="statusBar" class="status-bar">
@@ -306,7 +304,10 @@
     <!-- Broadcast Mode Section -->
     <div id="broadcastMode" class="mode-section" style="display: none;">
       <div class="section">
-        <div class="section-title">Login</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div class="section-title" style="margin-bottom: 0;">Broadcaster Login</div>
+          <button id="backToListenBtn" class="btn-secondary" style="font-size: 12px; padding: 4px 8px;">Back to Listen</button>
+        </div>
         <div class="form-group">
           <label for="email">Email:</label>
           <input type="email" id="email" placeholder="your@email.com" />
@@ -391,7 +392,7 @@
     </div>
     
     <!-- Listen Mode Section -->
-    <div id="listenMode" class="mode-section" style="display: none;">
+    <div id="listenMode" class="mode-section">
       <div class="section">
         <div class="section-title">Browse Public Rooms</div>
         <div id="roomBrowser" style="margin-bottom: 16px;">

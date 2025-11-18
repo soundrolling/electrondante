@@ -1,5 +1,5 @@
 // Renderer process - UI logic for multi-room audio system
-let currentMode = 'broadcast'; // 'broadcast' or 'listen'
+let currentMode = 'listen'; // 'broadcast' or 'listen' - default to listen mode
 let selectedDeviceId = null;
 let currentRoom = null; // { roomId, roomCode, roomToken, roomName }
 let isBroadcasting = false;
@@ -19,7 +19,8 @@ let nextStartTimes = new Map(); // channel -> next start time for scheduling
 let driftCorrectionHistory = new Map(); // channel -> history of buffer sizes for drift correction
 
 // DOM elements
-let broadcastModeBtn, listenModeBtn;
+let broadcastModeBtn, listenModeBtn; // Deprecated buttons
+let broadcasterLoginToggleBtn, backToListenBtn; // New toggle buttons
 let broadcastMode, listenMode;
 let emailInput, passwordInput, loginBtn;
 let roomPasswordInput, roomNameInput, createRoomBtn, endBroadcastBtn;
@@ -42,8 +43,11 @@ function initializeApp() {
   const { electronAPI } = window;
 
   // Get DOM elements
-  broadcastModeBtn = document.getElementById('broadcastModeBtn');
-  listenModeBtn = document.getElementById('listenModeBtn');
+  // broadcastModeBtn = document.getElementById('broadcastModeBtn'); // Removed
+  // listenModeBtn = document.getElementById('listenModeBtn'); // Removed
+  broadcasterLoginToggleBtn = document.getElementById('broadcasterLoginToggleBtn');
+  backToListenBtn = document.getElementById('backToListenBtn');
+  
   broadcastMode = document.getElementById('broadcastMode');
   listenMode = document.getElementById('listenMode');
   
@@ -95,8 +99,17 @@ function initializeApp() {
   logArea = document.getElementById('logArea');
 
   // Attach event listeners
-  if (broadcastModeBtn) broadcastModeBtn.addEventListener('click', () => switchMode('broadcast'));
-  if (listenModeBtn) listenModeBtn.addEventListener('click', () => switchMode('listen'));
+  if (broadcasterLoginToggleBtn) {
+    broadcasterLoginToggleBtn.addEventListener('click', () => switchMode('broadcast-login'));
+  }
+  
+  if (backToListenBtn) {
+    backToListenBtn.addEventListener('click', () => switchMode('listen'));
+  }
+  
+  // if (broadcastModeBtn) broadcastModeBtn.addEventListener('click', () => switchMode('broadcast'));
+  // if (listenModeBtn) listenModeBtn.addEventListener('click', () => switchMode('listen'));
+  
   if (loginBtn) loginBtn.addEventListener('click', handleLogin);
   if (createRoomBtn) createRoomBtn.addEventListener('click', handleCreateRoom);
   if (endBroadcastBtn) endBroadcastBtn.addEventListener('click', handleEndBroadcast);
