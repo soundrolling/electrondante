@@ -152,6 +152,18 @@ exports.default = async function(context) {
       console.log(`  Frameworks directory not found`);
     }
     
+    // Check MacOS directory for the main executable
+    const macosPath = path.join(appPath, 'Contents', 'MacOS');
+    console.log(`Checking MacOS: ${macosPath}`);
+    if (fs.existsSync(macosPath)) {
+      const beforeCount = binaries.length;
+      findBinaries(macosPath, binaries);
+      const foundInMacOS = binaries.length - beforeCount;
+      console.log(`  Found ${foundInMacOS} binaries in MacOS`);
+    } else {
+      console.log(`  MacOS directory not found`);
+    }
+    
     // Check Resources for ShipIt and other executables
     console.log(`Checking Resources: ${resourcesPath}`);
     if (fs.existsSync(resourcesPath)) {
@@ -237,9 +249,10 @@ exports.default = async function(context) {
     }
     
     // Sign all nested binaries first (bottom-up signing)
-    // Separate binaries into categories: helpers first, then frameworks, then others
+    // Separate binaries into categories: helpers first, then others, then frameworks, then main executable
     const helpers = [];
     const frameworks = [];
+    const mainExecutable = [];
     const others = [];
     
     for (const binary of binaries) {
@@ -247,6 +260,9 @@ exports.default = async function(context) {
         helpers.push(binary);
       } else if (binary.includes('.framework')) {
         frameworks.push(binary);
+      } else if (binary.includes('Contents/MacOS/')) {
+        // Main executable should be signed separately at the end
+        mainExecutable.push(binary);
       } else {
         others.push(binary);
       }
@@ -262,8 +278,10 @@ exports.default = async function(context) {
     helpers.sort(sortByDepth);
     frameworks.sort(sortByDepth);
     others.sort(sortByDepth);
+    mainExecutable.sort(sortByDepth);
     
-    // Sign in order: helpers first, then others, then frameworks
+    // Sign in order: helpers first, then others, then frameworks, then main executable
+    // Main executable is signed separately at the end with entitlements, so exclude it here
     const signingOrder = [...helpers, ...others, ...frameworks];
     
     console.log(`Found ${binaries.length} binaries to sign (${helpers.length} helpers, ${frameworks.length} frameworks, ${others.length} others)`);
@@ -319,6 +337,23 @@ exports.default = async function(context) {
     console.log(`\n=== Signing Summary ===`);
     console.log(`  Signed: ${signedCount}/${signingOrder.length}`);
     console.log(`  Failed: ${failedCount}`);
+    
+    // Sign the main executable first (if found), then the app bundle
+    if (mainExecutable.length > 0) {
+      console.log(`\n=== Signing Main Executable(s) ===`);
+      for (const exec of mainExecutable) {
+        const relativePath = path.relative(appOutDir, exec);
+        console.log(`Signing: ${relativePath}`);
+        try {
+          const execSignCommand = `codesign --force --sign "${identity}" --options runtime --timestamp "${exec}"`;
+          execSync(execSignCommand, { stdio: 'pipe' });
+          console.log(`✓ Main executable signed successfully`);
+        } catch (error) {
+          console.error(`❌ Failed to sign main executable: ${error.message}`);
+          throw error;
+        }
+      }
+    }
     
     // Sign the main app bundle with entitlements
     console.log(`\n=== Signing Main App Bundle ===`);
