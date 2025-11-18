@@ -196,6 +196,12 @@ jobs:
           fi
           echo ""
           
+          # Debug: Verify environment variables are available
+          echo "=== Environment Variable Debug ==="
+          echo "GH_TOKEN from env: ${GH_TOKEN:+SET (${#GH_TOKEN} chars)}${GH_TOKEN:-NOT SET}"
+          echo "GITHUB_TOKEN from env: ${GITHUB_TOKEN:+SET (${#GITHUB_TOKEN} chars)}${GITHUB_TOKEN:-NOT SET}"
+          echo ""
+          
           # Debug: Verify environment variables are available to Node.js
           echo "=== Testing Node.js environment variable access ==="
           node -e "console.log('ELECTRON_TEAM_ID:', process.env.ELECTRON_TEAM_ID); console.log('GITHUB_TOKEN:', process.env.GITHUB_TOKEN ? 'SET (' + process.env.GITHUB_TOKEN.length + ' chars)' : 'NOT SET'); console.log('GH_TOKEN:', process.env.GH_TOKEN ? 'SET (' + process.env.GH_TOKEN.length + ' chars)' : 'NOT SET');" || echo "Node.js test failed"
@@ -204,8 +210,27 @@ jobs:
           # Verify tokens are set before building
           if [ -z "$GH_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
             echo "ERROR: Neither GH_TOKEN nor GITHUB_TOKEN is set!"
+            echo "This means the secrets.GH_TOKEN or secrets.GITHUB_TOKEN is not available"
+            echo "Please verify:"
+            echo "  1. GH_TOKEN secret is set in GitHub repository settings"
+            echo "  2. Secret name is exactly 'GH_TOKEN' (case-sensitive)"
+            echo "  3. The workflow has permissions to read secrets"
             exit 1
           fi
+          
+          # Ensure both are set (use whichever is available)
+          if [ -z "$GH_TOKEN" ] && [ -n "$GITHUB_TOKEN" ]; then
+            echo "GH_TOKEN not set, using GITHUB_TOKEN"
+            export GH_TOKEN="$GITHUB_TOKEN"
+          elif [ -n "$GH_TOKEN" ] && [ -z "$GITHUB_TOKEN" ]; then
+            echo "GITHUB_TOKEN not set, using GH_TOKEN"
+            export GITHUB_TOKEN="$GH_TOKEN"
+          fi
+          
+          echo "Final token status:"
+          echo "  GH_TOKEN: ${GH_TOKEN:+SET}${GH_TOKEN:-NOT SET}"
+          echo "  GITHUB_TOKEN: ${GITHUB_TOKEN:+SET}${GITHUB_TOKEN:-NOT SET}"
+          echo ""
           
           # Run build with explicit environment
           # Pass all required environment variables explicitly to ensure they're available to electron-builder
@@ -331,7 +356,7 @@ jobs:
           path: artifacts
           pattern: mac-installer
           merge-multiple: false
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: List artifacts
         run: |
