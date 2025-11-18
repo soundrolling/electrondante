@@ -1,6 +1,6 @@
 {
   "name": "dante-audio-client",
-  "version": "1.0.85",
+  "version": "1.0.86",
   "description": "Dante Audio Client - Stream audio to Railway",
   "main": "main.js",
   "repository": {
@@ -40,6 +40,8 @@
       "node_modules/@supabase/**/*",
       "node_modules/express/**/*",
       "node_modules/naudiodon/**/*",
+      "node_modules/opusscript/**/*",
+      "node_modules/bindings/**/*",
       "node_modules/update-electron-app/**/*",
       "!node_modules/naudiodon/{test,examples,*.md,*.ts}",
       "!**/*.{md,ts,map}",
