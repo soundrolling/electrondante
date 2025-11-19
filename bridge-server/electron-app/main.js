@@ -760,17 +760,33 @@ ipcMain.handle('open-admin-panel', async () => {
     
     await adminWindow.loadFile('admin.html');
     
-    // Inject auth tokens into admin window
+    // Inject auth tokens and Electron API into admin window
     adminWindow.webContents.once('did-finish-load', () => {
+      // Inject auth tokens
       if (authClient && authClient.isAuthenticated()) {
         const tokens = authClient.getTokens();
         adminWindow.webContents.executeJavaScript(`
           if (typeof window !== 'undefined') {
             window.__ELECTRON_AUTH_TOKENS__ = ${JSON.stringify(tokens)};
-            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient.baseUrl || 'https://proapp2149-production.up.railway.app')};
+            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient.apiUrl || 'https://proapp2149-production.up.railway.app')};
+          }
+        `);
+      } else {
+        // Not authenticated - admin panel will show login
+        adminWindow.webContents.executeJavaScript(`
+          if (typeof window !== 'undefined') {
+            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient?.apiUrl || 'https://proapp2149-production.up.railway.app')};
           }
         `);
       }
+      
+      // Inject Electron API access (for getDevices)
+      adminWindow.webContents.executeJavaScript(`
+        if (typeof window !== 'undefined' && window.electronAPI) {
+          // electronAPI is already available via preload.js
+          console.log('Electron API available in admin panel');
+        }
+      `);
     });
     
     return { success: true };

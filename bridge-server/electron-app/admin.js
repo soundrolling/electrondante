@@ -25,12 +25,28 @@ let devices = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  // Check if running in Electron
+  if (typeof window.__ELECTRON_AUTH_TOKENS__ === 'undefined') {
+    // Not in Electron - show error
+    document.getElementById('loginSection').innerHTML = `
+      <div class="login-section">
+        <div class="error-message">
+          <h2>⚠️ Admin Panel</h2>
+          <p>This admin panel is only available within the Electron app.</p>
+          <p>Please open it from the main app using the "⚙️ Admin" button.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
   // If Electron tokens are available, skip login check
   if (window.__ELECTRON_AUTH_TOKENS__ && window.__ELECTRON_AUTH_TOKENS__.accessToken) {
     showDashboard();
     loadRooms();
     loadDevices();
   } else {
+    // In Electron but not authenticated - show login
     checkAuth();
     loadDevices();
   }
