@@ -1,5 +1,28 @@
+-- ============================================================================
 -- Supabase Migration: Multi-Room Audio System Tables
--- Run this SQL in your Supabase SQL Editor
+-- ============================================================================
+-- 
+-- This migration creates all necessary tables, indexes, triggers, and RLS
+-- policies for the Dante Audio Bridge Server multi-room system.
+--
+-- USAGE:
+-- 1. Go to your Supabase project dashboard
+-- 2. Navigate to SQL Editor
+-- 3. Create a new query
+-- 4. Paste this entire file
+-- 5. Click "Run" to execute
+--
+-- REQUIREMENTS:
+-- - Supabase project with authentication enabled
+-- - Service role key for server-side operations
+--
+-- TABLES CREATED:
+-- - audio_rooms: Room information (codes, passwords, metadata)
+-- - room_participants: Tracks who joined which rooms
+-- - room_analytics: Aggregated analytics per room per day
+-- - audit_log: Security audit log for authentication events
+--
+-- ============================================================================
 
 -- Enable UUID extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
