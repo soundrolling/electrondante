@@ -1,6 +1,6 @@
 {
   "name": "dante-bridge-server",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Bridge server for Dante Personal Monitor Mixer",
   "main": "server.js",
   "scripts": {
