@@ -28,6 +28,7 @@ try {
 }
 
 let mainWindow = null;
+let adminWindow = null; // Admin panel window
 let client = null; // Legacy client
 let broadcasterClient = null; // Room-based broadcaster
 let listenerClient = null; // Room-based listener
@@ -708,5 +709,85 @@ ipcMain.handle('listen-set-volume', async (event, volume) => {
     return { success: true };
   }
   return { success: false, error: 'Audio listener not running' };
+});
+
+// Admin panel handlers
+ipcMain.handle('open-admin-panel', async () => {
+  if (adminWindow && !adminWindow.isDestroyed()) {
+    adminWindow.focus();
+    return { success: true };
+  }
+  
+  try {
+    let iconPath = null;
+    try {
+      const possibleIconPaths = [
+        path.join(__dirname, 'build', 'icon.icns'),
+        path.join(__dirname, 'icon.png'),
+        path.join(__dirname, 'icon.icns'),
+      ];
+      for (const icon of possibleIconPaths) {
+        if (fs.existsSync(icon)) {
+          iconPath = icon;
+          break;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not find icon file:', error.message);
+    }
+    
+    adminWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+      ...(iconPath && { icon: iconPath }),
+      show: false,
+    });
+    
+    adminWindow.once('ready-to-show', () => {
+      if (adminWindow) {
+        adminWindow.show();
+      }
+    });
+    
+    adminWindow.on('closed', () => {
+      adminWindow = null;
+    });
+    
+    await adminWindow.loadFile('admin.html');
+    
+    // Inject auth tokens into admin window
+    adminWindow.webContents.once('did-finish-load', () => {
+      if (authClient && authClient.isAuthenticated()) {
+        const tokens = authClient.getTokens();
+        adminWindow.webContents.executeJavaScript(`
+          if (typeof window !== 'undefined') {
+            window.__ELECTRON_AUTH_TOKENS__ = ${JSON.stringify(tokens)};
+            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient.baseUrl || 'https://proapp2149-production.up.railway.app')};
+          }
+        `);
+      }
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open admin panel:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-auth-tokens', async () => {
+  if (authClient && authClient.isAuthenticated()) {
+    return {
+      success: true,
+      tokens: authClient.getTokens(),
+      apiUrl: authClient.baseUrl || 'https://proapp2149-production.up.railway.app',
+    };
+  }
+  return { success: false, error: 'Not authenticated' };
 });
 

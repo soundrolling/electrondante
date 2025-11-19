@@ -206,6 +206,15 @@ class AuthClient {
   getCurrentUser() {
     return this.user;
   }
+  
+  // Get tokens (for admin panel)
+  getTokens() {
+    return {
+      accessToken: this.accessToken,
+      refreshToken: this.refreshToken,
+      user: this.user,
+    };
+  }
 }
 
 module.exports = AuthClient;

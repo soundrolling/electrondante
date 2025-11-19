@@ -31,6 +31,7 @@ let deviceList, permissionSection, requestPermissionBtn;
 let railwayUrlListenInput, roomCodeInput, roomPasswordInput, joinRoomBtn;
 let listenRoomSection, listenRoomName, listenRoomStatus, volumeControl, volumeValue, leaveRoomBtn;
 let muteBtn, copyInviteLinkBtn, audioVisualizerCanvas;
+let openAdminBtn;
 let statusBar, connectionIndicator, statusText, messagesDiv, logArea, toastContainer;
 
 // Initialize app
@@ -97,6 +98,7 @@ function initializeApp() {
   statusText = document.getElementById('statusText');
   messagesDiv = document.getElementById('messages');
   logArea = document.getElementById('logArea');
+  openAdminBtn = document.getElementById('openAdminBtn');
 
   // Attach event listeners
   if (broadcasterLoginToggleBtn) {
@@ -127,6 +129,7 @@ function initializeApp() {
     });
   }
   if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', handleLeaveRoom);
+  if (openAdminBtn) openAdminBtn.addEventListener('click', openAdminPanel);
   // Volume control is handled below in the handleAudioData section
   
   // Room code input - auto uppercase

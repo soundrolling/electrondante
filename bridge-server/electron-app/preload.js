@@ -46,5 +46,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
   getHealthCheck: () => ipcRenderer.invoke('get-health-check'),
+  
+  // Admin panel
+  openAdminPanel: () => ipcRenderer.invoke('open-admin-panel'),
+  getAuthTokens: () => ipcRenderer.invoke('get-auth-tokens'),
 });
 
