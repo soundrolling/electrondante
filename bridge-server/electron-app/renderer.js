@@ -32,6 +32,7 @@ let railwayUrlListenInput, roomCodeInput, roomPasswordInput, joinRoomBtn;
 let listenRoomSection, listenRoomName, listenRoomStatus, volumeControl, volumeValue, leaveRoomBtn;
 let muteBtn, copyInviteLinkBtn, audioVisualizerCanvas;
 let openAdminBtn;
+let broadcastRoomSection, broadcastAudioSection; // Broadcast mode sections
 let statusBar, connectionIndicator, statusText, messagesDiv, logArea, toastContainer;
 
 // Initialize app
@@ -65,6 +66,8 @@ function initializeApp() {
   endBroadcastBtn = document.getElementById('endBroadcastBtn');
   roomCodeDisplay = document.getElementById('roomCode');
   listenerCountDisplay = document.getElementById('listenerCount');
+  broadcastRoomSection = document.getElementById('broadcastRoomSection');
+  broadcastAudioSection = document.getElementById('broadcastAudioSection');
   railwayUrlInput = document.getElementById('railwayUrl');
   channelCountInput = document.getElementById('channelCount');
   bitrateSelect = document.getElementById('bitrate');
@@ -100,19 +103,44 @@ function initializeApp() {
   logArea = document.getElementById('logArea');
   openAdminBtn = document.getElementById('openAdminBtn');
 
+  // Debug: Log if buttons are found
+  console.log('Button check:', {
+    broadcasterLoginToggleBtn: !!broadcasterLoginToggleBtn,
+    loginBtn: !!loginBtn,
+    openAdminBtn: !!openAdminBtn,
+    backToListenBtn: !!backToListenBtn
+  });
+
   // Attach event listeners
   if (broadcasterLoginToggleBtn) {
-    broadcasterLoginToggleBtn.addEventListener('click', () => switchMode('broadcast-login'));
+    broadcasterLoginToggleBtn.addEventListener('click', () => {
+      console.log('Broadcaster login button clicked');
+      switchMode('broadcast-login');
+    });
+  } else {
+    console.error('broadcasterLoginToggleBtn not found!');
   }
   
   if (backToListenBtn) {
-    backToListenBtn.addEventListener('click', () => switchMode('listen'));
+    backToListenBtn.addEventListener('click', () => {
+      console.log('Back to listen button clicked');
+      switchMode('listen');
+    });
+  } else {
+    console.warn('backToListenBtn not found (may be hidden)');
   }
   
   // if (broadcastModeBtn) broadcastModeBtn.addEventListener('click', () => switchMode('broadcast'));
   // if (listenModeBtn) listenModeBtn.addEventListener('click', () => switchMode('listen'));
   
-  if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      console.log('Login button clicked');
+      handleLogin();
+    });
+  } else {
+    console.error('loginBtn not found!');
+  }
   if (createRoomBtn) createRoomBtn.addEventListener('click', handleCreateRoom);
   if (endBroadcastBtn) endBroadcastBtn.addEventListener('click', handleEndBroadcast);
   if (startBroadcastBtn) startBroadcastBtn.addEventListener('click', handleStartBroadcast);
@@ -129,7 +157,14 @@ function initializeApp() {
     });
   }
   if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', handleLeaveRoom);
-  if (openAdminBtn) openAdminBtn.addEventListener('click', openAdminPanel);
+  if (openAdminBtn) {
+    openAdminBtn.addEventListener('click', () => {
+      console.log('Admin button clicked');
+      openAdminPanel();
+    });
+  } else {
+    console.error('openAdminBtn not found!');
+  }
   // Volume control is handled below in the handleAudioData section
   
   // Room code input - auto uppercase
@@ -183,39 +218,34 @@ function initializeApp() {
 
 // Switch between broadcast and listen modes
 function switchMode(mode) {
+  console.log('switchMode called with:', mode);
   currentMode = mode;
   localStorage.setItem('appMode', mode);
 
-  // Update button states
-  if (broadcastModeBtn && listenModeBtn) {
-    if (mode === 'broadcast') {
-      broadcastModeBtn.classList.add('btn-primary');
-      broadcastModeBtn.classList.remove('btn-secondary');
-      listenModeBtn.classList.add('btn-secondary');
-      listenModeBtn.classList.remove('btn-primary');
-    } else {
-      listenModeBtn.classList.add('btn-primary');
-      listenModeBtn.classList.remove('btn-secondary');
-      broadcastModeBtn.classList.add('btn-secondary');
-      broadcastModeBtn.classList.remove('btn-primary');
+  // Show/hide sections based on mode
+  if (mode === 'broadcast-login' || mode === 'broadcast') {
+    // Show broadcast mode (login section)
+    if (broadcastMode) {
+      broadcastMode.style.display = 'block';
+      // Show login section, hide room/audio sections initially
+      const loginSection = broadcastMode.querySelector('.section:first-of-type');
+      if (loginSection) loginSection.style.display = 'block';
+      if (broadcastRoomSection) broadcastRoomSection.style.display = 'none';
+      if (broadcastAudioSection) broadcastAudioSection.style.display = 'none';
     }
-  }
-
-  // Show/hide sections
-  if (broadcastMode) broadcastMode.style.display = mode === 'broadcast' ? 'block' : 'none';
-  if (listenMode) listenMode.style.display = mode === 'listen' ? 'block' : 'none';
-
-  // Update status message
-  if (mode === 'broadcast') {
+    if (listenMode) listenMode.style.display = 'none';
     updateStatus({ message: 'Broadcast Mode - Please login to create a room', type: 'info' });
-  } else {
+  } else if (mode === 'listen') {
+    // Show listen mode
+    if (broadcastMode) broadcastMode.style.display = 'none';
+    if (listenMode) listenMode.style.display = 'block';
     updateStatus({ message: 'Listen Mode - Enter room code to join', type: 'info' });
     // Auto-load public rooms when switching to listen mode
     setTimeout(handleRefreshRooms, 500);
   }
 
   // Stop any active connections when switching
-  if (mode === 'broadcast' && isListening) {
+  if ((mode === 'broadcast-login' || mode === 'broadcast') && isListening) {
     handleLeaveRoom();
   } else if (mode === 'listen' && isBroadcasting) {
     handleStopBroadcast();
