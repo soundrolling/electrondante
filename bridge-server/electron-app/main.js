@@ -11,6 +11,14 @@ try {
   // Will show error in UI
 }
 
+// Load Opus decoder (local to electron app)
+let OpusDecoder = null;
+try {
+  OpusDecoder = require('./opus-decoder');
+} catch (error) {
+  console.warn('⚠️ Opus decoder not available:', error.message);
+}
+
 // Load AuthClient
 let AuthClient = null;
 try {
@@ -678,7 +686,34 @@ ipcMain.handle('listen-start', async (event, config) => {
       mainWindow?.webContents.send('client-error', error);
     });
     
+    // Map to store Opus decoders for each channel
+    const opusDecoders = new Map();
+
     listenerClient.on('audio', (audioData) => {
+      // Decode Opus if needed (Main process handles native modules)
+      if (audioData.encoding === 'opus' && OpusDecoder) {
+        try {
+          const channel = audioData.channel;
+          let decoder = opusDecoders.get(channel);
+          
+          if (!decoder) {
+            decoder = new OpusDecoder(48000, 1);
+            opusDecoders.set(channel, decoder);
+          }
+          
+          // Decode
+          const decoded = decoder.decode(audioData.data);
+          
+          if (decoded && decoded.length > 0) {
+            // Update audioData to be PCM
+            audioData.data = decoded;
+            audioData.encoding = 'pcm';
+          }
+        } catch (err) {
+          console.error('Opus decoding error in main process:', err);
+        }
+      }
+
       // Forward audio to renderer for playback (Web Audio API works there)
       mainWindow?.webContents.send('audio-data', audioData);
       

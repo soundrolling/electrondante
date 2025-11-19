@@ -995,21 +995,20 @@ function drawVisualizer() {
   canvasCtx.stroke();
 }
 
-// Initialize Opus decoder for a channel
+// Initialize Opus decoder for a channel (Deprecated - decoding moved to Main process)
+/*
 function getOpusDecoder(channel) {
   if (!opusDecoders.has(channel)) {
     try {
-      const OpusDecoder = require('./opus-decoder');
-      const decoder = new OpusDecoder(48000, 1);
-      opusDecoders.set(channel, decoder);
-      return decoder;
+      // Cannot use require in renderer
+      return null;
     } catch (error) {
-      console.warn('Opus decoder not available:', error);
       return null;
     }
   }
   return opusDecoders.get(channel);
 }
+*/
 
 // Handle audio data for playback with jitter buffering
 async function handleAudioData(audioData) {
@@ -1026,14 +1025,19 @@ async function handleAudioData(audioData) {
     
     // Initialize jitter buffer for this channel if needed
     if (!audioBuffers.has(channel)) {
-      const JitterBuffer = require('./utils/audio-buffer');
-      audioBuffers.set(channel, new JitterBuffer({
-        minSize: 5,
-        targetSize: 20,
-        maxSize: 100,
-        maxLatency: 500,
-        adaptive: true,
-      }));
+      // JitterBuffer is loaded globally via script tag in index.html
+      if (typeof JitterBuffer !== 'undefined') {
+        audioBuffers.set(channel, new JitterBuffer({
+          minSize: 5,
+          targetSize: 20,
+          maxSize: 100,
+          maxLatency: 500,
+          adaptive: true,
+        }));
+      } else {
+        console.error('JitterBuffer class not found');
+        return;
+      }
     }
     
     const jitterBuffer = audioBuffers.get(channel);
@@ -1074,40 +1078,22 @@ async function playAudioPacket(packet, channel, jitterBuffer) {
   try {
     let samples;
     
-    if (packet.encoding === 'opus') {
-      // Decode Opus
-      const decoder = getOpusDecoder(channel);
-      if (!decoder) {
-        console.warn('Opus decoder not available, skipping packet');
-        return;
-      }
-      
-      // Convert data to Buffer/Uint8Array
-      let opusData;
-      if (Array.isArray(packet.data)) {
-        opusData = new Uint8Array(packet.data);
-      } else if (packet.data instanceof Uint8Array) {
-        opusData = packet.data;
-      } else if (Buffer.isBuffer(packet.data)) {
-        opusData = packet.data;
-      } else {
-        return;
-      }
-      
-      samples = decoder.decode(opusData);
-      
-      if (samples.length === 0) {
-        return;
-      }
+    // Note: Opus decoding is now handled in main process or assumed to be PCM if passed here
+    
+    // PCM data - convert to Float32Array
+    if (Array.isArray(packet.data)) {
+      samples = new Float32Array(packet.data);
+    } else if (packet.data instanceof Float32Array) {
+      samples = packet.data;
+    } else if (packet.data instanceof Uint8Array) {
+      // Assuming pre-decoded float data sent as bytes or similar
+      samples = new Float32Array(packet.data.buffer); 
+    } else if (packet.data && packet.data.type === 'Buffer') {
+       // Buffer object from IPC
+       samples = new Float32Array(new Uint8Array(packet.data.data).buffer);
     } else {
-      // PCM data - convert to Float32Array
-      if (Array.isArray(packet.data)) {
-        samples = new Float32Array(packet.data);
-      } else if (packet.data instanceof Float32Array) {
-        samples = packet.data;
-      } else {
-        return;
-      }
+      // console.warn('Unknown data format', packet);
+      return;
     }
     
     // Create audio buffer

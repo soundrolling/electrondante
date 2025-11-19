@@ -274,5 +274,10 @@ class JitterBuffer {
   }
 }
 
-module.exports = JitterBuffer;
+// Export for Node.js or attach to window for browser
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = JitterBuffer;
+} else {
+  window.JitterBuffer = JitterBuffer;
+}
 
