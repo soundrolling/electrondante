@@ -63,12 +63,24 @@ let broadcastRoomSection, broadcastAudioSection; // Broadcast mode sections
 let statusBar, connectionIndicator, statusText, messagesDiv, logArea, toastContainer;
 
 // Initialize app
+let initAttempts = 0;
+const MAX_INIT_ATTEMPTS = 50; // Prevent infinite retry loops
+
 function initializeApp() {
   try {
-  if (!window.electronAPI) {
+    initAttempts++;
+    if (initAttempts > MAX_INIT_ATTEMPTS) {
+      console.error('Failed to initialize after', MAX_INIT_ATTEMPTS, 'attempts');
+      if (typeof alert !== 'undefined') {
+        alert('Failed to initialize app. Please restart.');
+      }
+      return;
+    }
+    
+    if (!window.electronAPI) {
       setTimeout(initializeApp, 100);
-    return;
-  }
+      return;
+    }
 
   const { electronAPI } = window;
 

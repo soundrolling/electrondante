@@ -277,7 +277,8 @@ class JitterBuffer {
 // Export for Node.js or attach to window for browser
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = JitterBuffer;
-} else {
+} else if (typeof window !== 'undefined') {
+  // Only attach to window if we're in a browser context
   window.JitterBuffer = JitterBuffer;
 }
 

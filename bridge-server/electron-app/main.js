@@ -170,6 +170,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      // Increase memory limits for renderer process
+      v8CacheOptions: 'none', // Disable V8 code cache to reduce memory
+      enableWebSQL: false, // Disable WebSQL to save memory
     },
     ...(iconPath && { icon: iconPath }),
     show: false, // Don't show until ready
@@ -251,6 +254,12 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   logErrorContext('Unhandled Rejection', reason);
 });
+
+// Increase memory limit for V8 to prevent OOM errors
+if (process.memoryUsage) {
+  const v8 = require('v8');
+  v8.setFlagsFromString('--max-old-space-size=4096'); // 4GB limit
+}
 
 app.whenReady().then(() => {
   console.log('App ready, creating window...');
