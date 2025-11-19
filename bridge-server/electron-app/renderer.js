@@ -1,5 +1,10 @@
 // Renderer process - UI logic for multi-room audio system
 
+// Check if JitterBuffer is available (loaded via script tag)
+if (typeof JitterBuffer === 'undefined') {
+  console.error('JitterBuffer not found! Make sure utils/audio-buffer.js is loaded before renderer.js');
+}
+
 // Global error handlers to catch unhandled errors
 window.addEventListener('error', (event) => {
   console.error('Global error:', event.error);
