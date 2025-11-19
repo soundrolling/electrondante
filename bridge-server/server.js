@@ -1859,11 +1859,12 @@ class DanteBridgeServer {
         const assignedChannels = room.assignedChannels || {};
         const assignedDevices = room.assignedDevices || [];
         
-        // Get device names
-        const deviceMap = {};
-        assignedDevices.forEach(device => {
-          deviceMap[device.deviceId] = device;
-        });
+        // Mock device names (in production, this would come from device registry)
+        const deviceNameMap = {
+          'device-1': 'Dante Virtual Soundcard',
+          'device-2': 'USB Audio Interface',
+          'device-3': 'Built-in Microphone',
+        };
         
         for (let i = 1; i <= CONFIG.channels; i++) {
           const assignment = assignedChannels[i];
@@ -1871,7 +1872,7 @@ class DanteBridgeServer {
             number: i,
             active: !!assignment,
             deviceId: assignment?.deviceId || null,
-            deviceName: assignment ? (deviceMap[assignment.deviceId]?.name || assignment.deviceId) : null,
+            deviceName: assignment ? (deviceNameMap[assignment.deviceId] || assignment.deviceId) : null,
           });
         }
         
