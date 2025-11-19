@@ -271,6 +271,58 @@
     .log-entry.success {
       color: #44ff44;
     }
+    
+    /* Channel selection */
+    .channel-checkbox {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      font-size: 11px;
+      font-weight: 500;
+      user-select: none;
+    }
+    
+    .channel-checkbox:hover {
+      border-color: #3b82f6;
+      background: #f0f9ff;
+    }
+    
+    .channel-checkbox.selected {
+      border-color: #3b82f6;
+      background: #3b82f6;
+      color: white;
+    }
+    
+    .channel-checkbox input[type="checkbox"] {
+      display: none;
+    }
+    
+    .channel-meter {
+      width: 100%;
+      height: 3px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    
+    .channel-meter-bar {
+      height: 100%;
+      background: #10b981;
+      width: 0%;
+      transition: width 0.1s;
+    }
+    
+    .channel-checkbox.selected .channel-meter-bar {
+      background: white;
+    }
   </style>
 </head>
 <body>
@@ -364,14 +416,30 @@
           max="32"
         />
       </div>
-        <div class="form-group">
-          <label for="bitrate">Audio Bitrate:</label>
-          <select id="bitrate">
-            <option value="32000">32 kbps</option>
-            <option value="64000" selected>64 kbps</option>
-            <option value="128000">128 kbps</option>
-          </select>
-    </div>
+      <div class="form-group">
+        <label for="bitrate">Audio Bitrate:</label>
+        <select id="bitrate">
+          <option value="32000">32 kbps</option>
+          <option value="64000" selected>64 kbps</option>
+          <option value="128000">128 kbps</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Channel Selection:</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <button id="selectAllChannels" class="btn-secondary" style="padding: 4px 12px; font-size: 12px;">Select All</button>
+          <button id="deselectAllChannels" class="btn-secondary" style="padding: 4px 12px; font-size: 12px;">Deselect All</button>
+          <button id="selectFirstEight" class="btn-secondary" style="padding: 4px 12px; font-size: 12px;">First 8</button>
+          <span style="margin-left: auto; font-size: 12px; color: #666;">
+            <span id="selectedChannelCount">0</span> selected
+          </span>
+        </div>
+        <div id="channelSelection" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+          <!-- Channels 1-32 will be generated dynamically -->
+        </div>
+        <div class="help-text">Select which audio channels to broadcast (1-32)</div>
+      </div>
       
       <div id="permissionSection" class="form-group" style="display: none; padding: 16px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 16px;">
         <div style="margin-bottom: 12px; font-weight: 500; color: #856404;">
@@ -440,9 +508,13 @@
         <div class="section-title">Room Info</div>
         <div id="listenRoomInfo" style="padding: 16px; background: #e0f2fe; border-radius: 4px; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
+            <div style="flex: 1;">
               <div style="font-weight: 600; margin-bottom: 8px;">Room: <span id="listenRoomName"></span></div>
               <div style="font-size: 13px; color: #666;">Status: <span id="listenRoomStatus">Connecting...</span></div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                Buffer: <span id="bufferLatencyDisplay">--</span>ms 
+                (<span id="bufferSizeDisplay">--</span>/<span id="bufferTargetDisplay">--</span> packets)
+              </div>
             </div>
             <button id="copyInviteLinkBtn" class="btn-secondary" style="padding: 4px 8px; font-size: 12px;">
               📋 Copy Link
@@ -453,6 +525,21 @@
         <!-- Audio Visualizer -->
         <div style="background: #000; border-radius: 4px; padding: 12px; margin-bottom: 16px; text-align: center;">
           <canvas id="audioVisualizer" width="600" height="100" style="width: 100%; height: 100px;"></canvas>
+        </div>
+        
+        <div class="form-group">
+          <label>Listen to Channels:</label>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <button id="listenAllChannels" class="btn-secondary" style="padding: 4px 12px; font-size: 12px;">All Channels</button>
+            <button id="listenFirstChannel" class="btn-secondary" style="padding: 4px 12px; font-size: 12px;">Channel 1 Only</button>
+            <span style="margin-left: auto; font-size: 12px; color: #666;">
+              <span id="listeningChannelCount">All</span>
+            </span>
+          </div>
+          <div id="listenChannelSelection" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; max-height: 150px; overflow-y: auto;">
+            <!-- Available channels will be populated when stream starts -->
+          </div>
+          <div class="help-text">Select which channels to listen to (mix multiple channels)</div>
         </div>
         
         <div class="form-group">

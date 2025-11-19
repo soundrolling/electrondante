@@ -33,6 +33,9 @@ window.addEventListener('unhandledrejection', (event) => {
 
 let currentMode = 'listen'; // 'broadcast' or 'listen' - default to listen mode
 let selectedDeviceId = null;
+let selectedChannels = []; // Array of selected channel numbers for broadcasting (1-32)
+let listenChannels = []; // Array of channel numbers to listen to (empty = all channels)
+let availableStreamChannels = []; // Channels available in the current stream
 let currentRoom = null; // { roomId, roomCode, roomToken, roomName }
 let isBroadcasting = false;
 let isListening = false;
@@ -74,6 +77,8 @@ const MAX_INIT_ATTEMPTS = 50; // Prevent infinite retry loops
 function initializeApp() {
   try {
     initAttempts++;
+    console.log(`[Init] Attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}`);
+    
     if (initAttempts > MAX_INIT_ATTEMPTS) {
       console.error('Failed to initialize after', MAX_INIT_ATTEMPTS, 'attempts');
       if (typeof alert !== 'undefined') {
@@ -83,9 +88,12 @@ function initializeApp() {
     }
     
     if (!window.electronAPI) {
+      console.log('[Init] electronAPI not available yet, retrying...');
       setTimeout(initializeApp, 100);
       return;
     }
+    
+    console.log('[Init] electronAPI available, initializing...');
 
   const { electronAPI } = window;
 
@@ -149,66 +157,170 @@ function initializeApp() {
   openAdminBtn = document.getElementById('openAdminBtn');
 
   // Debug: Log if buttons are found
-  console.log('Button check:', {
+  console.log('[Init] Button check:', {
     broadcasterLoginToggleBtn: !!broadcasterLoginToggleBtn,
     loginBtn: !!loginBtn,
     openAdminBtn: !!openAdminBtn,
-    backToListenBtn: !!backToListenBtn
+    backToListenBtn: !!backToListenBtn,
+    joinRoomBtn: !!joinRoomBtn,
+    createRoomBtn: !!createRoomBtn
   });
 
-  // Attach event listeners
+  // Attach event listeners with error handling
   if (broadcasterLoginToggleBtn) {
-    broadcasterLoginToggleBtn.addEventListener('click', () => {
-      console.log('Broadcaster login button clicked');
-      switchMode('broadcast-login');
+    console.log('[Init] Attaching broadcaster login toggle handler');
+    broadcasterLoginToggleBtn.addEventListener('click', (e) => {
+      console.log('[Event] Broadcaster login button clicked');
+      try {
+        switchMode('broadcast-login');
+      } catch (error) {
+        console.error('[Event] Error in broadcaster login handler:', error);
+      }
     });
   } else {
-    console.error('broadcasterLoginToggleBtn not found!');
+    console.error('[Init] broadcasterLoginToggleBtn not found!');
   }
   
   if (backToListenBtn) {
-    backToListenBtn.addEventListener('click', () => {
-      console.log('Back to listen button clicked');
-      switchMode('listen');
+    console.log('[Init] Attaching back to listen handler');
+    backToListenBtn.addEventListener('click', (e) => {
+      console.log('[Event] Back to listen button clicked');
+      try {
+        switchMode('listen');
+      } catch (error) {
+        console.error('[Event] Error in back to listen handler:', error);
+      }
     });
   } else {
-    console.warn('backToListenBtn not found (may be hidden)');
+    console.warn('[Init] backToListenBtn not found (may be hidden)');
   }
-  
-  // if (broadcastModeBtn) broadcastModeBtn.addEventListener('click', () => switchMode('broadcast'));
-  // if (listenModeBtn) listenModeBtn.addEventListener('click', () => switchMode('listen'));
   
   if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
-      console.log('Login button clicked');
-      handleLogin();
+    console.log('[Init] Attaching login handler');
+    loginBtn.addEventListener('click', (e) => {
+      console.log('[Event] Login button clicked');
+      try {
+        handleLogin();
+      } catch (error) {
+        console.error('[Event] Error in login handler:', error);
+      }
     });
   } else {
-    console.error('loginBtn not found!');
+    console.error('[Init] loginBtn not found!');
   }
-  if (createRoomBtn) createRoomBtn.addEventListener('click', handleCreateRoom);
-  if (endBroadcastBtn) endBroadcastBtn.addEventListener('click', handleEndBroadcast);
-  if (startBroadcastBtn) startBroadcastBtn.addEventListener('click', handleStartBroadcast);
-  if (stopBroadcastBtn) stopBroadcastBtn.addEventListener('click', handleStopBroadcast);
-  if (refreshDevicesBtn) refreshDevicesBtn.addEventListener('click', refreshDevices);
-  if (requestPermissionBtn) requestPermissionBtn.addEventListener('click', requestMicrophonePermission);
-  if (joinRoomBtn) joinRoomBtn.addEventListener('click', handleJoinRoom);
-  if (refreshRoomsBtn) refreshRoomsBtn.addEventListener('click', handleRefreshRooms);
+  if (createRoomBtn) {
+    console.log('[Init] Attaching create room handler');
+    createRoomBtn.addEventListener('click', (e) => {
+      console.log('[Event] Create room button clicked');
+      try {
+        handleCreateRoom();
+      } catch (error) {
+        console.error('[Event] Error in create room handler:', error);
+      }
+    });
+  }
+  if (endBroadcastBtn) {
+    console.log('[Init] Attaching end broadcast handler');
+    endBroadcastBtn.addEventListener('click', (e) => {
+      console.log('[Event] End broadcast button clicked');
+      try {
+        handleEndBroadcast();
+      } catch (error) {
+        console.error('[Event] Error in end broadcast handler:', error);
+      }
+    });
+  }
+  if (startBroadcastBtn) {
+    console.log('[Init] Attaching start broadcast handler');
+    startBroadcastBtn.addEventListener('click', (e) => {
+      console.log('[Event] Start broadcast button clicked');
+      try {
+        handleStartBroadcast();
+      } catch (error) {
+        console.error('[Event] Error in start broadcast handler:', error);
+      }
+    });
+  }
+  if (stopBroadcastBtn) {
+    console.log('[Init] Attaching stop broadcast handler');
+    stopBroadcastBtn.addEventListener('click', (e) => {
+      console.log('[Event] Stop broadcast button clicked');
+      try {
+        handleStopBroadcast();
+      } catch (error) {
+        console.error('[Event] Error in stop broadcast handler:', error);
+      }
+    });
+  }
+  if (refreshDevicesBtn) {
+    console.log('[Init] Attaching refresh devices handler');
+    refreshDevicesBtn.addEventListener('click', (e) => {
+      console.log('[Event] Refresh devices button clicked');
+      try {
+        refreshDevices();
+      } catch (error) {
+        console.error('[Event] Error in refresh devices handler:', error);
+      }
+    });
+  }
+  if (requestPermissionBtn) {
+    console.log('[Init] Attaching request permission handler');
+    requestPermissionBtn.addEventListener('click', (e) => {
+      console.log('[Event] Request permission button clicked');
+      try {
+        requestMicrophonePermission();
+      } catch (error) {
+        console.error('[Event] Error in request permission handler:', error);
+      }
+    });
+  }
+  if (joinRoomBtn) {
+    console.log('[Init] Attaching join room handler');
+    joinRoomBtn.addEventListener('click', (e) => {
+      console.log('[Event] Join room button clicked');
+      try {
+        handleJoinRoom();
+      } catch (error) {
+        console.error('[Event] Error in join room handler:', error);
+      }
+    });
+  }
+  if (refreshRoomsBtn) {
+    console.log('[Init] Attaching refresh rooms handler');
+    refreshRoomsBtn.addEventListener('click', (e) => {
+      console.log('[Event] Refresh rooms button clicked');
+      try {
+        handleRefreshRooms();
+      } catch (error) {
+        console.error('[Event] Error in refresh rooms handler:', error);
+      }
+    });
+  }
   
-  // Load public rooms when switching to listen mode
-  if (listenModeBtn) {
-    listenModeBtn.addEventListener('click', () => {
-      setTimeout(handleRefreshRooms, 100);
+  if (leaveRoomBtn) {
+    console.log('[Init] Attaching leave room handler');
+    leaveRoomBtn.addEventListener('click', (e) => {
+      console.log('[Event] Leave room button clicked');
+      try {
+        handleLeaveRoom();
+      } catch (error) {
+        console.error('[Event] Error in leave room handler:', error);
+      }
     });
   }
-  if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', handleLeaveRoom);
   if (openAdminBtn) {
-    openAdminBtn.addEventListener('click', () => {
-      console.log('Admin button clicked');
-      openAdminPanel();
+    console.log('[Init] Attaching admin panel handler');
+    openAdminBtn.addEventListener('click', (e) => {
+      console.log('[Event] Admin button clicked');
+      try {
+        openAdminPanel();
+      } catch (error) {
+        console.error('[Event] Error in admin panel handler:', error);
+        showMessage('Error opening admin panel: ' + error.message, 'error');
+      }
     });
   } else {
-    console.error('openAdminBtn not found!');
+    console.error('[Init] openAdminBtn not found!');
   }
   // Volume control is handled below in the handleAudioData section
   
@@ -257,52 +369,90 @@ function initializeApp() {
   // Check auth status
   checkAuthStatus();
 
+  // Initialize channel selection UI
+  initializeChannelSelection();
+  initializeListenerChannelSelection();
+  
+  console.log('[Init] Initialization complete! Application ready.');
   addLog('Dante Audio Client ready', 'success');
-  setTimeout(refreshDevices, 1000);
+  
+  // Refresh devices after a short delay
+  setTimeout(() => {
+    console.log('[Init] Starting device refresh...');
+    refreshDevices();
+  }, 1000);
   } catch (error) {
-    console.error('Error initializing app:', error);
+    console.error('[Init] Error initializing app:', error);
+    console.error('[Init] Stack:', error.stack);
+    
     // Show error in UI if possible
     if (typeof alert !== 'undefined') {
       alert('Error initializing app: ' + error.message + '\n\nCheck console for details.');
     }
-    // Try to log to console
-    console.error('Stack:', error.stack);
+    
+    // Try to add to log if available
+    if (typeof addLog !== 'undefined') {
+      addLog('Initialization error: ' + error.message, 'error');
+    }
   }
 }
 
 // Switch between broadcast and listen modes
 function switchMode(mode) {
-  console.log('switchMode called with:', mode);
-  currentMode = mode;
-  localStorage.setItem('appMode', mode);
+  try {
+    console.log('[Mode] switchMode called with:', mode);
+    currentMode = mode;
+    localStorage.setItem('appMode', mode);
 
-  // Show/hide sections based on mode
-  if (mode === 'broadcast-login' || mode === 'broadcast') {
-    // Show broadcast mode (login section)
-    if (broadcastMode) {
-      broadcastMode.style.display = 'block';
-      // Show login section, hide room/audio sections initially
-      const loginSection = broadcastMode.querySelector('.section:first-of-type');
-      if (loginSection) loginSection.style.display = 'block';
-      if (broadcastRoomSection) broadcastRoomSection.style.display = 'none';
-      if (broadcastAudioSection) broadcastAudioSection.style.display = 'none';
+    // Show/hide sections based on mode
+    if (mode === 'broadcast-login' || mode === 'broadcast') {
+      console.log('[Mode] Switching to broadcast mode');
+      // Show broadcast mode (login section)
+      if (broadcastMode) {
+        broadcastMode.style.display = 'block';
+        // Show login section, hide room/audio sections initially
+        const loginSection = broadcastMode.querySelector('.section:first-of-type');
+        if (loginSection) loginSection.style.display = 'block';
+        if (broadcastRoomSection) broadcastRoomSection.style.display = 'none';
+        if (broadcastAudioSection) broadcastAudioSection.style.display = 'none';
+      } else {
+        console.error('[Mode] broadcastMode element not found!');
+      }
+      if (listenMode) listenMode.style.display = 'none';
+      updateStatus({ message: 'Broadcast Mode - Please login to create a room', type: 'info' });
+    } else if (mode === 'listen') {
+      console.log('[Mode] Switching to listen mode');
+      // Show listen mode
+      if (broadcastMode) broadcastMode.style.display = 'none';
+      if (listenMode) {
+        listenMode.style.display = 'block';
+      } else {
+        console.error('[Mode] listenMode element not found!');
+      }
+      updateStatus({ message: 'Listen Mode - Enter room code to join', type: 'info' });
+      // Auto-load public rooms when switching to listen mode
+      setTimeout(() => {
+        try {
+          handleRefreshRooms();
+        } catch (error) {
+          console.error('[Mode] Error refreshing rooms:', error);
+        }
+      }, 500);
     }
-    if (listenMode) listenMode.style.display = 'none';
-    updateStatus({ message: 'Broadcast Mode - Please login to create a room', type: 'info' });
-  } else if (mode === 'listen') {
-    // Show listen mode
-    if (broadcastMode) broadcastMode.style.display = 'none';
-    if (listenMode) listenMode.style.display = 'block';
-    updateStatus({ message: 'Listen Mode - Enter room code to join', type: 'info' });
-    // Auto-load public rooms when switching to listen mode
-    setTimeout(handleRefreshRooms, 500);
-  }
 
-  // Stop any active connections when switching
-  if ((mode === 'broadcast-login' || mode === 'broadcast') && isListening) {
-    handleLeaveRoom();
-  } else if (mode === 'listen' && isBroadcasting) {
-    handleStopBroadcast();
+    // Stop any active connections when switching
+    if ((mode === 'broadcast-login' || mode === 'broadcast') && isListening) {
+      console.log('[Mode] Stopping listening session');
+      handleLeaveRoom();
+    } else if (mode === 'listen' && isBroadcasting) {
+      console.log('[Mode] Stopping broadcast session');
+      handleStopBroadcast();
+    }
+    
+    console.log('[Mode] Mode switch complete');
+  } catch (error) {
+    console.error('[Mode] Error in switchMode:', error);
+    console.error('[Mode] Stack:', error.stack);
   }
 }
 
@@ -448,9 +598,15 @@ async function handleStartBroadcast() {
     return;
   }
   
+  if (selectedChannels.length === 0) {
+    showMessage('Please select at least one channel to broadcast', 'error');
+    return;
+  }
+  
   const railwayUrl = railwayUrlInput?.value.trim() || '';
-  const channelCount = parseInt(channelCountInput?.value) || 32;
   const bitrate = parseInt(bitrateSelect?.value) || 64000;
+  
+  console.log('[Broadcast] Starting with channels:', selectedChannels);
   
   // Check microphone permission
   if (window.electronAPI && window.electronAPI.checkMicrophonePermission) {
@@ -482,7 +638,8 @@ async function handleStartBroadcast() {
       railwayWsUrl: railwayUrl,
       roomId: currentRoom.roomId,
       roomToken: currentRoom.roomToken,
-      channels: channelCount,
+      channels: selectedChannels.length, // Total number of channels
+      selectedChannels: selectedChannels, // Which specific channels to stream
       bitrate: bitrate,
       deviceId: selectedDeviceId || -1,
     });
@@ -1040,16 +1197,32 @@ async function handleAudioData(audioData) {
   try {
     const { channel, data, encoding, timestamp, sequence } = audioData;
     
+    // Track available channels
+    if (!availableStreamChannels.includes(channel)) {
+      availableStreamChannels.push(channel);
+      availableStreamChannels.sort((a, b) => a - b);
+      updateAvailableStreamChannels(availableStreamChannels);
+    }
+    
+    // Filter channels based on selection
+    if (listenChannels.length > 0 && !listenChannels.includes(channel)) {
+      // Skip this channel if it's not in the listen list
+      return;
+    }
+    
     // Initialize jitter buffer for this channel if needed
     if (!audioBuffers.has(channel)) {
       // JitterBuffer is loaded globally via script tag in index.html
       if (typeof JitterBuffer !== 'undefined') {
+        // Configuration for ~400ms target latency
+        // Each packet is ~85ms (4096 samples * 4 batches / 48000 Hz)
+        // For 400ms: 400/85 ≈ 5 packets
         audioBuffers.set(channel, new JitterBuffer({
-          minSize: 5,
-          targetSize: 20,
-          maxSize: 100,
-          maxLatency: 500,
-          adaptive: true,
+          minSize: 3,        // Start playback after 3 packets (~255ms)
+          targetSize: 5,     // Target 5 packets (~425ms) - close to 400ms goal
+          maxSize: 50,       // Max buffer to prevent excessive delay
+          maxLatency: 1000,  // Max 1 second latency before dropping packets
+          adaptive: true,    // Adapt to network conditions
         }));
       } else {
         console.error('JitterBuffer class not found');
@@ -1186,6 +1359,19 @@ function updateConnectionQuality(jitterBuffer, timestamp) {
   jitterMs = bufferStatus.averageJitter || 0;
   packetLossRate = bufferStatus.packetLossRate || 0;
   
+  // Update buffer latency display
+  const bufferLatencyDisplay = document.getElementById('bufferLatencyDisplay');
+  const bufferSizeDisplay = document.getElementById('bufferSizeDisplay');
+  const bufferTargetDisplay = document.getElementById('bufferTargetDisplay');
+  
+  if (bufferLatencyDisplay && bufferSizeDisplay && bufferTargetDisplay) {
+    // Estimate latency: each packet is about 85ms (4096 samples @ 48kHz)
+    const estimatedLatencyMs = Math.round(bufferStatus.size * 85);
+    bufferLatencyDisplay.textContent = estimatedLatencyMs;
+    bufferSizeDisplay.textContent = bufferStatus.size;
+    bufferTargetDisplay.textContent = bufferStatus.targetSize;
+  }
+  
   // Determine quality level based on buffer metrics
   if (latencyMs < 100 && jitterMs < 20 && packetLossRate < 0.01) {
     connectionQuality = 'excellent';
@@ -1246,6 +1432,229 @@ function updateConnectionQualityIndicator() {
   } else {
     connectionQualityDiv.style.display = 'none';
   }
+}
+
+// Initialize listener channel selection
+function initializeListenerChannelSelection() {
+  const listenAllBtn = document.getElementById('listenAllChannels');
+  const listenFirstBtn = document.getElementById('listenFirstChannel');
+  
+  if (listenAllBtn) {
+    listenAllBtn.addEventListener('click', () => {
+      console.log('[Listen] Listening to all channels');
+      listenChannels = []; // Empty = all channels
+      updateListenerChannelDisplay();
+    });
+  }
+  
+  if (listenFirstBtn) {
+    listenFirstBtn.addEventListener('click', () => {
+      console.log('[Listen] Listening to channel 1 only');
+      listenChannels = [1];
+      updateListenerChannelDisplay();
+    });
+  }
+}
+
+// Update available channels when stream starts
+function updateAvailableStreamChannels(channels) {
+  availableStreamChannels = channels.sort((a, b) => a - b);
+  const listenChannelSelection = document.getElementById('listenChannelSelection');
+  
+  if (!listenChannelSelection) return;
+  
+  console.log('[Listen] Available channels:', availableStreamChannels);
+  
+  // Clear existing
+  listenChannelSelection.innerHTML = '';
+  
+  // Add channel options
+  availableStreamChannels.forEach(channelNum => {
+    const channelDiv = document.createElement('div');
+    channelDiv.className = 'channel-checkbox';
+    channelDiv.dataset.channel = channelNum;
+    channelDiv.innerHTML = `
+      <span>CH ${channelNum}</span>
+      <div class="channel-meter">
+        <div class="channel-meter-bar"></div>
+      </div>
+    `;
+    
+    channelDiv.addEventListener('click', () => {
+      toggleListenChannel(channelNum, channelDiv);
+    });
+    
+    listenChannelSelection.appendChild(channelDiv);
+  });
+  
+  // Initialize with all channels selected
+  listenChannels = [];
+  updateListenerChannelDisplay();
+}
+
+// Toggle listener channel
+function toggleListenChannel(channelNum, channelDiv) {
+  if (listenChannels.length === 0) {
+    // Currently listening to all, switch to only this channel
+    listenChannels = [channelNum];
+  } else {
+    const index = listenChannels.indexOf(channelNum);
+    if (index === -1) {
+      // Add channel
+      listenChannels.push(channelNum);
+      listenChannels.sort((a, b) => a - b);
+    } else {
+      // Remove channel
+      listenChannels.splice(index, 1);
+    }
+  }
+  
+  updateListenerChannelDisplay();
+}
+
+// Update listener channel display
+function updateListenerChannelDisplay() {
+  const listenChannelSelection = document.getElementById('listenChannelSelection');
+  const listeningCountDisplay = document.getElementById('listeningChannelCount');
+  
+  if (!listenChannelSelection) return;
+  
+  // Update visual state
+  const channelDivs = listenChannelSelection.querySelectorAll('.channel-checkbox');
+  channelDivs.forEach(div => {
+    const channelNum = parseInt(div.dataset.channel);
+    if (listenChannels.length === 0 || listenChannels.includes(channelNum)) {
+      div.classList.add('selected');
+    } else {
+      div.classList.remove('selected');
+    }
+  });
+  
+  // Update count display
+  if (listeningCountDisplay) {
+    if (listenChannels.length === 0) {
+      listeningCountDisplay.textContent = 'All';
+    } else {
+      listeningCountDisplay.textContent = listenChannels.join(', ');
+    }
+  }
+  
+  console.log('[Listen] Listening to channels:', listenChannels.length === 0 ? 'All' : listenChannels.join(', '));
+}
+
+// Initialize channel selection UI
+function initializeChannelSelection() {
+  const channelSelection = document.getElementById('channelSelection');
+  const selectAllBtn = document.getElementById('selectAllChannels');
+  const deselectAllBtn = document.getElementById('deselectAllChannels');
+  const selectFirstEightBtn = document.getElementById('selectFirstEight');
+  const selectedCountDisplay = document.getElementById('selectedChannelCount');
+  
+  if (!channelSelection) {
+    console.warn('[Channels] Channel selection container not found');
+    return;
+  }
+  
+  console.log('[Channels] Initializing channel selection UI');
+  
+  // Generate channel checkboxes (1-32)
+  for (let i = 1; i <= 32; i++) {
+    const channelDiv = document.createElement('div');
+    channelDiv.className = 'channel-checkbox';
+    channelDiv.dataset.channel = i;
+    channelDiv.innerHTML = `
+      <span>CH ${i}</span>
+      <div class="channel-meter">
+        <div class="channel-meter-bar"></div>
+      </div>
+    `;
+    
+    channelDiv.addEventListener('click', () => {
+      toggleChannel(i, channelDiv);
+    });
+    
+    channelSelection.appendChild(channelDiv);
+  }
+  
+  // Select all button
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', () => {
+      console.log('[Channels] Selecting all channels');
+      selectedChannels = [];
+      for (let i = 1; i <= 32; i++) {
+        selectedChannels.push(i);
+      }
+      updateChannelDisplay();
+    });
+  }
+  
+  // Deselect all button
+  if (deselectAllBtn) {
+    deselectAllBtn.addEventListener('click', () => {
+      console.log('[Channels] Deselecting all channels');
+      selectedChannels = [];
+      updateChannelDisplay();
+    });
+  }
+  
+  // Select first 8 button
+  if (selectFirstEightBtn) {
+    selectFirstEightBtn.addEventListener('click', () => {
+      console.log('[Channels] Selecting first 8 channels');
+      selectedChannels = [1, 2, 3, 4, 5, 6, 7, 8];
+      updateChannelDisplay();
+    });
+  }
+  
+  // Select first 8 channels by default
+  selectedChannels = [1, 2, 3, 4, 5, 6, 7, 8];
+  updateChannelDisplay();
+  
+  console.log('[Channels] Channel selection UI initialized');
+}
+
+// Toggle channel selection
+function toggleChannel(channelNum, channelDiv) {
+  const index = selectedChannels.indexOf(channelNum);
+  
+  if (index === -1) {
+    // Add channel
+    selectedChannels.push(channelNum);
+    selectedChannels.sort((a, b) => a - b);
+    console.log('[Channels] Selected channel', channelNum);
+  } else {
+    // Remove channel
+    selectedChannels.splice(index, 1);
+    console.log('[Channels] Deselected channel', channelNum);
+  }
+  
+  updateChannelDisplay();
+}
+
+// Update channel display
+function updateChannelDisplay() {
+  const channelSelection = document.getElementById('channelSelection');
+  const selectedCountDisplay = document.getElementById('selectedChannelCount');
+  
+  if (!channelSelection) return;
+  
+  // Update visual state of all channel divs
+  const channelDivs = channelSelection.querySelectorAll('.channel-checkbox');
+  channelDivs.forEach(div => {
+    const channelNum = parseInt(div.dataset.channel);
+    if (selectedChannels.includes(channelNum)) {
+      div.classList.add('selected');
+    } else {
+      div.classList.remove('selected');
+    }
+  });
+  
+  // Update count display
+  if (selectedCountDisplay) {
+    selectedCountDisplay.textContent = selectedChannels.length;
+  }
+  
+  console.log('[Channels] Selected channels:', selectedChannels);
 }
 
 // Volume control handler (moved to initialization section)

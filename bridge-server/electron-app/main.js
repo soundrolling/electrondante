@@ -187,10 +187,19 @@ function createWindow() {
   // Show window when ready to prevent visual glitches
   mainWindow.once('ready-to-show', () => {
     if (mainWindow) {
+      console.log('Window ready to show, displaying...');
       mainWindow.show();
+      // Open DevTools after window is shown
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log('Opening DevTools...');
+          mainWindow.webContents.openDevTools();
+        }
+      }, 500);
     }
   });
 
+  console.log('Loading index.html...');
   mainWindow.loadFile('index.html').catch((error) => {
     console.error('Failed to load index.html:', error);
     logErrorContext('Failed to load index.html', error);
@@ -226,13 +235,18 @@ function createWindow() {
   mainWindow.webContents.on('crashed', (event, killed) => {
     console.error('Window crashed, killed:', killed);
   });
-
-  // Open DevTools by default for debugging (can be disabled later)
-  mainWindow.webContents.openDevTools();
   
-  // Also add keyboard shortcut (Cmd+Option+I on Mac, Ctrl+Shift+I on Windows/Linux)
+  // Add keyboard shortcuts for DevTools
+  // Cmd+Option+I on Mac, Ctrl+Shift+I on Windows/Linux
+  // Also F12 for convenience
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+    const isMac = process.platform === 'darwin';
+    const devToolsShortcut = isMac 
+      ? (input.meta && input.alt && input.key.toLowerCase() === 'i')
+      : (input.control && input.shift && input.key.toLowerCase() === 'i');
+    
+    if (devToolsShortcut || input.key === 'F12') {
+      console.log('DevTools keyboard shortcut triggered');
       if (mainWindow.webContents.isDevToolsOpened()) {
         mainWindow.webContents.closeDevTools();
       } else {
@@ -488,17 +502,26 @@ ipcMain.handle('check-microphone-permission', async () => {
 // Authentication IPC handlers
 ipcMain.handle('auth-login', async (event, email, password, railwayUrl) => {
   try {
+    console.log('[Auth] Login request for:', email);
+    
     if (!AuthClient) {
       return { success: false, error: 'Auth client not available' };
     }
     
+    // Create or update auth client with Railway URL
     if (!authClient) {
+      console.log('[Auth] Creating new AuthClient');
       authClient = new AuthClient(railwayUrl || '');
+    } else if (railwayUrl) {
+      console.log('[Auth] Updating Railway URL');
+      authClient.setRailwayUrl(railwayUrl);
     }
     
     const result = await authClient.login(email, password);
+    console.log('[Auth] Login successful');
     return { success: true, user: result.user };
   } catch (error) {
+    console.error('[Auth] Login failed:', error);
     return { success: false, error: error.message };
   }
 });

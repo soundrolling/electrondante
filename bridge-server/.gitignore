@@ -1,0 +1,86 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.app
+*.dmg
+*.zip
+*.exe
+*.deb
+*.rpm
+*.AppImage
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.test
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+.code-workspace
+
+# Electron build artifacts
+electron-app/dist/
+electron-app/out/
+electron-app/build/Release/
+electron-app/build/Debug/
+
+# Native module build files
+*.node
+*.o
+*.a
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database files (if any local copies)
+*.db
+*.sqlite
+*.sqlite3
+
+# Railway/deployment specific
+.railway/
+
+# macOS signing
+*.provisionprofile
+*.p12
+*.cer
+*.mobileprovision
+

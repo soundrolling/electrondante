@@ -1471,18 +1471,47 @@ class DanteBridgeServer {
       }
     });
     
+    // Helper function to validate token (Supabase or server-generated)
+    const validateAuthToken = async (token) => {
+      if (!token) {
+        throw new Error('No token provided');
+      }
+      
+      // Try Supabase JWT validation first
+      if (supabase) {
+        try {
+          const { data: { user }, error } = await supabase.auth.getUser(token);
+          if (!error && user) {
+            console.log('✅ Supabase token validated for user:', user.email);
+            return { userId: user.id, email: user.email, type: 'supabase' };
+          }
+        } catch (e) {
+          console.log('Supabase token validation failed, trying server token...');
+        }
+      }
+      
+      // Fall back to server-generated token
+      try {
+        const decoded = verifyToken(token);
+        if (decoded.type === 'access' || decoded.type === 'room') {
+          console.log('✅ Server token validated');
+          return { userId: decoded.userId, email: decoded.email, type: decoded.type };
+        }
+      } catch (e) {
+        console.error('Token validation failed:', e.message);
+      }
+      
+      throw new Error('Invalid token');
+    };
+    
     // POST /auth/room/create - Create a new room (requires authenticated broadcaster)
     app.post('/auth/room/create', createRateLimit({ windowMs: 60 * 60 * 1000, maxRequests: 3, keyGenerator: (req) => {
       // Rate limit by user ID if available, otherwise by IP
       const authHeader = req.headers.authorization;
       const token = extractTokenFromHeader(authHeader);
       if (token) {
-        try {
-          const decoded = verifyToken(token);
-          return decoded.userId || req.ip;
-        } catch (e) {
-          return req.ip;
-        }
+        // Try to get user ID asynchronously, but we'll return IP for now for simplicity
+        return req.ip;
       }
       return req.ip;
     } }), async (req, res) => {
@@ -1494,10 +1523,8 @@ class DanteBridgeServer {
           return res.status(401).json({ error: 'Authentication required' });
         }
         
-        const decoded = verifyToken(accessToken);
-        if (decoded.type !== 'access') {
-          return res.status(401).json({ error: 'Invalid token type' });
-        }
+        // Validate token (Supabase or server-generated)
+        const authData = await validateAuthToken(accessToken);
         
         const { password, name, metadata = {} } = req.body;
         
@@ -1512,10 +1539,10 @@ class DanteBridgeServer {
         }
         
         // Create room
-        const { roomId, roomCode } = await this.createRoom(decoded.userId, password, { name, ...metadata });
+        const { roomId, roomCode } = await this.createRoom(authData.userId, password, { name, ...metadata });
         
         // Generate room token for the broadcaster
-        const roomToken = generateRoomToken(roomId, decoded.userId);
+        const roomToken = generateRoomToken(roomId, authData.userId);
         
         res.json({
           roomId,

@@ -30,6 +30,7 @@ class DanteBridgeClient extends EventEmitter {
       railwayWsUrl: config.railwayWsUrl || '',
       sampleRate: config.sampleRate || 48000,
       channels: config.channels || 16,
+      selectedChannels: config.selectedChannels || null, // Array of specific channels to stream (e.g., [1,2,5,7])
       bufferSize: 4096, // Increased from 128 for better quality (~85ms at 48kHz)
       batchSize: 4, // Batch 4 buffers before sending (reduces WebSocket overhead)
       reconnectDelay: 3000,
@@ -61,7 +62,17 @@ class DanteBridgeClient extends EventEmitter {
     // Opus encoders (one per channel)
     this.opusEncoders = [];
     this.useOpus = OpusEncoder !== null; // Enable Opus if available
-    this.audioChannelCount = Math.max(1, this.config.channels);
+    
+    // Determine which channels to stream
+    if (this.config.selectedChannels && Array.isArray(this.config.selectedChannels)) {
+      this.selectedChannels = this.config.selectedChannels.sort((a, b) => a - b);
+      // Need to capture up to the highest channel number
+      this.audioChannelCount = Math.max(...this.selectedChannels);
+      console.log(`Streaming selected channels: ${this.selectedChannels.join(', ')}`);
+    } else {
+      this.selectedChannels = null;
+      this.audioChannelCount = Math.max(1, this.config.channels);
+    }
     
     this.emit('status', { type: 'initialized', message: 'Client initialized' });
   }
@@ -492,8 +503,16 @@ class DanteBridgeClient extends EventEmitter {
     if (this.audioBatchQueue.length >= this.config.batchSize) {
       const batch = this.audioBatchQueue.splice(0, this.config.batchSize);
       
-      // Combine all buffers in batch for each channel
-      channels.forEach((_, chIndex) => {
+      // Determine which channels to send
+      const channelsToSend = this.selectedChannels || Array.from({ length: this.audioChannelCount }, (_, i) => i + 1);
+      
+      // Combine all buffers in batch for each selected channel
+      channelsToSend.forEach((channelNum) => {
+        const chIndex = channelNum - 1; // Convert 1-based to 0-based index
+        if (chIndex < 0 || chIndex >= this.audioChannelCount) {
+          return; // Skip invalid channels
+        }
+        
         const combinedSamples = [];
         for (const buffer of batch) {
           if (buffer.channels[chIndex]) {
@@ -530,7 +549,7 @@ class DanteBridgeClient extends EventEmitter {
             
             this.ws.send(JSON.stringify({
               type: 'audio',
-              channel: chIndex,
+              channel: channelNum, // Send 1-based channel number (not 0-based index)
               data: audioData,
               encoding: encoding, // Indicate encoding type
               timestamp: batch[0].timestamp, // Use first buffer's timestamp
@@ -538,7 +557,7 @@ class DanteBridgeClient extends EventEmitter {
               sequence: this.sequenceNumber, // Add sequence number for jitter buffering
             }));
           } catch (error) {
-            console.error(`Error sending audio for channel ${chIndex}:`, error);
+            console.error(`Error sending audio for channel ${channelNum}:`, error);
           }
         }
       });

@@ -1,117 +1,134 @@
 // Authentication API client for Electron app
-// Handles login, token refresh, and room management
+// Handles login, token refresh, and room management using Supabase
+
+const { createClient } = require('@supabase/supabase-js');
+const constants = require('../config/constants');
 
 class AuthClient {
-  constructor(baseUrl) {
-    // Remove trailing slash and convert http/https to ws/wss for WebSocket
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.apiUrl = this.baseUrl.replace(/^wss?:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
+  constructor(railwayUrl = '') {
+    // Railway URL for WebSocket connections
+    this.railwayUrl = railwayUrl.replace(/\/$/, '');
+    this.railwayApiUrl = this.railwayUrl.replace(/^wss?:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
     
-    // Token storage
-    this.accessToken = null;
-    this.refreshToken = null;
+    // Supabase client initialization
+    // Note: These should be set via environment variables or user config
+    const supabaseUrl = constants.SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseAnonKey = constants.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn('Supabase credentials not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+    }
+    
+    this.supabase = supabaseUrl && supabaseAnonKey 
+      ? createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: false,
+          }
+        })
+      : null;
+    
+    // Current user and session
     this.user = null;
+    this.session = null;
     
-    // Load tokens from localStorage if available
-    this.loadTokens();
+    // Load existing session
+    this.loadSession();
   }
   
-  // Load tokens from localStorage
-  loadTokens() {
+  // Load session from Supabase
+  async loadSession() {
+    if (!this.supabase) return;
+    
     try {
-      const stored = localStorage.getItem('auth_tokens');
-      if (stored) {
-        const tokens = JSON.parse(stored);
-        this.accessToken = tokens.accessToken;
-        this.refreshToken = tokens.refreshToken;
-        this.user = tokens.user;
+      const { data: { session }, error } = await this.supabase.auth.getSession();
+      if (error) {
+        console.error('Error loading session:', error);
+        return;
+      }
+      
+      if (session) {
+        this.session = session;
+        this.user = session.user;
+        console.log('Session loaded for user:', this.user.email);
       }
     } catch (error) {
-      console.error('Error loading tokens:', error);
+      console.error('Error loading session:', error);
     }
   }
   
-  // Save tokens to localStorage
-  saveTokens() {
-    try {
-      localStorage.setItem('auth_tokens', JSON.stringify({
-        accessToken: this.accessToken,
-        refreshToken: this.refreshToken,
-        user: this.user,
-      }));
-    } catch (error) {
-      console.error('Error saving tokens:', error);
-    }
-  }
-  
-  // Clear tokens
-  clearTokens() {
-    this.accessToken = null;
-    this.refreshToken = null;
-    this.user = null;
-    try {
-      localStorage.removeItem('auth_tokens');
-    } catch (error) {
-      console.error('Error clearing tokens:', error);
-    }
-  }
-  
-  // Login with email and password
+  // Login with email and password using Supabase
   async login(email, password) {
+    if (!this.supabase) {
+      throw new Error('Supabase not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY.');
+    }
+    
     try {
-      const response = await fetch(`${this.apiUrl}/auth/broadcaster`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      console.log('Attempting Supabase login for:', email);
+      
+      const { data, error } = await this.supabase.auth.signInWithPassword({
+        email,
+        password,
       });
       
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Login failed' }));
-        throw new Error(error.error || `Login failed: ${response.statusText}`);
+      if (error) {
+        console.error('Supabase login error:', error);
+        throw new Error(error.message || 'Login failed');
       }
       
-      const data = await response.json();
-      this.accessToken = data.accessToken;
-      this.refreshToken = data.refreshToken;
-      this.user = data.user;
-      this.saveTokens();
+      if (!data.session || !data.user) {
+        throw new Error('Login failed: No session returned');
+      }
       
-      return data;
+      this.session = data.session;
+      this.user = data.user;
+      
+      console.log('Login successful for user:', this.user.email);
+      
+      return {
+        user: this.user,
+        session: this.session,
+        accessToken: this.session.access_token,
+        refreshToken: this.session.refresh_token,
+      };
     } catch (error) {
       console.error('Login error:', error);
       throw error;
     }
   }
   
-  // Refresh access token
+  // Refresh access token using Supabase
   async refreshAccessToken() {
-    if (!this.refreshToken) {
+    if (!this.supabase) {
+      throw new Error('Supabase not configured');
+    }
+    
+    if (!this.session?.refresh_token) {
       throw new Error('No refresh token available');
     }
     
     try {
-      const response = await fetch(`${this.apiUrl}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.refreshToken}`,
-        },
-        body: JSON.stringify({ refreshToken: this.refreshToken }),
+      const { data, error } = await this.supabase.auth.refreshSession({
+        refresh_token: this.session.refresh_token
       });
       
-      if (!response.ok) {
-        // Refresh token expired - clear tokens
-        this.clearTokens();
+      if (error) {
+        console.error('Token refresh error:', error);
+        this.clearSession();
         throw new Error('Refresh token expired');
       }
       
-      const data = await response.json();
-      this.accessToken = data.accessToken;
-      this.saveTokens();
+      if (!data.session) {
+        throw new Error('Failed to refresh session');
+      }
       
-      return data.accessToken;
+      this.session = data.session;
+      this.user = data.user;
+      
+      console.log('Token refreshed successfully');
+      
+      return this.session.access_token;
     } catch (error) {
       console.error('Token refresh error:', error);
       throw error;
@@ -120,24 +137,35 @@ class AuthClient {
   
   // Get valid access token (refresh if needed)
   async getValidAccessToken() {
-    if (!this.accessToken) {
-      if (this.refreshToken) {
-        await this.refreshAccessToken();
-      } else {
-        throw new Error('Not authenticated');
-      }
+    if (!this.session) {
+      throw new Error('Not authenticated');
     }
     
-    // Token is valid (we'll let the server validate expiry)
-    return this.accessToken;
+    // Check if token is expired or about to expire (within 5 minutes)
+    const expiresAt = this.session.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = expiresAt - now;
+    
+    if (timeUntilExpiry < 300) { // Less than 5 minutes
+      console.log('Token expiring soon, refreshing...');
+      await this.refreshAccessToken();
+    }
+    
+    return this.session.access_token;
   }
   
-  // Create a room
+  // Create a room using Railway API with Supabase JWT
   async createRoom(password, name = null, metadata = {}) {
     const token = await this.getValidAccessToken();
     
+    if (!this.railwayApiUrl) {
+      throw new Error('Railway URL not configured');
+    }
+    
     try {
-      const response = await fetch(`${this.apiUrl}/auth/room/create`, {
+      console.log('Creating room via Railway API...');
+      
+      const response = await fetch(`${this.railwayApiUrl}/auth/room/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,24 +180,38 @@ class AuthClient {
       
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Room creation failed' }));
+        
+        // If token expired, try refreshing once
+        if (response.status === 401 || response.status === 403) {
+          console.log('Token invalid, attempting refresh...');
+          await this.refreshAccessToken();
+          // Retry with new token
+          return this.createRoom(password, name, metadata);
+        }
+        
         throw new Error(error.error || `Room creation failed: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('Room created successfully:', result.roomCode);
+      
+      return result;
     } catch (error) {
-      // If token expired, try refreshing once
-      if (error.message.includes('expired') || error.message.includes('Invalid token')) {
-        await this.refreshAccessToken();
-        return this.createRoom(password, name, metadata);
-      }
+      console.error('Error creating room:', error);
       throw error;
     }
   }
   
-  // Join a room
+  // Join a room (no authentication required for listeners)
   async joinRoom(roomCode, password) {
+    if (!this.railwayApiUrl) {
+      throw new Error('Railway URL not configured');
+    }
+    
     try {
-      const response = await fetch(`${this.apiUrl}/auth/room/join`, {
+      console.log('Joining room:', roomCode);
+      
+      const response = await fetch(`${this.railwayApiUrl}/auth/room/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +227,10 @@ class AuthClient {
         throw new Error(error.error || `Join failed: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      console.log('Joined room successfully:', roomCode);
+      
+      return result;
     } catch (error) {
       console.error('Join room error:', error);
       throw error;
@@ -193,13 +238,27 @@ class AuthClient {
   }
   
   // Logout
-  logout() {
-    this.clearTokens();
+  async logout() {
+    if (this.supabase && this.session) {
+      try {
+        await this.supabase.auth.signOut();
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
+    }
+    this.clearSession();
+  }
+  
+  // Clear session
+  clearSession() {
+    this.session = null;
+    this.user = null;
+    console.log('Session cleared');
   }
   
   // Check if user is authenticated
   isAuthenticated() {
-    return !!this.accessToken && !!this.user;
+    return !!this.session && !!this.user;
   }
   
   // Get current user
@@ -209,13 +268,22 @@ class AuthClient {
   
   // Get tokens (for admin panel)
   getTokens() {
+    if (!this.session) {
+      return null;
+    }
+    
     return {
-      accessToken: this.accessToken,
-      refreshToken: this.refreshToken,
+      accessToken: this.session.access_token,
+      refreshToken: this.session.refresh_token,
       user: this.user,
     };
+  }
+  
+  // Set Railway URL (can be updated after initialization)
+  setRailwayUrl(url) {
+    this.railwayUrl = url.replace(/\/$/, '');
+    this.railwayApiUrl = this.railwayUrl.replace(/^wss?:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
   }
 }
 
 module.exports = AuthClient;
-
