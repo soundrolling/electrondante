@@ -8,7 +8,7 @@
     "url": "https://github.com/soundrolling/electrondante.git"
   },
   "scripts": {
-    "start": "electron .",
+    "start": "electron . --max-old-space-size=4096",
     "postinstall": "electron-builder install-app-deps",
     "rebuild": "electron-rebuild -f -w naudiodon",
     "build": "electron-builder",
