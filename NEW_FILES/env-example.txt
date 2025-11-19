@@ -1,0 +1,38 @@
+# ElectroDante Environment Variables
+# Copy this file to .env and fill in your values
+
+# ===================================
+# SUPABASE CONFIGURATION (REQUIRED)
+# ===================================
+# Get these from your Supabase project settings
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Service role key (server-side only, NOT exposed to browser)
+VITE_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# ===================================
+# ENCRYPTION KEY (REQUIRED)
+# ===================================
+# Generate a random 32-character key for encrypting local storage
+# You can generate one with: openssl rand -hex 16
+VITE_ENCRYPTION_KEY=your-32-char-encryption-key-here
+
+# ===================================
+# DANTE BRIDGE SERVER (REQUIRED)
+# ===================================
+# WebSocket URL for your Railway deployment
+# Use wss:// for production (HTTPS), ws:// for local development
+VITE_BRIDGE_WS_URL=wss://your-app.railway.app
+
+# ===================================
+# OPTIONAL FEATURES
+# ===================================
+# Weather API (optional - for location weather features)
+# VITE_WEATHERAPI_KEY=your-weather-api-key
+
+# ===================================
+# DEVELOPMENT ONLY
+# ===================================
+# For local development, you can use:
+# VITE_BRIDGE_WS_URL=ws://localhost:3000
