@@ -330,7 +330,7 @@ async function handleLogin() {
   
   const email = emailInput?.value.trim();
   const password = passwordInput?.value;
-  const railwayUrl = railwayUrlInput?.value.trim() || 'wss://proapp2149-production.up.railway.app';
+  const railwayUrl = railwayUrlInput?.value.trim() || '';
   
   if (!email || !password) {
     showMessage('Please enter email and password', 'error');
@@ -448,7 +448,7 @@ async function handleStartBroadcast() {
     return;
   }
   
-  const railwayUrl = railwayUrlInput?.value.trim() || 'wss://proapp2149-production.up.railway.app';
+  const railwayUrl = railwayUrlInput?.value.trim() || '';
   const channelCount = parseInt(channelCountInput?.value) || 32;
   const bitrate = parseInt(bitrateSelect?.value) || 64000;
   
@@ -530,7 +530,7 @@ async function handleJoinRoom() {
   
   const roomCode = roomCodeInput?.value.trim().toUpperCase();
   const password = document.getElementById('roomPasswordInput')?.value;
-  const railwayUrl = railwayUrlListenInput?.value.trim() || 'wss://proapp2149-production.up.railway.app';
+  const railwayUrl = railwayUrlListenInput?.value.trim() || '';
   
   if (!roomCode || roomCode.length !== 6) {
     showMessage('Please enter a valid 6-character room code', 'error');
@@ -621,7 +621,7 @@ async function openAdminPanel() {
 async function handleRefreshRooms() {
   if (!window.electronAPI) return;
   
-  const railwayUrl = railwayUrlListenInput?.value || 'wss://proapp2149-production.up.railway.app';
+  const railwayUrl = railwayUrlListenInput?.value || '';
   const baseUrl = railwayUrl.replace('wss://', 'https://').replace('ws://', 'http://');
   
   try {

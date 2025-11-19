@@ -27,7 +27,7 @@ class DanteBridgeClient extends EventEmitter {
   constructor(config) {
     super();
     this.config = {
-      railwayWsUrl: config.railwayWsUrl || 'wss://proapp2149-production.up.railway.app',
+      railwayWsUrl: config.railwayWsUrl || '',
       sampleRate: config.sampleRate || 48000,
       channels: config.channels || 16,
       bufferSize: 4096, // Increased from 128 for better quality (~85ms at 48kHz)

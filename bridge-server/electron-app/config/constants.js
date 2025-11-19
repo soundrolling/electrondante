@@ -1,8 +1,16 @@
 // Configuration constants
 
+// Get default URL from environment (Node.js) or empty string (browser)
+const getDefaultRailwayUrl = () => {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.RAILWAY_WS_URL || process.env.RAILWAY_URL || '';
+  }
+  return '';
+};
+
 module.exports = {
-  // WebSocket URLs
-  DEFAULT_RAILWAY_URL: 'wss://proapp2149-production.up.railway.app',
+  // WebSocket URLs (override with environment variable or user input)
+  DEFAULT_RAILWAY_URL: getDefaultRailwayUrl(),
   
   // Reconnection settings
   RECONNECT_MIN_DELAY: 1000, // 1 second

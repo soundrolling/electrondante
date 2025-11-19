@@ -4,7 +4,7 @@
 
 Pre-built installers for the Dante Audio Client Electron app are available from:
 
-**GitHub Releases:** https://github.com/soundrolling/proapp2149/releases
+**GitHub Releases:** https://github.com/soundrolling/electrondante/releases
 
 ### Available Platforms
 
@@ -36,18 +36,19 @@ sudo apt-get install build-essential libasound2-dev
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/soundrolling/proapp2149.git
-   cd proapp2149/bridge-server/electron-app
+   git clone https://github.com/soundrolling/electrondante.git
+   cd electrondante
    ```
 
-2. **Run setup script:**
+2. **Install dependencies:**
    ```bash
-   ./install.sh
+   npm install
+   npm run rebuild  # Rebuild native modules
    ```
 
 3. **Build installer:**
    ```bash
-   ./build.sh
+   npm run build
    ```
 
    Or build for specific platform:
@@ -90,25 +91,21 @@ sudo apt-get install build-essential libasound2-dev
 After installing, you'll need to configure:
 
 1. **Railway WebSocket URL:**
-   - Default: `wss://proapp2149-production.up.railway.app`
-   - Or your custom Railway deployment URL
+   - Enter your Railway deployment URL (e.g., `wss://your-app.railway.app`)
+   - Or use `ws://localhost:3000` for local development
 
-2. **Supabase Access Token:**
-   - Sign in to https://pro.soundrolling.com
-   - Open browser DevTools (F12)
-   - Go to Console tab
-   - Run:
-     ```javascript
-     JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token
-     ```
-   - Copy the token and paste into the app
+2. **For Broadcasting:**
+   - Click "Broadcaster Login"
+   - Enter your Supabase email and password
+   - Create a room with name, code, and password
+   - Select your audio input device
+   - Start broadcasting
 
-3. **Select Audio Device:**
-   - Choose your audio input device from the dropdown
-   - For Dante Virtual Soundcard, select it from the list
-
-4. **Start Client:**
-   - Click "Start Client" to begin streaming
+3. **For Listening:**
+   - Enter the room code provided by the broadcaster
+   - Enter the room password
+   - Click "Join Room"
+   - Adjust volume as needed
 
 ## Troubleshooting
 
@@ -126,10 +123,14 @@ npm run rebuild
 ### Connection Failed
 - Verify Railway URL is correct
 - Check that Railway server is running
-- Ensure your access token is valid (they expire - get a new one)
+- Ensure your credentials are valid
+
+### Authentication Failed
+- Verify your Supabase credentials are correct
+- Check that your Supabase project is configured correctly
+- Ensure the Railway server has the correct Supabase environment variables
 
 ## Support
 
 For issues or questions, please open an issue on GitHub:
-https://github.com/soundrolling/proapp2149/issues
-
+https://github.com/soundrolling/electrondante/issues

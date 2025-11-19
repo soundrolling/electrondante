@@ -1,25 +1,35 @@
 # Dante Audio Client - Electron App
 
-A packaged desktop application for streaming audio from your computer to Railway. This app includes all dependencies and works out of the box - no Node.js or build tools required for end users.
+A standalone desktop application for broadcasting and listening to multi-room audio streams. Features Supabase authentication for broadcasters and room code/password access for listeners.
+
+## Features
+
+- 🎙️ **Broadcast Mode**: Stream audio from your computer to multiple rooms
+- 🎧 **Listen Mode**: Join rooms using room codes and passwords
+- 🔐 **Supabase Authentication**: Secure broadcaster login
+- 🎚️ **Admin Panel**: Manage rooms, devices, and channel assignments
+- 🔊 **Multi-channel Support**: Stream up to 16 channels
+- 📊 **Audio Visualization**: Real-time waveform display
+- 🔄 **Auto-reconnect**: Automatic reconnection with exponential backoff
+- 🎛️ **Volume Control**: Per-listener volume adjustment
 
 ## Quick Start
 
 ### For End Users
 
-1. **Download** the installer for your platform:
-   - macOS: `Dante Audio Client-1.0.0.dmg`
-   - Windows: `Dante Audio Client Setup 1.0.0.exe`
-   - Linux: `Dante Audio Client-1.0.0.AppImage`
+1. **Download** the installer for your platform from [GitHub Releases](https://github.com/soundrolling/electrondante/releases):
+   - macOS: `.dmg` file (Intel and Apple Silicon)
+   - Windows: `.exe` installer (64-bit and 32-bit)
+   - Linux: `.AppImage` file (64-bit)
 
 2. **Install** the app (standard installer process)
 
-3. **Run** the app and configure:
-   - Enter Railway WebSocket URL
-   - Paste your Supabase Access Token (get from browser DevTools)
-   - Select your audio device
-   - Click "Start Client"
+3. **Configure**:
+   - Enter your Railway WebSocket URL (e.g., `wss://your-app.railway.app`)
+   - For broadcasting: Sign in with your Supabase credentials
+   - For listening: Enter room code and password
 
-### For Developers (Building Installers)
+### For Developers
 
 #### Prerequisites
 
@@ -39,136 +49,159 @@ sudo apt-get install build-essential libasound2-dev
 
 #### Setup
 
-Run the setup script:
 ```bash
-cd bridge-server/electron-app
-./install.sh
-```
-
-Or manually:
-```bash
+cd electron-app
 npm install
-npm run rebuild  # Rebuild native modules for Electron
+npm run rebuild  # Rebuild native modules (naudiodon)
 ```
 
-#### Build Installers
+#### Running in Development
 
-**macOS:**
-```bash
-npm run build:mac
-```
-
-**Windows:**
-```bash
-npm run build:win
-```
-
-**Linux:**
-```bash
-npm run build:linux
-```
-
-**All platforms:**
-```bash
-npm run build
-```
-
-Built installers will be in the `dist/` directory.
-
-#### Development
-
-Test the app before building:
 ```bash
 npm start
 ```
 
-## Features
+#### Building Installers
 
-- ✅ **Self-contained**: All dependencies included, no Node.js needed
-- ✅ **Native audio support**: Full multi-channel audio capture (up to 32 channels)
-- ✅ **GUI configuration**: No command line required
-- ✅ **Device selection**: Choose from all available audio input devices
-- ✅ **Real-time status**: See connection and streaming status
-- ✅ **Auto-reconnect**: Automatically reconnects if connection drops
-- ✅ **Works with Dante Virtual Soundcard**: Full support for all channels
+```bash
+# Build for current platform
+npm run build
+
+# Build for specific platform
+npm run build:mac    # macOS
+npm run build:win    # Windows
+npm run build:linux  # Linux
+```
+
+Built installers will be in the `dist/` directory.
 
 ## Configuration
 
-### Getting Your Supabase Access Token
-
-1. Sign in to your Vue app at https://pro.soundrolling.com
-2. Open browser DevTools (F12)
-3. Go to Console tab
-4. Run:
-   ```javascript
-   JSON.parse(localStorage.getItem('sb-mcetzgzwldytnalfaldo-auth-token')).access_token
-   ```
-5. Copy the token and paste it into the app
-
 ### Railway WebSocket URL
 
-Default: `wss://proapp2149-production.up.railway.app`
+The app needs to know where your bridge server is running. Enter the WebSocket URL in the app's UI:
 
-If you're using a different Railway deployment, update the URL in the app.
+- Format: `wss://your-app.railway.app` (for HTTPS)
+- Format: `ws://localhost:3000` (for local development)
+
+### Broadcasting Setup
+
+1. **Sign In**: Click "Broadcaster Login" and enter your Supabase email/password
+2. **Create Room**: Enter room name, code, and password
+3. **Select Device**: Choose your audio input device
+4. **Start Broadcasting**: Click "Start Broadcast"
+
+### Listening Setup
+
+1. **Enter Room Code**: Get the room code from the broadcaster
+2. **Enter Password**: Enter the room password
+3. **Join Room**: Click "Join Room"
+4. **Adjust Volume**: Use the volume slider
+5. **Mute/Unmute**: Click the mute button
+
+## Admin Panel
+
+The admin panel allows broadcasters to:
+- View all their rooms
+- Assign audio devices to rooms
+- Configure channel mappings
+- Delete rooms
+- View room analytics
+
+**Access**: Click the "Admin" button in the status bar (only visible when logged in as broadcaster)
+
+## Project Structure
+
+```
+electron-app/
+├── main.js              # Main Electron process
+├── renderer.js          # Renderer process (UI logic)
+├── preload.js           # IPC bridge (secure communication)
+├── index.html           # UI structure
+├── client-core.js       # WebSocket client core
+├── opus-encoder.js      # Opus audio encoding
+├── opus-decoder.js      # Opus audio decoding
+├── admin.html           # Admin panel UI
+├── admin.js             # Admin panel logic
+├── services/
+│   ├── auth-client.js      # Authentication API client
+│   └── audio-listener.js   # Audio playback engine
+├── utils/
+│   ├── audio-buffer.js     # Adaptive jitter buffer
+│   └── reconnection.js     # Reconnection logic
+└── config/
+    └── constants.js        # Configuration constants
+```
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `RAILWAY_WS_URL` | WebSocket URL of your Railway server | Yes |
+| `RAILWAY_URL` | Alternative (will be converted to WebSocket) | Yes |
 
 ## Troubleshooting
 
 ### "naudiodon not available" Error
 
-This means native modules weren't built correctly. Run:
+The native audio library wasn't built correctly. Rebuild:
 ```bash
 npm run rebuild
 ```
 
 ### No Audio Devices Found
 
-- Make sure your audio device is connected and recognized by your OS
-- On macOS, grant microphone permissions in System Preferences → Security & Privacy
-- On Windows, check Device Manager for audio devices
+- **macOS**: Grant microphone permissions in System Preferences → Security & Privacy → Privacy → Microphone
+- **Windows**: Check Device Manager for audio devices
+- **Linux**: Ensure ALSA is installed and audio devices are recognized
 
 ### Connection Failed
 
-- Verify Railway URL is correct
+- Verify Railway URL is correct and uses `wss://` for HTTPS
 - Check that Railway server is running
-- Ensure your access token is valid (they expire - get a new one)
+- Ensure your access token is valid (they expire - sign in again)
 
-### Build Errors
+### Authentication Failed
 
-**macOS:**
-- Ensure Xcode Command Line Tools are installed: `xcode-select --install`
+- Verify your Supabase credentials are correct
+- Check that your Supabase project is configured correctly
+- Ensure the Railway server has the correct Supabase environment variables
 
-**Windows:**
-- Install Visual Studio Build Tools with C++ workload
-- Ensure Python 3.x is installed and in PATH
+### App Crashes on Startup
 
-**Linux:**
-- Install build essentials: `sudo apt-get install build-essential libasound2-dev`
+- Check console for error messages
+- Ensure all native modules are rebuilt: `npm run rebuild`
+- Try deleting `node_modules` and reinstalling: `rm -rf node_modules && npm install`
 
-## Distribution
+## Development Notes
 
-The built installers are completely standalone:
-- ✅ Include Electron runtime
-- ✅ Include all JavaScript dependencies
-- ✅ Include native audio libraries
-- ✅ Include system libraries (where possible)
+### IPC Communication
 
-Users can install and run without any additional setup.
+The app uses Electron's IPC (Inter-Process Communication) for secure communication between main and renderer processes:
 
-## File Structure
+- **Main Process**: Handles native modules, WebSocket connections, file system access
+- **Renderer Process**: Handles UI, user interactions, audio visualization
+- **Preload Script**: Provides secure API bridge between processes
 
-```
-electron-app/
-├── main.js           # Electron main process
-├── preload.js        # Preload script (security bridge)
-├── renderer.js       # UI logic
-├── client-core.js    # Audio client core logic
-├── opus-encoder.js   # Opus audio encoder utility
-├── index.html        # UI markup
-├── package.json      # Dependencies and build config
-├── install.sh        # Setup script
-└── build/            # Build resources (icons, entitlements)
-```
+### Audio Processing
+
+- **Encoding**: Opus encoding happens in the main process (native module)
+- **Decoding**: Opus decoding happens in the main process, PCM sent to renderer
+- **Playback**: Web Audio API in renderer process for low-latency playback
+- **Buffering**: Adaptive jitter buffer handles network jitter and packet loss
+
+### Security
+
+- Context isolation enabled (renderer cannot access Node.js APIs directly)
+- Preload script provides controlled API surface
+- Tokens stored securely in main process
+- No direct access to Supabase keys from renderer
 
 ## License
 
-Same as main project.
+See LICENSE file for details.
+
+## Support
+
+For issues or questions, please open an issue on GitHub:
+https://github.com/soundrolling/electrondante/issues

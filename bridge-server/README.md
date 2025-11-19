@@ -1,25 +1,31 @@
-# Dante Bridge Server
+# Dante Audio Bridge Server
 
-Bridge server for Dante Personal Monitor Mixer with relay architecture:
-- **Railway Server**: Acts as relay - receives audio from source, broadcasts to all listeners
-- **Local Client**: Captures audio from virtual soundcard, sends to Railway
-- **Vue Apps**: Connect to Railway as listeners, receive audio for VU meters and playback
+A standalone multi-room audio streaming server with Supabase authentication. Broadcasters can create rooms and stream audio, while listeners join rooms using room codes and passwords.
 
 ## Architecture
 
 ```
-Recorder → Dante Virtual Soundcard → Local Client → Railway (WebSocket) → All Listeners (Vue Apps)
+Broadcaster (Electron App) → WebSocket → Bridge Server (Railway) → WebSocket → Listeners (Electron App)
 ```
 
-- **Source**: One local machine with virtual soundcard runs the client (`client.js`)
-- **Railway**: Relay server that receives audio from source and broadcasts to all listeners
-- **Listeners**: Vue apps (local and remote) connect to Railway to receive audio
+- **Bridge Server**: Runs on Railway, manages rooms, authentication, and relays audio
+- **Electron App**: Desktop client for both broadcasting and listening
+- **Supabase**: User authentication and room persistence
 
-## Setup Instructions
+## Features
 
-### 1. Railway Server Deployment (Relay)
+- ✅ Multi-room audio streaming
+- ✅ Supabase authentication for broadcasters
+- ✅ Room code/password system for listeners
+- ✅ Opus audio encoding/decoding
+- ✅ Adaptive jitter buffering
+- ✅ Automatic reconnection with exponential backoff
+- ✅ Admin panel for room and device management
+- ✅ Database persistence for rooms and analytics
 
-The Railway server acts as a relay that receives audio from the source and broadcasts to all listeners.
+## Quick Start
+
+### 1. Railway Server Deployment
 
 1. **Connect Repository:**
    - Go to [railway.app](https://railway.app)
@@ -27,184 +33,173 @@ The Railway server acts as a relay that receives audio from the source and broad
    - Select your repository
 
 2. **Configure Service:**
-   - Set **Root Directory** to `bridge-server` (IMPORTANT!)
-   - Railway will use RAILPACK builder (configured in `railway.json`)
-   - Start command is auto-detected from `package.json` ("start": "node server.js")
+   - Set **Root Directory** to `bridge-server`
+   - Railway will auto-detect `package.json` start script
 
 3. **Set Environment Variables:**
-   In Railway dashboard → Variables, add:
    ```
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_SERVICE_KEY=your-service-role-key
-   CHANNEL_COUNT=16
+   PORT=3000
    ```
-   - `PORT` is automatically set by Railway (don't override)
 
 4. **Deploy:**
    - Railway will automatically build and deploy
    - Get your deployment URL (e.g., `https://your-app.railway.app`)
-   - Note the WebSocket URL: `wss://your-app.railway.app`
+   - WebSocket URL: `wss://your-app.railway.app`
 
-### 2. Local Client Setup (Audio Source)
+### 2. Supabase Database Setup
 
-The local client captures audio from your virtual soundcard and sends it to Railway.
+1. **Create Tables:**
+   - Go to your Supabase project → SQL Editor
+   - Run the SQL from `supabase-migration.sql`
+   - This creates: `audio_rooms`, `room_participants`, `room_analytics`, `audit_log`
 
-1. **Install dependencies:**
+2. **Configure RLS:**
+   - Row Level Security is enabled by default
+   - Service role key bypasses RLS (used by server)
+   - Users can only access their own rooms
+
+### 3. Electron App Setup
+
+See `electron-app/README.md` for detailed instructions.
+
+**Quick Start:**
 ```bash
-cd bridge-server
+cd electron-app
 npm install
-```
-
-2. **Create `.env` file:**
-```bash
-# Railway WebSocket URL (use wss:// for HTTPS)
-RAILWAY_WS_URL=wss://your-app.railway.app
-
-# Supabase access token (get from browser after signing in to Vue app)
-# In browser DevTools console: JSON.parse(localStorage.getItem('sb-<project-ref>-auth-token')).access_token
-SUPABASE_ACCESS_TOKEN=your-access-token-here
-
-# Optional: Supabase credentials (for future enhancements)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-
-# Audio configuration
-CHANNEL_COUNT=16
-DANTE_DEVICE_ID=-1  # Auto-detect, or specify device ID
-```
-
-3. **Start the client:**
-```bash
-npm run client
-```
-
-**Important:**
-- **Get Access Token**: Sign in to the Vue app, then get your access token:
-  1. Open browser DevTools (F12)
-  2. Go to Console tab
-  3. Run: `JSON.parse(localStorage.getItem('sb-<your-project-ref>-auth-token')).access_token`
-  4. Copy the token and set it as `SUPABASE_ACCESS_TOKEN` in your `.env` file
-- The client will automatically reconnect if connection is lost
-- Only one source can be registered at a time
-
-### 3. Vue App Configuration (Listeners)
-
-All Vue apps (local and remote) connect to Railway as listeners.
-
-1. **Set environment variable in Vercel:**
-```
-VITE_BRIDGE_WS_URL=wss://your-app.railway.app
-```
-
-2. **Or in local `.env` file:**
-```
-VITE_BRIDGE_WS_URL=wss://your-app.railway.app
-```
-
-3. **Vue apps will:**
-   - Connect to Railway WebSocket
-   - Authenticate with Supabase
-   - Receive audio data for VU meters and playback
-   - Support preset management
-
-## How It Works
-
-### Connection Flow
-
-1. **Source Registration:**
-   - Local client connects to Railway WebSocket
-   - Authenticates with Supabase token
-   - Sends `registerSource` message
-   - Railway registers connection as audio source
-   - Client starts capturing audio from virtual soundcard
-
-2. **Audio Streaming:**
-   - Client processes audio buffers from virtual soundcard
-   - Sends audio packets to Railway via WebSocket
-   - Railway receives audio and relays to all connected listeners
-   - Listeners receive audio for VU meters and playback
-
-3. **Listener Connection:**
-   - Vue apps connect to Railway WebSocket
-   - Authenticate with Supabase token
-   - Receive config message with channel count
-   - Start receiving audio packets
-   - Support preset save/load operations
-
-### Message Types
-
-**From Source (Client):**
-- `registerSource` - Register as audio source
-- `audio` - Audio data packets
-
-**From Listeners (Vue Apps):**
-- `authenticate` - Authenticate with Supabase token
-- `loadPreset` - Load saved preset
-- `savePreset` - Save current preset
-
-**From Railway (Server):**
-- `config` - Initial configuration (channels, sample rate)
-- `sourceRegistered` - Confirmation of source registration
-- `authenticated` - Authentication confirmation
-- `audio` - Audio data packets (relayed to listeners)
-- `preset` - Preset data
-- `error` - Error messages
-
-## Important Notes
-
-- **One Source Only:** Only one source can be registered at a time. If another source tries to register, it will receive an error.
-
-- **Authentication Required:** Both source and listeners must authenticate with Supabase. The source client needs a valid Supabase session token (sign in to the Vue app first).
-
-- **WebSocket URL:** Railway provides HTTPS, so use `wss://` (secure WebSocket) for Railway URLs. Local development can use `ws://`.
-
-- **Health Check:** Railway server exposes `/health` endpoint showing:
-  - `connectedListeners` - Number of connected listeners
-  - `hasSource` - Whether a source is registered
-
-- **Audio Hardware:** The local client requires `naudiodon` and audio hardware access. Railway server does not need audio hardware (it's a relay only).
-
-## Troubleshooting
-
-### Source Client Issues
-
-- **"naudiodon not available"**: Install naudiodon: `npm install naudiodon`. Requires audio hardware access.
-- **"No Supabase session"**: Sign in to the Vue app first, then restart the client to get authentication token.
-- **"Source already registered"**: Another source is already connected. Only one source allowed at a time.
-- **"Cannot connect to Railway"**: Check `RAILWAY_WS_URL` is correct and uses `wss://` for HTTPS.
-
-### Railway Server Issues
-
-- **No audio received**: Check that source client is running and registered successfully.
-- **Listeners not receiving audio**: Verify source is registered (check `/health` endpoint shows `hasSource: true`).
-- **Connection Issues**: Check that Railway deployment is running and WebSocket URL uses `wss://`.
-
-### Vue App Issues
-
-- **Cannot connect**: Verify `VITE_BRIDGE_WS_URL` is set correctly in environment variables.
-- **No audio**: Check that source is registered and sending audio to Railway.
-- **CORS Errors**: Railway server auto-allows Vercel URLs. Check that your frontend URL is in allowed origins.
-
-## Development
-
-### Running Locally (Testing)
-
-For local testing, you can run both server and client locally:
-
-1. **Terminal 1 - Railway Server (local):**
-```bash
-cd bridge-server
 npm start
 ```
 
-2. **Terminal 2 - Client (local):**
+## Environment Variables
+
+### Server (Railway)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SUPABASE_URL` | Your Supabase project URL | Yes |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key | Yes |
+| `PORT` | HTTP server port (auto-set by Railway) | No |
+| `JWT_SECRET` | Secret for signing JWT tokens (auto-generated if not set) | No |
+
+### Electron App
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `RAILWAY_WS_URL` | WebSocket URL of your Railway server | Yes |
+| `RAILWAY_URL` | Alternative (will be converted to WebSocket) | Yes |
+
+## API Endpoints
+
+### Authentication
+- `POST /auth/broadcaster` - Broadcaster login
+- `POST /auth/refresh` - Refresh access token
+- `POST /auth/room/create` - Create a new room
+- `POST /auth/room/join` - Join a room with code/password
+
+### Room Management
+- `GET /api/rooms/public` - List public rooms
+- `GET /api/broadcaster/me` - Get current broadcaster info
+- `GET /api/broadcaster/rooms` - List broadcaster's rooms
+- `GET /api/broadcaster/devices` - List available audio devices
+- `POST /api/broadcaster/assign-device` - Assign device to room
+- `GET /api/broadcaster/rooms/:roomId/channels` - Get room channels
+- `DELETE /api/broadcaster/rooms/:roomId` - Delete room
+
+### Monitoring
+- `GET /health` - Health check
+- `GET /metrics` - Server metrics (Prometheus format)
+
+## WebSocket Protocol
+
+### Message Types
+
+**From Broadcaster:**
+- `registerSource` - Register as audio source for a room
+- `audio` - Audio data packets
+
+**From Listener:**
+- `registerListener` - Register as listener for a room
+- `ping` - Heartbeat
+
+**From Server:**
+- `sourceRegistered` - Confirmation of source registration
+- `listenerRegistered` - Confirmation of listener registration
+- `roomStatus` - Room status updates
+- `audio` - Audio data packets (relayed to listeners)
+- `pong` - Heartbeat response
+- `roomClosed` - Room was closed
+- `roomSuspended` - Room was suspended
+
+## Development
+
+### Running Locally
+
 ```bash
-cd bridge-server
-RAILWAY_WS_URL=ws://localhost:3000 npm run client
+# Install dependencies
+npm install
+
+# Set environment variables
+export SUPABASE_URL=https://your-project.supabase.co
+export SUPABASE_SERVICE_KEY=your-service-role-key
+
+# Start server
+npm start
 ```
 
-3. **Vue App:**
+### Testing
+
 ```bash
-VITE_BRIDGE_WS_URL=ws://localhost:3000 npm run dev
+# Health check
+curl http://localhost:3000/health
+
+# Metrics
+curl http://localhost:3000/metrics
 ```
 
+## Project Structure
+
+```
+bridge-server/
+├── server.js              # Main server file
+├── package.json           # Server dependencies
+├── utils/
+│   ├── token.js          # JWT token utilities
+│   └── password.js        # Password hashing utilities
+├── middleware/
+│   └── rate-limit.js      # Rate limiting middleware
+├── electron-app/         # Electron desktop client
+│   ├── main.js           # Main process
+│   ├── renderer.js       # Renderer process
+│   ├── preload.js        # IPC bridge
+│   ├── services/
+│   │   ├── auth-client.js    # Authentication client
+│   │   └── audio-listener.js # Audio playback
+│   └── utils/
+│       ├── audio-buffer.js   # Jitter buffer
+│       └── reconnection.js    # Reconnection logic
+├── supabase-migration.sql    # Database schema
+└── README.md              # This file
+```
+
+## Troubleshooting
+
+### Server Issues
+
+- **"Supabase connection failed"**: Check `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`
+- **"Port already in use"**: Change `PORT` environment variable
+- **"Database error"**: Ensure Supabase tables are created (run migration SQL)
+
+### Electron App Issues
+
+- **"Cannot connect"**: Verify `RAILWAY_WS_URL` is correct and uses `wss://` for HTTPS
+- **"Authentication failed"**: Check Supabase credentials and user account
+- **"No audio devices"**: Grant microphone permissions in system settings
+
+## License
+
+See LICENSE file for details.
+
+## Support
+
+For issues or questions, please open an issue on GitHub.

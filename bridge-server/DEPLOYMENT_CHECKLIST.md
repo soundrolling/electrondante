@@ -51,7 +51,7 @@
 - [x] Code committed to git
 - [x] Version bumped to 1.1.0 (both repos)
 - [x] Tagged as v1.1.0
-- [x] Pushed to origin (proapp2149)
+- [x] Pushed to origin
 - [x] Pushed to electrondante
 
 ### UI/UX

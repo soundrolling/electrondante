@@ -15,7 +15,7 @@ The electron app has been made **self-contained** and is ready to be moved:
 
 ### 1. Create New GitHub Repository
 
-1. Create a new **public** GitHub repository (e.g., `dante-audio-client` or `proapp-electron-client`)
+1. Create a new **public** GitHub repository (e.g., `dante-audio-client` or `electrondante`)
 2. Initialize it with a README (optional)
 
 ### 2. Copy Electron App Directory

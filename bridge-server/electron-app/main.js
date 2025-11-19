@@ -493,7 +493,7 @@ ipcMain.handle('auth-login', async (event, email, password, railwayUrl) => {
     }
     
     if (!authClient) {
-      authClient = new AuthClient(railwayUrl || 'wss://proapp2149-production.up.railway.app');
+      authClient = new AuthClient(railwayUrl || '');
     }
     
     const result = await authClient.login(email, password);
@@ -564,7 +564,7 @@ ipcMain.handle('room-join', async (event, roomCode, password, railwayUrl) => {
     }
     
     // Create temporary auth client for joining
-    const tempAuthClient = new AuthClient(railwayUrl || 'wss://proapp2149-production.up.railway.app');
+    const tempAuthClient = new AuthClient(railwayUrl || '');
     const result = await tempAuthClient.joinRoom(roomCode, password);
     return { success: true, ...result };
   } catch (error) {
@@ -833,14 +833,14 @@ ipcMain.handle('open-admin-panel', async () => {
         adminWindow.webContents.executeJavaScript(`
           if (typeof window !== 'undefined') {
             window.__ELECTRON_AUTH_TOKENS__ = ${JSON.stringify(tokens)};
-            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient.apiUrl || 'https://proapp2149-production.up.railway.app')};
+            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient.apiUrl || '')};
           }
         `);
       } else {
         // Not authenticated - admin panel will show login
         adminWindow.webContents.executeJavaScript(`
           if (typeof window !== 'undefined') {
-            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient?.apiUrl || 'https://proapp2149-production.up.railway.app')};
+            window.__ELECTRON_API_URL__ = ${JSON.stringify(authClient?.apiUrl || '')};
           }
         `);
       }
@@ -866,7 +866,7 @@ ipcMain.handle('get-auth-tokens', async () => {
     return {
       success: true,
       tokens: authClient.getTokens(),
-      apiUrl: authClient.baseUrl || 'https://proapp2149-production.up.railway.app',
+      apiUrl: authClient.baseUrl || '',
     };
   }
   return { success: false, error: 'Not authenticated' };

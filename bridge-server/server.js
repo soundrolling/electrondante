@@ -1958,7 +1958,9 @@ class DanteBridgeServer {
         console.log(`✅ HTTP server listening on port ${CONFIG.port}`);
         console.log(`🌍 Environment: ${process.env.RAILWAY_ENVIRONMENT || 'local'}`);
         console.log(`🔌 WebSocket will be available at: ws://localhost:${CONFIG.port}`);
-        console.log(`🌐 Public URL: https://proapp2149-production.up.railway.app`);
+        if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+          console.log(`🌐 Public URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+        }
         console.log(`📡 Server ready to accept connections`);
         // Initialize WebSocket after HTTP server is ready
         this.initWebSocket();
