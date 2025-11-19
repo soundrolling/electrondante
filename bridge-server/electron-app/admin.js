@@ -281,31 +281,40 @@ function selectRoom(roomId) {
   }
 }
 
-// Load devices
+// Load devices (Electron only - uses real audio devices)
 async function loadDevices() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/broadcaster/devices`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken || ''}`
+    // In Electron, get real devices from main process
+    if (window.electronAPI && window.electronAPI.getDevices) {
+      try {
+        const electronDevices = await window.electronAPI.getDevices();
+        if (electronDevices && Array.isArray(electronDevices)) {
+          devices = electronDevices.map((device, index) => ({
+            id: `device-${device.id || index}`,
+            name: device.name,
+            channels: device.maxInputChannels || 1,
+            sampleRate: device.defaultSampleRate || 48000,
+            assignedToRoom: null,
+            electronDeviceId: device.id, // Store original ID for reference
+          }));
+          renderDevices();
+          return;
+        }
+      } catch (error) {
+        console.error('Could not get devices from Electron:', error);
+        document.getElementById('deviceList').innerHTML = `
+          <div class="error-message">Error loading devices: ${error.message}</div>
+        `;
+        return;
       }
-    });
-    
-    if (!response.ok && response.status !== 401) {
-      throw new Error('Failed to load devices');
     }
     
-    if (response.ok) {
-      devices = await response.json();
-      renderDevices();
-    } else {
-      // Not authenticated yet, show placeholder
-      document.getElementById('deviceList').innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">🎤</div>
-          <p>Please login to see available audio devices</p>
-        </div>
-      `;
-    }
+    // If no Electron API, show error
+    document.getElementById('deviceList').innerHTML = `
+      <div class="error-message">
+        Admin panel requires Electron app. Please open from the main app.
+      </div>
+    `;
   } catch (error) {
     console.error('Error loading devices:', error);
     document.getElementById('deviceList').innerHTML = `
