@@ -1,4 +1,31 @@
 // Renderer process - UI logic for multi-room audio system
+
+// Global error handlers to catch unhandled errors
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error);
+  console.error('Error message:', event.message);
+  console.error('Error filename:', event.filename);
+  console.error('Error lineno:', event.lineno);
+  console.error('Error colno:', event.colno);
+  if (event.error && event.error.stack) {
+    console.error('Stack:', event.error.stack);
+  }
+  // Try to show in UI if possible
+  if (typeof addLog !== 'undefined') {
+    addLog(`Error: ${event.message}`, 'error');
+  }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  if (event.reason && event.reason.stack) {
+    console.error('Stack:', event.reason.stack);
+  }
+  if (typeof addLog !== 'undefined') {
+    addLog(`Unhandled promise rejection: ${event.reason}`, 'error');
+  }
+});
+
 let currentMode = 'listen'; // 'broadcast' or 'listen' - default to listen mode
 let selectedDeviceId = null;
 let currentRoom = null; // { roomId, roomCode, roomToken, roomName }
@@ -37,8 +64,9 @@ let statusBar, connectionIndicator, statusText, messagesDiv, logArea, toastConta
 
 // Initialize app
 function initializeApp() {
+  try {
   if (!window.electronAPI) {
-    setTimeout(initializeApp, 100);
+      setTimeout(initializeApp, 100);
     return;
   }
 
@@ -214,6 +242,15 @@ function initializeApp() {
 
   addLog('Dante Audio Client ready', 'success');
   setTimeout(refreshDevices, 1000);
+  } catch (error) {
+    console.error('Error initializing app:', error);
+    // Show error in UI if possible
+    if (typeof alert !== 'undefined') {
+      alert('Error initializing app: ' + error.message + '\n\nCheck console for details.');
+    }
+    // Try to log to console
+    console.error('Stack:', error.stack);
+  }
 }
 
 // Switch between broadcast and listen modes
@@ -282,7 +319,7 @@ async function handleLogin() {
     showMessage('Please enter email and password', 'error');
     return;
   }
-  
+
   try {
     loginBtn.disabled = true;
     loginBtn.textContent = 'Signing in...';
@@ -815,14 +852,14 @@ function updateStatus(status) {
   statusText.textContent = status.message || 'Unknown';
   
   if (connectionIndicator) {
-    connectionIndicator.classList.remove('connected', 'registered');
-    if (status.type === 'connected' || status.type === 'registered' || status.type === 'audio-started') {
-      connectionIndicator.classList.add('connected');
-      if (status.type === 'registered' || status.type === 'audio-started') {
-        connectionIndicator.classList.add('registered');
-      }
+  connectionIndicator.classList.remove('connected', 'registered');
+  if (status.type === 'connected' || status.type === 'registered' || status.type === 'audio-started') {
+    connectionIndicator.classList.add('connected');
+    if (status.type === 'registered' || status.type === 'audio-started') {
+      connectionIndicator.classList.add('registered');
     }
   }
+}
 }
 
 // Show toast message
@@ -1128,7 +1165,7 @@ async function playAudioPacket(packet, channel, jitterBuffer) {
     nextStartTime += duration;
     nextStartTimes.set(channel, nextStartTime);
     
-  } catch (error) {
+    } catch (error) {
     console.error('Error playing audio packet:', error);
   }
 }

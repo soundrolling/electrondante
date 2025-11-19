@@ -176,10 +176,22 @@ function createWindow() {
 
   mainWindow.loadFile('index.html').catch((error) => {
     console.error('Failed to load index.html:', error);
+    logErrorContext('Failed to load index.html', error);
     // Try to show error in window if it exists
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('load-error', error.message);
     }
+  });
+  
+  // Catch JavaScript errors in renderer
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Page failed to load:', errorCode, errorDescription, validatedURL);
+    logErrorContext(`Page failed to load: ${errorCode}`, new Error(errorDescription));
+  });
+  
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('Render process gone:', details);
+    logErrorContext('Render process crashed', new Error(JSON.stringify(details)));
   });
   
   // Forward console logs to renderer for debugging
@@ -198,10 +210,19 @@ function createWindow() {
     console.error('Window crashed, killed:', killed);
   });
 
-  // Open DevTools in development
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
+  // Open DevTools by default for debugging (can be disabled later)
+  mainWindow.webContents.openDevTools();
+  
+  // Also add keyboard shortcut (Cmd+Option+I on Mac, Ctrl+Shift+I on Windows/Linux)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      if (mainWindow.webContents.isDevToolsOpened()) {
+        mainWindow.webContents.closeDevTools();
+      } else {
+        mainWindow.webContents.openDevTools();
+      }
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
