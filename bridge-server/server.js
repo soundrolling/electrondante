@@ -141,6 +141,9 @@ class DanteBridgeServer {
       },
       suspendedUntil: null,
       state: 'active', // 'active', 'suspended', 'closed'
+      // Device and channel assignments
+      assignedDevices: [], // Array of { deviceId, channels: [1,2,3], assignedAt }
+      assignedChannels: {}, // Map of channelNumber -> { deviceId, channelNumber, active }
       // Per-room audio buffering
       channelBuffers: new Array(CONFIG.channels).fill(null).map(() => []),
       isBuffering: true,
@@ -850,63 +853,63 @@ class DanteBridgeServer {
               this.notifyRoomStatus(roomId);
             } else {
               // Legacy single-room mode (backward compatibility)
-              if (!supabase) {
-                client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
-                return;
+          if (!supabase) {
+            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
+            return;
+          }
+          
+            const { data: user, error } = await supabase.auth.getUser(data.token);
+            if (error) {
+              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+              return;
+            }
+            
+            // Check if this user is already the source (reconnection scenario)
+            if (this.sourceConnection && this.sourceConnection.userId === user.user.id) {
+              console.log(`🔄 User ${user.user.id} reclaiming source connection`);
+              try {
+                this.sourceConnection.ws.close();
+              } catch (e) {
+                // Ignore errors closing old connection
               }
-              
-              const { data: user, error } = await supabase.auth.getUser(data.token);
-              if (error) {
-                client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
-                return;
-              }
-              
-              // Check if this user is already the source (reconnection scenario)
-              if (this.sourceConnection && this.sourceConnection.userId === user.user.id) {
-                console.log(`🔄 User ${user.user.id} reclaiming source connection`);
-                try {
-                  this.sourceConnection.ws.close();
-                } catch (e) {
-                  // Ignore errors closing old connection
-                }
-                this.sourceConnection = null;
-              }
-              
-              // Check if another source is already registered
-              if (this.sourceConnection) {
-                client.ws.send(JSON.stringify({ 
-                  type: 'error', 
-                  message: 'Source already registered. Only one source allowed at a time.' 
-                }));
-                return;
-              }
-              
-              // Remove from listeners and set as source
-              this.listeners.delete(clientId);
-              this.sourceConnection = {
-                ws: client.ws,
-                userId: user.user.id,
-                clientId: clientId,
-                type: 'source'
-              };
-              
-              // Reset buffering state when new source registers
-              this.channelBuffers.forEach(buffer => buffer.length = 0);
-              this.isBuffering = true;
-              this.bufferStartTime = null;
-              this.relaySequence = 0;
+              this.sourceConnection = null;
+            }
+            
+            // Check if another source is already registered
+            if (this.sourceConnection) {
+              client.ws.send(JSON.stringify({ 
+                type: 'error', 
+                message: 'Source already registered. Only one source allowed at a time.' 
+              }));
+              return;
+            }
+            
+            // Remove from listeners and set as source
+            this.listeners.delete(clientId);
+            this.sourceConnection = {
+              ws: client.ws,
+              userId: user.user.id,
+              clientId: clientId,
+              type: 'source'
+            };
+            
+            // Reset buffering state when new source registers
+            this.channelBuffers.forEach(buffer => buffer.length = 0);
+            this.isBuffering = true;
+            this.bufferStartTime = null;
+            this.relaySequence = 0;
               this._channelsReceived = new Set();
               this.stopRelayInterval();
-              
-              console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
-              client.ws.send(JSON.stringify({ 
-                type: 'sourceRegistered', 
-                userId: user.user.id,
-                channels: CONFIG.channels,
-                sampleRate: CONFIG.sampleRate
-              }));
-              
-              this.notifySourceStatus();
+            
+            console.log(`🎤 Source registered: ${clientId} by user ${user.user.id}`);
+            client.ws.send(JSON.stringify({ 
+              type: 'sourceRegistered', 
+              userId: user.user.id,
+              channels: CONFIG.channels,
+              sampleRate: CONFIG.sampleRate
+            }));
+            
+            this.notifySourceStatus();
             }
           } catch (error) {
             console.error('Source registration error:', error);
@@ -1127,66 +1130,66 @@ class DanteBridgeServer {
             }
           } else {
             // Legacy single-room mode
-            if (!isSource) {
-              console.warn(`Received audio from non-source client ${clientId}`);
-              return;
-            }
-            
-            // Log audio reception periodically for debugging
-            if (!this._audioReceivedCount) this._audioReceivedCount = 0;
-            if (!this._channelsReceived) this._channelsReceived = new Set();
-            this._audioReceivedCount++;
-            this._channelsReceived.add(data.channel);
-            
-            if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
-              const bufferStatus = this.isBuffering ? 'buffering' : 'relaying';
-              const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
-              const channelsReceivedList = Array.from(this._channelsReceived).sort((a, b) => a - b).join(',');
-              console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], channels received so far: [${channelsReceivedList}], listeners: ${this.listeners.size})`);
-            }
-            
-            // Buffer audio from source (fast acceptance, no delay)
-            if (data.channel !== undefined && data.data) {
-              const channel = data.channel;
-              if (channel >= 0 && channel < this.channelBuffers.length) {
-                // Add to buffer immediately (source → server is fast)
-                this.channelBuffers[channel].push({
-                  data: data.data,
-                  encoding: data.encoding || 'pcm',
-                  timestamp: data.timestamp || Date.now(),
-                  sequence: data.sequence || this._audioReceivedCount,
-                  bufferCount: data.bufferCount || 1,
-                });
+          if (!isSource) {
+            console.warn(`Received audio from non-source client ${clientId}`);
+            return;
+          }
+          
+          // Log audio reception periodically for debugging
+          if (!this._audioReceivedCount) this._audioReceivedCount = 0;
+          if (!this._channelsReceived) this._channelsReceived = new Set();
+          this._audioReceivedCount++;
+          this._channelsReceived.add(data.channel);
+          
+          if (this._audioReceivedCount <= 5 || this._audioReceivedCount % 1000 === 0) {
+            const bufferStatus = this.isBuffering ? 'buffering' : 'relaying';
+            const bufferSizes = this.channelBuffers.map(buf => buf.length).join(',');
+            const channelsReceivedList = Array.from(this._channelsReceived).sort((a, b) => a - b).join(',');
+            console.log(`🎤 [SERVER] Received audio packet #${this._audioReceivedCount} from source (channel: ${data.channel}, encoding: ${data.encoding || 'pcm'}, status: ${bufferStatus}, buffer sizes: [${bufferSizes}], channels received so far: [${channelsReceivedList}], listeners: ${this.listeners.size})`);
+          }
+          
+          // Buffer audio from source (fast acceptance, no delay)
+          if (data.channel !== undefined && data.data) {
+            const channel = data.channel;
+            if (channel >= 0 && channel < this.channelBuffers.length) {
+              // Add to buffer immediately (source → server is fast)
+              this.channelBuffers[channel].push({
+                data: data.data,
+                encoding: data.encoding || 'pcm',
+                timestamp: data.timestamp || Date.now(),
+                sequence: data.sequence || this._audioReceivedCount,
+                bufferCount: data.bufferCount || 1,
+              });
+              
+              // Check if we have enough buffered data to start relaying
+              if (this.isBuffering) {
+                if (!this.bufferStartTime) {
+                  this.bufferStartTime = Date.now();
+                }
                 
-                // Check if we have enough buffered data to start relaying
-                if (this.isBuffering) {
-                  if (!this.bufferStartTime) {
-                    this.bufferStartTime = Date.now();
+                // Check minimum buffer size across all channels
+                let minBufferSize = Infinity;
+                for (let ch = 0; ch < this.channelBuffers.length; ch++) {
+                  const bufferLength = this.channelBuffers[ch].length;
+                  if (bufferLength > 0 && bufferLength < minBufferSize) {
+                    minBufferSize = bufferLength;
                   }
+                }
+                
+                // Estimate samples in buffer (rough estimate: each packet is ~16384 samples when batched)
+                // This is approximate - actual sample count depends on encoding and batching
+                const estimatedSamplesPerPacket = 16384; // 4096 samples * 4 batches = ~16384 samples
+                const estimatedBufferSamples = minBufferSize * estimatedSamplesPerPacket;
+                
+                if (estimatedBufferSamples >= CONFIG.listenerBufferSamples || minBufferSize >= 10) {
+                  // Buffer filled - start relaying
+                  const bufferingTime = Date.now() - this.bufferStartTime;
+                  this.isBuffering = false;
+                  this.bufferStartTime = null;
+                  console.log(`✅ [SERVER] Buffer filled (${minBufferSize} packets, ~${estimatedBufferSamples} samples) in ${bufferingTime}ms, starting relay to listeners`);
                   
-                  // Check minimum buffer size across all channels
-                  let minBufferSize = Infinity;
-                  for (let ch = 0; ch < this.channelBuffers.length; ch++) {
-                    const bufferLength = this.channelBuffers[ch].length;
-                    if (bufferLength > 0 && bufferLength < minBufferSize) {
-                      minBufferSize = bufferLength;
-                    }
-                  }
-                  
-                  // Estimate samples in buffer (rough estimate: each packet is ~16384 samples when batched)
-                  // This is approximate - actual sample count depends on encoding and batching
-                  const estimatedSamplesPerPacket = 16384; // 4096 samples * 4 batches = ~16384 samples
-                  const estimatedBufferSamples = minBufferSize * estimatedSamplesPerPacket;
-                  
-                  if (estimatedBufferSamples >= CONFIG.listenerBufferSamples || minBufferSize >= 10) {
-                    // Buffer filled - start relaying
-                    const bufferingTime = Date.now() - this.bufferStartTime;
-                    this.isBuffering = false;
-                    this.bufferStartTime = null;
-                    console.log(`✅ [SERVER] Buffer filled (${minBufferSize} packets, ~${estimatedBufferSamples} samples) in ${bufferingTime}ms, starting relay to listeners`);
-                    
-                    // Start relay interval if not already started
-                    this.startRelayInterval();
+                  // Start relay interval if not already started
+                  this.startRelayInterval();
                   }
                 }
               }
@@ -1611,6 +1614,304 @@ class DanteBridgeServer {
           success: false,
           error: 'Failed to fetch public rooms',
         });
+      }
+    });
+
+    // Broadcaster API endpoints (require authentication)
+    
+    // GET /api/broadcaster/me - Get current broadcaster info
+    app.get('/api/broadcaster/me', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        // Get user info from Supabase
+        if (supabase) {
+          const { data: userData, error } = await supabase.auth.admin.getUserById(decoded.userId);
+          if (!error && userData) {
+            return res.json({
+              id: userData.user.id,
+              email: userData.user.email,
+            });
+          }
+        }
+        
+        res.json({
+          id: decoded.userId,
+          email: decoded.email,
+        });
+      } catch (error) {
+        res.status(401).json({ error: error.message || 'Invalid token' });
+      }
+    });
+    
+    // GET /api/broadcaster/rooms - Get all rooms for authenticated broadcaster
+    app.get('/api/broadcaster/rooms', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        const broadcasterRooms = [];
+        
+        for (const [roomId, room] of this.rooms.entries()) {
+          if (room.metadata.createdBy === decoded.userId) {
+            broadcasterRooms.push({
+              id: roomId,
+              code: roomId,
+              name: room.metadata.name || `Room ${roomId}`,
+              listenerCount: room.listeners.size,
+              hasBroadcaster: !!room.broadcaster,
+              state: room.state,
+              createdAt: room.metadata.createdAt,
+              activeChannels: room.assignedChannels ? Object.keys(room.assignedChannels).length : 0,
+              assignedDevices: room.assignedDevices || [],
+            });
+          }
+        }
+        
+        res.json(broadcasterRooms);
+      } catch (error) {
+        res.status(401).json({ error: error.message || 'Invalid token' });
+      }
+    });
+    
+    // GET /api/broadcaster/devices - Get available audio devices (mock for web, real for Electron)
+    app.get('/api/broadcaster/devices', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        // For web admin panel, return mock devices
+        // In production, this would query the broadcaster's connected Electron app
+        // or use a device discovery service
+        const mockDevices = [
+          {
+            id: 'device-1',
+            name: 'Dante Virtual Soundcard',
+            channels: 32,
+            sampleRate: 48000,
+            assignedToRoom: null,
+          },
+          {
+            id: 'device-2',
+            name: 'USB Audio Interface',
+            channels: 16,
+            sampleRate: 48000,
+            assignedToRoom: null,
+          },
+          {
+            id: 'device-3',
+            name: 'Built-in Microphone',
+            channels: 1,
+            sampleRate: 48000,
+            assignedToRoom: null,
+          },
+        ];
+        
+        // Check which devices are assigned to rooms
+        for (const [roomId, room] of this.rooms.entries()) {
+          if (room.assignedDevices) {
+            for (const device of room.assignedDevices) {
+              const mockDevice = mockDevices.find(d => d.id === device.deviceId);
+              if (mockDevice) {
+                mockDevice.assignedToRoom = room.metadata.name || roomId;
+              }
+            }
+          }
+        }
+        
+        res.json(mockDevices);
+      } catch (error) {
+        res.status(401).json({ error: error.message || 'Invalid token' });
+      }
+    });
+    
+    // POST /api/broadcaster/assign-device - Assign device to room with channels
+    app.post('/api/broadcaster/assign-device', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        const { deviceId, roomId, channels } = req.body;
+        
+        if (!deviceId || !roomId || !channels || !Array.isArray(channels)) {
+          return res.status(400).json({ error: 'deviceId, roomId, and channels array are required' });
+        }
+        
+        const room = this.rooms.get(roomId);
+        if (!room) {
+          return res.status(404).json({ error: 'Room not found' });
+        }
+        
+        if (room.metadata.createdBy !== decoded.userId) {
+          return res.status(403).json({ error: 'Not authorized to modify this room' });
+        }
+        
+        // Initialize assigned devices/channels if not exists
+        if (!room.assignedDevices) {
+          room.assignedDevices = [];
+        }
+        if (!room.assignedChannels) {
+          room.assignedChannels = {};
+        }
+        
+        // Remove existing assignment for this device
+        room.assignedDevices = room.assignedDevices.filter(d => d.deviceId !== deviceId);
+        Object.keys(room.assignedChannels).forEach(ch => {
+          if (room.assignedChannels[ch].deviceId === deviceId) {
+            delete room.assignedChannels[ch];
+          }
+        });
+        
+        // Add new assignment
+        room.assignedDevices.push({
+          deviceId,
+          channels: channels,
+          assignedAt: new Date().toISOString(),
+        });
+        
+        // Map channels
+        channels.forEach(channelNum => {
+          room.assignedChannels[channelNum] = {
+            deviceId,
+            channelNumber: channelNum,
+            active: true,
+          };
+        });
+        
+        console.log(`✅ Device ${deviceId} assigned to room ${roomId} on channels ${channels.join(', ')}`);
+        
+        res.json({
+          success: true,
+          roomId,
+          deviceId,
+          channels,
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message || 'Failed to assign device' });
+      }
+    });
+    
+    // GET /api/broadcaster/rooms/:roomId/channels - Get channel assignments for a room
+    app.get('/api/broadcaster/rooms/:roomId/channels', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        const { roomId } = req.params;
+        const room = this.rooms.get(roomId);
+        
+        if (!room) {
+          return res.status(404).json({ error: 'Room not found' });
+        }
+        
+        if (room.metadata.createdBy !== decoded.userId) {
+          return res.status(403).json({ error: 'Not authorized to view this room' });
+        }
+        
+        // Build channel list
+        const channels = [];
+        const assignedChannels = room.assignedChannels || {};
+        const assignedDevices = room.assignedDevices || [];
+        
+        // Get device names
+        const deviceMap = {};
+        assignedDevices.forEach(device => {
+          deviceMap[device.deviceId] = device;
+        });
+        
+        for (let i = 1; i <= CONFIG.channels; i++) {
+          const assignment = assignedChannels[i];
+          channels.push({
+            number: i,
+            active: !!assignment,
+            deviceId: assignment?.deviceId || null,
+            deviceName: assignment ? (deviceMap[assignment.deviceId]?.name || assignment.deviceId) : null,
+          });
+        }
+        
+        res.json({ channels });
+      } catch (error) {
+        res.status(500).json({ error: error.message || 'Failed to load channels' });
+      }
+    });
+    
+    // DELETE /api/broadcaster/rooms/:roomId - Delete a room
+    app.delete('/api/broadcaster/rooms/:roomId', async (req, res) => {
+      try {
+        const authHeader = req.headers.authorization;
+        const accessToken = extractTokenFromHeader(authHeader);
+        
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const decoded = verifyToken(accessToken);
+        if (decoded.type !== 'access') {
+          return res.status(401).json({ error: 'Invalid token type' });
+        }
+        
+        const { roomId } = req.params;
+        const room = this.rooms.get(roomId);
+        
+        if (!room) {
+          return res.status(404).json({ error: 'Room not found' });
+        }
+        
+        if (room.metadata.createdBy !== decoded.userId) {
+          return res.status(403).json({ error: 'Not authorized to delete this room' });
+        }
+        
+        await this.closeRoom(roomId);
+        
+        res.json({ success: true });
+      } catch (error) {
+        res.status(500).json({ error: error.message || 'Failed to delete room' });
       }
     });
 
