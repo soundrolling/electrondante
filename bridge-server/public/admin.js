@@ -486,6 +486,9 @@ async function assignDevice() {
 // Load channels for room
 async function loadChannelsForRoom(roomId) {
   try {
+    // First load devices to get device names
+    await loadDevices();
+    
     const response = await fetch(`${API_BASE_URL}/api/broadcaster/rooms/${roomId}/channels`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
