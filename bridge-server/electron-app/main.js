@@ -1,3 +1,9 @@
+// Set V8 memory limit BEFORE requiring Electron (must be first)
+// This prevents OOM errors during app initialization
+if (process.argv.indexOf('--max-old-space-size') === -1) {
+  process.argv.push('--max-old-space-size=4096');
+}
+
 const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
