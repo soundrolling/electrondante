@@ -513,6 +513,27 @@ async function handleJoinRoom() {
   }
 }
 
+// Open admin panel
+async function openAdminPanel() {
+  if (window.electronAPI && window.electronAPI.openAdminPanel) {
+    try {
+      const result = await window.electronAPI.openAdminPanel();
+      if (result.success) {
+        showMessage('Admin panel opened', 'success');
+      } else {
+        showMessage(`Failed to open admin panel: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      showMessage(`Error: ${error.message}`, 'error');
+    }
+  } else {
+    // Fallback: open in browser
+    const railwayUrl = railwayUrlListenInput?.value || 'wss://proapp2149-production.up.railway.app';
+    const baseUrl = railwayUrl.replace('wss://', 'https://').replace('ws://', 'http://');
+    window.open(`${baseUrl}/admin.html`, '_blank');
+  }
+}
+
 // Handle refresh public rooms
 async function handleRefreshRooms() {
   if (!window.electronAPI) return;
