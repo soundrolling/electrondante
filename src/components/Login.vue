@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 21.211">
-        <span class="version-text">v21.211</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.1">
+        <span class="version-text">v2.0.1</span>
         <span class="version-date">November 22nd 2025</span>
       </button>
     </div>
@@ -19,7 +19,7 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 21.211</h2>
+          <h2 id="changelog-title">What's New in 2.0.1</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         

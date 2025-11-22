@@ -11,6 +11,9 @@
     <button @click="refetchSignalPaths" class="btn-refetch" :disabled="loading">
       🔄 {{ loading ? 'Refreshing...' : 'Refetch Signal Paths' }}
     </button>
+    <button @click="toggleShowHidden" class="btn-toggle-hidden" :class="{ active: showHidden }">
+      {{ showHidden ? '👁️ Hide Hidden Tracks' : '👁️‍🗨️ Show Hidden Tracks' }}
+    </button>
     <button @click="exportToPDF" class="btn-export" :disabled="signalPaths.length === 0">
       🖨️ Print / Export PDF
     </button>
@@ -41,10 +44,16 @@
               <th>Track #</th>
               <th>Source Name</th>
               <th>Signal Path</th>
+              <th class="actions-header">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="path in tracks" :key="path.connection_id" class="track-row">
+            <tr 
+              v-for="path in tracks" 
+              :key="path.connection_id" 
+              class="track-row"
+              :class="{ 'track-hidden': isTrackHidden(path.connection_id) && showHidden }"
+            >
               <td class="track-number">{{ path.track_number || '—' }}</td>
               <td class="source-name">
                 <strong 
@@ -70,6 +79,15 @@
                   </template>
                 </div>
               </td>
+              <td class="track-actions">
+                <button 
+                  @click="toggleTrackVisibility(path.connection_id)"
+                  class="btn-hide-track"
+                  :title="isTrackHidden(path.connection_id) ? 'Show track' : 'Hide track'"
+                >
+                  {{ isTrackHidden(path.connection_id) ? '👁️' : '👁️‍🗨️' }}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -81,7 +99,11 @@
   <div v-if="signalPaths.length > 0" class="track-list-summary">
     <div class="summary-item">
       <span class="summary-label">Total Tracks:</span>
-      <span class="summary-value">{{ signalPaths.length }}</span>
+      <span class="summary-value">{{ visiblePaths.length }}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Hidden Tracks:</span>
+      <span class="summary-value">{{ hiddenTracks.size }}</span>
     </div>
     <div class="summary-item">
       <span class="summary-label">Recorders:</span>
@@ -233,6 +255,10 @@ const inputModalConfig = ref({
   onConfirm: null
 })
 
+// Track visibility state
+const hiddenTracks = ref(new Set())
+const showHidden = ref(false)
+
 // PDF Export modal state
 const showPDFExportModal = ref(false)
 const isExportingPDF = ref(false)
@@ -305,6 +331,25 @@ function refetchSignalPaths() {
   emit('refetch-paths')
 }
 
+// Track visibility functions
+function isTrackHidden(connectionId) {
+  if (!connectionId) return false
+  return hiddenTracks.value.has(connectionId)
+}
+
+function toggleTrackVisibility(connectionId) {
+  if (!connectionId) return
+  if (hiddenTracks.value.has(connectionId)) {
+    hiddenTracks.value.delete(connectionId)
+  } else {
+    hiddenTracks.value.add(connectionId)
+  }
+}
+
+function toggleShowHidden() {
+  showHidden.value = !showHidden.value
+}
+
 // PDF Export modal functions
 function openPDFExportModal() {
   // Initialize with default values
@@ -330,11 +375,19 @@ function deselectAllRecorders() {
   pdfExportOptions.value.selectedRecorders = []
 }
 
+// Filter paths to exclude hidden tracks (for display)
+const visiblePaths = computed(() => {
+  return props.signalPaths.filter(path => {
+    if (!path.connection_id) return true
+    return !hiddenTracks.value.has(path.connection_id) || showHidden.value
+  })
+})
+
 // Group paths by recorder, then sort by track number within each group
 const groupedByRecorder = computed(() => {
   const groups = {}
   
-  props.signalPaths.forEach(path => {
+  visiblePaths.value.forEach(path => {
     const recorderName = path.recorder_label || 'Unknown Recorder'
     if (!groups[recorderName]) {
       groups[recorderName] = []
@@ -526,11 +579,39 @@ function exportCSV() {
       return stringValue
     }
     
+    // Filter out hidden tracks for export
+    const pathsToExport = props.signalPaths.filter(path => {
+      if (!path.connection_id) return true
+      return !hiddenTracks.value.has(path.connection_id)
+    })
+    
+    if (pathsToExport.length === 0) {
+      alert('No visible tracks to export. Please unhide some tracks or add tracks to the list.')
+      return
+    }
+    
+    // Group by recorder for export
+    const exportGroups = {}
+    pathsToExport.forEach(path => {
+      const recorderName = path.recorder_label || 'Unknown Recorder'
+      if (!exportGroups[recorderName]) {
+        exportGroups[recorderName] = []
+      }
+      exportGroups[recorderName].push(path)
+    })
+    
+    // Sort each group by track number
+    Object.keys(exportGroups).forEach(recorder => {
+      exportGroups[recorder].sort((a, b) => {
+        return compareTrackNumbers(a.track_number, b.track_number)
+      })
+    })
+    
     let csv = 'Recorder,Track #,Source Name,Source Gear,Signal Path\n'
     
     // Sort recorders alphabetically for consistent output
-    Object.keys(groupedByRecorder.value).sort().forEach(recorderName => {
-      const tracks = groupedByRecorder.value[recorderName]
+    Object.keys(exportGroups).sort().forEach(recorderName => {
+      const tracks = exportGroups[recorderName]
       
       tracks.forEach(path => {
         const recorder = escapeCSV(recorderName)
@@ -780,14 +861,28 @@ async function confirmPDFExport() {
       doc.text(recorderName, margin, yPos)
       yPos += 8
       
-      // Prepare table data
-      const tracks = groupedByRecorder.value[recorderName]
+      // Get all tracks for this recorder, then filter out hidden ones
+      const allTracksForRecorder = props.signalPaths.filter(path => {
+        const pathRecorderName = path.recorder_label || 'Unknown Recorder'
+        return pathRecorderName === recorderName
+      })
+      
+      // Filter out hidden tracks for export
+      const tracks = allTracksForRecorder.filter(path => {
+        if (!path.connection_id) return true
+        return !hiddenTracks.value.has(path.connection_id)
+      })
+      
+      // Sort by track number
+      tracks.sort((a, b) => {
+        return compareTrackNumbers(a.track_number, b.track_number)
+      })
       
       if (!tracks || tracks.length === 0) {
-        console.warn(`No tracks found for recorder: ${recorderName}`)
+        console.warn(`No visible tracks found for recorder: ${recorderName}`)
         doc.setFontSize(10)
         doc.setTextColor(0, 0, 0)
-        doc.text('No tracks found for this recorder', margin, yPos)
+        doc.text('No visible tracks found for this recorder', margin, yPos)
         return
       }
       
@@ -956,6 +1051,30 @@ async function confirmPDFExport() {
   background: var(--color-primary-600);
 }
 
+.btn-toggle-hidden {
+  padding: 10px 20px;
+  background: var(--color-secondary-400);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-toggle-hidden:hover {
+  background: var(--color-secondary-500);
+}
+
+.btn-toggle-hidden.active {
+  background: var(--color-primary-500);
+}
+
+.btn-toggle-hidden.active:hover {
+  background: var(--color-primary-600);
+}
+
 .loading-state,
 .no-data-state {
   text-align: center;
@@ -1014,6 +1133,38 @@ async function confirmPDFExport() {
 
 .track-list-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.track-row.track-hidden {
+  opacity: 0.5;
+  background: var(--bg-tertiary, #f8f9fa);
+}
+
+.actions-header {
+  width: 80px;
+  text-align: center;
+}
+
+.track-actions {
+  text-align: center;
+  padding: 10px 15px;
+}
+
+.btn-hide-track {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-hide-track:hover {
+  background: var(--bg-secondary);
 }
 
 .recorder-group {

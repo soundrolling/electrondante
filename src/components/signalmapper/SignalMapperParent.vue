@@ -773,16 +773,26 @@ onMounted(async () => {
 
 .copy-warning {
   padding: 12px;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
+  background: var(--color-warning-100);
+  border: 1px solid var(--color-warning-400);
   border-radius: 6px;
   margin-top: 15px;
 }
 
 .copy-warning p {
   margin: 0;
-  color: #856404;
+  color: var(--color-warning-800);
   font-size: 13px;
+}
+
+/* Dark mode adjustments for warning */
+.dark .copy-warning {
+  background: var(--color-warning-900);
+  border-color: var(--color-warning-600);
+}
+
+.dark .copy-warning p {
+  color: var(--color-warning-200);
 }
 
 .modal-footer {

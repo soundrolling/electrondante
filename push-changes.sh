@@ -19,21 +19,52 @@ increment_version() {
     
     echo -e "${BLUE}Incrementing version in Login.vue...${NC}"
     
-    # Extract current version (e.g., 21.62) - look for version-text span
-    local current_version=$(grep 'version-text' "$login_file" | sed -n 's/.*v\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
+    # Extract current version - support both old format (2.62) and new format (2.0.0)
+    # Try three-part version first, then fall back to two-part
+    local current_version=$(grep 'version-text' "$login_file" | sed -n 's/.*v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
     
+    # If not found, try two-part version (old format)
     if [ -z "$current_version" ]; then
-        echo -e "${YELLOW}Warning: Could not find version in $login_file. Skipping version increment.${NC}"
-        return
+        current_version=$(grep 'version-text' "$login_file" | sed -n 's/.*v\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
     fi
     
-    # Split version into major and minor parts
-    local major=$(echo "$current_version" | cut -d. -f1)
-    local minor=$(echo "$current_version" | cut -d. -f2)
+    # If still not found, default to 2.0.0
+    if [ -z "$current_version" ]; then
+        echo -e "${YELLOW}Warning: Could not find version in $login_file. Starting at v2.0.0${NC}"
+        current_version="2.0.0"
+    fi
     
-    # Increment minor version by 1 (0.01)
+    # Parse version parts
+    local major=$(echo "$current_version" | cut -d. -f1)
+    local middle=$(echo "$current_version" | cut -d. -f2)
+    local minor=$(echo "$current_version" | cut -d. -f3)
+    
+    # If version is old two-part format, convert to new format starting at 2.0.0
+    if [ -z "$minor" ]; then
+        echo -e "${BLUE}Converting from old version format to new format (starting at 2.0.0)...${NC}"
+        major=2
+        middle=0
+        minor=0
+    else
+        # Ensure we're using numeric values
+        major=$((major))
+        middle=$((middle))
+        minor=$((minor))
+    fi
+    
+    # Increment logic: increment minor, if it reaches 100 (0-99), reset to 0 and increment middle
     minor=$((minor + 1))
-    local new_version="${major}.${minor}"
+    if [ $minor -ge 100 ]; then
+        minor=0
+        middle=$((middle + 1))
+    fi
+    
+    # Ensure major is at least 2
+    if [ $major -lt 2 ]; then
+        major=2
+    fi
+    
+    local new_version="${major}.${middle}.${minor}"
     
     echo -e "${BLUE}Updating version from v${current_version} to v${new_version}...${NC}"
     
