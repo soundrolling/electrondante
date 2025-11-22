@@ -128,12 +128,20 @@
             </div>
             <div class="modal-body">
               <div class="form-field">
-                <label>Start Date & Time</label>
-                <input type="datetime-local" v-model="slotForm.start_datetime" />
+                <label>Start Date</label>
+                <input type="date" v-model="slotForm.start_date" />
               </div>
               <div class="form-field">
-                <label>End Date & Time</label>
-                <input type="datetime-local" v-model="slotForm.end_datetime" />
+                <label>Start Time</label>
+                <input type="time" v-model="slotForm.start_time" />
+              </div>
+              <div class="form-field">
+                <label>End Date</label>
+                <input type="date" v-model="slotForm.end_date" />
+              </div>
+              <div class="form-field">
+                <label>End Time</label>
+                <input type="time" v-model="slotForm.end_time" />
               </div>
               <div class="form-field">
                 <label>Recording Day ID</label>
@@ -173,8 +181,10 @@ const showHoursManagement = ref(false);
 const showAddEditSlotModal = ref(false);
 const editingSlot = ref(null);
 const slotForm = ref({
-  start_datetime: '',
-  end_datetime: '',
+  start_date: '',
+  start_time: '',
+  end_date: '',
+  end_time: '',
   notes: ''
 });
 
@@ -292,15 +302,28 @@ function openAddEditSlotModal(slot = null) {
   editingSlot.value = slot;
   showAddEditSlotModal.value = true;
   if (slot) {
+    // Parse datetime into separate date and time
+    const startDate = new Date(slot.start_datetime);
+    const endDate = new Date(slot.end_datetime);
+    
     slotForm.value = {
-      start_datetime: toLocalInputValue(slot.start_datetime),
-      end_datetime: toLocalInputValue(slot.end_datetime),
+      start_date: formatDateForInput(startDate),
+      start_time: formatTimeForInput(startDate),
+      end_date: formatDateForInput(endDate),
+      end_time: formatTimeForInput(endDate),
       notes: slot.notes || ''
     };
   } else {
+    // Set default to today and tomorrow
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
     slotForm.value = {
-      start_datetime: '',
-      end_datetime: '',
+      start_date: formatDateForInput(now),
+      start_time: '17:00',
+      end_date: formatDateForInput(tomorrow),
+      end_time: '03:00',
       notes: ''
     };
   }
@@ -309,7 +332,7 @@ function openAddEditSlotModal(slot = null) {
 function closeAddEditSlotModal() {
   showAddEditSlotModal.value = false;
   editingSlot.value = null;
-  slotForm.value = { start_datetime: '', end_datetime: '', notes: '' };
+  slotForm.value = { start_date: '', start_time: '', end_date: '', end_time: '', notes: '' };
 }
 
 async function saveSlot() {
@@ -333,12 +356,25 @@ async function saveSlot() {
     return;
   }
   
+  // Combine date and time into datetime strings
+  if (!slotForm.value.start_date || !slotForm.value.start_time) {
+    alert('Please fill in both start date and time');
+    return;
+  }
+  if (!slotForm.value.end_date || !slotForm.value.end_time) {
+    alert('Please fill in both end date and time');
+    return;
+  }
+  
+  const startDatetime = combineDateAndTime(slotForm.value.start_date, slotForm.value.start_time);
+  const endDatetime = combineDateAndTime(slotForm.value.end_date, slotForm.value.end_time);
+  
   // Ensure project_id is a string (UUID) and stage_id is a number (BIGINT)
   const payload = {
     project_id: String(projectId), // UUID should be a string
     stage_id: typeof stageId === 'string' ? parseInt(stageId, 10) : Number(stageId), // BIGINT should be a number
-    start_datetime: toUTCISOString(slotForm.value.start_datetime),
-    end_datetime: toUTCISOString(slotForm.value.end_datetime),
+    start_datetime: startDatetime,
+    end_datetime: endDatetime,
     notes: slotForm.value.notes
   };
   
@@ -400,19 +436,29 @@ function formatDateTime(dt) {
   return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// Helper functions for converting between local and UTC
-function toLocalInputValue(utcString) {
-  const d = new Date(utcString);
-  // Adjust for timezone offset
-  const offset = d.getTimezoneOffset();
-  const local = new Date(d.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
+// Helper functions for date/time formatting
+function formatDateForInput(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-function toUTCISOString(localString) {
-  // localString: 'YYYY-MM-DDTHH:mm'
-  const d = new Date(localString);
-  return d.toISOString();
+function formatTimeForInput(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function combineDateAndTime(dateString, timeString) {
+  // Combine date (YYYY-MM-DD) and time (HH:mm) into ISO string
+  // Create date in local timezone, then convert to ISO
+  const localDate = new Date(`${dateString}T${timeString}`);
+  return localDate.toISOString();
 }
 
 function goTo(type) {
@@ -804,7 +850,7 @@ background: var(--bg-secondary);
 padding: 8px 12px;
 text-align: left;
 font-weight: 600;
-color: var(--text-secondary);
+color: var(--text-primary);
 border-bottom: 1px solid var(--border-medium);
 font-size: 0.8rem;
 }
@@ -812,11 +858,16 @@ font-size: 0.8rem;
 .hours-table td {
 padding: 8px 12px;
 border-bottom: 1px solid var(--border-medium);
-color: var(--text-secondary);
+color: var(--text-primary);
 font-size: 0.8rem;
+background: var(--bg-primary);
 }
 
 .hours-table tr:hover {
+background: var(--bg-secondary);
+}
+
+.hours-table tr:hover td {
 background: var(--bg-secondary);
 }
 
@@ -825,18 +876,63 @@ background: var(--bg-tertiary);
 opacity: 0.8;
 }
 
+.hours-table tr.past-hour td {
+background: var(--bg-tertiary);
+}
+
 .hours-table tr.past-hour:hover {
 background: var(--bg-secondary);
+}
+
+.hours-table tr.past-hour:hover td {
+background: var(--bg-secondary);
+}
+
+/* Dark mode for table */
+.dark .hours-table {
+background: var(--bg-primary);
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark .hours-table th {
+background: var(--bg-secondary);
+color: var(--text-primary);
+border-bottom-color: var(--border-medium);
+}
+
+.dark .hours-table td {
+background: var(--bg-primary);
+color: var(--text-primary);
+border-bottom-color: var(--border-medium);
+}
+
+.dark .hours-table tr:hover {
+background: var(--bg-secondary);
+}
+
+.dark .hours-table tr:hover td {
+background: var(--bg-secondary);
+color: var(--text-primary);
 }
 
 /* Dark mode for past hours */
 .dark .hours-table tr.past-hour {
 background: var(--bg-grouped);
-opacity: 0.7;
+opacity: 1;
+}
+
+.dark .hours-table tr.past-hour td {
+background: var(--bg-grouped);
+color: var(--text-primary);
 }
 
 .dark .hours-table tr.past-hour:hover {
 background: var(--bg-tertiary);
+}
+
+.dark .hours-table tr.past-hour:hover td {
+background: var(--bg-tertiary);
+color: var(--text-primary);
 }
 
 .hour-status {
@@ -953,6 +1049,37 @@ font-size: 0.9rem;
 background: var(--bg-primary);
 color: var(--text-primary);
 transition: all 0.2s ease;
+}
+
+.form-field input[type="date"],
+.form-field input[type="time"] {
+cursor: pointer;
+position: relative;
+}
+
+.form-field input[type="date"]::-webkit-calendar-picker-indicator,
+.form-field input[type="time"]::-webkit-calendar-picker-indicator {
+cursor: pointer;
+opacity: 0.7;
+filter: invert(0);
+transition: opacity 0.2s ease;
+}
+
+.form-field input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.form-field input[type="time"]::-webkit-calendar-picker-indicator:hover {
+opacity: 1;
+}
+
+/* Dark mode for calendar picker icons */
+.dark .form-field input[type="date"]::-webkit-calendar-picker-indicator,
+.dark .form-field input[type="time"]::-webkit-calendar-picker-indicator {
+filter: invert(1);
+opacity: 0.8;
+}
+
+.dark .form-field input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.dark .form-field input[type="time"]::-webkit-calendar-picker-indicator:hover {
+opacity: 1;
 }
 
 .form-field input:focus {
