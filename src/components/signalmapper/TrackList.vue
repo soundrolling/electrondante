@@ -197,6 +197,7 @@ import { supabase } from '@/supabase'
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
   locationId: { type: [String, Number], default: null },
+  stageHourId: { type: [String, Number], default: null },
   signalPaths: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }
 })

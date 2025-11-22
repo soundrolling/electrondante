@@ -27,9 +27,9 @@ function normalizeRecorderNodes(nodes) {
   return recorderUpdates
 }
 
-export async function getNodes(projectId, locationId = null) {
-  // Include locationId in cache key to avoid cross-contamination
-  const cacheKey = `nodes:${projectId}:${locationId || 'all'}`
+export async function getNodes(projectId, locationId = null, stageHourId = null) {
+  // Include locationId and stageHourId in cache key to avoid cross-contamination
+  const cacheKey = `nodes:${projectId}:${locationId || 'all'}:${stageHourId || 'all'}`
   
   // Check cache first
   const cached = getCached(cacheKey)
@@ -51,6 +51,14 @@ export async function getNodes(projectId, locationId = null) {
       // Users can filter client-side if needed, but we want to show stage-specific nodes
       // Actually, if locationId is null, we should get nodes where location_id IS NULL
       query = query.is('location_id', null)
+    }
+    
+    // Filter by stage_hour_id if provided
+    if (stageHourId !== null && stageHourId !== undefined) {
+      query = query.eq('stage_hour_id', stageHourId)
+    } else {
+      // If no stageHourId specified, get nodes where stage_hour_id IS NULL (stage-wide)
+      query = query.is('stage_hour_id', null)
     }
     
     const { data: fetchedData, error } = await query
@@ -184,9 +192,9 @@ export async function deleteNode(id) {
 }
 
 // --- CRUD for Connections ---
-export async function getConnections(projectId, locationId = null) {
-  // Include locationId in cache key to avoid cross-contamination
-  const cacheKey = `connections:${projectId}:${locationId || 'all'}`
+export async function getConnections(projectId, locationId = null, stageHourId = null) {
+  // Include locationId and stageHourId in cache key to avoid cross-contamination
+  const cacheKey = `connections:${projectId}:${locationId || 'all'}:${stageHourId || 'all'}`
   
   // Check cache first
   const cached = getCached(cacheKey)
@@ -206,6 +214,14 @@ export async function getConnections(projectId, locationId = null) {
   } else {
     // If no locationId specified, get connections where location_id IS NULL (project-wide)
     query = query.is('location_id', null)
+  }
+  
+  // Filter by stage_hour_id if provided
+  if (stageHourId !== null && stageHourId !== undefined) {
+    query = query.eq('stage_hour_id', stageHourId)
+  } else {
+    // If no stageHourId specified, get connections where stage_hour_id IS NULL (stage-wide)
+    query = query.is('stage_hour_id', null)
   }
   
   const { data, error } = await query
@@ -326,9 +342,9 @@ export function subscribeToConnections(projectId, callback) {
 }
 
 // --- Helper Functions ---
-export async function getSourceNodes(projectId) {
+export async function getSourceNodes(projectId, locationId = null, stageHourId = null) {
   // Use cached getNodes and filter, rather than separate query
-  const allNodes = await getNodes(projectId)
+  const allNodes = await getNodes(projectId, locationId, stageHourId)
   return allNodes.filter(node => node.gear_type === 'source')
 }
 
@@ -627,11 +643,11 @@ async function updateTransformerOutputLabels(transformerNodeId, projectId, locat
   }
 }
 
-export async function getCompleteSignalPath(projectId, locationId = null) {
-  const graph = await buildGraph(projectId, locationId)
+export async function getCompleteSignalPath(projectId, locationId = null, stageHourId = null) {
+  const graph = await buildGraph(projectId, locationId, stageHourId)
   // Get all nodes and connections
-  const nodes = await getNodes(projectId, locationId)
-  const connections = await getConnections(projectId, locationId)
+  const nodes = await getNodes(projectId, locationId, stageHourId)
+  const connections = await getConnections(projectId, locationId, stageHourId)
   // Preload all connection_port_map rows for this project to resolve transformer→transformer/recorder chains
   let allPortMaps = []
   try {
@@ -1464,4 +1480,162 @@ function buildPathToSource(nodeId, connections, nodeMap) {
   
   traverse(nodeId)
   return path
+}
+
+// --- Copy Signal Flow from Previous Recording Day ---
+/**
+ * Copies all nodes and connections from one recording day (stage_hour_id) to another
+ * @param {string|number} projectId - Project ID
+ * @param {string|number} locationId - Location/Stage ID
+ * @param {string|number} sourceStageHourId - Source recording day ID to copy from
+ * @param {string|number} targetStageHourId - Target recording day ID to copy to
+ * @returns {Promise<{nodes: number, connections: number}>} - Count of copied nodes and connections
+ */
+export async function copySignalFlowFromRecordingDay(projectId, locationId, sourceStageHourId, targetStageHourId) {
+  if (!sourceStageHourId || !targetStageHourId) {
+    throw new Error('Both source and target stage_hour_id must be provided')
+  }
+  
+  if (sourceStageHourId === targetStageHourId) {
+    throw new Error('Source and target recording days must be different')
+  }
+  
+  // Get all nodes and connections from source recording day
+  const sourceNodes = await getNodes(projectId, locationId, sourceStageHourId)
+  const sourceConnections = await getConnections(projectId, locationId, sourceStageHourId)
+  
+  if (sourceNodes.length === 0 && sourceConnections.length === 0) {
+    return { nodes: 0, connections: 0 }
+  }
+  
+  // Create a mapping of old node IDs to new node IDs
+  const nodeIdMap = new Map()
+  
+  // Copy nodes first
+  const nodesToInsert = sourceNodes.map(node => {
+    const { id, ...nodeData } = node
+    const newNode = {
+      ...nodeData,
+      project_id: projectId,
+      location_id: locationId,
+      stage_hour_id: targetStageHourId
+    }
+    return newNode
+  })
+  
+  // Insert nodes in batches
+  const batchSize = 50
+  let insertedNodes = []
+  for (let i = 0; i < nodesToInsert.length; i += batchSize) {
+    const batch = nodesToInsert.slice(i, i + batchSize)
+    const { data: newNodes, error: nodeError } = await supabase
+      .from('nodes')
+      .insert(batch)
+      .select()
+    
+    if (nodeError) throw nodeError
+    insertedNodes = insertedNodes.concat(newNodes)
+  }
+  
+  // Build the node ID mapping
+  sourceNodes.forEach((oldNode, index) => {
+    const newNode = insertedNodes[index]
+    if (newNode) {
+      nodeIdMap.set(oldNode.id, newNode.id)
+    }
+  })
+  
+  // Copy connections, mapping old node IDs to new node IDs
+  const connectionsToInsert = sourceConnections
+    .map(conn => {
+      const newFromNodeId = nodeIdMap.get(conn.from_node_id)
+      const newToNodeId = nodeIdMap.get(conn.to_node_id)
+      
+      // Skip connections where we couldn't map the nodes
+      if (!newFromNodeId || !newToNodeId) {
+        return null
+      }
+      
+      const { id, ...connData } = conn
+      return {
+        ...connData,
+        project_id: projectId,
+        location_id: locationId,
+        stage_hour_id: targetStageHourId,
+        from_node_id: newFromNodeId,
+        to_node_id: newToNodeId
+      }
+    })
+    .filter(conn => conn !== null)
+  
+  // Insert connections in batches
+  let insertedConnections = []
+  if (connectionsToInsert.length > 0) {
+    for (let i = 0; i < connectionsToInsert.length; i += batchSize) {
+      const batch = connectionsToInsert.slice(i, i + batchSize)
+      const { data: newConns, error: connError } = await supabase
+        .from('connections')
+        .insert(batch)
+        .select()
+      
+      if (connError) throw connError
+      insertedConnections = insertedConnections.concat(newConns)
+    }
+  }
+  
+  // Copy connection_port_map entries if they exist
+  const sourceConnIds = sourceConnections.map(c => c.id)
+  if (sourceConnIds.length > 0) {
+    const { data: portMaps, error: portMapError } = await supabase
+      .from('connection_port_map')
+      .select('*')
+      .in('connection_id', sourceConnIds)
+    
+    if (!portMapError && portMaps && portMaps.length > 0) {
+      // Build mapping of old connection IDs to new connection IDs
+      const connIdMap = new Map()
+      sourceConnections.forEach((oldConn, index) => {
+        const newConn = insertedConnections[index]
+        if (newConn) {
+          connIdMap.set(oldConn.id, newConn.id)
+        }
+      })
+      
+      // Create new port map entries
+      const portMapsToInsert = portMaps
+        .map(pm => {
+          const newConnId = connIdMap.get(pm.connection_id)
+          if (!newConnId) return null
+          
+          const { id, ...pmData } = pm
+          return {
+            ...pmData,
+            connection_id: newConnId
+          }
+        })
+        .filter(pm => pm !== null)
+      
+      if (portMapsToInsert.length > 0) {
+        const { error: insertPortMapError } = await supabase
+          .from('connection_port_map')
+          .insert(portMapsToInsert)
+        
+        if (insertPortMapError) {
+          console.error('Error copying port maps:', insertPortMapError)
+          // Don't throw - port maps are optional
+        }
+      }
+    }
+  }
+  
+  // Invalidate caches
+  invalidateTableCache('nodes', projectId)
+  invalidateTableCache('connections', projectId)
+  invalidateTableCache('graph', projectId)
+  invalidateTableCache('port_maps', projectId)
+  
+  return {
+    nodes: insertedNodes.length,
+    connections: insertedConnections.length
+  }
 }

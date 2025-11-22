@@ -452,6 +452,7 @@ import { useUserStore } from '@/stores/userStore'
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
   locationId: { type: [String, Number], default: null },
+  stageHourId: { type: [String, Number], default: null },
   nodes: { type: Array, default: () => [] },
   gearList: { type: Array, default: () => [] },
   stageName: { type: String, default: null }
@@ -2414,6 +2415,7 @@ async function placeMic() {
     const newNode = await addNode({
       project_id: props.projectId,
       location_id: props.locationId || null,
+      stage_hour_id: props.stageHourId || null,
       type: 'gear',
       gear_id: mic.id,
       label: mic.gear_name,

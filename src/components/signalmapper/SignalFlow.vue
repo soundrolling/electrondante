@@ -299,6 +299,7 @@
     :fromNode="inspectorFromNode"
     :elements="nodes"
     :locationId="locationId"
+    :stageHourId="stageHourId"
     viewType="signal-flow"
     @close="inspectorOpen = false; inspectorNode = null"
     @node-deleted="handleInspectorNodeDeleted"
@@ -346,6 +347,7 @@ import InputModal from '@/components/signalmapper/InputModal.vue'
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
   locationId: { type: [String, Number], default: null },
+  stageHourId: { type: [String, Number], default: null },
   nodes: { type: Array, default: () => [] },
   connections: { type: Array, default: () => [] },
   gearList: { type: Array, default: () => [] },
@@ -2438,7 +2440,7 @@ function onPointerDown(e) {
           try {
             const exist = props.connections.find(c => c.from_node_id === linkSource.value.id && c.to_node_id === clickedNode.id)
             if (!exist) {
-              const payload = { project_id: props.projectId, location_id: props.locationId || null, from_node_id: linkSource.value.id, to_node_id: clickedNode.id }
+              const payload = { project_id: props.projectId, location_id: props.locationId || null, stage_hour_id: props.stageHourId || null, from_node_id: linkSource.value.id, to_node_id: clickedNode.id }
               const saved = await addConnectionToDB(payload)
               emit('connection-added', saved)
               toast.success('Linked nodes')
@@ -2670,6 +2672,7 @@ async function addGearNode(gear) {
     const newNode = await addNode({
       project_id: props.projectId,
       location_id: props.locationId || null,
+      stage_hour_id: props.stageHourId || null,
       type: 'gear',
       gear_id: gear.id,
       label,
@@ -2714,6 +2717,7 @@ async function addSourceNode(preset) {
     const nodeData = {
       project_id: props.projectId,
       location_id: props.locationId || null,
+      stage_hour_id: props.stageHourId || null,
       type: 'venue_sources',
       label: 'Venue Sources',
       track_name: 'Venue Sources',

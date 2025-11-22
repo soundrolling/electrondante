@@ -10,6 +10,32 @@
     <div class="location-label" v-else>
       <strong>No location found.</strong>
     </div>
+    <div class="recording-day-selector" v-if="effectiveLocationId">
+      <label for="recording-day-select">Recording Day:</label>
+      <select 
+        id="recording-day-select"
+        v-model="selectedStageHourId" 
+        @change="onRecordingDayChange"
+        class="recording-day-select"
+      >
+        <option :value="null">All Recording Days (Stage-wide)</option>
+        <option 
+          v-for="stageHour in stageHours" 
+          :key="stageHour.id" 
+          :value="stageHour.id"
+        >
+          {{ getRecordingDayLabel(stageHour) }}
+        </option>
+      </select>
+      <button 
+        v-if="selectedStageHourId && stageHours.length > 1"
+        @click="showCopyModal = true"
+        class="copy-btn"
+        title="Copy signal flow from another recording day"
+      >
+        📋 Copy from Previous
+      </button>
+    </div>
   </div>
 
   <!-- Tab Navigation -->
@@ -48,6 +74,7 @@
       v-if="activeTab === 'placement'"
       :projectId="projectId"
       :locationId="effectiveLocationId"
+      :stageHourId="selectedStageHourId"
       :nodes="sourceNodes"
       :gearList="gearList"
       :stageName="currentLocation?.stage_name"
@@ -61,6 +88,7 @@
       ref="signalFlowRef"
       :projectId="projectId"
       :locationId="effectiveLocationId"
+      :stageHourId="selectedStageHourId"
       :nodes="allNodes"
       :connections="allConnections"
       :gearList="gearList"
@@ -77,6 +105,7 @@
       v-if="activeTab === 'tracklist'"
       :projectId="projectId"
       :locationId="effectiveLocationId"
+      :stageHourId="selectedStageHourId"
       :signalPaths="signalPaths"
       :loading="loadingPaths"
       @track-name-clicked="handleTrackNameClicked"
@@ -89,6 +118,52 @@
       :locationId="effectiveLocationId"
     />
 
+  </div>
+
+  <!-- Copy from Previous Recording Day Modal -->
+  <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal = false">
+    <div class="modal-content copy-modal">
+      <div class="modal-header">
+        <h3>Copy Signal Flow from Previous Recording Day</h3>
+        <button class="modal-close" @click="showCopyModal = false">×</button>
+      </div>
+      <div class="modal-body">
+        <p>Select a recording day to copy signal flow from:</p>
+        <select 
+          v-model="copySourceStageHourId" 
+          class="copy-source-select"
+          :disabled="isCopying"
+        >
+          <option :value="null">-- Select Recording Day --</option>
+          <option 
+            v-for="stageHour in availableSourceStageHours" 
+            :key="stageHour.id" 
+            :value="stageHour.id"
+          >
+            {{ getRecordingDayLabel(stageHour) }}
+          </option>
+        </select>
+        <div class="copy-warning" v-if="copySourceStageHourId">
+          <p><strong>Warning:</strong> This will copy all nodes and connections from the selected recording day to the current one. Existing data for the current recording day will remain unchanged.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button 
+          class="btn btn-secondary" 
+          @click="showCopyModal = false"
+          :disabled="isCopying"
+        >
+          Cancel
+        </button>
+        <button 
+          class="btn btn-primary" 
+          @click="handleCopyFromRecordingDay"
+          :disabled="!copySourceStageHourId || isCopying"
+        >
+          {{ isCopying ? 'Copying...' : 'Copy' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 </template>
@@ -104,8 +179,10 @@ import {
   getSourceNodes,
   getCompleteSignalPath,
   subscribeToNodes,
-  subscribeToConnections
+  subscribeToConnections,
+  copySignalFlowFromRecordingDay
 } from '@/services/signalMapperService'
+import { useStageHours } from '@/composables/useStageHours'
 import { fetchTableData } from '@/services/dataService'
 import MicPlacement from './MicPlacement.vue'
 import SignalFlow from './SignalFlow.vue'
@@ -142,6 +219,13 @@ const signalPaths = ref([])
 const loadingPaths = ref(false)
 const selectedConnectionId = ref(null)
 const signalFlowRef = ref(null)
+const selectedStageHourId = ref(null)
+const showCopyModal = ref(false)
+const copySourceStageHourId = ref(null)
+const isCopying = ref(false)
+
+// Load stage hours for recording day selector
+const { stageHours, loadStageHours, formatStageHourFallback } = useStageHours(effectiveLocationId)
 
 // Computed filtered data
 const sourceNodes = computed(() => {
@@ -234,15 +318,16 @@ async function fetchGearList() {
   }
 }
 
-// Load nodes and connections - filtered by location if provided
+// Load nodes and connections - filtered by location and recording day if provided
 async function loadNodesAndConnections() {
   if (!props.projectId) return
 
   try {
     const locId = effectiveLocationId.value
+    const stageHourId = selectedStageHourId.value
     const [nodes, connections] = await Promise.all([
-      getNodes(props.projectId, locId),
-      getConnections(props.projectId, locId)
+      getNodes(props.projectId, locId, stageHourId),
+      getConnections(props.projectId, locId, stageHourId)
     ])
     
     allNodes.value = nodes
@@ -263,7 +348,8 @@ async function loadSignalPaths() {
   loadingPaths.value = true
   try {
     const locId = effectiveLocationId.value
-    signalPaths.value = await getCompleteSignalPath(props.projectId, locId)
+    const stageHourId = selectedStageHourId.value
+    signalPaths.value = await getCompleteSignalPath(props.projectId, locId, stageHourId)
   } catch (err) {
     console.error('Error loading signal paths:', err)
     toast.error('Failed to load signal paths')
@@ -378,8 +464,64 @@ watch(() => route.params.tab || route.query.tab, (newTab) => {
   }
 })
 
+// Recording day helper functions
+function getRecordingDayLabel(stageHour) {
+  if (!stageHour) return ''
+  return stageHour.notes || formatStageHourFallback(stageHour)
+}
+
+const availableSourceStageHours = computed(() => {
+  return stageHours.value.filter(sh => sh.id !== selectedStageHourId.value)
+})
+
+function onRecordingDayChange() {
+  loadNodesAndConnections()
+}
+
+async function handleCopyFromRecordingDay() {
+  if (!copySourceStageHourId.value || !selectedStageHourId.value) {
+    toast.error('Please select a source recording day')
+    return
+  }
+  
+  if (copySourceStageHourId.value === selectedStageHourId.value) {
+    toast.error('Cannot copy to the same recording day')
+    return
+  }
+  
+  isCopying.value = true
+  try {
+    const result = await copySignalFlowFromRecordingDay(
+      props.projectId,
+      effectiveLocationId.value,
+      copySourceStageHourId.value,
+      selectedStageHourId.value
+    )
+    
+    toast.success(`Copied ${result.nodes} nodes and ${result.connections} connections`)
+    showCopyModal.value = false
+    copySourceStageHourId.value = null
+    
+    // Reload data to show the copied signal flow
+    await loadNodesAndConnections()
+  } catch (err) {
+    console.error('Error copying signal flow:', err)
+    toast.error(err.message || 'Failed to copy signal flow')
+  } finally {
+    isCopying.value = false
+  }
+}
+
 // Watch for location changes and reload nodes/connections
-watch(effectiveLocationId, () => {
+watch(effectiveLocationId, async (newLocId) => {
+  if (newLocId) {
+    await loadStageHours()
+  }
+  loadNodesAndConnections()
+})
+
+// Watch for recording day changes
+watch(selectedStageHourId, () => {
   loadNodesAndConnections()
 })
 
@@ -401,6 +543,9 @@ onMounted(async () => {
   }
   
   await fetchLocation()
+  if (effectiveLocationId.value) {
+    await loadStageHours()
+  }
   await fetchGearList()
   await loadNodesAndConnections()
   const cleanup = setupRealtimeSubscriptions()
@@ -491,9 +636,194 @@ onMounted(async () => {
   min-height: 500px;
 }
 
- 
+.recording-day-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
 
- 
+.recording-day-selector label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.recording-day-select {
+  padding: 6px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.recording-day-select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.copy-btn {
+  padding: 6px 12px;
+  background: var(--color-primary-500);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+  background: var(--color-primary-600);
+}
+
+/* Copy Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.copy-modal {
+  background: var(--bg-primary);
+  border-radius: 8px;
+  padding: 0;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body p {
+  margin: 0 0 15px 0;
+  color: var(--text-secondary);
+}
+
+.copy-source-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 15px;
+}
+
+.copy-source-select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.copy-source-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.copy-warning {
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  margin-top: 15px;
+}
+
+.copy-warning p {
+  margin: 0;
+  color: #856404;
+  font-size: 13px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.btn-primary {
+  background: var(--color-primary-500);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-600);
+}
 
 @media (max-width: 768px) {
   .signal-mapper-parent {
@@ -505,6 +835,27 @@ onMounted(async () => {
   }
 
   .tab-btn {
+    width: 100%;
+  }
+
+  .signalmapper-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .recording-day-selector {
+    margin-left: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recording-day-select {
+    width: 100%;
+  }
+
+  .copy-btn {
     width: 100%;
   }
 }

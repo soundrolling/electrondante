@@ -164,6 +164,7 @@ import { invalidateTableCache } from '@/services/cacheService'
 const toast = useToast()
 
 const props = defineProps({
+  stageHourId: { type: [String, Number], default: null },
   projectId: { type: [String, Number], required: true },
   node: { type: Object, required: true },
   elements: { type: Array, default: () => [] },
@@ -860,7 +861,7 @@ async function saveMappings() {
         if (upstreamOutputs <= 1) {
           const chosen = draftMappings.value[1] || draftMappings.value['1']
           if (!chosen) return
-          await supabase.from('connections').insert([{ project_id: props.projectId, location_id: props.locationId || null, from_node_id: upstream.id, to_node_id: toNodeId, input_number: Number(chosen) }])
+          await supabase.from('connections').insert([{ project_id: props.projectId, location_id: props.locationId || null, stage_hour_id: props.stageHourId || null, from_node_id: upstream.id, to_node_id: toNodeId, input_number: Number(chosen) }])
           invalidateTableCache('connections', props.projectId)
           invalidateTableCache('graph', props.projectId)
           await refresh()
@@ -879,7 +880,7 @@ async function saveMappings() {
       else {
         const { data: saved } = await supabase
           .from('connections')
-          .insert([{ project_id: props.projectId, location_id: props.locationId || null, from_node_id: upstream.id, to_node_id: toNodeId }])
+          .insert([{ project_id: props.projectId, location_id: props.locationId || null, stage_hour_id: props.stageHourId || null, from_node_id: upstream.id, to_node_id: toNodeId }])
           .select()
           .single()
         parentId = saved.id
@@ -909,7 +910,7 @@ async function saveMappings() {
       else {
         const { data: saved } = await supabase
           .from('connections')
-          .insert([{ project_id: props.projectId, location_id: props.locationId || null, from_node_id: props.node.id, to_node_id: toNodeId }])
+          .insert([{ project_id: props.projectId, location_id: props.locationId || null, stage_hour_id: props.stageHourId || null, from_node_id: props.node.id, to_node_id: toNodeId }])
           .select()
           .single()
         parentId = saved.id
