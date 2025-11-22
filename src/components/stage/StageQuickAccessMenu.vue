@@ -162,7 +162,7 @@
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { supabase } from '../../supabase';
 
 const props = defineProps({
@@ -171,8 +171,22 @@ projectId: { type: [String, Number], required: true },
 stages: { type: Array, default: () => [] },
 visible: { type: Boolean, default: false },
 });
+
+// Watch for prop changes and log for debugging
+watch(() => [props.stage, props.projectId], ([stage, projectId]) => {
+  if (props.visible) {
+    console.log('StageQuickAccessMenu props updated:', {
+      stage: stage,
+      stageId: stage?.id,
+      projectId: projectId,
+      hasStage: !!stage,
+      hasProjectId: !!projectId
+    });
+  }
+}, { immediate: true });
 const emit = defineEmits(['close', 'stage-change']);
 const router = useRouter();
+const route = useRoute();
 
 const stageHours = ref([]);
 const isStageLive = ref(false);
@@ -299,6 +313,27 @@ function toggleHoursManagement() {
 }
 
 function openAddEditSlotModal(slot = null) {
+  // Validate props before opening modal
+  if (!props.stage) {
+    alert('Error: Stage information is not available. Please refresh the page.');
+    console.error('Cannot open modal: stage is missing', props.stage);
+    return;
+  }
+  
+  // Try to get project ID from props or route
+  const projectId = props.projectId || route.params.id;
+  if (!projectId) {
+    alert('Error: Project ID is not available. Please refresh the page.');
+    console.error('Cannot open modal: projectId is missing', { propsProjectId: props.projectId, routeId: route.params.id });
+    return;
+  }
+  
+  if (!props.stage.id) {
+    alert('Error: Stage ID is not available. Please refresh the page.');
+    console.error('Cannot open modal: stage.id is missing', props.stage);
+    return;
+  }
+  
   editingSlot.value = slot;
   showAddEditSlotModal.value = true;
   if (slot) {
@@ -336,22 +371,39 @@ function closeAddEditSlotModal() {
 }
 
 async function saveSlot() {
+  // Debug logging
+  console.log('saveSlot called', { 
+    stage: props.stage, 
+    projectId: props.projectId,
+    routeProjectId: route.params.id,
+    stageId: props.stage?.id,
+    slotForm: slotForm.value
+  });
+  
   if (!props.stage) {
     alert('Error: Stage information is missing');
+    console.error('Stage is missing:', props.stage);
     return;
   }
   
-  // Validate required fields
-  const projectId = props.projectId;
-  const stageId = props.stage.id;
+  // Validate required fields - try props first, then route params as fallback
+  let projectId = props.projectId;
+  if (!projectId && route.params.id) {
+    projectId = route.params.id;
+    console.log('Using project ID from route:', projectId);
+  }
+  
+  const stageId = props.stage?.id;
   
   // project_id is a UUID (string), stage_id is a BIGINT (number)
-  if (!projectId || projectId === 'undefined' || projectId === undefined || projectId === null) {
+  if (!projectId || projectId === 'undefined' || projectId === undefined || projectId === null || String(projectId).trim() === '') {
+    console.error('Project ID validation failed:', projectId, typeof projectId);
     alert('Error: Project ID is missing. Please refresh the page and try again.');
     return;
   }
   
-  if (!stageId || stageId === 'undefined' || stageId === undefined || stageId === null) {
+  if (!stageId || stageId === 'undefined' || stageId === undefined || stageId === null || String(stageId).trim() === '') {
+    console.error('Stage ID validation failed:', stageId, typeof stageId, 'stage object:', props.stage);
     alert('Error: Stage ID is missing. Please refresh the page and try again.');
     return;
   }
@@ -369,26 +421,42 @@ async function saveSlot() {
   const startDatetime = combineDateAndTime(slotForm.value.start_date, slotForm.value.start_time);
   const endDatetime = combineDateAndTime(slotForm.value.end_date, slotForm.value.end_time);
   
+  // Convert stage_id to number, handling various input types
+  let numericStageId;
+  if (typeof stageId === 'number') {
+    numericStageId = stageId;
+  } else if (typeof stageId === 'string') {
+    numericStageId = parseInt(stageId, 10);
+  } else {
+    console.error('Invalid stageId type:', typeof stageId, stageId);
+    alert('Error: Invalid stage ID type. Please refresh the page and try again.');
+    return;
+  }
+  
   // Ensure project_id is a string (UUID) and stage_id is a number (BIGINT)
   const payload = {
-    project_id: String(projectId), // UUID should be a string
-    stage_id: typeof stageId === 'string' ? parseInt(stageId, 10) : Number(stageId), // BIGINT should be a number
+    project_id: String(projectId).trim(), // UUID should be a string
+    stage_id: numericStageId, // BIGINT should be a number
     start_datetime: startDatetime,
     end_datetime: endDatetime,
-    notes: slotForm.value.notes
+    notes: slotForm.value.notes || ''
   };
   
   // Final validation - ensure stage_id is a valid number
-  if (isNaN(payload.stage_id) || payload.stage_id <= 0) {
+  if (isNaN(payload.stage_id) || payload.stage_id <= 0 || !Number.isInteger(payload.stage_id)) {
+    console.error('Stage ID is not a valid integer:', payload.stage_id, typeof payload.stage_id);
     alert('Error: Invalid stage ID. Please refresh the page and try again.');
     return;
   }
   
   // Validate project_id is a valid UUID format (basic check)
-  if (!payload.project_id || payload.project_id.length < 10) {
+  if (!payload.project_id || payload.project_id.length < 10 || payload.project_id === 'undefined') {
+    console.error('Project ID is invalid:', payload.project_id);
     alert('Error: Invalid project ID. Please refresh the page and try again.');
     return;
   }
+  
+  console.log('Payload before save:', payload);
   
   try {
     if (editingSlot.value) {
