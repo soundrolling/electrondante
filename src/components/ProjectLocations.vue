@@ -986,15 +986,47 @@ setup() {
   }
 
   async function saveSlot() {
-    if (!modalStage.value) return;
+    if (!modalStage.value) {
+      toast.error('Error: Stage information is missing');
+      return;
+    }
+    
     const pid = route.params.id;
+    const stageId = modalStage.value.id;
+    
+    // Validate required fields
+    // project_id is a UUID (string), stage_id is a BIGINT (number)
+    if (!pid || pid === 'undefined' || pid === undefined || pid === null) {
+      toast.error('Error: Project ID is missing. Please refresh the page and try again.');
+      return;
+    }
+    
+    if (!stageId || stageId === 'undefined' || stageId === undefined || stageId === null) {
+      toast.error('Error: Stage ID is missing. Please refresh the page and try again.');
+      return;
+    }
+    
+    // Ensure project_id is a string (UUID) and stage_id is a number (BIGINT)
     const payload = {
-      project_id: pid,
-      stage_id: modalStage.value.id,
+      project_id: String(pid), // UUID should be a string
+      stage_id: typeof stageId === 'string' ? parseInt(stageId, 10) : Number(stageId), // BIGINT should be a number
       start_datetime: toUTCISOString(slotForm.value.start_datetime),
       end_datetime: toUTCISOString(slotForm.value.end_datetime),
       notes: slotForm.value.notes
     };
+    
+    // Final validation - ensure stage_id is a valid number
+    if (isNaN(payload.stage_id) || payload.stage_id <= 0) {
+      toast.error('Error: Invalid stage ID. Please refresh the page and try again.');
+      return;
+    }
+    
+    // Validate project_id is a valid UUID format (basic check)
+    if (!payload.project_id || payload.project_id.length < 10) {
+      toast.error('Error: Invalid project ID. Please refresh the page and try again.');
+      return;
+    }
+    
     try {
       let slotId;
       if (editingSlot.value) {

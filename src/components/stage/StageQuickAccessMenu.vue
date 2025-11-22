@@ -313,14 +313,47 @@ function closeAddEditSlotModal() {
 }
 
 async function saveSlot() {
-  if (!props.stage) return;
+  if (!props.stage) {
+    alert('Error: Stage information is missing');
+    return;
+  }
+  
+  // Validate required fields
+  const projectId = props.projectId;
+  const stageId = props.stage.id;
+  
+  // project_id is a UUID (string), stage_id is a BIGINT (number)
+  if (!projectId || projectId === 'undefined' || projectId === undefined || projectId === null) {
+    alert('Error: Project ID is missing. Please refresh the page and try again.');
+    return;
+  }
+  
+  if (!stageId || stageId === 'undefined' || stageId === undefined || stageId === null) {
+    alert('Error: Stage ID is missing. Please refresh the page and try again.');
+    return;
+  }
+  
+  // Ensure project_id is a string (UUID) and stage_id is a number (BIGINT)
   const payload = {
-    project_id: props.projectId,
-    stage_id: props.stage.id,
+    project_id: String(projectId), // UUID should be a string
+    stage_id: typeof stageId === 'string' ? parseInt(stageId, 10) : Number(stageId), // BIGINT should be a number
     start_datetime: toUTCISOString(slotForm.value.start_datetime),
     end_datetime: toUTCISOString(slotForm.value.end_datetime),
     notes: slotForm.value.notes
   };
+  
+  // Final validation - ensure stage_id is a valid number
+  if (isNaN(payload.stage_id) || payload.stage_id <= 0) {
+    alert('Error: Invalid stage ID. Please refresh the page and try again.');
+    return;
+  }
+  
+  // Validate project_id is a valid UUID format (basic check)
+  if (!payload.project_id || payload.project_id.length < 10) {
+    alert('Error: Invalid project ID. Please refresh the page and try again.');
+    return;
+  }
+  
   try {
     if (editingSlot.value) {
       // Update
