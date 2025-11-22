@@ -45,7 +45,7 @@
         <div v-if="showHoursManagement" class="hours-management-section">
           <div class="hours-header">
             <h3 class="hours-title">Stage Hours & Timeslots</h3>
-            <button class="add-hours-btn" @click="openAddEditSlotModal">
+            <button class="add-hours-btn" @click="openAddEditSlotModal(null)">
               <span class="btn-icon">➕</span>
               <span class="btn-text">Add Slot</span>
             </button>
@@ -334,7 +334,8 @@ function openAddEditSlotModal(slot = null) {
     return;
   }
   
-  editingSlot.value = slot;
+  // Explicitly set editingSlot - ensure it's null for new slots
+  editingSlot.value = slot && slot.id ? slot : null;
   showAddEditSlotModal.value = true;
   if (slot) {
     // Parse datetime into separate date and time
@@ -457,10 +458,26 @@ async function saveSlot() {
   }
   
   console.log('Payload before save:', payload);
+  console.log('editingSlot.value:', editingSlot.value);
+  console.log('editingSlot.value?.id:', editingSlot.value?.id);
+  console.log('Type of editingSlot.value:', typeof editingSlot.value);
+  console.log('Is editingSlot.value null?', editingSlot.value === null);
+  console.log('Is editingSlot.value undefined?', editingSlot.value === undefined);
   
   try {
-    if (editingSlot.value) {
+    // Only update if we have a valid editingSlot with a valid id
+    // Check explicitly for null/undefined and ensure id exists and is valid
+    const hasValidEditingSlot = editingSlot.value !== null && 
+                                 editingSlot.value !== undefined && 
+                                 editingSlot.value.id !== null && 
+                                 editingSlot.value.id !== undefined &&
+                                 editingSlot.value.id !== '';
+    
+    console.log('hasValidEditingSlot:', hasValidEditingSlot);
+    
+    if (hasValidEditingSlot) {
       // Update
+      console.log('Updating slot with id:', editingSlot.value.id);
       const { error } = await supabase
         .from('stage_hours')
         .update(payload)
@@ -468,6 +485,7 @@ async function saveSlot() {
       if (error) throw error;
     } else {
       // Insert
+      console.log('Inserting new slot (editingSlot.value is:', editingSlot.value, ')');
       const { error } = await supabase
         .from('stage_hours')
         .insert([payload]);
