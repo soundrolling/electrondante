@@ -1,5 +1,5 @@
 // Composable for stage hours logic
-import { ref } from 'vue'
+import { ref, unref } from 'vue'
 import { fetchTableData } from '@/services/dataService'
 import { getSetting } from '@/utils/indexedDB'
 import { toDateTime } from '@/utils/scheduleHelpers'
@@ -9,8 +9,9 @@ export function useStageHours(locationId) {
 
   async function loadStageHours() {
     const projectId = await getSetting('current-project-id')
+    const locId = unref(locationId)
     stageHours.value = await fetchTableData('stage_hours', {
-      eq: { project_id: projectId, stage_id: locationId },
+      eq: { project_id: projectId, stage_id: locId },
       order: { column: 'start_datetime', ascending: true }
     })
   }

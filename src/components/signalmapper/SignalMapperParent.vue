@@ -224,6 +224,11 @@ const showCopyModal = ref(false)
 const copySourceStageHourId = ref(null)
 const isCopying = ref(false)
 
+// Ensure children always receive a valid location id if present via route
+const effectiveLocationId = computed(() => {
+  return props.locationId || route.query.locationId || currentLocation.value?.id || null
+})
+
 // Load stage hours for recording day selector
 const { stageHours, loadStageHours, formatStageHourFallback } = useStageHours(effectiveLocationId)
 
@@ -234,11 +239,6 @@ const sourceNodes = computed(() => {
     (node.gear_type === 'source' || node.node_type === 'source') &&
     (node.gear_id || node.type === 'gear')
   )
-})
-
-// Ensure children always receive a valid location id if present via route
-const effectiveLocationId = computed(() => {
-  return props.locationId || route.query.locationId || currentLocation.value?.id || null
 })
 
 // Navigation

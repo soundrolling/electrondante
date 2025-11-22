@@ -465,31 +465,49 @@ async function saveSlot() {
   console.log('Is editingSlot.value undefined?', editingSlot.value === undefined);
   
   try {
-    // Only update if we have a valid editingSlot with a valid id
-    // Check explicitly for null/undefined and ensure id exists and is valid
-    const hasValidEditingSlot = editingSlot.value !== null && 
-                                 editingSlot.value !== undefined && 
-                                 editingSlot.value.id !== null && 
-                                 editingSlot.value.id !== undefined &&
-                                 editingSlot.value.id !== '';
+    // Extract slot ID safely
+    const slotId = editingSlot.value?.id;
     
-    console.log('hasValidEditingSlot:', hasValidEditingSlot);
+    // Default to INSERT unless we have a clear, valid ID
+    // Be very defensive - only update if we're 100% sure
+    const shouldUpdate = editingSlot.value !== null && 
+                         editingSlot.value !== undefined && 
+                         typeof slotId !== 'undefined' &&
+                         slotId !== null &&
+                         slotId !== '' &&
+                         (typeof slotId === 'number' || typeof slotId === 'string') &&
+                         !isNaN(Number(slotId)) &&
+                         Number(slotId) > 0;
     
-    if (hasValidEditingSlot) {
-      // Update
-      console.log('Updating slot with id:', editingSlot.value.id);
+    console.log('=== SAVE SLOT DEBUG ===');
+    console.log('editingSlot.value:', editingSlot.value);
+    console.log('slotId:', slotId);
+    console.log('slotId type:', typeof slotId);
+    console.log('shouldUpdate:', shouldUpdate);
+    console.log('======================');
+    
+    if (shouldUpdate) {
+      // Update - only if we have a valid ID
+      console.log('UPDATING slot with id:', slotId);
       const { error } = await supabase
         .from('stage_hours')
         .update(payload)
-        .eq('id', editingSlot.value.id);
-      if (error) throw error;
+        .eq('id', slotId);
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
     } else {
-      // Insert
-      console.log('Inserting new slot (editingSlot.value is:', editingSlot.value, ')');
+      // Insert - default behavior for new slots
+      console.log('INSERTING new slot');
+      console.log('Reason: editingSlot.value =', editingSlot.value, ', slotId =', slotId);
       const { error } = await supabase
         .from('stage_hours')
         .insert([payload]);
-      if (error) throw error;
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
+      }
     }
     await loadStageHours();
     checkLiveStatus();
