@@ -94,7 +94,14 @@ exports.default = async function(context) {
   console.log(`CSC_TEAM_ID: ${process.env.CSC_TEAM_ID ? '***' : 'NOT SET'}`);
   
   const teamId = process.env.APPLE_TEAM_ID || process.env.ELECTRON_TEAM_ID || process.env.CSC_TEAM_ID;
+  const skipSigning = process.env.SKIP_SIGNING === 'true' || process.env.CSC_IDENTITY_AUTO_DISCOVERY === 'false';
+  
   if (!teamId) {
+    if (skipSigning) {
+      console.log('\n⚠️  No team ID found - skipping code signing (local build)');
+      console.log('   This is expected for local testing builds.');
+      return;
+    }
     console.error('\n❌ No team ID found in environment variables');
     console.error('Checked: APPLE_TEAM_ID, ELECTRON_TEAM_ID, CSC_TEAM_ID');
     throw new Error('Team ID required for code signing');

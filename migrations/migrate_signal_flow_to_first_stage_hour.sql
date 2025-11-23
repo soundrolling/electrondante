@@ -139,3 +139,4 @@ WHERE stage_hour_id IS NULL
   AND location_id IS NOT NULL
   AND project_id IS NOT NULL;
 
+

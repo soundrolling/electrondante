@@ -330,16 +330,6 @@
     <h1>🎤 Dante Audio Client</h1>
     <p class="subtitle">Multi-room audio broadcast and listening</p>
     
-    <div class="section" style="border-bottom: 2px solid #3b82f6; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h2 style="font-size: 18px; margin-bottom: 4px;">Join a Stream</h2>
-        <p style="font-size: 13px; color: #666;">Enter room details to listen</p>
-      </div>
-      <button id="broadcasterLoginToggleBtn" class="btn-secondary" style="font-size: 12px; padding: 6px 12px;">
-        Broadcaster Login
-      </button>
-    </div>
-    
     <div id="statusBar" class="status-bar">
       <div class="status-indicator" id="connectionIndicator"></div>
       <div class="status-text" id="statusText">Not Connected</div>
@@ -355,13 +345,31 @@
     
     <div id="messages"></div>
     <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px;"></div>
+
+    <!-- Mode Selection Section (Initial Screen) -->
+    <div id="modeSelectionMode" class="mode-section">
+      <div class="section" style="text-align: center; padding: 40px 20px;">
+        <h2 style="margin-bottom: 24px;">Select Mode</h2>
+        <div style="display: flex; gap: 20px; justify-content: center;">
+          <button id="selectListenModeBtn" class="btn-primary" style="padding: 20px 40px; font-size: 18px;">
+            🎧 Listen to a Room
+          </button>
+          <button id="selectBroadcastModeBtn" class="btn-secondary" style="padding: 20px 40px; font-size: 18px;">
+            🎤 Stream to a Room
+          </button>
+        </div>
+        <p style="margin-top: 24px; color: #666; font-size: 14px;">
+          Listeners can join existing rooms. Broadcasters need to log in to manage rooms.
+        </p>
+      </div>
+    </div>
     
     <!-- Broadcast Mode Section -->
     <div id="broadcastMode" class="mode-section" style="display: none;">
     <div class="section">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div class="section-title" style="margin-bottom: 0;">Broadcaster Login</div>
-          <button id="backToListenBtn" class="btn-secondary" style="font-size: 12px; padding: 4px 8px;">Back to Listen</button>
+          <button id="backToModeSelectBtn1" class="btn-secondary" style="font-size: 12px; padding: 4px 8px;">Back to Selection</button>
         </div>
         <div class="form-group">
           <label for="email">Email:</label>
@@ -401,11 +409,10 @@
         <input 
           type="text" 
           id="railwayUrl" 
-          value=""
-          placeholder="wss://your-railway-app.railway.app"
+          value="wss://proapp2149-production.up.railway.app"
           placeholder="wss://your-app.railway.app"
         />
-        </div>
+      </div>
       <div class="form-group">
         <label for="channelCount">Channel Count:</label>
         <input 
@@ -464,9 +471,12 @@
     </div>
     
     <!-- Listen Mode Section -->
-    <div id="listenMode" class="mode-section">
+    <div id="listenMode" class="mode-section" style="display: none;">
       <div class="section">
-        <div class="section-title">Browse Public Rooms</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div class="section-title" style="margin-bottom: 0;">Browse Public Rooms</div>
+          <button id="backToModeSelectBtn2" class="btn-secondary" style="font-size: 12px; padding: 4px 8px;">Back to Selection</button>
+        </div>
         <div id="roomBrowser" style="margin-bottom: 16px;">
           <button id="refreshRoomsBtn" class="btn-secondary" style="margin-bottom: 12px;">Refresh Rooms</button>
           <div id="publicRoomsList" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 8px;">
@@ -482,8 +492,7 @@
           <input 
             type="text" 
             id="railwayUrlListen" 
-            value=""
-          placeholder="wss://your-railway-app.railway.app"
+            value="wss://proapp2149-production.up.railway.app"
             placeholder="wss://your-app.railway.app"
           />
         </div>

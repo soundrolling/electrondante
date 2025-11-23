@@ -4,6 +4,14 @@ if (process.argv.indexOf('--max-old-space-size') === -1) {
   process.argv.push('--max-old-space-size=4096');
 }
 
+// Load environment variables from .env file
+try {
+  require('dotenv').config();
+} catch (error) {
+  // Ignore if dotenv is not available (production)
+  // console.log('dotenv not loaded:', error.message);
+}
+
 const { app, BrowserWindow, ipcMain, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');

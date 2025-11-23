@@ -61,6 +61,30 @@ npm run rebuild  # Rebuild native modules (naudiodon)
 npm start
 ```
 
+#### Building for Local Testing (Mac)
+
+For quick local testing on Mac without creating installers or code signing:
+
+```bash
+# Option 1: Simple build (recommended - works even without Xcode)
+./build-simple.sh
+
+# Option 2: Full build (requires Xcode for native modules)
+./build-local.sh
+
+# Option 3: Use npm directly
+npm run build:local
+```
+
+This creates a `.app` bundle at `out/mac-arm64/Dante Audio Client.app` (or `out/mac/` on Intel) that you can:
+- Double-click to run
+- Or open with: `open 'out/mac/Dante Audio Client.app'`
+
+**Note**: 
+- Simple build will work even if native modules fail (audio won't work, but UI will)
+- Full build requires Xcode for native audio modules
+- macOS may show a security warning since the app isn't code signed. Allow it in System Preferences → Security & Privacy.
+
 #### Building Installers
 
 ```bash

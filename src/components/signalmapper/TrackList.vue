@@ -50,9 +50,9 @@
           <tbody>
             <tr 
               v-for="path in tracks" 
-              :key="path.connection_id" 
+              :key="getTrackId(path)" 
               class="track-row"
-              :class="{ 'track-hidden': isTrackHidden(path.connection_id) && showHidden }"
+              :class="{ 'track-hidden': isTrackHidden(path) && showHidden }"
             >
               <td class="track-number">{{ path.track_number || '—' }}</td>
               <td class="source-name">
@@ -81,11 +81,11 @@
               </td>
               <td class="track-actions">
                 <button 
-                  @click="toggleTrackVisibility(path.connection_id)"
+                  @click="toggleTrackVisibility(path)"
                   class="btn-hide-track"
-                  :title="isTrackHidden(path.connection_id) ? 'Show track' : 'Hide track'"
+                  :title="isTrackHidden(path) ? 'Show track' : 'Hide track'"
                 >
-                  {{ isTrackHidden(path.connection_id) ? '👁️' : '👁️‍🗨️' }}
+                  {{ isTrackHidden(path) ? '👁️' : '👁️‍🗨️' }}
                 </button>
               </td>
             </tr>
@@ -331,18 +331,27 @@ function refetchSignalPaths() {
   emit('refetch-paths')
 }
 
-// Track visibility functions
-function isTrackHidden(connectionId) {
-  if (!connectionId) return false
-  return hiddenTracks.value.has(connectionId)
+// Generate unique track ID from path properties
+function getTrackId(path) {
+  // Create a unique identifier combining recorder, track number, and connection
+  const recorder = path.recorder_label || path.recorder_id || 'unknown'
+  const trackNum = path.track_number || 'unknown'
+  const connId = path.connection_id || path.source_id || 'unknown'
+  return `${recorder}|${trackNum}|${connId}`
 }
 
-function toggleTrackVisibility(connectionId) {
-  if (!connectionId) return
-  if (hiddenTracks.value.has(connectionId)) {
-    hiddenTracks.value.delete(connectionId)
+// Track visibility functions
+function isTrackHidden(path) {
+  const trackId = getTrackId(path)
+  return hiddenTracks.value.has(trackId)
+}
+
+function toggleTrackVisibility(path) {
+  const trackId = getTrackId(path)
+  if (hiddenTracks.value.has(trackId)) {
+    hiddenTracks.value.delete(trackId)
   } else {
-    hiddenTracks.value.add(connectionId)
+    hiddenTracks.value.add(trackId)
   }
 }
 
@@ -378,8 +387,8 @@ function deselectAllRecorders() {
 // Filter paths to exclude hidden tracks (for display)
 const visiblePaths = computed(() => {
   return props.signalPaths.filter(path => {
-    if (!path.connection_id) return true
-    return !hiddenTracks.value.has(path.connection_id) || showHidden.value
+    const trackId = getTrackId(path)
+    return !hiddenTracks.value.has(trackId) || showHidden.value
   })
 })
 
@@ -581,8 +590,8 @@ function exportCSV() {
     
     // Filter out hidden tracks for export
     const pathsToExport = props.signalPaths.filter(path => {
-      if (!path.connection_id) return true
-      return !hiddenTracks.value.has(path.connection_id)
+      const trackId = getTrackId(path)
+      return !hiddenTracks.value.has(trackId)
     })
     
     if (pathsToExport.length === 0) {
@@ -869,8 +878,8 @@ async function confirmPDFExport() {
       
       // Filter out hidden tracks for export
       const tracks = allTracksForRecorder.filter(path => {
-        if (!path.connection_id) return true
-        return !hiddenTracks.value.has(path.connection_id)
+        const trackId = getTrackId(path)
+        return !hiddenTracks.value.has(trackId)
       })
       
       // Sort by track number

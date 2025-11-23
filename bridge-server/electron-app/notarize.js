@@ -156,6 +156,12 @@ exports.default = async function notarizing(context) {
   }
   
   if (!identity) {
+    // If SKIP_SIGNING is set, this is expected for local builds
+    if (process.env.SKIP_SIGNING === 'true' || process.env.CSC_IDENTITY_AUTO_DISCOVERY === 'false') {
+      console.log('\n⚠️  No signing identity found - skipping notarization (local build)');
+      console.log('   This is expected for local testing builds.');
+      return;
+    }
     console.error('❌ Could not determine signing identity');
     throw new Error('Could not determine signing identity');
   }

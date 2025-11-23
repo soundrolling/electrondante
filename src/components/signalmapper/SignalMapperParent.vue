@@ -17,8 +17,9 @@
         v-model="selectedStageHourId" 
         @change="onRecordingDayChange"
         class="recording-day-select"
+        :disabled="stageHours.length === 0"
       >
-        <option :value="null">All Recording Days (Stage-wide)</option>
+        <option v-if="stageHours.length === 0" :value="null" disabled>No recording days available</option>
         <option 
           v-for="stageHour in stageHours" 
           :key="stageHour.id" 
@@ -70,8 +71,11 @@
 
   <!-- Tab Content -->
   <div class="tab-content">
+    <div v-if="!selectedStageHourId && effectiveLocationId" class="no-stage-hour-message">
+      <p>Please select a recording day to view signal mapper data.</p>
+    </div>
     <MicPlacement
-      v-if="activeTab === 'placement'"
+      v-else-if="activeTab === 'placement' && selectedStageHourId"
       :projectId="projectId"
       :locationId="effectiveLocationId"
       :stageHourId="selectedStageHourId"
@@ -84,7 +88,7 @@
     />
     
     <SignalFlow
-      v-if="activeTab === 'flow'"
+      v-else-if="activeTab === 'flow' && selectedStageHourId"
       ref="signalFlowRef"
       :projectId="projectId"
       :locationId="effectiveLocationId"
@@ -102,7 +106,7 @@
     />
     
     <TrackList
-      v-if="activeTab === 'tracklist'"
+      v-else-if="activeTab === 'tracklist' && selectedStageHourId"
       :projectId="projectId"
       :locationId="effectiveLocationId"
       :stageHourId="selectedStageHourId"
@@ -321,6 +325,14 @@ async function fetchGearList() {
 // Load nodes and connections - filtered by location and recording day if provided
 async function loadNodesAndConnections() {
   if (!props.projectId) return
+  // Require a stage hour ID to be selected
+  if (!selectedStageHourId.value) {
+    // Clear data if no stage hour is selected
+    allNodes.value = []
+    allConnections.value = []
+    signalPaths.value = []
+    return
+  }
 
   try {
     const locId = effectiveLocationId.value
@@ -344,6 +356,12 @@ async function loadNodesAndConnections() {
 // Load signal paths
 async function loadSignalPaths() {
   if (!props.projectId) return
+  // Require a stage hour ID to be selected
+  if (!selectedStageHourId.value) {
+    signalPaths.value = []
+    loadingPaths.value = false
+    return
+  }
   
   loadingPaths.value = true
   try {
@@ -517,12 +535,26 @@ watch(effectiveLocationId, async (newLocId) => {
   if (newLocId) {
     await loadStageHours()
   }
-  loadNodesAndConnections()
+  // Only load if we have a selected stage hour
+  if (selectedStageHourId.value) {
+    loadNodesAndConnections()
+  }
 })
+
+// Watch for stage hours to auto-select first one if none selected
+watch(stageHours, (newStageHours) => {
+  // Auto-select first stage hour if none is selected and stage hours are available
+  if (!selectedStageHourId.value && newStageHours.length > 0) {
+    selectedStageHourId.value = newStageHours[0].id
+  }
+}, { immediate: true })
 
 // Watch for recording day changes
 watch(selectedStageHourId, () => {
-  loadNodesAndConnections()
+  // Only load if we have a selected stage hour
+  if (selectedStageHourId.value) {
+    loadNodesAndConnections()
+  }
 })
 
 // Lifecycle
@@ -545,9 +577,16 @@ onMounted(async () => {
   await fetchLocation()
   if (effectiveLocationId.value) {
     await loadStageHours()
+    // Auto-select first stage hour if none is selected
+    if (!selectedStageHourId.value && stageHours.value.length > 0) {
+      selectedStageHourId.value = stageHours.value[0].id
+    }
   }
   await fetchGearList()
-  await loadNodesAndConnections()
+  // Only load nodes/connections if we have a selected stage hour
+  if (selectedStageHourId.value) {
+    await loadNodesAndConnections()
+  }
   const cleanup = setupRealtimeSubscriptions()
   
   // Cleanup on unmount
@@ -634,6 +673,17 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px solid #e9ecef;
   min-height: 500px;
+}
+
+.no-stage-hour-message {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.no-stage-hour-message p {
+  margin: 0;
+  font-size: 16px;
 }
 
 .recording-day-selector {

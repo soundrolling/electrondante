@@ -1484,12 +1484,27 @@ function buildPathToSource(nodeId, connections, nodeMap) {
 
 // --- Copy Signal Flow from Previous Recording Day ---
 /**
- * Copies all nodes and connections from one recording day (stage_hour_id) to another
+ * Copies all signal flow data from one recording day (stage_hour_id) to another.
+ * This includes:
+ * - All nodes (transformers, recorders, sources, etc.)
+ * - All connections between nodes (including track assignments)
+ * - All connection port mappings
+ * - All transformer input gain values
+ * 
+ * Duplicate Prevention:
+ * - Nodes are matched by label + gear_id + gear_type to avoid duplicates
+ * - Connections are matched by from_node + to_node + input/output/track numbers
+ * - Port maps and gains are checked for existing entries before insertion
+ * - If copying multiple times, existing items are reused instead of creating duplicates
+ * 
+ * All newly copied data gets new IDs, ensuring edits to the copied signal flow
+ * don't affect the original recording day. Existing items are reused to prevent duplicates.
+ * 
  * @param {string|number} projectId - Project ID
  * @param {string|number} locationId - Location/Stage ID
  * @param {string|number} sourceStageHourId - Source recording day ID to copy from
  * @param {string|number} targetStageHourId - Target recording day ID to copy to
- * @returns {Promise<{nodes: number, connections: number}>} - Count of copied nodes and connections
+ * @returns {Promise<{nodes: number, connections: number}>} - Count of newly copied nodes and connections (excludes existing duplicates)
  */
 export async function copySignalFlowFromRecordingDay(projectId, locationId, sourceStageHourId, targetStageHourId) {
   if (!sourceStageHourId || !targetStageHourId) {
@@ -1508,22 +1523,47 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
     return { nodes: 0, connections: 0 }
   }
   
-  // Create a mapping of old node IDs to new node IDs
-  const nodeIdMap = new Map()
+  // Get existing nodes in target recording day to avoid duplicates
+  const existingTargetNodes = await getNodes(projectId, locationId, targetStageHourId)
   
-  // Copy nodes first
-  const nodesToInsert = sourceNodes.map(node => {
-    const { id, ...nodeData } = node
-    const newNode = {
-      ...nodeData,
-      project_id: projectId,
-      location_id: locationId,
-      stage_hour_id: targetStageHourId
+  // Create a map of existing nodes by their identifying properties
+  // Match by: label + gear_id (if available) + gear_type/type
+  const existingNodeMap = new Map()
+  existingTargetNodes.forEach(node => {
+    const key = `${node.label || ''}|${node.gear_id || ''}|${node.gear_type || node.type || ''}`
+    if (!existingNodeMap.has(key)) {
+      existingNodeMap.set(key, node)
     }
-    return newNode
   })
   
-  // Insert nodes in batches
+  // Create a mapping of old node IDs to new/existing node IDs
+  const nodeIdMap = new Map()
+  const nodesToInsert = []
+  const nodesToMap = []
+  
+  // Check each source node - use existing if found, otherwise prepare for insertion
+  sourceNodes.forEach(oldNode => {
+    const key = `${oldNode.label || ''}|${oldNode.gear_id || ''}|${oldNode.gear_type || oldNode.type || ''}`
+    const existingNode = existingNodeMap.get(key)
+    
+    if (existingNode) {
+      // Node already exists - use existing ID
+      nodeIdMap.set(oldNode.id, existingNode.id)
+    } else {
+      // Node doesn't exist - prepare for insertion
+      const { id, ...nodeData } = oldNode
+      const newNode = {
+        ...nodeData,
+        project_id: projectId,
+        location_id: locationId,
+        stage_hour_id: targetStageHourId
+      }
+      nodesToInsert.push(newNode)
+      nodesToMap.push(oldNode)
+    }
+  })
+  
+  // Insert only new nodes in batches
   const batchSize = 50
   let insertedNodes = []
   for (let i = 0; i < nodesToInsert.length; i += batchSize) {
@@ -1537,15 +1577,27 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
     insertedNodes = insertedNodes.concat(newNodes)
   }
   
-  // Build the node ID mapping
-  sourceNodes.forEach((oldNode, index) => {
+  // Build the node ID mapping for newly inserted nodes
+  nodesToMap.forEach((oldNode, index) => {
     const newNode = insertedNodes[index]
     if (newNode) {
       nodeIdMap.set(oldNode.id, newNode.id)
     }
   })
   
+  // Get existing connections in target recording day to avoid duplicates
+  const existingTargetConnections = await getConnections(projectId, locationId, targetStageHourId)
+  
+  // Create a map of existing connections by their identifying properties
+  // Match by: from_node_id + to_node_id + input_number + output_number + track_number
+  const existingConnMap = new Map()
+  existingTargetConnections.forEach(conn => {
+    const key = `${conn.from_node_id}|${conn.to_node_id}|${conn.input_number || ''}|${conn.output_number || ''}|${conn.track_number || ''}`
+    existingConnMap.set(key, conn)
+  })
+  
   // Copy connections, mapping old node IDs to new node IDs
+  // Skip connections that already exist
   const connectionsToInsert = sourceConnections
     .map(conn => {
       const newFromNodeId = nodeIdMap.get(conn.from_node_id)
@@ -1553,6 +1605,13 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
       
       // Skip connections where we couldn't map the nodes
       if (!newFromNodeId || !newToNodeId) {
+        return null
+      }
+      
+      // Check if this connection already exists
+      const key = `${newFromNodeId}|${newToNodeId}|${conn.input_number || ''}|${conn.output_number || ''}|${conn.track_number || ''}`
+      if (existingConnMap.has(key)) {
+        // Connection already exists - skip it
         return null
       }
       
@@ -1568,7 +1627,7 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
     })
     .filter(conn => conn !== null)
   
-  // Insert connections in batches
+  // Insert only new connections in batches
   let insertedConnections = []
   if (connectionsToInsert.length > 0) {
     for (let i = 0; i < connectionsToInsert.length; i += batchSize) {
@@ -1583,6 +1642,34 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
     }
   }
   
+  // Build mapping of old connection IDs to new/existing connection IDs
+  // This maps source connection IDs to target connection IDs (both new and existing)
+  const connIdMap = new Map()
+  sourceConnections.forEach(sourceConn => {
+    const newFromNodeId = nodeIdMap.get(sourceConn.from_node_id)
+    const newToNodeId = nodeIdMap.get(sourceConn.to_node_id)
+    if (newFromNodeId && newToNodeId) {
+      const key = `${newFromNodeId}|${newToNodeId}|${sourceConn.input_number || ''}|${sourceConn.output_number || ''}|${sourceConn.track_number || ''}`
+      const existingConn = existingConnMap.get(key)
+      if (existingConn) {
+        // Map to existing connection
+        connIdMap.set(sourceConn.id, existingConn.id)
+      } else {
+        // Find the newly inserted connection
+        const newConn = insertedConnections.find(c => 
+          c.from_node_id === newFromNodeId &&
+          c.to_node_id === newToNodeId &&
+          (c.input_number || '') === (sourceConn.input_number || '') &&
+          (c.output_number || '') === (sourceConn.output_number || '') &&
+          (c.track_number || '') === (sourceConn.track_number || '')
+        )
+        if (newConn) {
+          connIdMap.set(sourceConn.id, newConn.id)
+        }
+      }
+    }
+  })
+  
   // Copy connection_port_map entries if they exist
   const sourceConnIds = sourceConnections.map(c => c.id)
   if (sourceConnIds.length > 0) {
@@ -1592,20 +1679,35 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
       .in('connection_id', sourceConnIds)
     
     if (!portMapError && portMaps && portMaps.length > 0) {
-      // Build mapping of old connection IDs to new connection IDs
-      const connIdMap = new Map()
-      sourceConnections.forEach((oldConn, index) => {
-        const newConn = insertedConnections[index]
-        if (newConn) {
-          connIdMap.set(oldConn.id, newConn.id)
-        }
+      // Get existing port maps for target connections to avoid duplicates
+      const targetConnIds = insertedConnections.map(c => c.id).filter(Boolean)
+      let existingPortMaps = []
+      if (targetConnIds.length > 0) {
+        const { data: existingMaps } = await supabase
+          .from('connection_port_map')
+          .select('*')
+          .in('connection_id', targetConnIds)
+        existingPortMaps = existingMaps || []
+      }
+      
+      // Create a map of existing port maps by connection_id + from_port + to_port
+      const existingPortMapSet = new Set()
+      existingPortMaps.forEach(pm => {
+        const key = `${pm.connection_id}|${pm.from_port || ''}|${pm.to_port || ''}`
+        existingPortMapSet.add(key)
       })
       
-      // Create new port map entries
+      // Create new port map entries, skipping duplicates
       const portMapsToInsert = portMaps
         .map(pm => {
           const newConnId = connIdMap.get(pm.connection_id)
           if (!newConnId) return null
+          
+          // Check if this port map already exists
+          const key = `${newConnId}|${pm.from_port || ''}|${pm.to_port || ''}`
+          if (existingPortMapSet.has(key)) {
+            return null // Skip duplicate
+          }
           
           const { id, ...pmData } = pm
           return {
@@ -1628,11 +1730,77 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
     }
   }
   
+  // Copy transformer_input_gain entries if they exist
+  // Get all transformer node IDs from source
+  const sourceTransformerNodeIds = sourceNodes
+    .filter(n => (n.gear_type === 'transformer' || n.type === 'transformer') && n.id)
+    .map(n => n.id)
+  
+  if (sourceTransformerNodeIds.length > 0) {
+    const { data: transformerGains, error: gainError } = await supabase
+      .from('transformer_input_gain')
+      .select('*')
+      .in('node_id', sourceTransformerNodeIds)
+    
+    if (!gainError && transformerGains && transformerGains.length > 0) {
+      // Get existing transformer gains for target nodes to avoid duplicates
+      const targetTransformerNodeIds = Array.from(nodeIdMap.values()).filter(Boolean)
+      let existingGains = []
+      if (targetTransformerNodeIds.length > 0) {
+        const { data: existing } = await supabase
+          .from('transformer_input_gain')
+          .select('*')
+          .in('node_id', targetTransformerNodeIds)
+        existingGains = existing || []
+      }
+      
+      // Create a map of existing gains by node_id + input_number
+      const existingGainSet = new Set()
+      existingGains.forEach(gain => {
+        const key = `${gain.node_id}|${gain.input_number || ''}`
+        existingGainSet.add(key)
+      })
+      
+      // Create new transformer input gain entries with new node IDs, skipping duplicates
+      const gainsToInsert = transformerGains
+        .map(gain => {
+          const newNodeId = nodeIdMap.get(gain.node_id)
+          if (!newNodeId) return null
+          
+          // Check if this gain already exists
+          const key = `${newNodeId}|${gain.input_number || ''}`
+          if (existingGainSet.has(key)) {
+            return null // Skip duplicate
+          }
+          
+          const { id, ...gainData } = gain
+          return {
+            ...gainData,
+            node_id: newNodeId,
+            project_id: projectId
+          }
+        })
+        .filter(gain => gain !== null)
+      
+      if (gainsToInsert.length > 0) {
+        const { error: insertGainError } = await supabase
+          .from('transformer_input_gain')
+          .insert(gainsToInsert)
+        
+        if (insertGainError) {
+          console.error('Error copying transformer input gains:', insertGainError)
+          // Don't throw - gains are optional
+        }
+      }
+    }
+  }
+  
   // Invalidate caches
   invalidateTableCache('nodes', projectId)
   invalidateTableCache('connections', projectId)
   invalidateTableCache('graph', projectId)
   invalidateTableCache('port_maps', projectId)
+  invalidateTableCache('transformer_input_gain', projectId)
   
   return {
     nodes: insertedNodes.length,

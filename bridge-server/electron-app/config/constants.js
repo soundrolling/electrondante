@@ -3,9 +3,9 @@
 // Get default URL from environment (Node.js) or empty string (browser)
 const getDefaultRailwayUrl = () => {
   if (typeof process !== 'undefined' && process.env) {
-    return process.env.RAILWAY_WS_URL || process.env.RAILWAY_URL || '';
+    return process.env.RAILWAY_WS_URL || process.env.RAILWAY_URL || 'wss://proapp2149-production.up.railway.app';
   }
-  return '';
+  return 'wss://proapp2149-production.up.railway.app';
 };
 
 // Get Supabase configuration from environment
@@ -16,7 +16,7 @@ const getSupabaseUrl = () => {
   }
   // Fallback: Replace with your actual Supabase URL from pro.soundrolling.com
   // This is safe to hardcode - it's the public project URL
-  return 'https://your-project-ref.supabase.co';
+  return 'https://mcetzgzwldytnalfaldo.supabase.co';
 };
 
 const getSupabaseAnonKey = () => {
@@ -25,7 +25,7 @@ const getSupabaseAnonKey = () => {
   }
   // Fallback: Replace with your actual anon key
   // The anon key is safe to embed - it only allows RLS-protected operations
-  return 'your-anon-key-here';
+  return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jZXR6Z3p3bGR5dG5hbGZhbGRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjM0Nzg0MjAsImV4cCI6MjAzOTA1NDQyMH0.xZgcGKFgMzlivvzBH8BOsxanK00CvwBcV2GDdD2DQx0';
 };
 
 module.exports = {

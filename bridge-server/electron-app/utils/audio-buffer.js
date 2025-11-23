@@ -63,13 +63,13 @@ class JitterBuffer {
     if (this.lastPacketTime && timestamp) {
       const packetInterval = timestamp - this.lastPacketTime;
       const expectedInterval = 341; // ~341ms per packet (based on batch size)
-      const jitter = Math.abs(packetInterval - expectedInterval);
-      this.jitterHistory.push(jitter);
+      const currentJitter = Math.abs(packetInterval - expectedInterval);
+      this.jitterHistory.push(currentJitter);
       if (this.jitterHistory.length > 100) {
         this.jitterHistory.shift();
       }
       // Exponential moving average for jitter
-      this.networkJitter = this.networkJitter * 0.9 + jitter * 0.1;
+      this.networkJitter = this.networkJitter * 0.9 + currentJitter * 0.1;
     }
     this.lastPacketTime = timestamp;
     

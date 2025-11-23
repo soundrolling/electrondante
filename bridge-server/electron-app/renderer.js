@@ -1,4 +1,5 @@
 // Renderer process - UI logic for multi-room audio system
+console.log('[Renderer] Script loaded');
 
 // Check if JitterBuffer is available (loaded via script tag)
 if (typeof JitterBuffer === 'undefined') {
@@ -31,7 +32,7 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-let currentMode = 'listen'; // 'broadcast' or 'listen' - default to listen mode
+let currentMode = null; // 'broadcast' or 'listen' - default null (selection mode)
 let selectedDeviceId = null;
 let selectedChannels = []; // Array of selected channel numbers for broadcasting (1-32)
 let listenChannels = []; // Array of channel numbers to listen to (empty = all channels)
@@ -56,6 +57,9 @@ let driftCorrectionHistory = new Map(); // channel -> history of buffer sizes fo
 // DOM elements
 let broadcastModeBtn, listenModeBtn; // Deprecated buttons
 let broadcasterLoginToggleBtn, backToListenBtn; // New toggle buttons
+let selectListenModeBtn, selectBroadcastModeBtn; // Mode selection buttons
+let backToModeSelectBtn1, backToModeSelectBtn2; // Back buttons
+let modeSelectionMode; // Mode selection container
 let broadcastMode, listenMode;
 let emailInput, passwordInput, loginBtn;
 let roomPasswordInput, roomNameInput, createRoomBtn, endBroadcastBtn;
@@ -63,7 +67,7 @@ let roomCodeDisplay, listenerCountDisplay;
 let railwayUrlInput, channelCountInput, bitrateSelect;
 let startBroadcastBtn, stopBroadcastBtn, refreshDevicesBtn;
 let deviceList, permissionSection, requestPermissionBtn;
-let railwayUrlListenInput, roomCodeInput, roomPasswordInput, joinRoomBtn;
+let railwayUrlListenInput, roomCodeInput, joinRoomBtn;
 let listenRoomSection, listenRoomName, listenRoomStatus, volumeControl, volumeValue, leaveRoomBtn;
 let muteBtn, copyInviteLinkBtn, audioVisualizerCanvas;
 let openAdminBtn;
@@ -74,323 +78,259 @@ let statusBar, connectionIndicator, statusText, messagesDiv, logArea, toastConta
 let initAttempts = 0;
 const MAX_INIT_ATTEMPTS = 50; // Prevent infinite retry loops
 
+// Expose functions to window for inline handlers and debugging
+window.switchMode = switchMode;
+window.openAdminPanel = openAdminPanel;
+
 function initializeApp() {
   try {
     initAttempts++;
     console.log(`[Init] Attempt ${initAttempts}/${MAX_INIT_ATTEMPTS}`);
     
-    if (initAttempts > MAX_INIT_ATTEMPTS) {
-      console.error('Failed to initialize after', MAX_INIT_ATTEMPTS, 'attempts');
-      if (typeof alert !== 'undefined') {
-        alert('Failed to initialize app. Please restart.');
-      }
-      return;
-    }
+    // 1. Get DOM elements FIRST (independent of electronAPI)
+    // Mode Selection Elements
+    modeSelectionMode = document.getElementById('modeSelectionMode');
+    selectListenModeBtn = document.getElementById('selectListenModeBtn');
+    selectBroadcastModeBtn = document.getElementById('selectBroadcastModeBtn');
+    backToModeSelectBtn1 = document.getElementById('backToModeSelectBtn1');
+    backToModeSelectBtn2 = document.getElementById('backToModeSelectBtn2');
+
+    // broadcasterLoginToggleBtn = document.getElementById('broadcasterLoginToggleBtn'); // Deprecated
+    // backToListenBtn = document.getElementById('backToListenBtn'); // Deprecated
     
+    broadcastMode = document.getElementById('broadcastMode');
+    listenMode = document.getElementById('listenMode');
+    
+    // Toast container
+    toastContainer = document.getElementById('toast-container');
+    
+    // Broadcast mode elements
+    emailInput = document.getElementById('email');
+    passwordInput = document.getElementById('password');
+    loginBtn = document.getElementById('loginBtn');
+    roomPasswordInput = document.getElementById('roomPassword');
+    roomNameInput = document.getElementById('roomName');
+    createRoomBtn = document.getElementById('createRoomBtn');
+    endBroadcastBtn = document.getElementById('endBroadcastBtn');
+    roomCodeDisplay = document.getElementById('roomCode');
+    listenerCountDisplay = document.getElementById('listenerCount');
+    broadcastRoomSection = document.getElementById('broadcastRoomSection');
+    broadcastAudioSection = document.getElementById('broadcastAudioSection');
+    railwayUrlInput = document.getElementById('railwayUrl');
+    channelCountInput = document.getElementById('channelCount');
+    bitrateSelect = document.getElementById('bitrate');
+    startBroadcastBtn = document.getElementById('startBroadcastBtn');
+    stopBroadcastBtn = document.getElementById('stopBroadcastBtn');
+    refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
+    deviceList = document.getElementById('deviceList');
+    permissionSection = document.getElementById('permissionSection');
+    requestPermissionBtn = document.getElementById('requestPermissionBtn');
+    
+    // Listen mode elements
+    railwayUrlListenInput = document.getElementById('railwayUrlListen');
+    roomCodeInput = document.getElementById('roomCodeInput');
+    // Use a different variable name for local use to avoid conflict with global roomPasswordInput
+    const roomPasswordInputListen = document.getElementById('roomPasswordInput');
+    joinRoomBtn = document.getElementById('joinRoomBtn');
+    listenRoomSection = document.getElementById('listenRoomSection');
+    listenRoomName = document.getElementById('listenRoomName');
+    listenRoomStatus = document.getElementById('listenRoomStatus');
+    refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
+    publicRoomsList = document.getElementById('publicRoomsList');
+    volumeControl = document.getElementById('volumeControl');
+    volumeValue = document.getElementById('volumeValue');
+    muteBtn = document.getElementById('muteBtn');
+    copyInviteLinkBtn = document.getElementById('copyInviteLinkBtn');
+    audioVisualizerCanvas = document.getElementById('audioVisualizer');
+    leaveRoomBtn = document.getElementById('leaveRoomBtn');
+    
+    // Common elements
+    statusBar = document.getElementById('statusBar');
+    connectionIndicator = document.getElementById('connectionIndicator');
+    statusText = document.getElementById('statusText');
+    messagesDiv = document.getElementById('messages');
+    logArea = document.getElementById('logArea');
+    openAdminBtn = document.getElementById('openAdminBtn');
+    if (!openAdminBtn) console.warn('[Init] openAdminBtn not found');
+
+    // 2. Attach UI event listeners immediately (don't wait for API)
+    if (!window._uiListenersAttached) {
+        // Mode Selection Listeners
+        if (selectListenModeBtn) {
+            selectListenModeBtn.addEventListener('click', () => switchMode('listen'));
+        }
+        if (selectBroadcastModeBtn) {
+            selectBroadcastModeBtn.addEventListener('click', () => switchMode('broadcast-login'));
+        }
+        if (backToModeSelectBtn1) {
+            backToModeSelectBtn1.addEventListener('click', () => switchMode('selection'));
+        }
+        if (backToModeSelectBtn2) {
+            backToModeSelectBtn2.addEventListener('click', () => switchMode('selection'));
+        }
+
+        /* 
+        if (broadcasterLoginToggleBtn) {
+            console.log('[Init] Attaching broadcaster login toggle handler');
+            broadcasterLoginToggleBtn.addEventListener('click', (e) => {
+            console.log('[Event] Broadcaster login button clicked');
+            try {
+                switchMode('broadcast-login');
+            } catch (error) {
+                console.error('[Event] Error in broadcaster login handler:', error);
+            }
+            });
+        }
+
+        if (backToListenBtn) {
+            console.log('[Init] Attaching back to listen handler');
+            backToListenBtn.addEventListener('click', (e) => {
+            console.log('[Event] Back to listen button clicked');
+            try {
+                switchMode('listen');
+            } catch (error) {
+                console.error('[Event] Error in back to listen handler:', error);
+            }
+            });
+        }
+        */
+        
+        if (openAdminBtn) {
+            console.log('[Init] Attaching admin panel handler');
+            openAdminBtn.addEventListener('click', (e) => {
+                console.log('[Event] Admin button clicked');
+                try {
+                    openAdminPanel();
+                } catch (error) {
+                    console.error('[Event] Error in admin panel handler:', error);
+                    showMessage('Error opening admin panel: ' + error.message, 'error');
+                }
+            });
+        }
+
+        // Room code input - auto uppercase
+        if (roomCodeInput) {
+            roomCodeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
+            });
+        }
+        
+        window._uiListenersAttached = true;
+    }
+
+    // 3. Check for Electron API
     if (!window.electronAPI) {
       console.log('[Init] electronAPI not available yet, retrying...');
-      setTimeout(initializeApp, 100);
+      if (initAttempts <= MAX_INIT_ATTEMPTS) {
+          setTimeout(initializeApp, 100);
+      } else {
+          console.error('Failed to initialize API after', MAX_INIT_ATTEMPTS, 'attempts');
+          if (typeof addLog !== 'undefined') addLog('Failed to connect to Electron API', 'error');
+      }
       return;
     }
     
     console.log('[Init] electronAPI available, initializing...');
+    const { electronAPI } = window;
 
-  const { electronAPI } = window;
+    // 4. Attach API-dependent listeners (if not already attached)
+    if (!window._apiListenersAttached) {
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => handleLogin());
+        }
+        if (createRoomBtn) {
+            createRoomBtn.addEventListener('click', () => handleCreateRoom());
+        }
+        if (endBroadcastBtn) {
+            endBroadcastBtn.addEventListener('click', () => handleEndBroadcast());
+        }
+        if (startBroadcastBtn) {
+            startBroadcastBtn.addEventListener('click', () => handleStartBroadcast());
+        }
+        if (stopBroadcastBtn) {
+            stopBroadcastBtn.addEventListener('click', () => handleStopBroadcast());
+        }
+        if (refreshDevicesBtn) {
+            refreshDevicesBtn.addEventListener('click', () => refreshDevices());
+        }
+        if (requestPermissionBtn) {
+            requestPermissionBtn.addEventListener('click', () => requestMicrophonePermission());
+        }
+        if (joinRoomBtn) {
+            joinRoomBtn.addEventListener('click', () => handleJoinRoom());
+        }
+        if (refreshRoomsBtn) {
+            refreshRoomsBtn.addEventListener('click', () => handleRefreshRooms());
+        }
+        if (leaveRoomBtn) {
+            leaveRoomBtn.addEventListener('click', () => handleLeaveRoom());
+        }
+        
+        // Electron API event listeners
+        electronAPI.onStatus((status) => {
+            updateStatus(status);
+            addLog(status.message, status.type === 'error' ? 'error' : 'info');
+        });
 
-  // Get DOM elements
-  // broadcastModeBtn = document.getElementById('broadcastModeBtn'); // Removed
-  // listenModeBtn = document.getElementById('listenModeBtn'); // Removed
-  broadcasterLoginToggleBtn = document.getElementById('broadcasterLoginToggleBtn');
-  backToListenBtn = document.getElementById('backToListenBtn');
-  
-  broadcastMode = document.getElementById('broadcastMode');
-  listenMode = document.getElementById('listenMode');
-  
-  // Toast container
-  toastContainer = document.getElementById('toast-container');
-  
-  // Broadcast mode elements
-  emailInput = document.getElementById('email');
-  passwordInput = document.getElementById('password');
-  loginBtn = document.getElementById('loginBtn');
-  roomPasswordInput = document.getElementById('roomPassword');
-  roomNameInput = document.getElementById('roomName');
-  createRoomBtn = document.getElementById('createRoomBtn');
-  endBroadcastBtn = document.getElementById('endBroadcastBtn');
-  roomCodeDisplay = document.getElementById('roomCode');
-  listenerCountDisplay = document.getElementById('listenerCount');
-  broadcastRoomSection = document.getElementById('broadcastRoomSection');
-  broadcastAudioSection = document.getElementById('broadcastAudioSection');
-  railwayUrlInput = document.getElementById('railwayUrl');
-  channelCountInput = document.getElementById('channelCount');
-  bitrateSelect = document.getElementById('bitrate');
-  startBroadcastBtn = document.getElementById('startBroadcastBtn');
-  stopBroadcastBtn = document.getElementById('stopBroadcastBtn');
-  refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
-  deviceList = document.getElementById('deviceList');
-  permissionSection = document.getElementById('permissionSection');
-  requestPermissionBtn = document.getElementById('requestPermissionBtn');
-  
-  // Listen mode elements
-  railwayUrlListenInput = document.getElementById('railwayUrlListen');
-  roomCodeInput = document.getElementById('roomCodeInput');
-  const roomPasswordInputListen = document.getElementById('roomPasswordInput');
-  joinRoomBtn = document.getElementById('joinRoomBtn');
-  listenRoomSection = document.getElementById('listenRoomSection');
-  listenRoomName = document.getElementById('listenRoomName');
-  listenRoomStatus = document.getElementById('listenRoomStatus');
-  refreshRoomsBtn = document.getElementById('refreshRoomsBtn');
-  publicRoomsList = document.getElementById('publicRoomsList');
-  volumeControl = document.getElementById('volumeControl');
-  volumeValue = document.getElementById('volumeValue');
-  muteBtn = document.getElementById('muteBtn');
-  copyInviteLinkBtn = document.getElementById('copyInviteLinkBtn');
-  audioVisualizerCanvas = document.getElementById('audioVisualizer');
-  leaveRoomBtn = document.getElementById('leaveRoomBtn');
-  
-  // Common elements
-  statusBar = document.getElementById('statusBar');
-  connectionIndicator = document.getElementById('connectionIndicator');
-  statusText = document.getElementById('statusText');
-  messagesDiv = document.getElementById('messages');
-  logArea = document.getElementById('logArea');
-  openAdminBtn = document.getElementById('openAdminBtn');
+        electronAPI.onError((error) => {
+            showMessage(error.message, 'error');
+            addLog(error.message, 'error');
+        });
 
-  // Debug: Log if buttons are found
-  console.log('[Init] Button check:', {
-    broadcasterLoginToggleBtn: !!broadcasterLoginToggleBtn,
-    loginBtn: !!loginBtn,
-    openAdminBtn: !!openAdminBtn,
-    backToListenBtn: !!backToListenBtn,
-    joinRoomBtn: !!joinRoomBtn,
-    createRoomBtn: !!createRoomBtn
-  });
+        electronAPI.onDevicesUpdated((devices) => {
+            renderDevices(devices);
+        });
+        
+        electronAPI.onRoomStatus?.((status) => {
+            handleRoomStatus(status);
+        });
+        
+        electronAPI.onAudioData?.((data) => {
+            handleAudioData(data);
+        });
 
-  // Attach event listeners with error handling
-  if (broadcasterLoginToggleBtn) {
-    console.log('[Init] Attaching broadcaster login toggle handler');
-    broadcasterLoginToggleBtn.addEventListener('click', (e) => {
-      console.log('[Event] Broadcaster login button clicked');
-      try {
-        switchMode('broadcast-login');
-      } catch (error) {
-        console.error('[Event] Error in broadcaster login handler:', error);
-      }
-    });
-  } else {
-    console.error('[Init] broadcasterLoginToggleBtn not found!');
-  }
+        electronAPI.onConsoleLog?.((log) => {
+            addLog(`[Main] ${log.message}`, log.level >= 2 ? 'error' : 'info');
+        });
+        
+        window._apiListenersAttached = true;
+    }
+
+    // Check microphone permission
+    checkMicrophonePermission();
+
+    // Load saved mode - default to selection mode
+    // Only switch if we haven't already (to avoid resetting user interaction if retry happened)
+    if (initAttempts === 1 || !window._modeInitialized) {
+        // Force selection mode on startup for better UX
+        // const savedMode = localStorage.getItem('appMode') || 'selection'; 
+        switchMode('selection');
+        window._modeInitialized = true;
+    }
+
+    // Check auth status
+    checkAuthStatus();
+
+    // Initialize channel selection UI
+    initializeChannelSelection();
+    initializeListenerChannelSelection();
   
-  if (backToListenBtn) {
-    console.log('[Init] Attaching back to listen handler');
-    backToListenBtn.addEventListener('click', (e) => {
-      console.log('[Event] Back to listen button clicked');
-      try {
-        switchMode('listen');
-      } catch (error) {
-        console.error('[Event] Error in back to listen handler:', error);
-      }
-    });
-  } else {
-    console.warn('[Init] backToListenBtn not found (may be hidden)');
-  }
+    console.log('[Init] Initialization complete! Application ready.');
+    addLog('Dante Audio Client ready', 'success');
   
-  if (loginBtn) {
-    console.log('[Init] Attaching login handler');
-    loginBtn.addEventListener('click', (e) => {
-      console.log('[Event] Login button clicked');
-      try {
-        handleLogin();
-      } catch (error) {
-        console.error('[Event] Error in login handler:', error);
-      }
-    });
-  } else {
-    console.error('[Init] loginBtn not found!');
-  }
-  if (createRoomBtn) {
-    console.log('[Init] Attaching create room handler');
-    createRoomBtn.addEventListener('click', (e) => {
-      console.log('[Event] Create room button clicked');
-      try {
-        handleCreateRoom();
-      } catch (error) {
-        console.error('[Event] Error in create room handler:', error);
-      }
-    });
-  }
-  if (endBroadcastBtn) {
-    console.log('[Init] Attaching end broadcast handler');
-    endBroadcastBtn.addEventListener('click', (e) => {
-      console.log('[Event] End broadcast button clicked');
-      try {
-        handleEndBroadcast();
-      } catch (error) {
-        console.error('[Event] Error in end broadcast handler:', error);
-      }
-    });
-  }
-  if (startBroadcastBtn) {
-    console.log('[Init] Attaching start broadcast handler');
-    startBroadcastBtn.addEventListener('click', (e) => {
-      console.log('[Event] Start broadcast button clicked');
-      try {
-        handleStartBroadcast();
-      } catch (error) {
-        console.error('[Event] Error in start broadcast handler:', error);
-      }
-    });
-  }
-  if (stopBroadcastBtn) {
-    console.log('[Init] Attaching stop broadcast handler');
-    stopBroadcastBtn.addEventListener('click', (e) => {
-      console.log('[Event] Stop broadcast button clicked');
-      try {
-        handleStopBroadcast();
-      } catch (error) {
-        console.error('[Event] Error in stop broadcast handler:', error);
-      }
-    });
-  }
-  if (refreshDevicesBtn) {
-    console.log('[Init] Attaching refresh devices handler');
-    refreshDevicesBtn.addEventListener('click', (e) => {
-      console.log('[Event] Refresh devices button clicked');
-      try {
+    // Refresh devices after a short delay
+    setTimeout(() => {
+        console.log('[Init] Starting device refresh...');
         refreshDevices();
-      } catch (error) {
-        console.error('[Event] Error in refresh devices handler:', error);
-      }
-    });
-  }
-  if (requestPermissionBtn) {
-    console.log('[Init] Attaching request permission handler');
-    requestPermissionBtn.addEventListener('click', (e) => {
-      console.log('[Event] Request permission button clicked');
-      try {
-        requestMicrophonePermission();
-      } catch (error) {
-        console.error('[Event] Error in request permission handler:', error);
-      }
-    });
-  }
-  if (joinRoomBtn) {
-    console.log('[Init] Attaching join room handler');
-    joinRoomBtn.addEventListener('click', (e) => {
-      console.log('[Event] Join room button clicked');
-      try {
-        handleJoinRoom();
-      } catch (error) {
-        console.error('[Event] Error in join room handler:', error);
-      }
-    });
-  }
-  if (refreshRoomsBtn) {
-    console.log('[Init] Attaching refresh rooms handler');
-    refreshRoomsBtn.addEventListener('click', (e) => {
-      console.log('[Event] Refresh rooms button clicked');
-      try {
-        handleRefreshRooms();
-      } catch (error) {
-        console.error('[Event] Error in refresh rooms handler:', error);
-      }
-    });
-  }
-  
-  if (leaveRoomBtn) {
-    console.log('[Init] Attaching leave room handler');
-    leaveRoomBtn.addEventListener('click', (e) => {
-      console.log('[Event] Leave room button clicked');
-      try {
-        handleLeaveRoom();
-      } catch (error) {
-        console.error('[Event] Error in leave room handler:', error);
-      }
-    });
-  }
-  if (openAdminBtn) {
-    console.log('[Init] Attaching admin panel handler');
-    openAdminBtn.addEventListener('click', (e) => {
-      console.log('[Event] Admin button clicked');
-      try {
-        openAdminPanel();
-      } catch (error) {
-        console.error('[Event] Error in admin panel handler:', error);
-        showMessage('Error opening admin panel: ' + error.message, 'error');
-      }
-    });
-  } else {
-    console.error('[Init] openAdminBtn not found!');
-  }
-  // Volume control is handled below in the handleAudioData section
-  
-  // Room code input - auto uppercase
-  if (roomCodeInput) {
-    roomCodeInput.addEventListener('input', (e) => {
-      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
-    });
-  }
+    }, 1000);
 
-  // Check microphone permission
-  checkMicrophonePermission();
-
-  // Electron API event listeners
-  electronAPI.onStatus((status) => {
-    updateStatus(status);
-    addLog(status.message, status.type === 'error' ? 'error' : 'info');
-  });
-
-  electronAPI.onError((error) => {
-    showMessage(error.message, 'error');
-    addLog(error.message, 'error');
-  });
-
-  electronAPI.onDevicesUpdated((devices) => {
-    renderDevices(devices);
-  });
-  
-  electronAPI.onRoomStatus?.((status) => {
-    handleRoomStatus(status);
-  });
-  
-  electronAPI.onAudioData?.((data) => {
-    // Audio data received (for listeners) - play using Web Audio API
-    handleAudioData(data);
-  });
-
-  electronAPI.onConsoleLog?.((log) => {
-    addLog(`[Main] ${log.message}`, log.level >= 2 ? 'error' : 'info');
-  });
-
-  // Load saved mode - default to listen mode
-  const savedMode = localStorage.getItem('appMode') || 'listen';
-  switchMode(savedMode);
-
-  // Check auth status
-  checkAuthStatus();
-
-  // Initialize channel selection UI
-  initializeChannelSelection();
-  initializeListenerChannelSelection();
-  
-  console.log('[Init] Initialization complete! Application ready.');
-  addLog('Dante Audio Client ready', 'success');
-  
-  // Refresh devices after a short delay
-  setTimeout(() => {
-    console.log('[Init] Starting device refresh...');
-    refreshDevices();
-  }, 1000);
   } catch (error) {
     console.error('[Init] Error initializing app:', error);
     console.error('[Init] Stack:', error.stack);
-    
-    // Show error in UI if possible
     if (typeof alert !== 'undefined') {
-      alert('Error initializing app: ' + error.message + '\n\nCheck console for details.');
+      // Only alert if it's a fatal error not a retry-able one
+      // alert('Error initializing app: ' + error.message); 
     }
-    
-    // Try to add to log if available
     if (typeof addLog !== 'undefined') {
       addLog('Initialization error: ' + error.message, 'error');
     }
@@ -404,26 +344,48 @@ function switchMode(mode) {
     currentMode = mode;
     localStorage.setItem('appMode', mode);
 
-    // Show/hide sections based on mode
-    if (mode === 'broadcast-login' || mode === 'broadcast') {
-      console.log('[Mode] Switching to broadcast mode');
+    // Helper to hide all
+    const hideAll = () => {
+        if (modeSelectionMode) modeSelectionMode.style.display = 'none';
+        if (broadcastMode) broadcastMode.style.display = 'none';
+        if (listenMode) listenMode.style.display = 'none';
+    };
+
+    hideAll();
+
+    if (mode === 'selection') {
+        console.log('[Mode] Switching to selection mode');
+        if (modeSelectionMode) modeSelectionMode.style.display = 'block';
+        
+        // Hide status bar (and admin button) in selection mode
+        if (statusBar) statusBar.style.display = 'none';
+        
+        updateStatus({ message: 'Select a mode to continue', type: 'info' });
+    } else {
+        // Show status bar in other modes
+        if (statusBar) statusBar.style.display = 'flex';
+        
+        if (mode === 'broadcast-login' || mode === 'broadcast') {
+          console.log('[Mode] Switching to broadcast mode');
       // Show broadcast mode (login section)
       if (broadcastMode) {
         broadcastMode.style.display = 'block';
         // Show login section, hide room/audio sections initially
         const loginSection = broadcastMode.querySelector('.section:first-of-type');
         if (loginSection) loginSection.style.display = 'block';
-        if (broadcastRoomSection) broadcastRoomSection.style.display = 'none';
-        if (broadcastAudioSection) broadcastAudioSection.style.display = 'none';
+        
+        // Only show room/audio sections if we are actually authenticated and in that state?
+        // For now, rely on the fact that if we just switched here, we probably want login or the last state.
+        // But to be safe, let's reset to login state visually if we are not sure.
+        // Actually, handleLogin checks auth status. Let's just ensure sections are hidden if not logged in.
+        // checkAuthStatus will eventually show sections if logged in.
       } else {
         console.error('[Mode] broadcastMode element not found!');
       }
-      if (listenMode) listenMode.style.display = 'none';
       updateStatus({ message: 'Broadcast Mode - Please login to create a room', type: 'info' });
     } else if (mode === 'listen') {
       console.log('[Mode] Switching to listen mode');
       // Show listen mode
-      if (broadcastMode) broadcastMode.style.display = 'none';
       if (listenMode) {
         listenMode.style.display = 'block';
       } else {
@@ -439,9 +401,13 @@ function switchMode(mode) {
         }
       }, 500);
     }
+  }
 
-    // Stop any active connections when switching
-    if ((mode === 'broadcast-login' || mode === 'broadcast') && isListening) {
+    // Stop any active connections when switching modes (e.g. from listen to selection)
+    if (mode === 'selection') {
+        if (isListening) handleLeaveRoom();
+        if (isBroadcasting) handleStopBroadcast();
+    } else if ((mode === 'broadcast-login' || mode === 'broadcast') && isListening) {
       console.log('[Mode] Stopping listening session');
       handleLeaveRoom();
     } else if (mode === 'listen' && isBroadcasting) {
@@ -519,9 +485,10 @@ function showBroadcastRoomSection() {
   if (roomSection) {
     roomSection.style.display = 'block';
   }
+  // Hide audio section initially - wait for room creation
   const audioSection = document.getElementById('broadcastAudioSection');
   if (audioSection) {
-    audioSection.style.display = 'block';
+    audioSection.style.display = 'none';
   }
 }
 
@@ -560,6 +527,12 @@ async function handleCreateRoom() {
       
       if (endBroadcastBtn) endBroadcastBtn.style.display = 'inline-block';
       if (startBroadcastBtn) startBroadcastBtn.disabled = false;
+
+      // Show audio configuration section now that room is created
+      const audioSection = document.getElementById('broadcastAudioSection');
+      if (audioSection) {
+        audioSection.style.display = 'block';
+      }
     } else {
       showMessage(result.error || 'Failed to create room', 'error');
       addLog(`Room creation failed: ${result.error}`, 'error');
@@ -778,7 +751,7 @@ async function openAdminPanel() {
 async function handleRefreshRooms() {
   if (!window.electronAPI) return;
   
-  const railwayUrl = railwayUrlListenInput?.value || '';
+  const railwayUrl = railwayUrlListenInput?.value || 'https://proapp2149-production.up.railway.app';
   const baseUrl = railwayUrl.replace('wss://', 'https://').replace('ws://', 'http://');
   
   try {
@@ -837,6 +810,7 @@ function renderPublicRooms(rooms) {
         roomCodeInput.value = roomCode;
       }
       // Focus password input for user to enter password
+      // Use local variable to avoid conflict with global roomPasswordInput
       const roomPasswordInputListen = document.getElementById('roomPasswordInput');
       if (roomPasswordInputListen) {
         roomPasswordInputListen.focus();
@@ -878,6 +852,7 @@ async function handleLeaveRoom() {
     
     if (listenRoomSection) listenRoomSection.style.display = 'none';
     if (roomCodeInput) roomCodeInput.value = '';
+    // Use local variable to avoid conflict with global roomPasswordInput
     const roomPasswordInputListen = document.getElementById('roomPasswordInput');
     if (roomPasswordInputListen) roomPasswordInputListen.value = '';
     
