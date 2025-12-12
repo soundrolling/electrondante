@@ -311,11 +311,11 @@ async function loadUserGear() {
   try {
     loading.value = true;
     
-    // Get project ID from props or store
-    const projectId = props.projectId || userStore.getCurrentProject?.id || null;
+    // Get project ID from props or store (access state directly)
+    const projectId = props.projectId || userStore.currentProject?.id || null;
     
     if (!projectId) {
-      console.error('Project ID not found. Props:', props.projectId, 'Store:', userStore.getCurrentProject);
+      console.error('Project ID not found. Props:', props.projectId, 'Store:', userStore.currentProject);
       allUserGear.value = [];
       filteredGear.value = [];
       return;

@@ -448,9 +448,9 @@ setup(props) {
   const userStore = useUserStore()
 
   // Get current project and project ID
+  // Access state directly instead of getter to avoid issues
   const currentProject = computed(() => {
-    if (!userStore || typeof userStore.getCurrentProject !== 'function') return null
-    return userStore.getCurrentProject() || null
+    return userStore.currentProject || null
   })
   const projectId = computed(() => {
     return currentProject.value?.id || route?.params?.id || ''
@@ -634,6 +634,13 @@ setup(props) {
   // Load project from database if not already set
   async function loadProject() {
     try {
+      // Ensure store is available
+      if (!userStore) {
+        console.error('[loadProject] UserStore not available')
+        toast.error('Store not initialized')
+        return false
+      }
+
       const pid = route?.params?.id || projectId.value
       console.log('[loadProject] Attempting to load project. Route params:', route?.params, 'ProjectId computed:', projectId.value, 'Current project:', currentProject.value)
       
@@ -703,7 +710,8 @@ setup(props) {
       userStore.setCurrentProject(projectData)
       
       // Verify it was set
-      const verifyProject = userStore.getCurrentProject()
+      // Verify project was set by accessing state directly
+      const verifyProject = userStore.currentProject
       if (!verifyProject || String(verifyProject.id) !== pidStr) {
         console.error('[loadProject] Failed to set project in store. Verify result:', verifyProject)
         throw new Error('Failed to set project in store')
@@ -729,7 +737,7 @@ setup(props) {
       // Double-check after nextTick
       if (!currentProject.value) {
         // Try accessing store directly as fallback
-        const storeProject = userStore.currentProject || userStore.getCurrentProject()
+        const storeProject = userStore.currentProject
         console.log('[handleAddGearSubmit] Store project (direct access):', storeProject)
         if (!storeProject) {
           console.error('[handleAddGearSubmit] Failed to load project - no project in store')
@@ -738,7 +746,8 @@ setup(props) {
         }
       }
     }
-    const projectToUse = currentProject.value || userStore.currentProject || userStore.getCurrentProject()
+    // Access state directly
+    const projectToUse = currentProject.value || userStore.currentProject
     console.log('[handleAddGearSubmit] Using project:', projectToUse)
     if (!projectToUse) {
       console.error('[handleAddGearSubmit] No project available after all checks')
