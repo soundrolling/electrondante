@@ -382,7 +382,7 @@
         </div>
         <div class="modal-body">
           <UserGearSelector 
-            :project-id="String(currentProject?.id || '')"
+            :project-id="String(projectId || '')"
             :locations-list="locationsList"
             @gear-selected="handleUserGearSelected"
             @gear-added="handleUserGearAdded"
@@ -616,14 +616,78 @@ setup(props) {
     router.push({ name: 'ProjectLocations', params: { id: route?.params?.id } })
   }
 
-  function toggleAddGear() {
+  async function toggleAddGear() {
+    // If opening the modal, ensure project is loaded
+    if (!showAddGearForm.value && !currentProject.value) {
+      await loadProject()
+      if (!currentProject.value) {
+        toast.error('Project not found')
+        return
+      }
+    }
     showAddGearForm.value = !showAddGearForm.value
   }
 
+  // Load project from database if not already set
+  async function loadProject() {
+    try {
+      const pid = route?.params?.id || projectId.value
+      if (!pid) {
+        console.error('No project ID found in route params')
+        return
+      }
+
+      // If project is already loaded and matches, skip
+      if (currentProject.value?.id === pid || currentProject.value?.id === String(pid)) {
+        return
+      }
+
+      // Load project from database
+      const { data, error } = await supabase
+        .from('projects')
+        .select('project_name')
+        .eq('id', pid)
+        .single()
+
+      if (error) throw error
+
+      // Ensure role is loaded if not already set
+      let role = userStore.currentProject?.role
+      if (!role) {
+        const { data: session } = await supabase.auth.getSession()
+        const email = session?.session?.user?.email?.toLowerCase()
+        if (email) {
+          const { data: member } = await supabase
+            .from('project_members')
+            .select('role')
+            .eq('project_id', pid)
+            .eq('user_email', email)
+            .single()
+          if (member) {
+            role = member.role
+          }
+        }
+      }
+
+      userStore.setCurrentProject({
+        id: pid,
+        project_name: data.project_name,
+        role: role || userStore.currentProject?.role
+      })
+    } catch (err) {
+      console.error('Error loading project:', err)
+      toast.error('Could not load project')
+    }
+  }
+
   async function handleAddGearSubmit(formData) {
+    // Try to load project if not already set
     if (!currentProject.value) {
-      toast.error('Project not found')
-      return
+      await loadProject()
+      if (!currentProject.value) {
+        toast.error('Project not found')
+        return
+      }
     }
     const success = await addGearToProject(formData, currentProject.value)
     if (success) {
@@ -957,7 +1021,15 @@ setup(props) {
   }
 
   // User Gear Selector Functions
-  function openUserGearSelector() {
+  async function openUserGearSelector() {
+    // Ensure project is loaded before opening modal
+    if (!currentProject.value) {
+      await loadProject()
+      if (!currentProject.value) {
+        toast.error('Project not found')
+        return
+      }
+    }
     showUserGearSelector.value = true
     selectedUserGear.value = []
   }
@@ -988,6 +1060,15 @@ setup(props) {
 
   async function handleUserGearAdded(gearToAdd) {
     if (!gearToAdd || gearToAdd.length === 0) return
+
+    // Try to load project if not already set
+    if (!currentProject.value) {
+      await loadProject()
+      if (!currentProject.value) {
+        toast.error('Project not found')
+        return
+      }
+    }
 
     loading.value = true
     try {
@@ -1067,6 +1148,7 @@ setup(props) {
   }
 
   onMounted(async () => {
+    await loadProject()
     await fetchLocations()
     await fetchGearList()
     window.addEventListener('online', fetchGearList)
