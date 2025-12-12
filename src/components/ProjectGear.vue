@@ -397,7 +397,7 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import { useUserStore } from '../stores/userStore'
@@ -617,10 +617,13 @@ setup(props) {
   }
 
   async function toggleAddGear() {
+    console.log('[toggleAddGear] Current state - showAddGearForm:', showAddGearForm.value, 'currentProject:', currentProject.value)
     // If opening the modal, ensure project is loaded
     if (!showAddGearForm.value && !currentProject.value) {
-      await loadProject()
-      if (!currentProject.value) {
+      console.log('[toggleAddGear] Opening modal but project not loaded, attempting to load...')
+      const loaded = await loadProject()
+      if (!loaded || !currentProject.value) {
+        console.error('[toggleAddGear] Failed to load project')
         toast.error('Project not found')
         return
       }
@@ -632,24 +635,44 @@ setup(props) {
   async function loadProject() {
     try {
       const pid = route?.params?.id || projectId.value
+      console.log('[loadProject] Attempting to load project. Route params:', route?.params, 'ProjectId computed:', projectId.value, 'Current project:', currentProject.value)
+      
       if (!pid) {
-        console.error('No project ID found in route params')
-        return
+        console.error('[loadProject] No project ID found in route params or computed projectId')
+        toast.error('Project ID not found in route')
+        return false
       }
 
+      // Normalize project ID to string for comparison
+      const pidStr = String(pid)
+      const currentId = currentProject.value?.id ? String(currentProject.value.id) : null
+
       // If project is already loaded and matches, skip
-      if (currentProject.value?.id === pid || currentProject.value?.id === String(pid)) {
-        return
+      if (currentId === pidStr) {
+        console.log('[loadProject] Project already loaded:', currentId)
+        return true
       }
+
+      console.log('[loadProject] Loading project from database:', pidStr)
 
       // Load project from database
       const { data, error } = await supabase
         .from('projects')
         .select('project_name')
-        .eq('id', pid)
+        .eq('id', pidStr)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('[loadProject] Supabase error:', error)
+        throw error
+      }
+
+      if (!data) {
+        console.error('[loadProject] No project data returned for ID:', pidStr)
+        throw new Error('Project not found in database')
+      }
+
+      console.log('[loadProject] Project data loaded:', data)
 
       // Ensure role is loaded if not already set
       let role = userStore.currentProject?.role
@@ -660,36 +683,69 @@ setup(props) {
           const { data: member } = await supabase
             .from('project_members')
             .select('role')
-            .eq('project_id', pid)
+            .eq('project_id', pidStr)
             .eq('user_email', email)
             .single()
           if (member) {
             role = member.role
+            console.log('[loadProject] Found role from project_members:', role)
           }
         }
       }
 
-      userStore.setCurrentProject({
-        id: pid,
+      const projectData = {
+        id: pidStr,
         project_name: data.project_name,
         role: role || userStore.currentProject?.role
-      })
+      }
+      
+      console.log('[loadProject] Setting current project:', projectData)
+      userStore.setCurrentProject(projectData)
+      
+      // Verify it was set
+      const verifyProject = userStore.getCurrentProject()
+      if (!verifyProject || String(verifyProject.id) !== pidStr) {
+        console.error('[loadProject] Failed to set project in store. Verify result:', verifyProject)
+        throw new Error('Failed to set project in store')
+      }
+      
+      console.log('[loadProject] Project successfully loaded and set')
+      return true
     } catch (err) {
-      console.error('Error loading project:', err)
-      toast.error('Could not load project')
+      console.error('[loadProject] Error loading project:', err)
+      toast.error(`Could not load project: ${err.message || err}`)
+      return false
     }
   }
 
   async function handleAddGearSubmit(formData) {
+    console.log('[handleAddGearSubmit] Current project:', currentProject.value)
     // Try to load project if not already set
     if (!currentProject.value) {
-      await loadProject()
+      console.log('[handleAddGearSubmit] Project not loaded, attempting to load...')
+      const loaded = await loadProject()
+      // Wait for reactivity to update
+      await nextTick()
+      // Double-check after nextTick
       if (!currentProject.value) {
-        toast.error('Project not found')
-        return
+        // Try accessing store directly as fallback
+        const storeProject = userStore.currentProject || userStore.getCurrentProject()
+        console.log('[handleAddGearSubmit] Store project (direct access):', storeProject)
+        if (!storeProject) {
+          console.error('[handleAddGearSubmit] Failed to load project - no project in store')
+          toast.error('Project not found')
+          return
+        }
       }
     }
-    const success = await addGearToProject(formData, currentProject.value)
+    const projectToUse = currentProject.value || userStore.currentProject || userStore.getCurrentProject()
+    console.log('[handleAddGearSubmit] Using project:', projectToUse)
+    if (!projectToUse) {
+      console.error('[handleAddGearSubmit] No project available after all checks')
+      toast.error('Project not found')
+      return
+    }
+    const success = await addGearToProject(formData, projectToUse)
     if (success) {
       toggleAddGear()
     }
@@ -1147,8 +1203,15 @@ setup(props) {
     }
   }
 
+  // Watch for changes to currentProject to debug
+  watch(() => currentProject.value, (newProject, oldProject) => {
+    console.log('[ProjectGear] currentProject changed:', { old: oldProject, new: newProject })
+  }, { immediate: true })
+
   onMounted(async () => {
-    await loadProject()
+    console.log('[ProjectGear] onMounted - route params:', route?.params, 'currentProject:', currentProject.value)
+    const loaded = await loadProject()
+    console.log('[ProjectGear] onMounted - loadProject result:', loaded, 'currentProject after load:', currentProject.value)
     await fetchLocations()
     await fetchGearList()
     window.addEventListener('online', fetchGearList)
