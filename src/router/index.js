@@ -148,7 +148,8 @@ router.beforeEach(async (to, from, next) => {
   const publicPages  = ['Login','ConfirmEmail','SetPassword','ResetPassword','Offline'];
   const isPublicPage = publicPages.includes(to.name);
 
-  if (!userStore.isAuthenticated) {
+  // Skip authentication check if already on a public page to prevent unnecessary refreshes
+  if (!isPublicPage && !userStore.isAuthenticated) {
     await userStore.fetchUserSession();
   }
   if (!userStore.isAuthenticated && !isPublicPage) {

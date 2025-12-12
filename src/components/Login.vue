@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.5">
-        <span class="version-text">v2.0.5</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.6">
+        <span class="version-text">v2.0.6</span>
         <span class="version-date">December 12th 2025</span>
       </button>
     </div>
@@ -19,7 +19,7 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.0.5</h2>
+          <h2 id="changelog-title">What's New in 2.0.6</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
@@ -168,18 +168,19 @@ import { useUserStore } from '../stores/userStore';
 import { useToast } from 'vue-toastification';
 
 export default {
-setup() {
-  const email = ref('');
-  const password = ref('');
-  const errorMessage = ref('');
-  const successMessage = ref('');
-  const loading = ref(false);
-  const showPassword = ref(false);
-  const showChangelog = ref(false);
+  name: 'Login',
+  setup() {
+    const email = ref('');
+    const password = ref('');
+    const errorMessage = ref('');
+    const successMessage = ref('');
+    const loading = ref(false);
+    const showPassword = ref(false);
+    const showChangelog = ref(false);
 
-  const router = useRouter();
-  const userStore = useUserStore();
-  const toast = useToast();
+    const router = useRouter();
+    const userStore = useUserStore();
+    const toast = useToast();
 
   const togglePasswordVisibility = () => {
     showPassword.value = !showPassword.value;
