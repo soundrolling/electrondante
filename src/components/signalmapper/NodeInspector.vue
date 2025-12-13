@@ -467,6 +467,9 @@ async function loadAvailableUpstreamSources() {
     console.log('[Inspector] loadAvailableUpstreamSources for transformer', {
       nodeId: props.node.id,
       nodeLabel: props.node.label || props.node.track_name,
+      projectId: props.projectId,
+      locationId: props.locationId,
+      stageHourId: props.stageHourId,
       parentsCount: parents.length,
       parents: parents.map(p => ({
         id: p.id,
@@ -808,7 +811,7 @@ const trackList = ref([])
 async function refresh() {
   // Always rebuild graph to ensure we have latest connections and port maps
   // This ensures we fetch all connected sources and their current state
-  graph.value = await buildGraph(props.projectId, props.locationId)
+  graph.value = await buildGraph(props.projectId, props.locationId, props.stageHourId)
   if (type.value === 'venue_sources') {
     await hydrateVenueLabels(props.node)
   }
@@ -1428,7 +1431,7 @@ async function refreshSourceNames() {
   try {
     toast.info('Refreshing source names...')
     // Rebuild graph to get latest connections
-    graph.value = await buildGraph(props.projectId, props.locationId)
+    graph.value = await buildGraph(props.projectId, props.locationId, props.stageHourId)
     // Reload available sources with updated names
     await loadAvailableUpstreamSources()
     // Update upstream labels
