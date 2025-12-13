@@ -6,6 +6,7 @@ class PWAService {
     this.onlineStatus = navigator.onLine;
     this.updateAvailable = false;
     this.swRegistration = null;
+    this.supabase = null; // Will be set when supabase is available
     
     this.init();
   }
@@ -83,7 +84,16 @@ class PWAService {
 
   setupEventListeners() {
     // Listen for beforeinstallprompt event
-    window.addEventListener('beforeinstallprompt', (e) => {
+    // Note: Calling preventDefault() will show a browser warning until prompt() is called.
+    // This is expected behavior when using a custom install flow (install button in Footer).
+    window.addEventListener('beforeinstallprompt', async (e) => {
+      // Only show install banner when user is logged in
+      const isAuthenticated = await this.isUserAuthenticated();
+      if (!isAuthenticated) {
+        // Don't prevent default, let browser handle it (won't show banner)
+        return;
+      }
+      
       e.preventDefault();
       this.deferredPrompt = e;
       this.notifyInstallAvailable();
@@ -199,10 +209,35 @@ class PWAService {
     }
   }
 
-  // Utility methods
-  canInstall() {
+  // Check if user is authenticated
+  async isUserAuthenticated() {
     try {
-      return !this.isInstalled && this.deferredPrompt !== null;
+      // Lazy load supabase to avoid circular dependencies
+      if (!this.supabase) {
+        try {
+          const { supabase } = await import('../supabase');
+          this.supabase = supabase;
+        } catch (e) {
+          // Supabase not available yet
+          return false;
+        }
+      }
+      
+      // Check for active session
+      const { data: { session }, error } = await this.supabase.auth.getSession();
+      return !error && !!session;
+    } catch (error) {
+      // If any error, don't show install
+      return false;
+    }
+  }
+
+  // Utility methods
+  async canInstall() {
+    try {
+      // Only allow install if user is authenticated
+      const isAuthenticated = await this.isUserAuthenticated();
+      return !this.isInstalled && this.deferredPrompt !== null && isAuthenticated;
     } catch (error) {
       console.error('Error checking canInstall:', error);
       return false;

@@ -350,11 +350,26 @@ async function checkSchedulesForNotifications() {
           }
         }
       } catch (error) {
-        console.error(`[ScheduleNotifications] Error checking schedules for project ${projectId}:`, error)
+        // Only log non-network errors to avoid console spam during outages
+        const isNetworkErr = error?.message?.includes('Failed to fetch') || 
+                           error?.message?.includes('NetworkError') ||
+                           error?.status === 503 || error?.status === 502 || error?.status === 504;
+        if (!isNetworkErr) {
+          console.error(`[ScheduleNotifications] Error checking schedules for project ${projectId}:`, error)
+        } else {
+          // Log network errors at debug level only (throttled)
+          console.debug(`[ScheduleNotifications] Network error checking schedules for project ${projectId} (will retry)`)
+        }
       }
     }
   } catch (error) {
-    console.error('[ScheduleNotifications] Error checking schedules for notifications:', error)
+    // Only log non-network errors
+    const isNetworkErr = error?.message?.includes('Failed to fetch') || 
+                        error?.message?.includes('NetworkError') ||
+                        error?.status === 503 || error?.status === 502 || error?.status === 504;
+    if (!isNetworkErr) {
+      console.error('[ScheduleNotifications] Error checking schedules for notifications:', error)
+    }
   }
 }
 
@@ -368,19 +383,27 @@ function subscribeToScheduleNotifications(projectId, callback) {
         console.log(`[ScheduleNotifications] Received broadcast for project ${projectId}:`, payload.payload)
         callback(payload.payload)
       })
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log(`[ScheduleNotifications] Subscribed to notifications for project ${projectId}`)
           // Store channel for broadcasting
           subscriptionChannels.set(projectId, channel)
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`[ScheduleNotifications] Error subscribing to project ${projectId}`)
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // Only log error if it's not a network issue (which is expected during outages)
+          if (err && !err.message?.includes('WebSocket') && !err.message?.includes('Failed to fetch')) {
+            console.error(`[ScheduleNotifications] Error subscribing to project ${projectId}:`, err)
+          } else {
+            console.warn(`[ScheduleNotifications] Connection issue for project ${projectId} (will retry on next check)`)
+          }
         }
       })
     
     return channel
   } catch (error) {
-    console.error(`[ScheduleNotifications] Error setting up subscription for project ${projectId}:`, error)
+    // Only log unexpected errors, not network/WebSocket errors
+    if (!error.message?.includes('WebSocket') && !error.message?.includes('Failed to fetch')) {
+      console.error(`[ScheduleNotifications] Error setting up subscription for project ${projectId}:`, error)
+    }
     return null
   }
 }

@@ -457,16 +457,19 @@ async function loadAvailableUpstreamSources() {
   
   // Recorders should only list sources from nodes that are actually connected upstream
   const isRecorder = type.value === 'recorder'
+  const isTransformer = type.value === 'transformer'
   
   // Get all connections to this node (used to track which ports are connected)
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   
   // For recorders, we want to show ALL recorders as potential sources (for recorder→recorder connections)
-  // For other node types, only show connected sources
+  // For transformers, we want to show ALL available sources (venue sources, gear sources, other transformers)
+  // This allows users to select sources even before creating connections
   const showAllRecorders = isRecorder
+  const showAllSources = isTransformer || isRecorder
   
-  // Only show connected sources for non-recorders; if there are no incoming connections, nothing to select
-  if (!showAllRecorders && parents.length === 0) {
+  // Only show connected sources for other node types; transformers and recorders show all available sources
+  if (!showAllSources && parents.length === 0) {
     availableUpstreamSources.value = []
     return
   }
@@ -531,24 +534,89 @@ async function loadAvailableUpstreamSources() {
   
   const sources = []
   
-  // For recorders, show ALL recorders as potential sources (not just connected ones)
+  // For transformers and recorders, show ALL available sources (not just connected ones)
   // For other nodes, only show connected sources
   let nodesToProcess = Array.from(connectedNodes.keys())
     .map(nodeId => props.elements.find(e => e.id === nodeId))
     .filter(Boolean)
   
-  if (showAllRecorders) {
-    // Add all recorders that aren't already in the connected nodes list
-    const allRecorders = props.elements.filter(e => {
-      const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
-      return eType === 'recorder' && e.id !== props.node.id // Don't include self
-    })
-    
-    for (const recorder of allRecorders) {
-      if (!connectedNodes.has(recorder.id)) {
-        // Add to nodesToProcess and set connectedPorts to null (will show all tracks)
-        connectedNodes.set(recorder.id, null) // null means show all outputs
-        nodesToProcess.push(recorder)
+  if (showAllSources) {
+    // For transformers: show all venue sources, gear sources, and transformers with valid outputs
+    // For recorders: show all recorders
+    if (isTransformer) {
+      // Add all venue sources
+      const allVenueSources = props.elements.filter(e => {
+        const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+        return eType === 'venue_sources' && e.id !== props.node.id
+      })
+      for (const venue of allVenueSources) {
+        if (!connectedNodes.has(venue.id)) {
+          connectedNodes.set(venue.id, null) // null means show all outputs
+          nodesToProcess.push(venue)
+        }
+      }
+      
+      // Add all gear sources
+      const allGearSources = props.elements.filter(e => {
+        const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+        return eType === 'source' && e.id !== props.node.id
+      })
+      for (const gear of allGearSources) {
+        if (!connectedNodes.has(gear.id)) {
+          connectedNodes.set(gear.id, null) // null means single output
+          nodesToProcess.push(gear)
+        }
+      }
+      
+      // Add all transformers with valid outputs (that have mapped inputs)
+      const allTransformers = props.elements.filter(e => {
+        const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+        return eType === 'transformer' && e.id !== props.node.id
+      })
+      for (const transformer of allTransformers) {
+        if (!connectedNodes.has(transformer.id)) {
+          // Check if transformer has any mapped inputs (valid outputs)
+          const parentsOfTransformer = (graph.value.parentsByToNode || {})[transformer.id] || []
+          const mappedInputs = new Set()
+          for (const p of parentsOfTransformer) {
+            const maps = (graph.value.mapsByConnId || {})[p.id] || []
+            maps.forEach(m => mappedInputs.add(Number(m.to_port)))
+            if (maps.length === 0 && p.input_number) {
+              mappedInputs.add(Number(p.input_number))
+            }
+          }
+          // Only add if transformer has at least one mapped input
+          if (mappedInputs.size > 0) {
+            connectedNodes.set(transformer.id, mappedInputs)
+            nodesToProcess.push(transformer)
+          }
+        }
+      }
+      
+      // Add all recorders
+      const allRecorders = props.elements.filter(e => {
+        const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+        return eType === 'recorder' && e.id !== props.node.id
+      })
+      for (const recorder of allRecorders) {
+        if (!connectedNodes.has(recorder.id)) {
+          connectedNodes.set(recorder.id, null) // null means show all tracks
+          nodesToProcess.push(recorder)
+        }
+      }
+    } else if (showAllRecorders) {
+      // Add all recorders that aren't already in the connected nodes list
+      const allRecorders = props.elements.filter(e => {
+        const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+        return eType === 'recorder' && e.id !== props.node.id // Don't include self
+      })
+      
+      for (const recorder of allRecorders) {
+        if (!connectedNodes.has(recorder.id)) {
+          // Add to nodesToProcess and set connectedPorts to null (will show all tracks)
+          connectedNodes.set(recorder.id, null) // null means show all outputs
+          nodesToProcess.push(recorder)
+        }
       }
     }
   }
@@ -563,8 +631,13 @@ async function loadAvailableUpstreamSources() {
     
     // Show all source types (gear sources, venue sources, transformers, recorders)
     if (eType === 'venue_sources') {
-      // For recorders: show ALL venue source feeds
+      // For transformers and recorders: show ALL venue source feeds
       // For other nodes: only show connected feeds
+      const shouldShowAll = showAllSources
+      if (!shouldShowAll && connectedPortsSet === undefined) {
+        // Not connected and not showing all - skip
+        continue
+      }
       try {
         const { data: feeds } = await supabase
           .from('venue_source_feeds')
@@ -604,8 +677,10 @@ async function loadAvailableUpstreamSources() {
       }
     } else if (eType === 'source') {
       // Regular gear sources: often have a single output and no port maps
-      // Treat "null" connectedPortsSet as connected (single-output). Include only if connected (undefined means not connected)
-      if (connectedPortsSet !== undefined) {
+      // For transformers/recorders: show all gear sources
+      // For other nodes: only show if connected (connectedPortsSet !== undefined)
+      const shouldShowAll = showAllSources
+      if (shouldShowAll || connectedPortsSet !== undefined) {
         sources.push({
           id: e.id,
           port: null,
@@ -614,7 +689,7 @@ async function loadAvailableUpstreamSources() {
         })
       }
     } else if (eType === 'transformer') {
-      // For recorders: show ALL transformer outputs
+      // For transformers and recorders: show ALL transformer outputs that have valid upstream sources
       // For other nodes: only show connected outputs
       const numOutputs = e.num_outputs || e.outputs || 0
       if (numOutputs > 0) {
@@ -632,9 +707,19 @@ async function loadAvailableUpstreamSources() {
             mappedInputs.add(Number(p.input_number))
           }
         }
+        
         // Show all outputs that correspond to mapped inputs
         for (let port = 1; port <= numOutputs; port++) {
+          // Only show ports that have mapped inputs (valid upstream sources)
           if (!mappedInputs.has(port)) continue
+          
+          // If not showing all sources, also verify this port is actually connected
+          if (!showAllSources) {
+            // For non-transformers/recorders, only show if this port is connected
+            if (connectedPortsSet === undefined || (connectedPortsSet instanceof Set && !connectedPortsSet.has(port))) {
+              continue
+            }
+          }
           try {
             const label = await getOutputLabel(e, port, graph.value)
             if (label && String(label).trim().length > 0) {
@@ -661,10 +746,10 @@ async function loadAvailableUpstreamSources() {
       const numOutputs = e.num_outputs || e.outputs || numTracks // Use num_outputs if set, otherwise tracks
       const tracksToShow = Math.max(numTracks, numOutputs) // Show all available tracks/outputs
       
-      // For recorder→recorder connections, ALWAYS show all tracks (multi-source support)
+      // For recorder→recorder or transformer→recorder connections, ALWAYS show all tracks (multi-source support)
       // This allows adding multiple tracks from the same source recorder
       // For other node types, only show connected ports
-      const shouldShowAll = showAllRecorders // Always show all tracks when target is a recorder
+      const shouldShowAll = showAllSources // Show all tracks when target is a transformer or recorder
       const portsToShow = shouldShowAll 
         ? Array.from({ length: tracksToShow }, (_, i) => i + 1)
         : (connectedPortsSet ? Array.from(connectedPortsSet) : [])

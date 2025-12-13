@@ -309,36 +309,66 @@ export async function deleteConnection(id) {
 
 // --- Real-time Subscriptions ---
 export function subscribeToNodes(projectId, callback) {
-  return supabase
-    .channel('nodes')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'nodes', filter: `project_id=eq.${projectId}` },
-      payload => {
-        // Invalidate cache on any node change
-        invalidateTableCache('nodes', projectId)
-        invalidateTableCache('graph', projectId)
-        callback(payload)
-      }
-    )
-    .subscribe()
+  try {
+    return supabase
+      .channel('nodes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'nodes', filter: `project_id=eq.${projectId}` },
+        payload => {
+          // Invalidate cache on any node change
+          invalidateTableCache('nodes', projectId)
+          invalidateTableCache('graph', projectId)
+          callback(payload)
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // Only log non-network errors to avoid console spam
+          if (err && !err.message?.includes('WebSocket') && !err.message?.includes('Failed to fetch')) {
+            console.warn(`[SignalMapper] WebSocket subscription error for nodes (project ${projectId}):`, err)
+          }
+        }
+      })
+  } catch (error) {
+    // Only log unexpected errors
+    if (!error.message?.includes('WebSocket') && !error.message?.includes('Failed to fetch')) {
+      console.warn(`[SignalMapper] Error setting up nodes subscription (project ${projectId}):`, error)
+    }
+    return null
+  }
 }
 
 export function subscribeToConnections(projectId, callback) {
-  return supabase
-    .channel('connections')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'connections', filter: `project_id=eq.${projectId}` },
-      payload => {
-        // Invalidate cache on any connection change
-        invalidateTableCache('connections', projectId)
-        invalidateTableCache('graph', projectId)
-        invalidateTableCache('port_maps', projectId)
-        callback(payload)
-      }
-    )
-    .subscribe()
+  try {
+    return supabase
+      .channel('connections')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'connections', filter: `project_id=eq.${projectId}` },
+        payload => {
+          // Invalidate cache on any connection change
+          invalidateTableCache('connections', projectId)
+          invalidateTableCache('graph', projectId)
+          invalidateTableCache('port_maps', projectId)
+          callback(payload)
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // Only log non-network errors to avoid console spam
+          if (err && !err.message?.includes('WebSocket') && !err.message?.includes('Failed to fetch')) {
+            console.warn(`[SignalMapper] WebSocket subscription error for connections (project ${projectId}):`, err)
+          }
+        }
+      })
+  } catch (error) {
+    // Only log unexpected errors
+    if (!error.message?.includes('WebSocket') && !error.message?.includes('Failed to fetch')) {
+      console.warn(`[SignalMapper] Error setting up connections subscription (project ${projectId}):`, error)
+    }
+    return null
+  }
 }
 
 // --- Helper Functions ---

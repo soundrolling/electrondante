@@ -301,10 +301,10 @@ const updatePWA = async () => {
 };
 
 // Check PWA status
-const checkPWAStatus = () => {
+const checkPWAStatus = async () => {
   try {
     isPWAInstalled.value = pwaService.isInstalled;
-    canInstallPWA.value = pwaService.canInstall();
+    canInstallPWA.value = await pwaService.canInstall();
     hasUpdateAvailable.value = pwaService.hasUpdate();
     isOnline.value = pwaService.getOnlineStatus();
   } catch (error) {
@@ -327,8 +327,10 @@ if (window.confirm('Are you sure you want to clear the cache?')) {
 const emitSignOut = () => emit('signOut');
 
 // Override PWA service notifications
-pwaService.notifyInstallAvailable = () => {
-  canInstallPWA.value = true;
+pwaService.notifyInstallAvailable = async () => {
+  // Only show install button if user is authenticated
+  const canInstall = await pwaService.canInstall();
+  canInstallPWA.value = canInstall;
 };
 
 pwaService.notifyInstalled = () => {
@@ -348,8 +350,10 @@ pwaService.notifyOnlineStatus = (online) => {
 onMounted(() => {
   checkPWAStatus();
   
-  // Check status periodically
-  const statusInterval = setInterval(checkPWAStatus, 5000);
+  // Check status periodically (async function is fine in setInterval)
+  const statusInterval = setInterval(() => {
+    checkPWAStatus();
+  }, 5000);
   
   onUnmounted(() => {
     clearInterval(statusInterval);

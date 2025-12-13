@@ -14,8 +14,43 @@ import {
 
 const toast = useToast();
 
+// Track error logs to prevent spam
+const errorLogCache = new Map();
+const ERROR_LOG_THROTTLE = 5000; // Only log same error once per 5 seconds
+
 function generateTempId() {
   return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Helper to check if error should be logged (throttle repeated errors)
+function shouldLogError(tableName, errorType, errorMessage) {
+  const key = `${tableName}:${errorType}:${errorMessage}`;
+  const now = Date.now();
+  const lastLog = errorLogCache.get(key);
+  
+  if (!lastLog || (now - lastLog) > ERROR_LOG_THROTTLE) {
+    errorLogCache.set(key, now);
+    return true;
+  }
+  return false;
+}
+
+// Check if error is a network/server error that should fallback to offline
+function isNetworkError(error) {
+  if (!error) return false;
+  // Check for network errors
+  if (error.message?.includes('Failed to fetch') || 
+      error.message?.includes('NetworkError') ||
+      error.message?.includes('ERR_CONNECTION_CLOSED') ||
+      error.message?.includes('ERR_INTERNET_DISCONNECTED')) {
+    return true;
+  }
+  // Check for 5xx server errors
+  if (error.status === 503 || error.status === 502 || error.status === 504 || 
+      error.status === 500 || error.code === 'PGRST116') {
+    return true;
+  }
+  return false;
 }
 
 // Strip local-only fields before sending to Supabase
@@ -42,39 +77,8 @@ async function registerBackgroundSync() {
 
 export async function fetchTableData(tableName, options = {}) {
   try {
-    if (navigator.onLine) {
-      let q = supabase.from(tableName).select('*');
-      if (options.eq) {
-        Object.entries(options.eq).forEach(([c, v]) => q = q.eq(c, v));
-      }
-      if (options.in) {
-        Object.entries(options.in).forEach(([c, vs]) => q = q.in(c, vs));
-      }
-      if (options.order) {
-        const orders = Array.isArray(options.order) ? options.order : [options.order];
-        orders.forEach(o => q = q.order(o.column, { ascending: o.ascending }));
-      }
-      if (options.limit) q = q.limit(options.limit);
-
-      const { data, error } = await q;
-      if (error) {
-        console.error(`Error fetching ${tableName}:`, error);
-        toast.error(error.message);
-        return await getData(tableName);
-      }
-      
-      // Merge fetched data with existing local data to preserve offline notes
-      const existingData = await getData(tableName);
-      const offlineNotes = existingData.filter(item => item._isTemp);
-      
-      // Combine online data with offline notes
-      const mergedData = [...data, ...offlineNotes];
-      await saveData(tableName, mergedData);
-      
-      console.log(`[fetchTableData] Fetched ${data.length} online items, merged with ${offlineNotes.length} offline items`);
-      return mergedData;
-    } else {
-      toast.info('Offline mode: using local data');
+    // Check online status - if offline, use local data immediately
+    if (!navigator.onLine) {
       let local = await getData(tableName);
       if (options.eq) {
         Object.entries(options.eq).forEach(([c, v]) => {
@@ -83,10 +87,88 @@ export async function fetchTableData(tableName, options = {}) {
       }
       return local;
     }
+
+    // Try to fetch from Supabase
+    let q = supabase.from(tableName).select('*');
+    if (options.eq) {
+      Object.entries(options.eq).forEach(([c, v]) => q = q.eq(c, v));
+    }
+    if (options.in) {
+      Object.entries(options.in).forEach(([c, vs]) => q = q.in(c, vs));
+    }
+    if (options.order) {
+      const orders = Array.isArray(options.order) ? options.order : [options.order];
+      orders.forEach(o => q = q.order(o.column, { ascending: o.ascending }));
+    }
+    if (options.limit) q = q.limit(options.limit);
+
+    const { data, error } = await q;
+    
+    // Handle errors
+    if (error) {
+      const errorMessage = error.message || 'Unknown error';
+      const isNetworkErr = isNetworkError(error);
+      
+      // Only log if not throttled
+      if (shouldLogError(tableName, 'fetch', errorMessage)) {
+        if (isNetworkErr) {
+          console.warn(`[fetchTableData] Network error for ${tableName}, using cached data:`, errorMessage);
+        } else {
+          console.error(`[fetchTableData] Error fetching ${tableName}:`, error);
+        }
+      }
+      
+      // Only show toast for non-network errors (network errors are expected during outages)
+      if (!isNetworkErr && shouldLogError(tableName, 'toast', errorMessage)) {
+        toast.error(`Error fetching ${tableName}: ${errorMessage}`);
+      }
+      
+      // Fallback to local data
+      let local = await getData(tableName);
+      if (options.eq) {
+        Object.entries(options.eq).forEach(([c, v]) => {
+          local = local.filter(i => i[c] === v);
+        });
+      }
+      return local;
+    }
+    
+    // Success - merge fetched data with existing local data to preserve offline notes
+    const existingData = await getData(tableName);
+    const offlineNotes = existingData.filter(item => item._isTemp);
+    
+    // Combine online data with offline notes
+    const mergedData = [...data, ...offlineNotes];
+    await saveData(tableName, mergedData);
+    
+    console.log(`[fetchTableData] Fetched ${data.length} online items, merged with ${offlineNotes.length} offline items`);
+    return mergedData;
   } catch (e) {
-    console.error(`fetchTableData error for ${tableName}:`, e);
-    toast.error('Fetch error');
-    return await getData(tableName);
+    // Handle network exceptions (Failed to fetch, etc.)
+    const errorMessage = e.message || 'Unknown error';
+    const isNetworkErr = isNetworkError(e);
+    
+    if (shouldLogError(tableName, 'exception', errorMessage)) {
+      if (isNetworkErr) {
+        console.warn(`[fetchTableData] Network exception for ${tableName}, using cached data:`, errorMessage);
+      } else {
+        console.error(`[fetchTableData] Exception for ${tableName}:`, e);
+      }
+    }
+    
+    // Only show toast for unexpected errors
+    if (!isNetworkErr && shouldLogError(tableName, 'toast', errorMessage)) {
+      toast.error(`Fetch error for ${tableName}`);
+    }
+    
+    // Always fallback to local data
+    let local = await getData(tableName);
+    if (options.eq) {
+      Object.entries(options.eq).forEach(([c, v]) => {
+        local = local.filter(i => i[c] === v);
+      });
+    }
+    return local;
   }
 }
 
@@ -182,8 +264,22 @@ export async function mutateTableData(tableName, operation, data) {
       return localResult;
     }
   } catch (e) {
-    console.error(`mutateTableData error for ${tableName}:`, e);
-    toast.error(e.message);
+    const errorMessage = e.message || 'Unknown error';
+    const isNetworkErr = isNetworkError(e);
+    
+    if (shouldLogError(tableName, 'mutate', errorMessage)) {
+      if (isNetworkErr) {
+        console.warn(`[mutateTableData] Network error for ${tableName}:`, errorMessage);
+      } else {
+        console.error(`[mutateTableData] Error for ${tableName}:`, e);
+      }
+    }
+    
+    // Only show toast for non-network errors
+    if (!isNetworkErr && shouldLogError(tableName, 'toast', errorMessage)) {
+      toast.error(errorMessage);
+    }
+    
     throw e;
   }
 }

@@ -3488,6 +3488,11 @@ defineExpose({ getCanvasDataURL })
   border-radius: 4px;
 }
 
+.dark .selection-count {
+  color: white;
+  background: var(--color-primary-500);
+}
+
 .mode-badge {
   background: rgba(59, 130, 246, 0.1);
   color: var(--color-primary-600);
