@@ -510,8 +510,20 @@ async function loadAvailableUpstreamSources() {
         // No input_number, can't determine which track - skip
         continue
       }
+    } else if (srcType === 'venue_sources') {
+      // For venue sources without port maps, handle direct connections
+      // If input_number is set, use that to infer the venue source feed port (1:1 pass-through)
+      // Otherwise, show all feeds (similar to transformers)
+      if (p.input_number) {
+        connectedPorts = new Set([Number(p.input_number)])
+      } else {
+        // No input_number - for direct connections, we'll show all feeds
+        // This allows venue sources to work like transformers when directly connected
+        // We'll determine the actual feeds from the venue_source_feeds table
+        connectedPorts = null // null means direct connection, show all feeds
+      }
     }
-    // If no port maps and not a transformer/recorder, connectedPorts stays null (means single output source)
+    // If no port maps and not a transformer/recorder/venue_sources, connectedPorts stays null (means single output source)
     
     // Store connection info
     if (!connectedNodes.has(nodeId)) {
@@ -565,23 +577,23 @@ async function loadAvailableUpstreamSources() {
     // Show all source types (gear sources, venue sources, transformers, recorders)
     if (eType === 'venue_sources') {
       // For recorders: show ALL venue source feeds
-      // For transformers and other nodes: only show connected feeds (must have port maps)
+      // For transformers and other nodes: show connected feeds (with port maps or direct connections)
       if (!showAllRecorders && connectedPortsSet === undefined) {
         // Not connected and not showing all - skip
         continue
       }
       
-      // For non-recorders, venue sources must have explicit port maps (connectedPortsSet must be a Set)
-      // If connectedPortsSet is null, it means no port maps, so don't show any feeds
+      // For non-recorders, venue sources can work with:
+      // 1. Port maps (connectedPortsSet is a Set with specific ports)
+      // 2. Direct connections (connectedPortsSet is null, like regular sources)
+      // When directly connected (null), show all feeds to allow pass-through
       if (!showAllRecorders) {
-        if (connectedPortsSet === null || !(connectedPortsSet instanceof Set)) {
-          // No port maps or invalid state - skip showing any feeds
+        // If it's a Set but empty, skip (no connected ports)
+        if (connectedPortsSet instanceof Set && connectedPortsSet.size === 0) {
           continue
         }
-        // If Set is empty, also skip (no connected ports)
-        if (connectedPortsSet.size === 0) {
-          continue
-        }
+        // If connectedPortsSet is undefined, we already skipped above
+        // If it's null, that's a direct connection - we'll show all feeds below
       }
       
       try {
@@ -593,12 +605,19 @@ async function loadAvailableUpstreamSources() {
         
         if (feeds && feeds.length) {
           // For recorders: show all feeds
-          // For transformers/other nodes: only show ports that are explicitly in the connectedPortsSet
+          // For transformers/other nodes: 
+          //   - If connectedPortsSet is a Set, only show ports in the Set (port-mapped)
+          //   - If connectedPortsSet is null, show all feeds (direct connection, like regular sources)
           for (const feed of feeds) {
             const port = feed.port_number
-            // If showing all (recorders), include all feeds
-            // Otherwise, only include if this port is explicitly in the Set (has port maps)
-            if (showAllRecorders || (connectedPortsSet instanceof Set && connectedPortsSet.has(port))) {
+            // Include if:
+            // - Showing all (recorders), OR
+            // - connectedPortsSet is null (direct connection - show all), OR
+            // - connectedPortsSet is a Set and contains this port (port-mapped)
+            const shouldInclude = showAllRecorders || 
+              connectedPortsSet === null || 
+              (connectedPortsSet instanceof Set && connectedPortsSet.has(port))
+            if (shouldInclude) {
               sources.push({
                 id: e.id,
                 port,
@@ -612,9 +631,14 @@ async function loadAvailableUpstreamSources() {
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            // If showing all (recorders), include all outputs
-            // Otherwise, only include if this port is explicitly in the Set (has port maps)
-            if (showAllRecorders || (connectedPortsSet instanceof Set && connectedPortsSet.has(port))) {
+            // Include if:
+            // - Showing all (recorders), OR
+            // - connectedPortsSet is null (direct connection - show all), OR
+            // - connectedPortsSet is a Set and contains this port (port-mapped)
+            const shouldInclude = showAllRecorders || 
+              connectedPortsSet === null || 
+              (connectedPortsSet instanceof Set && connectedPortsSet.has(port))
+            if (shouldInclude) {
               const label = labels[port] || `Output ${port}`
               sources.push({
                 id: e.id,
@@ -829,11 +853,13 @@ async function loadConnections() {
     if (p.input_number) {
       const inputNum = Number(p.input_number)
       upstreamConnections.value[inputNum] = p.id
-      const inferredPort = null
+      // For venue sources and recorders with direct connections, use input_number as the port
+      // This allows venue sources to work like regular sources when directly connected
+      const inferredPort = (srcType === 'venue_sources' || srcType === 'recorder') ? inputNum : null
       const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
       const feedKey = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
       upstreamMap.value[inputNum] = feedKey
-      const portForLabel = null
+      const portForLabel = inferredPort
       const label = src ? (await getOutputLabel(src, portForLabel, graph.value)) : 'Unknown'
       upstreamLabels.value[inputNum] = label
       upstream.value.push({ key: p.id, input: inputNum, label })
@@ -1832,8 +1858,9 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const isSourceRecorder = (srcType === 'recorder')
               const isRecorderOrTransformer = (type.value === 'recorder' || type.value === 'transformer')
               
-              // For transformer/venue_source/recorder -> recorder/transformer connections, do NOT set input_number
-              // even if feedPort is null. We want an unassigned connection until the user selects a port.
+              // For transformer/venue_source/recorder -> recorder/transformer connections:
+              // - If feedPort is null (direct connection), set input_number to allow direct pass-through
+              // - If feedPort is set (port-mapped), don't set input_number (port maps handle it)
               // Recorder→recorder connections should always use port mappings to support multiple tracks
               const connectionData = {
                 project_id: props.projectId,
@@ -1841,9 +1868,13 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                 to_node_id: props.node.id
               }
               
-              // Only set input_number for simple source -> non-structured targets
-              // Recorder→recorder should always use port mappings (multi-source)
-              const shouldSetInputNumber = !((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)
+              // Set input_number for:
+              // 1. Simple source -> non-structured targets (always)
+              // 2. Venue sources/transformers -> transformers/recorders when feedPort is null (direct connection)
+              // Don't set input_number for port-mapped connections (feedPort is set)
+              const isDirectConnection = feedPort === null
+              const shouldSetInputNumber = !((isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer) || 
+                                          (isDirectConnection && (isTransformerOrVenueSource || isSourceRecorder) && isRecorderOrTransformer)
               if (shouldSetInputNumber) {
                 connectionData.input_number = Number(inputNum)
               }
@@ -1976,9 +2007,14 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const isTargetRecorder = (type.value === 'recorder')
               const isSourceRecorder = (srcType === 'recorder')
               
-              // For recorder→recorder, always create port maps when feedPort is provided
-              // For other types, only create when an explicit from_port (feedPort) is selected
-              const shouldCreatePortMap = isTransformerOrVenueSourceOrRecorder && (isTargetRecorder || type.value === 'transformer')
+              // Create port maps only when:
+              // 1. feedPort is explicitly provided (port-mapped connection)
+              // 2. For recorder→recorder, always use port maps when feedPort is provided
+              // 3. For venue sources/transformers → transformers/recorders, only create port map if feedPort is set
+              // If feedPort is null, this is a direct connection and we should NOT create a port map
+              const shouldCreatePortMap = (feedPort !== null) && 
+                                        isTransformerOrVenueSourceOrRecorder && 
+                                        (isTargetRecorder || type.value === 'transformer')
               // Only use feedPort if explicitly provided - don't use inputNum as fallback to avoid constraint violations
               const portToUse = (feedPort !== null) ? feedPort : null
               
