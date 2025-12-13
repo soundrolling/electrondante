@@ -564,11 +564,25 @@ async function loadAvailableUpstreamSources() {
     // Show all source types (gear sources, venue sources, transformers, recorders)
     if (eType === 'venue_sources') {
       // For recorders: show ALL venue source feeds
-      // For transformers and other nodes: only show connected feeds
+      // For transformers and other nodes: only show connected feeds (must have port maps)
       if (!showAllRecorders && connectedPortsSet === undefined) {
         // Not connected and not showing all - skip
         continue
       }
+      
+      // For non-recorders, venue sources must have explicit port maps (connectedPortsSet must be a Set)
+      // If connectedPortsSet is null, it means no port maps, so don't show any feeds
+      if (!showAllRecorders) {
+        if (connectedPortsSet === null || !(connectedPortsSet instanceof Set)) {
+          // No port maps or invalid state - skip showing any feeds
+          continue
+        }
+        // If Set is empty, also skip (no connected ports)
+        if (connectedPortsSet.size === 0) {
+          continue
+        }
+      }
+      
       try {
         const { data: feeds } = await supabase
           .from('venue_source_feeds')
@@ -578,12 +592,12 @@ async function loadAvailableUpstreamSources() {
         
         if (feeds && feeds.length) {
           // For recorders: show all feeds
-          // For transformers/other nodes: only show connected ports
+          // For transformers/other nodes: only show ports that are explicitly in the connectedPortsSet
           for (const feed of feeds) {
             const port = feed.port_number
             // If showing all (recorders), include all feeds
-            // Otherwise, only include if this port is connected
-            if (showAllRecorders || connectedPortsSet === null || (connectedPortsSet instanceof Set && connectedPortsSet.has(port))) {
+            // Otherwise, only include if this port is explicitly in the Set (has port maps)
+            if (showAllRecorders || (connectedPortsSet instanceof Set && connectedPortsSet.has(port))) {
               sources.push({
                 id: e.id,
                 port,
@@ -598,8 +612,8 @@ async function loadAvailableUpstreamSources() {
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
             // If showing all (recorders), include all outputs
-            // Otherwise, only include if this port is connected
-            if (showAllRecorders || connectedPortsSet === null || (connectedPortsSet instanceof Set && connectedPortsSet.has(port))) {
+            // Otherwise, only include if this port is explicitly in the Set (has port maps)
+            if (showAllRecorders || (connectedPortsSet instanceof Set && connectedPortsSet.has(port))) {
               const label = labels[port] || `Output ${port}`
               sources.push({
                 id: e.id,
