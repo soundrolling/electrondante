@@ -689,50 +689,59 @@ async function loadAvailableUpstreamSources() {
       }
     } else if (eType === 'recorder') {
       // Recorders can output to other nodes (recorder-to-recorder or recorder-to-transformer)
-      // Show ALL tracks from recorders as available outputs (not just connected ones)
-      // This allows backup recorders to see all tracks from primary recorders
+      // Only show tracks that have valid upstream sources assigned (not empty tracks)
       const numTracks = e.num_tracks || e.tracks || e.num_records || e.numrecord || 0
       const numOutputs = e.num_outputs || e.outputs || numTracks // Use num_outputs if set, otherwise tracks
       const tracksToShow = Math.max(numTracks, numOutputs) // Show all available tracks/outputs
       
-      // For recorder→recorder connections, ALWAYS show all tracks (multi-source support)
-      // This allows adding multiple tracks from the same source recorder
+      // For recorder→recorder connections, show tracks with valid sources
       // For other node types, only show connected ports
-      const shouldShowAll = showAllRecorders // Always show all tracks when target is a recorder
+      const shouldShowAll = showAllRecorders // Always show tracks with sources when target is a recorder
       const portsToShow = shouldShowAll 
         ? Array.from({ length: tracksToShow }, (_, i) => i + 1)
         : (connectedPortsSet ? Array.from(connectedPortsSet) : [])
       
       if (portsToShow.length > 0) {
+        // Check which tracks on this recorder have valid upstream sources
+        const parentsOfRecorder = (graph.value.parentsByToNode || {})[e.id] || []
+        const tracksWithSources = new Set()
+        
+        // Check port mappings to find tracks with sources
+        for (const parent of parentsOfRecorder) {
+          const portMaps = (graph.value.mapsByConnId || {})[parent.id] || []
+          if (portMaps && portMaps.length > 0) {
+            // Has port maps - track which tracks have sources
+            portMaps.forEach(m => {
+              const trackNum = Number(m.to_port)
+              if (trackNum) tracksWithSources.add(trackNum)
+            })
+          } else if (parent.input_number || parent.track_number) {
+            // Direct connection without port maps
+            const trackNum = Number(parent.input_number || parent.track_number)
+            if (trackNum) tracksWithSources.add(trackNum)
+          }
+        }
+        
         for (const port of portsToShow) {
+          // Only show tracks that have valid upstream sources
+          if (!tracksWithSources.has(port)) {
+            continue
+          }
+          
           // Get the label for this recorder track output (traces back to original source)
           try {
             const label = await getOutputLabel(e, port, graph.value)
-            // If we got a traced source name, use it directly; otherwise show track number
-            if (label && label !== `Track ${port}`) {
+            // Only show if we got a valid traced source name (not just "Track N")
+            if (label && label !== `Track ${port}` && !label.includes('-- No source --')) {
               sources.push({
                 id: e.id,
                 port,
                 label: label, // Show original source name (e.g., "Microphone 1", "Guitar L")
                 feedKey: `${e.id}:${port}`
               })
-            } else {
-              // Fallback: no source traced, show track number with recorder name
-              sources.push({
-                id: e.id,
-                port,
-                label: `Track ${port} (${e.track_name || e.label || 'Recorder'})`,
-                feedKey: `${e.id}:${port}`
-              })
             }
           } catch (err) {
-            // Fallback if label resolution fails
-            sources.push({
-              id: e.id,
-              port,
-              label: `Track ${port} (${e.track_name || e.label || 'Recorder'})`,
-              feedKey: `${e.id}:${port}`
-            })
+            // Skip tracks that fail to resolve labels
           }
         }
       }
