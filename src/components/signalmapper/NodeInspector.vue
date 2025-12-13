@@ -462,32 +462,12 @@ async function loadAvailableUpstreamSources() {
   // Get all connections to this node (used to track which ports are connected)
   const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
   
-  // Debug logging
-  if (isTransformer) {
-    console.log('[Inspector] loadAvailableUpstreamSources for transformer', {
-      nodeId: props.node.id,
-      nodeLabel: props.node.label || props.node.track_name,
-      projectId: props.projectId,
-      locationId: props.locationId,
-      stageHourId: props.stageHourId,
-      parentsCount: parents.length,
-      parents: parents.map(p => ({
-        id: p.id,
-        from_node_id: p.from_node_id,
-        input_number: p.input_number
-      }))
-    })
-  }
-  
   // For recorders, we want to show ALL recorders as potential sources (for recorder→recorder connections)
   // For transformers and other nodes, only show sources that are actually connected upstream
   const showAllRecorders = isRecorder
   
   // Only show connected sources for non-recorders; if there are no incoming connections, nothing to select
   if (!showAllRecorders && parents.length === 0) {
-    if (isTransformer) {
-      console.log('[Inspector] No parents found for transformer, returning empty sources')
-    }
     availableUpstreamSources.value = []
     return
   }
@@ -574,22 +554,6 @@ async function loadAvailableUpstreamSources() {
     }
   }
   
-  // Debug logging
-  if (isTransformer) {
-    console.log('[Inspector] Processing nodes', {
-      nodesToProcessCount: nodesToProcess.length,
-      nodesToProcess: nodesToProcess.map(n => ({
-        id: n.id,
-        label: n.label || n.track_name,
-        type: (n.gear_type || n.node_type || n.type || '').toLowerCase()
-      })),
-      connectedNodes: Array.from(connectedNodes.entries()).map(([id, ports]) => ({
-        nodeId: id,
-        ports: ports instanceof Set ? Array.from(ports) : ports
-      }))
-    })
-  }
-  
   for (const e of nodesToProcess) {
     if (!e || e.id === props.node.id) continue
     
@@ -597,16 +561,6 @@ async function loadAvailableUpstreamSources() {
     
     // Get connected ports for this node (if connected)
     const connectedPortsSet = connectedNodes.get(e.id) || null
-    
-    // Debug logging
-    if (isTransformer) {
-      console.log('[Inspector] Processing node', {
-        id: e.id,
-        label: e.label || e.track_name,
-        type: eType,
-        connectedPortsSet: connectedPortsSet instanceof Set ? Array.from(connectedPortsSet) : connectedPortsSet
-      })
-    }
     
     // Show all source types (gear sources, venue sources, transformers, recorders)
     if (eType === 'venue_sources') {
