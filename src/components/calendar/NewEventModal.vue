@@ -71,8 +71,8 @@
       <textarea v-model="newEvent.notes" rows="2"></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-positive save-button" @click="handleCreate">Save</button>
-      <button class="btn btn-warning cancel-button" @click="$emit('close')">Cancel</button>
+      <button class="btn-primary" @click="handleCreate">Save</button>
+      <button class="btn-secondary" @click="$emit('close')">Cancel</button>
     </div>
   </div>
 </div>
@@ -288,22 +288,5 @@ justify-content: flex-end;
 gap: 0.5rem;
 margin-top: 1rem;
 }
-.button {
-background: var(--color-success-500);
-  color: var(--text-inverse);
-border: none;
-padding: 0.6rem 1rem;
-border-radius: 4px;
-cursor: pointer;
-transition: background 0.2s;
-}
-.button:hover {
-background: var(--color-success-600);
-}
-.save-button {
-background: var(--color-success-500);
-}
-.cancel-button {
-background: var(--color-secondary-400);
-}
+// Button styles are now handled by calendar.scss
 </style> 

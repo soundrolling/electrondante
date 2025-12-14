@@ -32,6 +32,11 @@
         :key="evt.category+'-'+evt.id"
         :class="['schedule-item', { 'recording-event': evt.category === 'recording', 'stage-hour-event': evt.isStageHour }]"
         :style="evt.category === 'recording' ? { borderLeft: '5px solid #ef4444', border: '1.5px solid #ef4444' } : { borderLeft: '5px solid '+getEventColor(evt) }"
+        role="button"
+        tabindex="0"
+        :aria-label="`Event: ${evt.title} on ${formatDate(evt.event_date)}`"
+        @keydown.enter="$emit('event-click', evt)"
+        @keydown.space.prevent="$emit('event-click', evt)"
       >
         <div class="event-badges-row">
           <span class="category-badge">
@@ -63,10 +68,12 @@
             <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="multi-day-badge">Multi-day</div>
           </div>
           <div class="event-info">
-            <div class="event-title">
-              <span v-html="evt.title"></span>
-            </div>
-            <div class="event-location">{{ getLocationName(evt.location_id) }}</div>
+            <slot name="event-card" :event="evt">
+              <div class="event-title">
+                <span v-html="evt.title"></span>
+              </div>
+              <div class="event-location">{{ getLocationName(evt.location_id) }}</div>
+            </slot>
           </div>
         </div>
         
@@ -97,7 +104,7 @@
         <p v-if="infoEvent.notes"><strong>Notes:</strong> {{ infoEvent.notes }}</p>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-warning close-button" @click="closeInfoModal">Close</button>
+          <button class="btn-secondary" @click="closeInfoModal">Close</button>
       </div>
     </div>
   </div>
@@ -147,8 +154,8 @@
           <textarea v-model="editEventData.notes" rows="2"></textarea>
         </div>
         <div class="modal-actions">
-          <button class="btn btn-positive save-button" type="submit">Save</button>
-          <button class="btn btn-warning close-button" type="button" @click="closeEditModal">Cancel</button>
+          <button class="btn-primary" type="submit">Save</button>
+          <button class="btn-secondary" type="button" @click="closeEditModal">Cancel</button>
         </div>
       </form>
     </div>
@@ -523,19 +530,7 @@ gap: 0.5rem;
 margin-top: 1rem;
 }
 
-.button.close-button {
-background: #bdc3c7;
-color: #fff;
-border: none;
-padding: 0.5rem 1rem;
-border-radius: 4px;
-cursor: pointer;
-transition: background 0.2s;
-}
-
-.button.close-button:hover {
-background: #888;
-}
+// Button styles are now handled by calendar.scss
 
 .cog-menu-wrapper {
 position: relative;
@@ -614,18 +609,7 @@ font-size: 0.95rem;
 background: var(--bg-primary);
 color: var(--text-primary);
 }
-.button.save-button {
-background: #27ae60;
-color: #fff;
-border: none;
-padding: 0.6rem 1rem;
-border-radius: 4px;
-cursor: pointer;
-transition: background 0.2s;
-}
-.button.save-button:hover {
-background: #219150;
-}
+// Button styles are now handled by calendar.scss
 
 .assigned-contacts-row {
 margin-top: 0.5rem;
@@ -676,7 +660,7 @@ vertical-align: middle;
 }
 
 .recording-event {
-border: 1.5px solid #ef4444 !important;
-border-left: 5px solid #ef4444 !important;
+border: 1.5px solid var(--color-error-500) !important;
+border-left: 5px solid var(--color-error-500) !important;
 }
 </style> 

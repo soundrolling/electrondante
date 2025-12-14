@@ -1,14 +1,33 @@
 <template>
-<div class="calendar-grid-view">
+<div 
+  class="calendar-grid-view"
+  ref="swipeContainer"
+  @touchstart="handleTouchStart"
+  @touchend="handleTouchEnd"
+>
   <div class="calendar-header">
-    <button class="btn btn-warning nav-button" @click="$emit('previous-period')">
+    <button 
+      class="btn-secondary nav-button" 
+      @click="$emit('previous-period')"
+      aria-label="Previous week"
+    >
       &lt;
     </button>
-    <strong>{{ weekRangeHeader }}</strong>
-    <button class="btn btn-warning nav-button" @click="$emit('next-period')">
+    <strong aria-live="polite">{{ weekRangeHeader }}</strong>
+    <button 
+      class="btn-secondary nav-button" 
+      @click="$emit('next-period')"
+      aria-label="Next week"
+    >
       &gt;
     </button>
-    <button class="btn btn-primary jump-today-btn" @click="jumpToToday">Today</button>
+    <button 
+      class="btn-primary jump-today-btn" 
+      @click="jumpToToday"
+      aria-label="Jump to today"
+    >
+      Today
+    </button>
   </div>
 
   <!-- Stage Hours Section -->
@@ -37,11 +56,26 @@
   <div class="calendar-scroll">
     <div class="vertical-week-view" :class="{ 'highlight-week': isCurrentWeek }">
       <div v-for="(day, idx) in displayCalendarDays" :key="day.date" :class="['vertical-week-row', { 'highlight-today': day.date === todayDate }]">
-        <div class="vertical-weekday-label">{{ calendarWeekDayHeaders[idx] }}</div>
+        <div class="vertical-weekday-label">
+          <slot name="day-header" :date="day.date">
+            {{ calendarWeekDayHeaders[idx] }}
+          </slot>
+        </div>
         <div class="vertical-weekday-cell" :class="{ 'has-events': hasEvents(day.date) }">
           <div class="day-number">{{ new Date(day.date).getDate() }}</div>
           <div v-if="hasEvents(day.date)" class="event-list">
-            <div v-for="evt in getEventsForDay(day.date)" :key="evt.category+'-'+evt.id" class="event-list-item" :class="{ 'multi-day-event': evt.end_date && evt.end_date !== evt.event_date }" @click="$emit('event-click', evt)">
+            <div 
+              v-for="evt in getEventsForDay(day.date)" 
+              :key="evt.category+'-'+evt.id" 
+              class="event-list-item" 
+              :class="{ 'multi-day-event': evt.end_date && evt.end_date !== evt.event_date }" 
+              @click="$emit('event-click', evt)"
+              role="button"
+              tabindex="0"
+              :aria-label="`Event: ${evt.title} on ${day.date}`"
+              @keydown.enter="$emit('event-click', evt)"
+              @keydown.space.prevent="$emit('event-click', evt)"
+            >
               <div class="event-flex">
                 <div class="event-times-col">
                   <div class="event-time event-time-start">{{ formatTime12(getDisplayStartTime(evt, day.date)) }}</div>
@@ -49,11 +83,13 @@
                   <div class="event-time event-time-end">{{ formatTime12(getDisplayEndTime(evt, day.date)) }}</div>
                 </div>
                 <div class="event-info-col">
-                  <div class="event-title" v-html="evt.title"></div>
-                  <div v-if="evt.location_id && getLocationName" class="event-location">{{ getLocationName(evt.location_id) }}</div>
-                  <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="multi-day-indicator">
-                    <span class="multi-day-text">Multi-day event</span>
-                  </div>
+                  <slot name="event-card" :event="evt">
+                    <div class="event-title" v-html="evt.title"></div>
+                    <div v-if="evt.location_id && getLocationName" class="event-location">{{ getLocationName(evt.location_id) }}</div>
+                    <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="multi-day-indicator">
+                      <span class="multi-day-text">Multi-day event</span>
+                    </div>
+                  </slot>
                 </div>
               </div>
             </div>
@@ -82,10 +118,6 @@ props: {
     required: true
   },
   todayDate: {
-    type: String,
-    required: true
-  },
-  calendarMode: {
     type: String,
     required: true
   },
@@ -122,12 +154,15 @@ props: {
     default: null
   }
 },
-emits: ['previous-period', 'next-period', 'update:calendarMode', 'event-click', 'edit-stage-hours'],
+emits: ['previous-period', 'next-period', 'event-click', 'edit-stage-hours'],
 data() {
   return {
     calendarWeekDayHeaders: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
     showEventModal: false,
-    selectedDay: null
+    selectedDay: null,
+    touchStartX: 0,
+    touchStartY: 0,
+    swipeThreshold: 50
   }
 },
 methods: {
@@ -148,9 +183,9 @@ methods: {
     if (evt.event_date === dayDate) {
       return evt.start_time;
     }
-    // If event started on previous day but ends on this day, show midnight
+    // If event started on previous day but ends on this day, show "Start" or beginning of day
     if (evt.end_date === dayDate && evt.event_date !== dayDate) {
-      return '00:00';
+      return '00:00'; // Show as midnight for continuation
     }
     return evt.start_time;
   },
@@ -159,14 +194,35 @@ methods: {
     if (evt.end_date === dayDate) {
       return evt.end_time;
     }
-    // If event starts on this day but ends on next day, show midnight
+    // If event starts on this day but ends on next day, show "End" or end of day
     if (evt.event_date === dayDate && evt.end_date !== dayDate) {
-      return '00:00';
+      return '23:59'; // Show as end of day instead of confusing 00:00
     }
     return evt.end_time;
   },
   editStageHours() {
     this.$emit('edit-stage-hours');
+  },
+  handleTouchStart(e) {
+    this.touchStartX = e.touches[0].clientX;
+    this.touchStartY = e.touches[0].clientY;
+  },
+  handleTouchEnd(e) {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - this.touchStartX;
+    const deltaY = touchEndY - this.touchStartY;
+    
+    // Check if horizontal swipe is greater than vertical
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > this.swipeThreshold) {
+      if (deltaX > 0) {
+        // Swipe right - go to previous period
+        this.$emit('previous-period');
+      } else {
+        // Swipe left - go to next period
+        this.$emit('next-period');
+      }
+    }
   }
 }
 }
@@ -273,6 +329,11 @@ border-radius: 4px;
 cursor: pointer;
 transition: background 0.2s;
 color: var(--text-primary);
+min-height: 44px;
+min-width: 44px;
+display: inline-flex;
+align-items: center;
+justify-content: center;
 }
 .nav-button:hover {
 background: var(--bg-tertiary);
@@ -428,13 +489,15 @@ font-weight: 700;
   background: var(--bg-secondary);
   border-left: 4px solid var(--color-success-500);
   border-radius: 4px;
-  padding: 0.2rem 0.7rem 0.2rem 0.7rem;
+  padding: 0.5rem 0.7rem;
   font-size: 0.97rem;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   cursor: pointer;
   transition: background 0.2s;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 .event-list-item:hover {
   background: var(--bg-tertiary);

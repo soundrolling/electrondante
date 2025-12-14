@@ -1,11 +1,23 @@
 <template>
-<div class="timeline-view">
+<div 
+  class="timeline-view"
+  @touchstart="handleTouchStart"
+  @touchend="handleTouchEnd"
+>
   <div class="timeline-nav">
-    <button class="btn btn-warning nav-button" @click="$emit('previous-day')">
+    <button 
+      class="btn-secondary nav-button" 
+      @click="$emit('previous-day')"
+      aria-label="Previous day"
+    >
       &lt;
     </button>
-    <strong>{{ formattedTimelineDate }}</strong>
-    <button class="btn btn-warning nav-button" @click="$emit('next-day')">
+    <strong aria-live="polite">{{ formattedTimelineDate }}</strong>
+    <button 
+      class="btn-secondary nav-button" 
+      @click="$emit('next-day')"
+      aria-label="Next day"
+    >
       &gt;
     </button>
   </div>
@@ -55,6 +67,11 @@
               }"
               :style="evt.isStageHour ? {} : { borderLeft: '5px solid #ef4444' }"
               @click="$emit('event-click', evt)"
+              role="button"
+              tabindex="0"
+              :aria-label="`Event: ${evt.title} at ${formatTime(getDisplayStartTime(evt))}`"
+              @keydown.enter="$emit('event-click', evt)"
+              @keydown.space.prevent="$emit('event-click', evt)"
             >
               <div class="event-content">
                 <strong v-html="evt.title"></strong><br>
@@ -120,7 +137,10 @@ emits: ['event-click', 'previous-day', 'next-day', 'edit-stage-hours'],
 data() {
   return {
     now: new Date(),
-    timer: null
+    timer: null,
+    touchStartX: 0,
+    touchStartY: 0,
+    swipeThreshold: 50
   }
 },
 computed: {
@@ -202,9 +222,9 @@ methods: {
     if (evt.end_date === this.currentDateString) {
       return evt.end_time;
     }
-    // If event starts on this day but ends on next day, show midnight
+    // If event starts on this day but ends on next day, show end of day instead of confusing 00:00
     if (evt.event_date === this.currentDateString && evt.end_date !== this.currentDateString) {
-      return '00:00';
+      return '23:59'; // Show as end of day for better clarity
     }
     return evt.end_time;
   },
@@ -219,6 +239,27 @@ methods: {
   },
   editStageHours() {
     this.$emit('edit-stage-hours');
+  },
+  handleTouchStart(e) {
+    this.touchStartX = e.touches[0].clientX;
+    this.touchStartY = e.touches[0].clientY;
+  },
+  handleTouchEnd(e) {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - this.touchStartX;
+    const deltaY = touchEndY - this.touchStartY;
+    
+    // Check if horizontal swipe is greater than vertical
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > this.swipeThreshold) {
+      if (deltaX > 0) {
+        // Swipe right - go to previous day
+        this.$emit('previous-day');
+      } else {
+        // Swipe left - go to next day
+        this.$emit('next-day');
+      }
+    }
   }
 }
 }

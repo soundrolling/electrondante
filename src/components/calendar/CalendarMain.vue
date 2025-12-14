@@ -17,17 +17,36 @@
       :categories="eventCategories"
       :locations="locations"
       :filters="filters"
-      :showDateFilters="currentView === 'list'"
+      :showDateFilters="true"
       @update:filters="updateFilters"
     />
 
-    <button class="btn btn-positive add-button" @click="openNewEventModal">
+    <button 
+      class="btn-primary add-button desktop-add-button" 
+      @click="openNewEventModal"
+      aria-label="Add new event"
+    >
       + Add Event
     </button>
-    <button class="btn btn-secondary" @click="forceRefresh" style="margin-left: 0.5rem;">
+    <button 
+      class="btn-secondary desktop-refresh-button" 
+      @click="forceRefresh" 
+      style="margin-left: 0.5rem;"
+      aria-label="Refresh calendar"
+    >
       🔄 Refresh
     </button>
   </section>
+
+  <!-- Mobile FAB -->
+  <button 
+    v-if="!readOnly"
+    class="mobile-fab" 
+    @click="openNewEventModal"
+    aria-label="Add new event"
+  >
+    <span class="fab-icon">+</span>
+  </button>
 
   <!-- LEGEND -->
   <CalendarLegend 
@@ -49,6 +68,15 @@
     <div v-if="stageHoursError" class="error-message">{{ stageHoursError }}</div>
   </section>
 
+  <!-- Skeleton Loading States -->
+  <div v-if="loading && !events.length" class="skeleton-container">
+    <div v-for="i in 5" :key="i" class="skeleton-item">
+      <div class="skeleton-line skeleton-title"></div>
+      <div class="skeleton-line skeleton-text"></div>
+      <div class="skeleton-line skeleton-text short"></div>
+    </div>
+  </div>
+
   <!-- MAIN VIEWS -->
   <section class="views-container">
     <!-- CALENDAR GRID VIEW -->
@@ -65,11 +93,19 @@
       :is-current-week="isCurrentWeek"
       :jump-to-today="jumpToToday"
       :today-date="todayDate"
+      :get-location-name="getLocationName"
       @event-click="openDetailsModal"
       @previous-period="previousPeriod"
       @next-period="nextPeriod"
       @edit-stage-hours="openStageHoursModal"
-    />
+    >
+      <template #event-card="{ event }">
+        <slot name="event-card" :event="event"></slot>
+      </template>
+      <template #day-header="{ date }">
+        <slot name="day-header" :date="date"></slot>
+      </template>
+    </CalendarGridView>
 
     <!-- TIMELINE VIEW -->
     <CalendarTimelineView
@@ -83,10 +119,17 @@
       :current-date-string="currentDateString"
       :locations="locations"
       @event-click="openDetailsModal"
-      @previous-day="previousDay"
-      @next-day="nextDay"
+      @previous-day="previousDayTimeline"
+      @next-day="nextDayTimeline"
       @edit-stage-hours="openStageHoursModal"
-    />
+    >
+      <template #event-card="{ event }">
+        <slot name="event-card" :event="event"></slot>
+      </template>
+      <template #day-header="{ date }">
+        <slot name="day-header" :date="date"></slot>
+      </template>
+    </CalendarGridView>
 
     <!-- LIST VIEW -->
     <CalendarListView
@@ -101,7 +144,18 @@
       @edit="onEditEvent"
       @delete="onDeleteEvent"
       @edit-stage-hours="openStageHoursModal"
-    />
+    >
+      <template #event-card="{ event }">
+        <slot name="event-card" :event="event"></slot>
+      </template>
+    </CalendarListView>
+    
+    <!-- Empty State Slot -->
+    <div v-if="!loading && sortedEvents.length === 0" class="empty-state">
+      <slot name="empty-state">
+        <p>No events found. Click "Add Event" to create one.</p>
+      </slot>
+    </div>
   </section>
 
   <!-- MODALS -->
@@ -128,8 +182,8 @@
     @create="createNewEvent"
   />
 
-  <!-- Stage Hours Modal -->
-  <div v-if="showStageHoursModal" class="modal-overlay" @click.self="closeStageHoursModal">
+  <!-- Stage Hours List Modal -->
+  <div v-if="showStageHoursModal && !editingStageHour" class="modal-overlay" @click.self="closeStageHoursModal">
     <div class="modal-content">
       <div class="modal-header">
         <h2>Edit Stage Hours</h2>
@@ -144,17 +198,27 @@
                 <span class="time-range">{{ formatDateTime(hour.start_datetime) }} - {{ formatDateTime(hour.end_datetime) }}</span>
                 <span v-if="hour.notes" class="day-id">{{ hour.notes.startsWith('Day') ? hour.notes : 'Day ' + hour.notes }}</span>
                 <div class="hour-actions">
-                  <button class="btn btn-warning btn-sm" @click="editStageHour(hour, stage)">✏️</button>
-                  <button class="btn btn-danger btn-sm" @click="deleteStageHour(hour)">🗑️</button>
+                  <button class="btn-warning btn-sm" @click="editStageHour(hour, stage)">✏️</button>
+                  <button class="btn-danger btn-sm" @click="deleteStageHour(hour)">🗑️</button>
                 </div>
               </div>
             </div>
-            <button class="btn btn-primary btn-sm" @click="addStageHour(stage)">+ Add Hours</button>
+            <button class="btn-primary btn-sm" @click="addStageHour(stage)">+ Add Hours</button>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Stage Hours Form Modal -->
+  <StageHoursModal
+    :show="!!editingStageHour || !!selectedStageForHours"
+    :stages="locations"
+    :editing-hour="editingStageHour"
+    :selected-stage="selectedStageForHours"
+    @close="closeStageHoursFormModal"
+    @save="saveStageHour"
+  />
 
   <!-- Confirmation Modal -->
   <ConfirmationModal
@@ -176,6 +240,9 @@ import { fetchTableData } from "../../services/dataService";
 import { supabase } from "../../supabase";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
+import { useCalendarEvents } from "../../composables/useCalendarEvents";
+import { useCalendarNavigation } from "../../composables/useCalendarNavigation";
+import { useCalendarFilters } from "../../composables/useCalendarFilters";
 
 // Import subcomponents
 import CalendarViewSelector from "./CalendarViewSelector.vue";
@@ -187,6 +254,7 @@ import CalendarGridView from "./CalendarGridView.vue";
 import EventDetailsModal from "./EventDetailsModal.vue";
 import NewEventModal from "./NewEventModal.vue";
 import ConfirmationModal from "./ConfirmationModal.vue";
+import StageHoursModal from "./StageHoursModal.vue";
 
 
 export default {
@@ -200,13 +268,54 @@ components: {
   CalendarGridView,
   EventDetailsModal,
   NewEventModal,
-  ConfirmationModal
+  ConfirmationModal,
+  StageHoursModal
 },
-setup() {
+setup(props, { emit }) {
   const userStore = useUserStore();
   const route = useRoute();
   const router = useRouter();
   const toast = useToast();
+  
+  // Project ID for composables - use prop if provided, otherwise from store
+  const projectId = computed(() => props.projectId || userStore.getCurrentProject?.id);
+  
+  // Use composables
+  const calendarEvents = useCalendarEvents(projectId, userStore);
+  const {
+    loading: eventsLoading,
+    error: eventsError,
+    events,
+    allEvents,
+    fetchEvents,
+    fetchTravelTrips,
+    createEvent,
+    updateEvent,
+    deleteEvent
+  } = calendarEvents;
+  
+  const calendarNavigation = useCalendarNavigation();
+  const {
+    currentDate,
+    currentDateString,
+    activeDayIndex,
+    weekDaysData,
+    displayCalendarDays,
+    weekRangeHeader,
+    currentWeekDates,
+    todayDate,
+    isCurrentWeek,
+    jumpToToday,
+    previousDay,
+    nextDay,
+    previousPeriod,
+    nextPeriod,
+    navigateToDayIndex
+  } = calendarNavigation;
+
+  const locations = ref([]);
+  const stageHours = ref([]);
+  const contacts = ref([]);
   const loading = ref(true);
   const error = ref("");
   const calendarError = ref("");
@@ -214,36 +323,44 @@ setup() {
   const stageHoursError = ref("");
   const toastMsg = ref("");
 
-  const events = ref([]);
-  const locations = ref([]);
-  const stageHours = ref([]);
-  const contacts = ref([]);
-  const travelTrips = ref([]);
-
-  const currentView = ref("grid");
-  const currentDate = ref(new Date());
-
-  // Set default date filters to today
-  const todayStr = new Date().toISOString().split('T')[0];
-  const filters = ref({
-    dateStart: todayStr,
-    dateEnd: todayStr,
-    category: '',
-    location: ''
+  const currentView = ref(props.initialView || "grid");
+  
+  // Watch for view changes and emit event
+  watch(currentView, (newView) => {
+    emit('view-changed', newView);
+  });
+  
+  // Watch for date changes and emit event
+  watch(currentDate, (newDate) => {
+    emit('date-changed', newDate);
   });
 
-  // Event categories with icons
+  // Category color system - consistent palette for light/dark mode
+  const categoryColors = {
+    calltimes: { bg: '#dcfce7', border: '#22c55e', text: '#166534', main: '#22c55e' },
+    wraptimes: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', main: '#f59e0b' },
+    artisttimes: { bg: '#e0e7ff', border: '#6366f1', text: '#312e81', main: '#6366f1' },
+    deliveries: { bg: '#fce7f3', border: '#ec4899', text: '#831843', main: '#ec4899' },
+    recording: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b', main: '#ef4444' },
+    meeting: { bg: '#dbeafe', border: '#3b82f6', text: '#1e3a8a', main: '#3b82f6' },
+    setup: { bg: '#f3f4f6', border: '#6b7280', text: '#1f2937', main: '#6b7280' },
+    showday: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', main: '#f59e0b' },
+    travel: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e', main: '#0ea5e9' },
+    other: { bg: '#f5f5f5', border: '#9ca3af', text: '#374151', main: '#9ca3af' }
+  };
+
+  // Event categories with icons and colors
   const eventCategories = [
-    { id: 'calltimes', label: 'Call Times', icon: '⏰' },
-    { id: 'wraptimes', label: 'Wrap Times', icon: '🔚' },
-    { id: 'artisttimes', label: 'Artist Times', icon: '🎨' },
-    { id: 'deliveries', label: 'Deliveries', icon: '📦' },
-    { id: 'recording', label: 'Recording', icon: '🎤' },
-    { id: 'meeting', label: 'Meeting', icon: '👥' },
-    { id: 'setup', label: 'Setup/Breakdown', icon: '🛠️' },
-    { id: 'showday', label: 'Show Day', icon: '🎭' },
-    { id: 'travel', label: 'Travel', icon: '✈️' },
-    { id: 'other', label: 'Other', icon: '❓' }
+    { id: 'calltimes', label: 'Call Times', icon: '⏰', color: categoryColors.calltimes.main },
+    { id: 'wraptimes', label: 'Wrap Times', icon: '🔚', color: categoryColors.wraptimes.main },
+    { id: 'artisttimes', label: 'Artist Times', icon: '🎨', color: categoryColors.artisttimes.main },
+    { id: 'deliveries', label: 'Deliveries', icon: '📦', color: categoryColors.deliveries.main },
+    { id: 'recording', label: 'Recording', icon: '🎤', color: categoryColors.recording.main },
+    { id: 'meeting', label: 'Meeting', icon: '👥', color: categoryColors.meeting.main },
+    { id: 'setup', label: 'Setup/Breakdown', icon: '🛠️', color: categoryColors.setup.main },
+    { id: 'showday', label: 'Show Day', icon: '🎭', color: categoryColors.showday.main },
+    { id: 'travel', label: 'Travel', icon: '✈️', color: categoryColors.travel.main },
+    { id: 'other', label: 'Other', icon: '❓', color: categoryColors.other.main }
   ];
 
   // Initialize enabledCategories with all categories enabled by default
@@ -256,6 +373,18 @@ setup() {
   };
 
   const enabledCategories = ref(initializeEnabledCategories());
+
+  // Use filters composable
+  const calendarFilters = useCalendarFilters(allEvents, enabledCategories, route);
+  const {
+    filters,
+    filteredEvents,
+    sortedEvents,
+    updateFilters,
+    resetFilters,
+    syncFromRoute,
+    autoCalculateFilterRange
+  } = calendarFilters;
 
   // DETAILS MODAL STATE
   const showDetailsModal = ref(false);
@@ -275,6 +404,8 @@ setup() {
   // NEW EVENT MODAL STATE
   const showNewModal = ref(false);
   const showStageHoursModal = ref(false);
+  const editingStageHour = ref(null);
+  const selectedStageForHours = ref(null);
 
   // CONFIRMATION MODAL STATE
   const showConfirmationModal = ref(false);
@@ -301,28 +432,15 @@ setup() {
       return;
     }
 
-    // Calendar events
-    let rawCal = [];
+    // Fetch events using composable
     try {
-      console.log('[fetchAll] Fetching calendar events for project:', pid);
-      rawCal = await fetchTableData("calendar_events", { eq: { project_id: pid } });
-      console.log('[fetchAll] Fetched calendar events:', rawCal.length);
+      await fetchEvents();
+      await fetchTravelTrips();
+      calendarError.value = eventsError.value || "";
     } catch (e) {
       console.error('[fetchAll] Calendar events error:', e);
       calendarError.value = "Failed to load calendar events: " + e.message;
     }
-    const calData = rawCal.map(c => ({
-      id: c.id,
-      category: c.category || "calltimes",
-      title: c.title,
-      event_date: c.event_date,
-      start_time: c.start_time,
-      end_date: c.end_date || c.event_date, // Default to event_date if no end_date
-      end_time: c.end_time,
-      location_id: c.location_id,
-      notes: c.notes || "",
-      assigned_contacts: c.assigned_contacts || []
-    }));
 
     // Locations
     try {
@@ -365,29 +483,11 @@ setup() {
       travelTrips.value = [];
     }
 
-    events.value = calData;
-    console.log('[fetchAll] Final events count:', events.value.length);
+    console.log('[fetchAll] Final events count:', allEvents.value.length);
     
     // Auto-calculate filter range to include all days with events
-    if (calData.length > 0) {
-      const allDates = [];
-      calData.forEach(event => {
-        allDates.push(event.event_date);
-        if (event.end_date && event.end_date !== event.event_date) {
-          // Add all dates between start and end date
-          const start = new Date(event.event_date);
-          const end = new Date(event.end_date);
-          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            allDates.push(d.toISOString().split('T')[0]);
-          }
-        }
-      });
-      
-      if (allDates.length > 0) {
-        const sortedDates = [...new Set(allDates)].sort();
-        filters.value.dateStart = sortedDates[0];
-        filters.value.dateEnd = sortedDates[sortedDates.length - 1];
-      }
+    if (allEvents.value.length > 0) {
+      autoCalculateFilterRange(allEvents.value);
     }
     
     loading.value = false;
@@ -433,13 +533,21 @@ setup() {
   });
 
   function getEventColor(ev) {
-    // Use category color if available, otherwise location color
-    const categoryColor = categoryColorMap.value[ev.category];
-    if (categoryColor) return categoryColor;
+    // Use category color from the new system
+    if (ev.category && categoryColors[ev.category]) {
+      return categoryColors[ev.category].main;
+    }
     
+    // Fallback to location color if category not found
     const l = locations.value.find(x => x.id === ev.location_id);
     const label = l ? `${l.venue_name} - ${l.stage_name}` : "Unspecified";
     return locationColorMap.value[label] || "#bdc3c7";
+  }
+
+  function getLocationName(locationId) {
+    if (!locationId) return "—";
+    const l = locations.value.find(x => x.id === locationId);
+    return l ? `${l.venue_name} - ${l.stage_name}` : "—";
   }
 
   // STAGE HOURS HELPERS
@@ -556,92 +664,7 @@ setup() {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
-  // Combine regular events with stage hour events and synthetic build/show day events and travel events
-  const allEvents = computed(() => {
-    const regularEvents = events.value;
-    // --- Synthetic build day events ---
-    const project = userStore.getCurrentProject;
-    let syntheticEvents = [];
-    if (project) {
-      if (Array.isArray(project.build_days)) {
-        syntheticEvents = syntheticEvents.concat(
-          project.build_days.map(date => ({
-            id: `build_${date}`,
-            category: 'setup',
-            title: 'Build Day',
-            event_date: date,
-            start_time: '00:00', // All-day event starts at midnight
-            end_time: '23:59',   // All-day event ends at end of day
-            end_date: date,       // Single-day event
-            location_id: null,
-            notes: 'Build day (auto-added)',
-            isSynthetic: true
-          }))
-        );
-      }
-    }
-    // --- Synthetic travel events ---
-    let travelEvents = [];
-    if (Array.isArray(travelTrips.value)) {
-      travelTrips.value.forEach(trip => {
-        // For each day in the trip, create an all-day event
-        const start = new Date(trip.start_date);
-        const end = new Date(trip.end_date);
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().slice(0, 10);
-          travelEvents.push({
-            id: `travel_${trip.id}_${dateStr}`,
-            category: 'travel',
-            title: `Travel: ${trip.name}${trip.destination ? ' - ' + trip.destination : ''}`,
-            event_date: dateStr,
-            start_time: '00:00', // All-day event starts at midnight
-            end_time: '23:59',   // All-day event ends at end of day
-            end_date: dateStr,   // Single-day event
-            location_id: null,
-            notes: trip.description || 'Travel event (auto-added)',
-            isSynthetic: true
-          });
-        }
-      });
-    }
-    return [...regularEvents, ...syntheticEvents, ...travelEvents];
-  });
-
-  // FILTER & SORT
-  const filteredEvents = computed(() => {
-    let arr = allEvents.value.slice();
-    
-    // Filter by enabled categories first
-    arr = arr.filter(e => {
-      const categoryEnabled = enabledCategories.value[e.category] !== false;
-      return categoryEnabled;
-    });
-    
-    // Filter by date range - check if event overlaps with the filter range
-    if (filters.value.dateStart || filters.value.dateEnd) {
-      arr = arr.filter(e => {
-        const eventStart = e.event_date;
-        const eventEnd = e.end_date || e.event_date;
-        
-        // Event overlaps with filter range if:
-        // - Event starts before filter ends AND event ends after filter starts
-        const filterStart = filters.value.dateStart || '1900-01-01';
-        const filterEnd = filters.value.dateEnd || '2100-12-31';
-        
-        return eventStart <= filterEnd && eventEnd >= filterStart;
-      });
-    }
-    
-    if (filters.value.category) arr = arr.filter(e => e.category === filters.value.category);
-    if (filters.value.location) arr = arr.filter(e => e.location_id === parseInt(filters.value.location));
-    return arr;
-  });
-  const sortedEvents = computed(() =>
-    filteredEvents.value.slice().sort((a, b) => {
-      const d = a.event_date.localeCompare(b.event_date);
-      return d !== 0 ? d : a.start_time.localeCompare(b.start_time);
-    })
-  );
+  // allEvents, filteredEvents, and sortedEvents are now provided by composables
 
   // Filtered stage hours based on current filters
   const filteredStageHours = computed(() => {
@@ -756,71 +779,30 @@ setup() {
     })
   );
 
-  // CALENDAR GRID
-  function makeWeekDays() {
-    const dow = currentDate.value.getDay();
-    // JS: 0=Sun, 1=Mon, ..., 6=Sat. We want Monday=0, Sunday=6
-    const monday = new Date(currentDate.value);
-    monday.setDate(monday.getDate() - ((dow === 0 ? 7 : dow) - 1));
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      return { date: d.toISOString().split("T")[0], currentMonth: d.getMonth() === currentDate.value.getMonth() };
+  // Navigation functions are now provided by useCalendarNavigation composable
+  // Additional timeline-specific navigation
+  const daysWithEvents = computed(() => {
+    const dates = new Set();
+    sortedEvents.value.forEach(e => {
+      dates.add(e.event_date);
+      if (e.end_date && e.end_date !== e.event_date) {
+        dates.add(e.end_date);
+      }
     });
-  }
-
-  const weekDaysData = computed(makeWeekDays);
-  const displayCalendarDays = weekDaysData;
-
-  // Add a computed property for the week range header
-  const weekRangeHeader = computed(() => {
-    const week = weekDaysData.value;
-    if (!week.length) return '';
-    const start = new Date(week[0].date);
-    const end = new Date(week[6].date);
-    const startMonth = start.toLocaleString('default', { month: 'long' });
-    const endMonth = end.toLocaleString('default', { month: 'long' });
-    const startDay = start.getDate();
-    const endDay = end.getDate();
-    const year = end.getFullYear();
-    if (startMonth === endMonth) {
-      return `${startMonth} ${startDay}–${endDay}, ${year}`;
-    } else {
-      return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
-    }
+    return Array.from(dates).sort();
   });
 
-  // Add a computed property for the current week dates
-  const currentWeekDates = computed(() => weekDaysData.value.map(d => d.date));
-  const todayDate = new Date().toISOString().split('T')[0];
-  const isCurrentWeek = computed(() => currentWeekDates.value.includes(todayDate));
-
-  function jumpToToday() {
-    currentDate.value = new Date();
-  }
-
-  // NAVIGATION
-  function previousDay() {
+  // Timeline-specific day navigation
+  function previousDayTimeline() {
     if (activeDayIndex.value > 0) {
-      activeDayIndex.value--;
-      currentDate.value = new Date(daysWithEvents.value[activeDayIndex.value]);
+      navigateToDayIndex(activeDayIndex.value - 1, daysWithEvents.value);
     }
   }
-  function nextDay() {
+  
+  function nextDayTimeline() {
     if (activeDayIndex.value < daysWithEvents.value.length - 1) {
-      activeDayIndex.value++;
-      currentDate.value = new Date(daysWithEvents.value[activeDayIndex.value]);
+      navigateToDayIndex(activeDayIndex.value + 1, daysWithEvents.value);
     }
-  }
-  function previousPeriod() {
-    const d = new Date(currentDate.value);
-    d.setDate(d.getDate() - 7);
-    currentDate.value = d;
-  }
-  function nextPeriod() {
-    const d = new Date(currentDate.value);
-    d.setDate(d.getDate() + 7);
-    currentDate.value = d;
   }
 
   // WATCHERS: Auto‐copy start_time → end_time
@@ -842,7 +824,9 @@ setup() {
 
   // CRUD & MODALS
   function updateFilters(newFilters) {
-    filters.value = { ...filters.value, ...newFilters };
+    // Use immediate update for date filters to avoid delay
+    const isDateFilter = newFilters.dateStart !== undefined || newFilters.dateEnd !== undefined;
+    calendarFilters.updateFilters(newFilters, isDateFilter);
   }
 
   function openDetailsModal(evt) {
@@ -905,7 +889,10 @@ setup() {
       return;
     }
     
-    if (!detailsEvent.value.id) { toast.error("Missing ID"); return; }
+    if (!detailsEvent.value.id) { 
+      toast.error("Missing ID"); 
+      return; 
+    }
     
     const confirmed = await showConfirmation(
       "Delete Event",
@@ -916,14 +903,12 @@ setup() {
     
     if (!confirmed) return;
     
-    const { error } = await supabase.from("calendar_events")
-      .delete().eq("id", detailsEvent.value.id);
-    if (error) {
-      toast.error("Failed to delete event: " + error.message);
-    } else { 
+    const success = await deleteEvent(detailsEvent.value.id);
+    if (success) {
       closeDetailsModal(); 
-      fetchAll();
-      toast.success("Event deleted successfully");
+      emit('event-deleted', detailsEvent.value.id);
+      // Refresh other data
+      await fetchAll();
     }
   }
   async function saveDetails() {
@@ -940,29 +925,18 @@ setup() {
       return;
     }
     
-    if (!ev.id) { toastMsg.value = "Missing ID"; return; }
-    const { error } = await supabase
-      .from("calendar_events")
-      .update({
-        category: ev.category,
-        event_date: ev.event_date,
-        start_time: ev.start_time,
-        end_date: ev.end_date || ev.event_date, // Default to start date if no end date
-        end_time: ev.end_time,
-        title: ev.title,
-        location_id: ev.location_id,
-        notes: ev.notes,
-        assigned_contacts: ev.assigned_contacts || []
-      })
-      .eq("id", ev.id);
-    if (error) {
-      toastMsg.value = "Update failed: " + error.message;
-      toast.error("Failed to save event changes");
-    } else { 
+    if (!ev.id) { 
+      toastMsg.value = "Missing ID"; 
+      return; 
+    }
+    
+    const success = await updateEvent(ev.id, ev);
+    if (success) {
       detailsMode.value = "view"; 
       closeDetailsModal();
-      fetchAll();
-      toast.success("Event changes saved successfully");
+      emit('event-updated', ev);
+      // Refresh other data
+      await fetchAll();
     }
   }
 
@@ -993,23 +967,75 @@ setup() {
   }
 
   function editStageHour(hour, stage) {
-    // Navigate to ProjectLocations with the specific stage
-    const projectId = userStore.getCurrentProject?.id;
-    router.push({
-      name: 'ProjectLocations',
-      params: { id: projectId },
-      query: { stageId: stage.id }
-    });
+    editingStageHour.value = hour;
+    selectedStageForHours.value = stage;
+    showStageHoursModal.value = false; // Hide list modal, show form modal
   }
 
   function addStageHour(stage) {
-    // Navigate to ProjectLocations with the specific stage
-    const projectId = userStore.getCurrentProject?.id;
-    router.push({
-      name: 'ProjectLocations',
-      params: { id: projectId },
-      query: { stageId: stage.id }
-    });
+    editingStageHour.value = null;
+    selectedStageForHours.value = stage;
+    showStageHoursModal.value = false; // Hide list modal, show form modal
+  }
+
+  function closeStageHoursFormModal() {
+    editingStageHour.value = null;
+    selectedStageForHours.value = null;
+  }
+
+  async function saveStageHour(payload) {
+    try {
+      const projectId = userStore.getCurrentProject?.id;
+      if (!projectId) {
+        toast.error("No project selected");
+        return;
+      }
+
+      const stageHourData = {
+        project_id: projectId,
+        stage_id: payload.stage_id,
+        start_datetime: payload.start_datetime,
+        end_datetime: payload.end_datetime,
+        notes: payload.notes || null
+      };
+
+      if (payload.id) {
+        // Update existing
+        const { error } = await supabase
+          .from('stage_hours')
+          .update(stageHourData)
+          .eq('id', payload.id);
+        
+        if (error) throw error;
+        
+        // Update local state
+        const index = stageHours.value.findIndex(h => h.id === payload.id);
+        if (index > -1) {
+          Object.assign(stageHours.value[index], { ...stageHourData, id: payload.id });
+        }
+        
+        toast.success('Stage hour updated successfully');
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from('stage_hours')
+          .insert([stageHourData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        // Add to local state
+        stageHours.value.push(data);
+        
+        toast.success('Stage hour created successfully');
+      }
+      
+      closeStageHoursFormModal();
+    } catch (error) {
+      console.error('Error saving stage hour:', error);
+      toast.error('Failed to save stage hour: ' + error.message);
+    }
   }
 
   async function deleteStageHour(hour) {
@@ -1154,25 +1180,46 @@ setup() {
     });
   }
 
-  // --- NEW: Sync filters and view from route query ---
-  function syncFromRoute() {
-    const q = route.query;
-    if (q.view && typeof q.view === 'string') currentView.value = q.view;
-    if (q.date && typeof q.date === 'string') {
-      filters.value.dateStart = q.date;
-      filters.value.dateEnd = q.date;
-      currentDate.value = new Date(q.date);
+  // Sync filters and view from route query (using composable function)
+  // Reset filters when project changes
+  function resetFiltersForProject() {
+    calendarFilters.resetFilters();
+  }
+
+  // Watch for project changes
+  watch(
+    () => userStore.getCurrentProject?.id,
+    (newProjectId, oldProjectId) => {
+      if (newProjectId && newProjectId !== oldProjectId) {
+        resetFiltersForProject();
+        fetchAll();
+      }
     }
-    if (q.locationId && (typeof q.locationId === 'string' || typeof q.locationId === 'number')) {
-      filters.value.location = q.locationId;
+  );
+
+  // Sync view from route
+  function syncViewFromRoute() {
+    const q = route.query;
+    if (q.view && typeof q.view === 'string' && ['grid', 'timeline', 'list'].includes(q.view)) {
+      currentView.value = q.view;
     }
   }
+
   onMounted(async () => {
     await loadEnabledCategories();
     fetchAll();
-    syncFromRoute();
+    calendarFilters.syncFromRoute();
+    syncViewFromRoute();
+    // Initialize date if provided
+    if (props.initialDate) {
+      calendarNavigation.goToDate(props.initialDate);
+    }
   });
-  watch(() => route.query, syncFromRoute);
+  
+  watch(() => route.query, () => {
+    calendarFilters.syncFromRoute();
+    syncViewFromRoute();
+  });
 
   async function onEditEvent(event) {
     // Don't allow editing synthetic events
@@ -1185,27 +1232,14 @@ setup() {
       return;
     }
     
-    if (!event.id) { toastMsg.value = "Missing event ID"; return; }
-    const { error } = await supabase
-      .from("calendar_events")
-      .update({
-        category: event.category,
-        event_date: event.event_date,
-        start_time: event.start_time,
-        end_date: event.end_date || event.event_date, // Default to start date if no end date
-        end_time: event.end_time,
-        title: event.title,
-        location_id: event.location_id,
-        notes: event.notes,
-        assigned_contacts: event.assigned_contacts || []
-      })
-      .eq("id", event.id);
-    if (error) {
-      toastMsg.value = "Update failed: " + error.message;
-      toast.error("Failed to save event changes");
-    } else {
-      fetchAll();
-      toast.success("Event changes saved successfully");
+    if (!event.id) { 
+      toastMsg.value = "Missing event ID"; 
+      return; 
+    }
+    
+    const success = await updateEvent(event.id, event);
+    if (success) {
+      await fetchAll();
     }
   }
 
@@ -1220,7 +1254,10 @@ setup() {
       return;
     }
     
-    if (!event.id) { toast.error("Missing event ID"); return; }
+    if (!event.id) { 
+      toast.error("Missing event ID"); 
+      return; 
+    }
     
     const confirmed = await showConfirmation(
       "Delete Event",
@@ -1231,15 +1268,9 @@ setup() {
     
     if (!confirmed) return;
     
-    const { error } = await supabase
-      .from("calendar_events")
-      .delete()
-      .eq("id", event.id);
-    if (error) {
-      toast.error("Failed to delete event: " + error.message);
-    } else {
-      fetchAll();
-      toast.success("Event deleted successfully");
+    const success = await deleteEvent(event.id);
+    if (success) {
+      await fetchAll();
     }
   }
 
@@ -1248,7 +1279,7 @@ setup() {
     currentView, currentDate, currentDateString,
     filters, updateFilters,
     locations, events, sortedEvents, stageHours, filteredStageHours, contacts,
-    eventCategories, categoryColorMap, locationColorMap, getEventColor,
+    eventCategories, categoryColors, categoryColorMap, locationColorMap, getEventColor, getLocationName,
     getStageHoursForDay, getFilteredStageHoursForDay,
     timeSlots, timelineDayEvents, formattedTimelineDate,
     displayCalendarDays, hasEvents, getEventsForDay,
@@ -1257,7 +1288,7 @@ setup() {
     showConfirmationModal, confirmationConfig, handleConfirm, cancelConfirmation,
     openDetailsModal, closeDetailsModal, confirmDelete, saveDetails,
     openNewEventModal, closeNewEventModal, createNewEvent,
-    previousDay, nextDay, previousPeriod, nextPeriod,
+    previousDay: previousDayTimeline, nextDay: nextDayTimeline, previousPeriod, nextPeriod,
     weekRangeHeader,
     isCurrentWeek,
     jumpToToday,
@@ -1267,6 +1298,7 @@ setup() {
     enabledCategories, updateEnabledCategories,
     showStageHoursModal, openStageHoursModal, closeStageHoursModal,
     getStageHoursForStage, formatDateTime, editStageHour, addStageHour, deleteStageHour,
+    editingStageHour, selectedStageForHours, closeStageHoursFormModal, saveStageHour,
     
   };
 }
@@ -1274,6 +1306,7 @@ setup() {
 </script>
 
 <style scoped>
+@import '../../styles/calendar.scss';
 /* === GLOBAL & RESET === */
 .calendar-page {
 font-family: var(--font-family-sans);
@@ -1382,11 +1415,63 @@ box-sizing: border-box;
   margin-bottom: 0.7rem;
 }
 
-/* RESPONSIVE */
-@media(max-width:600px){
-.controls-section {
-  flex-direction: column;
+/* Mobile FAB */
+.mobile-fab {
+  display: none;
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-success-500);
+  color: var(--text-inverse);
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 100;
+  transition: transform 0.2s, box-shadow 0.2s;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  min-width: 56px;
 }
+
+.mobile-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.mobile-fab:active {
+  transform: scale(0.95);
+}
+
+.fab-icon {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 300;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .controls-section {
+    flex-direction: column;
+  }
+  
+  .desktop-add-button,
+  .desktop-refresh-button {
+    display: none;
+  }
+  
+  .mobile-fab {
+    display: flex;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-fab {
+    display: none;
+  }
 }
 
 /* Stage Hours Modal Styles */
@@ -1488,5 +1573,19 @@ box-sizing: border-box;
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
+}
+
+/* Keyboard navigation support */
+.calendar-page:focus-within {
+  outline: none;
+}
+
+/* Focus visible styles for accessibility */
+button:focus-visible,
+.event-list-item:focus-visible,
+.timeline-event:focus-visible,
+.schedule-item:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
 }
 </style> 

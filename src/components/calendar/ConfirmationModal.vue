@@ -4,10 +4,10 @@
       <h3>{{ title }}</h3>
       <p v-if="message">{{ message }}</p>
       <div class="modal-actions">
-        <button class="btn btn-danger confirm-button" @click="$emit('confirm')">
+        <button class="btn-danger" @click="$emit('confirm')">
           {{ confirmText }}
         </button>
-        <button class="btn btn-warning cancel-button" @click="$emit('cancel')">
+        <button class="btn-secondary" @click="$emit('cancel')">
           {{ cancelText }}
         </button>
       </div>

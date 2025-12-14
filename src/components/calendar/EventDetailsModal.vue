@@ -34,9 +34,9 @@
       </div>
       
       <div class="modal-actions">
-        <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn btn-warning edit-button" @click="$emit('edit')">Edit</button>
-        <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn btn-danger delete-button" @click="$emit('delete')">Delete</button>
-        <button class="btn btn-warning close-button" @click="$emit('close')">Close</button>
+        <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn-warning" @click="$emit('edit')">Edit</button>
+        <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn-danger" @click="$emit('delete')">Delete</button>
+        <button class="btn-secondary" @click="$emit('close')">Close</button>
       </div>
     </template>
     <template v-else>
@@ -110,8 +110,8 @@
         <textarea v-model="localEvent.notes" rows="2"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-positive save-button" @click="$emit('save', localEvent)">Save</button>
-        <button class="btn btn-warning close-button" @click="$emit('save', localEvent)">Close</button>
+        <button class="btn-primary" @click="$emit('save', localEvent)">Save</button>
+        <button class="btn-secondary" @click="$emit('cancel-edit')">Cancel</button>
       </div>
     </template>
   </div>
@@ -148,6 +148,22 @@ props: {
   }
 },
 emits: ['close', 'edit', 'delete', 'save', 'cancel-edit'],
+data() {
+  return {
+    localEvent: {
+      id: null,
+      category: "calltimes",
+      title: "",
+      event_date: "",
+      start_time: "",
+      end_date: "",
+      end_time: "",
+      location_id: null,
+      notes: "",
+      assigned_contacts: []
+    }
+  }
+},
 computed: {
   isStageHourEvent() {
     return this.event && this.event.isStageHour;
@@ -199,14 +215,22 @@ methods: {
 watch: {
   event: {
     handler(newVal) {
-      this.localEvent = { ...newVal };
+      if (newVal) {
+        this.localEvent = { 
+          ...newVal,
+          assigned_contacts: newVal.assigned_contacts || []
+        };
+      }
     },
     immediate: true,
     deep: true
   },
   show(newVal) {
-    if (newVal && this.localEvent && !this.localEvent.assigned_contacts) {
-      this.localEvent.assigned_contacts = [];
+    if (newVal && this.event) {
+      // Ensure assigned_contacts is always an array
+      if (!this.localEvent.assigned_contacts) {
+        this.localEvent.assigned_contacts = [];
+      }
     }
   }
 }
@@ -429,59 +453,5 @@ justify-content: flex-end;
 gap: 0.5rem;
 margin-top: 1rem;
 }
-.modal-actions button {
-color: #fff !important;
-}
-.button {
-background: #27ae60;
-color: var(--text-inverse);
-border: none;
-padding: 0.6rem 1rem;
-border-radius: 4px;
-cursor: pointer;
-transition: background 0.2s;
-}
-.button:hover {
-background: var(--color-success-600);
-}
-.edit-button {
-background: var(--color-primary-500);
-color: var(--text-inverse) !important;
-}
-.edit-button:hover {
-background: var(--color-primary-600);
-color: var(--text-inverse) !important;
-}
-.delete-button {
-background: var(--color-error-500);
-color: var(--text-inverse) !important;
-}
-.delete-button:hover {
-background: var(--color-error-600);
-color: var(--text-inverse) !important;
-}
-.save-button {
-background: #27ae60;
-color: #fff !important;
-}
-.save-button:hover {
-background: #219150;
-color: #fff !important;
-}
-.cancel-button {
-background: #bdc3c7;
-color: #fff !important;
-}
-.cancel-button:hover {
-background: #a6a6a6;
-color: #fff !important;
-}
-.close-button {
-background: #27ae60;
-color: #fff !important;
-}
-.close-button:hover {
-background: #219150;
-color: #fff !important;
-}
+// Button styles are now handled by calendar.scss
 </style> 
