@@ -558,6 +558,8 @@ async function loadAvailableUpstreamSources() {
       // Use the pre-processed venue source connections to ensure we get everything
       const allConnectionsFromVenue = venueSourceConnections.get(nodeId) || []
       
+      // Check if any connection has port maps
+      let hasPortMaps = false
       const connectedVenuePorts = new Set()
       
       // Process ALL connections from this venue source to collect all feed ports
@@ -566,19 +568,22 @@ async function loadAvailableUpstreamSources() {
         if (connMaps.length > 0) {
           // Has port maps - use from_port values (which represent venue source feed ports)
           // Add ALL mapped ports from this connection
+          hasPortMaps = true
           connMaps.forEach(m => connectedVenuePorts.add(Number(m.from_port)))
         } else if (conn.input_number) {
-          // No port maps but has input_number - for direct connections, input_number typically matches feed port
-          // This represents one feed port being used
-          connectedVenuePorts.add(Number(conn.input_number))
+          // No port maps but has input_number - for direct connections
+          // When there are port maps, we track specific ports
+          // When there are no port maps (direct connection), we want to show ALL feeds
+          // So we don't add to the Set here - we'll set connectedPorts to null below
         }
       }
       
-      if (connectedVenuePorts.size > 0) {
-        // We found specific connected ports - use them (this Set contains ALL connected feed ports)
+      if (hasPortMaps && connectedVenuePorts.size > 0) {
+        // We have port maps with specific ports - use them (this Set contains ALL mapped feed ports)
         connectedPorts = connectedVenuePorts
       } else {
-        // No specific ports found - for direct connections without port maps, show all feeds
+        // No port maps or no specific ports found - for direct connections, show ALL feeds
+        // This allows users to route any venue source feed, not just the ones currently connected
         connectedPorts = null // null means direct connection, show all feeds
       }
     }
@@ -642,17 +647,16 @@ async function loadAvailableUpstreamSources() {
         continue
       }
       
-      // For non-recorders, venue sources can work with:
-      // 1. Port maps (connectedPortsSet is a Set with specific ports)
-      // 2. Direct connections (connectedPortsSet is null, like regular sources)
-      // When directly connected (null), show all feeds to allow pass-through
+      // For non-recorders, venue sources should show ALL feeds when connected
+      // This allows users to route any venue source feed, not just the ones currently connected
+      // Port maps are used to track which feeds are already in use, but we still show all available feeds
       if (!showAllRecorders) {
         // If it's a Set but empty, skip (no connected ports)
         if (connectedPortsSet instanceof Set && connectedPortsSet.size === 0) {
           continue
         }
         // If connectedPortsSet is undefined, we already skipped above
-        // If it's null, that's a direct connection - we'll show all feeds below
+        // If it's null or a Set, we'll show all feeds below (venue sources always show all feeds when connected)
       }
       
       try {
@@ -663,19 +667,15 @@ async function loadAvailableUpstreamSources() {
           .order('port_number')
         
         if (feeds && feeds.length) {
-          // For recorders: show all feeds
-          // For transformers/other nodes: 
-          //   - If connectedPortsSet is a Set, only show ports in the Set (port-mapped)
-          //   - If connectedPortsSet is null, show all feeds (direct connection, like regular sources)
+          // For venue sources: ALWAYS show ALL feeds when connected (regardless of port maps)
+          // This allows users to route any feed to any transformer input
+          // Port maps are only used to track which feeds are already assigned, not to limit selection
           for (const feed of feeds) {
             const port = feed.port_number
-            // Include if:
-            // - Showing all (recorders), OR
-            // - connectedPortsSet is null (direct connection - show all), OR
-            // - connectedPortsSet is a Set and contains this port (port-mapped)
+            // Always include all feeds when venue source is connected
+            // connectedPortsSet being null or a Set both mean the venue source is connected
             const shouldInclude = showAllRecorders || 
-              connectedPortsSet === null || 
-              (connectedPortsSet instanceof Set && connectedPortsSet.has(port))
+              connectedPortsSet !== undefined // Connected (either null or Set means connected)
             if (shouldInclude) {
               sources.push({
                 id: e.id,
@@ -690,13 +690,10 @@ async function loadAvailableUpstreamSources() {
           const labels = e.output_port_labels || {}
           const numOutputs = e.num_outputs || 0
           for (let port = 1; port <= numOutputs; port++) {
-            // Include if:
-            // - Showing all (recorders), OR
-            // - connectedPortsSet is null (direct connection - show all), OR
-            // - connectedPortsSet is a Set and contains this port (port-mapped)
+            // Always include all feeds when venue source is connected
+            // connectedPortsSet being null or a Set both mean the venue source is connected
             const shouldInclude = showAllRecorders || 
-              connectedPortsSet === null || 
-              (connectedPortsSet instanceof Set && connectedPortsSet.has(port))
+              connectedPortsSet !== undefined // Connected (either null or Set means connected)
             if (shouldInclude) {
               const label = labels[port] || `Output ${port}`
               sources.push({
