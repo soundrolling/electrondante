@@ -332,7 +332,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, shallowRef } from 'vue'
 import { buildGraph } from '@/services/signalGraph'
 import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as svcResolveTransformerInputLabel, hydrateVenueLabels } from '@/services/portLabelService'
 import { useToast } from 'vue-toastification'
@@ -590,10 +590,41 @@ const needsPortMappingForSelected = computed(() => {
          (isVenueSources && (toType === 'transformer' || toType === 'recorder'))
 })
 
+// Memoization utility for expensive traversal functions
+function createMemo(fn, getCacheKey) {
+  const cache = new Map()
+  const memoized = (...args) => {
+    const key = getCacheKey(...args)
+    if (cache.has(key)) return cache.get(key)
+    const result = fn(...args)
+    cache.set(key, result)
+    return result
+  }
+  memoized.clear = () => cache.clear()
+  memoized.delete = (key) => cache.delete(key)
+  return memoized
+}
+
+// Memoized version of traceSourceLabel - cache is cleared when nodes/connections change
+const traceSourceLabelCache = new Map()
+let lastNodesVersion = 0
+let lastConnectionsVersion = 0
+
+// Clear cache when data changes
+watch([() => props.nodes, () => props.connections], () => {
+  const nodesVersion = props.nodes?.length || 0
+  const connectionsVersion = props.connections?.length || 0
+  if (nodesVersion !== lastNodesVersion || connectionsVersion !== lastConnectionsVersion) {
+    traceSourceLabelCache.clear()
+    lastNodesVersion = nodesVersion
+    lastConnectionsVersion = connectionsVersion
+  }
+}, { deep: false })
+
 // Recursively trace source label through transformer chain
 // Always uses nodeId as primary identifier - ensures we track by ID, not just by name
 // inputNum should represent the source output port (1=L, 2=R for stereo sources)
-function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
+function traceSourceLabelImpl(nodeId, inputNum, visitedNodes = new Set()) {
   if (visitedNodes.has(nodeId)) return null
   visitedNodes.add(nodeId)
   
@@ -675,11 +706,11 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
             if (storedLabel) return storedLabel
           }
           // Fallback: trace recursively (will check output_port_labels in venue_sources handler)
-          return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+          return traceSourceLabelImpl(parentNodeId, inputNum, visitedNodes)
         }
         
         // For other node types, trace from parent with the same port number
-        return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+        return traceSourceLabelImpl(parentNodeId, inputNum, visitedNodes)
       }
     }
     
@@ -705,16 +736,37 @@ function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
             const storedLabel = parentNode.output_port_labels[String(inputNum)] || parentNode.output_port_labels[inputNum]
             if (storedLabel) return storedLabel
           }
-          return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+          return traceSourceLabelImpl(parentNodeId, inputNum, visitedNodes)
         }
       }
       
       // Fallback: trace from parent with inputNum as a hint
-      return traceSourceLabel(parentNodeId, inputNum, visitedNodes)
+      return traceSourceLabelImpl(parentNodeId, inputNum, visitedNodes)
     }
   }
   
   return null
+}
+
+// Memoized wrapper for traceSourceLabel
+function traceSourceLabel(nodeId, inputNum, visitedNodes = new Set()) {
+  // Create cache key - note: visitedNodes is not included in key to allow reuse
+  const cacheKey = `${nodeId}-${inputNum}`
+  
+  // Check cache first
+  if (traceSourceLabelCache.has(cacheKey)) {
+    return traceSourceLabelCache.get(cacheKey)
+  }
+  
+  // Compute result
+  const result = traceSourceLabelImpl(nodeId, inputNum, visitedNodes)
+  
+  // Cache result (only cache non-null results to avoid caching "not found" states)
+  if (result !== null) {
+    traceSourceLabelCache.set(cacheKey, result)
+  }
+  
+  return result
 }
 
 // Trace track name from recorder output (track number)
@@ -2050,6 +2102,72 @@ function resetZoom() {
   nextTick(drawCanvas)
 }
 
+// Spatial index for viewport culling - improves performance for large canvases
+const spatialIndex = {
+  grid: new Map(),
+  cellSize: 200, // Grid cell size in pixels
+  
+  rebuild(nodes) {
+    this.grid.clear()
+    if (!nodes || nodes.length === 0) return
+    
+    nodes.forEach(node => {
+      const pos = getCanvasPos(node)
+      const cellX = Math.floor(pos.x / this.cellSize)
+      const cellY = Math.floor(pos.y / this.cellSize)
+      const cellKey = `${cellX},${cellY}`
+      
+      if (!this.grid.has(cellKey)) {
+        this.grid.set(cellKey, [])
+      }
+      this.grid.get(cellKey).push(node)
+    })
+  },
+  
+  queryVisible(viewportBounds) {
+    const result = []
+    const minCellX = Math.floor(viewportBounds.x / this.cellSize)
+    const maxCellX = Math.floor((viewportBounds.x + viewportBounds.width) / this.cellSize)
+    const minCellY = Math.floor(viewportBounds.y / this.cellSize)
+    const maxCellY = Math.floor((viewportBounds.y + viewportBounds.height) / this.cellSize)
+    
+    // Add padding to include nodes just outside viewport (for connections)
+    const padding = 2
+    for (let cx = minCellX - padding; cx <= maxCellX + padding; cx++) {
+      for (let cy = minCellY - padding; cy <= maxCellY + padding; cy++) {
+        const cellKey = `${cx},${cy}`
+        const nodes = this.grid.get(cellKey)
+        if (nodes) {
+          result.push(...nodes)
+        }
+      }
+    }
+    
+    // Remove duplicates (nodes can be in multiple cells)
+    return [...new Set(result)]
+  }
+}
+
+// Get viewport bounds (currently full canvas, but can be extended for scrolling)
+function getViewportBounds() {
+  return {
+    x: 0,
+    y: 0,
+    width: canvasWidth.value,
+    height: canvasHeight.value
+  }
+}
+
+// Get connections for visible nodes (only draw connections involving visible nodes)
+function getConnectionsForNodes(visibleNodes) {
+  const visibleNodeIds = new Set(visibleNodes.map(n => n.id))
+  return props.connections.filter(conn => {
+    const fromId = conn.from_node_id || conn.from
+    const toId = conn.to_node_id || conn.to
+    return visibleNodeIds.has(fromId) || visibleNodeIds.has(toId)
+  })
+}
+
 // Drawing
 function drawCanvas() {
   const ctx = canvas.value?.getContext('2d')
@@ -2063,16 +2181,30 @@ function drawCanvas() {
   ctx.fillStyle = '#f8f9fa'
   ctx.fillRect(0, 0, canvasWidth.value, canvasHeight.value)
 
-  // Draw connections (elements will be scaled by zoom, but canvas stays same)
-  props.connections.forEach(conn => {
+  // Rebuild spatial index if nodes changed
+  const nodesHash = getNodesHash(props.nodes)
+  if (nodesHash !== lastSpatialIndexHash.value) {
+    spatialIndex.rebuild(props.nodes)
+    lastSpatialIndexHash.value = nodesHash
+  }
+
+  // Get viewport bounds and query visible nodes
+  const viewportBounds = getViewportBounds()
+  const visibleNodes = spatialIndex.queryVisible(viewportBounds)
+  const visibleConnections = getConnectionsForNodes(visibleNodes)
+
+  // Draw only visible connections
+  visibleConnections.forEach(conn => {
     drawConnection(ctx, conn, conn.id === selectedConnectionId.value)
   })
 
-  // Draw nodes (elements will be scaled by zoom, but canvas stays same)
-  props.nodes.forEach(node => {
+  // Draw only visible nodes
+  visibleNodes.forEach(node => {
     drawNode(ctx, node)
   })
 }
+
+const lastSpatialIndexHash = ref('')
 
 function drawNode(ctx, node) {
   const isSource = (node.gear_type || node.type) === 'source'
@@ -2791,13 +2923,33 @@ async function cascadeDeleteNode(nodeId) {
     }
   }
 
-  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
-  for (const conn of [...outgoingConns, ...incomingConns]) {
+  // Batch delete all outgoing and incoming connections (but keep the nodes they connect to)
+  if (allConnIds.length > 0) {
     try {
-      await deleteConnectionFromDB(conn.id)
-      emit('connection-deleted', conn.id)
+      // Batch delete connections from database
+      const { error: connError } = await supabase
+        .from('connections')
+        .delete()
+        .in('id', allConnIds)
+      
+      if (connError) {
+        console.error('Error batch deleting connections:', connError)
+        throw connError
+      }
+      
+      // Emit all deletions at once
+      allConnIds.forEach(id => emit('connection-deleted', id))
     } catch (err) {
-      console.error('Error deleting connection:', err)
+      console.error('Error deleting connections:', err)
+      // Fallback to sequential deletion if batch fails
+      for (const conn of [...outgoingConns, ...incomingConns]) {
+        try {
+          await deleteConnectionFromDB(conn.id)
+          emit('connection-deleted', conn.id)
+        } catch (fallbackErr) {
+          console.error('Error deleting connection:', fallbackErr)
+        }
+      }
     }
   }
 
@@ -2945,12 +3097,45 @@ async function confirmConnection(connectionData) {
   }
 }
 
-// Watchers
+// Performance optimization: Hash-based shallow comparison instead of deep watch
+// Only redraws when relevant properties change (position, label, connections)
+function getNodesHash(nodes) {
+  if (!nodes || nodes.length === 0) return ''
+  return nodes.map(n => `${n.id}:${n.flow_x || 0}:${n.flow_y || 0}:${n.label || ''}:${n.track_name || ''}`).join('|')
+}
+
+function getConnectionsHash(connections) {
+  if (!connections || connections.length === 0) return ''
+  return connections.map(c => `${c.id}:${c.from_node_id || c.from}:${c.to_node_id || c.to}:${c.input_number || 0}:${c.output_number || 0}`).join('|')
+}
+
+const lastNodesHash = ref('')
+const lastConnectionsHash = ref('')
+let rafId = null
+
+// Optimized watcher: only triggers on actual data changes, not nested property mutations
 watch([() => props.nodes, () => props.connections, zoomLevel], () => {
-  nextTick(() => {
-    drawCanvas()
-  })
-}, { deep: true, immediate: false })
+  const newNodesHash = getNodesHash(props.nodes)
+  const newConnectionsHash = getConnectionsHash(props.connections)
+  
+  // Only redraw if hashes changed or zoom changed
+  if (newNodesHash !== lastNodesHash.value || 
+      newConnectionsHash !== lastConnectionsHash.value ||
+      zoomLevel.value !== (lastZoomLevel.value ?? zoomLevel.value)) {
+    lastNodesHash.value = newNodesHash
+    lastConnectionsHash.value = newConnectionsHash
+    lastZoomLevel.value = zoomLevel.value
+    
+    // Use requestAnimationFrame for smoother rendering
+    if (rafId) cancelAnimationFrame(rafId)
+    rafId = requestAnimationFrame(() => {
+      drawCanvas()
+      rafId = null
+    })
+  }
+}, { deep: false, immediate: false })
+
+const lastZoomLevel = ref(null)
 
 // Lifecycle
 // Keyboard handler for Delete key

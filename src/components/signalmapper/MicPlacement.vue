@@ -2480,12 +2480,33 @@ async function cascadeDeleteNode(nodeId) {
     }
   }
 
-  // Delete all outgoing and incoming connections (but keep the nodes they connect to)
-  for (const conn of [...outgoingConns, ...incomingConns]) {
+  // Batch delete all outgoing and incoming connections (but keep the nodes they connect to)
+  if (allConnIds.length > 0) {
     try {
-      await deleteConnectionFromDB(conn.id)
+      // Batch delete connections from database
+      const { error: connError } = await supabase
+        .from('connections')
+        .delete()
+        .in('id', allConnIds)
+      
+      if (connError) {
+        console.error('Error batch deleting connections:', connError)
+        throw connError
+      }
+      
+      // Emit all deletions at once
+      allConnIds.forEach(id => emit('connection-deleted', id))
     } catch (err) {
-      console.error('Error deleting connection:', err)
+      console.error('Error deleting connections:', err)
+      // Fallback to sequential deletion if batch fails
+      for (const conn of [...outgoingConns, ...incomingConns]) {
+        try {
+          await deleteConnectionFromDB(conn.id)
+          emit('connection-deleted', conn.id)
+        } catch (fallbackErr) {
+          console.error('Error deleting connection:', fallbackErr)
+        }
+      }
     }
   }
 

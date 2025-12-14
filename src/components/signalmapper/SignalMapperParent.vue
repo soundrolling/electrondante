@@ -74,54 +74,60 @@
     <div v-if="!selectedStageHourId && effectiveLocationId" class="no-stage-hour-message">
       <p>Please select a recording day to view signal mapper data.</p>
     </div>
-    <MicPlacement
-      v-else-if="activeTab === 'placement' && selectedStageHourId"
-      :projectId="projectId"
-      :locationId="effectiveLocationId"
-      :stageHourId="selectedStageHourId"
-      :nodes="sourceNodes"
-      :gearList="gearList"
-      :stageName="currentLocation?.stage_name"
-      @node-updated="handleNodeUpdated"
-      @node-added="handleNodeAdded"
-      @node-deleted="handleNodeDeleted"
-    />
-    
-    <SignalFlow
-      v-else-if="activeTab === 'flow' && selectedStageHourId"
-      ref="signalFlowRef"
-      :projectId="projectId"
-      :locationId="effectiveLocationId"
-      :stageHourId="selectedStageHourId"
-      :nodes="allNodes"
-      :connections="allConnections"
-      :gearList="gearList"
-      :initialSelectedConnectionId="selectedConnectionId"
-      @node-updated="handleNodeUpdated"
-      @node-added="handleNodeAdded"
-      @node-deleted="handleNodeDeleted"
-      @connection-added="handleConnectionAdded"
-      @connection-updated="handleConnectionUpdated"
-      @connection-deleted="handleConnectionDeleted"
-    />
-    
-    <TrackList
-      v-else-if="activeTab === 'tracklist' && selectedStageHourId"
-      :projectId="projectId"
-      :locationId="effectiveLocationId"
-      :stageHourId="selectedStageHourId"
-      :signalPaths="signalPaths"
-      :loading="loadingPaths"
-      @track-name-clicked="handleTrackNameClicked"
-      @refetch-paths="loadSignalPaths"
-    />
+    <!-- Use KeepAlive to preserve component state when switching tabs -->
+    <KeepAlive :max="2">
+      <MicPlacement
+        v-if="activeTab === 'placement' && selectedStageHourId"
+        :key="`placement-${selectedStageHourId}`"
+        :projectId="projectId"
+        :locationId="effectiveLocationId"
+        :stageHourId="selectedStageHourId"
+        :nodes="sourceNodes"
+        :gearList="gearList"
+        :stageName="currentLocation?.stage_name"
+        @node-updated="handleNodeUpdated"
+        @node-added="handleNodeAdded"
+        @node-deleted="handleNodeDeleted"
+      />
+      
+      <SignalFlow
+        v-else-if="activeTab === 'flow' && selectedStageHourId"
+        :key="`flow-${selectedStageHourId}`"
+        ref="signalFlowRef"
+        :projectId="projectId"
+        :locationId="effectiveLocationId"
+        :stageHourId="selectedStageHourId"
+        :nodes="allNodes"
+        :connections="allConnections"
+        :gearList="gearList"
+        :initialSelectedConnectionId="selectedConnectionId"
+        @node-updated="handleNodeUpdated"
+        @node-added="handleNodeAdded"
+        @node-deleted="handleNodeDeleted"
+        @connection-added="handleConnectionAdded"
+        @connection-updated="handleConnectionUpdated"
+        @connection-deleted="handleConnectionDeleted"
+      />
+      
+      <TrackList
+        v-else-if="activeTab === 'tracklist' && selectedStageHourId"
+        :key="`tracklist-${selectedStageHourId}`"
+        :projectId="projectId"
+        :locationId="effectiveLocationId"
+        :stageHourId="selectedStageHourId"
+        :signalPaths="signalPaths"
+        :loading="loadingPaths"
+        @track-name-clicked="handleTrackNameClicked"
+        @refetch-paths="loadSignalPaths"
+      />
 
-    <DanteConfig
-      v-if="activeTab === 'dante'"
-      :projectId="projectId"
-      :locationId="effectiveLocationId"
-    />
-
+      <DanteConfig
+        v-else-if="activeTab === 'dante'"
+        :key="`dante-${effectiveLocationId}`"
+        :projectId="projectId"
+        :locationId="effectiveLocationId"
+      />
+    </KeepAlive>
   </div>
 
   <!-- Copy from Previous Recording Day Modal -->
@@ -173,7 +179,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, defineAsyncComponent, KeepAlive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
@@ -188,10 +194,12 @@ import {
 } from '@/services/signalMapperService'
 import { useStageHours } from '@/composables/useStageHours'
 import { fetchTableData } from '@/services/dataService'
-import MicPlacement from './MicPlacement.vue'
-import SignalFlow from './SignalFlow.vue'
-import TrackList from './TrackList.vue'
-import DanteConfig from './DanteConfig.vue'
+
+// Lazy load heavy components for better initial load performance
+const MicPlacement = defineAsyncComponent(() => import('./MicPlacement.vue'))
+const SignalFlow = defineAsyncComponent(() => import('./SignalFlow.vue'))
+const TrackList = defineAsyncComponent(() => import('./TrackList.vue'))
+const DanteConfig = defineAsyncComponent(() => import('./DanteConfig.vue'))
 
 const props = defineProps({
   projectId: {
