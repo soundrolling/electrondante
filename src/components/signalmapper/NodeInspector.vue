@@ -456,14 +456,7 @@ function getAvailableSourcesForInput(inputNum) {
   // Get the currently selected source for this input (if any)
   const currentFeedKey = upstreamMap.value[inputNum]
   
-  // For transformers: show ALL available sources, don't filter by what's used
-  // This allows users to assign the same source to multiple inputs if needed
-  // (e.g., splitting a stereo source)
-  if (type.value === 'transformer') {
-    return availableUpstreamSources.value
-  }
-  
-  // For recorders: filter out sources already assigned to other inputs
+  // Filter out sources already assigned to other inputs
   // Get all feedKeys that are currently assigned to other inputs
   const usedFeedKeys = new Set()
   for (const [otherInputNum, feedKey] of Object.entries(upstreamMap.value)) {
@@ -473,9 +466,64 @@ function getAvailableSourcesForInput(inputNum) {
   }
   
   // Filter out sources that are already used by other inputs, but always include the currently selected source
-  return availableUpstreamSources.value.filter(src => 
+  const availableSources = availableUpstreamSources.value.filter(src => 
     !usedFeedKeys.has(src.feedKey) || src.feedKey === currentFeedKey
   )
+  
+  // Parse labels to extract device name for grouping
+  // Format: "Source Name (Transformer DEVICE)" or "Source Name (Direct)"
+  function extractDeviceName(label) {
+    const match = label.match(/\(([^)]+)\)$/)
+    if (match) {
+      return match[1] // Returns "Transformer DEVICE" or "Direct"
+    }
+    return '(Direct)' // Default for sources without parentheses
+  }
+  
+  function extractSourceName(label) {
+    const match = label.match(/^(.+?)\s*\(/)
+    if (match) {
+      return match[1].trim() // Returns "Source Name"
+    }
+    return label // Return full label if no parentheses
+  }
+  
+  // Group sources by device name
+  const grouped = new Map()
+  availableSources.forEach(src => {
+    const deviceName = extractDeviceName(src.label)
+    if (!grouped.has(deviceName)) {
+      grouped.set(deviceName, [])
+    }
+    grouped.get(deviceName).push(src)
+  })
+  
+  // Sort groups by device name (alphabetically)
+  const sortedGroups = Array.from(grouped.entries()).sort((a, b) => {
+    const deviceA = a[0]
+    const deviceB = b[0]
+    // Put "(Direct)" at the end
+    if (deviceA === '(Direct)' && deviceB !== '(Direct)') return 1
+    if (deviceA !== '(Direct)' && deviceB === '(Direct)') return -1
+    return deviceA.localeCompare(deviceB)
+  })
+  
+  // Sort sources within each group alphabetically by source name
+  sortedGroups.forEach(([deviceName, sources]) => {
+    sources.sort((a, b) => {
+      const nameA = extractSourceName(a.label)
+      const nameB = extractSourceName(b.label)
+      return nameA.localeCompare(nameB)
+    })
+  })
+  
+  // Flatten grouped sources back into array
+  const result = []
+  sortedGroups.forEach(([deviceName, sources]) => {
+    result.push(...sources)
+  })
+  
+  return result
 }
 
 async function loadAvailableUpstreamSources() {

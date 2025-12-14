@@ -3034,7 +3034,7 @@ onBeforeUnmount(() => {
 function updateCanvasSize() {
   const el = canvasWrapper.value
   const maxW = el ? el.clientWidth : window.innerWidth
-  const inner = Math.min(1200, Math.max(280, maxW - 24)) // 12px padding each side
+  const inner = Math.min(1800, Math.max(280, maxW - 24)) // 12px padding each side, increased max from 1200 to 1800
   canvasWidth.value = inner
   canvasHeight.value = Math.round(inner * 0.75)
   if (canvas.value) {
