@@ -528,42 +528,50 @@ async function loadAvailableUpstreamSources() {
       // Has port maps - track which ports are connected
       connectedPorts = new Set(portMaps.map(m => Number(m.from_port)))
     } else if (srcType === 'transformer') {
-      // For transformers without port maps, determine which ports are connected
+      // For transformer->transformer connections: show ALL outputs that have valid sources
+      // Get all connections TO the source transformer to find ALL its assigned inputs
+      const sourceParents = (graph.value.parentsByToNode || {})[nodeId] || []
+      const sourceAssignedInputs = new Set()
+      
+      for (const sp of sourceParents) {
+        const spMaps = (graph.value.mapsByConnId || {})[sp.id] || []
+        if (spMaps.length > 0) {
+          // Port maps: use to_port (destination input on source transformer)
+          spMaps.forEach(m => sourceAssignedInputs.add(Number(m.to_port)))
+        } else if (sp.input_number) {
+          // Direct connection: use input_number
+          sourceAssignedInputs.add(Number(sp.input_number))
+        }
+      }
+      
       const numOutputs = srcNode.num_outputs || srcNode.outputs || 0
-      if (numOutputs === 1) {
-        // Transformer with 1 output: all inputs are available on that single output
-        // We need to check which inputs from the source transformer are connected
-        // by looking at port maps or inferring from the connection
+      
+      if (sourceAssignedInputs.size > 0) {
+        // For 1-output transformers: all assigned inputs are available on output 1
+        // For multi-output transformers: input N → output N (1:1 pass-through)
+        if (numOutputs === 1) {
+          // All assigned inputs are available - use input numbers as identifiers
+          connectedPorts = sourceAssignedInputs
+        } else {
+          // 1:1 pass-through: show outputs where corresponding input has a source
+          // Use the assigned input numbers as output port numbers (1:1 mapping)
+          connectedPorts = sourceAssignedInputs
+        }
+      } else {
+        // No sources assigned to transformer - check if we have port maps on this connection
         const portMapsForThisConn = (graph.value.mapsByConnId || {})[p.id] || []
         if (portMapsForThisConn.length > 0) {
-          // Has port maps - use the from_port values (which represent input numbers for 1-output transformers)
+          // Has port maps - use the from_port values
           connectedPorts = new Set(portMapsForThisConn.map(m => Number(m.from_port)))
         } else if (p.input_number) {
-          // No port maps but has input_number - for 1-output transformers, this represents the input number
-          // We'll show all inputs that are connected to this transformer
-          // Get all connections to the source transformer to find all its inputs
-          const sourceParents = (graph.value.parentsByToNode || {})[nodeId] || []
-          const sourceInputs = new Set()
-          for (const sp of sourceParents) {
-            const spMaps = (graph.value.mapsByConnId || {})[sp.id] || []
-            if (spMaps.length > 0) {
-              spMaps.forEach(m => sourceInputs.add(Number(m.to_port)))
-            } else if (sp.input_number) {
-              sourceInputs.add(Number(sp.input_number))
-            }
-          }
-          // For 1-output transformers, all connected inputs are available
-          connectedPorts = sourceInputs.size > 0 ? sourceInputs : new Set([Number(p.input_number)])
+          // Fallback: use input_number if available
+          connectedPorts = new Set([Number(p.input_number)])
         } else {
           // No input_number - can't determine, show all (will be filtered later)
-          connectedPorts = new Set([1])
+          connectedPorts = numOutputs > 0 
+            ? new Set(Array.from({ length: numOutputs }, (_, i) => i + 1))
+            : new Set([1])
         }
-      } else if (numOutputs > 0) {
-        // Multiple outputs: show all outputs (1:1 pass-through assumed)
-        connectedPorts = new Set(Array.from({ length: numOutputs }, (_, i) => i + 1))
-      } else if (p.input_number) {
-        // Fallback: if transformer has no num_outputs, infer from input_number (1:1 pass-through)
-        connectedPorts = new Set([Number(p.input_number)])
       }
     } else if (srcType === 'recorder') {
       // For recorders without port maps, infer from input_number (1:1 pass-through)
@@ -767,8 +775,14 @@ async function loadAvailableUpstreamSources() {
           // Transformer has 1 output but multiple inputs - all inputs are available on that single output
           // Show each mapped input as a separate source option, all pointing to output port 1
           const outputPort = 1
-          // For non-recorders, only show if this port is actually connected to us
-          if (showAllRecorders || connectedPortsSet === null || (connectedPortsSet instanceof Set && connectedPortsSet.has(outputPort))) {
+          // For non-recorders, check if transformer is connected
+          // For 1-output transformers, connectedPortsSet contains input numbers, not output port
+          // So we check if the set has any values (meaning transformer is connected and has sources)
+          const isConnected = showAllRecorders || 
+            connectedPortsSet === null || 
+            (connectedPortsSet instanceof Set && connectedPortsSet.size > 0)
+          
+          if (isConnected) {
             // Show all mapped inputs as available sources on the single output
             for (const inputNum of mappedInputs) {
               try {
@@ -794,26 +808,36 @@ async function loadAvailableUpstreamSources() {
           }
         } else {
           // Multiple outputs: use 1:1 pass-through (output N = input N)
-          for (let port = 1; port <= numOutputs; port++) {
-            if (!mappedInputs.has(port)) continue
+          // For transformer → transformer: show ALL outputs with valid sources
+          // Don't filter by connectedPortsSet - allow user to map any available source
+          for (const inputNum of mappedInputs) {
+            // Show this output even if not explicitly port-mapped to us
+            // This allows flexible routing between transformers
+            // For multi-output transformers, input N maps to output N (1:1 pass-through)
+            const outputPort = inputNum
             
-            // For non-recorders, only show if this port is actually connected to us
+            // For non-recorders, check if this transformer is connected
+            // If connected, show all outputs with valid sources (don't restrict by port)
             if (!showAllRecorders) {
-              if (connectedPortsSet === undefined || (connectedPortsSet instanceof Set && !connectedPortsSet.has(port))) {
+              // If transformer is not connected at all, skip
+              if (connectedPortsSet === undefined) {
                 continue
               }
+              // If transformer is connected (null or Set), show all outputs with sources
+              // Don't filter by specific port - allow mapping any available source
             }
+            
             try {
-              const label = await getOutputLabel(e, port, graph.value)
+              const label = await getOutputLabel(e, inputNum, graph.value)
               if (label && String(label).trim().length > 0) {
                 // Check if this traces back to a venue source
-                const originalSource = await traceToOriginalVenueSource(e.id, port, graph.value)
+                const originalSource = await traceToOriginalVenueSource(e.id, inputNum, graph.value)
                 const labelSuffix = originalSource ? ' (Venue)' : ` (Transformer ${e.track_name || e.label || ''})`
                 sources.push({
                   id: e.id,
-                  port,
+                  port: outputPort, // Use output port number (1:1 with input)
                   label: `${label}${labelSuffix}`.trim(),
-                  feedKey: `${e.id}:${port}`
+                  feedKey: `${e.id}:${outputPort}`
                 })
               }
             } catch (err) {
