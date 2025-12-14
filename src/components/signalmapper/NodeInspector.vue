@@ -456,6 +456,14 @@ function getAvailableSourcesForInput(inputNum) {
   // Get the currently selected source for this input (if any)
   const currentFeedKey = upstreamMap.value[inputNum]
   
+  // For transformers: show ALL available sources, don't filter by what's used
+  // This allows users to assign the same source to multiple inputs if needed
+  // (e.g., splitting a stereo source)
+  if (type.value === 'transformer') {
+    return availableUpstreamSources.value
+  }
+  
+  // For recorders: filter out sources already assigned to other inputs
   // Get all feedKeys that are currently assigned to other inputs
   const usedFeedKeys = new Set()
   for (const [otherInputNum, feedKey] of Object.entries(upstreamMap.value)) {
@@ -1401,39 +1409,56 @@ function getUpstreamLabel(inputNum) {
 }
 
 async function onUpstreamChange(inputNum) {
-  // Autosave per-input for transformers and recorders; keeps UI in sync
+  // Store the selected value before any async operations
+  const selectedFeedKey = upstreamMap.value[inputNum]
+  
   try {
-    const feedKey = upstreamMap.value[inputNum]
     if (type.value === 'recorder') {
       console.log('[Inspector][Change] Track selection changed:', {
         inputNum,
-        feedKey,
-        feedKeyType: typeof feedKey,
-        isNoSource: feedKey === '__NO_SOURCE__'
+        feedKey: selectedFeedKey,
+        feedKeyType: typeof selectedFeedKey,
+        isNoSource: selectedFeedKey === '__NO_SOURCE__'
       })
     }
+    
+    // Save first and wait for it to complete
     const result = await saveMap(inputNum, true)
-    // After save/refresh, force a focused reload of upstream sources and labels to update the dropdown text
+    
+    // Rebuild the graph with fresh data AFTER save completes
+    graph.value = await buildGraph(props.projectId, props.locationId, props.stageHourId)
+    
+    // Now reload sources and labels
     await loadAvailableUpstreamSources()
     await updateUpstreamLabels()
+    
+    // IMPORTANT: Restore the selected value if it was overwritten
+    // This handles race conditions where refresh() resets the selection
+    if (selectedFeedKey && selectedFeedKey !== '__NO_SOURCE__') {
+      upstreamMap.value[inputNum] = selectedFeedKey
+    }
+    
     if (result && result.savedCount > 0 && result.errorCount === 0) {
       saveStatus.value[inputNum] = 'saved'
       setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
     } else if (type.value === 'recorder') {
       console.warn('[Inspector][Change] Save failed or nothing saved:', {
         inputNum,
-        feedKey,
+        feedKey: selectedFeedKey,
         result
       })
     }
   } catch (err) {
+    // On error, restore the selection so user can try again
+    upstreamMap.value[inputNum] = selectedFeedKey
     if (type.value === 'recorder') {
       console.error('[Inspector][Change] Error saving track:', {
         inputNum,
-        feedKey: upstreamMap.value[inputNum],
+        feedKey: selectedFeedKey,
         error: err
       })
     }
+    toast.error('Failed to save source selection')
   }
 }
 
@@ -1568,17 +1593,17 @@ async function refreshSourceNames() {
 }
 
 async function clearUpstreamConnection(inputNum) {
-  // Store connection ID before clearing (needed for deletion)
+  // Store info before clearing
   const existingConnId = upstreamConnections.value[inputNum]
+  const existingFeedKey = upstreamMap.value[inputNum]
   
-  // Clear the dropdown selection
+  // Clear the dropdown selection immediately for responsive UI
   upstreamMap.value[inputNum] = '__NO_SOURCE__'
   delete upstreamConnections.value[inputNum]
   
   // Also clear gain value for transformer inputs
   if (type.value === 'transformer') {
     delete inputGain.value[inputNum]
-    // Delete from database
     try {
       await supabase
         .from('transformer_input_gain')
@@ -1590,51 +1615,48 @@ async function clearUpstreamConnection(inputNum) {
     }
   }
   
-  // Delete the connection and port maps from database
+  // Delete only the port map for this input, NOT the entire connection
+  // This keeps the source node "connected" so it remains in the dropdown
   if (existingConnId) {
     try {
-      // First, check if this connection has port maps or is a direct connection
-      const { data: portMaps } = await supabase
+      // Delete only the port map for this specific input
+      const { error: deleteError } = await supabase
         .from('connection_port_map')
-        .select('id')
+        .delete()
         .eq('connection_id', existingConnId)
+        .eq('to_port', Number(inputNum))
       
-      if (portMaps && portMaps.length > 0) {
-        // Connection has port maps - delete only the port map for this input
-        await supabase
-          .from('connection_port_map')
-          .delete()
-          .eq('connection_id', existingConnId)
-          .eq('to_port', Number(inputNum))
-        
-        // Check if any port maps remain for this connection
+      if (deleteError) {
+        console.warn('[Inspector] failed to delete port map', deleteError)
+      }
+      
+      // For transformers: DO NOT delete the connection even if no port maps remain
+      // This keeps the upstream node "connected" so its sources stay in the dropdown
+      // The connection acts as a "link" between nodes
+      
+      // For recorders: check if any port maps remain, delete connection if empty
+      if (type.value === 'recorder') {
         const { data: remainingMaps } = await supabase
           .from('connection_port_map')
           .select('id')
           .eq('connection_id', existingConnId)
           .limit(1)
         
-        // If no port maps remain, delete the connection
         if (!remainingMaps || remainingMaps.length === 0) {
-          await supabase
+          // Check if it's a direct connection (no port maps were ever used)
+          const { data: conn } = await supabase
             .from('connections')
-            .delete()
+            .select('input_number')
             .eq('id', existingConnId)
-        }
-      } else {
-        // Direct connection (no port maps) - check if it matches this input_number
-        const { data: conn } = await supabase
-          .from('connections')
-          .select('input_number, to_node_id')
-          .eq('id', existingConnId)
-          .single()
-        
-        if (conn && conn.to_node_id === props.node.id && conn.input_number === Number(inputNum)) {
-          // This is a direct connection for this input - delete it
-          await supabase
-            .from('connections')
-            .delete()
-            .eq('id', existingConnId)
+            .single()
+          
+          // Only delete if this was a direct connection matching this input
+          if (conn && conn.input_number === Number(inputNum)) {
+            await supabase
+              .from('connections')
+              .delete()
+              .eq('id', existingConnId)
+          }
         }
       }
       
@@ -1642,8 +1664,10 @@ async function clearUpstreamConnection(inputNum) {
       invalidateTableCache('connections', props.projectId)
       invalidateTableCache('graph', props.projectId)
       
-      // Refresh to update the UI
-      await refresh()
+      // Rebuild graph with fresh data
+      graph.value = await buildGraph(props.projectId, props.locationId, props.stageHourId)
+      
+      // Refresh available sources and labels
       await loadAvailableUpstreamSources()
       await updateUpstreamLabels()
       
@@ -1654,8 +1678,7 @@ async function clearUpstreamConnection(inputNum) {
       toast.error('Failed to clear connection')
     }
   } else {
-    // No connection ID stored, but might still need to check for connection by input_number
-    // This handles cases where the connection exists but wasn't loaded into upstreamConnections
+    // No connection ID stored - check for direct connection by input_number
     try {
       const { data: directConn } = await supabase
         .from('connections')
@@ -1666,7 +1689,6 @@ async function clearUpstreamConnection(inputNum) {
         .maybeSingle()
       
       if (directConn) {
-        // Found a direct connection - delete it
         await supabase
           .from('connections')
           .delete()
@@ -1674,7 +1696,8 @@ async function clearUpstreamConnection(inputNum) {
         
         invalidateTableCache('connections', props.projectId)
         invalidateTableCache('graph', props.projectId)
-        await refresh()
+        
+        graph.value = await buildGraph(props.projectId, props.locationId, props.stageHourId)
         await loadAvailableUpstreamSources()
         await updateUpstreamLabels()
       }
