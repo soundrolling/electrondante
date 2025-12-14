@@ -918,14 +918,22 @@ async function loadAvailableUpstreamSources() {
       
       if (portsToShow.length > 0) {
         // Check which tracks on this recorder have valid upstream sources
+        // IMPORTANT: Only check connections TO this recorder (incoming), not FROM this recorder (outgoing)
+        // Port mappings on outgoing connections (like "Assign as Backup") should not affect this recorder's source options
         const parentsOfRecorder = (graph.value.parentsByToNode || {})[e.id] || []
         const tracksWithSources = new Set()
         
         // Check port mappings to find tracks with sources
+        // Only consider connections TO this recorder (where this recorder is the destination)
         for (const parent of parentsOfRecorder) {
+          // Verify this connection is actually TO this recorder (safety check)
+          const isIncoming = (parent.to_node_id === e.id || parent.to === e.id)
+          if (!isIncoming) continue // Skip if not an incoming connection
+          
           const portMaps = (graph.value.mapsByConnId || {})[parent.id] || []
           if (portMaps && portMaps.length > 0) {
             // Has port maps - track which tracks have sources
+            // to_port is the destination track on this recorder
             portMaps.forEach(m => {
               const trackNum = Number(m.to_port)
               if (trackNum) tracksWithSources.add(trackNum)
