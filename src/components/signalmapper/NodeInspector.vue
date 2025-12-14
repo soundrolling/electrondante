@@ -476,6 +476,22 @@ async function loadAvailableUpstreamSources() {
   // Format: { nodeId: Set<port> } or { nodeId: null } for non-port-mapped sources
   const connectedNodes = new Map()
   
+  // Pre-process venue sources to collect all their connections at once
+  // This ensures we capture ALL venue source feeds that are connected
+  const venueSourceConnections = new Map() // { venueNodeId: [all connections from this venue] }
+  for (const p of parents) {
+    const nodeId = p.from_node_id
+    if (!nodeId) continue
+    const srcNode = props.elements.find(e => e.id === nodeId)
+    const srcType = srcNode ? (srcNode.gear_type || srcNode.node_type || srcNode.type || '').toLowerCase() : ''
+    if (srcType === 'venue_sources') {
+      if (!venueSourceConnections.has(nodeId)) {
+        venueSourceConnections.set(nodeId, [])
+      }
+      venueSourceConnections.get(nodeId).push(p)
+    }
+  }
+  
   for (const p of parents) {
     const nodeId = p.from_node_id
     if (!nodeId) continue
@@ -491,11 +507,38 @@ async function loadAvailableUpstreamSources() {
       // Has port maps - track which ports are connected
       connectedPorts = new Set(portMaps.map(m => Number(m.from_port)))
     } else if (srcType === 'transformer') {
-      // For transformers without port maps, we need to show all outputs
-      // Since we don't know which specific output port was used, show all
-      // This allows transformers to pass through their sources even without explicit port maps
+      // For transformers without port maps, determine which ports are connected
       const numOutputs = srcNode.num_outputs || srcNode.outputs || 0
-      if (numOutputs > 0) {
+      if (numOutputs === 1) {
+        // Transformer with 1 output: all inputs are available on that single output
+        // We need to check which inputs from the source transformer are connected
+        // by looking at port maps or inferring from the connection
+        const portMapsForThisConn = (graph.value.mapsByConnId || {})[p.id] || []
+        if (portMapsForThisConn.length > 0) {
+          // Has port maps - use the from_port values (which represent input numbers for 1-output transformers)
+          connectedPorts = new Set(portMapsForThisConn.map(m => Number(m.from_port)))
+        } else if (p.input_number) {
+          // No port maps but has input_number - for 1-output transformers, this represents the input number
+          // We'll show all inputs that are connected to this transformer
+          // Get all connections to the source transformer to find all its inputs
+          const sourceParents = (graph.value.parentsByToNode || {})[nodeId] || []
+          const sourceInputs = new Set()
+          for (const sp of sourceParents) {
+            const spMaps = (graph.value.mapsByConnId || {})[sp.id] || []
+            if (spMaps.length > 0) {
+              spMaps.forEach(m => sourceInputs.add(Number(m.to_port)))
+            } else if (sp.input_number) {
+              sourceInputs.add(Number(sp.input_number))
+            }
+          }
+          // For 1-output transformers, all connected inputs are available
+          connectedPorts = sourceInputs.size > 0 ? sourceInputs : new Set([Number(p.input_number)])
+        } else {
+          // No input_number - can't determine, show all (will be filtered later)
+          connectedPorts = new Set([1])
+        }
+      } else if (numOutputs > 0) {
+        // Multiple outputs: show all outputs (1:1 pass-through assumed)
         connectedPorts = new Set(Array.from({ length: numOutputs }, (_, i) => i + 1))
       } else if (p.input_number) {
         // Fallback: if transformer has no num_outputs, infer from input_number (1:1 pass-through)
@@ -511,15 +554,31 @@ async function loadAvailableUpstreamSources() {
         continue
       }
     } else if (srcType === 'venue_sources') {
-      // For venue sources without port maps, handle direct connections
-      // If input_number is set, use that to infer the venue source feed port (1:1 pass-through)
-      // Otherwise, show all feeds (similar to transformers)
-      if (p.input_number) {
-        connectedPorts = new Set([Number(p.input_number)])
+      // For venue sources, collect ALL feeds from ALL connections to this transformer
+      // Use the pre-processed venue source connections to ensure we get everything
+      const allConnectionsFromVenue = venueSourceConnections.get(nodeId) || []
+      
+      const connectedVenuePorts = new Set()
+      
+      // Process ALL connections from this venue source to collect all feed ports
+      for (const conn of allConnectionsFromVenue) {
+        const connMaps = (graph.value.mapsByConnId || {})[conn.id] || []
+        if (connMaps.length > 0) {
+          // Has port maps - use from_port values (which represent venue source feed ports)
+          // Add ALL mapped ports from this connection
+          connMaps.forEach(m => connectedVenuePorts.add(Number(m.from_port)))
+        } else if (conn.input_number) {
+          // No port maps but has input_number - for direct connections, input_number typically matches feed port
+          // This represents one feed port being used
+          connectedVenuePorts.add(Number(conn.input_number))
+        }
+      }
+      
+      if (connectedVenuePorts.size > 0) {
+        // We found specific connected ports - use them (this Set contains ALL connected feed ports)
+        connectedPorts = connectedVenuePorts
       } else {
-        // No input_number - for direct connections, we'll show all feeds
-        // This allows venue sources to work like transformers when directly connected
-        // We'll determine the actual feeds from the venue_source_feeds table
+        // No specific ports found - for direct connections without port maps, show all feeds
         connectedPorts = null // null means direct connection, show all feeds
       }
     }
@@ -683,31 +742,65 @@ async function loadAvailableUpstreamSources() {
             mappedInputs.add(Number(p.input_number))
           }
         }
-        // Show all outputs that correspond to mapped inputs
-        for (let port = 1; port <= numOutputs; port++) {
-          if (!mappedInputs.has(port)) continue
-          
+        
+        // Special handling for transformers with 1 output: show all mapped inputs
+        // For transformers with multiple outputs, use 1:1 pass-through (output N = input N)
+        if (numOutputs === 1 && mappedInputs.size > 0) {
+          // Transformer has 1 output but multiple inputs - all inputs are available on that single output
+          // Show each mapped input as a separate source option, all pointing to output port 1
+          const outputPort = 1
           // For non-recorders, only show if this port is actually connected to us
-          if (!showAllRecorders) {
-            if (connectedPortsSet === undefined || (connectedPortsSet instanceof Set && !connectedPortsSet.has(port))) {
-              continue
+          if (showAllRecorders || connectedPortsSet === null || (connectedPortsSet instanceof Set && connectedPortsSet.has(outputPort))) {
+            // Show all mapped inputs as available sources on the single output
+            for (const inputNum of mappedInputs) {
+              try {
+                // Get the label for this input (which will be available on the single output)
+                const label = await getOutputLabel(e, inputNum, graph.value)
+                if (label && String(label).trim().length > 0) {
+                  // Check if this traces back to a venue source
+                  const originalSource = await traceToOriginalVenueSource(e.id, inputNum, graph.value)
+                  const labelSuffix = originalSource ? ' (Venue)' : ` (Transformer ${e.track_name || e.label || ''})`
+                  // Use inputNum as the port for feedKey to distinguish between different inputs
+                  // But all point to the same output port (1)
+                  sources.push({
+                    id: e.id,
+                    port: inputNum, // Use input number as port identifier for feedKey
+                    label: `${label}${labelSuffix}`.trim(),
+                    feedKey: `${e.id}:${inputNum}` // Use input number to distinguish sources
+                  })
+                }
+              } catch (err) {
+                // skip unmapped/unknown
+              }
             }
           }
-          try {
-            const label = await getOutputLabel(e, port, graph.value)
-            if (label && String(label).trim().length > 0) {
-              // Check if this traces back to a venue source
-              const originalSource = await traceToOriginalVenueSource(e.id, port, graph.value)
-              const labelSuffix = originalSource ? ' (Venue)' : ` (Transformer ${e.track_name || e.label || ''})`
-              sources.push({
-                id: e.id,
-                port,
-                label: `${label}${labelSuffix}`.trim(),
-                feedKey: `${e.id}:${port}`
-              })
+        } else {
+          // Multiple outputs: use 1:1 pass-through (output N = input N)
+          for (let port = 1; port <= numOutputs; port++) {
+            if (!mappedInputs.has(port)) continue
+            
+            // For non-recorders, only show if this port is actually connected to us
+            if (!showAllRecorders) {
+              if (connectedPortsSet === undefined || (connectedPortsSet instanceof Set && !connectedPortsSet.has(port))) {
+                continue
+              }
             }
-          } catch (err) {
-            // skip unmapped/unknown
+            try {
+              const label = await getOutputLabel(e, port, graph.value)
+              if (label && String(label).trim().length > 0) {
+                // Check if this traces back to a venue source
+                const originalSource = await traceToOriginalVenueSource(e.id, port, graph.value)
+                const labelSuffix = originalSource ? ' (Venue)' : ` (Transformer ${e.track_name || e.label || ''})`
+                sources.push({
+                  id: e.id,
+                  port,
+                  label: `${label}${labelSuffix}`.trim(),
+                  feedKey: `${e.id}:${port}`
+                })
+              }
+            } catch (err) {
+              // skip unmapped/unknown
+            }
           }
         }
       }
@@ -2007,13 +2100,15 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
               const isTargetRecorder = (type.value === 'recorder')
               const isSourceRecorder = (srcType === 'recorder')
               
-              // Create port maps only when:
+              // Create port maps when:
               // 1. feedPort is explicitly provided (port-mapped connection)
               // 2. For recorder→recorder, always use port maps when feedPort is provided
-              // 3. For venue sources/transformers → transformers/recorders, only create port map if feedPort is set
-              // If feedPort is null, this is a direct connection and we should NOT create a port map
+              // 3. For venue sources/transformers → transformers/recorders, create port map if feedPort is set
+              // 4. Special case: For transformers with 1 output, always create port maps to distinguish inputs
+              const srcNumOutputs = srcNode ? (srcNode.num_outputs || srcNode.outputs || 0) : 0
+              const isSingleOutputTransformer = (srcType === 'transformer' && srcNumOutputs === 1)
               const shouldCreatePortMap = (feedPort !== null) && 
-                                        isTransformerOrVenueSourceOrRecorder && 
+                                        (isTransformerOrVenueSourceOrRecorder || isSingleOutputTransformer) && 
                                         (isTargetRecorder || type.value === 'transformer')
               // Only use feedPort if explicitly provided - don't use inputNum as fallback to avoid constraint violations
               const portToUse = (feedPort !== null) ? feedPort : null
