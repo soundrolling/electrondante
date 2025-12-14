@@ -1262,38 +1262,22 @@ async function assignAsBackup() {
   // Create 1:1 mappings only for tracks that have assigned inputs
   const mappings = []
   
-  // Check which tracks on the source recorder have assigned inputs
-  const sourceRecorderConnections = props.connections.filter(c => 
-    (c.to_node_id === from.id || c.to === from.id)
-  )
+  // FIX: Use upstreamLabelsForFromNode which was just populated by buildUpstreamLabelsForEdit()
+  // This uses direct database queries and is reliable
+  // If a track has a non-empty label (not placeholder), it has a source assigned
+  const tracksWithInputs = []
   
-  // Get port mappings for connections TO the source recorder
-  const sourceConnIds = sourceRecorderConnections.map(c => c.id).filter(Boolean)
-  const sourceTracksWithInputs = new Set()
-  
-  // Check direct connections to source recorder
-  sourceRecorderConnections.forEach(conn => {
-    if (conn.track_number) {
-      sourceTracksWithInputs.add(conn.track_number)
-    } else if (conn.input_number) {
-      sourceTracksWithInputs.add(conn.input_number)
+  for (let trackNum = 1; trackNum <= fromTrackCount; trackNum++) {
+    const label = upstreamLabelsForFromNode.value?.[trackNum]
+    // Track has an input if it has a label that's not empty or a placeholder
+    if (label && 
+        label.trim() !== '' && 
+        label !== '—' && 
+        !label.includes('-- No source --') &&
+        !label.includes('No source')) {
+      tracksWithInputs.push(trackNum)
     }
-  })
-  
-  // Check port mappings to source recorder
-  if (sourceConnIds.length > 0 && graphRef.value?.mapsByConnId) {
-    sourceConnIds.forEach(connId => {
-      const maps = graphRef.value.mapsByConnId[connId] || []
-      maps.forEach(m => {
-        if (m.to_port) {
-          sourceTracksWithInputs.add(m.to_port)
-        }
-      })
-    })
   }
-  
-  // Get sorted list of tracks with inputs (only tracks with sources)
-  const tracksWithInputs = Array.from(sourceTracksWithInputs).sort((a, b) => a - b)
   
   if (tracksWithInputs.length === 0) {
     toast.warning('No tracks with assigned inputs found on recorder 1.')
