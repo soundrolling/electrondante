@@ -17,17 +17,14 @@
           <p class="time-source">{{ currentTimeSourceLabel }}</p>
         </div>
       </div>
-      <!-- Top row: Combined Timecode and Time Source Selector -->
+      <!-- Timecode + Time Source -->
       <div class="footer-card timecode-timesource-card">
         <div class="timecode-timesource-flex">
           <div class="timecode-section">
-            <div class="timecode-display">
-              <p class="timecode">{{ liveTimecode }}</p>
-              <p class="time-source">{{ currentTimeSourceLabel }}</p>
-            </div>
+            <p class="timecode">{{ liveTimecode }}</p>
+            <p class="time-source">{{ currentTimeSourceLabel }}</p>
           </div>
           <div class="timesource-section">
-            <h3 class="card-title">Time Source</h3>
             <TimeSourceSelector />
           </div>
         </div>
@@ -145,13 +142,10 @@
         <div class="footer-card timecode-timesource-card">
           <div class="timecode-timesource-flex">
             <div class="timecode-section">
-              <div class="timecode-display">
-                <p class="timecode">{{ liveTimecode }}</p>
-                <p class="time-source">{{ currentTimeSourceLabel }}</p>
-              </div>
+              <p class="timecode">{{ liveTimecode }}</p>
+              <p class="time-source">{{ currentTimeSourceLabel }}</p>
             </div>
             <div class="timesource-section">
-              <h3 class="card-title">Time Source</h3>
               <TimeSourceSelector />
             </div>
           </div>
@@ -469,12 +463,16 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
-.timecode-section,
-.timesource-section {
-  flex: 1;
+.timecode-section {
+  flex: none;
 }
 
-/* Timecode display - hero element, no container chrome */
+.timesource-section {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Timecode display - hero element */
 .timecode-display {
   padding: var(--space-2) 0;
   margin-bottom: var(--space-1);
@@ -490,6 +488,14 @@ onMounted(() => {
   color: var(--text-primary);
   letter-spacing: 0.02em;
   line-height: 1.1;
+}
+
+.timecode-section .timecode {
+  text-align: left;
+}
+
+.timecode-section .time-source {
+  text-align: left;
 }
 
 .time-source {

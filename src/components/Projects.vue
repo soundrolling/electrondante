@@ -1334,21 +1334,28 @@ setup() {
 .projects-grid {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1);
 }
 
 .project-card {
   background: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  transition: all var(--transition-normal);
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  padding: var(--space-4);
+  transition: background var(--transition-fast);
   position: relative;
 }
 
+.project-card:last-child {
+  border-bottom: none;
+}
+
 .project-card:hover {
-  border-color: var(--color-primary-500);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-tertiary);
 }
 
 .project-card.archived {
@@ -1372,15 +1379,16 @@ setup() {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .project-title {
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
   color: var(--text-heading);
   margin: 0;
   line-height: var(--leading-snug);
+  letter-spacing: -0.01em;
 }
 
 .project-badge {
@@ -1397,7 +1405,7 @@ setup() {
 
 /* Project Meta */
 .project-meta {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .meta-item {
@@ -1405,13 +1413,14 @@ setup() {
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
 }
 
 .meta-icon {
-  font-size: var(--text-lg);
-  width: 24px;
+  font-size: var(--text-base);
+  width: 20px;
   text-align: center;
+  opacity: 0.7;
 }
 
 .meta-text {
@@ -1430,18 +1439,18 @@ setup() {
 
 /* Project Timeline */
 .project-timeline {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-3);
 }
 
 .timeline-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-3);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--border-light);
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  background: transparent;
+  border-radius: 0;
+  margin-bottom: var(--space-1);
+  border: none;
 }
 
 .timeline-item:last-child {
@@ -1449,13 +1458,13 @@ setup() {
 }
 
 .timeline-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   flex-shrink: 0;
 }
 
@@ -1475,13 +1484,15 @@ setup() {
 
 .timeline-label {
   font-weight: var(--font-semibold);
-  font-size: var(--text-sm);
-  margin-bottom: var(--space-1);
+  font-size: var(--text-xs);
+  margin-bottom: 2px;
   color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .timeline-dates {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
@@ -1509,6 +1520,15 @@ setup() {
   min-height: 44px;
   justify-content: center;
   border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.owner-actions .btn.icon-only:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
 }
 
 .owner-actions .btn.icon-only .btn-icon {
@@ -1524,7 +1544,7 @@ setup() {
 .project-actions .open-btn {
   background: var(--pill-positive-bg);
   color: var(--pill-positive-text);
-  border: 2px solid var(--pill-positive-border);
+  border: 1px solid var(--pill-positive-border);
   box-shadow: none;
 }
 .project-actions .open-btn:hover {
@@ -1532,13 +1552,13 @@ setup() {
 }
 
 .project-actions .leave-btn {
-  background: var(--pill-danger-bg);
-  color: var(--pill-danger-text);
-  border: 2px solid var(--pill-danger-border);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-medium);
   box-shadow: none;
 }
 .project-actions .leave-btn:hover {
-  background: var(--pill-danger-hover-bg);
+  background: var(--bg-tertiary);
 }
 
 /* Modal */
@@ -1707,7 +1727,17 @@ setup() {
   .projects-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-5);
+    gap: var(--space-4);
+  }
+
+  .project-card {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .project-card:last-child {
+    border-bottom: 1px solid var(--border-light);
   }
 }
 
@@ -1729,7 +1759,7 @@ setup() {
 
   .projects-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-6);
+    gap: var(--space-4);
   }
 
   .modal {

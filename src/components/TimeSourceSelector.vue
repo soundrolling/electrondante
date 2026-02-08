@@ -1,40 +1,50 @@
 <template>
   <div class="time-source-selector">
-    <label for="timeSource">Select Time Source:</label>
-    <select id="timeSource" v-model="selectedSource" @change="onSourceChange">
-      <option value="device">Device Time</option>
-      <option value="custom">Custom Timecode</option>
-      <option value="world">World Time (GMT)</option>
-    </select>
+    <div class="source-select-wrapper">
+      <select id="timeSource" v-model="selectedSource" @change="onSourceChange" aria-label="Time source">
+        <option value="device">Device Time</option>
+        <option value="custom">Custom Timecode</option>
+        <option value="world">World Time (GMT)</option>
+      </select>
+      <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </div>
 
     <!-- Custom Timecode Input -->
-    <div v-if="selectedSource === 'custom'" class="custom-timecode-input">
-      <label for="customTime">Initial Time (HH:MM:SS):</label>
-      <input
-        type="text"
-        id="customTime"
-        v-model="customTime"
-        placeholder="00:00:00"
-        pattern="^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$"
-        title="Please enter time in HH:MM:SS format."
-      />
-      <button @click="setCustomTime" :disabled="!isValidCustomTime">
-        Set Custom Timecode
-      </button>
+    <div v-if="selectedSource === 'custom'" class="source-options">
+      <label for="customTime" class="option-label">Set time (HH:MM:SS)</label>
+      <div class="option-row">
+        <input
+          type="text"
+          id="customTime"
+          v-model="customTime"
+          class="option-input"
+          placeholder="00:00:00"
+          pattern="^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$"
+          title="Please enter time in HH:MM:SS format."
+        />
+        <button class="option-btn" @click="setCustomTime" :disabled="!isValidCustomTime">
+          Set
+        </button>
+      </div>
     </div>
 
     <!-- World Time Offset Input -->
-    <div v-if="selectedSource === 'world'" class="world-time-offset-input">
-      <label for="gmtOffset">GMT Offset (hours):</label>
-      <input
-        type="number"
-        id="gmtOffset"
-        v-model.number="gmtOffset"
-        placeholder="e.g., +2 or -5"
-      />
-      <button @click="setWorldTime">
-        Set World Time (GMT)
-      </button>
+    <div v-if="selectedSource === 'world'" class="source-options">
+      <label for="gmtOffset" class="option-label">GMT offset (hours)</label>
+      <div class="option-row">
+        <input
+          type="number"
+          id="gmtOffset"
+          v-model.number="gmtOffset"
+          class="option-input"
+          placeholder="0"
+        />
+        <button class="option-btn" @click="setWorldTime">
+          Set
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -157,63 +167,112 @@ setup() {
 
 <style scoped>
 .time-source-selector {
-margin-top: 20px;
-display: flex;
-flex-direction: column;
-align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
 }
 
-.time-source-selector label {
-margin-right: 10px;
-font-weight: bold;
+/* Custom select wrapper */
+.source-select-wrapper {
+  position: relative;
+  width: 100%;
 }
 
-.time-source-selector select {
-padding: 5px;
-border-radius: 4px;
-margin-bottom: 10px;
+.source-select-wrapper select {
+  width: 100%;
+  padding: var(--space-2-5) var(--space-8) var(--space-2-5) var(--space-3);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  appearance: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  min-height: 40px;
 }
 
-.custom-timecode-input,
-.world-time-offset-input {
-margin-top: 10px;
-display: flex;
-flex-direction: column;
-align-items: center;
+.source-select-wrapper select:hover {
+  border-color: var(--color-primary-400);
 }
 
-.custom-timecode-input label,
-.world-time-offset-input label {
-margin-bottom: 5px;
-font-weight: bold;
+.source-select-wrapper select:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
 }
 
-.custom-timecode-input input,
-.world-time-offset-input input {
-padding: 5px;
-border-radius: 4px;
-width: 150px;
-margin-bottom: 5px;
-text-align: center;
+.select-chevron {
+  position: absolute;
+  right: var(--space-2-5);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  pointer-events: none;
 }
 
-.custom-timecode-input button,
-.world-time-offset-input button {
-padding: 5px 10px;
-border: none;
-border-radius: 4px;
-background-color: #28a745;
-color: white;
-cursor: pointer;
+/* Conditional option sections */
+.source-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding-top: var(--space-1);
 }
 
-.custom-timecode-input button:disabled {
-background-color: #6c757d;
-cursor: not-allowed;
+.option-label {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--font-medium);
 }
 
-.custom-timecode-input button:hover:not(:disabled),
-.world-time-offset-input button:hover {
-background-color: #218838;
+.option-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.option-input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-family-mono);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: center;
+  min-height: 36px;
+}
+
+.option-input:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.option-btn {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-primary-500);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.option-btn:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-600);
+}
+
+.option-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
