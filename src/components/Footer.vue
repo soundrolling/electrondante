@@ -21,21 +21,19 @@
       <div class="footer-card timecode-timesource-card">
         <div class="timecode-timesource-flex">
           <div class="timecode-section">
-            <h3 class="card-title">Timecode</h3>
             <div class="timecode-display">
               <p class="timecode">{{ liveTimecode }}</p>
               <p class="time-source">{{ currentTimeSourceLabel }}</p>
             </div>
           </div>
           <div class="timesource-section">
-            <h3 class="card-title">Select Time Source:</h3>
+            <h3 class="card-title">Time Source</h3>
             <TimeSourceSelector />
           </div>
         </div>
       </div>
       <!-- Bottom row: Session | Storage/App -->
       <div class="footer-card session-card">
-        <h3 class="card-title">Session</h3>
         <div class="compact-user-info">
           <span v-if="userEmail" class="user-email">
             {{ userEmail }} <span v-if="isAdmin" class="admin-badge">A</span>
@@ -147,14 +145,13 @@
         <div class="footer-card timecode-timesource-card">
           <div class="timecode-timesource-flex">
             <div class="timecode-section">
-              <h3 class="card-title">Timecode</h3>
               <div class="timecode-display">
                 <p class="timecode">{{ liveTimecode }}</p>
                 <p class="time-source">{{ currentTimeSourceLabel }}</p>
               </div>
             </div>
             <div class="timesource-section">
-              <h3 class="card-title">Select Time Source:</h3>
+              <h3 class="card-title">Time Source</h3>
               <TimeSourceSelector />
             </div>
           </div>
@@ -162,7 +159,6 @@
       </div>
       <div class="menu-section">
         <div class="footer-card session-card">
-          <h3 class="card-title">Session</h3>
           <div class="compact-user-info">
             <span v-if="userEmail" class="user-email">
               {{ userEmail }} <span v-if="isAdmin" class="admin-badge">A</span>
@@ -367,7 +363,7 @@ onMounted(() => {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   border-top: 1px solid var(--border-light);
-  padding: var(--space-2) 0 0 0;
+  padding: var(--space-3) 0 0 0;
   font-size: var(--text-sm);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
@@ -383,18 +379,16 @@ onMounted(() => {
 .footer-columns {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-2);
+  gap: var(--space-3);
   margin-bottom: var(--space-2);
 }
 
-/* Card Layout - Shared */
+/* Card Layout - Clean containers, no borders on desktop */
 .footer-card {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-light);
+  background-color: transparent;
+  border: none;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
   padding: var(--space-3);
-  transition: var(--transition-normal);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -402,59 +396,57 @@ onMounted(() => {
   max-width: 100%;
 }
 
-.footer-card:hover {
-  background-color: var(--bg-secondary);
-  box-shadow: var(--shadow-md);
-}
-
-/* Card Heading */
+/* Card Heading - Subtle uppercase section labels */
 .card-title {
   margin: 0 0 var(--space-2);
-  color: var(--text-primary);
-  font-size: var(--text-base);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
-  border-bottom: 1px solid var(--border-light);
-  padding-bottom: var(--space-1-5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
-/* Footer-specific button overrides (layout only — colors from global classes) */
+/* Footer-specific button overrides */
 .footer .btn {
   margin-top: var(--space-2);
   min-height: 36px;
 }
 
-/* Theme toggle button - styled as toggle switch */
+/* Theme toggle button */
 .theme-toggle-btn {
   width: 100%;
-  padding: var(--space-3) var(--space-4);
-  min-height: 48px;
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
+  padding: var(--space-2-5) var(--space-4);
+  min-height: 44px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   margin-top: 0;
-  border: 2px solid var(--border-medium);
+  border: 1px solid var(--border-light);
   background: var(--bg-secondary);
   color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
 }
 
 .theme-toggle-btn:hover {
   background: var(--bg-tertiary);
-  border-color: var(--color-primary-500);
-  transform: translateY(-1px);
+  border-color: var(--border-medium);
 }
 
 .theme-toggle-btn .btn-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
 .theme-toggle-btn .btn-text {
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
 }
 
 .install-info {
@@ -482,42 +474,41 @@ onMounted(() => {
   flex: 1;
 }
 
+/* Timecode display - hero element, no container chrome */
 .timecode-display {
-  background-color: var(--bg-secondary);
-  padding: var(--space-2-5);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-2);
-  border: 1px solid var(--border-light);
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-1);
 }
 
+/* Hero timecode text */
 .timecode {
   font-family: var(--font-family-mono);
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  margin: 0 0 var(--space-1) 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  margin: 0 0 var(--space-0-5) 0;
   text-align: center;
   color: var(--text-primary);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
 }
 
 .time-source {
   font-size: var(--text-xs);
   text-align: center;
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
-/* Session Card Specific */
+/* Session Card - clean inline display */
 .compact-user-info {
-  background-color: var(--bg-secondary);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-2);
+  padding: var(--space-2) 0;
   font-size: var(--text-sm);
-  border: 1px solid var(--border-light);
+  color: var(--text-primary);
 }
 
 .user-email {
   color: var(--text-primary);
+  font-weight: var(--font-medium);
 }
 
 .guest-text {
@@ -534,12 +525,13 @@ onMounted(() => {
   font-weight: var(--font-semibold);
 }
 
-/* Section Divider */
+/* Section Divider - lighter */
 .section-divider {
   height: 1px;
   background-color: var(--border-light);
-  margin: var(--space-3) 0;
+  margin: var(--space-2-5) 0;
   width: 100%;
+  opacity: 0.6;
 }
 
 /* Storage Section */
@@ -552,7 +544,8 @@ onMounted(() => {
 }
 
 .usage-text {
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
 }
 
 .storage-actions {
@@ -562,7 +555,6 @@ onMounted(() => {
 }
 
 .usage-indicator {
-  background-color: var(--bg-secondary);
   padding: var(--space-0-5) var(--space-1-5);
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
@@ -576,9 +568,9 @@ onMounted(() => {
 
 /* Usage Bar */
 .usage-bar {
-  height: 6px;
+  height: 4px;
   background-color: var(--border-light);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   overflow: hidden;
   margin-bottom: var(--space-2);
 }
@@ -586,6 +578,7 @@ onMounted(() => {
 .usage-fill {
   height: 100%;
   background-color: var(--color-success-500);
+  border-radius: var(--radius-full);
   transition: var(--transition-slow);
 }
 
@@ -605,20 +598,19 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-/* Footer Bottom */
+/* Footer Bottom - minimal */
 .footer-bottom {
-  background-color: var(--bg-secondary);
   padding: var(--space-2) 0;
   text-align: center;
   font-size: var(--text-xs);
   margin-top: var(--space-1);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   border-top: 1px solid var(--border-light);
 }
 
 .copyright-text {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 /* Focus States for Accessibility */
@@ -638,21 +630,18 @@ onMounted(() => {
     gap: var(--space-3);
   }
 
-  .footer-card {
-    padding: var(--space-4);
+  .timecode-timesource-card {
+    grid-column: 1 / -1;
   }
 
   .timecode-timesource-flex {
     flex-direction: row;
+    align-items: center;
     gap: var(--space-4);
   }
 
   .timecode {
-    font-size: var(--text-xl);
-  }
-
-  .card-title {
-    font-size: var(--text-lg);
+    font-size: var(--text-3xl);
   }
 }
 
@@ -663,24 +652,20 @@ onMounted(() => {
   }
 
   .footer-columns {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr;
     gap: var(--space-4);
   }
 
-  .footer-card {
-    padding: var(--space-5);
+  .timecode-timesource-card {
+    grid-column: auto;
   }
 
   .timecode {
-    font-size: var(--text-2xl);
-  }
-
-  .card-title {
-    font-size: var(--text-lg);
+    font-size: var(--text-4xl);
   }
 
   .footer .btn {
-    padding: var(--space-2-5) var(--space-4-5);
+    padding: var(--space-2) var(--space-4);
     font-size: var(--text-sm);
   }
 }
@@ -692,7 +677,7 @@ onMounted(() => {
   }
 
   .footer-card {
-    border-width: 2px;
+    border: 2px solid var(--border-medium);
   }
 }
 
@@ -703,7 +688,6 @@ onMounted(() => {
     transition: none;
   }
 
-  .footer .btn:hover,
   .theme-toggle-btn:hover {
     transform: none;
   }
@@ -716,9 +700,24 @@ onMounted(() => {
 /* Mobile layout: condense into bar and hide grid */
 @media (max-width: 768px) {
   .footer-columns { display: none; }
-  .footer-mobile-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-2) var(--space-2); }
+  .footer-mobile-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 var(--space-2) var(--space-2);
+  }
   .mobile-footer-menu { display: inline-flex; }
-  .timecode-display.compact { margin: 0; border: 1px solid var(--border-light); background: var(--bg-secondary); border-radius: var(--radius-md); padding: var(--space-1) var(--space-2); }
+  .timecode-display.compact {
+    margin: 0;
+    background: transparent;
+    border: none;
+    padding: var(--space-1) var(--space-2);
+  }
+  .timecode-display.compact .timecode {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+  }
 }
 
 /* Shared mobile menu styles (match header) */
@@ -731,10 +730,20 @@ onMounted(() => {
   border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl); padding: var(--space-4);
 }
-.mobile-menu-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.mobile-menu-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
 .menu-title { font-weight: var(--font-semibold); }
 .close-btn { background: var(--bg-secondary); }
 .menu-section { margin-bottom: var(--space-3); }
+
+/* In mobile sheet, cards get subtle styling */
+.mobile-menu-sheet .footer-card {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
 
 /* Desktop default: hide the mobile bar */
 .footer-mobile-bar { display: none; }
