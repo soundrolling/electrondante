@@ -530,7 +530,7 @@ gap: 0.5rem;
 margin-top: 1rem;
 }
 
-// Button styles are now handled by calendar.scss
+/* Button styles are now handled by calendar.scss */
 
 .cog-menu-wrapper {
 position: relative;
@@ -609,7 +609,7 @@ font-size: 0.95rem;
 background: var(--bg-primary);
 color: var(--text-primary);
 }
-// Button styles are now handled by calendar.scss
+/* Button styles are now handled by calendar.scss */
 
 .assigned-contacts-row {
 margin-top: 0.5rem;

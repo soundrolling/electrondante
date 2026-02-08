@@ -907,9 +907,51 @@ setup() {
 </script>
 
 <style scoped>
+/* ── CSS Variables for pill-style buttons (light/dark mode) ── */
+:deep(:root) {
+  --pill-warning-bg: #fef3c7;
+  --pill-warning-text: #92400e;
+  --pill-warning-border: #f59e0b;
+  --pill-warning-hover-bg: #fde68a;
+  --pill-positive-bg: #d1fae5;
+  --pill-positive-text: #065f46;
+  --pill-positive-border: #10b981;
+  --pill-positive-hover-bg: #a7f3d0;
+  --pill-danger-bg: #fee2e2;
+  --pill-danger-text: #991b1b;
+  --pill-danger-border: #ef4444;
+  --pill-danger-hover-bg: #fecaca;
+  --pill-primary-bg: #dbeafe;
+  --pill-primary-text: #1e40af;
+  --pill-primary-border: #2563eb;
+  --pill-primary-hover-bg: #bfdbfe;
+  --pill-badge-owner-bg: var(--color-primary-100);
+  --pill-badge-owner-text: var(--color-primary-700);
+}
+
+:deep(.dark) {
+  --pill-warning-bg: var(--color-warning-700);
+  --pill-warning-text: var(--text-inverse);
+  --pill-warning-border: var(--color-warning-600);
+  --pill-warning-hover-bg: var(--color-warning-600);
+  --pill-positive-bg: var(--color-success-700);
+  --pill-positive-text: var(--text-inverse);
+  --pill-positive-border: var(--color-success-600);
+  --pill-positive-hover-bg: var(--color-success-600);
+  --pill-danger-bg: var(--color-error-600);
+  --pill-danger-text: var(--text-inverse);
+  --pill-danger-border: var(--color-error-700);
+  --pill-danger-hover-bg: var(--color-error-700);
+  --pill-primary-bg: var(--color-primary-700);
+  --pill-primary-text: var(--text-inverse);
+  --pill-primary-border: var(--color-primary-600);
+  --pill-primary-hover-bg: var(--color-primary-600);
+  --pill-badge-owner-bg: var(--color-primary-700);
+  --pill-badge-owner-text: var(--text-inverse);
+}
+
 /* Base Styles - Mobile First */
 .projects {
-  /* Using global CSS variables from index.css - these respond to dark mode */
   min-height: 100vh;
   background: var(--bg-primary);
   padding: var(--space-4);
@@ -917,19 +959,7 @@ setup() {
   padding-bottom: env(safe-area-inset-bottom, var(--space-4));
   font-family: var(--font-family-sans);
   line-height: var(--leading-normal);
-  color: var(--text-primary) !important;
-}
-
-/* Avoid forcing color on all descendants to preserve contrast on buttons, links, badges */
-
-.projects h1,
-.projects h2,
-.projects h3,
-.projects .page-title,
-.projects .form-title,
-.projects .modal-title,
-.projects .project-title {
-  color: var(--text-heading) !important;
+  color: var(--text-primary);
 }
 
 /* Typography Scale */
@@ -938,7 +968,7 @@ setup() {
   font-weight: var(--font-bold);
   line-height: var(--leading-tight);
   margin: 0 0 var(--space-4) 0;
-  color: var(--text-heading) !important;
+  color: var(--text-heading);
 }
 
 .form-title,
@@ -947,7 +977,7 @@ setup() {
   font-weight: var(--font-semibold);
   line-height: var(--leading-snug);
   margin: 0 0 var(--space-4) 0;
-  color: var(--text-heading) !important;
+  color: var(--text-heading);
 }
 
 /* Page Header */
@@ -1007,7 +1037,7 @@ setup() {
 
 .options-btn {
   display: none; /* hidden on desktop */
-  background: #e2e8f0 !important;
+  background: var(--bg-tertiary);
 }
 
 .action-btn:hover {
@@ -1019,46 +1049,23 @@ setup() {
   transform: scale(0.98);
 }
 
+/* Pill-style action buttons using CSS variables for dark mode */
 .refresh-btn {
-  /* Lighter pill w/ darker text */
-  background: #fef3c7 !important;   /* amber-100 */
-  color: #92400e !important;        /* amber-800 */
-  border: 2px solid #f59e0b !important; /* amber-500 */
+  background: var(--pill-warning-bg);
+  color: var(--pill-warning-text);
+  border: 2px solid var(--pill-warning-border);
 }
-
-.refresh-btn:hover { background: #fde68a !important; } /* amber-200 */
-
-/* Dark mode: Dark yellow/amber background with white text */
-.dark .refresh-btn {
-  background: var(--color-warning-700) !important;
-  color: var(--text-inverse) !important;
-  border: 2px solid var(--color-warning-600) !important;
-}
-
-.dark .refresh-btn:hover {
-  background: var(--color-warning-600) !important;
-  border-color: var(--color-warning-500) !important;
+.refresh-btn:hover {
+  background: var(--pill-warning-hover-bg);
 }
 
 .new-project-btn {
-  /* Lighter pill w/ darker text */
-  background: #dbeafe !important;   /* blue-100 */
-  color: #1e40af !important;        /* blue-800 */
-  border: 2px solid #2563eb !important; /* blue-600 */
+  background: var(--pill-primary-bg);
+  color: var(--pill-primary-text);
+  border: 2px solid var(--pill-primary-border);
 }
-
-.new-project-btn:hover { background: #bfdbfe !important; } /* blue-200 */
-
-/* Dark mode: Dark blue background with white text */
-.dark .new-project-btn {
-  background: var(--color-primary-700) !important;
-  color: var(--text-inverse) !important;
-  border: 2px solid var(--color-primary-600) !important;
-}
-
-.dark .new-project-btn:hover {
-  background: var(--color-primary-600) !important;
-  border-color: var(--color-primary-500) !important;
+.new-project-btn:hover {
+  background: var(--pill-primary-hover-bg);
 }
 
 .btn-icon {
@@ -1085,17 +1092,9 @@ setup() {
   margin-bottom: var(--space-4);
 }
 
-.skeleton-header {
-  height: 80px;
-}
-
-.skeleton-toolbar {
-  height: 60px;
-}
-
-.skeleton-tabs {
-  height: 50px;
-}
+.skeleton-header { height: 80px; }
+.skeleton-toolbar { height: 60px; }
+.skeleton-tabs { height: 50px; }
 
 .skeleton-projects {
   height: 300px;
@@ -1146,11 +1145,11 @@ setup() {
 .form-input {
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  border: 2px solid var(--border-medium) !important;
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   transition: all var(--transition-normal);
   min-height: 44px;
   box-sizing: border-box;
@@ -1223,17 +1222,17 @@ setup() {
 
 .select-wrapper {
   position: relative;
-  min-width: 260px; /* prevent arrow overlap with text and improve readability */
+  min-width: 260px;
 }
 
 .form-select {
   width: 100%;
-  padding: var(--space-3) 48px var(--space-3) var(--space-4); /* extra right padding for arrow */
-  border: 2px solid var(--border-medium) !important;
+  padding: var(--space-3) 48px var(--space-3) var(--space-4);
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   min-height: 44px;
   appearance: none;
   cursor: pointer;
@@ -1245,7 +1244,7 @@ setup() {
   right: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
-  color: #475569; /* slate-700 for better arrow contrast */
+  color: var(--text-secondary);
   pointer-events: none;
 }
 
@@ -1266,11 +1265,11 @@ setup() {
 .search-input {
   width: 100%;
   padding: var(--space-3) var(--space-4) var(--space-3) 48px;
-  border: 2px solid var(--border-medium) !important;
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   background: var(--bg-primary);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   min-height: 44px;
   box-shadow: var(--shadow-sm);
 }
@@ -1297,8 +1296,8 @@ setup() {
   padding: var(--space-3) var(--space-4);
   border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
-  background: #eef2f7; /* light gray pill for contrast */
-  color: #111827;       /* strong text for readability */
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: var(--text-base);
   font-weight: var(--font-medium);
   cursor: pointer;
@@ -1379,7 +1378,7 @@ setup() {
 .project-title {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
-  color: var(--text-heading) !important;
+  color: var(--text-heading);
   margin: 0;
   line-height: var(--leading-snug);
 }
@@ -1392,14 +1391,8 @@ setup() {
 }
 
 .project-badge.owner {
-  background: var(--color-primary-100);
-  color: var(--color-primary-700);
-}
-
-/* Dark mode: Dark blue background with white text */
-.dark .project-badge.owner {
-  background: var(--color-primary-700) !important;
-  color: var(--text-inverse) !important;
+  background: var(--pill-badge-owner-bg);
+  color: var(--pill-badge-owner-text);
 }
 
 /* Project Meta */
@@ -1492,7 +1485,6 @@ setup() {
   color: var(--text-secondary);
 }
 
-
 /* Project Actions */
 .project-actions {
   display: flex;
@@ -1528,117 +1520,25 @@ setup() {
   display: none;
 }
 
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  min-height: 44px;
-  text-decoration: none;
-  box-sizing: border-box;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.btn-primary { background: var(--color-primary-500); color: var(--text-inverse); }
-
-.btn-primary:hover {
-  background: var(--color-primary-600);
-  box-shadow: var(--shadow-lg);
-}
-
-.btn-secondary { background: var(--color-secondary-500); color: var(--text-inverse); }
-
-.btn-secondary:hover {
-  background: var(--color-secondary-600);
-}
-
-.btn-danger { background: var(--color-error-500); color: var(--text-inverse); }
-/* High-contrast positive and warning variants used on this page */
-.btn-positive {
-  background: #0f766e;           /* teal-700 */
-  color: #ffffff !important;     /* enforce readable text */
-}
-
-.btn-positive:hover {
-  background: #115e59;           /* teal-800 */
-}
-
-.btn-warning {
-  background: #f59e0b;           /* amber-500 */
-  color: #111827 !important;     /* gray-900 for strong contrast on amber */
-}
-
-.btn-warning:hover {
-  background: #d97706;           /* amber-600 */
-}
-
-/* Ensure action buttons (top bar) keep intended contrast */
-.action-btn.new-project-btn {
-  color: #ffffff !important;
-}
-
-
-.btn-danger:hover {
-  background: var(--color-error-600);
-}
-
-/* Lighter pill buttons with dark text for card actions */
+/* Pill-style card action buttons using CSS variables */
 .project-actions .open-btn {
-  background: #d1fae5 !important;     /* emerald-100 */
-  color: #065f46 !important;          /* emerald-800 */
-  border: 2px solid #10b981 !important;/* emerald-500 */
+  background: var(--pill-positive-bg);
+  color: var(--pill-positive-text);
+  border: 2px solid var(--pill-positive-border);
   box-shadow: none;
 }
 .project-actions .open-btn:hover {
-  background: #a7f3d0 !important;     /* emerald-200 */
-}
-
-/* Dark mode: Dark green background with white text */
-.dark .project-actions .open-btn {
-  background: var(--color-success-700) !important;
-  color: var(--text-inverse) !important;
-  border: 2px solid var(--color-success-600) !important;
-}
-.dark .project-actions .open-btn:hover {
-  background: var(--color-success-600) !important;
-  border-color: var(--color-success-500) !important;
+  background: var(--pill-positive-hover-bg);
 }
 
 .project-actions .leave-btn {
-  background: #fee2e2 !important;     /* red-100 */
-  color: #991b1b !important;          /* red-800 */
-  border: 2px solid #ef4444 !important;/* red-500 */
+  background: var(--pill-danger-bg);
+  color: var(--pill-danger-text);
+  border: 2px solid var(--pill-danger-border);
   box-shadow: none;
 }
 .project-actions .leave-btn:hover {
-  background: #fecaca !important;     /* red-200 */
-}
-
-/* Dark mode: Dark red background with white text */
-.dark .project-actions .leave-btn {
-  background: var(--color-error-600) !important;
-  color: var(--text-inverse) !important;
-  border: 2px solid var(--color-error-700) !important;
-}
-.dark .project-actions .leave-btn:hover {
-  background: var(--color-error-700) !important;
-  border-color: var(--color-error-800) !important;
+  background: var(--pill-danger-hover-bg);
 }
 
 /* Modal */
@@ -1758,7 +1658,6 @@ setup() {
     font-size: var(--text-3xl);
   }
 
-  /* Condense the header into one row on larger screens */
   .page-header {
     display: flex;
     align-items: center;
@@ -1780,7 +1679,6 @@ setup() {
     align-items: center;
   }
 
-  /* Place the sorter label and select inline */
   .sorter {
     flex-direction: row;
     align-items: center;
@@ -1790,8 +1688,7 @@ setup() {
   .form-grid {
     grid-template-columns: 1fr 1fr;
   }
-  
-  /* Modal form grid for larger screens */
+
   .modal .form-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -1800,8 +1697,7 @@ setup() {
     justify-content: center;
     gap: var(--space-3);
   }
-  
-  /* Icon-only buttons remain icon-only on all screen sizes */
+
   .owner-actions .btn.icon-only {
     padding: var(--space-3);
     min-width: 48px;
@@ -1819,7 +1715,7 @@ setup() {
 @media (min-width: 1025px) {
   .projects {
     padding: var(--space-8);
-    max-width: 1400px; /* increase content width on desktop */
+    max-width: 1400px;
     margin: 0 auto;
   }
 
@@ -1835,18 +1731,15 @@ setup() {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-6);
   }
-  
 
   .modal {
     max-width: 700px;
   }
-  
-  /* Modal form grid for desktop */
+
   .modal .form-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  /* Combine toolbar into a clean 3-column grid on desktop */
   .toolbar {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -1857,7 +1750,6 @@ setup() {
   .toolbar-center { justify-self: center; }
   .toolbar-right { justify-self: end; width: 100%; max-width: 520px; }
 
-  /* When tabs are inside toolbar, remove outer spacing and center them */
   .toolbar .project-tabs {
     margin-bottom: 0;
     padding-bottom: 0;
@@ -1872,14 +1764,13 @@ setup() {
 
 /* Ensure options never show on desktop */
 @media (min-width: 769px) {
-  .options-btn { display: none !important; }
-  .mobile-options { display: none !important; }
+  .options-btn { display: none; }
+  .mobile-options { display: none; }
 }
 
 /* High Contrast Mode Support */
 @media (prefers-contrast: high) {
   .project-card,
-  .btn,
   .form-input,
   .form-select,
   .search-input {
@@ -1894,13 +1785,13 @@ setup() {
   .tab-btn {
     transition: none;
   }
-  
+
   .action-btn:hover,
   .btn:hover,
   .tab-btn:hover {
     transform: none;
   }
-  
+
   .action-btn:active,
   .btn:active,
   .tab-btn:active {

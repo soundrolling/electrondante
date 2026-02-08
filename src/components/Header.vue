@@ -519,18 +519,6 @@ export default {
   padding-top: env(safe-area-inset-top, 0);
 }
 
-/* Force text visibility */
-.header * {
-  color: var(--text-primary) !important;
-}
-
-.header .nav-link,
-.header .btn-text,
-.header .nav-text,
-.header .home-text {
-  color: var(--text-primary) !important;
-}
-
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
@@ -541,7 +529,6 @@ export default {
   min-height: 64px;
 }
 
-/* Header sections */
 .header-left,
 .header-right {
   display: flex;
@@ -549,30 +536,29 @@ export default {
   gap: var(--space-3);
 }
 
-/* Stack status pills vertically and make them compact */
+/* Status pills */
 .status-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-/* Online/offline status indicator */
 .status-indicator {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 4px 8px; /* more compact */
+  padding: 4px 8px;
   border-radius: var(--radius-full);
-  font-size: 0.8rem; /* smaller */
+  font-size: 0.8rem;
   font-weight: var(--font-semibold);
-  color: #ffffff !important;
-  background-color: #047857; /* darker green */
+  color: #ffffff;
+  background-color: #047857;
   border: 1px solid rgba(0,0,0,0.05);
   transition: all var(--transition-normal);
   min-height: 0;
 }
 
-.status-indicator:hover { filter: brightness(0.92); color: #ffffff !important; }
+.status-indicator:hover { filter: brightness(0.92); }
 
 .status-dot {
   width: 8px;
@@ -580,32 +566,31 @@ export default {
   border-radius: 50%;
 }
 
-.online.status-indicator { background-color: #065f46; } /* green-800 */
-.offline.status-indicator { background-color: #7f1d1d; } /* red-900 */
+.online.status-indicator { background-color: #065f46; }
+.offline.status-indicator { background-color: #7f1d1d; }
 
 .status-text {
   font-weight: var(--font-semibold);
-  color: #ffffff !important;
+  color: #ffffff;
 }
 
-/* Sync indicator */
 .sync-indicator {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 4px 8px; /* more compact */
+  padding: 4px 8px;
   border-radius: var(--radius-full);
-  font-size: 0.8rem; /* smaller */
+  font-size: 0.8rem;
   font-weight: var(--font-semibold);
-  color: #ffffff !important;
-  background-color: #047857; /* darker synced */
+  color: #ffffff;
+  background-color: #047857;
   border: 1px solid rgba(0,0,0,0.05);
   transition: all var(--transition-normal);
   min-height: 0;
 }
-.sync-indicator.synced { background-color: #065f46; } /* green-800 */
-.sync-indicator.pending { background-color: #78350f; } /* amber-900 */
-.sync-text { font-weight: var(--font-semibold); color: #ffffff !important; }
+.sync-indicator.synced { background-color: #065f46; }
+.sync-indicator.pending { background-color: #78350f; }
+.sync-text { font-weight: var(--font-semibold); color: #ffffff; }
 
 /* Navigation */
 .navigation {
@@ -619,7 +604,7 @@ export default {
   align-items: center;
   gap: var(--space-2);
   text-decoration: none;
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   font-weight: var(--font-medium);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
@@ -632,119 +617,34 @@ export default {
 
 .nav-link:hover {
   background-color: var(--bg-secondary);
-  color: var(--text-primary) !important;
 }
 
 .nav-link.active {
   background-color: rgba(59, 130, 246, 0.15);
-  color: var(--color-primary-600) !important;
+  color: var(--color-primary-600);
   border-color: var(--color-primary-300);
 }
 .nav-link.active .nav-icon {
-  color: var(--color-primary-600) !important;
-  stroke: var(--color-primary-600) !important;
-}
-.nav-link .nav-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
+  color: var(--color-primary-600);
+  stroke: var(--color-primary-600);
 }
 
 .nav-icon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
+  color: inherit;
 }
 
 .nav-text {
   font-size: var(--text-base);
-  color: var(--text-primary) !important;
 }
 
-/* Profile button specific styling */
-.profile-btn {
-  background-color: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-medium) !important;
-  padding: var(--space-3) !important;
-  min-width: 44px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-}
-
-.profile-btn:hover {
-  background-color: var(--bg-tertiary) !important;
-  border-color: var(--border-dark) !important;
-}
-
-.profile-btn.active {
-  background-color: rgba(59, 130, 246, 0.15) !important;
-  border-color: var(--color-primary-300) !important;
-}
-
-.profile-btn .btn-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
-  width: 20px;
-  height: 20px;
-}
-
-.profile-btn.active .btn-icon {
-  color: var(--color-primary-600) !important;
-  stroke: var(--color-primary-600) !important;
-}
-
-/* Theme toggle button specific styling */
-.theme-toggle-btn {
-  background-color: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-medium) !important;
-  padding: var(--space-3) !important;
-  min-width: 44px;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.theme-toggle-btn:hover {
-  background-color: var(--bg-tertiary) !important;
-  border-color: var(--border-dark) !important;
-}
-
-.theme-toggle-btn .btn-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
-  width: 20px;
-  height: 20px;
-}
-
-/* Ensure btn-light class (used in mobile menu) has proper contrast */
-.btn-light {
-  background-color: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-medium) !important;
-}
-
-.btn-light:hover {
-  background-color: var(--bg-tertiary) !important;
-  border-color: var(--border-dark) !important;
-}
-
-.btn-light .btn-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
-}
-
-/* Route title shown in header center when on a top-level page like Projects */
+/* Route title */
 .route-title {
   font-weight: var(--font-bold);
   font-size: var(--text-xl);
-  color: var(--text-primary) !important;
+  color: var(--text-heading);
   padding: var(--space-3) var(--space-4);
 }
 
@@ -754,7 +654,7 @@ export default {
   align-items: center;
   gap: var(--space-2);
   background-color: var(--bg-secondary);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   border: 1px solid var(--border-light);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
@@ -768,14 +668,6 @@ export default {
 .back-btn:hover {
   background-color: var(--bg-tertiary);
   border-color: var(--border-medium);
-  color: var(--text-primary) !important;
-}
-.back-btn .btn-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
-}
-.back-btn .btn-text {
-  color: var(--text-primary) !important;
 }
 
 .back-btn:active {
@@ -783,70 +675,24 @@ export default {
 }
 
 /* Bug report button */
-.bug-report-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  background-color: var(--bg-primary);
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-medium);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  font-size: var(--text-base);
-  min-height: 44px;
-}
-
-.bug-report-btn:hover {
-  background-color: var(--bg-secondary);
-  border-color: var(--border-dark);
-  color: var(--text-primary) !important;
-}
-.bug-report-btn .btn-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
-}
-.bug-report-btn .btn-text {
-  color: var(--text-primary) !important;
-}
-
 .bug-icon {
   width: 20px;
   height: 20px;
 }
 
-.bug-report-btn:active {
-  transform: scale(0.98);
-}
-
 /* Sign out button */
 .sign-out-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  background-color: var(--color-error-500);
-  color: #ffffff !important;
-  border: 1px solid var(--color-error-500);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  font-size: var(--text-base);
-  min-height: 44px;
+  color: var(--btn-danger-light-text);
 }
-
-.sign-out-btn:hover {
-  background-color: var(--color-error-600);
-  border-color: var(--color-error-600);
+.sign-out-btn .btn-text,
+.sign-out-btn .btn-icon {
+  color: inherit;
 }
 
 /* Compact mobile sign-out button */
 .sign-out-btn-mobile {
   background-color: var(--color-error-500);
-  color: #ffffff !important;
+  color: #ffffff;
   border: 1px solid var(--color-error-500);
   padding: var(--space-2);
   border-radius: var(--radius-md);
@@ -854,28 +700,18 @@ export default {
   min-width: 40px;
 }
 .sign-out-btn-mobile:hover { background-color: var(--color-error-600); border-color: var(--color-error-600); }
-
-.sign-out-btn:active {
-  transform: scale(0.98);
-}
+.sign-out-btn-mobile .btn-icon { color: #ffffff; stroke: #ffffff; }
 
 .btn-icon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
+  color: inherit;
 }
 
 .btn-text {
   font-weight: var(--font-medium);
   font-size: var(--text-base);
-  color: var(--text-primary) !important;
-}
-
-/* Sign out button text should be white */
-.sign-out-btn .btn-text {
-  color: #ffffff !important;
 }
 
 /* Numeric badge styling */
@@ -893,30 +729,20 @@ export default {
   line-height: 1;
 }
 .badge-danger {
-  background-color: #ef4444; /* red-500 */
-  color: #ffffff !important;
-  border: 1px solid #dc2626; /* red-600 */
+  background-color: #ef4444;
+  color: #ffffff;
+  border: 1px solid #dc2626;
 }
 
-/* Light pill buttons with proper contrast for both themes */
+/* Light pill buttons */
 .light-btn {
   background-color: var(--bg-secondary);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   border: 1px solid var(--border-medium);
 }
 .light-btn:hover {
   background-color: var(--bg-tertiary);
-  color: var(--text-primary) !important;
   border-color: var(--border-dark);
-}
-.light-btn .nav-text,
-.light-btn .btn-text {
-  color: var(--text-primary) !important;
-}
-.light-btn .btn-icon,
-.light-btn .nav-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
 }
 
 /* Project home bar */
@@ -1018,9 +844,8 @@ export default {
   100% { transform: rotate(360deg); }
 }
 
-/* Focus States for Accessibility */
+/* Focus States */
 .back-btn:focus,
-.bug-report-btn:focus,
 .sign-out-btn:focus,
 .project-home-btn:focus,
 .nav-link:focus {
@@ -1028,7 +853,7 @@ export default {
   outline-offset: 2px;
 }
 
-/* Tablet Breakpoint (601px - 1024px) */
+/* Tablet Breakpoint */
 @media (min-width: 601px) {
   .header-content {
     padding: var(--space-5) var(--space-6);
@@ -1040,32 +865,14 @@ export default {
     gap: var(--space-4);
   }
 
-  .nav-link {
-    padding: var(--space-3) var(--space-5);
-    font-size: var(--text-base);
-  }
-
-  .back-btn {
-    padding: var(--space-3) var(--space-5);
-    font-size: var(--text-base);
-  }
-
-  .sign-out-btn {
-    padding: var(--space-3) var(--space-5);
-    font-size: var(--text-base);
-  }
-
-  .project-home-container {
-    padding: 0 var(--space-6);
-  }
-
-  .project-home-btn {
-    padding: var(--space-4) var(--space-7);
-    font-size: var(--text-base);
-  }
+  .nav-link { padding: var(--space-3) var(--space-5); }
+  .back-btn { padding: var(--space-3) var(--space-5); }
+  .sign-out-btn { padding: var(--space-3) var(--space-5); }
+  .project-home-container { padding: 0 var(--space-6); }
+  .project-home-btn { padding: var(--space-4) var(--space-7); }
 }
 
-/* Desktop Breakpoint (1025px+) */
+/* Desktop Breakpoint */
 @media (min-width: 1025px) {
   .header-content {
     padding: var(--space-6) var(--space-8);
@@ -1077,29 +884,11 @@ export default {
     gap: var(--space-5);
   }
 
-  .nav-link {
-    padding: var(--space-4) var(--space-6);
-    font-size: var(--text-base);
-  }
-
-  .back-btn {
-    padding: var(--space-4) var(--space-6);
-    font-size: var(--text-base);
-  }
-
-  .sign-out-btn {
-    padding: var(--space-4) var(--space-6);
-    font-size: var(--text-base);
-  }
-
-  .project-home-container {
-    padding: 0 var(--space-8);
-  }
-
-  .project-home-btn {
-    padding: var(--space-5) var(--space-8);
-    font-size: var(--text-base);
-  }
+  .nav-link { padding: var(--space-4) var(--space-6); }
+  .back-btn { padding: var(--space-4) var(--space-6); }
+  .sign-out-btn { padding: var(--space-4) var(--space-6); }
+  .project-home-container { padding: 0 var(--space-8); }
+  .project-home-btn { padding: var(--space-5) var(--space-8); }
 }
 
 /* Mobile-only buttons - hidden on desktop */
@@ -1107,7 +896,6 @@ export default {
   display: none;
 }
 
-/* Mobile-specific adjustments */
 @media (max-width: 768px) {
   .btn-text,
   .nav-text,
@@ -1119,57 +907,30 @@ export default {
   }
 
   .header-left,
-  .header-right {
-    gap: var(--space-2);
-  }
+  .header-right { gap: var(--space-2); }
 
-  .nav-link {
-    padding: var(--space-3);
-    min-height: 44px;
-  }
+  .nav-link { padding: var(--space-3); min-height: 44px; }
+  .back-btn { padding: var(--space-3); min-height: 44px; }
+  .sign-out-btn { padding: var(--space-3); min-height: 44px; }
+  .project-home-btn { padding: var(--space-4) var(--space-5); min-height: 52px; }
+  .status-indicator { padding: var(--space-2); min-height: 44px; }
 
-  .back-btn {
-    padding: var(--space-3);
-    min-height: 44px;
-  }
-
-  .sign-out-btn {
-    padding: var(--space-3);
-    min-height: 44px;
-  }
-
-  .project-home-btn {
-    padding: var(--space-4) var(--space-5);
-    min-height: 52px;
-  }
-
-  .status-indicator {
-    padding: var(--space-2);
-    min-height: 44px;
-  }
-
-  /* Show mobile-only buttons on mobile */
   .mobile-only {
     display: inline-flex;
     padding: var(--space-2);
     min-height: 40px;
   }
 
-  .mobile-only .btn-icon {
-    width: 22px;
-    height: 22px;
-  }
+  .mobile-only .btn-icon { width: 22px; height: 22px; }
 
-  /* Icon-only mobile header */
   .navigation,
   .status-indicator,
   .sync-indicator { display: none; }
   .mobile-menu-btn { display: none; }
-  /* Hide desktop buttons on mobile - use mobile versions instead */
   .bug-report-btn,
   .sign-out-btn,
   .profile-btn { display: none; }
-  /* Online dot */
+
   .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--space-2); }
   .online-dot.online { background-color: #10b981; }
   .online-dot.offline { background-color: #ef4444; }
@@ -1205,48 +966,31 @@ export default {
   margin-bottom: var(--space-3);
 }
 .menu-title { font-weight: var(--font-semibold); color: var(--text-heading); }
-.close-btn { 
-  background: var(--bg-secondary); 
-  color: var(--text-primary) !important;
+.close-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   border: 1px solid var(--border-medium);
-}
-.close-btn .btn-icon {
-  color: var(--icon-primary) !important;
-  stroke: var(--icon-primary) !important;
 }
 .menu-section { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
 .menu-section.actions { justify-content: flex-end; }
 
-/* High Contrast Mode Support */
+/* High Contrast Mode */
 @media (prefers-contrast: high) {
-  .header {
-    border-bottom-width: 2px;
-  }
-  
+  .header { border-bottom-width: 2px; }
   .back-btn,
-  .bug-report-btn,
   .sign-out-btn,
   .nav-link,
   .status-indicator,
-  .project-home-btn {
-    border-width: 2px;
-  }
+  .project-home-btn { border-width: 2px; }
 }
 
-/* Reduced Motion Support */
+/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   .back-btn,
-  .bug-report-btn,
   .sign-out-btn,
-  .project-home-btn {
-    transition: none;
-  }
-  
+  .project-home-btn { transition: none; }
   .back-btn:active,
-  .bug-report-btn:active,
   .sign-out-btn:active,
-  .project-home-btn:active {
-    transform: none;
-  }
+  .project-home-btn:active { transform: none; }
 }
 </style>

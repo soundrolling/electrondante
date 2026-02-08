@@ -45,7 +45,7 @@
         <button
           v-if="userEmail"
           @click="emitSignOut"
-          class="btn btn-danger-light"
+          class="btn btn-danger"
         >
           Sign Out
         </button>
@@ -169,7 +169,7 @@
             </span>
             <span v-else class="guest-text">Guest</span>
           </div>
-          <button v-if="userEmail" @click="emitSignOut; showMobileFooter = false" class="btn btn-danger-light">Sign Out</button>
+          <button v-if="userEmail" @click="emitSignOut; showMobileFooter = false" class="btn btn-danger">Sign Out</button>
         </div>
       </div>
       <div class="menu-section">
@@ -184,7 +184,7 @@
               <div class="usage-fill" :style="usageFillStyle" :class="{ 'high-usage': usagePercentage > 80 }"></div>
             </div>
             <div class="storage-actions">
-              <button @click="confirmAndClearCache; showMobileFooter = false" class="btn btn-danger-light">Clear Cache</button>
+              <button @click="confirmAndClearCache; showMobileFooter = false" class="btn btn-danger">Clear Cache</button>
             </div>
           </div>
           <div class="section-divider"></div>
@@ -365,24 +365,11 @@ onMounted(() => {
 /* Base Styles - Mobile First */
 .footer {
   background-color: var(--bg-primary);
-  color: #000000 !important;
+  color: var(--text-primary);
   border-top: 1px solid var(--border-light);
   padding: var(--space-2) 0 0 0;
   font-size: var(--text-sm);
   padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
-/* Force text visibility */
-.footer * {
-  color: var(--text-primary) !important;
-}
-
-.footer .card-title,
-.footer .timecode,
-.footer .time-source,
-.footer .user-email,
-.footer .guest-text {
-  color: var(--text-primary) !important;
 }
 
 /* Wrapper */
@@ -430,19 +417,9 @@ onMounted(() => {
   padding-bottom: var(--space-1-5);
 }
 
-/* Button Shared Styling */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-2) var(--space-4);
+/* Footer-specific button overrides (layout only — colors from global classes) */
+.footer .btn {
   margin-top: var(--space-2);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: var(--transition-normal);
   min-height: 36px;
 }
 
@@ -478,78 +455,6 @@ onMounted(() => {
 .theme-toggle-btn .btn-text {
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
-}
-
-/* Dark mode styling for theme toggle */
-.dark .theme-toggle-btn {
-  background: var(--bg-secondary);
-  border-color: var(--border-medium);
-  color: var(--text-primary);
-}
-
-.dark .theme-toggle-btn:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--color-primary-500);
-}
-
-/* Sign Out and Clear Cache buttons - dark red styling */
-.footer .btn-danger-light {
-  background-color: var(--color-error-600) !important;
-  color: var(--text-inverse) !important;
-  border: 2px solid var(--color-error-700) !important;
-  font-weight: var(--font-semibold);
-}
-
-.footer .btn-danger-light:hover {
-  background-color: var(--color-error-700) !important;
-  border-color: var(--color-error-800) !important;
-  color: var(--text-inverse) !important;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.secondary-btn {
-  background-color: var(--color-secondary-600);
-  color: var(--text-inverse);
-}
-
-.secondary-btn:hover {
-  background-color: var(--color-secondary-700);
-}
-
-.warning-btn {
-  background-color: var(--color-warning-500);
-  color: var(--text-inverse);
-}
-
-.warning-btn:hover {
-  background-color: var(--color-warning-600);
-}
-
-.install-btn {
-  background-color: var(--color-success-500);
-  color: var(--text-inverse);
-}
-
-.install-btn:hover {
-  background-color: var(--color-success-600);
-}
-
-.update-btn {
-  background-color: var(--color-primary-500);
-  color: var(--text-inverse);
-  margin-top: var(--space-2);
-}
-
-.update-btn:hover {
-  background-color: var(--color-primary-600);
 }
 
 .install-info {
@@ -758,7 +663,7 @@ onMounted(() => {
   }
 
   .footer-columns {
-    grid-template-columns: 1fr 1fr 1fr; /* three columns on wider screens */
+    grid-template-columns: 1fr 1fr 1fr;
     gap: var(--space-4);
   }
 
@@ -774,7 +679,7 @@ onMounted(() => {
     font-size: var(--text-lg);
   }
 
-  .btn {
+  .footer .btn {
     padding: var(--space-2-5) var(--space-4-5);
     font-size: var(--text-sm);
   }
@@ -785,27 +690,24 @@ onMounted(() => {
   .footer {
     border-top-width: 2px;
   }
-  
-  .footer-card,
-  .btn {
+
+  .footer-card {
     border-width: 2px;
   }
 }
 
 /* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
-  .btn {
+  .footer .btn,
+  .theme-toggle-btn {
     transition: none;
   }
-  
-  .btn:hover {
+
+  .footer .btn:hover,
+  .theme-toggle-btn:hover {
     transform: none;
   }
-  
-  .btn:active {
-    transform: none;
-  }
-  
+
   .usage-fill {
     transition: none;
   }

@@ -453,5 +453,5 @@ justify-content: flex-end;
 gap: 0.5rem;
 margin-top: 1rem;
 }
-// Button styles are now handled by calendar.scss
+/* Button styles are now handled by calendar.scss */
 </style> 

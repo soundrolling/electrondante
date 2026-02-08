@@ -1,4 +1,5 @@
-/* src/index.css - Hardcoded Design System */
+/* src/index.css - Design System */
+
 /* CSS Reset */
 * {
   margin: 0;
@@ -13,13 +14,15 @@ html {
 
 body {
   font-family: var(--font-family-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   color: var(--text-primary);
   background-color: var(--bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hardcoded Base Styles for Visibility */
+/* Base Typography */
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-heading);
   font-weight: 600;
@@ -41,34 +44,10 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Ensure all text is visible */
-* {
-  color: inherit;
-}
-
-/* Override any white text issues */
-.text-white {
-  color: var(--text-primary) !important;
-}
-
-.text-white-important {
-  color: var(--text-primary) !important;
-}
-
-/* Force all headings to be visible */
-h1, h2, h3, h4, h5, h6 {
-  color: var(--text-heading) !important;
-}
-
-/* Force all text to be visible */
-p, span, div, label {
-  color: var(--text-primary) !important;
-}
-
-/* Changeover Toast Styling - Bright yellow background with black text */
+/* Changeover Toast Styling - overrides third-party vue-toastification */
 .changeover-toast {
-  background-color: #ffeb3b !important; /* Bright yellow */
-  color: #000000 !important; /* Black text */
+  background-color: #ffeb3b !important;
+  color: #000000 !important;
   border: 2px solid #fbc02d !important;
 }
 
@@ -86,13 +65,13 @@ p, span, div, label {
 
 /* Toast Action Button Styling for Touch Devices */
 .Vue-Toastification__toast .Vue-Toastification__toast-action {
-  min-height: 44px !important; /* iOS minimum touch target */
+  min-height: 44px !important;
   min-width: 80px !important;
   padding: 8px 16px !important;
   margin-left: 12px !important;
   cursor: pointer !important;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
-  touch-action: manipulation !important; /* Prevents double-tap zoom on iOS */
+  touch-action: manipulation !important;
   user-select: none !important;
   border-radius: 4px !important;
   font-weight: 600 !important;
@@ -109,42 +88,16 @@ p, span, div, label {
   opacity: 0.8 !important;
 }
 
-/* Ensure touch events work on action buttons */
 @media (hover: none) and (pointer: coarse) {
   .Vue-Toastification__toast .Vue-Toastification__toast-action {
-    min-height: 48px !important; /* Larger touch target for tablets */
+    min-height: 48px !important;
     padding: 10px 20px !important;
   }
 }
 
-/* Override any Tailwind or conflicting styles */
-* {
-  color: inherit !important;
-}
-
-/* Specific overrides for common issues */
-.profile-title,
-.section-title,
-.gear-name,
-h1, h2, h3, h4, h5, h6 {
-  color: var(--text-heading) !important;
-}
-
-/* Button Contrast Rules */
-/* Ensure buttons with dark backgrounds have light text */
-.btn-primary[style*="background"],
-.btn[style*="background"][style*="#"],
-.btn[style*="background"][style*="rgb"],
-.btn[style*="background"][style*="gradient"] {
-  color: #ffffff !important;
-}
-
-/* Ensure buttons with light backgrounds have appropriate text */
-.btn:not([style*="background"]) {
-  color: var(--text-primary) !important;
-}
-
-/* Design System - CSS Custom Properties */
+/* ============================================
+   Design System - CSS Custom Properties
+   ============================================ */
 :root {
   /* Color Tokens */
   --color-primary-50: #f0f9ff;
@@ -213,14 +166,14 @@ h1, h2, h3, h4, h5, h6 {
   --color-neutral-800: #262626;
   --color-neutral-900: #171717;
 
-  /* Background Colors - Apple Design System */
+  /* Background Colors */
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f7;
   --bg-tertiary: #f2f2f7;
   --bg-elevated: #ffffff;
   --bg-grouped: #f2f2f7;
 
-  /* Button Color Scheme - Dark Backgrounds with White Text */
+  /* Button Color Scheme */
   --btn-positive-bg: #047857;
   --btn-positive-border: #065f46;
   --btn-positive-text: #ffffff;
@@ -239,28 +192,40 @@ h1, h2, h3, h4, h5, h6 {
   --btn-warning-hover-bg: #d97706;
   --btn-warning-hover-border: #92400e;
 
-  /* Primary Actions (Dark Blue) */
   --btn-primary-bg: #1d4ed8;
   --btn-primary-border: #1e40af;
   --btn-primary-text: #ffffff;
   --btn-primary-hover-bg: #1e40af;
   --btn-primary-hover-border: #1e40af;
 
-  /* Secondary Actions (Light Gray) */
   --btn-secondary-bg: #f1f5f9;
   --btn-secondary-border: #64748b;
   --btn-secondary-text: #334155;
   --btn-secondary-hover-bg: #e2e8f0;
   --btn-secondary-hover-border: #475569;
 
-  /* Neutral Actions (Very Light Gray) */
   --btn-neutral-bg: #f8fafc;
   --btn-neutral-border: #94a3b8;
   --btn-neutral-text: #475569;
   --btn-neutral-hover-bg: #f1f5f9;
   --btn-neutral-hover-border: #64748b;
 
-  /* Text Colors - Hardcoded for Visibility */
+  /* Light pill button (used in header/footer) */
+  --btn-light-bg: #e0f2fe;
+  --btn-light-text: #0c4a6e;
+  --btn-light-border: #7dd3fc;
+  --btn-light-hover-bg: #bae6fd;
+  --btn-light-hover-border: #38bdf8;
+
+  /* Pale danger variant */
+  --btn-danger-light-bg: #fee2e2;
+  --btn-danger-light-text: #991b1b;
+  --btn-danger-light-border: #fecaca;
+  --btn-danger-light-hover-bg: #fecaca;
+  --btn-danger-light-hover-text: #7f1d1d;
+  --btn-danger-light-hover-border: #fca5a5;
+
+  /* Text Colors */
   --text-primary: #000000;
   --text-secondary: #3c3c43;
   --text-tertiary: #6d6d70;
@@ -270,13 +235,13 @@ h1, h2, h3, h4, h5, h6 {
   --text-heading: #1d1d1f;
   --text-muted: #6e6e73;
 
-  /* Border Colors - Apple Design System */
+  /* Border Colors */
   --border-light: #f2f2f7;
   --border-medium: #d1d1d6;
   --border-dark: #c7c7cc;
   --border-separator: #c6c6c8;
 
-  /* Spacing Scale - Apple 8pt Grid System */
+  /* Spacing Scale - 8pt Grid System */
   --space-1: 0.25rem;   /* 4px */
   --space-2: 0.5rem;    /* 8px */
   --space-3: 0.75rem;   /* 12px */
@@ -300,7 +265,7 @@ h1, h2, h3, h4, h5, h6 {
   --radius-2xl: 1.5rem;    /* 24px */
   --radius-full: 9999px;
 
-  /* Shadows - Apple Design System */
+  /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -308,11 +273,10 @@ h1, h2, h3, h4, h5, h6 {
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.1);
 
-  /* Typography - Apple Design System */
+  /* Typography */
   --font-family-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
 
-  /* Font Sizes */
   --text-xs: 0.75rem;     /* 12px */
   --text-sm: 0.875rem;    /* 14px */
   --text-base: 1rem;      /* 16px */
@@ -322,13 +286,11 @@ h1, h2, h3, h4, h5, h6 {
   --text-3xl: 1.875rem;   /* 30px */
   --text-4xl: 2.25rem;    /* 36px */
 
-  /* Font Weights */
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
 
-  /* Line Heights */
   --leading-tight: 1.25;
   --leading-snug: 1.375;
   --leading-normal: 1.5;
@@ -349,23 +311,23 @@ h1, h2, h3, h4, h5, h6 {
   --z-popover: 1060;
   --z-tooltip: 1070;
 
-  /* Icon Colors - Light mode */
+  /* Icon Colors */
   --icon-primary: #1e293b;
   --icon-secondary: #64748b;
   --icon-muted: #94a3b8;
   --icon-inverse: #ffffff;
 }
 
-/* Dark Mode CSS Variables */
+/* ============================================
+   Dark Mode
+   ============================================ */
 .dark {
-  /* Background Colors - Inverted for dark mode */
   --bg-primary: #1a1a1a;
   --bg-secondary: #2a2a2a;
   --bg-tertiary: #333333;
   --bg-elevated: #2a2a2a;
   --bg-grouped: #1f1f1f;
 
-  /* Text Colors - Inverted for dark mode */
   --text-primary: #ffffff;
   --text-secondary: #e0e0e0;
   --text-tertiary: #b0b0b0;
@@ -375,13 +337,11 @@ h1, h2, h3, h4, h5, h6 {
   --text-heading: #ffffff;
   --text-muted: #999999;
 
-  /* Border Colors - Adjusted for dark backgrounds */
   --border-light: #404040;
   --border-medium: #505050;
   --border-dark: #606060;
   --border-separator: #505050;
 
-  /* Button Colors - Maintain contrast in dark mode */
   --btn-positive-bg: #10b981;
   --btn-positive-border: #059669;
   --btn-positive-text: #ffffff;
@@ -418,14 +378,28 @@ h1, h2, h3, h4, h5, h6 {
   --btn-neutral-hover-bg: #333333;
   --btn-neutral-hover-border: #505050;
 
-  /* Icon Colors - Ensure icons are visible in dark mode */
+  --btn-light-bg: #334155;
+  --btn-light-text: #e2e8f0;
+  --btn-light-border: #475569;
+  --btn-light-hover-bg: #475569;
+  --btn-light-hover-border: #64748b;
+
+  --btn-danger-light-bg: #7f1d1d;
+  --btn-danger-light-text: #fecaca;
+  --btn-danger-light-border: #991b1b;
+  --btn-danger-light-hover-bg: #991b1b;
+  --btn-danger-light-hover-text: #fee2e2;
+  --btn-danger-light-hover-border: #b91c1c;
+
   --icon-primary: #e5e7eb;
   --icon-secondary: #9ca3af;
   --icon-muted: #6b7280;
   --icon-inverse: #1a1a1a;
 }
 
-/* Global Icon Styles - Ensure icons are visible */
+/* ============================================
+   Icon Styles
+   ============================================ */
 svg[stroke="currentColor"],
 svg[fill="currentColor"],
 .btn-icon,
@@ -434,107 +408,17 @@ svg[fill="currentColor"],
   color: var(--icon-primary);
 }
 
-/* Icons in buttons should match button text color */
+/* Icons in buttons should inherit the button's text color */
 .btn svg,
 .nav-link svg {
   color: inherit;
 }
 
-/* Dark mode icon adjustments */
-.dark svg[stroke="currentColor"],
-.dark svg[fill="currentColor"],
-.dark .btn-icon:not(.btn-light .btn-icon):not(.btn-danger .btn-icon):not(.btn-positive .btn-icon),
-.dark .nav-icon {
-  color: var(--icon-primary);
-}
+/* ============================================
+   Component Base Styles
+   ============================================ */
 
-/* Light buttons in dark mode should have dark icons */
-.dark .btn-light svg,
-.dark .btn-light .btn-icon {
-  color: var(--icon-inverse);
-}
-
-/* Dark Mode CSS Variables */
-.dark {
-  /* Background Colors - Inverted for dark mode */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2a2a2a;
-  --bg-tertiary: #333333;
-  --bg-elevated: #2a2a2a;
-  --bg-grouped: #1f1f1f;
-
-  /* Text Colors - Inverted for dark mode */
-  --text-primary: #ffffff;
-  --text-secondary: #e0e0e0;
-  --text-tertiary: #b0b0b0;
-  --text-quaternary: #888888;
-  --text-inverse: #000000;
-  --text-link: #5ac8fa;
-  --text-heading: #ffffff;
-  --text-muted: #999999;
-
-  /* Border Colors - Adjusted for dark backgrounds */
-  --border-light: #404040;
-  --border-medium: #505050;
-  --border-dark: #606060;
-  --border-separator: #505050;
-
-  /* Button Colors - Maintain contrast in dark mode */
-  --btn-positive-bg: #10b981;
-  --btn-positive-border: #059669;
-  --btn-positive-text: #ffffff;
-  --btn-positive-hover-bg: #059669;
-  --btn-positive-hover-border: #047857;
-
-  --btn-danger-bg: #ef4444;
-  --btn-danger-border: #dc2626;
-  --btn-danger-text: #ffffff;
-  --btn-danger-hover-bg: #dc2626;
-  --btn-danger-hover-border: #b91c1c;
-
-  --btn-warning-bg: #f59e0b;
-  --btn-warning-border: #d97706;
-  --btn-warning-text: #ffffff;
-  --btn-warning-hover-bg: #d97706;
-  --btn-warning-hover-border: #b45309;
-
-  --btn-primary-bg: #3b82f6;
-  --btn-primary-border: #2563eb;
-  --btn-primary-text: #ffffff;
-  --btn-primary-hover-bg: #2563eb;
-  --btn-primary-hover-border: #1d4ed8;
-
-  --btn-secondary-bg: #374151;
-  --btn-secondary-border: #4b5563;
-  --btn-secondary-text: #e5e7eb;
-  --btn-secondary-hover-bg: #4b5563;
-  --btn-secondary-hover-border: #6b7280;
-
-  --btn-neutral-bg: #2a2a2a;
-  --btn-neutral-border: #404040;
-  --btn-neutral-text: #e5e7eb;
-  --btn-neutral-hover-bg: #333333;
-  --btn-neutral-hover-border: #505050;
-}
-
-/* Base Styles */
-* {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: var(--font-family-sans);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
-  margin: 0;
-  padding: 0;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Component Base Styles - Apple Design System */
+/* Buttons */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -568,117 +452,12 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-.btn-primary-old {
-  background-color: var(--color-primary-500);
-  color: var(--text-inverse);
-  border-color: var(--color-primary-500);
-}
-
-.btn-primary-old:hover {
-  background-color: var(--color-primary-600);
-  border-color: var(--color-primary-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-secondary-old {
-  background-color: var(--color-secondary-100);
-  color: var(--text-primary);
-  border-color: var(--border-light);
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-secondary-200);
-  border-color: var(--border-medium);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-success {
-  background-color: var(--color-success-500);
-  color: var(--text-inverse);
-  border-color: var(--color-success-500);
-}
-
-.btn-success:hover {
-  background-color: var(--color-success-600);
-  border-color: var(--color-success-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-warning {
-  background-color: var(--color-warning-500);
-  color: var(--text-inverse);
-  border-color: var(--color-warning-500);
-}
-
-.btn-warning:hover {
-  background-color: var(--color-warning-600);
-  border-color: var(--color-warning-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-error {
-  background-color: var(--color-error-500);
-  color: var(--text-inverse);
-  border-color: var(--color-error-500);
-}
-
-.btn-error:hover {
-  background-color: var(--color-error-600);
-  border-color: var(--color-error-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-/* Color-Coded Button Classes */
-.btn-positive {
-  background-color: var(--btn-positive-bg);
-  color: var(--btn-positive-text);
-  border-color: var(--btn-positive-border);
-}
-
-.btn-positive:hover {
-  background-color: var(--btn-positive-hover-bg);
-  border-color: var(--btn-positive-hover-border);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-danger {
-  background-color: var(--btn-danger-bg);
-  color: var(--btn-danger-text);
-  border-color: var(--btn-danger-border);
-}
-
-.btn-danger:hover {
-  background-color: var(--btn-danger-hover-bg);
-  border-color: var(--btn-danger-hover-border);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.btn-warning {
-  background-color: var(--btn-warning-bg);
-  color: var(--btn-warning-text);
-  border-color: var(--btn-warning-border);
-}
-
-.btn-warning:hover {
-  background-color: var(--btn-warning-hover-bg);
-  border-color: var(--btn-warning-hover-border);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
+/* Button Variants */
 .btn-primary {
   background-color: var(--btn-primary-bg);
   color: var(--btn-primary-text);
   border-color: var(--btn-primary-border);
 }
-
 .btn-primary:hover {
   background-color: var(--btn-primary-hover-bg);
   border-color: var(--btn-primary-hover-border);
@@ -691,10 +470,45 @@ body {
   color: var(--btn-secondary-text);
   border-color: var(--btn-secondary-border);
 }
-
 .btn-secondary:hover {
   background-color: var(--btn-secondary-hover-bg);
   border-color: var(--btn-secondary-hover-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-positive {
+  background-color: var(--btn-positive-bg);
+  color: var(--btn-positive-text);
+  border-color: var(--btn-positive-border);
+}
+.btn-positive:hover {
+  background-color: var(--btn-positive-hover-bg);
+  border-color: var(--btn-positive-hover-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-danger {
+  background-color: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+  border-color: var(--btn-danger-border);
+}
+.btn-danger:hover {
+  background-color: var(--btn-danger-hover-bg);
+  border-color: var(--btn-danger-hover-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-warning {
+  background-color: var(--btn-warning-bg);
+  color: var(--btn-warning-text);
+  border-color: var(--btn-warning-border);
+}
+.btn-warning:hover {
+  background-color: var(--btn-warning-hover-bg);
+  border-color: var(--btn-warning-hover-border);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -704,7 +518,6 @@ body {
   color: var(--btn-neutral-text);
   border-color: var(--btn-neutral-border);
 }
-
 .btn-neutral:hover {
   background-color: var(--btn-neutral-hover-bg);
   border-color: var(--btn-neutral-hover-border);
@@ -712,40 +525,63 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-/* Light pill-style button used in header; make it global so footer can match */
-.btn-light {
-  background-color: #e0f2fe; /* sky-100 */
-  color: #0c4a6e !important; /* cyan-900 */
-  border: 1px solid #7dd3fc; /* sky-300 */
+.btn-success {
+  background-color: var(--color-success-500);
+  color: var(--text-inverse);
+  border-color: var(--color-success-500);
 }
-.btn-light:hover {
-  background-color: #bae6fd; /* sky-200 */
-  color: #0c4a6e !important;
-  border-color: #38bdf8; /* sky-400 */
+.btn-success:hover {
+  background-color: var(--color-success-600);
+  border-color: var(--color-success-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
-/* Pale danger variant for destructive but less aggressive actions */
+.btn-error {
+  background-color: var(--color-error-500);
+  color: var(--text-inverse);
+  border-color: var(--color-error-500);
+}
+.btn-error:hover {
+  background-color: var(--color-error-600);
+  border-color: var(--color-error-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Light pill-style button */
+.btn-light {
+  background-color: var(--btn-light-bg);
+  color: var(--btn-light-text);
+  border: 1px solid var(--btn-light-border);
+}
+.btn-light:hover {
+  background-color: var(--btn-light-hover-bg);
+  border-color: var(--btn-light-hover-border);
+}
+
+/* Pale danger variant */
 .btn-danger-light {
-  background-color: #fee2e2; /* red-100 */
-  color: #991b1b !important; /* red-800 */
-  border: 1px solid #fecaca; /* red-200 */
+  background-color: var(--btn-danger-light-bg);
+  color: var(--btn-danger-light-text);
+  border: 1px solid var(--btn-danger-light-border);
 }
 .btn-danger-light:hover {
-  background-color: #fecaca; /* red-200 */
-  border-color: #fca5a5; /* red-300 */
-  color: #7f1d1d !important; /* red-900 */
+  background-color: var(--btn-danger-light-hover-bg);
+  border-color: var(--btn-danger-light-hover-border);
+  color: var(--btn-danger-light-hover-text);
 }
 
 /* Form Elements */
 .form-input {
   width: 100%;
   padding: var(--space-3) var(--space-4);
-  border: 2px solid var(--border-medium) !important;
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   background-color: var(--bg-primary);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   transition: all var(--transition-normal);
   min-height: 44px;
   box-shadow: var(--shadow-sm);
@@ -753,11 +589,11 @@ body {
 
 .form-input:focus {
   outline: none;
-  border-color: var(--color-primary-500) !important;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1), var(--shadow-md);
 }
 
-/* Global input styles for all input types */
+/* Global input styles */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -770,11 +606,11 @@ input[type="time"],
 input[type="datetime-local"],
 textarea,
 select {
-  border: 2px solid var(--border-medium) !important;
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-base);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   background-color: var(--bg-primary);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-normal);
@@ -794,7 +630,7 @@ input[type="datetime-local"]:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--color-primary-500) !important;
+  border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1), var(--shadow-md);
 }
 
@@ -811,7 +647,7 @@ select:focus {
   line-height: var(--leading-tight);
 }
 
-/* Card Components - Apple Design System */
+/* Card Components */
 .card {
   background-color: var(--bg-elevated);
   border: 1px solid var(--border-light);
@@ -877,13 +713,15 @@ select:focus {
   color: var(--color-secondary-700);
 }
 
-/* Responsive Design */
+/* ============================================
+   Responsive Design
+   ============================================ */
 @media (max-width: 640px) {
   .btn {
     padding: var(--space-2) var(--space-3);
     font-size: var(--text-sm);
   }
-  
+
   .card-header,
   .card-body,
   .card-footer {
@@ -891,7 +729,9 @@ select:focus {
   }
 }
 
-/* Accessibility */
+/* ============================================
+   Accessibility
+   ============================================ */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
@@ -908,46 +748,7 @@ select:focus {
   }
 }
 
-/* === Global High-Contrast Enforcement for Button-like Elements === */
-/* Ensure any element behaving like a button has visible text and focus ring */
-button,
-[role="button"],
-a[role="button"],
-.button,
-.btn {
-  color: var(--text-primary) !important;
-}
-
-/* If an inline background is applied (often dark), force white text for contrast */
-button[style*="background"][style*="#"],
-button[style*="background"][style*="rgb"],
-[role="button"][style*="background"][style*="#"],
-[role="button"][style*="background"][style*="rgb"],
-a[role="button"][style*="background"][style*="#"],
-a[role="button"][style*="background"][style*="rgb"] {
-  color: #ffffff !important;
-}
-
-/* Default raw <button> styling to avoid low-contrast gray-on-gray */
-button:not(.btn) {
-  background-color: var(--btn-neutral-bg) !important;
-  color: var(--btn-neutral-text) !important;
-  border: 2px solid var(--btn-neutral-border) !important;
-  min-height: 40px;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-}
-
-/* Hover: nudge background darker and ensure readable text */
-button:not(.btn):hover,
-[role="button"]:hover,
-a[role="button"]:hover {
-  background-color: var(--btn-neutral-hover-bg) !important;
-  color: #111827 !important; /* gray-900 */
-  border-color: var(--btn-neutral-hover-border) !important;
-}
-
-/* Global visible focus indicators for keyboard users */
+/* Focus indicators for keyboard users */
 button:focus-visible,
 [role="button"]:focus-visible,
 a[role="button"]:focus-visible,
@@ -957,67 +758,68 @@ a[role="button"]:focus-visible,
 .edit-button:focus-visible,
 .delete-button:focus-visible,
 .back-button:focus-visible {
-  outline: 3px solid rgba(59, 130, 246, 0.6) !important; /* blue-500 ring */
+  outline: 3px solid rgba(59, 130, 246, 0.6) !important;
   outline-offset: 2px !important;
 }
 
-/* Strengthen contrast on our shared color-coded button classes */
-.primary-button,
-.secondary-button,
-.edit-button,
-.delete-button,
-.back-button {
-  font-weight: 700;
-}
-
-/* Cross-page button normalization for contrast (for components using ad-hoc classes) */
+/* ============================================
+   Ad-hoc Button Classes (used across components)
+   ============================================ */
 .primary-button {
-  background-color: var(--btn-primary-bg) !important;
-  color: #ffffff !important;
-  border: 2px solid var(--btn-primary-border) !important;
-  font-weight: 700;
-}
-.secondary-button {
-  background-color: #6c757d !important;
-  color: #ffffff !important;
-  border: 2px solid #5a6268 !important;
-  font-weight: 700;
-}
-.edit-button {
-  background-color: var(--btn-warning-bg) !important;
-  color: #111827 !important;
-  border: 2px solid var(--btn-warning-border) !important;
-  font-weight: 700;
-}
-.delete-button {
-  background-color: var(--btn-danger-bg) !important;
-  color: #ffffff !important;
-  border: 2px solid var(--btn-danger-border) !important;
-  font-weight: 700;
-}
-.back-button {
-  background-color: #d97706 !important;
-  color: #ffffff !important;
-  border: 2px solid #b45309 !important;
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: 2px solid var(--btn-primary-border);
   font-weight: 700;
 }
 
-/* === Shared layout utilities for standardized headers/filters === */
+.secondary-button {
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 2px solid var(--btn-secondary-border);
+  font-weight: 700;
+}
+
+.edit-button {
+  background-color: var(--btn-warning-bg);
+  color: var(--btn-warning-text);
+  border: 2px solid var(--btn-warning-border);
+  font-weight: 700;
+}
+
+.delete-button {
+  background-color: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+  border: 2px solid var(--btn-danger-border);
+  font-weight: 700;
+}
+
+.back-button {
+  background-color: var(--btn-warning-bg);
+  color: var(--btn-warning-text);
+  border: 2px solid var(--btn-warning-border);
+  font-weight: 700;
+}
+
+/* ============================================
+   Layout Utilities
+   ============================================ */
 .ui-page-header {
-  padding: 12px 16px !important;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-medium);
   border-radius: 12px;
 }
+
 .ui-filter-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem 1rem;
   padding: 12px 16px;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-medium);
 }
+
 .ui-right { margin-left: auto; }
 
 @media (max-width: 768px) {

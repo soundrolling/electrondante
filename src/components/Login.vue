@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.23">
-        <span class="version-text">v2.0.23</span>
-        <span class="version-date">December 14th 2025</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.24">
+        <span class="version-text">v2.0.24</span>
+        <span class="version-date">February 8th 2026</span>
       </button>
     </div>
 
@@ -19,7 +19,7 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.0.23</h2>
+          <h2 id="changelog-title">What's New in 2.0.24</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
@@ -316,7 +316,7 @@ export default {
 .login-title {
   font-size: 24px;
   font-weight: 600;
-  color: var(--text-heading) !important;
+  color: var(--text-heading);
   margin: 0;
   letter-spacing: -0.01em;
   line-height: 1.4;
@@ -513,7 +513,7 @@ export default {
   width: 100%;
   padding: 16px; /* 4-point spacing */
   background: linear-gradient(135deg, #0066cc 0%, #5856D6 100%);
-  color: #ffffff !important;
+  color: #ffffff;
   border: none;
   border-radius: 8px; /* 4-point spacing */
   font-size: 16px; /* Body: 16px */
@@ -546,11 +546,6 @@ export default {
 
 .login-btn {
   margin-top: 8px; /* 4-point spacing */
-  color: #ffffff !important;
-}
-
-.login-btn span {
-  color: #ffffff !important;
 }
 
 .loading-spinner {

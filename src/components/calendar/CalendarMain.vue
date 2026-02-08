@@ -129,7 +129,7 @@
       <template #day-header="{ date }">
         <slot name="day-header" :date="date"></slot>
       </template>
-    </CalendarGridView>
+    </CalendarTimelineView>
 
     <!-- LIST VIEW -->
     <CalendarListView
@@ -380,7 +380,6 @@ setup(props, { emit }) {
     filters,
     filteredEvents,
     sortedEvents,
-    updateFilters,
     resetFilters,
     syncFromRoute,
     autoCalculateFilterRange
@@ -704,7 +703,6 @@ setup(props, { emit }) {
     });
     return Array.from(dates).sort();
   });
-  const activeDayIndex = ref(-1);
   watch(sortedEvents, () => {
     const dates = daysWithEvents.value;
     if (!dates.length) {
@@ -716,8 +714,6 @@ setup(props, { emit }) {
     activeDayIndex.value = idx;
     currentDate.value = new Date(dates[idx]);
   }, { immediate: true });
-
-  const currentDateString = computed(() => currentDate.value.toISOString().split("T")[0]);
 
   // Helper to check if current date is today
   function isToday(date) {
@@ -778,19 +774,6 @@ setup(props, { emit }) {
       weekday: "long", month: "long", day: "numeric", year: "numeric"
     })
   );
-
-  // Navigation functions are now provided by useCalendarNavigation composable
-  // Additional timeline-specific navigation
-  const daysWithEvents = computed(() => {
-    const dates = new Set();
-    sortedEvents.value.forEach(e => {
-      dates.add(e.event_date);
-      if (e.end_date && e.end_date !== e.event_date) {
-        dates.add(e.end_date);
-      }
-    });
-    return Array.from(dates).sort();
-  });
 
   // Timeline-specific day navigation
   function previousDayTimeline() {
