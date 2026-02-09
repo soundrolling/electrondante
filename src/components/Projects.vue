@@ -171,13 +171,24 @@
         </div>
         <div class="form-group">
           <label for="newProjectShowDays" class="form-label">Show Days</label>
-          <textarea
-            id="newProjectShowDays"
-            v-model="newProjectShowDays"
-            placeholder="Comma-separated dates: 2024-07-01,2024-07-02"
-            class="form-input"
-            rows="2"
-          ></textarea>
+          <div class="multi-date-picker">
+            <div class="multi-date-add-row">
+              <input
+                v-model="newShowNewDate"
+                type="date"
+                class="form-input"
+                @keydown.enter.prevent="addNewShowDay"
+              />
+              <button type="button" class="btn btn-positive btn-sm" @click="addNewShowDay">Add</button>
+            </div>
+            <div v-if="newShowDaysList.length" class="multi-date-tags">
+              <span v-for="(day, idx) in newShowDaysList" :key="day" class="date-tag show">
+                {{ formatSingleDate(day) }}
+                <button type="button" class="date-tag-remove" @click="newShowDaysList.splice(idx, 1)">✕</button>
+              </span>
+            </div>
+            <div v-else class="multi-date-empty">No show days added</div>
+          </div>
         </div>
         <div class="form-group">
           <label for="newProjectBuildDays" class="form-label">Build Days</label>
@@ -250,9 +261,13 @@
             <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
               <div class="timeline-icon show">🎭</div>
               <div class="timeline-content">
-                <div class="timeline-label">Show Period</div>
+                <div class="timeline-label">Show Days</div>
                 <div class="timeline-dates">
-                  {{ formatSingleDate(p.main_show_days[0]) }} - {{ formatSingleDate(p.main_show_days[p.main_show_days.length-1]) }}
+                  <span v-for="(group, gi) in groupConsecutiveDates(p.main_show_days)" :key="gi">
+                    <span v-if="gi > 0" class="date-group-separator"> · </span>
+                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -348,20 +363,23 @@
           </div>
           <div class="form-group">
             <label class="form-label">Show Days</label>
-            <div class="date-range-row">
-              <input
-                v-model="editShowFrom"
-                type="date"
-                class="form-input"
-                placeholder="From"
-              />
-              <span class="date-separator">to</span>
-              <input
-                v-model="editShowTo"
-                type="date"
-                class="form-input"
-                placeholder="To"
-              />
+            <div class="multi-date-picker">
+              <div class="multi-date-add-row">
+                <input
+                  v-model="editShowNewDate"
+                  type="date"
+                  class="form-input"
+                  @keydown.enter.prevent="addEditShowDay"
+                />
+                <button type="button" class="btn btn-positive btn-sm" @click="addEditShowDay">Add</button>
+              </div>
+              <div v-if="editShowDays.length" class="multi-date-tags">
+                <span v-for="(day, idx) in editShowDays" :key="day" class="date-tag show">
+                  {{ formatSingleDate(day) }}
+                  <button type="button" class="date-tag-remove" @click="editShowDays.splice(idx, 1)">✕</button>
+                </span>
+              </div>
+              <div v-else class="multi-date-empty">No show days added</div>
             </div>
           </div>
           <div class="form-group">
@@ -420,6 +438,8 @@ setup() {
   const searchQuery        = ref('');
   const newProjectLocation = ref('');
   const newProjectShowDays = ref('');
+  const newShowDaysList    = ref([]);
+  const newShowNewDate     = ref('');
   const newProjectBuildDays = ref('');
   const newBuildDaysList    = ref([]);
   const newBuildNewDate     = ref('');
@@ -428,8 +448,8 @@ setup() {
   const editProjectId      = ref(null);
   const editProjectName    = ref('');
   const editProjectLocation = ref('');
-  const editShowFrom       = ref('');
-  const editShowTo         = ref('');
+  const editShowDays       = ref([]);
+  const editShowNewDate    = ref('');
   const editBuildDays      = ref([]);
   const editBuildNewDate   = ref('');
   const editProjectWebsite = ref('');
@@ -607,10 +627,7 @@ setup() {
       if (!uid) { toast.error('No valid user session.'); return; }
 
       // Parse show/build days
-      const showDaysArr = newProjectShowDays.value
-        .split(',')
-        .map(d => d.trim())
-        .filter(Boolean);
+      const showDaysArr = [...newShowDaysList.value].sort();
       const buildDaysArr = [...newBuildDaysList.value].sort();
 
       const projectRow = await mutateTableData('projects','insert',{
@@ -640,6 +657,8 @@ setup() {
       newProjectName.value='';
       newProjectLocation.value='';
       newProjectShowDays.value='';
+      newShowDaysList.value=[];
+      newShowNewDate.value='';
       newProjectBuildDays.value='';
       newBuildDaysList.value=[];
       newBuildNewDate.value='';
@@ -745,7 +764,8 @@ setup() {
     const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
     const day = ordinal(d.getDate());
     const month = d.toLocaleDateString(undefined, { month: 'long' });
-    return `${weekday} ${day} ${month}`;
+    const year = d.getFullYear();
+    return `${weekday} ${day} ${month} ${year}`;
   }
 
   function groupConsecutiveDates(dates) {
@@ -803,19 +823,42 @@ setup() {
     newBuildNewDate.value = '';
   }
 
+  function addEditShowDay() {
+    const val = editShowNewDate.value;
+    if (!val) return;
+    if (editShowDays.value.includes(val)) {
+      toast.warning('Date already added.');
+      return;
+    }
+    editShowDays.value.push(val);
+    editShowDays.value.sort();
+    editShowNewDate.value = '';
+  }
+
+  function addNewShowDay() {
+    const val = newShowNewDate.value;
+    if (!val) return;
+    if (newShowDaysList.value.includes(val)) {
+      toast.warning('Date already added.');
+      return;
+    }
+    newShowDaysList.value.push(val);
+    newShowDaysList.value.sort();
+    newShowNewDate.value = '';
+  }
+
   function openEditModal(project) {
     editProjectId.value = project.id;
     editProjectName.value = project.project_name || '';
     editProjectLocation.value = project.location || '';
     editProjectWebsite.value = project.official_website || '';
-    // Show days range
+    // Show days
     if (Array.isArray(project.main_show_days) && project.main_show_days.length) {
-      editShowFrom.value = project.main_show_days[0];
-      editShowTo.value = project.main_show_days[project.main_show_days.length - 1];
+      editShowDays.value = [...project.main_show_days].sort();
     } else {
-      editShowFrom.value = '';
-      editShowTo.value = '';
+      editShowDays.value = [];
     }
+    editShowNewDate.value = '';
     // Build days
     if (Array.isArray(project.build_days) && project.build_days.length) {
       editBuildDays.value = [...project.build_days].sort();
@@ -832,14 +875,14 @@ setup() {
     editProjectName.value = '';
     editProjectLocation.value = '';
     editProjectWebsite.value = '';
-    editShowFrom.value = '';
-    editShowTo.value = '';
+    editShowDays.value = [];
+    editShowNewDate.value = '';
     editBuildDays.value = [];
     editBuildNewDate.value = '';
   }
 
   async function saveEditProject() {
-    const showDaysArr = getDateRange(editShowFrom.value, editShowTo.value);
+    const showDaysArr = [...editShowDays.value].sort();
     const buildDaysArr = [...editBuildDays.value].sort();
     try {
       await mutateTableData('projects', 'update', {
@@ -942,6 +985,9 @@ setup() {
     duplicateProject, leaveProject, openProject,
     newProjectLocation,
     newProjectShowDays,
+    newShowDaysList,
+    newShowNewDate,
+    addNewShowDay,
     newProjectBuildDays,
     newBuildDaysList,
     newBuildNewDate,
@@ -953,8 +999,9 @@ setup() {
     editProjectId,
     editProjectName,
     editProjectLocation,
-    editShowFrom,
-    editShowTo,
+    editShowDays,
+    editShowNewDate,
+    addEditShowDay,
     editBuildDays,
     editBuildNewDate,
     addEditBuildDay,
@@ -1778,6 +1825,20 @@ setup() {
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
   line-height: 1.4;
+}
+
+.date-tag.show {
+  background: var(--color-warning-100);
+  color: var(--color-warning-700);
+}
+
+.date-tag.show .date-tag-remove {
+  color: var(--color-warning-500);
+}
+
+.date-tag.show .date-tag-remove:hover {
+  background: var(--color-warning-200);
+  color: var(--color-warning-800);
 }
 
 .date-tag-remove {

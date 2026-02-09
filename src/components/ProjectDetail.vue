@@ -45,7 +45,7 @@
         </div>
         <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-chip show">
           <span class="chip-icon">🎭</span>
-          <span class="chip-text">Show: {{ formatDateRange(currentProject.main_show_days) }}</span>
+          <span class="chip-text">Show: {{ formatBuildDays(currentProject.main_show_days) }}</span>
         </div>
       </div>
     </section>
@@ -363,7 +363,8 @@ export default {
       const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
       const day = ordinal(d.getDate());
       const month = d.toLocaleDateString(undefined, { month: 'long' });
-      return `${weekday} ${day} ${month}`;
+      const year = d.getFullYear();
+      return `${weekday} ${day} ${month} ${year}`;
     }
     function formatDateRange(dateArray) {
       if (!dateArray || dateArray.length === 0) return '';
