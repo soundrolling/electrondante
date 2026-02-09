@@ -1669,23 +1669,25 @@ setup() {
 
 /* Pill-style card action buttons using CSS variables */
 .project-actions .open-btn {
-  background: var(--pill-positive-bg);
-  color: var(--pill-positive-text);
-  border: 1px solid var(--pill-positive-border);
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.3);
   box-shadow: none;
 }
 .project-actions .open-btn:hover {
-  background: var(--pill-positive-hover-bg);
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.45);
 }
 
 .project-actions .leave-btn {
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-medium);
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.25);
   box-shadow: none;
 }
 .project-actions .leave-btn:hover {
-  background: var(--bg-tertiary);
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 /* Modal */
