@@ -181,13 +181,24 @@
         </div>
         <div class="form-group">
           <label for="newProjectBuildDays" class="form-label">Build Days</label>
-          <textarea
-            id="newProjectBuildDays"
-            v-model="newProjectBuildDays"
-            placeholder="Comma-separated dates: 2024-06-29,2024-06-30"
-            class="form-input"
-            rows="2"
-          ></textarea>
+          <div class="multi-date-picker">
+            <div class="multi-date-add-row">
+              <input
+                v-model="newBuildNewDate"
+                type="date"
+                class="form-input"
+                @keydown.enter.prevent="addNewBuildDay"
+              />
+              <button type="button" class="btn btn-positive btn-sm" @click="addNewBuildDay">Add</button>
+            </div>
+            <div v-if="newBuildDaysList.length" class="multi-date-tags">
+              <span v-for="(day, idx) in newBuildDaysList" :key="day" class="date-tag">
+                {{ formatSingleDate(day) }}
+                <button type="button" class="date-tag-remove" @click="newBuildDaysList.splice(idx, 1)">✕</button>
+              </span>
+            </div>
+            <div v-else class="multi-date-empty">No build days added</div>
+          </div>
         </div>
       </div>
       <div class="form-actions">
@@ -226,9 +237,13 @@
             <div v-if="p.build_days && p.build_days.length" class="timeline-item">
               <div class="timeline-icon build">🔨</div>
               <div class="timeline-content">
-                <div class="timeline-label">Build Period</div>
+                <div class="timeline-label">Build Days</div>
                 <div class="timeline-dates">
-                  {{ formatSingleDate(p.build_days[0]) }} - {{ formatSingleDate(p.build_days[p.build_days.length-1]) }}
+                  <span v-for="(group, gi) in groupConsecutiveDates(p.build_days)" :key="gi">
+                    <span v-if="gi > 0" class="date-group-separator"> · </span>
+                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -253,15 +268,19 @@
               <div v-if="p.role === 'owner'" class="owner-actions">
                 <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
                   <span class="btn-icon">✏️</span>
+                  <span class="icon-label">Edit</span>
                 </button>
                 <button @click="duplicateProject(p)" class="btn btn-warning icon-only" title="Duplicate Project">
                   <span class="btn-icon">📋</span>
+                  <span class="icon-label">Duplicate</span>
                 </button>
                 <button @click="archiveProject(p)" class="btn btn-danger icon-only" title="Archive Project">
                   <span class="btn-icon">📦</span>
+                  <span class="icon-label">Archive</span>
                 </button>
                 <button @click="confirmDeleteProject(p.id)" class="btn btn-danger icon-only" title="Delete Project">
                   <span class="btn-icon">🗑️</span>
+                  <span class="icon-label">Delete</span>
                 </button>
               </div>
               <button
@@ -277,6 +296,7 @@
               <div v-if="p.role === 'owner'" class="owner-actions">
                 <button @click="unarchiveProject(p)" class="btn btn-positive icon-only" title="Unarchive Project">
                   <span class="btn-icon">📤</span>
+                  <span class="icon-label">Restore</span>
                 </button>
               </div>
             </template>
@@ -346,20 +366,23 @@
           </div>
           <div class="form-group">
             <label class="form-label">Build Days</label>
-            <div class="date-range-row">
-              <input
-                v-model="editBuildFrom"
-                type="date"
-                class="form-input"
-                placeholder="From"
-              />
-              <span class="date-separator">to</span>
-              <input
-                v-model="editBuildTo"
-                type="date"
-                class="form-input"
-                placeholder="To"
-              />
+            <div class="multi-date-picker">
+              <div class="multi-date-add-row">
+                <input
+                  v-model="editBuildNewDate"
+                  type="date"
+                  class="form-input"
+                  @keydown.enter.prevent="addEditBuildDay"
+                />
+                <button type="button" class="btn btn-positive btn-sm" @click="addEditBuildDay">Add</button>
+              </div>
+              <div v-if="editBuildDays.length" class="multi-date-tags">
+                <span v-for="(day, idx) in editBuildDays" :key="day" class="date-tag">
+                  {{ formatSingleDate(day) }}
+                  <button type="button" class="date-tag-remove" @click="editBuildDays.splice(idx, 1)">✕</button>
+                </span>
+              </div>
+              <div v-else class="multi-date-empty">No build days added</div>
             </div>
           </div>
         </div>
@@ -398,6 +421,8 @@ setup() {
   const newProjectLocation = ref('');
   const newProjectShowDays = ref('');
   const newProjectBuildDays = ref('');
+  const newBuildDaysList    = ref([]);
+  const newBuildNewDate     = ref('');
   const newProjectWebsite  = ref('');
   const showEditModal      = ref(false);
   const editProjectId      = ref(null);
@@ -405,8 +430,8 @@ setup() {
   const editProjectLocation = ref('');
   const editShowFrom       = ref('');
   const editShowTo         = ref('');
-  const editBuildFrom      = ref('');
-  const editBuildTo        = ref('');
+  const editBuildDays      = ref([]);
+  const editBuildNewDate   = ref('');
   const editProjectWebsite = ref('');
   const activeTab          = ref('active');
   const selectedStatus     = ref('active');
@@ -586,10 +611,7 @@ setup() {
         .split(',')
         .map(d => d.trim())
         .filter(Boolean);
-      const buildDaysArr = newProjectBuildDays.value
-        .split(',')
-        .map(d => d.trim())
-        .filter(Boolean);
+      const buildDaysArr = [...newBuildDaysList.value].sort();
 
       const projectRow = await mutateTableData('projects','insert',{
         project_name : newProjectName.value.trim(),
@@ -619,6 +641,8 @@ setup() {
       newProjectLocation.value='';
       newProjectShowDays.value='';
       newProjectBuildDays.value='';
+      newBuildDaysList.value=[];
+      newBuildNewDate.value='';
       newProjectWebsite.value='';
       showNewProjectForm.value=false;
       sortProjects();
@@ -724,6 +748,23 @@ setup() {
     return `${weekday} ${day} ${month}`;
   }
 
+  function groupConsecutiveDates(dates) {
+    if (!dates || !dates.length) return [];
+    const sorted = [...dates].sort();
+    const groups = [[sorted[0]]];
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = new Date(sorted[i - 1]);
+      const curr = new Date(sorted[i]);
+      prev.setDate(prev.getDate() + 1);
+      if (prev.toISOString().slice(0, 10) === curr.toISOString().slice(0, 10)) {
+        groups[groups.length - 1].push(sorted[i]);
+      } else {
+        groups.push([sorted[i]]);
+      }
+    }
+    return groups;
+  }
+
   function getDateRange(from, to) {
     if (!from || !to) return [];
     const start = new Date(from);
@@ -736,6 +777,30 @@ setup() {
       d.setDate(d.getDate() + 1);
     }
     return arr;
+  }
+
+  function addEditBuildDay() {
+    const val = editBuildNewDate.value;
+    if (!val) return;
+    if (editBuildDays.value.includes(val)) {
+      toast.warning('Date already added.');
+      return;
+    }
+    editBuildDays.value.push(val);
+    editBuildDays.value.sort();
+    editBuildNewDate.value = '';
+  }
+
+  function addNewBuildDay() {
+    const val = newBuildNewDate.value;
+    if (!val) return;
+    if (newBuildDaysList.value.includes(val)) {
+      toast.warning('Date already added.');
+      return;
+    }
+    newBuildDaysList.value.push(val);
+    newBuildDaysList.value.sort();
+    newBuildNewDate.value = '';
   }
 
   function openEditModal(project) {
@@ -751,14 +816,13 @@ setup() {
       editShowFrom.value = '';
       editShowTo.value = '';
     }
-    // Build days range
+    // Build days
     if (Array.isArray(project.build_days) && project.build_days.length) {
-      editBuildFrom.value = project.build_days[0];
-      editBuildTo.value = project.build_days[project.build_days.length - 1];
+      editBuildDays.value = [...project.build_days].sort();
     } else {
-      editBuildFrom.value = '';
-      editBuildTo.value = '';
+      editBuildDays.value = [];
     }
+    editBuildNewDate.value = '';
     showEditModal.value = true;
   }
 
@@ -770,13 +834,13 @@ setup() {
     editProjectWebsite.value = '';
     editShowFrom.value = '';
     editShowTo.value = '';
-    editBuildFrom.value = '';
-    editBuildTo.value = '';
+    editBuildDays.value = [];
+    editBuildNewDate.value = '';
   }
 
   async function saveEditProject() {
     const showDaysArr = getDateRange(editShowFrom.value, editShowTo.value);
-    const buildDaysArr = getDateRange(editBuildFrom.value, editBuildTo.value);
+    const buildDaysArr = [...editBuildDays.value].sort();
     try {
       await mutateTableData('projects', 'update', {
         id: editProjectId.value,
@@ -879,16 +943,21 @@ setup() {
     newProjectLocation,
     newProjectShowDays,
     newProjectBuildDays,
+    newBuildDaysList,
+    newBuildNewDate,
+    addNewBuildDay,
     newProjectWebsite,
     formatSingleDate,
+    groupConsecutiveDates,
     showEditModal,
     editProjectId,
     editProjectName,
     editProjectLocation,
     editShowFrom,
     editShowTo,
-    editBuildFrom,
-    editBuildTo,
+    editBuildDays,
+    editBuildNewDate,
+    addEditBuildDay,
     editProjectWebsite,
     openEditModal,
     closeEditModal,
@@ -1518,7 +1587,10 @@ setup() {
   padding: var(--space-2);
   min-width: 44px;
   min-height: 44px;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 2px;
   border-radius: var(--radius-md);
   background: transparent;
   border: 1px solid var(--border-light);
@@ -1538,6 +1610,14 @@ setup() {
 
 .owner-actions .btn.icon-only .btn-text {
   display: none;
+}
+
+.icon-label {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.85;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.01em;
 }
 
 /* Pill-style card action buttons using CSS variables */
@@ -1654,6 +1734,84 @@ setup() {
   font-size: var(--text-base);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* Multi-Date Picker */
+.multi-date-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.multi-date-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.multi-date-add-row .form-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.btn-sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.multi-date-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.date-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1.4;
+}
+
+.date-tag-remove {
+  background: none;
+  border: none;
+  color: var(--color-primary-500);
+  cursor: pointer;
+  padding: 0;
+  margin-left: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+
+.date-tag-remove:hover {
+  background: var(--color-primary-200);
+  color: var(--color-primary-800);
+}
+
+.multi-date-empty {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.date-group-separator {
+  color: var(--text-tertiary);
+  margin: 0 var(--space-1);
 }
 
 /* Focus States for Accessibility */

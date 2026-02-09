@@ -41,7 +41,7 @@
       <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="inline-timeline">
         <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-chip build">
           <span class="chip-icon">🔨</span>
-          <span class="chip-text">Build: {{ formatDateRange(currentProject.build_days) }}</span>
+          <span class="chip-text">Build: {{ formatBuildDays(currentProject.build_days) }}</span>
         </div>
         <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-chip show">
           <span class="chip-icon">🎭</span>
@@ -372,11 +372,36 @@ export default {
       }
       const start = formatSingleDate(dateArray[0]);
       const end = formatSingleDate(dateArray[dateArray.length - 1]);
-      // If start and end are the same, just return one date
       if (start === end) {
         return start;
       }
       return `${start} - ${end}`;
+    }
+
+    function groupConsecutiveDates(dates) {
+      if (!dates || !dates.length) return [];
+      const sorted = [...dates].sort();
+      const groups = [[sorted[0]]];
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = new Date(sorted[i - 1]);
+        const curr = new Date(sorted[i]);
+        prev.setDate(prev.getDate() + 1);
+        if (prev.toISOString().slice(0, 10) === curr.toISOString().slice(0, 10)) {
+          groups[groups.length - 1].push(sorted[i]);
+        } else {
+          groups.push([sorted[i]]);
+        }
+      }
+      return groups;
+    }
+
+    function formatBuildDays(dateArray) {
+      if (!dateArray || dateArray.length === 0) return '';
+      const groups = groupConsecutiveDates(dateArray);
+      return groups.map(group => {
+        if (group.length === 1) return formatSingleDate(group[0]);
+        return `${formatSingleDate(group[0])} – ${formatSingleDate(group[group.length - 1])}`;
+      }).join(' · ');
     }
 
     return {
@@ -399,6 +424,7 @@ export default {
       handleStageChange,
       formatSingleDate,
       formatDateRange,
+      formatBuildDays,
       showStageModal,
       selectedStage,
       /* touch feedback */
