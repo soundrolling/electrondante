@@ -249,12 +249,11 @@
               <div class="timeline-icon build">🔨</div>
               <div class="timeline-content">
                 <div class="timeline-label">Build Days</div>
-                <div class="timeline-dates">
-                  <span v-for="(group, gi) in groupConsecutiveDates(p.build_days)" :key="gi">
-                    <span v-if="gi > 0" class="date-group-separator"> · </span>
+                <div class="timeline-dates-list">
+                  <div v-for="(group, gi) in groupConsecutiveDates(p.build_days)" :key="gi" class="timeline-date-row">
                     <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
                     <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-                  </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -262,12 +261,11 @@
               <div class="timeline-icon show">🎭</div>
               <div class="timeline-content">
                 <div class="timeline-label">Show Days</div>
-                <div class="timeline-dates">
-                  <span v-for="(group, gi) in groupConsecutiveDates(p.main_show_days)" :key="gi">
-                    <span v-if="gi > 0" class="date-group-separator"> · </span>
+                <div class="timeline-dates-list">
+                  <div v-for="(group, gi) in groupConsecutiveDates(p.main_show_days)" :key="gi" class="timeline-date-row">
                     <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
                     <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-                  </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1608,6 +1606,17 @@ setup() {
 }
 
 .timeline-dates {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.timeline-dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-date-row {
   font-size: var(--text-xs);
   color: var(--text-secondary);
 }
