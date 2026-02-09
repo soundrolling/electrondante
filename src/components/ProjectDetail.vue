@@ -41,11 +41,27 @@
       <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="inline-timeline">
         <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-chip build">
           <span class="chip-icon">🔨</span>
-          <span class="chip-text">Build: {{ formatBuildDays(currentProject.build_days) }}</span>
+          <div class="chip-content">
+            <div class="chip-label">Build Days</div>
+            <div class="chip-dates-list">
+              <div v-for="(group, gi) in groupConsecutiveDates(currentProject.build_days)" :key="'b'+gi" class="chip-date-row">
+                <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+                <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-chip show">
           <span class="chip-icon">🎭</span>
-          <span class="chip-text">Show: {{ formatBuildDays(currentProject.main_show_days) }}</span>
+          <div class="chip-content">
+            <div class="chip-label">Show Days</div>
+            <div class="chip-dates-list">
+              <div v-for="(group, gi) in groupConsecutiveDates(currentProject.main_show_days)" :key="'s'+gi" class="chip-date-row">
+                <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+                <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -426,6 +442,7 @@ export default {
       formatSingleDate,
       formatDateRange,
       formatBuildDays,
+      groupConsecutiveDates,
       showStageModal,
       selectedStage,
       /* touch feedback */
@@ -624,10 +641,10 @@ export default {
 
 .timeline-chip {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 20px;
+  padding: 10px 14px;
+  border-radius: 12px;
   font-size: 13px;
   font-weight: 500;
 }
@@ -658,10 +675,11 @@ export default {
 }
 
 .chip-icon {
-  font-size: 14px;
-  width: 16px;
+  font-size: 16px;
+  width: 20px;
   text-align: center;
   color: inherit;
+  margin-top: 1px;
 }
 
 .dark .timeline-chip .chip-icon {
@@ -671,6 +689,33 @@ export default {
 
 .chip-text {
   line-height: 1.3;
+  color: inherit;
+}
+
+.chip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chip-label {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.chip-dates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chip-date-row {
+  font-size: 13px;
+  line-height: 1.4;
   color: inherit;
 }
 
