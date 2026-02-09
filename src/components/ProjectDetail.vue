@@ -37,29 +37,33 @@
         </div>
       </div>
       
-      <!-- Inline Timeline -->
-      <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="inline-timeline">
-        <div v-if="currentProject.build_days && currentProject.build_days.length" class="timeline-chip build">
-          <span class="chip-icon">🔨</span>
-          <div class="chip-content">
-            <div class="chip-label">Build Days</div>
-            <div class="chip-dates-list">
-              <div v-for="(group, gi) in groupConsecutiveDates(currentProject.build_days)" :key="'b'+gi" class="chip-date-row">
-                <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-                <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-              </div>
+      <!-- Collapsible Date Sections -->
+      <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="dates-sections">
+        <div v-if="currentProject.build_days && currentProject.build_days.length" class="dates-panel build">
+          <button class="dates-panel-header" @click="buildDaysOpen = !buildDaysOpen">
+            <span class="dates-panel-icon">🔨</span>
+            <span class="dates-panel-title">Build Days</span>
+            <span class="dates-panel-count">{{ currentProject.build_days.length }}</span>
+            <span class="dates-panel-toggle">{{ buildDaysOpen ? '▲' : '▼' }}</span>
+          </button>
+          <div v-if="buildDaysOpen" class="dates-panel-body">
+            <div v-for="(group, gi) in groupConsecutiveDates(currentProject.build_days)" :key="'b'+gi" class="dates-panel-row">
+              <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+              <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
             </div>
           </div>
         </div>
-        <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="timeline-chip show">
-          <span class="chip-icon">🎭</span>
-          <div class="chip-content">
-            <div class="chip-label">Show Days</div>
-            <div class="chip-dates-list">
-              <div v-for="(group, gi) in groupConsecutiveDates(currentProject.main_show_days)" :key="'s'+gi" class="chip-date-row">
-                <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-                <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-              </div>
+        <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="dates-panel show">
+          <button class="dates-panel-header" @click="showDaysOpen = !showDaysOpen">
+            <span class="dates-panel-icon">🎭</span>
+            <span class="dates-panel-title">Show Days</span>
+            <span class="dates-panel-count">{{ currentProject.main_show_days.length }}</span>
+            <span class="dates-panel-toggle">{{ showDaysOpen ? '▲' : '▼' }}</span>
+          </button>
+          <div v-if="showDaysOpen" class="dates-panel-body">
+            <div v-for="(group, gi) in groupConsecutiveDates(currentProject.main_show_days)" :key="'s'+gi" class="dates-panel-row">
+              <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+              <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
             </div>
           </div>
         </div>
@@ -254,6 +258,8 @@ export default {
     const showStageModal  = ref(false);
     const selectedStage   = ref(null);
     const showToolsSection = ref(false);
+    const buildDaysOpen    = ref(false);
+    const showDaysOpen     = ref(false);
     const showToolModal   = ref(false);
     const selectedTool    = ref(null);
 
@@ -443,6 +449,8 @@ export default {
       formatDateRange,
       formatBuildDays,
       groupConsecutiveDates,
+      buildDaysOpen,
+      showDaysOpen,
       showStageModal,
       selectedStage,
       /* touch feedback */
@@ -633,93 +641,90 @@ export default {
 }
 
 /* Inline Timeline */
-.inline-timeline {
+/* Collapsible Date Sections */
+.dates-sections {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.timeline-chip {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 500;
+.dates-panel {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
 }
 
-.timeline-chip.build {
+.dates-panel.build {
+  border-color: var(--color-primary-200);
+}
+
+.dates-panel.show {
+  border-color: var(--color-secondary-300);
+}
+
+.dates-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+}
+
+.dates-panel.build .dates-panel-header {
   background: var(--color-primary-100);
   color: var(--color-primary-700);
-  border: 1px solid var(--color-primary-200);
 }
 
-.timeline-chip.show {
+.dates-panel.show .dates-panel-header {
   background: var(--color-secondary-100);
   color: var(--color-secondary-800);
-  border: 1px solid var(--color-secondary-300);
 }
 
-/* Ensure icons and text have proper contrast in dark mode */
-.dark .timeline-chip.build {
+.dates-panel-icon {
+  font-size: 16px;
+}
+
+.dates-panel-title {
+  flex: 1;
+  text-align: left;
+}
+
+.dates-panel-count {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.dates-panel-toggle {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.dates-panel-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.dates-panel-row {
+  padding: 8px 14px 8px 42px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
+}
+
+/* Dark mode */
+.dark .dates-panel.build .dates-panel-header {
   background: var(--color-primary-600);
   color: var(--text-inverse);
-  border: 1px solid var(--color-primary-700);
 }
 
-.dark .timeline-chip.show {
+.dark .dates-panel.show .dates-panel-header {
   background: var(--color-secondary-600);
-  color: var(--text-inverse);
-  border: 1px solid var(--color-secondary-700);
-}
-
-.chip-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-  color: inherit;
-  margin-top: 1px;
-}
-
-.dark .timeline-chip .chip-icon {
-  color: var(--text-inverse);
-  filter: none;
-}
-
-.chip-text {
-  line-height: 1.3;
-  color: inherit;
-}
-
-.chip-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.chip-label {
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: inherit;
-  opacity: 0.8;
-}
-
-.chip-dates-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.chip-date-row {
-  font-size: 13px;
-  line-height: 1.4;
-  color: inherit;
-}
-
-.dark .timeline-chip .chip-text {
   color: var(--text-inverse);
 }
 
