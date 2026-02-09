@@ -156,9 +156,12 @@
             type="text"
             placeholder="HH:MM:SS"
             class="time-input"
+            :class="{ 'input-invalid': draft.timestamp && !isValidTimestamp }"
+            @blur="autoFixTimestamp"
           />
           <button class="btn btn-warning refresh-btn" @click="refreshTimestamp" title="Set to current time">🔄</button>
         </div>
+        <div v-if="draft.timestamp && !isValidTimestamp" class="field-error">Must be HH:MM:SS (e.g. 09:03:25)</div>
         <input
           v-model="draft.recording_date"
           type="date"
@@ -192,7 +195,7 @@
         <button
           class="btn btn-positive save-btn"
           @click="saveEdit"
-          :disabled="!draft.note.trim()"
+          :disabled="!draft.note.trim() || !isValidTimestamp"
         >
           Save
         </button>
@@ -789,6 +792,10 @@ showForm.value = false;
 
 async function saveEdit() {
 if (!draft.value.note.trim()) return;
+if (!isValidTimestamp.value) {
+  toast.error('Time must be in HH:MM:SS format (e.g. 09:03:25)');
+  return;
+}
 
 const payload = {
   ...draft.value,
@@ -1380,6 +1387,25 @@ function closeInfoModal() {
 
 function refreshTimestamp() {
   draft.value.timestamp = nowTime();
+}
+
+const isValidTimestamp = computed(() => {
+  const t = draft.value.timestamp;
+  if (!t) return true; // empty is ok, will be set on save
+  return /^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.test(t);
+});
+
+function autoFixTimestamp() {
+  const t = draft.value.timestamp;
+  if (!t) return;
+  // Try to pad single-digit segments: "1:3:2" -> "01:03:02", "13:23:2" -> "13:23:02"
+  const parts = t.split(':');
+  if (parts.length === 3) {
+    const fixed = parts.map(p => p.padStart(2, '0')).join(':');
+    if (/^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.test(fixed)) {
+      draft.value.timestamp = fixed;
+    }
+  }
 }
 
 function setTodayRange() {
@@ -2015,6 +2041,18 @@ opacity: 0.6;
   font-size: 0.95rem;
   background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.time-input.input-invalid {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+}
+
+.field-error {
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: -2px;
+  grid-column: 1 / -1;
 }
 
 .recording-day-row {
