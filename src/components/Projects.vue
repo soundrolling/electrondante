@@ -271,16 +271,16 @@
             </div>
           </div>
 
-          <div v-if="p.members && p.members.length" class="project-crew" @click.stop="toggleCrewPopup(p.id)">
+          <div v-if="p.spatialCrew && p.spatialCrew.length" class="project-crew" @click.stop="toggleCrewPopup(p.id)">
             <div class="crew-summary">
-              <span class="crew-icon">👥</span>
-              <span class="crew-label">{{ p.members.length }} {{ p.members.length === 1 ? 'Member' : 'Members' }}</span>
+              <span class="crew-icon">🎧</span>
+              <span class="crew-label">{{ p.spatialCrew.length }} Spatial Crew</span>
               <span class="crew-toggle">{{ crewPopupId === p.id ? '▲' : '▼' }}</span>
             </div>
             <div v-if="crewPopupId === p.id" class="crew-list" @click.stop>
-              <div v-for="m in p.members" :key="m.id" class="crew-member">
-                <span class="member-role-badge" :class="m.role">{{ m.role }}</span>
-                <span class="member-email">{{ m.user_email }}</span>
+              <div v-for="c in p.spatialCrew" :key="c.id" class="crew-member">
+                <span v-if="c.is_lead_engineer" class="member-role-badge lead-engineer">Lead Engineer</span>
+                <span class="member-name">{{ c.name || c.email || 'Unnamed' }}</span>
               </div>
             </div>
           </div>
@@ -589,23 +589,26 @@ setup() {
       projects.value = Array.from(map.values());
       sortProjects();
 
-      // Fetch members for all projects
+      // Fetch Spatial Crew contacts for all projects
       const projectIds = projects.value.map(p => p.id);
       if (projectIds.length) {
-        const { data: allMembers } = await supabase
-          .from('project_members')
-          .select('id, project_id, user_email, role')
+        const { data: crewContacts } = await supabase
+          .from('project_contacts')
+          .select('id, project_id, name, email, phone, role, is_lead_engineer')
+          .eq('role', 'Spatial Crew')
           .in('project_id', projectIds);
-        if (allMembers) {
+        if (crewContacts) {
           const byProject = {};
-          allMembers.forEach(m => {
-            if (!byProject[m.project_id]) byProject[m.project_id] = [];
-            byProject[m.project_id].push(m);
+          crewContacts.forEach(c => {
+            if (!byProject[c.project_id]) byProject[c.project_id] = [];
+            byProject[c.project_id].push(c);
           });
           projects.value.forEach(p => {
-            p.members = (byProject[p.id] || []).sort((a, b) => {
-              const order = { owner: 0, admin: 1, contributor: 2, viewer: 3 };
-              return (order[a.role] ?? 4) - (order[b.role] ?? 4);
+            // Sort: lead engineer first, then alphabetical
+            p.spatialCrew = (byProject[p.id] || []).sort((a, b) => {
+              if (a.is_lead_engineer && !b.is_lead_engineer) return -1;
+              if (!a.is_lead_engineer && b.is_lead_engineer) return 1;
+              return (a.name || '').localeCompare(b.name || '');
             });
           });
         }
@@ -1717,11 +1720,12 @@ setup() {
   border-bottom: none;
 }
 
-.member-email {
-  color: var(--text-secondary);
+.member-name {
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: var(--font-medium);
 }
 
 .member-role-badge {
@@ -1730,28 +1734,12 @@ setup() {
   border-radius: var(--radius-full, 9999px);
   font-size: 10px;
   font-weight: var(--font-semibold);
-  text-transform: capitalize;
   flex-shrink: 0;
 }
 
-.member-role-badge.owner {
+.member-role-badge.lead-engineer {
   background: rgba(99, 102, 241, 0.12);
   color: #4f46e5;
-}
-
-.member-role-badge.admin {
-  background: rgba(34, 197, 94, 0.12);
-  color: #15803d;
-}
-
-.member-role-badge.contributor {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
-}
-
-.member-role-badge.viewer {
-  background: rgba(107, 114, 128, 0.12);
-  color: #4b5563;
 }
 
 /* Project Actions */

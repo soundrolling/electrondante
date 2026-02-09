@@ -9,7 +9,7 @@
         </span>
         <span v-if="isStageHourEvent" class="stage-hour-badge">Stage Hours</span>
       </div>
-      <p><strong>Title:</strong> <span v-html="localEvent.title"></span></p>
+      <p><strong>Title:</strong> {{ localEvent.title }}</p>
       <p><strong>Start Date:</strong> {{ formatDate(localEvent.event_date) }}</p>
       <p><strong>Start Time:</strong> {{ formatTime(localEvent.start_time) }}</p>
       <p v-if="localEvent.end_date && localEvent.end_date !== localEvent.event_date"><strong>End Date:</strong> {{ formatDate(localEvent.end_date) }}</p>
@@ -110,7 +110,7 @@
         <textarea v-model="localEvent.notes" rows="2"></textarea>
       </div>
       <div class="modal-actions">
-        <button class="btn-primary" @click="$emit('save', localEvent)">Save</button>
+        <button class="btn-primary" @click="$emit('save', JSON.parse(JSON.stringify(localEvent)))">Save</button>
         <button class="btn-secondary" @click="$emit('cancel-edit')">Cancel</button>
       </div>
     </template>
@@ -169,13 +169,16 @@ computed: {
     return this.event && this.event.isStageHour;
   },
   isContactAssignable() {
-    return this.event && (this.event.category === 'calltimes' || this.event.category === 'wraptimes');
+    const cat = this.localEvent?.category || this.event?.category;
+    return cat === 'calltimes' || cat === 'wraptimes';
   }
 },
 methods: {
   formatDate(ds) {
     if (!ds) return "";
-    return new Date(ds).toLocaleDateString("en-US", {
+    // Append T12:00 for date-only strings to prevent timezone-related date shifts
+    const dateStr = ds.length === 10 ? ds + 'T12:00:00' : ds;
+    return new Date(dateStr).toLocaleDateString("en-US", {
       weekday:"short", month:"short", day:"numeric", year:"numeric"
     });
   },

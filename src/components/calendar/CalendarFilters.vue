@@ -162,8 +162,6 @@ watch: {
 </script>
 
 <style scoped>
-@import '../../styles/calendar.scss';
-
 .filters-bar {
   display: flex;
   flex-wrap: wrap;

@@ -131,8 +131,8 @@ methods: {
     return name.charAt(0).toUpperCase();
   },
   handleCreate() {
-    console.log('[NewEventModal] Creating event with data:', this.newEvent);
-    this.$emit('create', this.newEvent);
+    // Deep clone to avoid emitting reactive object reference
+    this.$emit('create', JSON.parse(JSON.stringify(this.newEvent)));
   }
 },
 watch: {
@@ -150,13 +150,9 @@ watch: {
         notes: "",
         assigned_contacts: []
       };
-      console.log('[NewEventModal] Modal opened, form reset');
     }
   }
 },
-mounted() {
-  console.log('[NewEventModal] Component mounted');
-}
 }
 </script>
 

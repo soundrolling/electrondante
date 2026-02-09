@@ -74,7 +74,7 @@
               @keydown.space.prevent="$emit('event-click', evt)"
             >
               <div class="event-content">
-                <strong v-html="evt.title"></strong><br>
+                <strong>{{ evt.title }}</strong><br>
                 <small>{{ formatTime(getDisplayStartTime(evt)) }} – {{ formatTime(getDisplayEndTime(evt)) }}</small>
                 <div v-if="getEventLocation(evt)" class="event-location">
                   <span class="location-text">📍 {{ getEventLocation(evt) }}</span>
@@ -145,13 +145,12 @@ data() {
 },
 computed: {
   isTodayView() {
-    // Compare formattedTimelineDate to today (ignoring year for safety)
+    // Compare using the currentDateString prop (YYYY-MM-DD) for locale-independent comparison
     const today = new Date();
-    const viewed = new Date(this.now);
-    // Use the formattedTimelineDate string to get the viewed date
-    // Fallback: compare to today
-    return this.formattedTimelineDate.includes(today.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }))
-      && this.formattedTimelineDate.includes(today.toLocaleDateString(undefined, { weekday: 'long' }));
+    const todayStr = today.getFullYear() + '-' +
+      String(today.getMonth() + 1).padStart(2, '0') + '-' +
+      String(today.getDate()).padStart(2, '0');
+    return this.currentDateString === todayStr;
   },
   currentSlot() {
     if (!this.isTodayView) return null;
@@ -393,23 +392,6 @@ display: flex;
 flex-wrap: wrap;
 gap: 0.5rem;
 }
-.timeline-event {
-margin: 2px 0;
-padding: 6px 8px;
-border-radius: 4px;
-color: var(--text-primary);
-font-size: 0.85rem;
-cursor: pointer;
-display: flex;
-align-items: center;
-gap: 0.5rem;
-}
-
-.timeline-event.stage-hour-event {
-border: 2px solid var(--color-success-500);
-font-weight: 600;
-}
-
 .event-content {
 flex: 1;
 }
@@ -451,6 +433,13 @@ font-size: 0.7rem;
 }
 
 .timeline-event {
+  margin: 2px 0;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   background: var(--bg-secondary) !important;
   color: var(--text-primary);
   font-weight: 600;

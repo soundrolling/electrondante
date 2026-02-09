@@ -80,31 +80,6 @@ export default {
   gap: 0.75rem;
   margin-top: 1.5rem;
 }
-.confirm-button {
-  background: var(--color-error-500);
-  color: var(--text-inverse) !important;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-.confirm-button:hover {
-  background: var(--color-error-600);
-}
-.cancel-button {
-  background: var(--color-secondary-400);
-  color: var(--text-inverse) !important;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-.cancel-button:hover {
-  background: var(--color-secondary-500);
-}
+/* Button styles are handled by calendar.scss via btn-danger and btn-secondary classes */
 </style>
 

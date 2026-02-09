@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.30">
-        <span class="version-text">v2.0.30</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.31">
+        <span class="version-text">v2.0.31</span>
         <span class="version-date">February 9th 2026</span>
       </button>
     </div>

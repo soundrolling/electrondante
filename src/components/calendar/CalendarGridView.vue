@@ -84,7 +84,7 @@
                 </div>
                 <div class="event-info-col">
                   <slot name="event-card" :event="evt">
-                    <div class="event-title" v-html="evt.title"></div>
+                    <div class="event-title">{{ evt.title }}</div>
                     <div v-if="evt.location_id && getLocationName" class="event-location">{{ getLocationName(evt.location_id) }}</div>
                     <div v-if="evt.end_date && evt.end_date !== evt.event_date" class="multi-day-indicator">
                       <span class="multi-day-text">Multi-day event</span>
@@ -158,8 +158,6 @@ emits: ['previous-period', 'next-period', 'event-click', 'edit-stage-hours'],
 data() {
   return {
     calendarWeekDayHeaders: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
-    showEventModal: false,
-    selectedDay: null,
     touchStartX: 0,
     touchStartY: 0,
     swipeThreshold: 50
@@ -501,35 +499,6 @@ font-weight: 700;
 }
 .event-list-item:hover {
   background: var(--bg-tertiary);
-}
-.event-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.event-time {
-  color: var(--color-success-500);
-  font-weight: 600;
-  font-size: 0.98em;
-  min-width: 44px;
-  text-align: right;
-}
-.event-arrow {
-  color: var(--color-success-500);
-  font-size: 1.1em;
-  margin: 0 0.2em;
-  font-weight: 700;
-}
-.event-title {
-  flex: 1;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-.event-location {
-  color: var(--text-secondary);
-  font-size: 0.97em;
-  margin-left: 0.7em;
-  font-style: italic;
 }
 .day-number {
   font-size: 1.1rem;

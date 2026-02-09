@@ -83,7 +83,7 @@
             <img :src="getPreviewUrl(doc.file_path)" alt="Document preview" class="doc-thumb" />
           </template>
           <template v-else-if="isPdfFile(doc.file_path)">
-            <span class="doc-icon pdf-icon">📄</span>
+            <span class="doc-icon pdf-icon" @click="viewStorageFile(doc.file_path)" style="cursor:pointer;" title="Preview PDF">📄</span>
           </template>
           <template v-else-if="doc.file_path">
             <span class="doc-icon file-icon">📎</span>
@@ -255,17 +255,43 @@
       </div>
     </div>
   </div>
+
+  <!-- PDF Viewer Modal -->
+  <div v-if="showPdfViewer" class="pdf-viewer-overlay" @click.self="closePdfViewer">
+    <div class="pdf-viewer-modal">
+      <div class="pdf-viewer-header">
+        <h2 class="pdf-viewer-title">{{ pdfViewerTitle }}</h2>
+        <div class="pdf-viewer-controls">
+          <span class="pdf-page-info">{{ pdfPagesRendered }} page{{ pdfPagesRendered !== 1 ? 's' : '' }}</span>
+          <button @click="pdfZoomOut" class="pdf-zoom-btn" title="Zoom out">−</button>
+          <span class="pdf-zoom-level">{{ Math.round(pdfScale * 100) }}%</span>
+          <button @click="pdfZoomIn" class="pdf-zoom-btn" title="Zoom in">+</button>
+          <button @click="closePdfViewer" class="pdf-close-btn" aria-label="Close PDF viewer">✕</button>
+        </div>
+      </div>
+      <div class="pdf-viewer-body" ref="pdfViewerBody">
+        <div v-if="pdfLoading" class="pdf-loading">
+          <div class="pdf-loading-spinner"></div>
+          <p>Loading PDF...</p>
+        </div>
+        <div v-show="!pdfLoading" class="pdf-pages" ref="pdfPagesContainer">
+          <!-- Canvases rendered by PDF.js -->
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, nextTick, onMounted } from 'vue';
 import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '../../stores/userStore';
 import { format, parseISO } from 'date-fns';
 import { useRouter } from 'vue-router';
 import { storeDocumentFile, getDocumentFile } from '@/utils/indexedDB';
+import * as pdfjsLib from 'pdfjs-dist';
 
 export default {
   name: "Documents",
@@ -581,7 +607,108 @@ export default {
       }
     };
 
+    // ─── PDF VIEWER ───────────────────────────────────
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+
+    const showPdfViewer = ref(false);
+    const pdfLoading = ref(false);
+    const pdfViewerTitle = ref('');
+    const pdfPagesRendered = ref(0);
+    const pdfScale = ref(1.0);
+    const pdfViewerBody = ref(null);
+    const pdfPagesContainer = ref(null);
+    let currentPdfDoc = null;
+
+    const openPdfViewer = async (filePath, title) => {
+      pdfViewerTitle.value = title || 'PDF Document';
+      pdfLoading.value = true;
+      pdfPagesRendered.value = 0;
+      pdfScale.value = 1.0;
+      showPdfViewer.value = true;
+      currentPdfDoc = null;
+
+      await nextTick();
+
+      try {
+        // Get signed URL
+        const { data, error } = await supabase.storage
+          .from("travel-documents")
+          .createSignedUrl(filePath, 300);
+        if (error || !data?.signedUrl) {
+          toast.error("Unable to load PDF");
+          showPdfViewer.value = false;
+          return;
+        }
+
+        // Load PDF
+        const loadingTask = pdfjsLib.getDocument(data.signedUrl);
+        const pdf = await loadingTask.promise;
+        currentPdfDoc = pdf;
+        pdfPagesRendered.value = pdf.numPages;
+
+        await renderAllPages(pdf, pdfScale.value);
+      } catch (err) {
+        console.error("Error loading PDF:", err);
+        toast.error("Failed to load PDF");
+        showPdfViewer.value = false;
+      } finally {
+        pdfLoading.value = false;
+      }
+    };
+
+    const renderAllPages = async (pdf, scale) => {
+      if (!pdfPagesContainer.value) return;
+      pdfPagesContainer.value.innerHTML = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale });
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'pdf-page-canvas';
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = '100%';
+        canvas.style.height = 'auto';
+
+        pdfPagesContainer.value.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+      }
+    };
+
+    const pdfZoomIn = async () => {
+      if (!currentPdfDoc) return;
+      pdfScale.value = Math.min(pdfScale.value + 0.25, 3.0);
+      await renderAllPages(currentPdfDoc, pdfScale.value);
+    };
+
+    const pdfZoomOut = async () => {
+      if (!currentPdfDoc) return;
+      pdfScale.value = Math.max(pdfScale.value - 0.25, 0.5);
+      await renderAllPages(currentPdfDoc, pdfScale.value);
+    };
+
+    const closePdfViewer = () => {
+      showPdfViewer.value = false;
+      currentPdfDoc = null;
+      if (pdfPagesContainer.value) {
+        pdfPagesContainer.value.innerHTML = '';
+      }
+    };
+
     const viewStorageFile = async (filePath) => {
+      // Use in-app PDF viewer for PDFs
+      if (isPdfFile(filePath)) {
+        const doc = documents.value.find(d => d.file_path === filePath);
+        openPdfViewer(filePath, doc?.title || 'PDF Document');
+        return;
+      }
+
       try {
         const { data, error } = await supabase.storage
           .from("travel-documents")
@@ -835,6 +962,16 @@ export default {
       getPreviewUrl,
       canManageProject,
       projectMembers,
+      showPdfViewer,
+      pdfLoading,
+      pdfViewerTitle,
+      pdfPagesRendered,
+      pdfScale,
+      pdfViewerBody,
+      pdfPagesContainer,
+      pdfZoomIn,
+      pdfZoomOut,
+      closePdfViewer,
     };
   }
 };
@@ -1736,6 +1873,186 @@ export default {
   
   .form-actions button {
     width: 100%;
+  }
+}
+
+/* ─── PDF Viewer Modal ─────────────────────────── */
+.pdf-viewer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-viewer-modal {
+  width: 95vw;
+  max-width: 900px;
+  height: 92vh;
+  background: var(--bg-primary, #fff);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.pdf-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light, #e5e7eb);
+  background: var(--bg-secondary, #f9fafb);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.pdf-viewer-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.pdf-viewer-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pdf-page-info {
+  font-size: 0.8rem;
+  color: var(--text-tertiary, #9ca3af);
+  white-space: nowrap;
+}
+
+.pdf-zoom-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 6px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-zoom-btn:hover {
+  background: var(--bg-secondary, #f3f4f6);
+}
+
+.pdf-zoom-level {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.pdf-close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+}
+
+.pdf-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.pdf-viewer-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  background: var(--bg-tertiary, #f3f4f6);
+}
+
+.pdf-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.pdf-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-light, #e5e7eb);
+  border-top-color: var(--color-primary-600, #4f46e5);
+  border-radius: 50%;
+  animation: pdf-spin 0.8s linear infinite;
+}
+
+@keyframes pdf-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdf-page-canvas {
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  background: #fff;
+}
+
+/* Mobile adjustments for PDF viewer */
+@media (max-width: 768px) {
+  .pdf-viewer-modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .pdf-viewer-header {
+    padding: 10px 12px;
+  }
+
+  .pdf-viewer-title {
+    font-size: 0.9rem;
+  }
+
+  .pdf-zoom-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+
+  .pdf-viewer-body {
+    padding: 8px;
   }
 }
 </style>

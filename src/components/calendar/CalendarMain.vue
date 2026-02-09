@@ -142,6 +142,7 @@
       :contacts="contacts"
       @event-click="openDetailsModal"
       @edit="onEditEvent"
+      @edit-save="onEditEvent"
       @delete="onDeleteEvent"
       @edit-stage-hours="openStageHoursModal"
     >
@@ -259,6 +260,24 @@ import StageHoursModal from "./StageHoursModal.vue";
 
 export default {
 name: "CalendarMain",
+props: {
+  projectId: {
+    type: [String, Number],
+    default: null
+  },
+  initialView: {
+    type: String,
+    default: 'grid'
+  },
+  initialDate: {
+    type: [String, Date],
+    default: null
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
+  }
+},
 components: {
   CalendarViewSelector,
   CalendarFilters,
@@ -469,20 +488,7 @@ setup(props, { emit }) {
       stageHoursError.value = "Failed to load stage hours: " + e.message;
     }
 
-    // Travel trips
-    try {
-      const { data: trips, error: tripsError } = await supabase
-        .from('travel_trips')
-        .select('*')
-        .eq('project_id', pid);
-      if (tripsError) throw tripsError;
-      travelTrips.value = trips || [];
-    } catch (e) {
-      console.error('Failed to load travel trips:', e.message);
-      travelTrips.value = [];
-    }
-
-    console.log('[fetchAll] Final events count:', allEvents.value.length);
+    // Note: Travel trips are already fetched via fetchTravelTrips() composable above
     
     // Auto-calculate filter range to include all days with events
     if (allEvents.value.length > 0) {
@@ -495,7 +501,9 @@ setup(props, { emit }) {
   // FORMATTING HELPERS
   function formatDate(ds) {
     if (!ds) return "";
-    return new Date(ds).toLocaleDateString("en-US", {
+    // Append T12:00 for date-only strings to prevent timezone-related date shifts
+    const dateStr = ds.length === 10 ? ds + 'T12:00:00' : ds;
+    return new Date(dateStr).toLocaleDateString("en-US", {
       weekday: "short", month: "short", day: "numeric", year: "numeric"
     });
   }
@@ -656,11 +664,12 @@ setup(props, { emit }) {
     return hoursByStage;
   }
 
-  // Helper to extract time in HH:mm from ISO string
+  // Helper to extract time in HH:mm from ISO/datetime string without timezone conversion
   function extractTimeFromISO(isoString) {
     if (!isoString) return '';
-    const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    // Parse directly from string "YYYY-MM-DDTHH:mm:ss" to avoid timezone issues
+    const timePart = isoString.slice(11, 16);
+    return timePart || '';
   }
 
   // allEvents, filteredEvents, and sortedEvents are now provided by composables
@@ -1289,7 +1298,6 @@ setup(props, { emit }) {
 </script>
 
 <style scoped>
-@import '../../styles/calendar.scss';
 /* === GLOBAL & RESET === */
 .calendar-page {
 font-family: var(--font-family-sans);

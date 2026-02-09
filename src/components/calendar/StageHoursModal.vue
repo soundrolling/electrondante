@@ -112,16 +112,14 @@ export default {
       if (newVal) {
         this.resetForm();
         if (this.editingHour) {
-          // Populate form with existing hour data
-          const start = new Date(this.editingHour.start_datetime);
-          const end = new Date(this.editingHour.end_datetime);
-          
+          // Parse datetime strings directly to avoid timezone conversion issues
+          // Datetime strings from DB are like "2024-02-15T09:00:00"
           this.formData = {
             stage_id: this.editingHour.stage_id,
-            start_date: start.toISOString().split('T')[0],
-            start_time: start.toTimeString().slice(0, 5),
-            end_date: end.toISOString().split('T')[0],
-            end_time: end.toTimeString().slice(0, 5),
+            start_date: this.extractDate(this.editingHour.start_datetime),
+            start_time: this.extractTime(this.editingHour.start_datetime),
+            end_date: this.extractDate(this.editingHour.end_datetime),
+            end_time: this.extractTime(this.editingHour.end_datetime),
             notes: this.editingHour.notes || ''
           };
         } else if (this.selectedStage) {
@@ -133,15 +131,12 @@ export default {
     editingHour: {
       handler(newVal) {
         if (newVal && this.show) {
-          const start = new Date(newVal.start_datetime);
-          const end = new Date(newVal.end_datetime);
-          
           this.formData = {
             stage_id: newVal.stage_id,
-            start_date: start.toISOString().split('T')[0],
-            start_time: start.toTimeString().slice(0, 5),
-            end_date: end.toISOString().split('T')[0],
-            end_time: end.toTimeString().slice(0, 5),
+            start_date: this.extractDate(newVal.start_datetime),
+            start_time: this.extractTime(newVal.start_datetime),
+            end_date: this.extractDate(newVal.end_datetime),
+            end_time: this.extractTime(newVal.end_datetime),
             notes: newVal.notes || ''
           };
         }
@@ -150,6 +145,19 @@ export default {
     }
   },
   methods: {
+    // Extract date (YYYY-MM-DD) from ISO/datetime string without timezone conversion
+    extractDate(datetimeStr) {
+      if (!datetimeStr) return '';
+      // Handle "YYYY-MM-DDTHH:mm:ss" format directly
+      return datetimeStr.slice(0, 10);
+    },
+    // Extract time (HH:mm) from ISO/datetime string without timezone conversion
+    extractTime(datetimeStr) {
+      if (!datetimeStr) return '';
+      // Handle "YYYY-MM-DDTHH:mm:ss" format directly
+      const timePart = datetimeStr.slice(11, 16);
+      return timePart || '';
+    },
     resetForm() {
       this.formData = {
         stage_id: this.selectedStage?.id || null,

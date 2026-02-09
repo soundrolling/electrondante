@@ -35,6 +35,7 @@
         role="button"
         tabindex="0"
         :aria-label="`Event: ${evt.title} on ${formatDate(evt.event_date)}`"
+        @click="$emit('event-click', evt)"
         @keydown.enter="$emit('event-click', evt)"
         @keydown.space.prevent="$emit('event-click', evt)"
       >
@@ -70,7 +71,7 @@
           <div class="event-info">
             <slot name="event-card" :event="evt">
               <div class="event-title">
-                <span v-html="evt.title"></span>
+                {{ evt.title }}
               </div>
               <div class="event-location">{{ getLocationName(evt.location_id) }}</div>
             </slot>
@@ -205,7 +206,9 @@ data() {
 methods: {
   formatDate(ds) {
     if (!ds) return "";
-    return new Date(ds).toLocaleDateString("en-US", {
+    // Append T12:00 for date-only strings to prevent timezone-related date shifts
+    const dateStr = ds.length === 10 ? ds + 'T12:00:00' : ds;
+    return new Date(dateStr).toLocaleDateString("en-US", {
       weekday:"short", month:"short", day:"numeric", year:"numeric"
     });
   },
@@ -253,7 +256,8 @@ methods: {
     this.editEventData = null;
   },
   saveEdit() {
-    this.$emit('edit-save', { ...this.editEventData });
+    if (!this.editEventData) return;
+    this.$emit('edit-save', JSON.parse(JSON.stringify(this.editEventData)));
     this.closeEditModal();
   },
   deleteEvent(evt) {
@@ -266,13 +270,16 @@ methods: {
   },
   goToProjectLocations(evt) {
     this.closeCogMenu();
-    // Assumes you have access to $router and projectId is available globally or via event
-    const projectId = this.$route.params.id || (evt.project_id || evt.originalStageHour?.project_id);
+    const projectId = this.$route?.params?.id || evt.project_id || evt.originalStageHour?.project_id;
+    if (!projectId) {
+      console.warn('Cannot navigate to project locations: no project ID found');
+      return;
+    }
     const stageId = evt.location_id || evt.originalStageHour?.stage_id;
     this.$router.push({
       name: 'ProjectLocations',
       params: { id: projectId },
-      query: { stageId }
+      query: stageId ? { stageId } : {}
     });
   },
   isContactAssignable(evt) {

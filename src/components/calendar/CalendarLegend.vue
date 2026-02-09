@@ -13,28 +13,28 @@
       <div class="legend-block">
         <strong>Event Categories:</strong>
         <div class="legend-items">
-          <label class="legend-item" v-for="category in categories" :key="category.id">
-            <input 
-              type="checkbox" 
-              :checked="enabledCategories[category.id] !== false"
-              @change="toggleCategory(category.id)"
-              class="category-toggle"
-            />
-            <span class="legend-icon">{{ category.icon }}</span>
-            {{ category.label }}
+          <div class="legend-item-wrapper" v-for="category in categories" :key="category.id">
+            <label class="legend-item">
+              <input
+                type="checkbox"
+                :checked="enabledCategories[category.id] !== false"
+                @change="toggleCategory(category.id)"
+                class="category-toggle"
+              />
+              <span class="legend-icon">{{ category.icon }}</span>
+              {{ category.label }}
+            </label>
             <!-- Stage hours under Recording -->
-            <template v-if="category.id === 'recording' && stageHours && Object.keys(stageHours).length">
-              <div class="stage-hours-legend">
-                <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-item-legend">
-                  <strong>{{ stageName }}:</strong>
-                    <span v-for="(hour, index) in hours" :key="index" class="hour-slot-legend">
-                    {{ hour.start_time }}–{{ hour.end_time }}
-                    <span v-if="hour.notes" class="hour-notes">({{ hour.notes.startsWith('Day') ? hour.notes : 'Day ' + hour.notes }})</span>
-                  </span>
-                </div>
+            <div v-if="category.id === 'recording' && stageHours && Object.keys(stageHours).length" class="stage-hours-legend">
+              <div v-for="(hours, stageName) in stageHours" :key="stageName" class="stage-hour-item-legend">
+                <strong>{{ stageName }}:</strong>
+                <span v-for="(hour, index) in hours" :key="index" class="hour-slot-legend">
+                  {{ hour.start_time }}–{{ hour.end_time }}
+                  <span v-if="hour.notes" class="hour-notes">({{ hour.notes.startsWith('Day') ? hour.notes : 'Day ' + hour.notes }})</span>
+                </span>
               </div>
-            </template>
-          </label>
+            </div>
+          </div>
         </div>
         <div class="legend-note">
           <small>Note: Stage hours appear as "Recording" events with green borders</small>
@@ -122,6 +122,10 @@ display: flex;
 flex-wrap: wrap;
 gap: 0.75rem;
 margin-top: 0.5rem;
+}
+.legend-item-wrapper {
+display: flex;
+flex-direction: column;
 }
 .legend-item {
 display: flex;

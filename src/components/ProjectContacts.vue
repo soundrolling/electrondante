@@ -111,7 +111,10 @@
             {{ (contact.name || contact.email || '?').charAt(0).toUpperCase() }}
           </div>
           <div class="contact-list-details">
-            <div class="contact-name">{{ contact.name || 'Unnamed Contact' }}</div>
+            <div class="contact-name">
+              {{ contact.name || 'Unnamed Contact' }}
+              <span v-if="contact.is_lead_engineer" class="lead-engineer-badge">Lead Engineer</span>
+            </div>
             <div v-if="contact.role" class="contact-role">{{ displayRole(contact.role) }}</div>
             <div v-if="contact.stage_location" class="contact-location">{{ contact.stage_location }}</div>
             <!-- Desktop-only contact details -->
@@ -239,6 +242,18 @@
               <span v-if="editingFields.stage_ids.includes(loc.id)" class="checkmark">✓</span>
             </button>
           </div>
+        </div>
+
+        <div v-if="editingFields.role_select === 'Spatial Crew'" class="form-group">
+          <label class="form-label lead-engineer-label">
+            <input
+              type="checkbox"
+              v-model="editingFields.is_lead_engineer"
+              class="lead-engineer-checkbox"
+            />
+            Lead Engineer
+          </label>
+          <p class="form-hint">Mark this person as the lead engineer for the project</p>
         </div>
       </div>
 
@@ -541,7 +556,10 @@
               {{ (selectedContact?.name || selectedContact?.email || '?').charAt(0).toUpperCase() }}
             </div>
             <div class="contact-details-large">
-              <h3 class="contact-name-large">{{ selectedContact?.name || 'Unnamed Contact' }}</h3>
+              <h3 class="contact-name-large">
+                {{ selectedContact?.name || 'Unnamed Contact' }}
+                <span v-if="selectedContact?.is_lead_engineer" class="lead-engineer-badge">Lead Engineer</span>
+              </h3>
             </div>
           </div>
           <div class="contact-info-list">
@@ -816,6 +834,7 @@ const editingFields = ref({
   phone: '',
   comments: '',
   stage_ids: [],
+  is_lead_engineer: false,
 });
 const saving = ref(false);
 
@@ -830,6 +849,7 @@ function startEdit(contact) {
     phone: contact.phone || '',
     comments: contact.comments || '',
     stage_ids: contact.stage_ids || [],
+    is_lead_engineer: !!contact.is_lead_engineer,
   };
   showEditModal.value = true;
 }
@@ -844,13 +864,28 @@ async function saveContact() {
   saving.value = true;
   try {
     const f = editingFields.value;
+    const role = resolveRole(f.role_select, f.role_custom_hint);
+    const isLeadEngineer = role === 'Spatial Crew' ? !!f.is_lead_engineer : false;
+
+    // If setting as lead engineer, unset any existing lead engineer for this project
+    if (isLeadEngineer) {
+      await supabase
+        .from('project_contacts')
+        .update({ is_lead_engineer: false })
+        .eq('project_id', currentProject.value.id)
+        .eq('role', 'Spatial Crew')
+        .eq('is_lead_engineer', true)
+        .neq('id', editingContactId.value);
+    }
+
     const upd = {
       name: f.name.trim() || null,
-      role: resolveRole(f.role_select, f.role_custom_hint),
+      role,
       email: f.email.trim() || null,
       phone: f.phone.trim() || null,
       comments: f.comments.trim() || null,
       stage_ids: f.stage_ids,
+      is_lead_engineer: isLeadEngineer,
     };
     await supabase.from('project_contacts').update(upd).eq('id', editingContactId.value).throwOnError();
     
@@ -1660,6 +1695,42 @@ color: var(--text-secondary);
   white-space: normal;
   word-break: break-word;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lead-engineer-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4f46e5;
+  white-space: nowrap;
+}
+
+.lead-engineer-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.lead-engineer-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 4px;
 }
 
 .contact-role {
@@ -2369,6 +2440,10 @@ color: currentColor;
   font-weight: 700;
   color: var(--text-heading);
   line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .contact-role-large {
   font-size: 0.95rem;
