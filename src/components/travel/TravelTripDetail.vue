@@ -161,19 +161,18 @@ methods: {
 /* Consolidated Header Section */
 .consolidated-header {
   background: var(--bg-primary);
-  padding: 20px;
+  padding: 16px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
-  margin-bottom: 24px;
+  border: 1px solid var(--border-light);
+  margin-bottom: 16px;
 }
 
 .header-row-1 {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  align-items: center;
   gap: 16px;
+  margin-bottom: 12px;
 }
 
 .header-row-2 {
@@ -182,29 +181,29 @@ methods: {
 
 .trip-title {
   flex: 1;
-  text-align: center;
+  min-width: 0;
 }
 
 .trip-title h1 {
-  font-size: 24px;
+  font-size: 20px;
   color: var(--text-heading);
   font-weight: 700;
-  margin: 0 0 8px 0;
-  line-height: 1.4;
+  margin: 0 0 4px 0;
+  line-height: 1.3;
 }
 
 .trip-title .trip-dates {
   color: var(--text-secondary);
-  margin: 0 0 8px 0;
-  font-size: 16px;
-  line-height: 1.5;
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .trip-title .trip-destination {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--color-primary-500);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .trip-title .destination-label {
@@ -216,8 +215,8 @@ methods: {
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 16px;
+  gap: 6px;
+  font-size: 14px;
   color: var(--color-primary-500);
   text-decoration: none;
   font-weight: 500;
@@ -225,8 +224,9 @@ methods: {
   border-radius: 8px;
   transition: all 0.2s ease;
   background: rgba(59, 130, 246, 0.1);
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--border-light);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .back-link:hover {
@@ -242,7 +242,7 @@ methods: {
 }
 
 .arrow {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: bold;
 }
 
@@ -253,22 +253,20 @@ methods: {
 /* Tab Navigation */
 .tabs {
   display: flex;
-  justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px;
+  border: 1px solid var(--border-light);
 }
 
 .tab-btn {
-  background: var(--bg-secondary);
-  border: 1px solid #e5e7eb;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 14px;
+  padding: 8px 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   font-weight: 500;
   cursor: pointer;
@@ -277,17 +275,15 @@ methods: {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   min-height: 44px;
   min-width: 44px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  flex: 1;
 }
 
 .tab-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .tab-btn:focus {
@@ -296,19 +292,19 @@ methods: {
 }
 
 .tab-btn.active {
-  background: #3b82f6;
+  background: var(--color-primary-500);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--color-primary-500);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.2);
 }
 
 .tab-icon {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .tab-label {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
 }
 
@@ -317,46 +313,51 @@ methods: {
   background: var(--bg-primary);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
-  padding: 24px 20px;
+  border: 1px solid var(--border-light);
+  padding: 16px;
   min-height: 200px;
 }
 
 /* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .trip-detail-container {
-    padding: 24px;
+    padding: 20px;
   }
-  
-  .trip-header {
-    padding: 32px 24px;
-    margin-bottom: 32px;
+
+  .consolidated-header {
+    padding: 16px 20px;
   }
-  
-  .trip-header h1 {
-    font-size: 28px;
+
+  .trip-title h1 {
+    font-size: 22px;
   }
-  
+
+  .trip-title .trip-dates,
+  .trip-title .trip-destination {
+    font-size: 15px;
+  }
+
   .tabs {
-    padding: 12px;
-    margin-bottom: 32px;
+    padding: 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
   }
-  
+
   .tab-btn {
     flex-direction: row;
-    gap: 8px;
-    padding: 12px 20px;
-    font-size: 16px;
+    gap: 6px;
+    padding: 10px 14px;
+    flex: 1;
   }
-  
+
   .tab-label {
-    font-size: 14px;
+    font-size: 13px;
   }
-  
+
   .tab-content {
-    padding: 24px 20px;
+    padding: 20px;
   }
-  
+
   .back-text {
     display: inline;
   }
@@ -365,31 +366,60 @@ methods: {
 /* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .trip-detail-container {
-    max-width: 1200px;
-    padding: 32px;
+    max-width: 1400px;
+    padding: 24px;
   }
-  
-  .trip-header {
-    padding: 40px 32px;
-    margin-bottom: 40px;
-  }
-  
-  .trip-header h1 {
-    font-size: 32px;
-  }
-  
-  .tabs {
-    padding: 16px;
-    margin-bottom: 40px;
-  }
-  
-  .tab-btn {
+
+  .consolidated-header {
     padding: 16px 24px;
-    font-size: 16px;
+    margin-bottom: 20px;
   }
-  
+
+  .header-row-1 {
+    margin-bottom: 12px;
+  }
+
+  .trip-title h1 {
+    font-size: 24px;
+  }
+
+  .trip-title .trip-dates,
+  .trip-title .trip-destination {
+    font-size: 15px;
+  }
+
+  .tabs {
+    padding: 8px;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .tab-btn {
+    flex-direction: row;
+    gap: 8px;
+    padding: 10px 20px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .tab-icon {
+    font-size: 18px;
+  }
+
+  .tab-label {
+    font-size: 14px;
+  }
+
   .tab-content {
-    padding: 32px 28px;
+    padding: 24px;
+  }
+}
+
+/* Large Desktop Breakpoint (1440px+) */
+@media (min-width: 1440px) {
+  .trip-detail-container {
+    max-width: 1600px;
+    padding: 24px 32px;
   }
 }
 
@@ -398,104 +428,103 @@ methods: {
   .trip-detail-container {
     padding: 12px;
   }
-  
+
   .consolidated-header {
-    padding: 16px;
-    margin-bottom: 20px;
+    padding: 12px;
+    margin-bottom: 12px;
   }
-  
+
   .header-row-1 {
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px;
+    margin-bottom: 10px;
   }
-  
+
   .trip-title h1 {
-    font-size: 22px;
-  }
-  
-  .tabs {
-    gap: 4px;
-    padding: 6px;
-  }
-  
-  .tab-btn {
-    padding: 10px 12px;
-    font-size: 12px;
-  }
-  
-  .tab-icon {
     font-size: 18px;
   }
-  
+
+  .trip-title .trip-dates,
+  .trip-title .trip-destination {
+    font-size: 13px;
+  }
+
+  .tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .tab-btn {
+    padding: 8px 6px;
+    min-width: 0;
+  }
+
+  .tab-icon {
+    font-size: 16px;
+  }
+
   .tab-label {
     font-size: 10px;
   }
-  
+
   .tab-content {
-    padding: 16px 12px;
-  }
-  
-  .back-link {
-    width: 100%;
-    justify-content: center;
+    padding: 12px;
+    border-radius: 10px;
   }
 }
 
 /* Packing Link Section */
 .packing-link-section {
-  padding: 40px 20px;
+  padding: 32px 16px;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 400px;
+  min-height: 300px;
 }
 
 .packing-link-card {
   background: var(--bg-primary);
   border-radius: 16px;
-  padding: 48px 32px;
+  padding: 40px 28px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   text-align: center;
-  max-width: 500px;
+  max-width: 440px;
   width: 100%;
 }
 
 .packing-link-icon {
-  font-size: 64px;
-  margin-bottom: 24px;
+  font-size: 48px;
+  margin-bottom: 16px;
 }
 
 .packing-link-card h2 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  margin: 0 0 16px 0;
-  color: #1a1a1a;
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
 }
 
 .packing-link-description {
-  font-size: 16px;
-  color: #6c757d;
-  margin: 0 0 32px 0;
-  line-height: 1.6;
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
 
 .packing-link-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 14px 28px;
+  gap: 10px;
+  padding: 12px 24px;
   border-radius: 8px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   text-decoration: none;
   transition: all 0.2s ease;
-  min-height: 48px;
+  min-height: 44px;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   box-sizing: border-box;
 }
 
@@ -531,6 +560,15 @@ methods: {
 }
 
 .button-icon {
-  font-size: 20px;
+  font-size: 18px;
+}
+
+@media (min-width: 601px) {
+  .packing-link-button {
+    width: auto;
+    min-width: 200px;
+    margin-left: 6px;
+    margin-right: 6px;
+  }
 }
 </style> 

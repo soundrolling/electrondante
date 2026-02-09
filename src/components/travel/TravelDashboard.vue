@@ -1106,8 +1106,8 @@ setup() {
 
 /* Trip List */
 .trip-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--space-4);
 }
 
@@ -1624,47 +1624,51 @@ setup() {
 /* Tablet Breakpoint (601px - 1024px) */
 @media (min-width: 601px) {
   .travel-dashboard {
-    padding: var(--space-7);
+    padding: var(--space-6);
   }
-  
+
   .header-section {
-    padding: var(--space-9) var(--space-7);
-    margin-bottom: var(--space-9);
+    padding: var(--space-7) var(--space-6);
+    margin-bottom: var(--space-7);
   }
-  
+
   .header-section h1 {
     font-size: var(--text-3xl);
   }
-  
+
   .dashboard-grid {
-    gap: var(--space-7);
+    gap: var(--space-5);
   }
-  
+
   .dashboard-card {
-    padding: var(--space-7) var(--space-6);
+    padding: var(--space-5);
   }
-  
+
+  .trip-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .trip-card {
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-5);
   }
-  
+
   .action-text {
     display: inline;
   }
-  
+
   .button-text {
     display: inline;
   }
-  
+
   .weather-button .button-text {
     display: inline;
   }
-  
-  
+
+
   .form-row {
     flex-direction: row;
   }
-  
+
   .form-row .form-group {
     flex: 1;
   }
@@ -1673,34 +1677,64 @@ setup() {
 /* Desktop Breakpoint (1025px+) */
 @media (min-width: 1025px) {
   .travel-dashboard {
-    padding: var(--space-9);
-    max-width: 1200px;
+    padding: var(--space-6) var(--space-7);
+    max-width: 1400px;
   }
-  
+
   .dashboard-grid {
     max-width: 100%;
   }
-  
+
   .header-section {
-    padding: var(--space-12) var(--space-9);
-    margin-bottom: var(--space-12);
+    padding: var(--space-7) var(--space-6);
+    margin-bottom: var(--space-7);
   }
-  
+
   .header-section h1 {
     font-size: var(--text-4xl);
   }
-  
+
   .dashboard-card {
-    padding: var(--space-9) var(--space-8);
+    padding: var(--space-6);
   }
-  
+
+  .trip-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .trip-card {
-    padding: var(--space-7) var(--space-6);
+    padding: var(--space-5);
   }
-  
+
   .modal-container {
     padding: var(--space-7);
     max-width: 480px;
+  }
+
+  .filters-section {
+    flex-wrap: nowrap;
+    align-items: flex-end;
+  }
+
+  .filter-group {
+    flex: 0 1 220px;
+    min-width: 0;
+  }
+
+  .inline-form {
+    max-width: 640px;
+  }
+}
+
+/* Large Desktop Breakpoint (1440px+) */
+@media (min-width: 1440px) {
+  .travel-dashboard {
+    max-width: 1600px;
+    padding: var(--space-6) var(--space-9);
+  }
+
+  .trip-list {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -1709,58 +1743,66 @@ setup() {
   .travel-dashboard {
     padding: var(--space-3);
   }
-  
+
   .header-section {
-    padding: var(--space-5) var(--space-4);
-    margin-bottom: var(--space-5);
+    padding: var(--space-4) var(--space-3);
+    margin-bottom: var(--space-4);
   }
-  
+
   .header-section h1 {
     font-size: var(--text-xl);
   }
-  
+
   .dashboard-card {
-    padding: var(--space-5) var(--space-4);
+    padding: var(--space-4) var(--space-3);
   }
-  
+
   .trip-card {
-    padding: var(--space-5) var(--space-4);
+    padding: var(--space-4) var(--space-3);
   }
-  
+
   .card-header {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
     gap: var(--space-3);
   }
-  
+
   .add-button {
-    width: 100%;
-    justify-content: center;
+    flex-shrink: 0;
   }
-  
+
   .trip-card-actions {
-    flex-direction: column;
+    flex-direction: row;
   }
-  
+
   .action-button {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
   }
-  
-  
+
   .modal-container {
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-5) var(--space-4);
     margin: var(--space-3);
     max-height: calc(100vh - 24px);
     max-width: calc(100vw - 24px);
     box-sizing: border-box;
   }
-  
+
   .form-actions {
-    flex-direction: column;
+    flex-direction: row;
   }
-  
+
   .form-actions button {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .filters-section {
+    gap: var(--space-3);
+  }
+
+  .filter-group {
+    min-width: 0;
   }
 }
 </style>
