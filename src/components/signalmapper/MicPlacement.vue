@@ -36,6 +36,11 @@
         <Move :size="14" :stroke-width="2" />
         <span>Pan</span>
       </label>
+      <label class="mp-pan-toggle" :class="{ active: rotateMode }" title="Rotate mode: tap a mic and drag around it to rotate">
+        <input type="checkbox" v-model="rotateMode" />
+        <RotateCw :size="14" :stroke-width="2" />
+        <span>Rotate</span>
+      </label>
       <button class="mp-icon-btn" @click="zoomIn" :disabled="!bgImage" title="Zoom in" aria-label="Zoom in">
         <ZoomIn :size="16" :stroke-width="2" />
       </button>
@@ -482,6 +487,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RotateCw,
   Crop,
   Image as ImageIcon,
   Download,
@@ -685,6 +691,28 @@ const selectedMics = ref(new Set()) // Multi-select support
 // Safe two-way bindings so inputs remain mounted when nothing is selected
 const draggingMic = ref(null)
 const draggingMics = ref(new Set()) // Multi-drag support
+
+// Rotate-on-drag mode: when active, tap a mic and drag the pointer in a
+// circle around it to update mic.rotation. Pan and normal drag-to-move
+// are skipped while this mode is on.
+const rotateMode = ref(false)
+const rotatingMic = ref(null)
+let rotatePointerId = null
+let rotateStartPointerAngle = 0
+let rotateStartMicRotation = 0
+
+function angleFromMicToImgPt(mic, imgX, imgY) {
+  return Math.atan2(imgY - mic.y, imgX - mic.x) * 180 / Math.PI
+}
+
+// Pan and Rotate are mutually exclusive modes — enabling one should
+// disable the other so the pointer semantics stay predictable.
+watch(rotateMode, (on) => {
+  if (on) panImageMode.value = false
+})
+watch(panImageMode, (on) => {
+  if (on) rotateMode.value = false
+})
 const dragStartPositions = new Map() // Track starting positions for all dragged mics
 let dragStart = null
 let dragStartPos = null
@@ -2148,6 +2176,22 @@ function onPointerDown(e) {
 
   const imgPt = canvasToImageCoords(x, y)
   const clickedMic = getMicAt(imgPt.imgX, imgPt.imgY)
+
+  // Rotate mode: tapping a mic starts a rotation drag session. We record
+  // the initial angle between the mic centre and the pointer, plus the
+  // mic's current rotation, and update relative to that on each move.
+  if (rotateMode.value && clickedMic) {
+    rotatingMic.value = clickedMic
+    rotatePointerId = e.pointerId
+    rotateStartPointerAngle = angleFromMicToImgPt(clickedMic, imgPt.imgX, imgPt.imgY)
+    rotateStartMicRotation = Number(clickedMic.rotation) || 0
+    // Select the mic so the user sees which one is being rotated
+    selectedMics.value.clear()
+    selectedMics.value.add(clickedMic)
+    selectedMic.value = clickedMic
+    drawCanvas()
+    return
+  }
   
   // For touch/pen: use two-finger tap for multi-select (simulated via timing)
   // For mouse: use Ctrl/Cmd key
@@ -2248,6 +2292,18 @@ function onPointerMove(e) {
   }
 
   // Single pointer gestures
+  // Rotate-on-drag: update the tracked mic's rotation from the pointer angle.
+  if (rotatingMic.value && e.pointerId === rotatePointerId) {
+    const imgPt = canvasToImageCoords(x, y)
+    const currentAngle = angleFromMicToImgPt(rotatingMic.value, imgPt.imgX, imgPt.imgY)
+    const delta = currentAngle - rotateStartPointerAngle
+    let next = rotateStartMicRotation + delta
+    next = ((next % 360) + 360) % 360 // normalise to 0-360
+    rotatingMic.value.rotation = Math.round(next)
+    drawCanvas()
+    return
+  }
+
   // Pan image mode (explicit toggle mode)
   if (panImageMode.value && dragStart && bgImageObj.value) {
     const dx = x - dragStart.x
@@ -2314,6 +2370,18 @@ async function onPointerUp(e) {
     dragStart = null
     dragStartPos = null
     saveImageState()
+    return
+  }
+
+  // Rotate mode: commit rotation and clear state
+  if (rotatingMic.value && e.pointerId === rotatePointerId) {
+    const mic = rotatingMic.value
+    rotatingMic.value = null
+    rotatePointerId = null
+    try {
+      await saveMicUpdate(mic)
+    } catch {}
+    drawCanvas()
     return
   }
 
