@@ -288,6 +288,7 @@
     :locations="locations"
     :categories="eventCategories"
     :contacts="contacts"
+    :project-id="projectId"
     @close="closeDetailsModal"
     @edit="detailsMode = 'edit'"
     @delete="confirmDelete"

@@ -36,6 +36,12 @@
       <div class="modal-actions">
         <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn-warning" @click="$emit('edit')">Edit</button>
         <button v-if="!isStageHourEvent && !localEvent.isSynthetic" class="btn-danger" @click="$emit('delete')">Delete</button>
+        <button v-if="syntheticType === 'build'" class="btn-secondary synthetic-link" @click="goToProjectSettings">
+          Edit in Project Settings →
+        </button>
+        <button v-if="syntheticType === 'travel'" class="btn-secondary synthetic-link" @click="goToTravelDashboard">
+          Edit in Travel →
+        </button>
         <button class="btn-secondary" @click="$emit('close')">Close</button>
       </div>
     </template>
@@ -145,6 +151,10 @@ props: {
   contacts: {
     type: Array,
     default: () => []
+  },
+  projectId: {
+    type: String,
+    default: null
   }
 },
 emits: ['close', 'edit', 'delete', 'save', 'cancel-edit'],
@@ -171,9 +181,28 @@ computed: {
   isContactAssignable() {
     const cat = this.localEvent?.category || this.event?.category;
     return cat === 'calltimes' || cat === 'wraptimes';
+  },
+  syntheticType() {
+    if (!this.event?.isSynthetic) return null;
+    return this.event.category === 'travel' ? 'travel' : 'build';
   }
 },
 methods: {
+  resolvedProjectId() {
+    return this.projectId || this.$route?.params?.id;
+  },
+  goToProjectSettings() {
+    const id = this.resolvedProjectId();
+    if (!id) return;
+    this.$router.push({ name: 'ProjectSettings', params: { id } });
+    this.$emit('close');
+  },
+  goToTravelDashboard() {
+    const id = this.resolvedProjectId();
+    if (!id) return;
+    this.$router.push({ name: 'TravelDashboard', params: { id } });
+    this.$emit('close');
+  },
   formatDate(ds) {
     if (!ds) return "";
     // Append T12:00 for date-only strings to prevent timezone-related date shifts

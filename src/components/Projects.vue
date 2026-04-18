@@ -900,8 +900,9 @@ setup() {
     const dow = monthStart.getDay(); // 0=Sun
     const daysBack = dow === 0 ? 6 : dow - 1;
     const stripStart = new Date(monthStart);
-    stripStart.setDate(stripStart.getDate() - daysBack);
+    stripStart.setDate(stripStart.getDate() - daysBack - 2);
     const stripEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+    stripEnd.setDate(stripEnd.getDate() + 2);
     const today = startOfDay(new Date());
     const oneDay = 86400000;
     const days = [];
