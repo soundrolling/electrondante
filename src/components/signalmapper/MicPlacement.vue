@@ -93,26 +93,26 @@
       </div>
       <div class="legend-items" draggable="false" @dragstart.prevent.stop>
         <div
-          v-for="(label, buttonId) in colorLegendMap"
-          :key="buttonId"
+          v-for="btn in uniqueLegendButtons"
+          :key="btn.id"
           class="legend-item"
           draggable="false"
           @dragstart.prevent.stop
         >
           <div
             class="legend-color-swatch"
-            :style="{ backgroundColor: colorButtons.find(b => b.id === buttonId)?.color || '#ccc' }"
+            :style="{ backgroundColor: btn.color || '#ccc' }"
             draggable="false"
           ></div>
           <div class="legend-item-text" draggable="false">
             <span
-              v-if="nodeNamesByButtonId[buttonId] && nodeNamesByButtonId[buttonId].length"
+              v-if="nodeNamesByColorKey[colorButtonKey(btn)] && nodeNamesByColorKey[colorButtonKey(btn)].length"
               class="legend-node-names"
-              :title="nodeNamesByButtonId[buttonId].join(', ')"
+              :title="nodeNamesByColorKey[colorButtonKey(btn)].join(', ')"
             >
-              {{ nodeNamesByButtonId[buttonId].join(', ') }}
+              {{ nodeNamesByColorKey[colorButtonKey(btn)].join(', ') }}
             </span>
-            <span class="legend-label-text" draggable="false">{{ label }}</span>
+            <span class="legend-label-text" draggable="false">{{ btn.name }}</span>
           </div>
         </div>
       </div>
@@ -175,17 +175,17 @@
             </button>
           </div>
           
-          <!-- Colour Button Selector -->
+          <!-- Colour Button Selector (deduped: one swatch per unique colour+name) -->
           <div class="color-button-selector">
             <div class="color-button-buttons">
               <button
-                v-for="btn in colorButtons"
+                v-for="btn in uniqueColorButtons"
                 :key="btn.id"
                 class="color-button-select-btn"
-                :class="{ active: selectedMic?.color_button_id === btn.id }"
-                :style="{ 
-                  '--btn-color': btn.color, 
-                  '--btn-text': getContrastColor(btn.color) 
+                :class="{ active: isDedupBtnActive(btn) }"
+                :style="{
+                  '--btn-color': btn.color,
+                  '--btn-text': getContrastColor(btn.color)
                 }"
                 @click="applyColorButtonToMic(btn.id)"
                 :title="btn.name"
@@ -740,6 +740,63 @@ const nodeNamesByButtonId = computed(() => {
   })
   return out
 })
+
+// ── Colour-button deduplication ────────────────────────────
+// Sometimes the same colour / name exists as multiple color_button rows
+// (one per placed mic). The selector UI + floating legend should only
+// show ONE representative swatch per unique colour+name pair.
+function colorButtonKey(btn) {
+  return `${String(btn?.color || '').toLowerCase()}|${String(btn?.name || '').trim().toLowerCase()}`
+}
+// One representative button per (colour, name) pair, preserving source order.
+const uniqueColorButtons = computed(() => {
+  const seen = new Map()
+  for (const btn of colorButtons.value || []) {
+    const key = colorButtonKey(btn)
+    if (!seen.has(key)) seen.set(key, btn)
+  }
+  return Array.from(seen.values())
+})
+// Map every color_button id → its dedup key, so we can fold duplicates
+// back together when computing node-name captions.
+const colorKeyByButtonId = computed(() => {
+  const out = {}
+  for (const btn of colorButtons.value || []) {
+    out[btn.id] = colorButtonKey(btn)
+  }
+  return out
+})
+// Merged node-name list keyed by the dedup key, not by button id.
+const nodeNamesByColorKey = computed(() => {
+  const out = {}
+  for (const [btnId, names] of Object.entries(nodeNamesByButtonId.value)) {
+    const key = colorKeyByButtonId.value[btnId]
+    if (!key) continue
+    if (!out[key]) out[key] = []
+    out[key].push(...names)
+  }
+  for (const k of Object.keys(out)) {
+    out[k] = Array.from(new Set(out[k])).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    )
+  }
+  return out
+})
+// Unique buttons that are actually in use by at least one placed mic,
+// in the order they appear in colorButtons.
+const uniqueLegendButtons = computed(() => {
+  return uniqueColorButtons.value.filter(btn => {
+    const key = colorButtonKey(btn)
+    return (nodeNamesByColorKey.value[key] || []).length > 0
+  })
+})
+// True when the selected mic's colour resolves to this dedup entry.
+function isDedupBtnActive(btn) {
+  const cur = selectedMic.value
+  if (!cur?.color_button_id) return false
+  const curKey = colorKeyByButtonId.value[cur.color_button_id]
+  return !!curKey && curKey === colorButtonKey(btn)
+}
 const defaultColor = 'rgba(255,255,255,0.92)'
 
 // Legend position for DOM element (manual drag positioning)
