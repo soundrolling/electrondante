@@ -49,9 +49,71 @@
             <span class="cal-export-menu-item-title">Download .ics file</span>
             <span class="cal-export-menu-item-desc">One-off snapshot for Apple Calendar, Google, Outlook, etc.</span>
           </button>
-          <div class="cal-export-menu-hint">
-            Subscribe URL (auto-updating) coming next — download captures everything
-            including build days and travel events.
+
+          <div class="cal-export-menu-divider"></div>
+
+          <!-- Subscribe URL -->
+          <div class="cal-export-subscribe">
+            <div class="cal-export-subscribe-head">
+              <div>
+                <div class="cal-export-menu-item-title">Subscribe URL</div>
+                <div class="cal-export-menu-item-desc">Auto-updating iCal feed for crew &amp; artists</div>
+              </div>
+              <span v-if="activeShareToken" class="cal-share-badge live">Live</span>
+              <span v-else class="cal-share-badge off">Off</span>
+            </div>
+
+            <div v-if="activeShareToken" class="cal-share-urlbox">
+              <input
+                type="text"
+                readonly
+                class="cal-share-url"
+                :value="activeSubscribeUrl"
+                @focus="$event.target.select()"
+                aria-label="Subscribe URL"
+              />
+              <button class="cal-share-copy" @click="onCopySubscribeUrl" :title="copyHint">
+                {{ copyHint }}
+              </button>
+            </div>
+
+            <div class="cal-share-actions">
+              <button
+                v-if="!activeShareToken"
+                class="cal-share-btn primary"
+                @click="onCreateShare"
+                :disabled="shareBusy"
+              >
+                {{ shareBusy ? 'Creating…' : 'Enable subscribe URL' }}
+              </button>
+              <template v-else>
+                <a
+                  :href="webcalUrl"
+                  class="cal-share-btn primary"
+                  target="_blank"
+                  rel="noopener"
+                  title="Opens your default calendar app with one click"
+                >
+                  Open in calendar
+                </a>
+                <button
+                  class="cal-share-btn"
+                  @click="onCreateShare"
+                  :disabled="shareBusy"
+                  title="Rotate the URL; old subscribers will stop receiving updates"
+                >
+                  {{ shareBusy ? '…' : 'Regenerate' }}
+                </button>
+                <button
+                  class="cal-share-btn danger"
+                  @click="onRevokeShare"
+                  :disabled="shareBusy"
+                  title="Revoke — existing subscribers 404 on next refresh"
+                >
+                  Revoke
+                </button>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -298,6 +360,13 @@ import CalendarTimelineView from "./CalendarTimelineView.vue";
 import CalendarGridView from "./CalendarGridView.vue";
 import CalendarMonthView from "./CalendarMonthView.vue";
 import { downloadCalendarICS } from "@/services/icsExportService";
+import {
+  getActiveShare,
+  createShare,
+  revokeActiveShare,
+  buildSubscribeUrl,
+  toWebcalUrl,
+} from "@/services/calendarShareService";
 import EventDetailsModal from "./EventDetailsModal.vue";
 import NewEventModal from "./NewEventModal.vue";
 import ConfirmationModal from "./ConfirmationModal.vue";
@@ -623,9 +692,82 @@ setup(props, { emit }) {
     openNewEventModal()
   }
 
-  /* ─── .ics export menu ──────────────────────────────── */
+  /* ─── .ics export + subscribe URL ──────────────────── */
   const showExportMenu = ref(false)
   const exportWrapRef = ref(null)
+
+  const activeShareToken = ref(null)
+  const shareBusy = ref(false)
+  const copyHint = ref('Copy')
+
+  const activeSubscribeUrl = computed(() =>
+    activeShareToken.value ? buildSubscribeUrl(activeShareToken.value) : ''
+  )
+  const webcalUrl = computed(() => toWebcalUrl(activeSubscribeUrl.value))
+
+  async function refreshActiveShare() {
+    if (!props.projectId) return
+    try {
+      const row = await getActiveShare(props.projectId)
+      activeShareToken.value = row?.token || null
+    } catch (err) {
+      console.warn('[Calendar] refreshActiveShare failed', err)
+    }
+  }
+
+  async function onCreateShare() {
+    if (!props.projectId || shareBusy.value) return
+    shareBusy.value = true
+    try {
+      const row = await createShare(props.projectId, userStore.getUserId || null)
+      activeShareToken.value = row?.token || null
+      toastMsg.value = 'Subscribe URL ready'
+      setTimeout(() => { toastMsg.value = '' }, 3000)
+    } catch (err) {
+      console.error('[Calendar] createShare failed', err)
+      toastMsg.value = 'Failed to create subscribe URL'
+    } finally {
+      shareBusy.value = false
+    }
+  }
+
+  async function onRevokeShare() {
+    if (!props.projectId || shareBusy.value) return
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      if (!window.confirm('Revoke the current subscribe URL? Anyone using it will stop receiving updates.')) return
+    }
+    shareBusy.value = true
+    try {
+      await revokeActiveShare(props.projectId)
+      activeShareToken.value = null
+      toastMsg.value = 'Subscribe URL revoked'
+      setTimeout(() => { toastMsg.value = '' }, 3000)
+    } catch (err) {
+      console.error('[Calendar] revokeActiveShare failed', err)
+    } finally {
+      shareBusy.value = false
+    }
+  }
+
+  async function onCopySubscribeUrl() {
+    const url = activeSubscribeUrl.value
+    if (!url) return
+    try {
+      await navigator.clipboard.writeText(url)
+      copyHint.value = 'Copied'
+      setTimeout(() => { copyHint.value = 'Copy' }, 1500)
+    } catch {
+      copyHint.value = 'Tap and hold to copy'
+      setTimeout(() => { copyHint.value = 'Copy' }, 2500)
+    }
+  }
+
+  // Fetch the current share token whenever the menu is first opened
+  watch(showExportMenu, (open) => {
+    if (open && activeShareToken.value === null && props.projectId) {
+      refreshActiveShare()
+    }
+  })
 
   function onExportClickOutside(e) {
     if (!showExportMenu.value) return
@@ -1398,6 +1540,8 @@ setup(props, { emit }) {
     getStageHoursForDay, getFilteredStageHoursForDay,
     handleMonthNav, onAddEventForDay,
     showExportMenu, exportWrapRef, onDownloadIcs,
+    activeShareToken, activeSubscribeUrl, webcalUrl, shareBusy, copyHint,
+    onCreateShare, onRevokeShare, onCopySubscribeUrl,
     timeSlots, timelineDayEvents, formattedTimelineDate,
     displayCalendarDays, hasEvents, getEventsForDay,
     showDetailsModal, detailsMode, detailsEvent,
@@ -1590,6 +1734,129 @@ padding: 0 15px;
   border-top: 1px solid var(--surface-border);
   line-height: 1.4;
 }
+.cal-export-menu-divider {
+  height: 1px;
+  background: var(--surface-border);
+  margin: 6px 4px;
+}
+
+.cal-export-subscribe {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cal-export-subscribe-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.cal-share-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.cal-share-badge.live {
+  background: color-mix(in srgb, var(--color-success-500) 15%, transparent);
+  color: var(--color-success-700);
+}
+.cal-share-badge.off {
+  background: var(--chip-bg);
+  color: var(--text-tertiary);
+}
+.cal-share-urlbox {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.cal-share-url {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-share-url:focus {
+  outline: none;
+  border-color: var(--color-primary-300);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.cal-share-copy {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+}
+.cal-share-copy:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+.cal-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cal-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  height: 32px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+}
+.cal-share-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+.cal-share-btn.primary {
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-600);
+  color: #ffffff;
+}
+.cal-share-btn.primary:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+.cal-share-btn.danger {
+  color: var(--color-error-600);
+  border-color: var(--color-error-200);
+}
+.cal-share-btn.danger:hover:not(:disabled) {
+  background: var(--color-error-50);
+  color: var(--color-error-700);
+  border-color: var(--color-error-300);
+}
+.cal-share-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 @media (max-width: 640px) {
   .cal-export-menu {
