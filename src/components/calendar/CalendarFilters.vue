@@ -194,18 +194,17 @@ watch: {
 /* Mobile filter button */
 .mobile-filter-button {
   display: none;
-  min-height: 44px;
+  min-height: 34px;
   min-width: 44px;
-  padding: 0.6rem 1.2rem;
+  padding: 0.35rem 0.9rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.85rem;
   transition: background 0.2s;
   background: var(--color-secondary-400);
   color: var(--text-inverse);
-  width: 100%;
-  margin-bottom: 0.5rem;
 }
 
 .mobile-filter-button:hover {

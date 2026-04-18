@@ -2058,16 +2058,24 @@ box-sizing: border-box;
 /* RESPONSIVE */
 @media (max-width: 768px) {
   .controls-section {
-    flex-direction: column;
+    padding: 0.4rem 0.5rem;
   }
-  
+
   .desktop-add-button,
   .desktop-refresh-button {
     display: none;
   }
-  
+
   .mobile-fab {
     display: flex;
+  }
+
+  .status-section {
+    padding: 0.3rem 0.5rem;
+  }
+
+  .views-container {
+    padding: 4px 0 0 0;
   }
 }
 

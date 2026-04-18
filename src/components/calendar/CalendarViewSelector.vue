@@ -81,6 +81,9 @@ const views = [
   }
   .cal-view-selector::-webkit-scrollbar { display: none; }
   .cal-view-btn { padding: 6px 10px; }
-  .cal-view-label { display: inline; }
+}
+@media (max-width: 480px) {
+  .cal-view-label { display: none; }
+  .cal-view-btn { padding: 6px 8px; gap: 0; }
 }
 </style>

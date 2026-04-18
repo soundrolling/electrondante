@@ -77,7 +77,7 @@
               @keydown.space.prevent="$emit('event-click', evt)"
             >
               <div class="event-flex">
-                <div class="event-times-col">
+                <div v-if="!isAllDay(evt)" class="event-times-col">
                   <div class="event-time event-time-start">{{ formatTime12(getDisplayStartTime(evt, day.date)) }}</div>
                   <div class="event-arrow">↓</div>
                   <div class="event-time event-time-end">{{ formatTime12(getDisplayEndTime(evt, day.date)) }}</div>
@@ -164,6 +164,9 @@ data() {
   }
 },
 methods: {
+  isAllDay(evt) {
+    return evt.start_time === '00:00' && (evt.end_time === '23:59' || evt.end_time === '23:59:00');
+  },
   formatTime12(ts) {
     if (!ts) return '';
     // Accepts 'HH:mm' or 'HH:mm:ss'
@@ -318,6 +321,17 @@ display: flex;
 align-items: center;
 justify-content: space-between;
 margin-bottom: 0.5rem;
+gap: 0.25rem;
+}
+.calendar-header strong {
+  flex: 1;
+  text-align: center;
+  font-size: 0.95rem;
+}
+@media (max-width: 480px) {
+  .calendar-header strong { font-size: 0.82rem; }
+  .nav-button { min-width: 36px; min-height: 36px; padding: 0.3rem 0.5rem; }
+  .jump-today-btn { padding: 0.3rem 0.6rem; font-size: 0.82rem; margin-left: 0.25rem; }
 }
 .nav-button {
 background: var(--bg-secondary);
