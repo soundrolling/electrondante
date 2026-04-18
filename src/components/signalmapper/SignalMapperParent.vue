@@ -1455,16 +1455,18 @@ onMounted(async () => {
   z-index: var(--z-modal);
   padding: var(--space-4);
 }
-.copy-modal {
+.modal-content,
+.copy-modal,
+.export-modal {
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  max-width: 480px;
   width: 100%;
   max-height: 90vh;
   overflow: auto;
   box-shadow: var(--shadow-xl);
 }
+.copy-modal { max-width: 480px; }
 .modal-header {
   display: flex;
   justify-content: space-between;
