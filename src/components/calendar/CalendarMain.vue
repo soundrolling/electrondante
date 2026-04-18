@@ -434,19 +434,6 @@ setup(props, { emit }) {
   const projectId = computed(() => props.projectId || userStore.getCurrentProject?.id);
   
   // Use composables
-  const calendarEvents = useCalendarEvents(projectId, userStore);
-  const {
-    loading: eventsLoading,
-    error: eventsError,
-    events,
-    allEvents,
-    fetchEvents,
-    fetchTravelTrips,
-    createEvent,
-    updateEvent,
-    deleteEvent
-  } = calendarEvents;
-  
   const calendarNavigation = useCalendarNavigation();
   const {
     currentDate,
@@ -476,13 +463,27 @@ setup(props, { emit }) {
   const stageHoursError = ref("");
   const toastMsg = ref("");
 
+  // Pass locations ref so synthetic events pick up location_id once locations load
+  const calendarEvents = useCalendarEvents(projectId, userStore, locations);
+  const {
+    loading: eventsLoading,
+    error: eventsError,
+    events,
+    allEvents,
+    fetchEvents,
+    fetchTravelTrips,
+    createEvent,
+    updateEvent,
+    deleteEvent
+  } = calendarEvents;
+
   const currentView = ref(props.initialView || "month");
-  
+
   // Watch for view changes and emit event
   watch(currentView, (newView) => {
     emit('view-changed', newView);
   });
-  
+
   // Watch for date changes and emit event
   watch(currentDate, (newDate) => {
     emit('date-changed', newDate);
