@@ -560,6 +560,7 @@ import { supabase }                 from '@/supabase';
 import { useUserStore }             from '@/stores/userStore';
 import { useToast }                 from 'vue-toastification';
 import { mutateTableData }          from '@/services/dataService';
+import { cachedFetch, setCachedQuery, clearQueryCache } from '@/services/queryCache';
 import {
   Plus,
   X,
@@ -585,7 +586,6 @@ import {
 } from 'lucide-vue-next';
 
 // Cache key will be generated dynamically with user ID for security
-const getCacheKey = (userId) => `userProjects_v2_${userId}`;
 
 export default {
 components: {
@@ -722,106 +722,96 @@ setup() {
   /* ─────────────────────────────────────────────
      1. FETCH PROJECTS
   ───────────────────────────────────────────── */
+
+  // Extract the network fetch so it can be used as the queryFn for cachedFetch
+  async function _fetchProjectsFromNetwork(uid, email) {
+    const PROJECT_COLS = 'id, project_name, created_at, user_id, location, official_website, main_show_days, build_days, archived';
+
+    const [{ data: owned }, { data: memberRows }] = await Promise.all([
+      supabase.from('projects').select(PROJECT_COLS).eq('user_id', uid),
+      supabase.from('project_members')
+        .select(`role, projects:project_id ( ${PROJECT_COLS} )`)
+        .or(`user_id.eq.${uid},user_email.eq.${email}`)
+    ]);
+
+    const memberProjects = (memberRows || [])
+      .filter(r => r.projects)
+      .map(r => ({ ...r.projects, role: r.role }));
+
+    const map = new Map();
+    (owned || []).forEach(p => map.set(p.id, { ...p, role: 'owner' }));
+    memberProjects.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
+    const list = Array.from(map.values());
+
+    // Enrich with Spatial Crew contacts
+    const projectIds = list.map(p => p.id);
+    if (projectIds.length) {
+      const { data: crewContacts } = await supabase
+        .from('project_contacts')
+        .select('id, project_id, name, email, is_lead_engineer')
+        .eq('role', 'Spatial Crew')
+        .in('project_id', projectIds);
+      if (crewContacts) {
+        const byProject = {};
+        crewContacts.forEach(c => {
+          if (!byProject[c.project_id]) byProject[c.project_id] = [];
+          byProject[c.project_id].push(c);
+        });
+        list.forEach(p => {
+          p.spatialCrew = (byProject[p.id] || []).sort((a, b) => {
+            if (a.is_lead_engineer && !b.is_lead_engineer) return -1;
+            if (!a.is_lead_engineer && b.is_lead_engineer) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+          });
+        });
+      }
+    }
+    return list;
+  }
+
+  function _applyProjects(list, uid) {
+    // Security: only keep rows that belong to this user
+    const valid = list.filter(p =>
+      p.user_id === uid || (p.role && ['owner', 'member', 'viewer'].includes(p.role))
+    );
+    projects.value = valid;
+    sortProjects();
+  }
+
   const fetchUserProjects = async (force = false) => {
     try {
       const { data: session } = await supabase.auth.getSession();
       const uid   = session?.session?.user?.id || '';
       const email = session?.session?.user?.email?.toLowerCase() || '';
-      
-      // Security check: ensure we have a valid user session
-      if (!uid) {
-        console.warn('No valid user session found, clearing projects');
-        projects.value = [];
-        return;
-      }
 
-      // Use user-specific cache key for security
-      const cacheKey = getCacheKey(uid);
-      
-      if (!force) {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const cachedProjects = JSON.parse(cached);
-            // Additional security: validate cached projects belong to current user
-            const validProjects = cachedProjects.filter(p =>
-              p.user_id === uid ||
-              (p.role && ['owner', 'member', 'viewer'].includes(p.role))
-            );
-            if (cachedProjects.length > 0 && validProjects.length === cachedProjects.length) {
-              projects.value = validProjects;
-              sortProjects();
-              return;
-            } else {
-              console.warn('Cached projects contain invalid data, fetching fresh data');
-              localStorage.removeItem(cacheKey);
-            }
-          } catch (e) {
-            console.warn('Invalid cached projects data, fetching fresh data');
-            localStorage.removeItem(cacheKey);
+      if (!uid) { projects.value = []; return; }
+
+      const cacheKey = `projects:list:${uid}`;
+
+      const { data, fromCache } = await cachedFetch(
+        cacheKey,
+        () => _fetchProjectsFromNetwork(uid, email),
+        {
+          ttl: 5 * 60 * 1000,
+          force,
+          onUpdate: (fresh) => {
+            _applyProjects(fresh, uid);
           }
         }
+      );
+
+      if (fromCache) {
+        _applyProjects(data, uid);
+      } else {
+        _applyProjects(data ?? [], uid);
       }
-      
-      loading.value = true;
-
-      const PROJECT_COLS = 'id, project_name, created_at, user_id, location, official_website, main_show_days, build_days, archived';
-
-      /* owned + member in parallel */
-      const [{ data: owned }, { data: memberRows }] = await Promise.all([
-        supabase
-          .from('projects')
-          .select(PROJECT_COLS)
-          .eq('user_id', uid),
-        supabase
-          .from('project_members')
-          .select(`role, projects:project_id ( ${PROJECT_COLS} )`)
-          .or(`user_id.eq.${uid},user_email.eq.${email}`)
-      ]);
-
-      const memberProjects = (memberRows || [])
-        .filter(r => r.projects)
-        .map(r => ({ ...r.projects, role: r.role }));
-
-      /* merge */
-      const map = new Map();
-      (owned || []).forEach(p => map.set(p.id, { ...p, role: 'owner' }));
-      memberProjects.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
-
-      projects.value = Array.from(map.values());
-      sortProjects();
-
-      // Fetch Spatial Crew contacts for all projects
-      const projectIds = projects.value.map(p => p.id);
-      if (projectIds.length) {
-        const { data: crewContacts } = await supabase
-          .from('project_contacts')
-          .select('id, project_id, name, email, is_lead_engineer')
-          .eq('role', 'Spatial Crew')
-          .in('project_id', projectIds);
-        if (crewContacts) {
-          const byProject = {};
-          crewContacts.forEach(c => {
-            if (!byProject[c.project_id]) byProject[c.project_id] = [];
-            byProject[c.project_id].push(c);
-          });
-          projects.value.forEach(p => {
-            // Sort: lead engineer first, then alphabetical
-            p.spatialCrew = (byProject[p.id] || []).sort((a, b) => {
-              if (a.is_lead_engineer && !b.is_lead_engineer) return -1;
-              if (!a.is_lead_engineer && b.is_lead_engineer) return 1;
-              return (a.name || '').localeCompare(b.name || '');
-            });
-          });
-        }
-      }
-
-      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
     } catch (e) {
       console.error('Error loading projects:', e.message);
       toast.error(`Error loading projects: ${e.message}`);
       projects.value = [];
-    } finally { loading.value = false; }
+    } finally {
+      loading.value = false;
+    }
   };
 
   /* ───────── SORTING ───────── */
@@ -849,9 +839,6 @@ setup() {
     try {
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.session?.user?.id;
-      if (uid) {
-        localStorage.removeItem(getCacheKey(uid));
-      }
       await fetchUserProjects(true);
     } finally {
       setTimeout(() => { isRefreshing.value = false; }, 400);
@@ -994,8 +981,7 @@ setup() {
 
       projectRow.role='owner';
       projects.value.push(projectRow);
-      const cacheKey = getCacheKey(uid);
-      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Project created.');
       newProjectName.value='';
       newProjectLocation.value='';
@@ -1020,10 +1006,7 @@ setup() {
       if (p) p.project_name = newName.trim();
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.session?.user?.id;
-      if (uid) {
-        const cacheKey = getCacheKey(uid);
-        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
-      }
+      if (uid) setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Project renamed.');
     } catch(e){ toast.error(e.message); }
   };
@@ -1036,10 +1019,7 @@ setup() {
       projects.value = projects.value.filter(p=>p.id!==id);
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.session?.user?.id;
-      if (uid) {
-        const cacheKey = getCacheKey(uid);
-        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
-      }
+      if (uid) setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Project deleted.');
     } catch(e){ toast.error(e.message); }
   };
@@ -1068,8 +1048,7 @@ setup() {
 
       dup.role='owner';
       projects.value.push(dup);
-      const cacheKey = getCacheKey(uid);
-      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      setCachedQuery(`projects:list:${uid}`, projects.value);
       sortProjects();
       toast.success('Project duplicated.');
     } catch(e){ toast.error(e.message); }
@@ -1086,8 +1065,7 @@ setup() {
         project_id:p.id, user_id:uid
       });
       projects.value = projects.value.filter(x=>x.id!==p.id);
-      const cacheKey = getCacheKey(uid);
-      localStorage.setItem(cacheKey, JSON.stringify(projects.value));
+      setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Left project.');
     } catch(e){ toast.error(e.message); }
   };
@@ -1247,10 +1225,7 @@ setup() {
       }
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.session?.user?.id;
-      if (uid) {
-        const cacheKey = getCacheKey(uid);
-        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
-      }
+      if (uid) setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Project updated.');
       closeEditModal();
     } catch (e) {
@@ -1265,10 +1240,7 @@ setup() {
       p.archived = true;
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.session?.user?.id;
-      if (uid) {
-        const cacheKey = getCacheKey(uid);
-        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
-      }
+      if (uid) setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Project archived.');
     } catch (e) {
       toast.error(e.message);
@@ -1281,10 +1253,7 @@ setup() {
       p.archived = false;
       const { data: session } = await supabase.auth.getSession();
       const uid = session?.session?.user?.id;
-      if (uid) {
-        const cacheKey = getCacheKey(uid);
-        localStorage.setItem(cacheKey, JSON.stringify(projects.value));
-      }
+      if (uid) setCachedQuery(`projects:list:${uid}`, projects.value);
       toast.success('Project unarchived.');
     } catch (e) {
       toast.error(e.message);
@@ -1301,16 +1270,8 @@ setup() {
     const uid = session?.session?.user?.id;
 
     if (!uid) {
-      console.warn('No valid user session on mount, clearing all project caches');
-      // Clear any existing project caches for security
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('userProjects_')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.warn('No valid user session on mount, clearing project caches');
+      clearQueryCache();
       projects.value = [];
       return;
     }

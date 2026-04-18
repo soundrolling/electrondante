@@ -2,7 +2,7 @@ import { useToast } from 'vue-toastification';
 const toast = useToast();
 
 const DB_NAME = 'ProjectManagementDB';
-const DB_VERSION = 15;
+const DB_VERSION = 16;
 
 let db = null;
 
@@ -45,6 +45,10 @@ export async function openDB() {
 
       if (!database.objectStoreNames.contains('settings')) {
         database.createObjectStore('settings', { keyPath: 'key' });
+      }
+
+      if (!database.objectStoreNames.contains('query_cache')) {
+        database.createObjectStore('query_cache', { keyPath: 'key' });
       }
 
       if (!database.objectStoreNames.contains('document_files')) {
