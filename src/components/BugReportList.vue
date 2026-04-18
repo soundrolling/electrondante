@@ -123,6 +123,21 @@
               </span>
             </div>
             <div class="report-actions">
+              <select
+                :value="report.status"
+                @change="updateReportStatus(report.id, $event.target.value)"
+                class="inline-status-select"
+                :class="`status-${report.status}`"
+                @click.stop
+                title="Update status"
+                :disabled="updatingStatusIds.has(report.id)"
+                aria-label="Update report status"
+              >
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">{{ report.type === 'bug' ? 'Fixed' : 'Completed' }}</option>
+                <option value="closed">Closed</option>
+              </select>
               <router-link
                 :to="{ name: 'BugReportDetail', params: { projectId: currentProjectId, reportId: report.id } }"
                 class="btn btn-primary view-details-btn"
@@ -228,32 +243,18 @@
                 </div>
               </div>
 
-              <div class="detail-section">
-                <h5>Status Management</h5>
-                <div class="status-controls">
-                  <select 
-                    :value="report.status" 
-                    @change="updateReportStatus(report.id, $event.target.value)"
-                    class="status-select"
-                  >
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Fixed / Completed</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                  
-                  <button 
-                    @click="deleteReport(report.id)"
-                    class="btn btn-danger delete-btn"
-                    title="Delete report"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3,6 5,6 21,6"></polyline>
-                      <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
-                    </svg>
-                    Delete
-                  </button>
-                </div>
+              <div class="detail-section delete-section">
+                <button
+                  @click="deleteReport(report.id)"
+                  class="btn btn-danger delete-btn"
+                  title="Delete report"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3,6 5,6 21,6"></polyline>
+                    <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                  </svg>
+                  Delete Report
+                </button>
               </div>
             </div>
           </div>
@@ -353,7 +354,7 @@ export default {
     
     const getStatusLabel = (status, type = '') => {
       if (status === 'resolved') return type === 'bug' ? 'Fixed' : 'Completed'
-      const labels = { open: 'Open', in_progress: 'In Progress', resolved: 'Fixed / Completed', closed: 'Closed' }
+      const labels = { open: 'Open', in_progress: 'In Progress', closed: 'Closed' }
       return labels[status] || status
     }
     
@@ -395,11 +396,19 @@ export default {
       }
     }
     
+    const updatingStatusIds = ref(new Set())
+
     const updateReportStatus = async (reportId, newStatus) => {
+      if (updatingStatusIds.value.has(reportId)) return
+      updatingStatusIds.value = new Set([...updatingStatusIds.value, reportId])
       try {
         await bugReportStore.updateReportStatus(reportId, newStatus)
       } catch (error) {
         console.error('Error updating report status:', error)
+      } finally {
+        const next = new Set(updatingStatusIds.value)
+        next.delete(reportId)
+        updatingStatusIds.value = next
       }
     }
     
@@ -434,6 +443,7 @@ export default {
       applyFilters,
       clearFilters,
       refreshReports,
+      updatingStatusIds,
       updateReportStatus,
       deleteReport,
       currentProjectId
@@ -906,6 +916,48 @@ export default {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--text-sm);
+}
+
+.inline-status-select {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-width: 110px;
+}
+
+.inline-status-select.status-open {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-200);
+}
+
+.inline-status-select.status-in_progress {
+  background: var(--color-warning-50);
+  color: var(--color-warning-700);
+  border-color: var(--color-warning-200);
+}
+
+.inline-status-select.status-resolved {
+  background: var(--color-success-50);
+  color: var(--color-success-700);
+  border-color: var(--color-success-200);
+}
+
+.inline-status-select.status-closed {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+}
+
+.delete-section {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
 }
 
 .delete-btn {
