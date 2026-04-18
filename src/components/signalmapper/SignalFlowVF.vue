@@ -131,11 +131,13 @@
   </div>
 
   <!-- Edge inspector (teleported so it anchors to the viewport, not the
-       VueFlow transform context). -->
+       VueFlow transform context). Positioned near where the edge was
+       clicked, with viewport-edge clamping. -->
   <Teleport to="body">
     <aside
       v-if="selectedEdge && selectedEdgeData"
       class="sfv-inspector"
+      :style="edgeInspectorStyle"
       @click.stop
     >
       <header class="sfv-inspector-head">
@@ -385,10 +387,46 @@ const selectedEdgeData = computed(() => {
 const inspectorNode = ref(null)      // classic NodeInspector
 const venueSourcesNode = ref(null)   // special-cased venue_sources modal
 
-function onEdgeClick({ edge }) {
+/* Edge inspector popover position — anchored near the click */
+const edgeInspectorPos = ref({ top: null, left: null })
+const EDGE_INSPECTOR_WIDTH = 320
+const EDGE_INSPECTOR_HEIGHT_EST = 240
+
+function positionEdgeInspector(clientX, clientY) {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const margin = 12
+  let left = clientX + margin
+  let top = clientY + margin
+  // Clamp right
+  if (left + EDGE_INSPECTOR_WIDTH + margin > vw) {
+    left = Math.max(margin, clientX - EDGE_INSPECTOR_WIDTH - margin)
+  }
+  // Clamp bottom
+  if (top + EDGE_INSPECTOR_HEIGHT_EST + margin > vh) {
+    top = Math.max(margin, clientY - EDGE_INSPECTOR_HEIGHT_EST - margin)
+  }
+  edgeInspectorPos.value = { top, left }
+}
+
+const edgeInspectorStyle = computed(() => {
+  // Disable this style on small viewports — the CSS @media rule below takes
+  // over and pins the inspector to a bottom sheet instead of following the
+  // finger tap.
+  if (typeof window !== 'undefined' && window.innerWidth <= 600) return {}
+  const { top, left } = edgeInspectorPos.value
+  if (top == null || left == null) return {}
+  return { top: `${top}px`, left: `${left}px`, right: 'auto' }
+})
+
+function onEdgeClick({ edge, event }) {
   selectedEdge.value = edge
   inspectorNode.value = null
   venueSourcesNode.value = null
+  const ev = event && (event.changedTouches?.[0] || event.touches?.[0] || event)
+  const cx = typeof ev?.clientX === 'number' ? ev.clientX : window.innerWidth / 2
+  const cy = typeof ev?.clientY === 'number' ? ev.clientY : window.innerHeight / 2
+  positionEdgeInspector(cx, cy)
 }
 function onNodeClick({ node }) {
   selectedEdge.value = null
