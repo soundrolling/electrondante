@@ -139,6 +139,16 @@
             </div>
 
             <router-link
+              to="/projects"
+              class="user-menu-item"
+              role="menuitem"
+              @click="closeUserMenu"
+            >
+              <LayoutGrid :size="18" :stroke-width="2" />
+              <span>All Projects</span>
+            </router-link>
+
+            <router-link
               :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
               class="user-menu-item"
               role="menuitem"
@@ -216,7 +226,7 @@
         <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="sheet-link" @click="showMobileMenu = false">
           <Home :size="18" :stroke-width="2" /> <span>Project Home</span>
         </router-link>
-        <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="sheet-link" @click="showMobileMenu = false">
+        <router-link v-if="isAuthenticated" to="/projects" class="sheet-link" @click="showMobileMenu = false">
           <LayoutGrid :size="18" :stroke-width="2" /> <span>All Projects</span>
         </router-link>
         <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="sheet-link" @click="showMobileMenu = false">

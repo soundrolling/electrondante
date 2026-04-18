@@ -745,11 +745,11 @@ setup() {
           try {
             const cachedProjects = JSON.parse(cached);
             // Additional security: validate cached projects belong to current user
-            const validProjects = cachedProjects.filter(p => 
-              p.user_id === uid || 
+            const validProjects = cachedProjects.filter(p =>
+              p.user_id === uid ||
               (p.role && ['owner', 'member', 'viewer'].includes(p.role))
             );
-            if (validProjects.length === cachedProjects.length) {
+            if (cachedProjects.length > 0 && validProjects.length === cachedProjects.length) {
               projects.value = validProjects;
               sortProjects();
               return;
