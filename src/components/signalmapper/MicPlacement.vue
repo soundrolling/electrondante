@@ -27,19 +27,19 @@
   <div class="mp-toolbar">
     <button class="mp-primary-btn" @click="openGearModal">
       <Plus :size="16" :stroke-width="2" />
-      <span>Add microphone</span>
+      <span class="mp-btn-label">Add microphone</span>
     </button>
 
     <div class="mp-image-controls">
       <label class="mp-pan-toggle" :class="{ active: panImageMode }">
         <input type="checkbox" v-model="panImageMode" />
         <Move :size="14" :stroke-width="2" />
-        <span>Pan</span>
+        <span class="mp-toggle-label">Pan</span>
       </label>
       <label class="mp-pan-toggle" :class="{ active: rotateMode }" title="Rotate mode: tap a mic and drag around it to rotate">
         <input type="checkbox" v-model="rotateMode" />
         <RotateCw :size="14" :stroke-width="2" />
-        <span>Rotate</span>
+        <span class="mp-toggle-label">Rotate</span>
       </label>
       <button class="mp-icon-btn" @click="zoomIn" :disabled="!bgImage" title="Zoom in" aria-label="Zoom in">
         <ZoomIn :size="16" :stroke-width="2" />
@@ -50,15 +50,25 @@
       <button class="mp-icon-btn" @click="resetImageView" :disabled="!bgImage" title="Reset view" aria-label="Reset view">
         <RotateCcw :size="16" :stroke-width="2" />
       </button>
-      <button class="mp-icon-btn" @click="openCropModal" :disabled="!bgImage" title="Crop image" aria-label="Crop image">
+      <button v-if="!isMobile" class="mp-icon-btn" @click="openCropModal" :disabled="!bgImage" title="Crop image" aria-label="Crop image">
         <Crop :size="16" :stroke-width="2" />
       </button>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
       <button class="mp-icon-btn" @click="triggerImageUpload" :title="bgImage ? 'Replace image' : 'Upload image'" aria-label="Upload or replace image">
         <ImageIcon :size="16" :stroke-width="2" />
       </button>
-      <button class="mp-icon-btn" @click="exportToPDF" :disabled="!bgImage" title="Download image" aria-label="Download image">
+      <button v-if="!isMobile" class="mp-icon-btn" @click="exportToPDF" :disabled="!bgImage" title="Download image" aria-label="Download image">
         <Download :size="16" :stroke-width="2" />
+      </button>
+      <button
+        v-if="isMobile && legendEntriesByMic.length > 0"
+        class="mp-icon-btn"
+        :class="{ active: showMobileLegend }"
+        @click="showMobileLegend = !showMobileLegend"
+        title="Toggle legend"
+        aria-label="Toggle legend"
+      >
+        <List :size="16" :stroke-width="2" />
       </button>
     </div>
   </div>
@@ -77,10 +87,10 @@
       @wheel="onWheel"
       @dblclick="onDoubleClick"
     />
-    <!-- Color Legend -->
-    <div 
-      v-if="showLegend" 
-      class="color-legend" 
+    <!-- Color Legend (desktop only — on mobile shown as bottom sheet) -->
+    <div
+      v-if="showLegend && !isMobile"
+      class="color-legend"
       :class="{ 'legend-dragging': legendDragging }"
       :style="legendStyle"
       draggable="false"
@@ -466,6 +476,27 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile legend bottom sheet -->
+  <Teleport to="body">
+    <div v-if="isMobile && showMobileLegend && legendEntriesByMic.length > 0" class="mp-mobile-legend-overlay" @click.self="showMobileLegend = false">
+      <div class="mp-mobile-legend-sheet">
+        <div class="mp-mobile-legend-header">
+          <h4>{{ stageName || 'Color Legend' }}</h4>
+          <button @click="showMobileLegend = false" class="legend-close-btn">×</button>
+        </div>
+        <div class="mp-mobile-legend-items">
+          <div v-for="entry in legendEntriesByMic" :key="entry.nodeId" class="legend-item">
+            <div class="legend-color-swatch" :style="{ backgroundColor: entry.color || '#ccc' }"></div>
+            <div class="legend-item-text">
+              <span class="legend-node-names">{{ entry.nodeName }}</span>
+              <span class="legend-label-text">{{ entry.buttonName }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </div>
 </template>
 
@@ -488,6 +519,7 @@ import {
   Image as ImageIcon,
   Download,
   Smartphone,
+  List,
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -657,9 +689,11 @@ async function setBackgroundImage(src, state) {
       } else {
         // Auto-fit when no prior state is provided
         const fit = fitImageToCanvas(img)
-        scaleFactor.value = fit.scale
-        imageOffsetX.value = fit.offsetX
-        imageOffsetY.value = fit.offsetY
+        // On mobile, zoom in 1.5x so mics are easier to tap; user can pinch-to-zoom out
+        const mobileBoost = isMobile.value ? 1.5 : 1
+        scaleFactor.value = fit.scale * mobileBoost
+        imageOffsetX.value = (canvasWidth.value - img.width * scaleFactor.value) / 2
+        imageOffsetY.value = (canvasHeight.value - img.height * scaleFactor.value) / 2
       }
       drawCanvas()
       resolve()
@@ -745,6 +779,7 @@ const contextMenuLabelBgColor = ref('rgba(255,255,255,0.92)')
 
 // Color legend state
 const showLegend = ref(false)
+const showMobileLegend = ref(false)
 const colorLegendMap = ref({}) // Map of color -> label
 
 // Map color_button_id → sorted array of placed-mic track names.
@@ -3780,14 +3815,56 @@ defineExpose({ getCanvasDataURL })
   .mp-count { align-items: flex-start; }
   .mp-toolbar {
     padding: 6px var(--space-3) var(--space-2);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--space-2);
+    overflow-x: auto;
   }
-  .mp-primary-btn { width: 100%; justify-content: center; height: 42px; }
-  .mp-image-controls { margin-left: 0; flex-wrap: wrap; width: 100%; }
-  .mp-icon-btn { width: 40px; height: 40px; }
-  .mp-pan-toggle { height: 40px; padding: 0 14px; }
+  .mp-primary-btn { height: 38px; flex-shrink: 0; }
+  .mp-btn-label { display: none; }
+  .mp-image-controls { margin-left: auto; flex-wrap: nowrap; flex-shrink: 0; }
+  .mp-icon-btn { width: 36px; height: 36px; }
+  .mp-icon-btn.active { background: var(--surface-card); color: var(--color-primary-600); }
+  .mp-pan-toggle { height: 36px; padding: 0 8px; }
+  .mp-toggle-label { display: none; }
   .mp-mobile-tip { margin: 0 var(--space-3) var(--space-2); }
+}
+
+/* Mobile legend bottom sheet */
+.mp-mobile-legend-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1100;
+  display: flex;
+  align-items: flex-end;
+}
+.mp-mobile-legend-sheet {
+  width: 100%;
+  background: var(--surface-card, var(--bg-primary));
+  border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  padding: var(--space-4, 16px);
+  max-height: 60vh;
+  overflow-y: auto;
+  animation: mp-sheet 200ms cubic-bezier(0.25, 0.8, 0.35, 1);
+  padding-bottom: max(var(--space-4, 16px), env(safe-area-inset-bottom, 0px));
+}
+.mp-mobile-legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3, 12px);
+}
+.mp-mobile-legend-header h4 {
+  margin: 0;
+  font-size: var(--text-base, 1rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-primary);
+}
+.mp-mobile-legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
 }
 
 /* ═══ Legacy / canvas styles below ═══ */

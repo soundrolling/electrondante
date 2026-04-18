@@ -489,8 +489,8 @@ const exportProgress = ref('')
 // Flow editor preference (classic canvas vs beta vue-flow)
 const flowEditor = ref(
   typeof localStorage !== 'undefined'
-    ? (localStorage.getItem(FLOW_EDITOR_KEY) || 'classic')
-    : 'classic'
+    ? (localStorage.getItem(FLOW_EDITOR_KEY) || 'beta')
+    : 'beta'
 )
 function setFlowEditor(next) {
   flowEditor.value = next
