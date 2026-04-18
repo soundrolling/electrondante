@@ -188,4 +188,14 @@ color: var(--text-tertiary);
     padding-right: 0.5rem;
   }
 }
+@media (max-width: 600px) {
+  .legend-section, .legend-standout {
+    padding: 0.4rem 0.5rem;
+    margin-bottom: 0;
+  }
+  .legend-header h3 {
+    font-size: 0.85rem;
+    margin: 0;
+  }
+}
 </style> 
