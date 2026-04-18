@@ -29,46 +29,26 @@ export function usePackingGear(userId, effectiveProjectId, gearAssignedCounts) {
         if (userGearItems.length > 0) {
           const userGearIds = userGearItems.map(g => g.user_gear_id).filter(Boolean)
 
-          // Fetch user_gear records to check ownership
+          // Fetch ownership + weight in a single query
           const { data: userGearData, error } = await supabase
             .from('user_gear')
-            .select('id, user_id')
+            .select('id, user_id, weight_kg')
             .in('id', userGearIds)
 
           if (!error && userGearData) {
-            const userGearOwnershipMap = {}
-            userGearData.forEach(ug => {
-              userGearOwnershipMap[ug.id] = ug.user_id
-            })
+            const userGearMap = {}
+            userGearData.forEach(ug => { userGearMap[ug.id] = ug })
 
-            // Filter to only gear owned by the current user
+            // Filter to only gear owned by the current user and map weights
             const currentUserIdStr = String(userId.value)
             const ownedGear = userGearItems.filter(g => {
-              const gearUserId = userGearOwnershipMap[g.user_gear_id]
-              const gearUserIdStr = gearUserId ? String(gearUserId) : null
-              return gearUserIdStr === currentUserIdStr
+              const ug = userGearMap[g.user_gear_id]
+              return ug && String(ug.user_id) === currentUserIdStr
             })
 
-            // Fetch weight from user_gear table
-            const userGearIdsForWeight = ownedGear.map(g => g.user_gear_id).filter(Boolean)
-            let weightMap = {}
-            if (userGearIdsForWeight.length > 0) {
-              const { data: userGearWeightData, error: weightError } = await supabase
-                .from('user_gear')
-                .select('id, weight_kg')
-                .in('id', userGearIdsForWeight)
-
-              if (!weightError && userGearWeightData) {
-                userGearWeightData.forEach(ug => {
-                  weightMap[ug.id] = ug.weight_kg
-                })
-              }
-            }
-
-            // Map weights to gear items
             availableProjectGear.value = ownedGear.map(g => ({
               ...g,
-              weight_kg: weightMap[g.user_gear_id] || null
+              weight_kg: userGearMap[g.user_gear_id]?.weight_kg || null
             }))
           } else {
             availableProjectGear.value = []

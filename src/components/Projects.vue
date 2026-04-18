@@ -765,30 +765,19 @@ setup() {
       
       loading.value = true;
 
-      /* owned */
-      const { data: owned } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', uid);
+      const PROJECT_COLS = 'id, project_name, created_at, user_id, location, official_website, main_show_days, build_days, archived';
 
-      /* member */
-      const { data: memberRows } = await supabase
-        .from('project_members')
-        .select(`
-          role,
-          projects:project_id ( 
-            id, 
-            project_name, 
-            created_at, 
-            user_id, 
-            location, 
-            official_website, 
-            main_show_days, 
-            build_days,
-            archived
-          )
-        `)
-        .or(`user_id.eq.${uid},user_email.eq.${email}`);
+      /* owned + member in parallel */
+      const [{ data: owned }, { data: memberRows }] = await Promise.all([
+        supabase
+          .from('projects')
+          .select(PROJECT_COLS)
+          .eq('user_id', uid),
+        supabase
+          .from('project_members')
+          .select(`role, projects:project_id ( ${PROJECT_COLS} )`)
+          .or(`user_id.eq.${uid},user_email.eq.${email}`)
+      ]);
 
       const memberProjects = (memberRows || [])
         .filter(r => r.projects)
@@ -807,7 +796,7 @@ setup() {
       if (projectIds.length) {
         const { data: crewContacts } = await supabase
           .from('project_contacts')
-          .select('id, project_id, name, email, phone, role, is_lead_engineer')
+          .select('id, project_id, name, email, is_lead_engineer')
           .eq('role', 'Spatial Crew')
           .in('project_id', projectIds);
         if (crewContacts) {
