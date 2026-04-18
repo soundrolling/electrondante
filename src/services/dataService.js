@@ -376,6 +376,11 @@ export async function hasPendingChanges() {
   return changes.length > 0;
 }
 
+export async function getPendingChangesCount() {
+  const changes = await getAllOfflineChangesWithKeys();
+  return changes.length;
+}
+
 export async function clearLocalData() {
   await clearOfflineChanges();
   toast.success('Cleared all local data');

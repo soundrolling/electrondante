@@ -57,7 +57,7 @@
             role="status"
           >
             <span class="status-dot"></span>
-            <span class="status-label">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+            <span class="status-label">{{ hasPendingSync ? `${pendingCount} pending` : 'Synced' }}</span>
           </span>
         </div>
       </div>
@@ -208,7 +208,7 @@
         </span>
         <span :class="['status-chip', hasPendingSync ? 'pending' : 'synced']">
           <span class="status-dot"></span>
-          <span class="status-label">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+          <span class="status-label">{{ hasPendingSync ? `${pendingCount} pending` : 'Synced' }}</span>
         </span>
       </div>
 
@@ -312,6 +312,7 @@ export default {
     const onlineStatusClass = computed(() => (isOnline.value ? 'online' : 'offline'));
 
     const hasPendingSync = ref(false);
+    const pendingCount = ref(0);
     const syncStatusText = computed(() => hasPendingSync.value ? 'There are changes waiting to sync' : 'All changes synced');
 
     // Logout
@@ -433,8 +434,9 @@ export default {
           const mod = await import('@/services/dataService');
           const poll = async () => {
             try {
-              const res = await mod.hasPendingChanges?.();
-              if (typeof res === 'boolean') hasPendingSync.value = res;
+              const count = await mod.getPendingChangesCount?.() ?? 0;
+              pendingCount.value = count;
+              hasPendingSync.value = count > 0;
             } catch {}
           };
           poll();
@@ -469,6 +471,7 @@ export default {
       onlineStatusText,
       onlineStatusClass,
       hasPendingSync,
+      pendingCount,
       syncStatusText,
 
       isLoggingOut,
