@@ -78,6 +78,20 @@
       </button>
     </div>
     <div class="sfv-toolbar-actions">
+      <button class="sfv-add-btn" @click="openGearModal" title="Add gear (stagebox / recorder)">
+        <Plus :size="14" :stroke-width="2" />
+        <span class="sfv-add-label">Gear</span>
+      </button>
+      <button
+        class="sfv-add-btn"
+        @click="openVenueSourcesModal"
+        :disabled="hasVenueSourcesNode"
+        :title="hasVenueSourcesNode ? 'A Venue Sources node already exists' : 'Add Venue Sources hub'"
+      >
+        <Plus :size="14" :stroke-width="2" />
+        <span class="sfv-add-label">Venue</span>
+      </button>
+      <div class="sfv-toolbar-divider"></div>
       <button class="sfv-icon-btn" @click="fitView" title="Fit to view" aria-label="Fit to view">
         <Maximize2 :size="16" :stroke-width="2" />
       </button>
@@ -211,6 +225,70 @@
       @saved="onVenueSourcesSaved"
     />
   </Teleport>
+
+  <!-- Add Gear modal -->
+  <Teleport to="body">
+    <div
+      v-if="showGearModal"
+      class="sfv-modal-backdrop"
+      @click.self="showGearModal = false"
+    >
+      <div class="sfv-modal">
+        <header class="sfv-modal-head">
+          <h3 class="sfv-modal-title">Add gear</h3>
+          <button
+            class="sfv-modal-close"
+            @click="showGearModal = false"
+            aria-label="Close"
+          >
+            <X :size="18" :stroke-width="2" />
+          </button>
+        </header>
+        <div class="sfv-modal-tabs" role="tablist">
+          <button
+            v-for="cat in ['Transformers', 'Recorders']"
+            :key="cat"
+            role="tab"
+            :aria-selected="gearFilter === cat"
+            :class="['sfv-modal-tab', { active: gearFilter === cat }]"
+            @click="gearFilter = cat"
+          >
+            {{ cat }}
+          </button>
+        </div>
+        <div class="sfv-modal-body">
+          <ul v-if="availableGear.length" class="sfv-gear-list">
+            <li
+              v-for="gear in availableGear"
+              :key="gear.id"
+              class="sfv-gear-row"
+              @click="addGearNode(gear)"
+            >
+              <div class="sfv-gear-icon">
+                <Workflow v-if="gear.gear_type === 'transformer'" :size="18" :stroke-width="2" />
+                <HardDrive v-else :size="18" :stroke-width="2" />
+              </div>
+              <div class="sfv-gear-info">
+                <div class="sfv-gear-name">{{ gear.gear_name }}</div>
+                <div class="sfv-gear-meta">
+                  {{ gear.num_inputs || 0 }} in · {{ gear.num_tracks || gear.num_outputs || 0 }} {{ gear.gear_type === 'recorder' ? 'tracks' : 'out' }}
+                </div>
+              </div>
+              <Plus :size="16" :stroke-width="2" class="sfv-gear-add" />
+            </li>
+          </ul>
+          <div v-else class="sfv-modal-empty">
+            <p class="sfv-modal-empty-title">
+              No {{ gearFilter.toLowerCase() }} assigned to this location
+            </p>
+            <p class="sfv-modal-empty-hint">
+              Add gear on the Project → Gear page and assign it to this stage first.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </div>
 </template>
 
@@ -229,6 +307,8 @@ import {
   Spline,
   CornerDownRight,
   Minus,
+  Plus,
+  HardDrive,
 } from 'lucide-vue-next'
 import { useToast } from 'vue-toastification'
 import {
@@ -236,6 +316,7 @@ import {
   updateConnection,
   deleteConnection as deleteConnectionFromDB,
   updateNode,
+  addNode,
 } from '@/services/signalMapperService'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
 import VenueSourcesConfigModal from '@/components/signalmapper/VenueSourcesConfigModal.vue'
@@ -601,6 +682,96 @@ function bezierPath(sx, sy, tx, ty) {
   return `M${sx},${sy} C${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}`
 }
 
+/* ─── Add Gear / Venue Sources ─────────────────────────── */
+const showGearModal = ref(false)
+const gearFilter = ref('Transformers') // 'Transformers' | 'Recorders'
+
+const availableGear = computed(() => {
+  const filterType = gearFilter.value === 'Transformers' ? 'transformer' : 'recorder'
+  return (props.gearList || []).filter(g => {
+    if (g.gear_type !== filterType) return false
+    const assigned = g.assignments ? g.assignments[props.locationId] : 0
+    return (assigned || 0) > 0
+  })
+})
+
+const hasVenueSourcesNode = computed(() => {
+  return (props.nodes || []).some(n =>
+    (n.gear_type === 'venue_sources' || n.type === 'venue_sources')
+  )
+})
+
+function openGearModal() {
+  showGearModal.value = true
+}
+
+async function addGearNode(gear) {
+  try {
+    const defaultLabel = gear.gear_name || (gear.gear_type === 'recorder' ? 'Recorder' : 'Stagebox')
+    const label = (typeof window !== 'undefined' && typeof window.prompt === 'function')
+      ? window.prompt('Label for this node', defaultLabel)
+      : defaultLabel
+    if (label === null) return // user cancelled
+    const finalLabel = (label || defaultLabel).trim() || defaultLabel
+
+    const newNode = await addNode({
+      project_id: props.projectId,
+      location_id: props.locationId || null,
+      stage_hour_id: props.stageHourId || null,
+      type: 'gear',
+      gear_id: gear.id,
+      label: finalLabel,
+      track_name: finalLabel,
+      x: 0.5,
+      y: 0.5,
+      flow_x: 0.5,
+      flow_y: 0.5,
+      gear_type: gear.gear_type,
+      num_inputs: gear.num_inputs || 0,
+      num_outputs: gear.num_tracks || gear.num_outputs || 0,
+      num_tracks: gear.num_tracks || 0,
+    })
+
+    emit('node-added', newNode)
+    showGearModal.value = false
+    toast.success(`Added ${finalLabel}`)
+  } catch (err) {
+    console.error('SignalFlowVF: addGearNode failed', err)
+    toast.error('Failed to add gear')
+  }
+}
+
+async function openVenueSourcesModal() {
+  if (hasVenueSourcesNode.value) {
+    toast.warning('A Venue Sources node already exists. Click it to configure feeds.')
+    return
+  }
+  try {
+    const newNode = await addNode({
+      project_id: props.projectId,
+      location_id: props.locationId || null,
+      stage_hour_id: props.stageHourId || null,
+      type: 'venue_sources',
+      label: 'Venue Sources',
+      track_name: 'Venue Sources',
+      x: 0.5,
+      y: 0.5,
+      flow_x: 0.5,
+      flow_y: 0.5,
+      gear_type: 'venue_sources',
+      num_inputs: 0,
+      num_outputs: 0,
+      num_tracks: 0,
+      output_port_labels: {},
+    })
+    emit('node-added', newNode)
+    toast.success('Venue Sources node created. Click to configure feeds.')
+  } catch (err) {
+    console.error('SignalFlowVF: addVenueSources failed', err)
+    toast.error('Failed to add Venue Sources: ' + (err?.message || 'unknown error'))
+  }
+}
+
 /* ─── Exposed methods (match classic component contract) ─ */
 function getCanvasDataURL() {
   // The beta editor exports via vue-flow's toImage helper, but that needs
@@ -764,6 +935,42 @@ onMounted(() => {
 .sfv-toolbar-actions {
   display: flex;
   gap: 4px;
+  align-items: center;
+}
+.sfv-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  height: 32px;
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-200);
+  color: var(--color-primary-700);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
+}
+.sfv-add-btn:hover:not(:disabled) {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-300);
+}
+.sfv-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+:deep(.dark) .sfv-add-btn {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.3);
+  color: var(--color-primary-200);
+}
+:deep(.dark) .sfv-add-btn:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.25);
+  border-color: rgba(14, 165, 233, 0.45);
+}
+.sfv-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--surface-border);
+  margin: 0 4px;
 }
 .sfv-icon-btn {
   display: inline-flex;
@@ -1024,6 +1231,167 @@ onMounted(() => {
 }
 
 /* ─── Mobile ───────────────────────────────────────────── */
+/* ─── Add-gear modal ───────────────────────────────────── */
+.sfv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
+  animation: sfv-fade 140ms ease-out;
+}
+@keyframes sfv-fade { from { opacity: 0; } to { opacity: 1; } }
+.sfv-modal {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-xl);
+  width: 520px;
+  max-width: 100%;
+  max-height: 88vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  animation: sfv-pop 180ms cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+@keyframes sfv-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.sfv-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--surface-border);
+}
+.sfv-modal-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-heading);
+  letter-spacing: -0.01em;
+}
+.sfv-modal-close {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+}
+.sfv-modal-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border);
+}
+.sfv-modal-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin: var(--space-3) var(--space-4);
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+}
+.sfv-modal-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+}
+.sfv-modal-tab:hover { color: var(--text-primary); }
+.sfv-modal-tab.active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.sfv-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--space-4) var(--space-4);
+}
+.sfv-gear-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sfv-gear-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-fast);
+}
+.sfv-gear-row:hover {
+  background: var(--surface-hover);
+  border-color: var(--color-primary-300);
+}
+.sfv-gear-row:active { transform: scale(0.99); }
+.sfv-gear-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sfv-gear-info { flex: 1; min-width: 0; }
+.sfv-gear-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sfv-gear-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.sfv-gear-add { color: var(--color-primary-500); flex-shrink: 0; }
+.sfv-modal-empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+.sfv-modal-empty-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0;
+}
+.sfv-modal-empty-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 6px 0 0 0;
+  max-width: 38ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 @media (max-width: 600px) {
   .sfv-root { padding: var(--space-3); }
   .sfv-head { flex-direction: column; align-items: stretch; }
@@ -1034,6 +1402,14 @@ onMounted(() => {
   .sfv-chip-group::-webkit-scrollbar { display: none; }
   .sfv-style-group { margin-left: 0; }
   .sfv-style-label { display: none; }
+  .sfv-add-label { display: none; }
+  .sfv-add-btn { padding: 0; width: 32px; justify-content: center; }
+  .sfv-modal-backdrop { padding: 0; align-items: flex-end; }
+  .sfv-modal {
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    width: 100%;
+    max-height: 85vh;
+  }
   .sfv-inspector {
     left: var(--space-3);
     right: var(--space-3);
