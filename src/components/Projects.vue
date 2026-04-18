@@ -3,118 +3,119 @@
 ──────────────────────────────────────────────────────────────-->
 <template>
 <div class="projects">
-  <!-- ─── PAGE‑TITLE & TOP‑BAR ─────────────────────────────── -->
-  <header class="page-header ui-page-header">
-    <div class="page-actions">
-      <!-- Left group: filters and utilities -->
-      <div class="actions-left">
-        <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
-          <span class="btn-icon">🔄</span>
-          <span class="btn-text">Refresh</span>
-        </button>
-        <div class="sorter">
-          <label for="sort" class="sorter-label">Sort by:</label>
-          <div class="select-wrapper">
-            <select
-              id="sort"
-              v-model="selectedSortOption"
-              @change="sortProjects"
-              class="form-select"
-            >
-              <option value="newest">Newest → Oldest</option>
-              <option value="oldest">Oldest → Newest</option>
-              <option value="az">A → Z</option>
-              <option value="za">Z → A</option>
-            </select>
-            <span class="select-arrow">▼</span>
-          </div>
-        </div>
-        <!-- Status filter dropdown (replaces tabs) -->
-        <div class="sorter">
-          <label for="status" class="sorter-label">Status:</label>
-          <div class="select-wrapper">
-            <select
-              id="status"
-              v-model="selectedStatus"
-              class="form-select"
-            >
-              <option value="active">Active</option>
-              <option value="archived">Archived</option>
-            </select>
-            <span class="select-arrow">▼</span>
-          </div>
-        </div>
-        <div class="search-wrapper">
-          <span class="search-icon">🔍</span>
-          <input
-            v-model="searchQuery"
-            placeholder="Search projects…"
-            class="search-input"
-          />
-        </div>
+  <!-- ─── PAGE TITLE ROW ───────────────────────────────────── -->
+  <header class="page-head">
+    <div class="page-head-inner">
+      <div class="page-title-group">
+        <h1 class="page-title">Projects</h1>
+        <p v-if="!loading" class="page-subtitle">
+          {{ displayedProjects.length }} {{ selectedStatus === 'archived' ? 'archived' : 'active' }}
+          {{ displayedProjects.length === 1 ? 'project' : 'projects' }}
+        </p>
       </div>
-
-      <!-- Right group: primary action(s) -->
-      <div class="actions-right">
-        <button @click="toggleNewProjectForm" class="btn btn-positive action-btn new-project-btn">
-          <span class="btn-icon">{{ showNewProjectForm ? '✕' : '➕' }}</span>
+      <div class="page-head-actions">
+        <button
+          class="btn-primary new-project-btn"
+          @click="toggleNewProjectForm"
+          :aria-expanded="showNewProjectForm"
+        >
+          <X v-if="showNewProjectForm" :size="18" :stroke-width="2" />
+          <Plus v-else :size="18" :stroke-width="2" />
           <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
-        </button>
-        <button class="btn action-btn options-btn" @click="showMobileOptions = !showMobileOptions">
-          <span class="btn-icon">⋯</span>
-          <span class="btn-text">Options</span>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Mobile collapsible options -->
-  <div class="mobile-options" :class="{ open: showMobileOptions }">
-    <div class="mobile-options-inner">
-      <button @click="refreshProjects" class="btn btn-warning action-btn refresh-btn">
-        <span class="btn-icon">🔄</span>
-        <span class="btn-text">Refresh</span>
-      </button>
-      <div class="sorter">
-        <label for="sort_m" class="sorter-label">Sort by:</label>
-        <div class="select-wrapper">
+  <!-- ─── FILTER RAIL ──────────────────────────────────────── -->
+  <div class="filter-rail">
+    <div class="filter-rail-inner">
+      <div class="search-field">
+        <Search :size="16" :stroke-width="2" class="search-field-icon" />
+        <input
+          v-model="searchQuery"
+          placeholder="Search projects…"
+          class="search-field-input"
+          type="search"
+        />
+      </div>
+
+      <div class="status-segmented" role="tablist" aria-label="Filter by status">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="selectedStatus === 'active'"
+          :class="['segmented-option', { active: selectedStatus === 'active' }]"
+          @click="selectedStatus = 'active'"
+        >
+          Active
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="selectedStatus === 'archived'"
+          :class="['segmented-option', { active: selectedStatus === 'archived' }]"
+          @click="selectedStatus = 'archived'"
+        >
+          Archived
+        </button>
+      </div>
+
+      <div class="filter-right">
+        <div class="sort-control">
+          <ArrowUpDown :size="16" :stroke-width="2" class="sort-control-icon" />
           <select
-            id="sort_m"
+            id="sort"
             v-model="selectedSortOption"
             @change="sortProjects"
-            class="form-select"
+            class="sort-control-select"
+            aria-label="Sort projects"
           >
             <option value="newest">Newest → Oldest</option>
             <option value="oldest">Oldest → Newest</option>
             <option value="az">A → Z</option>
             <option value="za">Z → A</option>
           </select>
-          <span class="select-arrow">▼</span>
         </div>
+        <button
+          @click="refreshProjects"
+          class="icon-only-btn"
+          :class="{ spinning: isRefreshing }"
+          title="Refresh projects"
+          aria-label="Refresh projects"
+        >
+          <RefreshCw :size="16" :stroke-width="2" />
+        </button>
+        <button
+          class="icon-only-btn mobile-filter-toggle"
+          @click="showMobileOptions = !showMobileOptions"
+          :aria-expanded="showMobileOptions"
+          aria-label="More filters"
+          title="More filters"
+        >
+          <SlidersHorizontal :size="16" :stroke-width="2" />
+        </button>
       </div>
-      <!-- Status dropdown for mobile options -->
-      <div class="sorter">
-        <label for="status_m" class="sorter-label">Status:</label>
-        <div class="select-wrapper">
-          <select
-            id="status_m"
-            v-model="selectedStatus"
-            class="form-select"
-          >
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-          </select>
-          <span class="select-arrow">▼</span>
-        </div>
-      </div>
-      <div class="search-wrapper">
-        <span class="search-icon">🔍</span>
-        <input
-          v-model="searchQuery"
-          placeholder="Search projects…"
-          class="search-input"
-        />
-      </div>
+    </div>
+
+    <!-- Mobile-only expanded filter drawer -->
+    <div v-if="showMobileOptions" class="filter-drawer">
+      <label class="drawer-label">Sort</label>
+      <select
+        id="sort_m"
+        v-model="selectedSortOption"
+        @change="sortProjects"
+        class="sort-control-select"
+      >
+        <option value="newest">Newest → Oldest</option>
+        <option value="oldest">Oldest → Newest</option>
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+      </select>
+      <button @click="refreshProjects" class="btn-ghost drawer-refresh">
+        <RefreshCw :size="16" :stroke-width="2" />
+        <span>Refresh</span>
+      </button>
     </div>
   </div>
 
@@ -222,113 +223,181 @@
 
     <!-- toolbar removed; controls are now in header -->
 
-    <div class="projects-section">
+    <div v-if="!displayedProjects.length" class="empty-state">
+      <div class="empty-state-icon">
+        <LayoutGrid :size="28" :stroke-width="1.5" />
+      </div>
+      <h3 class="empty-state-title">
+        {{ searchQuery ? 'No projects match your search' : selectedStatus === 'archived' ? 'No archived projects' : 'No active projects yet' }}
+      </h3>
+      <p class="empty-state-text">
+        {{ searchQuery ? 'Try a different search term or clear the search.' : selectedStatus === 'archived' ? 'Archived projects will appear here.' : 'Create your first project to get started.' }}
+      </p>
+      <button
+        v-if="!searchQuery && selectedStatus !== 'archived' && !showNewProjectForm"
+        class="btn-primary"
+        @click="toggleNewProjectForm"
+      >
+        <Plus :size="16" :stroke-width="2" />
+        <span>New Project</span>
+      </button>
+    </div>
+
+    <div v-else class="projects-section">
       <div class="projects-grid">
-        <div v-for="p in displayedProjects" :key="p.id" :class="['project-card', { archived: p.archived } ]">
-          <div v-if="p.archived" class="archived-badge">Archived</div>
-          <div class="project-header">
-            <h3 class="project-title">{{ p.project_name }}</h3>
-            <div v-if="p.role === 'owner'" class="project-badge owner">Owner</div>
-          </div>
-          
-          <div class="project-meta">
-            <div v-if="p.location" class="meta-item">
-              <span class="meta-icon">📍</span>
-              <span class="meta-text">{{ p.location }}</span>
+        <article
+          v-for="p in displayedProjects"
+          :key="p.id"
+          :class="['project-card', { archived: p.archived }]"
+        >
+          <!-- Tier 1: primary, scannable row -->
+          <div class="card-primary">
+            <div class="card-top">
+              <h3 class="card-title">{{ p.project_name }}</h3>
+              <span v-if="p.archived" class="card-badge archived">Archived</span>
+              <span v-else-if="p.role === 'owner'" class="card-badge owner">Owner</span>
             </div>
-            <div v-if="p.official_website" class="meta-item">
-              <span class="meta-icon">🌐</span>
-              <a :href="p.official_website" target="_blank" rel="noopener" class="meta-link">
-                Official Website
+
+            <div class="card-meta-row">
+              <span v-if="p.location" class="meta-inline">
+                <MapPin :size="14" :stroke-width="2" />
+                <span>{{ p.location }}</span>
+              </span>
+              <a
+                v-if="p.official_website"
+                :href="p.official_website"
+                target="_blank"
+                rel="noopener"
+                class="meta-inline meta-link"
+              >
+                <Globe :size="14" :stroke-width="2" />
+                <span>Official site</span>
               </a>
             </div>
-          </div>
 
-          <div v-if="(p.main_show_days && p.main_show_days.length) || (p.build_days && p.build_days.length)" class="project-timeline">
-            <div v-if="p.build_days && p.build_days.length" class="timeline-item">
-              <div class="timeline-icon build">🔨</div>
-              <div class="timeline-content">
-                <div class="timeline-label">Build Days</div>
-                <div class="timeline-dates-list">
-                  <div v-for="(group, gi) in groupConsecutiveDates(p.build_days)" :key="gi" class="timeline-date-row">
-                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-                  </div>
-                </div>
-              </div>
+            <div v-if="nextKeyDate(p)" class="card-next-date">
+              <span :class="['next-date-kind', nextKeyDate(p).kind]">
+                <Drama v-if="nextKeyDate(p).kind === 'show'" :size="14" :stroke-width="2" />
+                <Hammer v-else :size="14" :stroke-width="2" />
+                {{ nextKeyDate(p).kind === 'show' ? 'Show' : 'Build' }}
+              </span>
+              <span class="next-date-value">{{ nextKeyDate(p).label }}</span>
             </div>
-            <div v-if="p.main_show_days && p.main_show_days.length" class="timeline-item">
-              <div class="timeline-icon show">🎭</div>
-              <div class="timeline-content">
-                <div class="timeline-label">Show Days</div>
-                <div class="timeline-dates-list">
-                  <div v-for="(group, gi) in groupConsecutiveDates(p.main_show_days)" :key="gi" class="timeline-date-row">
-                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <div v-if="p.spatialCrew && p.spatialCrew.length" class="project-crew" @click.stop="toggleCrewPopup(p.id)">
-            <div class="crew-summary">
-              <span class="crew-icon">🎧</span>
-              <span class="crew-label">{{ p.spatialCrew.length }} Spatial Crew</span>
-              <span class="crew-toggle">{{ crewPopupId === p.id ? '▲' : '▼' }}</span>
-            </div>
-            <div v-if="crewPopupId === p.id" class="crew-list" @click.stop>
-              <div v-for="c in p.spatialCrew" :key="c.id" class="crew-member">
-                <span v-if="c.is_lead_engineer" class="member-role-badge lead-engineer">Lead Engineer</span>
-                <span class="member-name">{{ c.name || c.email || 'Unnamed' }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="project-actions">
-            <button @click="openProject(p)" class="btn btn-positive open-btn">
-              <span class="btn-icon">🚀</span>
-              <span class="btn-text">Open Project</span>
+            <button
+              @click="openProject(p)"
+              class="btn-primary card-open-btn"
+            >
+              <span>Open project</span>
+              <ArrowRight :size="16" :stroke-width="2" />
             </button>
-            
-            <template v-if="!p.archived">
-              <div v-if="p.role === 'owner'" class="owner-actions">
-                <button @click="openEditModal(p)" class="btn btn-warning icon-only" title="Edit Project">
-                  <span class="btn-icon">✏️</span>
-                  <span class="icon-label">Edit</span>
-                </button>
-                <button @click="duplicateProject(p)" class="btn btn-warning icon-only" title="Duplicate Project">
-                  <span class="btn-icon">📋</span>
-                  <span class="icon-label">Duplicate</span>
-                </button>
-                <button @click="archiveProject(p)" class="btn btn-danger icon-only" title="Archive Project">
-                  <span class="btn-icon">📦</span>
-                  <span class="icon-label">Archive</span>
-                </button>
-                <button @click="confirmDeleteProject(p.id)" class="btn btn-danger icon-only" title="Delete Project">
-                  <span class="btn-icon">🗑️</span>
-                  <span class="icon-label">Delete</span>
-                </button>
-              </div>
-              <button
-                v-if="p.role !== 'owner'"
-                @click="leaveProject(p)"
-                class="btn btn-danger leave-btn"
-              >
-                <span class="btn-icon">👋</span>
-                <span class="btn-text">Leave Project</span>
-              </button>
-            </template>
-            <template v-else>
-              <div v-if="p.role === 'owner'" class="owner-actions">
-                <button @click="unarchiveProject(p)" class="btn btn-positive icon-only" title="Unarchive Project">
-                  <span class="btn-icon">📤</span>
-                  <span class="icon-label">Restore</span>
-                </button>
-              </div>
-            </template>
           </div>
-        </div>
+
+          <!-- Tier 2: secondary, detail panel -->
+          <div class="card-secondary">
+            <div class="date-blocks">
+              <div v-if="p.build_days && p.build_days.length" class="date-block">
+                <div class="date-block-label">
+                  <Hammer :size="14" :stroke-width="2" />
+                  <span>Build</span>
+                </div>
+                <ul class="date-block-list">
+                  <li v-for="(group, gi) in groupConsecutiveDates(p.build_days)" :key="'b'+gi">
+                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
+                  </li>
+                </ul>
+              </div>
+              <div v-if="p.main_show_days && p.main_show_days.length" class="date-block">
+                <div class="date-block-label">
+                  <Drama :size="14" :stroke-width="2" />
+                  <span>Show</span>
+                </div>
+                <ul class="date-block-list">
+                  <li v-for="(group, gi) in groupConsecutiveDates(p.main_show_days)" :key="'s'+gi">
+                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
+                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <button
+              v-if="p.spatialCrew && p.spatialCrew.length"
+              class="crew-toggle-btn"
+              @click.stop="toggleCrewPopup(p.id)"
+              :aria-expanded="crewPopupId === p.id"
+            >
+              <Headphones :size="14" :stroke-width="2" />
+              <span>{{ p.spatialCrew.length }} Spatial Crew</span>
+              <ChevronDown
+                :size="14"
+                :stroke-width="2"
+                :class="['crew-chevron', { open: crewPopupId === p.id }]"
+              />
+            </button>
+            <ul v-if="crewPopupId === p.id && p.spatialCrew && p.spatialCrew.length" class="crew-list" @click.stop>
+              <li v-for="c in p.spatialCrew" :key="c.id" class="crew-member">
+                <span v-if="c.is_lead_engineer" class="crew-member-badge">Lead</span>
+                <span class="crew-member-name">{{ c.name || c.email || 'Unnamed' }}</span>
+              </li>
+            </ul>
+
+            <div class="card-footer-actions">
+              <template v-if="!p.archived">
+                <div v-if="p.role === 'owner'" class="owner-overflow" ref="ownerMenuRefs">
+                  <button
+                    class="icon-only-btn"
+                    :aria-expanded="ownerMenuId === p.id"
+                    aria-label="More actions"
+                    title="More actions"
+                    @click.stop="toggleOwnerMenu(p.id)"
+                  >
+                    <MoreHorizontal :size="16" :stroke-width="2" />
+                  </button>
+                  <div v-if="ownerMenuId === p.id" class="owner-overflow-menu" @click.stop>
+                    <button class="owner-overflow-item" @click="openEditModal(p); ownerMenuId = null">
+                      <Pencil :size="15" :stroke-width="2" />
+                      <span>Edit</span>
+                    </button>
+                    <button class="owner-overflow-item" @click="duplicateProject(p); ownerMenuId = null">
+                      <Copy :size="15" :stroke-width="2" />
+                      <span>Duplicate</span>
+                    </button>
+                    <button class="owner-overflow-item" @click="archiveProject(p); ownerMenuId = null">
+                      <Archive :size="15" :stroke-width="2" />
+                      <span>Archive</span>
+                    </button>
+                    <div class="owner-overflow-divider" role="separator"></div>
+                    <button class="owner-overflow-item danger" @click="confirmDeleteProject(p.id); ownerMenuId = null">
+                      <Trash2 :size="15" :stroke-width="2" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+                <button
+                  v-else
+                  @click="leaveProject(p)"
+                  class="btn-ghost leave-btn"
+                >
+                  <LogOut :size="14" :stroke-width="2" />
+                  <span>Leave</span>
+                </button>
+              </template>
+              <template v-else>
+                <button
+                  v-if="p.role === 'owner'"
+                  @click="unarchiveProject(p)"
+                  class="btn-ghost"
+                  title="Restore project"
+                >
+                  <ArchiveRestore :size="14" :stroke-width="2" />
+                  <span>Restore</span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </article>
       </div>
     </div>
   </div>
@@ -427,17 +496,63 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter }                from 'vue-router';
 import { supabase }                 from '@/supabase';
 import { useUserStore }             from '@/stores/userStore';
 import { useToast }                 from 'vue-toastification';
 import { mutateTableData }          from '@/services/dataService';
+import {
+  Plus,
+  X,
+  Search,
+  ArrowUpDown,
+  RefreshCw,
+  SlidersHorizontal,
+  MapPin,
+  Globe,
+  Hammer,
+  Drama,
+  Headphones,
+  ArrowRight,
+  ChevronDown,
+  MoreHorizontal,
+  Pencil,
+  Copy,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  LogOut,
+  LayoutGrid,
+} from 'lucide-vue-next';
 
 // Cache key will be generated dynamically with user ID for security
 const getCacheKey = (userId) => `userProjects_${userId}`;
 
 export default {
+components: {
+  Plus,
+  X,
+  Search,
+  ArrowUpDown,
+  RefreshCw,
+  SlidersHorizontal,
+  MapPin,
+  Globe,
+  Hammer,
+  Drama,
+  Headphones,
+  ArrowRight,
+  ChevronDown,
+  MoreHorizontal,
+  Pencil,
+  Copy,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  LogOut,
+  LayoutGrid,
+},
 setup() {
   /* ───────── REACTIVE STATE ───────── */
   const projects           = ref([]);
@@ -469,6 +584,27 @@ setup() {
   const selectedStatus     = ref('active');
   const showMobileOptions  = ref(false);
   const crewPopupId        = ref(null);
+  const ownerMenuId        = ref(null);
+  const isRefreshing       = ref(false);
+
+  const toggleOwnerMenu = (projectId) => {
+    ownerMenuId.value = ownerMenuId.value === projectId ? null : projectId;
+    if (ownerMenuId.value) crewPopupId.value = null;
+  };
+
+  const handleDocClickForMenus = (e) => {
+    if (!ownerMenuId.value && crewPopupId.value === null) return;
+    if (!e.target.closest('.owner-overflow') && !e.target.closest('.crew-toggle-btn') && !e.target.closest('.crew-list')) {
+      ownerMenuId.value = null;
+    }
+  };
+  const handleEscForMenus = (e) => {
+    if (e.key === 'Escape') {
+      ownerMenuId.value = null;
+      crewPopupId.value = null;
+      showMobileOptions.value = false;
+    }
+  };
 
   /* ───────── HELPERS ───────── */
   const userStore = useUserStore();
@@ -643,13 +779,37 @@ setup() {
       toast.error('Refresh is only available when online.');
       return;
     }
-    // Clear user-specific cache
-    const { data: session } = await supabase.auth.getSession();
-    const uid = session?.session?.user?.id;
-    if (uid) {
-      localStorage.removeItem(getCacheKey(uid));
+    isRefreshing.value = true;
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        localStorage.removeItem(getCacheKey(uid));
+      }
+      await fetchUserProjects(true);
+    } finally {
+      setTimeout(() => { isRefreshing.value = false; }, 400);
     }
-    fetchUserProjects(true);
+  };
+
+  /* ───────── NEXT KEY DATE ─────────
+     Picks the soonest upcoming show or build day; falls back to the most
+     recent past one so the card always has context. Used by Tier 1 chip. */
+  const nextKeyDate = (p) => {
+    const now = Date.now();
+    const items = [];
+    (p.main_show_days || []).forEach(d => items.push({ kind: 'show', date: d }));
+    (p.build_days || []).forEach(d => items.push({ kind: 'build', date: d }));
+    if (!items.length) return null;
+    const parsed = items
+      .map(i => ({ ...i, t: new Date(i.date).getTime() }))
+      .filter(i => !Number.isNaN(i.t));
+    if (!parsed.length) return null;
+    const upcoming = parsed
+      .filter(i => i.t >= now - 24 * 60 * 60 * 1000)
+      .sort((a, b) => a.t - b.t)[0];
+    const chosen = upcoming || parsed.sort((a, b) => b.t - a.t)[0];
+    return chosen ? { kind: chosen.kind, label: formatSingleDate(chosen.date) } : null;
   };
 
   /* ─────────────────────────────────────────────
@@ -993,10 +1153,13 @@ setup() {
 
   /* ───────── LIFECYCLE ───────── */
   onMounted(async () => {
+    document.addEventListener('click', handleDocClickForMenus);
+    document.addEventListener('keydown', handleEscForMenus);
+
     // Security check: validate current user session before loading projects
     const { data: session } = await supabase.auth.getSession();
     const uid = session?.session?.user?.id;
-    
+
     if (!uid) {
       console.warn('No valid user session on mount, clearing all project caches');
       // Clear any existing project caches for security
@@ -1011,8 +1174,13 @@ setup() {
       projects.value = [];
       return;
     }
-    
+
     fetchUserProjects(false);
+  });
+
+  onUnmounted(() => {
+    document.removeEventListener('click', handleDocClickForMenus);
+    document.removeEventListener('keydown', handleEscForMenus);
   });
 
   /* ───────── EXPOSE ───────── */
@@ -1062,6 +1230,10 @@ setup() {
     showMobileOptions,
     crewPopupId,
     toggleCrewPopup,
+    ownerMenuId,
+    toggleOwnerMenu,
+    isRefreshing,
+    nextKeyDate,
   };
 },
 };
@@ -1111,7 +1283,7 @@ setup() {
   --pill-badge-owner-text: var(--text-inverse);
 }
 
-/* Base Styles - Mobile First */
+/* ─── Base container ───────────────────────────────────── */
 .projects {
   min-height: 100vh;
   background: var(--bg-primary);
@@ -1121,713 +1293,702 @@ setup() {
   font-family: var(--font-family-sans);
   line-height: var(--leading-normal);
   color: var(--text-primary);
+  max-width: 1280px;
+  margin: 0 auto;
 }
 
-/* Typography Scale */
+/* ─── Page head ────────────────────────────────────────── */
+.page-head {
+  margin-bottom: var(--space-4);
+}
+.page-head-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.page-title-group { min-width: 0; }
 .page-title {
   font-size: var(--text-2xl);
   font-weight: var(--font-bold);
-  line-height: var(--leading-tight);
-  margin: 0 0 var(--space-4) 0;
+  letter-spacing: -0.02em;
   color: var(--text-heading);
+  margin: 0;
+  line-height: 1.1;
+}
+.page-subtitle {
+  margin: 4px 0 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
 }
 
 .form-title,
 .modal-title {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-semibold);
   line-height: var(--leading-snug);
   margin: 0 0 var(--space-4) 0;
   color: var(--text-heading);
 }
 
-/* Page Header */
-.page-header {
-  margin-bottom: var(--space-6);
-  padding: var(--space-4);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-light);
-}
-
-.page-actions {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-3);
+/* ─── Primary / ghost buttons ─────────────────────────── */
+.btn-primary {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-primary-600);
+  background: var(--color-primary-500);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-700);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-/* Normalize control sizing in header row */
-.page-actions .btn,
-.page-actions .form-select,
-.page-actions .search-input,
-.page-actions .tab-btn {
-  min-height: 44px;
-  height: 44px;
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--space-3);
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--surface-border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
+}
+.btn-ghost:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+  color: var(--text-primary);
+}
+.btn-ghost:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.btn-ghost.leave-btn {
+  color: var(--color-error-600);
+  border-color: var(--color-error-200);
+}
+.btn-ghost.leave-btn:hover {
+  background: var(--color-error-50);
+  border-color: var(--color-error-300);
+  color: var(--color-error-700);
 }
 
-.action-btn {
+/* ─── Filter rail ──────────────────────────────────────── */
+.filter-rail {
+  position: sticky;
+  top: 56px;
+  z-index: 10;
+  background: var(--surface-filter-rail);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: 10px;
+  margin-bottom: var(--space-4);
+  backdrop-filter: saturate(140%) blur(6px);
+}
+.filter-rail-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.search-field {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+.search-field-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.search-field-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 36px;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--surface-card-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.search-field-input::placeholder { color: var(--text-tertiary); }
+.search-field-input:focus {
+  outline: none;
+  background: var(--surface-card);
+  border-color: var(--color-primary-300);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.status-segmented {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  gap: 2px;
+}
+.segmented-option {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  padding: 6px 14px;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  min-height: 30px;
+}
+.segmented-option:hover { color: var(--text-primary); }
+.segmented-option.active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
+.filter-right {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  min-height: 44px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-/* Header action groups */
-.actions-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: nowrap;
-}
-.actions-right {
   margin-left: auto;
-  display: flex;
+}
+
+.sort-control {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+}
+.sort-control-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.sort-control-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  padding: 0 28px 0 32px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
+}
+.sort-control-select:hover {
+  background-color: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+}
+.sort-control-select:focus {
+  outline: none;
+  border-color: var(--color-primary-300);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.options-btn {
-  display: none; /* hidden on desktop */
-  background: var(--bg-tertiary);
+.icon-only-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card-muted);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+}
+.icon-only-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+.icon-only-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.icon-only-btn.spinning svg {
+  animation: spinIcon 0.9s linear infinite;
+}
+@keyframes spinIcon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.action-btn:hover {
-  border-color: var(--color-primary-500);
-  box-shadow: var(--shadow-md);
+.mobile-filter-toggle { display: none; }
+
+.filter-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--surface-border);
+}
+.drawer-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.drawer-refresh {
+  align-self: flex-start;
 }
 
-.action-btn:active {
-  transform: scale(0.98);
+/* ─── Empty state ──────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+  background: var(--surface-card);
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: var(--radius-lg);
 }
-
-/* Pill-style action buttons using CSS variables for dark mode */
-.refresh-btn {
-  background: var(--pill-warning-bg);
-  color: var(--pill-warning-text);
-  border: 2px solid var(--pill-warning-border);
+.empty-state-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--chip-bg);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-4);
 }
-.refresh-btn:hover {
-  background: var(--pill-warning-hover-bg);
-}
-
-.new-project-btn {
-  background: var(--pill-primary-bg);
-  color: var(--pill-primary-text);
-  border: 2px solid var(--pill-primary-border);
-}
-.new-project-btn:hover {
-  background: var(--pill-primary-hover-bg);
-}
-
-.btn-icon {
-  font-size: var(--text-lg);
-}
-
-.btn-text {
+.empty-state-title {
   font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0 0 6px 0;
+}
+.empty-state-text {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-5) 0;
+  max-width: 36ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+.empty-state .btn-primary {
+  display: inline-flex;
 }
 
-/* Loading Skeleton */
-.loading-skeleton {
-  padding: var(--space-4);
-}
-
+/* ─── Loading skeleton ─────────────────────────────────── */
+.loading-skeleton { padding: var(--space-4) 0; }
 .skeleton-header,
 .skeleton-toolbar,
 .skeleton-tabs,
 .skeleton-projects {
-  background: linear-gradient(90deg, var(--color-secondary-100) 25%, var(--color-secondary-200) 50%, var(--color-secondary-100) 75%);
+  background: linear-gradient(90deg, var(--surface-card-muted) 25%, var(--surface-hover) 50%, var(--surface-card-muted) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
 }
-
-.skeleton-header { height: 80px; }
-.skeleton-toolbar { height: 60px; }
-.skeleton-tabs { height: 50px; }
-
+.skeleton-header { height: 56px; }
+.skeleton-toolbar { height: 44px; }
+.skeleton-tabs { height: 36px; }
 .skeleton-projects {
   height: 300px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
-
 .skeleton-project {
   flex: 1;
   background: inherit;
   border-radius: var(--radius-md);
 }
-
 @keyframes loading {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-/* New Project Form */
+/* ─── New project form (kept, slightly refreshed) ──────── */
 .new-project-form {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
   padding: var(--space-5);
-  background: var(--bg-secondary);
+  background: var(--surface-card);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-sm);
 }
-
 .form-grid {
   display: grid;
   gap: var(--space-4);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
 }
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
+.form-group { display: flex; flex-direction: column; }
 .form-label {
   font-weight: var(--font-semibold);
   color: var(--text-primary);
   margin-bottom: var(--space-2);
-  font-size: var(--text-base);
-  line-height: var(--leading-snug);
+  font-size: var(--text-sm);
 }
-
 .form-input {
   width: 100%;
-  padding: var(--space-3) var(--space-4);
-  border: 2px solid var(--border-medium);
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  background: var(--bg-primary);
+  font-size: var(--text-sm);
+  background: var(--surface-card);
   color: var(--text-primary);
-  transition: all var(--transition-normal);
-  min-height: 44px;
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+  min-height: 40px;
   box-sizing: border-box;
-  box-shadow: var(--shadow-sm);
 }
-
 .form-input:focus {
   outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
-
-.form-input::placeholder {
-  color: var(--text-tertiary);
-}
-
+.form-input::placeholder { color: var(--text-tertiary); }
 .form-actions {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
 
-/* Toolbar */
-.toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-  padding: var(--space-4);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-light);
-}
-
-/* Mobile collapsible options */
-.mobile-options {
-  display: none;
-}
-.mobile-options.open {
-  display: block;
-}
-.mobile-options-inner {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-lg);
-  margin-top: var(--space-3);
-}
-
-.toolbar-left,
-.toolbar-right {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.sorter {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.sorter-label {
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-  font-size: var(--text-base);
-}
-
-.select-wrapper {
-  position: relative;
-  min-width: 260px;
-}
-
-.form-select {
-  width: 100%;
-  padding: var(--space-3) 48px var(--space-3) var(--space-4);
-  border: 2px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  min-height: 44px;
-  appearance: none;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-}
-
-.select-arrow {
-  position: absolute;
-  right: var(--space-4);
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-secondary);
-  pointer-events: none;
-}
-
-.search-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: var(--space-4);
-  font-size: var(--text-lg);
-  color: var(--text-tertiary);
-  z-index: 2;
-}
-
-.search-input {
-  width: 100%;
-  padding: var(--space-3) var(--space-4) var(--space-3) 48px;
-  border: 2px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  min-height: 44px;
-  box-shadow: var(--shadow-sm);
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
-}
-
-/* Project Tabs */
-.project-tabs {
-  display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
-  overflow-x: auto;
-  padding-bottom: var(--space-2);
-}
-
-.tab-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 2px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  min-height: 44px;
-  white-space: nowrap;
-}
-
-.tab-btn:hover {
-  border-color: var(--color-primary-500);
-  color: var(--color-primary-700);
-}
-
-.tab-btn.active {
-  background: var(--color-primary-500);
-  color: var(--text-inverse);
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-}
-
-.tab-icon {
-  font-size: var(--text-lg);
-}
-
-.tab-text {
-  font-size: var(--text-base);
-}
-
-/* Projects Grid */
-.projects-section {
-  margin-bottom: var(--space-6);
-}
-
+/* ─── Projects grid ────────────────────────────────────── */
+.projects-section { padding: 0; }
 .projects-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+/* ─── Project card (two-tier) ──────────────────────────── */
+.project-card {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  background: var(--bg-secondary);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-1);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal), transform var(--transition-fast);
 }
-
-.project-card {
-  background: var(--bg-primary);
-  border: none;
-  border-bottom: 1px solid var(--border-light);
-  border-radius: 0;
-  padding: var(--space-4);
-  transition: background var(--transition-fast);
-  position: relative;
-}
-
-.project-card:last-child {
-  border-bottom: none;
-}
-
 .project-card:hover {
-  background: var(--bg-tertiary);
+  box-shadow: var(--shadow-md);
+  border-color: var(--surface-border-strong);
 }
+.project-card.archived { opacity: 0.82; }
 
-.project-card.archived {
-  opacity: 0.7;
-  background: var(--bg-secondary);
-}
-
-.archived-badge {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  background: var(--color-secondary-500);
-  color: var(--text-inverse);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: var(--font-semibold);
-}
-
-.project-header {
+/* Tier 1 — primary */
+.card-primary {
+  padding: var(--space-5);
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-3);
 }
-
-.project-title {
-  font-size: var(--text-base);
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.card-title {
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   color: var(--text-heading);
-  margin: 0;
-  line-height: var(--leading-snug);
   letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0;
+  word-break: break-word;
+  min-width: 0;
+  text-transform: uppercase;
 }
-
-.project-badge {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
+.card-badge {
+  flex-shrink: 0;
+  font-size: 11px;
   font-weight: var(--font-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  line-height: 1;
+}
+.card-badge.owner {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  border: 1px solid var(--color-primary-100);
+}
+.card-badge.archived {
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-600);
+  border: 1px solid var(--color-neutral-200);
 }
 
-.project-badge.owner {
-  background: var(--pill-badge-owner-bg);
-  color: var(--pill-badge-owner-text);
-}
-
-/* Project Meta */
-.project-meta {
-  margin-bottom: var(--space-3);
-}
-
-.meta-item {
+.card-meta-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: var(--space-4);
+  flex-wrap: wrap;
   font-size: var(--text-sm);
+  color: var(--text-secondary);
+  min-height: 20px;
 }
-
-.meta-icon {
-  font-size: var(--text-base);
-  width: 20px;
-  text-align: center;
-  opacity: 0.7;
-}
-
-.meta-text {
+.meta-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-secondary);
 }
-
+.meta-inline svg { color: var(--text-tertiary); flex-shrink: 0; }
 .meta-link {
-  color: var(--color-primary-500);
+  color: var(--color-primary-600);
   text-decoration: none;
+}
+.meta-link svg { color: var(--color-primary-500); }
+.meta-link:hover { color: var(--color-primary-700); text-decoration: underline; }
+
+.card-next-date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  align-self: flex-start;
+}
+.next-date-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.next-date-kind.show {
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--color-warning-700);
+}
+.next-date-kind.build {
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--color-primary-700);
+}
+.next-date-kind svg { width: 12px; height: 12px; }
+.next-date-value {
+  color: var(--text-primary);
   font-weight: var(--font-medium);
 }
 
-.meta-link:hover {
-  text-decoration: underline;
+.card-open-btn {
+  width: 100%;
+  margin-top: 2px;
 }
 
-/* Project Timeline */
-.project-timeline {
-  margin-bottom: var(--space-3);
-}
-
-.timeline-item {
+/* Tier 2 — secondary */
+.card-secondary {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-card-muted);
+  border-top: 1px solid var(--surface-border);
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-2) 0;
-  background: transparent;
-  border-radius: 0;
-  margin-bottom: var(--space-1);
-  border: none;
 }
-
-.timeline-item:last-child {
-  margin-bottom: 0;
+.date-blocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
 }
-
-.timeline-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
+.date-block {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.date-block-label {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  flex-shrink: 0;
-}
-
-.timeline-icon.build {
-  background: var(--color-primary-100);
-  color: var(--color-primary-700);
-}
-
-.timeline-icon.show {
-  background: var(--color-warning-100);
-  color: var(--color-warning-700);
-}
-
-.timeline-content {
-  flex: 1;
-}
-
-.timeline-label {
+  gap: 6px;
+  font-size: 11px;
   font-weight: var(--font-semibold);
-  font-size: var(--text-xs);
-  margin-bottom: 2px;
-  color: var(--text-primary);
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-
-.timeline-dates {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
-
-.timeline-dates-list {
+.date-block-label svg { color: var(--text-tertiary); }
+.date-block-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.timeline-date-row {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
-
-/* Project Crew */
-.project-crew {
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.crew-summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-secondary);
-}
-
-.crew-icon {
-  font-size: var(--text-base);
-}
-
-.crew-label {
-  flex: 1;
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
   color: var(--text-primary);
 }
+.date-block-list li { line-height: 1.35; }
 
-.crew-toggle {
+/* Spatial Crew */
+.crew-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
   font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  align-self: flex-start;
+}
+.crew-toggle-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.crew-chevron {
+  transition: transform var(--transition-normal);
   color: var(--text-tertiary);
 }
+.crew-chevron.open { transform: rotate(180deg); }
 
 .crew-list {
+  list-style: none;
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--border-light);
+  gap: 6px;
 }
-
 .crew-member {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-xs);
-  border-bottom: 1px solid var(--border-light);
+  font-size: var(--text-sm);
 }
-
-.crew-member:last-child {
-  border-bottom: none;
-}
-
-.member-name {
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--font-medium);
-}
-
-.member-role-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: var(--radius-full, 9999px);
+.crew-member-badge {
   font-size: 10px;
   font-weight: var(--font-semibold);
-  flex-shrink: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning-100);
+  color: var(--color-warning-700);
 }
+.crew-member-name { color: var(--text-primary); }
 
-.member-role-badge.lead-engineer {
-  background: rgba(99, 102, 241, 0.12);
-  color: #4f46e5;
-}
-
-/* Project Actions */
-.project-actions {
+/* Card footer */
+.card-footer-actions {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.open-btn {
-  width: 100%;
-}
-
-.owner-actions {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: center;
-}
-
-/* Icon-only buttons */
-.owner-actions .btn.icon-only {
-  padding: var(--space-2);
-  min-width: 44px;
-  min-height: 44px;
-  flex-direction: column;
+  justify-content: flex-end;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--surface-border);
+}
+
+/* Owner overflow menu */
+.owner-overflow { position: relative; }
+.owner-overflow-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  min-width: 180px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: menuIn 120ms ease-out;
+}
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.owner-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 10px;
   background: transparent;
-  border: 1px solid var(--border-light);
-  color: var(--text-secondary);
-  box-shadow: none;
-}
-
-.owner-actions .btn.icon-only:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-medium);
-}
-
-.owner-actions .btn.icon-only .btn-icon {
-  font-size: var(--text-lg);
-  margin: 0;
-}
-
-.owner-actions .btn.icon-only .btn-text {
-  display: none;
-}
-
-.icon-label {
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.85;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
   font-weight: var(--font-medium);
-  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.owner-overflow-item:hover {
+  background: var(--surface-hover);
+}
+.owner-overflow-item svg { color: var(--text-tertiary); }
+.owner-overflow-item:hover svg { color: var(--color-primary-500); }
+.owner-overflow-item.danger { color: var(--color-error-600); }
+.owner-overflow-item.danger svg { color: var(--color-error-500); }
+.owner-overflow-item.danger:hover {
+  background: var(--color-error-50);
+  color: var(--color-error-700);
+}
+.owner-overflow-divider {
+  height: 1px;
+  background: var(--surface-border);
+  margin: 2px 4px;
 }
 
-/* Pill-style card action buttons using CSS variables */
-.project-actions .open-btn {
-  background: rgba(34, 197, 94, 0.1);
-  color: #15803d;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  box-shadow: none;
-}
-.project-actions .open-btn:hover {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.45);
-}
-
-.project-actions .leave-btn {
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  box-shadow: none;
-}
-.project-actions .leave-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.4);
-}
-
-/* Modal */
+/* ─── Modal (preserved, lightly refreshed) ─────────────── */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1836,9 +1997,9 @@ setup() {
   padding-top: env(safe-area-inset-top, var(--space-4));
   padding-bottom: env(safe-area-inset-bottom, var(--space-4));
 }
-
 .modal {
-  background: var(--bg-primary);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   max-width: 600px;
   width: 100%;
@@ -1846,96 +2007,75 @@ setup() {
   overflow-y: auto;
   box-shadow: var(--shadow-xl);
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-5) var(--space-5) var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border-light);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--surface-border);
 }
-
 .modal-close {
   background: none;
   border: none;
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   color: var(--text-secondary);
   cursor: pointer;
   padding: var(--space-2);
   border-radius: var(--radius-sm);
-  transition: all var(--transition-normal);
-  min-height: 44px;
-  min-width: 44px;
+  transition: background var(--transition-normal);
+  min-height: 36px;
+  min-width: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .modal-close:hover {
-  background: var(--bg-secondary);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
-
-.modal-content {
-  padding: var(--space-5);
-}
-
+.modal-content { padding: var(--space-5); }
 .modal-actions {
   display: flex;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5) var(--space-5) var(--space-5);
-  border-top: 1px solid var(--border-light);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--surface-border);
   flex-wrap: wrap;
 }
-
-/* Modal Form Grid */
 .modal .form-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-4);
 }
 
-/* Date Range */
+/* ─── Multi-date picker (preserved) ────────────────────── */
 .date-range-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
-
-.date-range-row .form-input {
-  flex: 1;
-  min-width: 120px;
-}
-
+.date-range-row .form-input { flex: 1; min-width: 120px; }
 .date-separator {
   color: var(--text-secondary);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
-/* Multi-Date Picker */
 .multi-date-picker {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
-
 .multi-date-add-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
-
-.multi-date-add-row .form-input {
-  flex: 1;
-  min-width: 140px;
-}
+.multi-date-add-row .form-input { flex: 1; min-width: 140px; }
 
 .btn-sm {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  padding: 6px 10px;
+  font-size: var(--text-xs);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1945,34 +2085,27 @@ setup() {
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-
 .date-tag {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  background: var(--color-primary-100);
+  background: var(--color-primary-50);
   color: var(--color-primary-700);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full, 9999px);
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
   line-height: 1.4;
 }
-
 .date-tag.show {
-  background: var(--color-warning-100);
+  background: var(--color-warning-50);
   color: var(--color-warning-700);
 }
-
-.date-tag.show .date-tag-remove {
-  color: var(--color-warning-500);
-}
-
+.date-tag.show .date-tag-remove { color: var(--color-warning-500); }
 .date-tag.show .date-tag-remove:hover {
-  background: var(--color-warning-200);
+  background: var(--color-warning-100);
   color: var(--color-warning-800);
 }
-
 .date-tag-remove {
   background: none;
   border: none;
@@ -1988,195 +2121,92 @@ setup() {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
-
 .date-tag-remove:hover {
-  background: var(--color-primary-200);
+  background: var(--color-primary-100);
   color: var(--color-primary-800);
 }
-
 .multi-date-empty {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   font-style: italic;
 }
-
 .date-group-separator {
   color: var(--text-tertiary);
   margin: 0 var(--space-1);
 }
 
-/* Focus States for Accessibility */
-.action-btn:focus,
-.tab-btn:focus,
-.btn:focus,
-.form-input:focus,
-.form-select:focus,
-.search-input:focus,
-.modal-close:focus {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 2px;
-}
-
-/* Tablet Breakpoint (601px - 1024px) */
+/* ─── Tablet ───────────────────────────────────────────── */
 @media (min-width: 601px) {
-  .projects {
-    padding: var(--space-6);
-  }
-
-  .page-title {
-    font-size: var(--text-3xl);
-  }
-
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
-  .page-actions { grid-template-columns: auto auto; }
-
-  .toolbar {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .toolbar-left,
-  .toolbar-right {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .sorter {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .modal .form-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .owner-actions {
-    justify-content: center;
-    gap: var(--space-3);
-  }
-
-  .owner-actions .btn.icon-only {
-    padding: var(--space-3);
-    min-width: 48px;
-    min-height: 48px;
-  }
-
-  .projects-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-4);
-  }
-
-  .project-card {
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md);
-    border-bottom: 1px solid var(--border-light);
-  }
-
-  .project-card:last-child {
-    border-bottom: 1px solid var(--border-light);
-  }
+  .projects { padding: var(--space-6); }
+  .page-title { font-size: var(--text-3xl); }
+  .page-subtitle { font-size: var(--text-base); }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .modal .form-grid { grid-template-columns: 1fr 1fr; }
+  .projects-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Desktop Breakpoint (1025px+) */
+/* ─── Desktop ──────────────────────────────────────────── */
 @media (min-width: 1025px) {
   .projects {
     padding: var(--space-8);
-    max-width: 1400px;
-    margin: 0 auto;
   }
-
-  .page-title {
-    font-size: var(--text-4xl);
-  }
-
-  .form-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
+  .form-grid { grid-template-columns: repeat(3, 1fr); }
   .projects-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-4);
   }
-
-  .modal {
-    max-width: 700px;
-  }
-
-  .modal .form-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .toolbar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: var(--space-4);
-  }
-  .toolbar-left { justify-self: start; }
-  .toolbar-center { justify-self: center; }
-  .toolbar-right { justify-self: end; width: 100%; max-width: 520px; }
-
-  .toolbar .project-tabs {
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
+  .modal { max-width: 700px; }
+  .modal .form-grid { grid-template-columns: 1fr 1fr; }
 }
 
-/* Mobile behaviors */
+/* ─── Mobile-specific adjustments ──────────────────────── */
 @media (max-width: 768px) {
-  .actions-left { display: none; }
-  .options-btn { display: inline-flex; }
+  .page-head-inner { align-items: flex-start; }
+  .page-head-actions .btn-primary .btn-text { display: none; }
+  .page-head-actions .btn-primary {
+    padding: 0;
+    width: 40px;
+  }
+  .filter-right { margin-left: 0; }
+  .search-field { flex: 1 1 100%; }
+  .status-segmented { flex: 1 1 auto; }
+  .sort-control { display: none; }
+  .mobile-filter-toggle { display: inline-flex; }
+  .filter-rail { top: 52px; }
+  .date-blocks { grid-template-columns: 1fr; gap: var(--space-2); }
+  .card-meta-row { gap: var(--space-3); }
 }
 
-/* Ensure options never show on desktop */
-@media (min-width: 769px) {
-  .options-btn { display: none; }
-  .mobile-options { display: none; }
-}
-
-/* High Contrast Mode Support */
+/* ─── Accessibility ────────────────────────────────────── */
 @media (prefers-contrast: high) {
   .project-card,
+  .filter-rail,
   .form-input,
-  .form-select,
-  .search-input {
+  .sort-control-select,
+  .search-field-input {
     border-width: 2px;
   }
 }
 
-/* Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
-  .action-btn,
-  .btn,
-  .tab-btn {
+  .btn-primary,
+  .btn-ghost,
+  .icon-only-btn,
+  .segmented-option,
+  .project-card,
+  .crew-chevron,
+  .sort-control-select,
+  .search-field-input {
     transition: none;
   }
-
-  .action-btn:hover,
-  .btn:hover,
-  .tab-btn:hover {
-    transform: none;
-  }
-
-  .action-btn:active,
-  .btn:active,
-  .tab-btn:active {
-    transform: none;
-  }
+  .icon-only-btn.spinning svg { animation: none; }
+  .owner-overflow-menu { animation: none; }
+  .loading-skeleton .skeleton-header,
+  .loading-skeleton .skeleton-toolbar,
+  .loading-skeleton .skeleton-tabs,
+  .loading-skeleton .skeleton-projects { animation-duration: 3s; }
 }
+
 </style>

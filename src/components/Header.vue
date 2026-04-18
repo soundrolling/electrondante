@@ -11,242 +11,178 @@
   <!-- Main Header -->
   <header v-if="!isHiddenRoute" class="header">
     <div class="header-content">
-      <!-- Left side: Back button and Status -->
+      <!-- Left: back/mobile menu + status -->
       <div class="header-left">
-        <!-- Mobile menu button -->
         <button
-          class="btn mobile-menu-btn light-btn"
+          class="icon-btn mobile-menu-btn"
           @click="showMobileMenu = true"
           aria-label="Open menu"
         >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
+          <Menu :size="20" :stroke-width="2" />
         </button>
-        <!-- Back Button -->
+
         <button
           v-if="showBackButton"
           @click="goBack"
-          class="btn btn-warning back-btn light-btn"
+          class="ghost-btn back-btn"
           title="Go back"
         >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5"/>
-            <path d="M12 19l-7-7 7-7"/>
-          </svg>
+          <ArrowLeft :size="18" :stroke-width="2" />
           <span class="btn-text">Back</span>
         </button>
-        
-        <!-- Mobile Home Button -->
+
         <button
           v-if="showProjectHomeButton"
           @click="goToProjectHome"
-          class="btn home-btn light-btn mobile-only"
+          class="icon-btn home-btn mobile-only"
           title="Project Home"
+          aria-label="Project Home"
         >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7"/>
-            <path d="M9 22V12h6v10"/>
-          </svg>
+          <Home :size="20" :stroke-width="2" />
         </button>
-        <!-- Status Pills: stacked vertically even on desktop -->
-        <div class="status-group">
-          <!-- Online/Offline Status (background color conveys status; white text) -->
-          <div :class="['status-indicator', onlineStatusClass]" :title="onlineStatusText">
-            <span class="status-text">{{ onlineStatusText }}</span>
-          </div>
 
-          <!-- Sync Status (background color conveys status; white text) -->
-          <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
-            <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
-          </div>
+        <!-- Status cluster (dots, not colored pills) -->
+        <div class="status-cluster">
+          <span
+            :class="['status-chip', onlineStatusClass]"
+            :title="onlineStatusText"
+            role="status"
+          >
+            <span class="status-dot"></span>
+            <span class="status-label">{{ onlineStatusText }}</span>
+          </span>
+          <span
+            :class="['status-chip', hasPendingSync ? 'pending' : 'synced']"
+            :title="syncStatusText"
+            role="status"
+          >
+            <span class="status-dot"></span>
+            <span class="status-label">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+          </span>
         </div>
       </div>
 
-      <!-- Center: Navigation / Page Title -->
+      <!-- Center: page title / primary nav -->
       <nav class="navigation">
-        <!-- Page title for Projects route -->
         <span v-if="isProjectsRoute" class="route-title">All Projects</span>
-        <!-- Project Home Button -->
+
         <router-link
           v-if="showProjectHomeButton"
           :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }"
-          class="nav-link light-btn"
+          class="nav-link"
           :class="{ active: isActiveRoute(`/projects/${currentProject.id}`) }"
         >
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 9l9-7 9 7"/>
-            <path d="M9 22V12h6v10"/>
-          </svg>
+          <Home :size="18" :stroke-width="2" />
           <span class="nav-text">Project Home</span>
         </router-link>
-        
-        <!-- All Projects Button -->
+
         <router-link
           v-if="isAuthenticated && !isProjectsRoute"
           to="/projects"
-          class="nav-link light-btn"
+          class="nav-link"
           :class="{ active: isActiveRoute('/projects') }"
         >
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
-            <path d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"/>
-          </svg>
+          <LayoutGrid :size="18" :stroke-width="2" />
           <span class="nav-text">All Projects</span>
         </router-link>
-        
       </nav>
 
-      <!-- Right side: User actions -->
+      <!-- Right: condensed online dot (mobile) + user menu -->
       <div class="header-right">
-        <!-- Mobile online/offline dot indicator -->
         <span
           class="online-dot"
           :class="isOnline ? 'online' : 'offline'"
           :title="onlineStatusText"
-          aria-hidden="false"
-          role="img"
-        >        </span>
+          aria-hidden="true"
+        ></span>
 
-        <!-- Mobile Globe Button (All Projects) -->
-        <router-link
-          v-if="isAuthenticated && !isProjectsRoute"
-          to="/projects"
-          class="btn light-btn world-btn mobile-only"
-          title="All Projects"
-          aria-label="All Projects"
-        >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M2 12h20"/>
-            <path d="M12 2a15.3 15.3 0 010 20"/>
-            <path d="M12 2a15.3 15.3 0 000 20"/>
-          </svg>
-        </router-link>
-
-        <!-- Mobile Bug Report Button -->
+        <!-- Mobile compact actions (keep bug + sign-out close at hand on small screens) -->
         <button
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
-          class="btn light-btn bug-report-btn mobile-only"
+          class="icon-btn mobile-only bug-btn-mobile"
           title="Report a bug or suggestion"
+          aria-label="Report a bug"
         >
-          <svg class="btn-icon bug-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <!-- Simple bug icon: oval body with segments, 6 legs, 2 antennae -->
-            <ellipse cx="12" cy="13" rx="7" ry="5"/>
-            <ellipse cx="12" cy="11" rx="6" ry="4"/>
-            <!-- Antennae -->
-            <path d="M8 10 Q7 7 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <path d="M16 10 Q17 7 18 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <!-- Legs (6 total: 3 on each side) -->
-            <line x1="6" y1="12" x2="3" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="6" y1="15" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="6" y1="18" x2="3" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="12" x2="21" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="15" x2="21" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="18" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+          <Bug :size="20" :stroke-width="2" />
+          <span v-if="openReportsCount > 0" class="icon-badge">{{ openReportsCount }}</span>
         </button>
 
-        <!-- Mobile Sign Out Button (compact, red) -->
-        <button
+        <!-- User menu (desktop + tablet) -->
+        <div
           v-if="isAuthenticated"
-          @click="handleSignOut"
-          class="btn sign-out-btn-mobile mobile-only"
-          title="Sign out"
-          aria-label="Sign out"
+          class="user-menu"
+          ref="userMenuRef"
         >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-            <polyline points="16,17 21,12 16,7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-        </button>
+          <button
+            class="user-menu-trigger"
+            :class="{ open: showUserMenu }"
+            @click="toggleUserMenu"
+            aria-haspopup="menu"
+            :aria-expanded="showUserMenu"
+            title="Account"
+          >
+            <span class="avatar" aria-hidden="true">{{ userInitial }}</span>
+            <span class="user-menu-caret" aria-hidden="true">
+              <ChevronDown :size="16" :stroke-width="2" />
+            </span>
+            <span v-if="openReportsCount > 0" class="icon-badge">{{ openReportsCount }}</span>
+          </button>
 
-        <!-- Profile Button -->
-        <router-link
-          v-if="isAuthenticated"
-          :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
-          class="btn btn-light profile-btn"
-          :class="{ active: isActiveRoute('/profile') }"
-          title="My Profile"
-          aria-label="My Profile"
-        >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
-        </router-link>
+          <div v-if="showUserMenu" class="user-menu-panel" role="menu">
+            <div class="user-menu-header">
+              <div class="avatar avatar-lg" aria-hidden="true">{{ userInitial }}</div>
+              <div class="user-menu-identity">
+                <div class="user-menu-name">{{ userDisplayName }}</div>
+                <div class="user-menu-email">{{ userEmail }}</div>
+              </div>
+            </div>
 
-        <button
-          v-if="isAuthenticated"
-          @click="showBugReportModal = true"
-          class="btn btn-positive bug-report-btn"
-          title="Report a bug or suggestion"
-        >
-          <svg class="btn-icon bug-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <!-- Simple bug icon: oval body with segments, 6 legs, 2 antennae -->
-            <ellipse cx="12" cy="13" rx="7" ry="5"/>
-            <ellipse cx="12" cy="11" rx="6" ry="4"/>
-            <!-- Antennae -->
-            <path d="M8 10 Q7 7 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <path d="M16 10 Q17 7 18 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <!-- Legs (6 total: 3 on each side) -->
-            <line x1="6" y1="12" x2="3" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="6" y1="15" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="6" y1="18" x2="3" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="12" x2="21" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="15" x2="21" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="18" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span v-if="openReportsCount > 0" class="badge badge-danger" :title="openReportsCount + ' open reports'">{{ openReportsCount }}</span>
-        </button>
-        
-        <!-- Theme Toggle Button -->
-        <button
-          @click="themeStore.toggleTheme()"
-          class="btn btn-light theme-toggle-btn"
-          :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          aria-label="Toggle theme"
-        >
-          <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <!-- Sun icon for light mode -->
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <!-- Moon icon for dark mode -->
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        </button>
+            <router-link
+              :to="{ name: 'UserProfile', params: { tab: 'profile' } }"
+              class="user-menu-item"
+              role="menuitem"
+              @click="closeUserMenu"
+            >
+              <User :size="18" :stroke-width="2" />
+              <span>My Profile</span>
+            </router-link>
 
-        <button
-          v-if="isAuthenticated"
-          @click="handleSignOut"
-          class="btn btn-danger-light sign-out-btn"
-          title="Sign out"
-        >
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-            <polyline points="16,17 21,12 16,7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          <span class="btn-text">Sign Out</span>
-        </button>
+            <button
+              class="user-menu-item"
+              role="menuitem"
+              @click="openBugReport"
+            >
+              <Bug :size="18" :stroke-width="2" />
+              <span>Report a Bug</span>
+              <span v-if="openReportsCount > 0" class="menu-item-badge">{{ openReportsCount }}</span>
+            </button>
+
+            <button
+              class="user-menu-item"
+              role="menuitem"
+              @click="toggleTheme"
+            >
+              <Sun v-if="themeStore.isDark" :size="18" :stroke-width="2" />
+              <Moon v-else :size="18" :stroke-width="2" />
+              <span>{{ themeStore.isDark ? 'Light mode' : 'Dark mode' }}</span>
+            </button>
+
+            <div class="user-menu-divider" role="separator"></div>
+
+            <button
+              class="user-menu-item danger"
+              role="menuitem"
+              @click="handleSignOut"
+            >
+              <LogOut :size="18" :stroke-width="2" />
+              <span>Sign out</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
-
-  <!-- Project Home Button Bar removed to avoid duplication -->
 
   <!-- Bug Report Modal -->
   <BugReportModal
@@ -260,60 +196,46 @@
     <div class="mobile-menu-sheet" role="dialog" aria-modal="true">
       <div class="mobile-menu-header">
         <span class="menu-title">Menu</span>
-        <button class="btn close-btn" @click="showMobileMenu = false" aria-label="Close menu">
-          ✕
+        <button class="icon-btn close-btn" @click="showMobileMenu = false" aria-label="Close menu">
+          <X :size="20" :stroke-width="2" />
         </button>
       </div>
-      <div class="menu-section">
-        <div :class="['status-indicator', onlineStatusClass]">
-          <div class="status-dot"></div>
-          <span class="status-text">{{ onlineStatusText }}</span>
-        </div>
-        <div :class="['sync-indicator', hasPendingSync ? 'pending' : 'synced']" :title="syncStatusText">
-          <div class="sync-dot"></div>
-          <span class="sync-text">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
-        </div>
+
+      <div class="menu-section status-section">
+        <span :class="['status-chip', onlineStatusClass]">
+          <span class="status-dot"></span>
+          <span class="status-label">{{ onlineStatusText }}</span>
+        </span>
+        <span :class="['status-chip', hasPendingSync ? 'pending' : 'synced']">
+          <span class="status-dot"></span>
+          <span class="status-label">{{ hasPendingSync ? 'Pending' : 'Synced' }}</span>
+        </span>
       </div>
-      <div class="menu-section">
-        <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="nav-link light-btn" @click="showMobileMenu = false">Project Home</router-link>
-        <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="nav-link light-btn" @click="showMobileMenu = false">All Projects</router-link>
-        <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="nav-link light-btn" @click="showMobileMenu = false">My Profile</router-link>
+
+      <div class="menu-section nav-section">
+        <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="sheet-link" @click="showMobileMenu = false">
+          <Home :size="18" :stroke-width="2" /> <span>Project Home</span>
+        </router-link>
+        <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="sheet-link" @click="showMobileMenu = false">
+          <LayoutGrid :size="18" :stroke-width="2" /> <span>All Projects</span>
+        </router-link>
+        <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="sheet-link" @click="showMobileMenu = false">
+          <User :size="18" :stroke-width="2" /> <span>My Profile</span>
+        </router-link>
       </div>
-      <div class="menu-section actions">
-        <button class="btn btn-light theme-toggle-btn" @click="themeStore.toggleTheme(); showMobileMenu = false" :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'">
-          <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
+
+      <div class="menu-section actions-section">
+        <button class="sheet-link" @click="toggleTheme(); showMobileMenu = false">
+          <Sun v-if="themeStore.isDark" :size="18" :stroke-width="2" />
+          <Moon v-else :size="18" :stroke-width="2" />
+          <span>{{ themeStore.isDark ? 'Light mode' : 'Dark mode' }}</span>
         </button>
-        <button v-if="isAuthenticated" class="btn btn-positive bug-report-btn" @click="showBugReportModal = true; showMobileMenu = false" title="Report a bug or suggestion">
-          <svg class="btn-icon bug-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <!-- Simple bug icon: oval body with segments, 6 legs, 2 antennae -->
-            <ellipse cx="12" cy="13" rx="7" ry="5"/>
-            <ellipse cx="12" cy="11" rx="6" ry="4"/>
-            <!-- Antennae -->
-            <path d="M8 10 Q7 7 6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <path d="M16 10 Q17 7 18 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <!-- Legs (6 total: 3 on each side) -->
-            <line x1="6" y1="12" x2="3" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="6" y1="15" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="6" y1="18" x2="3" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="12" x2="21" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="15" x2="21" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="18" y1="18" x2="21" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
+        <button v-if="isAuthenticated" class="sheet-link" @click="showBugReportModal = true; showMobileMenu = false">
+          <Bug :size="18" :stroke-width="2" /> <span>Report a Bug</span>
         </button>
-        <button v-if="isAuthenticated" class="btn btn-danger" @click="handleSignOut">Sign Out</button>
+        <button v-if="isAuthenticated" class="sheet-link danger" @click="handleSignOut">
+          <LogOut :size="18" :stroke-width="2" /> <span>Sign Out</span>
+        </button>
       </div>
     </div>
   </div>
@@ -327,10 +249,34 @@ import { useUserStore } from '../stores/userStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useBugReportStore } from '../stores/bugReportStore';
 import BugReportModal from './BugReportModal.vue';
+import {
+  Menu,
+  X,
+  ArrowLeft,
+  Home,
+  LayoutGrid,
+  User,
+  Bug,
+  Sun,
+  Moon,
+  LogOut,
+  ChevronDown,
+} from 'lucide-vue-next';
 
 export default {
   components: {
-    BugReportModal
+    BugReportModal,
+    Menu,
+    X,
+    ArrowLeft,
+    Home,
+    LayoutGrid,
+    User,
+    Bug,
+    Sun,
+    Moon,
+    LogOut,
+    ChevronDown,
   },
   setup() {
     const userStore = useUserStore();
@@ -339,179 +285,225 @@ export default {
     const router = useRouter();
     const route = useRoute();
     const currentRouteName = computed(() => (route && route.name) ? route.name : '');
-  // Safe access to route.meta for template usage
-  const routeMeta = computed(() => (route && route.meta) ? route.meta : {});
+    const routeMeta = computed(() => (route && route.meta) ? route.meta : {});
 
-  const isAuthenticated = computed(() => userStore.isAuthenticated);
-  const currentProject = computed(() => userStore.getCurrentProject);
+    const isAuthenticated = computed(() => userStore.isAuthenticated);
+    const currentProject = computed(() => userStore.getCurrentProject);
 
-  // Hide header if we are on certain auth routes
-  const isHiddenRoute = computed(() => {
-    const hiddenRoutes = ['/login', '/auth/reset-password', '/auth/set-password'];
-    return hiddenRoutes.includes(route.path);
-  });
+    const isHiddenRoute = computed(() => {
+      const hiddenRoutes = ['/login', '/auth/reset-password', '/auth/set-password'];
+      return hiddenRoutes.includes(route.path);
+    });
 
-  // Check if on "/projects"
-  const isProjectsRoute = computed(() => route.path === '/projects');
+    const isProjectsRoute = computed(() => route.path === '/projects');
+    const showBackButton = computed(() => route.path !== '/projects');
 
-  // Back button logic: hide on main projects list
-  const showBackButton = computed(() => route.path !== '/projects');
-
-  const goBack = () => {
-    if (window.history.length > 1) {
-      router.go(-1);
-    } else {
-      // Fallback to projects page if no history
-      router.push('/projects');
-    }
-  };
-
-  // Online/offline
-  const isOnline = ref(navigator.onLine);
-  const onlineStatusText = computed(() => (isOnline.value ? 'Online' : 'Offline'));
-  const onlineStatusClass = computed(() => (isOnline.value ? 'online' : 'offline'));
-
-  // Sync status (background queue)
-  const hasPendingSync = ref(false);
-  const syncStatusText = computed(() => hasPendingSync.value ? 'There are changes waiting to sync' : 'All changes synced');
-
-  // Logging out overlay
-  const isLoggingOut = ref(false);
-  const handleSignOut = async () => {
-    isLoggingOut.value = true;
-    try {
-      await userStore.signOut();
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('Error during sign out:', error.message);
-      isLoggingOut.value = false;
-    }
-  };
-
-  // Bug report modal
-  const showBugReportModal = ref(false);
-  // Badge count for open reports
-  const openReportsCount = computed(() => bugReportStore.openReportsCount);
-  // Mobile menu state
-  const showMobileMenu = ref(false);
-  const handleBugReportSubmit = async (reportData) => {
-    try {
-      await bugReportStore.submitReport(reportData);
-    } catch (error) {
-      console.error('Error submitting bug report:', error);
-    }
-  };
-
-  // If route.name === 'ProjectDetail', we don't show the "Project Home" button
-  const isProjectDetailRoute = computed(() => route.name === 'ProjectDetail');
-
-  // Only show if user is authenticated, has a current project, 
-  // and is not already on the "home" page
-  const showProjectHomeButton = computed(() => {
-    return (
-      isAuthenticated.value &&
-      currentProject.value &&
-      !isProjectDetailRoute.value
-      && !isProjectsRoute.value 
-    );
-  });
-
-  const goToProjectHome = () => {
-    if (currentProject.value?.id) {
-      router.push({
-        name: 'ProjectDetail',
-        params: { id: currentProject.value.id },
-      });
-    }
-  };
-
-  const goHome = () => {
-    if (isAuthenticated.value) {
-      if (currentProject.value?.id) {
-        router.push({ name: 'ProjectDetail', params: { id: currentProject.value.id } });
+    const goBack = () => {
+      if (window.history.length > 1) {
+        router.go(-1);
       } else {
         router.push('/projects');
       }
-    } else {
-      router.push('/');
-    }
-  };
-
-  // For highlighting links
-  const isActiveRoute = (path) => route.path.startsWith(path);
-
-  // Track online/offline events
-  const updateOnlineStatus = () => {
-    isOnline.value = navigator.onLine;
-  };
-  onMounted(() => {
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-
-    // Lazy-load to avoid bundling cost on initial paint
-    const startSyncPolling = async () => {
-      try {
-        const mod = await import('@/services/dataService');
-        const poll = async () => {
-          try {
-            const res = await mod.hasPendingChanges?.();
-            if (typeof res === 'boolean') hasPendingSync.value = res;
-          } catch {}
-        };
-        // initial + poll
-        poll();
-        const id = setInterval(poll, 7000);
-        onUnmounted(() => clearInterval(id));
-      } catch {}
     };
-    startSyncPolling();
 
-    // Ensure we have latest reports for badge
-    try { bugReportStore.fetchReports(); } catch {}
-  });
-  onUnmounted(() => {
-    window.removeEventListener('online', updateOnlineStatus);
-    window.removeEventListener('offline', updateOnlineStatus);
-  });
+    // Online / sync
+    const isOnline = ref(navigator.onLine);
+    const onlineStatusText = computed(() => (isOnline.value ? 'Online' : 'Offline'));
+    const onlineStatusClass = computed(() => (isOnline.value ? 'online' : 'offline'));
 
-  return {
-    isOnline,
-    isAuthenticated,
-    currentProject,
-    isHiddenRoute,
-    isProjectsRoute,
-    isProjectDetailRoute,
-    showProjectHomeButton,
-    showBackButton,
-    routeMeta,
-    currentRouteName,
+    const hasPendingSync = ref(false);
+    const syncStatusText = computed(() => hasPendingSync.value ? 'There are changes waiting to sync' : 'All changes synced');
 
-    onlineStatusText,
-    onlineStatusClass,
+    // Logout
+    const isLoggingOut = ref(false);
+    const handleSignOut = async () => {
+      isLoggingOut.value = true;
+      showUserMenu.value = false;
+      showMobileMenu.value = false;
+      try {
+        await userStore.signOut();
+        window.location.href = '/login';
+      } catch (error) {
+        console.error('Error during sign out:', error.message);
+        isLoggingOut.value = false;
+      }
+    };
 
-    isLoggingOut,
-    handleSignOut,
-    goToProjectHome,
-    goHome,
-    goBack,
-    isActiveRoute,
+    // Bug report
+    const showBugReportModal = ref(false);
+    const openReportsCount = computed(() => bugReportStore.openReportsCount);
+    const showMobileMenu = ref(false);
+    const handleBugReportSubmit = async (reportData) => {
+      try {
+        await bugReportStore.submitReport(reportData);
+      } catch (error) {
+        console.error('Error submitting bug report:', error);
+      }
+    };
 
-    showBugReportModal,
-    handleBugReportSubmit,
-    showMobileMenu,
-    openReportsCount,
-    themeStore,
-  };
-},
+    // User menu popover
+    const showUserMenu = ref(false);
+    const userMenuRef = ref(null);
+    const toggleUserMenu = () => {
+      showUserMenu.value = !showUserMenu.value;
+    };
+    const closeUserMenu = () => {
+      showUserMenu.value = false;
+    };
+    const openBugReport = () => {
+      showUserMenu.value = false;
+      showBugReportModal.value = true;
+    };
+    const toggleTheme = () => {
+      themeStore.toggleTheme();
+      showUserMenu.value = false;
+    };
+    const handleDocClick = (e) => {
+      if (!showUserMenu.value) return;
+      const el = userMenuRef.value;
+      if (el && !el.contains(e.target)) {
+        showUserMenu.value = false;
+      }
+    };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') showUserMenu.value = false;
+    };
+
+    // User identity for avatar
+    const userEmail = computed(() => userStore.getUserEmail || '');
+    const userDisplayName = computed(() => {
+      const profileName = userStore.getUserProfile?.full_name?.trim();
+      if (profileName) return profileName;
+      const email = userStore.getUserEmail || '';
+      if (email.includes('@')) return email.split('@')[0];
+      return email || 'Account';
+    });
+    const userInitial = computed(() => {
+      const s = (userDisplayName.value || '').trim();
+      if (!s) return '?';
+      return s.charAt(0).toUpperCase();
+    });
+
+    const isProjectDetailRoute = computed(() => route.name === 'ProjectDetail');
+
+    const showProjectHomeButton = computed(() => {
+      return (
+        isAuthenticated.value &&
+        currentProject.value &&
+        !isProjectDetailRoute.value
+        && !isProjectsRoute.value
+      );
+    });
+
+    const goToProjectHome = () => {
+      if (currentProject.value?.id) {
+        router.push({
+          name: 'ProjectDetail',
+          params: { id: currentProject.value.id },
+        });
+      }
+    };
+
+    const goHome = () => {
+      if (isAuthenticated.value) {
+        if (currentProject.value?.id) {
+          router.push({ name: 'ProjectDetail', params: { id: currentProject.value.id } });
+        } else {
+          router.push('/projects');
+        }
+      } else {
+        router.push('/');
+      }
+    };
+
+    const isActiveRoute = (path) => route.path.startsWith(path);
+
+    const updateOnlineStatus = () => {
+      isOnline.value = navigator.onLine;
+    };
+
+    onMounted(() => {
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      document.addEventListener('click', handleDocClick);
+      document.addEventListener('keydown', handleEsc);
+
+      const startSyncPolling = async () => {
+        try {
+          const mod = await import('@/services/dataService');
+          const poll = async () => {
+            try {
+              const res = await mod.hasPendingChanges?.();
+              if (typeof res === 'boolean') hasPendingSync.value = res;
+            } catch {}
+          };
+          poll();
+          const id = setInterval(poll, 7000);
+          onUnmounted(() => clearInterval(id));
+        } catch {}
+      };
+      startSyncPolling();
+
+      try { bugReportStore.fetchReports(); } catch {}
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+      document.removeEventListener('click', handleDocClick);
+      document.removeEventListener('keydown', handleEsc);
+    });
+
+    return {
+      isOnline,
+      isAuthenticated,
+      currentProject,
+      isHiddenRoute,
+      isProjectsRoute,
+      isProjectDetailRoute,
+      showProjectHomeButton,
+      showBackButton,
+      routeMeta,
+      currentRouteName,
+
+      onlineStatusText,
+      onlineStatusClass,
+      hasPendingSync,
+      syncStatusText,
+
+      isLoggingOut,
+      handleSignOut,
+      goToProjectHome,
+      goHome,
+      goBack,
+      isActiveRoute,
+
+      showBugReportModal,
+      handleBugReportSubmit,
+      showMobileMenu,
+      openReportsCount,
+      themeStore,
+
+      showUserMenu,
+      userMenuRef,
+      toggleUserMenu,
+      closeUserMenu,
+      openBugReport,
+      toggleTheme,
+      userEmail,
+      userDisplayName,
+      userInitial,
+    };
+  },
 };
 </script>
 
 <style scoped>
-/* Base Styles - Mobile First */
+/* ─── App bar ────────────────────────────────────────────── */
 .header {
-  background-color: var(--bg-primary);
-  border-bottom: 1px solid var(--border-light);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--surface-app-bar);
+  border-bottom: 1px solid var(--surface-border);
+  box-shadow: none;
   padding: 0;
   position: sticky;
   top: 0;
@@ -522,288 +514,370 @@ export default {
 .header-content {
   max-width: 1400px;
   margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: var(--space-4);
-  min-height: 64px;
-}
-
-.header-left,
-.header-right {
-  display: flex;
-  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  min-height: 56px;
   gap: var(--space-3);
 }
 
-/* Status pills */
-.status-group {
+.header-left {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: var(--space-3);
+  justify-self: start;
+  min-width: 0;
 }
-
-.status-indicator {
+.header-right {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 4px 8px;
-  border-radius: var(--radius-full);
-  font-size: 0.8rem;
-  font-weight: var(--font-semibold);
-  color: #ffffff;
-  background-color: #047857;
-  border: 1px solid rgba(0,0,0,0.05);
-  transition: all var(--transition-normal);
-  min-height: 0;
+  justify-self: end;
 }
 
-.status-indicator:hover { filter: brightness(0.92); }
+/* Generic icon buttons / ghost buttons */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  position: relative;
+}
+.icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
 
-.status-dot {
-  width: 8px;
-  height: 8px;
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal);
+}
+.ghost-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+}
+.ghost-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Status cluster */
+.status-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+}
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  line-height: 1;
+  white-space: nowrap;
+}
+.status-chip .status-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  background: var(--color-neutral-400);
+  flex-shrink: 0;
 }
-
-.online.status-indicator { background-color: #065f46; }
-.offline.status-indicator { background-color: #7f1d1d; }
-
-.status-text {
-  font-weight: var(--font-semibold);
-  color: #ffffff;
+.status-chip.online .status-dot { background: var(--color-success-500); }
+.status-chip.offline .status-dot { background: var(--color-error-500); }
+.status-chip.synced .status-dot { background: var(--color-neutral-400); }
+.status-chip.pending .status-dot {
+  background: var(--color-warning-500);
+  animation: pulseDot 1.6s ease-in-out infinite;
 }
+.status-chip.online .status-label,
+.status-chip.synced .status-label { color: var(--text-secondary); }
+.status-chip.offline .status-label,
+.status-chip.pending .status-label { color: var(--text-primary); }
 
-.sync-indicator {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 4px 8px;
-  border-radius: var(--radius-full);
-  font-size: 0.8rem;
-  font-weight: var(--font-semibold);
-  color: #ffffff;
-  background-color: #047857;
-  border: 1px solid rgba(0,0,0,0.05);
-  transition: all var(--transition-normal);
-  min-height: 0;
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
-.sync-indicator.synced { background-color: #065f46; }
-.sync-indicator.pending { background-color: #78350f; }
-.sync-text { font-weight: var(--font-semibold); color: #ffffff; }
 
 /* Navigation */
 .navigation {
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  justify-self: center;
+  min-width: 0;
 }
 
 .nav-link {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   text-decoration: none;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-weight: var(--font-medium);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  transition: all var(--transition-normal);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  transition: color var(--transition-normal), background var(--transition-normal);
   background-color: transparent;
   border: 1px solid transparent;
-  font-size: var(--text-base);
-  min-height: 44px;
+  font-size: var(--text-sm);
+  min-height: 36px;
 }
-
 .nav-link:hover {
-  background-color: var(--bg-secondary);
-}
-
-.nav-link.active {
-  background-color: rgba(59, 130, 246, 0.15);
-  color: var(--color-primary-600);
-  border-color: var(--color-primary-300);
-}
-.nav-link.active .nav-icon {
-  color: var(--color-primary-600);
-  stroke: var(--color-primary-600);
-}
-
-.nav-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.nav-text {
-  font-size: var(--text-base);
-}
-
-/* Route title */
-.route-title {
-  font-weight: var(--font-bold);
-  font-size: var(--text-xl);
-  color: var(--text-heading);
-  padding: var(--space-3) var(--space-4);
-}
-
-/* Back button */
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  background-color: var(--bg-secondary);
+  background-color: var(--surface-hover);
   color: var(--text-primary);
-  border: 1px solid var(--border-light);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
+  text-decoration: none;
+}
+.nav-link.active {
+  color: var(--color-primary-700);
+  background-color: var(--color-primary-50);
+  border-color: transparent;
+}
+.nav-link svg { color: inherit; }
+
+.route-title {
+  font-weight: var(--font-semibold);
   font-size: var(--text-base);
-  min-height: 44px;
+  color: var(--text-heading);
+  padding: 0 var(--space-2);
+  letter-spacing: -0.01em;
 }
 
-.back-btn:hover {
-  background-color: var(--bg-tertiary);
-  border-color: var(--border-medium);
+/* Online dot (mobile) */
+.online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-neutral-400);
+  display: none;
 }
+.online-dot.online { background: var(--color-success-500); }
+.online-dot.offline { background: var(--color-error-500); }
 
-.back-btn:active {
-  transform: scale(0.98);
-}
-
-/* Bug report button */
-.bug-icon {
-  width: 20px;
-  height: 20px;
-}
-
-/* Sign out button */
-.sign-out-btn {
-  color: var(--btn-danger-light-text);
-}
-.sign-out-btn .btn-text,
-.sign-out-btn .btn-icon {
-  color: inherit;
-}
-
-/* Compact mobile sign-out button */
-.sign-out-btn-mobile {
-  background-color: var(--color-error-500);
+/* Icon-sized badge (used on bug/avatar) */
+.icon-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: var(--color-error-500);
   color: #ffffff;
-  border: 1px solid var(--color-error-500);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  min-height: 40px;
-  min-width: 40px;
-}
-.sign-out-btn-mobile:hover { background-color: var(--color-error-600); border-color: var(--color-error-600); }
-.sign-out-btn-mobile .btn-icon { color: #ffffff; stroke: #ffffff; }
-
-.btn-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.btn-text {
-  font-weight: var(--font-medium);
-  font-size: var(--text-base);
-}
-
-/* Numeric badge styling */
-.badge {
+  font-size: 10px;
+  font-weight: var(--font-bold);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 20px;
-  min-width: 20px;
-  padding: 0 6px;
-  margin-left: 8px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: var(--font-bold);
+  border: 2px solid var(--surface-app-bar);
   line-height: 1;
 }
-.badge-danger {
-  background-color: #ef4444;
-  color: #ffffff;
-  border: 1px solid #dc2626;
-}
 
-/* Light pill buttons */
-.light-btn {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-medium);
-}
-.light-btn:hover {
-  background-color: var(--bg-tertiary);
-  border-color: var(--border-dark);
-}
-
-/* Project home bar */
-.project-home-bar {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-light);
-  padding: var(--space-4) 0;
-}
-
-.project-home-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  display: flex;
+/* Avatar */
+.avatar {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  padding: 0 var(--space-4);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary-500);
+  color: #ffffff;
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  line-height: 1;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+.avatar-lg {
+  width: 40px;
+  height: 40px;
+  font-size: var(--text-lg);
 }
 
-.project-home-btn {
+/* User menu trigger + panel */
+.user-menu {
+  position: relative;
+}
+.user-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 3px;
+  border-radius: 9999px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background var(--transition-normal), border-color var(--transition-normal);
+  position: relative;
+}
+.user-menu-trigger:hover,
+.user-menu-trigger.open {
+  background: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+  color: var(--text-primary);
+}
+.user-menu-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.user-menu-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary);
+  transition: transform var(--transition-normal);
+}
+.user-menu-trigger.open .user-menu-caret { transform: rotate(180deg); }
+
+.user-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 260px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: var(--z-popover);
+  animation: menuIn 120ms ease-out;
+}
+
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.user-menu-header {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
+  margin-bottom: 6px;
+}
+.user-menu-identity {
+  min-width: 0;
+}
+.user-menu-name {
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.user-menu-email {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+  margin-top: 2px;
+}
+
+.user-menu-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background-color: var(--color-primary-500);
-  color: var(--text-inverse);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
   border: none;
-  padding: var(--space-4) var(--space-6);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: all var(--transition-normal);
-  min-height: 52px;
-  box-shadow: var(--shadow-md);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  text-decoration: none;
 }
-
-.project-home-btn:hover {
-  background-color: var(--color-primary-600);
-  box-shadow: var(--shadow-lg);
+.user-menu-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-heading);
+  text-decoration: none;
 }
-
-.project-home-btn:active {
-  transform: scale(0.98);
-}
-
-.home-icon {
-  width: 20px;
-  height: 20px;
+.user-menu-item svg {
+  color: var(--text-tertiary);
   flex-shrink: 0;
 }
+.user-menu-item:hover svg { color: var(--color-primary-500); }
+.user-menu-item.danger { color: var(--color-error-600); }
+.user-menu-item.danger:hover {
+  background: var(--color-error-50);
+  color: var(--color-error-700);
+}
+.user-menu-item.danger:hover svg { color: var(--color-error-600); }
+.user-menu-item.danger svg { color: var(--color-error-500); }
 
-.home-text {
-  font-size: var(--text-base);
+.menu-item-badge {
+  margin-left: auto;
+  background: var(--color-error-500);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  padding: 2px 6px;
+  border-radius: 9999px;
+  line-height: 1;
+}
+
+.user-menu-divider {
+  height: 1px;
+  background: var(--surface-border);
+  margin: 6px 4px;
+}
+
+/* Focus ring for interactive pieces */
+.nav-link:focus-visible,
+.user-menu-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* Spinner overlay */
 .spinner-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -811,139 +885,84 @@ export default {
   padding-top: env(safe-area-inset-top, 0);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
-
 .spinner-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  background: var(--bg-primary);
+  background: var(--surface-card);
   padding: var(--space-6);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
+  border: 1px solid var(--surface-border);
 }
-
 .spinner {
-  border: 3px solid var(--color-secondary-200);
+  border: 3px solid var(--surface-border);
   border-top: 3px solid var(--color-primary-500);
   border-radius: 50%;
   width: 32px;
   height: 32px;
   animation: spin 1s linear infinite;
 }
-
 .spinner-text {
   color: var(--text-primary);
   font-weight: var(--font-medium);
   margin: 0;
   font-size: var(--text-base);
 }
-
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-/* Focus States */
-.back-btn:focus,
-.sign-out-btn:focus,
-.project-home-btn:focus,
-.nav-link:focus {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 2px;
-}
+/* ─── Responsive ─────────────────────────────────────────── */
+.mobile-only { display: none; }
+.bug-btn-mobile { display: none; }
 
-/* Tablet Breakpoint */
 @media (min-width: 601px) {
   .header-content {
-    padding: var(--space-5) var(--space-6);
-    min-height: 72px;
+    padding: var(--space-3) var(--space-6);
+    min-height: 60px;
   }
-
   .header-left,
-  .header-right {
-    gap: var(--space-4);
-  }
-
-  .nav-link { padding: var(--space-3) var(--space-5); }
-  .back-btn { padding: var(--space-3) var(--space-5); }
-  .sign-out-btn { padding: var(--space-3) var(--space-5); }
-  .project-home-container { padding: 0 var(--space-6); }
-  .project-home-btn { padding: var(--space-4) var(--space-7); }
+  .header-right { gap: var(--space-3); }
 }
 
-/* Desktop Breakpoint */
 @media (min-width: 1025px) {
   .header-content {
-    padding: var(--space-6) var(--space-8);
-    min-height: 80px;
+    padding: var(--space-3) var(--space-8);
+    min-height: 64px;
   }
-
-  .header-left,
-  .header-right {
-    gap: var(--space-5);
-  }
-
-  .nav-link { padding: var(--space-4) var(--space-6); }
-  .back-btn { padding: var(--space-4) var(--space-6); }
-  .sign-out-btn { padding: var(--space-4) var(--space-6); }
-  .project-home-container { padding: 0 var(--space-8); }
-  .project-home-btn { padding: var(--space-5) var(--space-8); }
-}
-
-/* Mobile-only buttons - hidden on desktop */
-.mobile-only {
-  display: none;
 }
 
 @media (max-width: 768px) {
-  .btn-text,
   .nav-text,
-  .home-text { display: none; }
+  .btn-text { display: none; }
 
   .header-content {
-    padding: var(--space-3) var(--space-4);
-    min-height: 56px;
+    grid-template-columns: auto 1fr auto;
+    padding: var(--space-2) var(--space-3);
+    min-height: 52px;
   }
 
-  .header-left,
-  .header-right { gap: var(--space-2); }
+  .mobile-only { display: inline-flex; }
+  .bug-btn-mobile { display: inline-flex; }
 
-  .nav-link { padding: var(--space-3); min-height: 44px; }
-  .back-btn { padding: var(--space-3); min-height: 44px; }
-  .sign-out-btn { padding: var(--space-3); min-height: 44px; }
-  .project-home-btn { padding: var(--space-4) var(--space-5); min-height: 52px; }
-  .status-indicator { padding: var(--space-2); min-height: 44px; }
-
-  .mobile-only {
-    display: inline-flex;
-    padding: var(--space-2);
-    min-height: 40px;
-  }
-
-  .mobile-only .btn-icon { width: 22px; height: 22px; }
-
-  .navigation,
-  .status-indicator,
-  .sync-indicator { display: none; }
-  .mobile-menu-btn { display: none; }
-  .bug-report-btn,
-  .sign-out-btn,
-  .profile-btn { display: none; }
-
-  .online-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: var(--space-2); }
-  .online-dot.online { background-color: #10b981; }
-  .online-dot.offline { background-color: #ef4444; }
+  .mobile-menu-btn { display: inline-flex; }
+  .navigation { display: none; }
+  .status-cluster { display: none; }
+  .online-dot { display: inline-block; margin-right: 4px; }
 }
 
-/* Mobile menu sheet */
 @media (min-width: 769px) {
   .mobile-menu-btn { display: none; }
 }
+
+/* ─── Mobile menu sheet ──────────────────────────────────── */
 .mobile-menu-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: rgba(15, 23, 42, 0.55);
   z-index: var(--z-modal);
   display: flex;
   justify-content: center;
@@ -952,12 +971,14 @@ export default {
 }
 .mobile-menu-sheet {
   width: 100%;
-  max-width: 480px;
-  background: var(--bg-primary);
+  max-width: 520px;
+  background: var(--surface-card);
   border-top-left-radius: var(--radius-xl);
   border-top-right-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   padding: var(--space-4);
+  border: 1px solid var(--surface-border);
+  border-bottom: none;
 }
 .mobile-menu-header {
   display: flex;
@@ -965,32 +986,60 @@ export default {
   justify-content: space-between;
   margin-bottom: var(--space-3);
 }
-.menu-title { font-weight: var(--font-semibold); color: var(--text-heading); }
-.close-btn {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-medium);
+.menu-title {
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  font-size: var(--text-base);
 }
-.menu-section { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
-.menu-section.actions { justify-content: flex-end; }
+.menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-3);
+}
+.menu-section.status-section {
+  flex-direction: row;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.sheet-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.sheet-link:hover {
+  background: var(--surface-hover);
+  text-decoration: none;
+}
+.sheet-link.danger { color: var(--color-error-600); }
+.sheet-link.danger svg { color: var(--color-error-500); }
+.sheet-link.danger:hover {
+  background: var(--color-error-50);
+  color: var(--color-error-700);
+}
 
-/* High Contrast Mode */
+/* High contrast / reduced motion */
 @media (prefers-contrast: high) {
   .header { border-bottom-width: 2px; }
-  .back-btn,
-  .sign-out-btn,
-  .nav-link,
-  .status-indicator,
-  .project-home-btn { border-width: 2px; }
+  .ghost-btn,
+  .user-menu-trigger,
+  .status-cluster { border-width: 2px; }
 }
-
-/* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-  .back-btn,
-  .sign-out-btn,
-  .project-home-btn { transition: none; }
-  .back-btn:active,
-  .sign-out-btn:active,
-  .project-home-btn:active { transform: none; }
+  .user-menu-panel { animation: none; }
+  .status-chip.pending .status-dot { animation: none; }
+  .user-menu-caret { transition: none; }
+  .spinner { animation-duration: 2.5s; }
 }
 </style>

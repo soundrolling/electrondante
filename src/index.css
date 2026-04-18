@@ -316,6 +316,23 @@ a:hover {
   --icon-secondary: #64748b;
   --icon-muted: #94a3b8;
   --icon-inverse: #ffffff;
+
+  /* Surface tokens — used by the modern SaaS card + app-bar styling */
+  --surface-card: #ffffff;
+  --surface-card-muted: #fafafa;
+  --surface-app-bar: #ffffff;
+  --surface-filter-rail: #ffffff;
+  --surface-overlay: rgba(15, 23, 42, 0.04);
+  --surface-border: #e5e7eb;
+  --surface-border-strong: #d1d5db;
+  --surface-hover: #f5f5f7;
+  --chip-bg: #f3f4f6;
+  --chip-bg-active: var(--color-primary-50);
+  --chip-text: #374151;
+  --chip-text-active: var(--color-primary-700);
+  --chip-border: transparent;
+  --chip-border-active: var(--color-primary-200);
+  --focus-ring: rgba(14, 165, 233, 0.35);
 }
 
 /* ============================================
@@ -395,6 +412,23 @@ a:hover {
   --icon-secondary: #9ca3af;
   --icon-muted: #6b7280;
   --icon-inverse: #1a1a1a;
+
+  /* Surface tokens — dark mode counterparts */
+  --surface-card: #1f2024;
+  --surface-card-muted: rgba(255, 255, 255, 0.04);
+  --surface-app-bar: #1a1a1a;
+  --surface-filter-rail: #1f2024;
+  --surface-overlay: rgba(255, 255, 255, 0.04);
+  --surface-border: #2f3136;
+  --surface-border-strong: #3d3f45;
+  --surface-hover: #26282d;
+  --chip-bg: rgba(255, 255, 255, 0.06);
+  --chip-bg-active: rgba(14, 165, 233, 0.18);
+  --chip-text: #d1d5db;
+  --chip-text-active: #7dd3fc;
+  --chip-border: transparent;
+  --chip-border-active: rgba(125, 211, 252, 0.35);
+  --focus-ring: rgba(56, 189, 248, 0.45);
 }
 
 /* ============================================
