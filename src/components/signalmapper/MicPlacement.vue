@@ -98,26 +98,22 @@
       </div>
       <div class="legend-items" draggable="false" @dragstart.prevent.stop>
         <div
-          v-for="btn in uniqueLegendButtons"
-          :key="btn.id"
+          v-for="entry in legendEntriesByMic"
+          :key="entry.nodeId"
           class="legend-item"
           draggable="false"
           @dragstart.prevent.stop
         >
           <div
             class="legend-color-swatch"
-            :style="{ backgroundColor: btn.color || '#ccc' }"
+            :style="{ backgroundColor: entry.color || '#ccc' }"
             draggable="false"
           ></div>
           <div class="legend-item-text" draggable="false">
-            <span
-              v-if="nodeNamesByColorKey[colorButtonKey(btn)] && nodeNamesByColorKey[colorButtonKey(btn)].length"
-              class="legend-node-names"
-              :title="nodeNamesByColorKey[colorButtonKey(btn)].join(', ')"
-            >
-              {{ nodeNamesByColorKey[colorButtonKey(btn)].join(', ') }}
+            <span class="legend-node-names" :title="entry.nodeName">
+              {{ entry.nodeName }}
             </span>
-            <span class="legend-label-text" draggable="false">{{ btn.name }}</span>
+            <span class="legend-label-text" draggable="false">{{ entry.buttonName }}</span>
           </div>
         </div>
       </div>
@@ -817,6 +813,29 @@ const uniqueLegendButtons = computed(() => {
     const key = colorButtonKey(btn)
     return (nodeNamesByColorKey.value[key] || []).length > 0
   })
+})
+// Per-mic entries for the floating canvas legend — one row per placed
+// mic so each position can be read off individually. Sorted naturally
+// (STAGE L / STAGE LL / STAGE LLL …) so neighbouring mics group together.
+const legendEntriesByMic = computed(() => {
+  const out = []
+  for (const n of props.nodes || []) {
+    if (!n.color_button_id) continue
+    const name = (n.track_name || n.label || '').trim()
+    if (!name) continue
+    const btn = (colorButtons.value || []).find(b => b.id === n.color_button_id)
+    if (!btn) continue
+    out.push({
+      nodeId: n.id,
+      nodeName: name,
+      buttonName: btn.name || '',
+      color: btn.color || '#ccc',
+    })
+  }
+  out.sort((a, b) =>
+    a.nodeName.localeCompare(b.nodeName, undefined, { numeric: true, sensitivity: 'base' })
+  )
+  return out
 })
 // True when the selected mic's colour resolves to this dedup entry.
 function isDedupBtnActive(btn) {
@@ -5265,10 +5284,7 @@ defineExpose({ getCanvasDataURL })
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word;
+  white-space: nowrap;
 }
 .legend-label-text {
   font-size: 10px;
