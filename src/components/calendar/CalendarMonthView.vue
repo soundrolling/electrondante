@@ -50,11 +50,17 @@
           'is-weekend':   cell.isWeekend,
           'is-selected':  cell.iso === selectedIso,
           'has-events':   cell.events.length > 0,
+          'drag-over':    dragTargetIso === cell.iso,
+          'drag-invalid': dragTargetIso === cell.iso && !dragTargetValid,
         }
       ]"
       :aria-label="cell.ariaLabel"
       :aria-current="cell.isToday ? 'date' : undefined"
       @click="onDayClick(cell)"
+      @dragenter.prevent="onDayDragEnter(cell, $event)"
+      @dragover.prevent="onDayDragOver(cell, $event)"
+      @dragleave="onDayDragLeave(cell)"
+      @drop.prevent="onDayDrop(cell, $event)"
     >
       <div class="cmv-day-top">
         <span class="cmv-day-num">{{ cell.day }}</span>
@@ -64,10 +70,13 @@
         <li
           v-for="ev in cell.visibleEvents"
           :key="ev.id"
-          class="cmv-event-chip"
+          :class="['cmv-event-chip', { 'is-dragging': draggingEventId === ev.id, 'is-locked': ev.isSynthetic }]"
           :style="chipStyle(ev)"
-          :title="chipTitle(ev)"
+          :title="chipTitle(ev) + (ev.isSynthetic ? ' · auto-generated' : ' · drag to reschedule')"
+          :draggable="!readOnly && !ev.isSynthetic ? 'true' : 'false'"
           @click.stop="onEventClick(ev)"
+          @dragstart="onEventDragStart(ev, cell, $event)"
+          @dragend="onEventDragEnd"
         >
           <span v-if="ev.start_time && ev.start_time !== '00:00'" class="cmv-event-time">{{ shortTime(ev.start_time) }}</span>
           <span class="cmv-event-title">{{ ev.title }}</span>
@@ -202,6 +211,7 @@ const emit = defineEmits([
   'jump-to-today',
   'event-click',
   'add-event-for-day',
+  'event-reschedule',
 ])
 
 /* ─── Month math ──────────────────────────────────────── */
@@ -389,6 +399,91 @@ function chipTitle(ev) {
   if (ev.category) parts.push(`(${ev.category})`)
   return parts.join(' ')
 }
+
+/* ─── Drag to reschedule ──────────────────────────────── */
+const draggingEventId = ref(null)
+const draggingEvent = ref(null)          // full event ref so we know duration
+const draggingFromIso = ref(null)
+const dragTargetIso = ref(null)
+const dragTargetValid = ref(true)
+
+function diffInDays(aIso, bIso) {
+  // Inclusive difference in calendar days between two ISO dates
+  const a = new Date(aIso + 'T00:00:00Z').getTime()
+  const b = new Date(bIso + 'T00:00:00Z').getTime()
+  return Math.round((b - a) / 86400000)
+}
+
+function shiftIso(iso, days) {
+  const d = new Date(iso + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+function onEventDragStart(ev, cell, e) {
+  if (props.readOnly || ev.isSynthetic) { e.preventDefault(); return }
+  draggingEventId.value = ev.id
+  draggingEvent.value = ev
+  draggingFromIso.value = (ev.event_date || cell.iso).slice(0, 10)
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    try {
+      e.dataTransfer.setData('text/plain', String(ev.id))
+    } catch {}
+  }
+  // Close the day panel so it doesn't block drop targets
+  selectedIso.value = null
+}
+
+function onEventDragEnd() {
+  draggingEventId.value = null
+  draggingEvent.value = null
+  draggingFromIso.value = null
+  dragTargetIso.value = null
+  dragTargetValid.value = true
+}
+
+function onDayDragEnter(cell, e) {
+  if (!draggingEventId.value) return
+  dragTargetIso.value = cell.iso
+  dragTargetValid.value = cell.iso !== draggingFromIso.value
+  if (e.dataTransfer) e.dataTransfer.dropEffect = dragTargetValid.value ? 'move' : 'none'
+}
+
+function onDayDragOver(cell, e) {
+  if (!draggingEventId.value) return
+  if (dragTargetIso.value !== cell.iso) {
+    dragTargetIso.value = cell.iso
+    dragTargetValid.value = cell.iso !== draggingFromIso.value
+  }
+  if (e.dataTransfer) e.dataTransfer.dropEffect = dragTargetValid.value ? 'move' : 'none'
+}
+
+function onDayDragLeave(cell) {
+  if (dragTargetIso.value === cell.iso) {
+    // Only clear if pointer actually left this cell
+    dragTargetIso.value = null
+  }
+}
+
+function onDayDrop(cell, _e) {
+  if (!draggingEvent.value || !draggingFromIso.value) return
+  const ev = draggingEvent.value
+  const newDate = cell.iso
+  const originalDate = draggingFromIso.value
+  if (newDate !== originalDate) {
+    const delta = diffInDays(originalDate, newDate)
+    const endSrc = (ev.end_date || ev.event_date || originalDate).slice(0, 10)
+    const newEndDate = shiftIso(endSrc, delta)
+    emit('event-reschedule', {
+      event: ev,
+      newDate,
+      newEndDate,
+      daysDelta: delta,
+    })
+  }
+  onEventDragEnd()
+}
 </script>
 
 <style scoped>
@@ -539,6 +634,17 @@ function chipTitle(ev) {
   z-index: 1;
   position: relative;
 }
+.cmv-day.drag-over {
+  background: color-mix(in srgb, var(--color-primary-100) 70%, var(--surface-card));
+  box-shadow: inset 0 0 0 2px var(--color-primary-500);
+  z-index: 2;
+  position: relative;
+}
+.cmv-day.drag-over.drag-invalid {
+  background: color-mix(in srgb, var(--color-error-50) 80%, var(--surface-card));
+  box-shadow: inset 0 0 0 2px var(--color-error-400);
+  cursor: not-allowed;
+}
 
 .cmv-day-top {
   display: flex;
@@ -594,6 +700,13 @@ function chipTitle(ev) {
   transition: filter var(--transition-fast);
 }
 .cmv-event-chip:hover { filter: brightness(0.94); }
+.cmv-event-chip[draggable="true"] { cursor: grab; }
+.cmv-event-chip.is-dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+  cursor: grabbing;
+}
+.cmv-event-chip.is-locked { cursor: pointer; }
 .cmv-event-time {
   font-weight: var(--font-semibold);
   font-variant-numeric: tabular-nums;

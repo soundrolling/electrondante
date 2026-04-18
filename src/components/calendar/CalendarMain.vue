@@ -183,6 +183,7 @@
       @jump-to-today="jumpToToday"
       @event-click="openDetailsModal"
       @add-event-for-day="onAddEventForDay"
+      @event-reschedule="onEventReschedule"
     />
 
     <!-- WEEK (grid) VIEW -->
@@ -690,6 +691,37 @@ setup(props, { emit }) {
   function onAddEventForDay(iso) {
     prefilledEventDate.value = iso
     openNewEventModal()
+  }
+
+  // Month view drag-to-reschedule. The child emits { event, newDate,
+  // newEndDate, daysDelta } — we keep the existing start_time/end_time
+  // (just the date moves), preserve duration, and optimistically update
+  // local state before the network round-trip so the chip lands on the
+  // target cell immediately.
+  async function onEventReschedule({ event, newDate, newEndDate }) {
+    if (!event || !event.id || event.isSynthetic) return
+    const prevEventDate = event.event_date
+    const prevEndDate = event.end_date
+    // Optimistic: mutate the live event object so the grid re-renders now
+    event.event_date = newDate
+    event.end_date = newEndDate
+    const payload = {
+      category: event.category,
+      title: event.title,
+      event_date: newDate,
+      end_date: newEndDate,
+      start_time: event.start_time,
+      end_time: event.end_time,
+      location_id: event.location_id,
+      notes: event.notes,
+      assigned_contacts: event.assigned_contacts || [],
+    }
+    const ok = await updateEvent(event.id, payload)
+    if (!ok) {
+      // Roll back
+      event.event_date = prevEventDate
+      event.end_date = prevEndDate
+    }
   }
 
   /* ─── .ics export + subscribe URL ──────────────────── */
@@ -1538,7 +1570,7 @@ setup(props, { emit }) {
     locations, events, sortedEvents, stageHours, filteredStageHours, contacts,
     eventCategories, categoryColors, categoryColorMap, locationColorMap, getEventColor, getEventColorRich, getLocationName,
     getStageHoursForDay, getFilteredStageHoursForDay,
-    handleMonthNav, onAddEventForDay,
+    handleMonthNav, onAddEventForDay, onEventReschedule,
     showExportMenu, exportWrapRef, onDownloadIcs,
     activeShareToken, activeSubscribeUrl, webcalUrl, shareBusy, copyHint,
     onCreateShare, onRevokeShare, onCopySubscribeUrl,
