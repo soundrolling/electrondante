@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.1.0">
-        <span class="version-text">v2.1.0</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.1.1">
+        <span class="version-text">v2.1.1</span>
         <span class="version-date">April 18th 2026</span>
       </button>
     </div>
@@ -19,11 +19,21 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.1.0</h2>
+          <h2 id="changelog-title">What's New in 2.1.1</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
-        
+
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔧 Bug Fixes</h3>
+            <p>Fixed a project visibility issue where users with a different authentication email than their team membership email couldn't see their assigned projects. Projects now load correctly regardless of email mismatch.</p>
+          </div>
+
+          <div class="changelog-section">
+            <h3>🗂️ All Projects in Nav</h3>
+            <p>The "All Projects" link is now always visible in the navigation bar and mobile menu, making it easy to return to the full project list from anywhere in the app.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>📶 Offline Sync</h3>
             <p>Major offline-first improvements across the app. Stage document reordering, flight detail transport changes, and more now queue automatically when offline and sync when connectivity is restored — no lost work on set.</p>
@@ -47,11 +57,6 @@
           <div class="changelog-section">
             <h3>📊 Report Center Upgrades</h3>
             <p>Report center now includes additional data points and improved filtering options. Reports generate faster and are more accurate across large projects.</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>🔧 Bug Fixes & Stability</h3>
-            <p>Fixed offline queue delete path edge cases, resolved sync race conditions, and addressed several mobile layout issues across the app.</p>
           </div>
         </div>
         
