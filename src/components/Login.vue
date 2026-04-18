@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.0.31">
-        <span class="version-text">v2.0.31</span>
-        <span class="version-date">February 9th 2026</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.1.0">
+        <span class="version-text">v2.1.0</span>
+        <span class="version-date">April 18th 2026</span>
       </button>
     </div>
 
@@ -19,64 +19,39 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.0.30</h2>
+          <h2 id="changelog-title">What's New in 2.1.0</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
         
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔄 Version Update</h3>
-            <p>General improvements and bug fixes.</p>
+            <h3>📶 Offline Sync</h3>
+            <p>Major offline-first improvements across the app. Stage document reordering, flight detail transport changes, and more now queue automatically when offline and sync when connectivity is restored — no lost work on set.</p>
           </div>
-          
+
           <div class="changelog-section">
-            <h3>📤 Enhanced Location Notes Export</h3>
-            <p>Location Notes export now supports exporting by Recording Day in addition to date ranges. Choose between "Recording Day" or "Date Range" export modes. Export all notes from a specific recording day, unassigned notes, or use the traditional date range filter. This makes it easier to export notes organized by your production schedule.</p>
+            <h3>🎙️ Mic Placement Mobile UX</h3>
+            <p>Completely redesigned mic placement interface for mobile devices. Improved touch targets, better layout on small screens, and smoother interactions when working on the go.</p>
           </div>
-          
+
           <div class="changelog-section">
-            <h3>🔗 Signal Mapper Stage Boundary Validation</h3>
-            <p>Added validation to prevent cross-stage connections in the Signal Mapper. Connections can only be created between nodes within the same stage/location, ensuring proper signal routing organization. The system now automatically validates and maintains location consistency for all signal mapper connections.</p>
+            <h3>🗺️ Signal Mapper Beta is Now Default</h3>
+            <p>The redesigned Signal Mapper is now the default view for all users. The improved interface offers better performance, cleaner node layout, and more intuitive connection management.</p>
           </div>
-          
+
           <div class="changelog-section">
-            <h3>📊 Improved Track List Functionality</h3>
-            <p>Enhanced the Track List view in Signal Mapper with better organization and display. Track lists now properly group by recorder and maintain consistent location filtering throughout the signal mapper interface.</p>
+            <h3>🧳 Travel Data Improvements</h3>
+            <p>Travel records now use dedicated IndexedDB stores for faster local access and more reliable offline support. Sync consolidation and race condition fixes ensure travel data stays consistent across devices.</p>
           </div>
-          
+
           <div class="changelog-section">
-            <h3>🌙 Complete Dark Mode Support</h3>
-            <p>Added comprehensive dark mode theme throughout the entire application. Toggle between light and dark modes from the header or footer. All components now properly support dark backgrounds with white text for better visibility in low-light conditions.</p>
+            <h3>📊 Report Center Upgrades</h3>
+            <p>Report center now includes additional data points and improved filtering options. Reports generate faster and are more accurate across large projects.</p>
           </div>
-          
+
           <div class="changelog-section">
-            <h3>🎨 Enhanced Component Styling</h3>
-            <p>Updated all components to use theme variables instead of hardcoded colors. Stage Pictures, Stage Documents, Project Tools, Location Notes, and all modals now properly adapt to dark mode with darker backgrounds and improved contrast.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🎯 Improved Status Indicators</h3>
-            <p>Status pills and indicators throughout the app now use dark backgrounds with white text in dark mode. Repacking tab status badges, managing hours LIVE indicators, and all button states have been updated for better visibility.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>📦 Enhanced Modals & Forms</h3>
-            <p>Create Bag modal, User Gear Selector, and all form elements now have proper dark mode styling. Input fields, dropdowns, and interactive elements use theme-aware colors for consistent appearance across both light and dark modes.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>📷 Stage Pictures & Documents Dark Mode</h3>
-            <p>Completely redesigned Stage Pictures and Stage Documents pages for dark mode compatibility. All white backgrounds replaced with theme-aware dark backgrounds. Upload areas, file lists, image cards, and document previews now seamlessly adapt to dark mode with proper contrast.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🛠️ Project Tools & UI Improvements</h3>
-            <p>Project Tools buttons now feature dark backgrounds with white text in dark mode. Theme toggle button redesigned as a proper toggle switch with consistent sizing. Sign Out and Clear Cache buttons use dark red styling for better visual hierarchy.</p>
-          </div>
-          
-          <div class="changelog-section">
-            <h3>🔧 Login & Authentication</h3>
-            <p>Login page background now uses theme variables for consistent dark mode appearance. All authentication-related components properly support both light and dark themes.</p>
+            <h3>🔧 Bug Fixes & Stability</h3>
+            <p>Fixed offline queue delete path edge cases, resolved sync race conditions, and addressed several mobile layout issues across the app.</p>
           </div>
         </div>
         
