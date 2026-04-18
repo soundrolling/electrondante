@@ -295,30 +295,45 @@
 
           <!-- Tier 2: secondary, detail panel -->
           <div class="card-secondary">
-            <div class="date-blocks">
-              <div v-if="p.build_days && p.build_days.length" class="date-block">
-                <div class="date-block-label">
-                  <Hammer :size="14" :stroke-width="2" />
-                  <span>Build</span>
-                </div>
-                <ul class="date-block-list">
-                  <li v-for="(group, gi) in groupConsecutiveDates(p.build_days)" :key="'b'+gi">
-                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-                  </li>
-                </ul>
+            <div
+              v-if="timelines.get(p.id)"
+              class="date-strip"
+              role="group"
+              :aria-label="`Build and show days for ${p.project_name}`"
+            >
+              <div class="date-strip-header">
+                <span class="legend-item">
+                  <span class="legend-dot build"></span>
+                  <Hammer :size="12" :stroke-width="2" />
+                  <span>{{ (p.build_days || []).length }}</span>
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot show"></span>
+                  <Drama :size="12" :stroke-width="2" />
+                  <span>{{ (p.main_show_days || []).length }}</span>
+                </span>
               </div>
-              <div v-if="p.main_show_days && p.main_show_days.length" class="date-block">
-                <div class="date-block-label">
-                  <Drama :size="14" :stroke-width="2" />
-                  <span>Show</span>
+              <div class="date-strip-months">
+                <div
+                  v-for="m in timelines.get(p.id).months"
+                  :key="m.key"
+                  class="date-strip-month"
+                  :style="{ flex: m.count }"
+                >
+                  <span class="month-label">{{ m.label }}</span>
                 </div>
-                <ul class="date-block-list">
-                  <li v-for="(group, gi) in groupConsecutiveDates(p.main_show_days)" :key="'s'+gi">
-                    <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-                    <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-                  </li>
-                </ul>
+              </div>
+              <div class="date-strip-track">
+                <div
+                  v-for="(d, di) in timelines.get(p.id).days"
+                  :key="di"
+                  :class="[
+                    'date-strip-cell',
+                    { build: d.isBuild, show: d.isShow, today: d.isToday, weekend: d.isWeekend, 'month-start': d.isMonthStart }
+                  ]"
+                  :title="(d.isBuild && d.isShow ? 'Build + Show · ' : d.isBuild ? 'Build · ' : d.isShow ? 'Show · ' : '') + d.label"
+                  :aria-label="(d.isBuild || d.isShow ? ((d.isBuild ? 'Build day ' : '') + (d.isShow ? 'Show day ' : '')) : '') + d.label"
+                ></div>
               </div>
             </div>
 
@@ -792,6 +807,68 @@ setup() {
     }
   };
 
+  /* ───────── TIMELINE STRIPS ─────────
+     Per-project mini-calendar: month labels + per-day cells colored by
+     build/show. Computed once for the displayed set so cards stay cheap. */
+  const startOfDay = (ds) => {
+    const d = new Date(ds);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  };
+
+  const buildTimeline = (p) => {
+    const build = (p.build_days || []).filter(Boolean);
+    const show = (p.main_show_days || []).filter(Boolean);
+    if (!build.length && !show.length) return null;
+    const buildSet = new Set(build.map(startOfDay).filter(t => !Number.isNaN(t)));
+    const showSet = new Set(show.map(startOfDay).filter(t => !Number.isNaN(t)));
+    const all = [...buildSet, ...showSet];
+    if (!all.length) return null;
+    const min = Math.min(...all);
+    const max = Math.max(...all);
+    const startDate = new Date(min);
+    const endDate = new Date(max);
+    const stripStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const stripEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+    const today = startOfDay(new Date());
+    const oneDay = 86400000;
+    const days = [];
+    const months = [];
+    for (let t = stripStart.getTime(); t <= stripEnd.getTime(); t += oneDay) {
+      const d = new Date(t);
+      const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+      const dayTime = startOfDay(d);
+      if (!months.length || months[months.length - 1].key !== monthKey) {
+        months.push({
+          key: monthKey,
+          label: d.toLocaleDateString('en-US', { month: 'short' }),
+          count: 1,
+        });
+      } else {
+        months[months.length - 1].count += 1;
+      }
+      const weekDay = d.getDay();
+      days.push({
+        date: d.toISOString().slice(0, 10),
+        isBuild: buildSet.has(dayTime),
+        isShow: showSet.has(dayTime),
+        isToday: dayTime === today,
+        isWeekend: weekDay === 0 || weekDay === 6,
+        isMonthStart: d.getDate() === 1 && days.length > 0,
+        label: formatSingleDate(d.toISOString().slice(0, 10)),
+      });
+    }
+    return { months, days };
+  };
+
+  const timelines = computed(() => {
+    const map = new Map();
+    for (const p of projects.value) {
+      const t = buildTimeline(p);
+      if (t) map.set(p.id, t);
+    }
+    return map;
+  });
+
   /* ───────── NEXT KEY DATE ─────────
      Picks the soonest upcoming show or build day; falls back to the most
      recent past one so the card always has context. Used by Tier 1 chip. */
@@ -1234,6 +1311,7 @@ setup() {
     toggleOwnerMenu,
     isRefreshing,
     nextKeyDate,
+    timelines,
   };
 },
 };
@@ -1830,39 +1908,110 @@ setup() {
   flex-direction: column;
   gap: var(--space-3);
 }
-.date-blocks {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
-.date-block {
+/* Mini calendar strip */
+.date-strip {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 0;
+  padding: 10px 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
 }
-.date-block-label {
+.date-strip-header {
+  display: flex;
+  gap: var(--space-3);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: var(--font-medium);
+  padding-bottom: 2px;
+}
+.legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: var(--font-semibold);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  gap: 5px;
+  color: var(--text-secondary);
 }
-.date-block-label svg { color: var(--text-tertiary); }
-.date-block-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.legend-item svg { color: var(--text-tertiary); }
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.legend-dot.build { background: var(--color-primary-500); }
+.legend-dot.show { background: var(--color-warning-500); }
+
+.date-strip-months {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
+  gap: 1px;
+  height: 14px;
 }
-.date-block-list li { line-height: 1.35; }
+.date-strip-month {
+  min-width: 0;
+  position: relative;
+  border-left: 1px solid var(--surface-border);
+  padding-left: 4px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.date-strip-month:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+.month-label {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.date-strip-track {
+  display: flex;
+  gap: 1px;
+  height: 18px;
+  align-items: stretch;
+}
+.date-strip-cell {
+  flex: 1 1 0;
+  min-width: 2px;
+  background: var(--chip-bg);
+  border-radius: 2px;
+  transition: transform 120ms ease, background 120ms ease;
+  position: relative;
+  cursor: default;
+}
+.date-strip-cell.weekend {
+  background: color-mix(in srgb, var(--chip-bg) 70%, var(--surface-border));
+}
+.date-strip-cell.build {
+  background: var(--color-primary-500);
+  box-shadow: inset 0 0 0 1px var(--color-primary-600);
+}
+.date-strip-cell.show {
+  background: var(--color-warning-500);
+  box-shadow: inset 0 0 0 1px var(--color-warning-600);
+}
+.date-strip-cell.build.show {
+  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-warning-500) 50%, var(--color-warning-500) 100%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.today {
+  box-shadow: 0 0 0 1px var(--color-primary-600), inset 0 0 0 1px #ffffff;
+}
+.date-strip-cell:hover {
+  transform: scaleY(1.25);
+  z-index: 2;
+}
+
+@media (hover: none) {
+  .date-strip-cell:hover { transform: none; }
+}
 
 /* Spatial Crew */
 .crew-toggle-btn {
@@ -2175,7 +2324,9 @@ setup() {
   .sort-control { display: none; }
   .mobile-filter-toggle { display: inline-flex; }
   .filter-rail { top: 52px; }
-  .date-blocks { grid-template-columns: 1fr; gap: var(--space-2); }
+  .date-strip-track { height: 16px; }
+  .date-strip-months { height: 12px; }
+  .month-label { font-size: 9px; }
   .card-meta-row { gap: var(--space-3); }
 }
 
