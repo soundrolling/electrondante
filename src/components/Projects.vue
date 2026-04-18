@@ -2459,9 +2459,12 @@ setup() {
   .sort-control { display: none; }
   .mobile-filter-toggle { display: inline-flex; }
   .filter-rail { top: 52px; }
-  .date-strip-track { height: 16px; }
-  .date-strip-months { height: 12px; }
+  .date-strip { gap: 6px; }
+  .date-strip-numbers { display: none; }
+  .date-strip-track { height: 28px; }
+  .date-strip-months { height: 14px; }
   .month-label { font-size: 9px; }
+  .date-strip-cell { border-radius: 3px; }
   .card-meta-row { gap: var(--space-3); }
 }
 
