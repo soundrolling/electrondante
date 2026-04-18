@@ -2184,6 +2184,8 @@ function onPointerDown(e) {
   e.preventDefault()
   if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') return
 
+  canvas.value.setPointerCapture(e.pointerId)
+
   const { x, y } = getCanvasCoords(e)
   const pointerInfo = { 
     x, 
@@ -3231,6 +3233,7 @@ function handleKeyDown(e) {
 // Lifecycle
 onMounted(() => {
   checkScreenSize()
+  if (isMobile.value) panImageMode.value = true
   window.addEventListener('resize', checkScreenSize)
   window.addEventListener('keydown', handleKeyDown)
   if (canvas.value) {
