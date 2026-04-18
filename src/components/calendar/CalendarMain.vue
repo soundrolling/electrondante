@@ -8,34 +8,36 @@
   </div>
 
   <!-- CONTROLS -->
-  <section class="controls-section">
-    <div class="view-controls">
+  <section class="controls-section cal-controls">
+    <div class="cal-controls-left">
       <CalendarViewSelector v-model="currentView" />
+      <CalendarFilters
+        :categories="eventCategories"
+        :locations="locations"
+        :filters="filters"
+        :showDateFilters="true"
+        @update:filters="updateFilters"
+      />
     </div>
 
-    <CalendarFilters 
-      :categories="eventCategories"
-      :locations="locations"
-      :filters="filters"
-      :showDateFilters="true"
-      @update:filters="updateFilters"
-    />
-
-    <button 
-      class="btn-primary add-button desktop-add-button" 
-      @click="openNewEventModal"
-      aria-label="Add new event"
-    >
-      + Add Event
-    </button>
-    <button 
-      class="btn-secondary desktop-refresh-button" 
-      @click="forceRefresh" 
-      style="margin-left: 0.5rem;"
-      aria-label="Refresh calendar"
-    >
-      🔄 Refresh
-    </button>
+    <div class="cal-controls-right">
+      <button
+        class="cal-refresh-btn"
+        @click="forceRefresh"
+        aria-label="Refresh calendar"
+        title="Refresh"
+      >
+        <span class="cal-refresh-icon" aria-hidden="true">↻</span>
+      </button>
+      <button
+        class="cal-add-btn desktop-add-button"
+        @click="openNewEventModal"
+        aria-label="Add new event"
+      >
+        <span class="cal-add-plus" aria-hidden="true">+</span>
+        <span>New event</span>
+      </button>
+    </div>
   </section>
 
   <!-- Mobile FAB -->
@@ -79,9 +81,25 @@
 
   <!-- MAIN VIEWS -->
   <section class="views-container">
-    <!-- CALENDAR GRID VIEW -->
+    <!-- MONTH VIEW (default) -->
+    <CalendarMonthView
+      v-if="currentView==='month'"
+      :current-date="currentDate"
+      :get-events-for-day="getEventsForDay"
+      :get-event-color="getEventColorRich"
+      :get-stage-hours-for-day="getFilteredStageHoursForDay"
+      :get-location-name="getLocationName"
+      :read-only="readOnly"
+      @previous-period="handleMonthNav"
+      @next-period="handleMonthNav"
+      @jump-to-today="jumpToToday"
+      @event-click="openDetailsModal"
+      @add-event-for-day="onAddEventForDay"
+    />
+
+    <!-- WEEK (grid) VIEW -->
     <CalendarGridView
-      v-if="currentView==='grid'"
+      v-else-if="currentView==='grid'"
       :week-range-header="weekRangeHeader"
       :display-calendar-days="displayCalendarDays"
       :get-events-for-day="getEventsForDay"
@@ -252,6 +270,7 @@ import CalendarLegend from "./CalendarLegend.vue";
 import CalendarListView from "./CalendarListView.vue";
 import CalendarTimelineView from "./CalendarTimelineView.vue";
 import CalendarGridView from "./CalendarGridView.vue";
+import CalendarMonthView from "./CalendarMonthView.vue";
 import EventDetailsModal from "./EventDetailsModal.vue";
 import NewEventModal from "./NewEventModal.vue";
 import ConfirmationModal from "./ConfirmationModal.vue";
@@ -285,6 +304,7 @@ components: {
   CalendarListView,
   CalendarTimelineView,
   CalendarGridView,
+  CalendarMonthView,
   EventDetailsModal,
   NewEventModal,
   ConfirmationModal,
@@ -342,7 +362,7 @@ setup(props, { emit }) {
   const stageHoursError = ref("");
   const toastMsg = ref("");
 
-  const currentView = ref(props.initialView || "grid");
+  const currentView = ref(props.initialView || "month");
   
   // Watch for view changes and emit event
   watch(currentView, (newView) => {
@@ -544,11 +564,36 @@ setup(props, { emit }) {
     if (ev.category && categoryColors[ev.category]) {
       return categoryColors[ev.category].main;
     }
-    
+
     // Fallback to location color if category not found
     const l = locations.value.find(x => x.id === ev.location_id);
     const label = l ? `${l.venue_name} - ${l.stage_name}` : "Unspecified";
     return locationColorMap.value[label] || "#bdc3c7";
+  }
+
+  // Rich colour helper used by the new Month view. Returns bg / border /
+  // text so the month-grid chips can render coloured blocks while keeping
+  // the single-hex getEventColor signature intact for the existing views.
+  function getEventColorRich(ev) {
+    const c = ev?.category && categoryColors[ev.category]
+    if (c) return { bg: c.bg, borderColor: c.border, color: c.text }
+    const l = locations.value.find(x => x.id === ev?.location_id)
+    const label = l ? `${l.venue_name} - ${l.stage_name}` : 'Unspecified'
+    const main = locationColorMap.value[label] || '#bdc3c7'
+    return { bg: main + '22', borderColor: main, color: '#1f2937' }
+  }
+
+  // Month view navigation — advances currentDate by a whole month.
+  function handleMonthNav(nextDate) {
+    if (nextDate instanceof Date && !isNaN(nextDate)) {
+      currentDate.value = nextDate
+    }
+  }
+  // Month view "Add event" from the day panel — prefill the date.
+  const prefilledEventDate = ref(null)
+  function onAddEventForDay(iso) {
+    prefilledEventDate.value = iso
+    openNewEventModal()
   }
 
   function getLocationName(locationId) {
@@ -1271,8 +1316,9 @@ setup(props, { emit }) {
     currentView, currentDate, currentDateString,
     filters, updateFilters,
     locations, events, sortedEvents, stageHours, filteredStageHours, contacts,
-    eventCategories, categoryColors, categoryColorMap, locationColorMap, getEventColor, getLocationName,
+    eventCategories, categoryColors, categoryColorMap, locationColorMap, getEventColor, getEventColorRich, getLocationName,
     getStageHoursForDay, getFilteredStageHoursForDay,
+    handleMonthNav, onAddEventForDay,
     timeSlots, timelineDayEvents, formattedTimelineDate,
     displayCalendarDays, hasEvents, getEventsForDay,
     showDetailsModal, detailsMode, detailsEvent,
@@ -1305,6 +1351,83 @@ color: var(--text-primary);
 background: var(--bg-primary);
 box-sizing: border-box;
 padding: 0 15px;
+}
+
+/* ─── Modernised controls bar (Phase 1) ───────────────── */
+.cal-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  flex-wrap: wrap;
+}
+.cal-controls-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.cal-controls-right {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.cal-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-base);
+  line-height: 1;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  font-family: inherit;
+}
+.cal-refresh-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+.cal-refresh-icon { font-size: var(--text-lg); }
+.cal-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  background: var(--color-primary-500);
+  border: 1px solid var(--color-primary-600);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
+  font-family: inherit;
+}
+.cal-add-btn:hover {
+  background: var(--color-primary-600);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+}
+.cal-add-btn:active { transform: scale(0.98); }
+.cal-add-plus {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  line-height: 1;
+}
+@media (max-width: 640px) {
+  .cal-controls-left { flex-wrap: wrap; gap: var(--space-2); }
+  .cal-add-btn span:not(.cal-add-plus) { display: none; }
+  .cal-add-btn { padding: 0; width: 36px; justify-content: center; }
 }
 
 /* === HEADER === */

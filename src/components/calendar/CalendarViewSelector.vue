@@ -1,85 +1,85 @@
 <template>
-<div class="view-controls">
+<div class="cal-view-selector" role="tablist" aria-label="Calendar view">
   <button
     v-for="v in views"
     :key="v.id"
+    role="tab"
+    :aria-selected="modelValue === v.id"
+    :class="['cal-view-btn', { active: modelValue === v.id }]"
+    :title="v.hint"
     @click="$emit('update:modelValue', v.id)"
-    :class="['view-button', { active: modelValue === v.id }]"
   >
-    {{ v.label }}
+    <component :is="v.icon" :size="15" :stroke-width="2" />
+    <span class="cal-view-label">{{ v.label }}</span>
   </button>
 </div>
 </template>
 
-<script>
-export default {
-name: 'CalendarViewSelector',
-props: {
-  modelValue: {
-    type: String,
-    required: true
-  }
-},
-emits: ['update:modelValue'],
-data() {
-  return {
-    views: [
-      { id: "grid", label: "Grid View" },
-      { id: "timeline", label: "Timeline View" },
-      { id: "list", label: "List View" }
-    ]
-  }
-}
-}
+<script setup>
+import { CalendarDays, LayoutGrid, Clock, List } from 'lucide-vue-next'
+import { markRaw } from 'vue'
+
+defineProps({
+  modelValue: { type: String, required: true }
+})
+defineEmits(['update:modelValue'])
+
+const views = [
+  { id: 'month',    label: 'Month',    hint: 'Full month at a glance',         icon: markRaw(CalendarDays) },
+  { id: 'grid',     label: 'Week',     hint: 'Week grid with per-day columns', icon: markRaw(LayoutGrid) },
+  { id: 'timeline', label: 'Day',      hint: 'Single day, hour by hour',       icon: markRaw(Clock) },
+  { id: 'list',     label: 'Agenda',   hint: 'Chronological list of events',   icon: markRaw(List) },
+]
 </script>
 
 <style scoped>
-.view-controls {
-  display: flex;
-  gap: 0;
-  border-bottom: 2.5px solid var(--border-medium);
-  background: var(--bg-secondary);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-  border-radius: 8px 8px 0 0;
-  margin-bottom: 0.4rem;
-  padding-left: 2px;
+.cal-view-selector {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--chip-bg);
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
 }
-.view-button {
-  background: none;
+
+.cal-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  height: 34px;
+  background: transparent;
   border: none;
-  border-bottom: 2.5px solid transparent;
-  padding: 0.72rem 1.6rem 0.64rem 1.6rem;
-  font-size: 1.09rem;
-  font-weight: 500;
-  color: var(--text-primary);
+  border-radius: calc(var(--radius-lg) - 3px);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  transition: color 0.18s, border-bottom 0.18s, background 0.18s;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  font-family: inherit;
+  min-width: 0;
+}
+.cal-view-btn:hover { color: var(--text-primary); }
+.cal-view-btn.active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.cal-view-btn:focus-visible {
   outline: none;
-  margin-bottom: -2.5px;
-  position: relative;
-  z-index: 2;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
-.view-button:not(.active):hover {
-  background: var(--bg-tertiary);
-  color: var(--color-primary-500);
-}
-.view-button.active {
-  color: var(--color-primary-600);
-  border-bottom: 3px solid var(--color-primary-500);
-  background: var(--bg-primary);
-  font-weight: 600;
-  z-index: 3;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
+
 @media (max-width: 600px) {
-  .view-button {
-    padding: 0.6rem 0.7rem 0.55rem 0.7rem;
-    font-size: 0.95rem;
-  }
-  .view-controls {
+  .cal-view-selector {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
   }
+  .cal-view-selector::-webkit-scrollbar { display: none; }
+  .cal-view-btn { padding: 6px 10px; }
+  .cal-view-label { display: inline; }
 }
-</style> 
+</style>
