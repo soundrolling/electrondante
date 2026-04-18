@@ -23,70 +23,83 @@
       
       <!-- Show Times / Managing Hours Section -->
       <div v-if="stageHours.length > 0" class="stage-hours-section">
-        <div class="hours-header-with-status">
-          <h3 class="hours-title">Show Times / Managing Hours</h3>
+        <div class="hours-header-with-status" @click="toggleHoursSection" role="button" :aria-expanded="showHoursSection">
+          <div class="hours-title-group">
+            <h3 class="hours-title">Show Times</h3>
+          </div>
           <div class="hours-controls">
-            <button class="gear-button" @click="toggleHoursManagement" :title="showHoursManagement ? 'Hide Hours Management' : 'Manage Hours'">
-              <span class="gear-icon">⚙️</span>
-            </button>
             <div class="live-status-indicator" :class="{ 'live': isStageLive, 'scheduled': !isStageLive }">
               <span class="status-dot"></span>
               <span class="status-text">{{ isStageLive ? 'LIVE' : 'SCHEDULED' }}</span>
             </div>
-          </div>
-        </div>
-        <div class="hours-list">
-          <div v-for="hour in upcomingStageHours" :key="hour.id" class="hour-item">
-            <div class="time-range">{{ formatTimeWithDate(hour.start_datetime) }} > {{ formatTimeWithDate(hour.end_datetime) }}</div>
-            <div v-if="hour.notes" class="hour-notes">{{ hour.notes }}</div>
-          </div>
-        </div>
-        <!-- Inline Hours Management directly below the section -->
-        <div v-if="showHoursManagement" class="hours-management-section">
-          <div class="hours-header">
-            <h3 class="hours-title">Stage Hours & Timeslots</h3>
-            <button class="add-hours-btn" @click="openAddEditSlotModal(null)">
-              <span class="btn-icon">➕</span>
-              <span class="btn-text">Add Slot</span>
+            <button class="gear-button" @click.stop="toggleHoursManagement" :title="showHoursManagement ? 'Hide Hours Management' : 'Manage Hours'">
+              <svg class="gear-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+              </svg>
             </button>
-          </div>
-          <div v-if="stageHours.length > 0" class="hours-table-container">
-            <table class="hours-table">
-              <thead>
-                <tr>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Day ID</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="hour in sortedStageHours" :key="hour.id" :class="{ 'past-hour': isPastHour(hour) }">
-                  <td>{{ formatDateTime(hour.start_datetime) }}</td>
-                  <td>{{ formatDateTime(hour.end_datetime) }}</td>
-                  <td>{{ hour.notes || '-' }}</td>
-                  <td>
-                    <span class="hour-status" :class="{ 'past': isPastHour(hour), 'future': !isPastHour(hour) }">
-                      {{ isPastHour(hour) ? 'Past' : 'Scheduled' }}
-                    </span>
-                  </td>
-                  <td class="actions-cell">
-                    <button class="icon-action" @click="openAddEditSlotModal(hour)" title="Edit">
-                      <span class="icon">✏️</span>
-                    </button>
-                    <button class="icon-action delete" @click="deleteSlot(hour)" title="Delete">
-                      <span class="icon">🗑️</span>
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="no-hours">
-            <p>No hours recorded for this stage.</p>
+            <span class="chevron-icon" :class="{ 'open': showHoursSection }" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </span>
           </div>
         </div>
+        <transition name="hours-collapse">
+          <div v-show="showHoursSection" class="hours-body">
+            <div class="hours-list">
+              <div v-for="hour in upcomingStageHours" :key="hour.id" class="hour-item">
+                <div class="time-range">{{ formatTimeWithDate(hour.start_datetime) }} – {{ formatTimeWithDate(hour.end_datetime) }}</div>
+                <div v-if="hour.notes" class="hour-notes">{{ hour.notes }}</div>
+              </div>
+            </div>
+            <!-- Inline Hours Management directly below the section -->
+            <div v-if="showHoursManagement" class="hours-management-section">
+              <div class="hours-header">
+                <h3 class="hours-title">Stage Hours & Timeslots</h3>
+                <button class="add-hours-btn" @click="openAddEditSlotModal(null)">
+                  <span class="btn-icon">➕</span>
+                  <span class="btn-text">Add Slot</span>
+                </button>
+              </div>
+              <div v-if="stageHours.length > 0" class="hours-table-container">
+                <table class="hours-table">
+                  <thead>
+                    <tr>
+                      <th>Start</th>
+                      <th>End</th>
+                      <th>Day ID</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="hour in sortedStageHours" :key="hour.id" :class="{ 'past-hour': isPastHour(hour) }">
+                      <td>{{ formatDateTime(hour.start_datetime) }}</td>
+                      <td>{{ formatDateTime(hour.end_datetime) }}</td>
+                      <td>{{ hour.notes || '-' }}</td>
+                      <td>
+                        <span class="hour-status" :class="{ 'past': isPastHour(hour), 'future': !isPastHour(hour) }">
+                          {{ isPastHour(hour) ? 'Past' : 'Scheduled' }}
+                        </span>
+                      </td>
+                      <td class="actions-cell">
+                        <button class="icon-action" @click="openAddEditSlotModal(hour)" title="Edit">
+                          <span class="icon">✏️</span>
+                        </button>
+                        <button class="icon-action delete" @click="deleteSlot(hour)" title="Delete">
+                          <span class="icon">🗑️</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-else class="no-hours">
+                <p>No hours recorded for this stage.</p>
+              </div>
+            </div>
+          </div>
+        </transition>
       </div>
       
       <div class="menu-list">
@@ -191,6 +204,7 @@ const route = useRoute();
 const stageHours = ref([]);
 const isStageLive = ref(false);
 const nextTimeslot = ref(null);
+const showHoursSection = ref(false);
 const showHoursManagement = ref(false);
 const showAddEditSlotModal = ref(false);
 const editingSlot = ref(null);
@@ -306,6 +320,11 @@ function formatNextTimeslot(timeslot) {
   const date = startDate.toLocaleDateString([], { day: 'numeric', month: 'short' });
   
   return `${date} ${startTime}-${endTime}`;
+}
+
+function toggleHoursSection() {
+  showHoursSection.value = !showHoursSection.value;
+  if (!showHoursSection.value) showHoursManagement.value = false;
 }
 
 function toggleHoursManagement() {
@@ -729,62 +748,116 @@ box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
 /* Stage Hours Section */
 .stage-hours-section {
 margin-bottom: 20px;
-padding: 16px;
 background: var(--bg-secondary);
-border-radius: 8px;
+border-radius: 10px;
 border: 1px solid var(--border-medium);
+overflow: hidden;
+}
+
+.hours-title-group {
+display: flex;
+align-items: center;
+gap: 8px;
+min-width: 0;
 }
 
 .hours-title {
-font-size: 1rem;
-font-weight: 600;
+font-size: 0.8rem;
+font-weight: 700;
 color: var(--text-secondary);
-margin: 0 0 12px 0;
-text-align: center;
+margin: 0;
+text-transform: uppercase;
+letter-spacing: 0.06em;
 }
 
 .hours-header-with-status {
 display: flex;
 justify-content: space-between;
 align-items: center;
-margin-bottom: 12px;
+padding: 12px 14px;
 gap: 12px;
+cursor: pointer;
+user-select: none;
+transition: background 0.15s ease;
+}
+
+.hours-header-with-status:hover {
+background: var(--bg-tertiary);
+}
+
+.hours-header-with-status:active {
+background: var(--border-medium);
 }
 
 .hours-controls {
 display: flex;
 align-items: center;
-gap: 8px;
+gap: 6px;
+flex-shrink: 0;
 }
 
 .gear-button {
 display: flex;
 align-items: center;
 justify-content: center;
-padding: 6px;
-background: var(--bg-secondary);
+padding: 5px;
+background: transparent;
 border: 1px solid var(--border-medium);
 border-radius: 6px;
 cursor: pointer;
-transition: all 0.2s ease;
-width: 32px;
-height: 32px;
+transition: all 0.15s ease;
+width: 28px;
+height: 28px;
+color: var(--text-tertiary);
 }
 
 .gear-button:hover {
-background: var(--bg-tertiary);
-border-color: var(--color-primary-500);
-transform: scale(1.05);
+background: var(--bg-primary);
+border-color: var(--color-primary-400);
+color: var(--color-primary-600);
 }
 
 .gear-button:active {
-transform: scale(0.95);
-background: var(--border-medium);
+transform: scale(0.93);
 }
 
 .gear-icon {
-font-size: 1rem;
-color: var(--text-secondary);
+width: 14px;
+height: 14px;
+}
+
+.chevron-icon {
+display: flex;
+align-items: center;
+justify-content: center;
+width: 20px;
+height: 20px;
+color: var(--text-tertiary);
+transition: transform 0.22s ease;
+}
+
+.chevron-icon svg {
+width: 16px;
+height: 16px;
+}
+
+.chevron-icon.open {
+transform: rotate(180deg);
+}
+
+.hours-body {
+padding: 0 14px 14px;
+}
+
+/* Collapse transition */
+.hours-collapse-enter-active,
+.hours-collapse-leave-active {
+transition: opacity 0.2s ease;
+}
+
+.hours-collapse-enter-from,
+.hours-collapse-leave-to {
+opacity: 0;
 }
 
 .live-status-indicator {
@@ -852,30 +925,30 @@ background: var(--color-primary-700);
 .hours-list {
 display: flex;
 flex-direction: column;
-gap: 8px;
+gap: 6px;
 }
 
 .hour-item {
 display: flex;
 flex-direction: column;
-align-items: center;
-padding: 8px 12px;
+align-items: flex-start;
+padding: 9px 12px;
 background: var(--bg-primary);
-border-radius: 6px;
+border-radius: 7px;
 border: 1px solid var(--border-medium);
 }
 
 .time-range {
-font-size: 0.9rem;
+font-size: 0.875rem;
 font-weight: 600;
 color: var(--text-primary);
-margin-bottom: 2px;
+font-variant-numeric: tabular-nums;
 }
 
 .hour-notes {
-font-size: 0.8rem;
+font-size: 0.78rem;
 color: var(--text-tertiary);
-text-align: center;
+margin-top: 2px;
 }
 
 
@@ -901,13 +974,6 @@ display: flex;
 justify-content: space-between;
 align-items: center;
 margin-bottom: 16px;
-}
-
-.hours-title {
-font-size: 1rem;
-font-weight: 600;
-color: var(--text-secondary);
-margin: 0;
 }
 
 .add-hours-btn {
