@@ -273,7 +273,7 @@
                     </button>
                   </div>
                   <div class="stage-name">{{ s.stage_name }}</div>
-                  <div class="stage-actions">
+                  <div class="modal-stage-actions">
                     <button class="action-btn" @click="openStageModal(s)" title="Edit">
                       <span class="btn-icon">✏️</span>
                     </button>
@@ -1213,7 +1213,7 @@ setup() {
 .project-locations {
   min-height: 100vh;
   background: var(--bg-primary);
-  padding: 16px;
+  padding: 16px 0;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1621,7 +1621,7 @@ setup() {
 /* Stage Actions */
 .stage-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
@@ -2239,7 +2239,7 @@ setup() {
   color: var(--text-primary);
 }
 
-.stage-actions {
+.modal-stage-actions {
   display: flex;
   gap: 8px;
 }
