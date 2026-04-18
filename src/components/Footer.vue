@@ -1,218 +1,94 @@
 <template>
 <footer v-if="!isHiddenRoute" class="footer">
-  <div class="container">
-    <div class="footer-columns">
-      <!-- Mobile: condensed header with menu button -->
-      <div class="footer-mobile-bar">
-        <button class="btn mobile-footer-menu btn-light" @click="showMobileFooter = true" aria-label="Open footer menu">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-          <span class="btn-text">Menu</span>
-        </button>
-        <div class="timecode-display compact">
-          <p class="timecode">{{ liveTimecode }}</p>
-          <p class="time-source">{{ currentTimeSourceLabel }}</p>
+  <div class="footer-inner">
+    <!-- Timecode block -->
+    <div class="footer-block timecode-block">
+      <div class="block-icon">
+        <Clock :size="16" :stroke-width="2" />
+      </div>
+      <div class="block-body">
+        <div class="timecode">{{ liveTimecode }}</div>
+        <div class="timecode-source">
+          <TimeSourceSelector />
         </div>
       </div>
-      <!-- Column 1: Timecode + Time Source -->
-      <div class="footer-card timecode-card">
-        <div class="timecode-timesource-flex">
-          <div class="timecode-section">
-            <p class="timecode">{{ liveTimecode }}</p>
-            <p class="time-source">{{ currentTimeSourceLabel }}</p>
-          </div>
-          <div class="timesource-section">
-            <TimeSourceSelector />
-          </div>
-        </div>
+    </div>
+
+    <!-- Storage block -->
+    <div class="footer-block storage-block">
+      <div class="block-icon">
+        <HardDrive :size="16" :stroke-width="2" />
       </div>
-      <!-- Column 2: Storage -->
-      <div class="footer-card storage-card">
-        <h3 class="card-title">Storage</h3>
-        <div class="storage-display">
-          <div class="usage-details">
-            <span class="usage-text">{{ localStorageUsage.used }} / {{ localStorageUsage.max }} KB</span>
-            <span
-              class="usage-indicator"
-              :class="{ 'high-usage': usagePercentage > 80 }"
-            >
-              {{ Math.round(usagePercentage) }}%
-            </span>
-          </div>
-          <div class="usage-bar">
-            <div
-              class="usage-fill"
-              :style="usageFillStyle"
-              :class="{ 'high-usage': usagePercentage > 80 }"
-            ></div>
-          </div>
-          <div class="storage-actions">
-            <button @click="confirmAndClearCache" class="btn btn-danger-light">
-              Clear Cache
-            </button>
-          </div>
+      <div class="block-body">
+        <div class="storage-row">
+          <span class="block-label">Storage</span>
+          <span
+            class="storage-pct"
+            :class="{ warning: usagePercentage > 80 }"
+          >{{ Math.round(usagePercentage) }}%</span>
         </div>
-      </div>
-      <!-- Column 3: Session + Theme + App -->
-      <div class="footer-card extras-card">
-        <div class="compact-user-info">
-          <span v-if="userEmail" class="user-email">
-            {{ userEmail }} <span v-if="isAdmin" class="admin-badge">A</span>
-          </span>
-          <span v-else class="guest-text">Guest</span>
+        <div class="storage-bar">
+          <div
+            class="storage-fill"
+            :class="{ warning: usagePercentage > 80 }"
+            :style="usageFillStyle"
+          ></div>
         </div>
-        <button
-          v-if="userEmail"
-          @click="emitSignOut"
-          class="btn btn-danger"
-        >
-          Sign Out
-        </button>
-        <div class="section-divider"></div>
-        <button
-          @click="themeStore.toggleTheme()"
-          class="btn btn-light theme-toggle-btn"
-          :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          aria-label="Toggle theme"
-        >
-          <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-          </svg>
-          <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-          <span class="btn-text">{{ themeStore.isDark ? 'Light Mode' : 'Dark Mode' }}</span>
-        </button>
-        <div class="section-divider"></div>
-        <div v-if="isPWAInstalled" class="app-status">
-          <p class="app-status-text">App is installed on your device.</p>
+        <div class="storage-meta">
+          <span class="storage-usage">{{ localStorageUsage.used }} / {{ localStorageUsage.max }} KB</span>
           <button
-            v-if="hasUpdateAvailable"
-            @click="updatePWA"
-            class="btn btn-positive update-btn"
+            class="storage-clear-btn"
+            @click="confirmAndClearCache"
+            title="Clear cache"
+            aria-label="Clear cache"
           >
-            Update Available
+            <Trash2 :size="13" :stroke-width="2" />
+            <span>Clear</span>
           </button>
         </div>
-        <div v-else class="app-install">
-          <button
-            v-if="canInstallPWA"
-            @click="installPWA"
-            class="btn btn-primary install-btn"
-          >
-            Install App
+      </div>
+    </div>
+
+    <!-- App status block -->
+    <div class="footer-block app-block">
+      <div class="block-icon">
+        <template v-if="hasUpdateAvailable">
+          <Download :size="16" :stroke-width="2" />
+        </template>
+        <template v-else-if="isPWAInstalled">
+          <CheckCircle2 :size="16" :stroke-width="2" />
+        </template>
+        <template v-else-if="canInstallPWA">
+          <DownloadCloud :size="16" :stroke-width="2" />
+        </template>
+        <template v-else>
+          <Smartphone :size="16" :stroke-width="2" />
+        </template>
+      </div>
+      <div class="block-body">
+        <div class="block-label">App</div>
+        <div v-if="hasUpdateAvailable">
+          <button class="app-action-btn update" @click="updatePWA">
+            <span>Update available</span>
           </button>
-          <div v-else class="install-info">
-            <span class="install-unavailable">
-              Install prompt unavailable
-            </span>
-            <p class="install-hint">
-              Use your browser's menu to install this app
-            </p>
-          </div>
+        </div>
+        <div v-else-if="isPWAInstalled" class="app-status installed">
+          <span>Installed</span>
+        </div>
+        <div v-else-if="canInstallPWA">
+          <button class="app-action-btn install" @click="installPWA">
+            <span>Install app</span>
+          </button>
+        </div>
+        <div v-else class="app-status">
+          <span class="app-install-hint">Use browser menu to install</span>
         </div>
       </div>
     </div>
   </div>
+
   <div class="footer-bottom">
-    <p class="copyright-text">&copy; {{ currentYear }} Soundrolling Notes</p>
-  </div>
-  <!-- Mobile Footer Sheet -->
-  <div v-if="showMobileFooter" class="mobile-menu-backdrop" @click.self="showMobileFooter = false">
-    <div class="mobile-menu-sheet" role="dialog" aria-modal="true">
-      <div class="mobile-menu-header">
-        <span class="menu-title">Footer</span>
-        <button class="btn close-btn" @click="showMobileFooter = false" aria-label="Close menu">✕</button>
-      </div>
-      <div class="menu-section">
-        <div class="footer-card timecode-timesource-card">
-          <div class="timecode-timesource-flex">
-            <div class="timecode-section">
-              <p class="timecode">{{ liveTimecode }}</p>
-              <p class="time-source">{{ currentTimeSourceLabel }}</p>
-            </div>
-            <div class="timesource-section">
-              <TimeSourceSelector />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="menu-section">
-        <div class="footer-card session-card">
-          <div class="compact-user-info">
-            <span v-if="userEmail" class="user-email">
-              {{ userEmail }} <span v-if="isAdmin" class="admin-badge">A</span>
-            </span>
-            <span v-else class="guest-text">Guest</span>
-          </div>
-          <button v-if="userEmail" @click="emitSignOut; showMobileFooter = false" class="btn btn-danger">Sign Out</button>
-        </div>
-      </div>
-      <div class="menu-section">
-        <div class="footer-card storage-app-card">
-          <h3 class="card-title">Storage</h3>
-          <div class="storage-display">
-            <div class="usage-details">
-              <span class="usage-text">{{ localStorageUsage.used }} / {{ localStorageUsage.max }} KB</span>
-              <span class="usage-indicator" :class="{ 'high-usage': usagePercentage > 80 }">{{ Math.round(usagePercentage) }}%</span>
-            </div>
-            <div class="usage-bar">
-              <div class="usage-fill" :style="usageFillStyle" :class="{ 'high-usage': usagePercentage > 80 }"></div>
-            </div>
-            <div class="storage-actions">
-              <button @click="confirmAndClearCache; showMobileFooter = false" class="btn btn-danger">Clear Cache</button>
-            </div>
-          </div>
-          <div class="section-divider"></div>
-          <h3 class="card-title">Theme</h3>
-          <button
-            @click="themeStore.toggleTheme(); showMobileFooter = false"
-            class="btn btn-light theme-toggle-btn"
-            :title="themeStore.isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-          >
-            <svg v-if="themeStore.isDark" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-            <svg v-else class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <span class="btn-text">{{ themeStore.isDark ? 'Light Mode' : 'Dark Mode' }}</span>
-          </button>
-          <div class="section-divider"></div>
-          <h3 class="card-title">App</h3>
-          <div v-if="isPWAInstalled" class="app-status">
-            <p class="app-status-text">App is installed on your device.</p>
-            <button v-if="hasUpdateAvailable" @click="updatePWA" class="btn btn-positive update-btn">Update Available</button>
-          </div>
-          <div v-else class="app-install">
-            <button v-if="canInstallPWA" @click="installPWA" class="btn btn-primary install-btn">Install App</button>
-            <div v-else class="install-info">
-              <span class="install-unavailable">Install prompt unavailable</span>
-              <p class="install-hint">Use your browser's menu to install this app</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <span class="copyright-text">&copy; {{ currentYear }} Soundrolling Notes</span>
   </div>
 </footer>
 </template>
@@ -221,52 +97,44 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import TimeSourceSelector from './TimeSourceSelector.vue';
-import { useUserStore } from '@/stores/userStore';
-import { useThemeStore } from '@/stores/themeStore';
 import pwaService from '@/services/pwaService';
+import {
+  Clock,
+  HardDrive,
+  Trash2,
+  Smartphone,
+  DownloadCloud,
+  Download,
+  CheckCircle2,
+} from 'lucide-vue-next';
 
-// Define props
 const props = defineProps({
-liveTimecode: { type: String, required: true },
-currentTimeSourceLabel: { type: String, required: true },
-localStorageUsage: { type: Object, required: true },
-userEmail: { type: String, default: null },
-isAdmin: { type: Boolean, default: false },
+  liveTimecode: { type: String, required: true },
+  currentTimeSourceLabel: { type: String, required: true },
+  localStorageUsage: { type: Object, required: true },
+  userEmail: { type: String, default: null },
+  isAdmin: { type: Boolean, default: false },
 });
 
-// Define emits
 const emit = defineEmits(['clearCache', 'signOut']);
 
-// Hide the footer on specific routes
 const route = useRoute();
-const themeStore = useThemeStore();
 const HIDDEN_ROUTES = ['/', '/login', '/auth/reset-password', '/auth/set-password'];
 const isHiddenRoute = computed(() => HIDDEN_ROUTES.includes(route.path));
 
-// Usage percentage for local storage
 const usagePercentage = computed(() => {
-const { used, max } = props.localStorageUsage;
-return max > 0 ? (used / max) * 100 : 0;
+  const { used, max } = props.localStorageUsage;
+  return max > 0 ? (used / max) * 100 : 0;
 });
+const usageFillStyle = computed(() => ({ width: `${usagePercentage.value}%` }));
 
-// Style for usage bar fill
-const usageFillStyle = computed(() => ({
-width: `${usagePercentage.value}%`,
-}));
-
-// Current year
 const currentYear = new Date().getFullYear();
 
-// PWA state
 const isPWAInstalled = ref(false);
 const canInstallPWA = ref(false);
 const hasUpdateAvailable = ref(false);
 const isOnline = ref(navigator.onLine);
 
-// Mobile footer state
-const showMobileFooter = ref(false);
-
-// PWA methods
 const installPWA = async () => {
   try {
     const success = await pwaService.installPWA();
@@ -287,7 +155,6 @@ const updatePWA = async () => {
   }
 };
 
-// Check PWA status
 const checkPWAStatus = async () => {
   try {
     isPWAInstalled.value = pwaService.isInstalled;
@@ -296,7 +163,6 @@ const checkPWAStatus = async () => {
     isOnline.value = pwaService.getOnlineStatus();
   } catch (error) {
     console.error('Error checking PWA status:', error);
-    // Fallback values
     isPWAInstalled.value = false;
     canInstallPWA.value = false;
     hasUpdateAvailable.value = false;
@@ -304,442 +170,280 @@ const checkPWAStatus = async () => {
   }
 };
 
-// Emit helpers
 const confirmAndClearCache = () => {
-if (window.confirm('Are you sure you want to clear the cache?')) {
-  emit('clearCache');
-}
+  if (window.confirm('Are you sure you want to clear the cache?')) {
+    emit('clearCache');
+  }
 };
 
-const emitSignOut = () => emit('signOut');
-
-// Override PWA service notifications
 pwaService.notifyInstallAvailable = async () => {
-  // Only show install button if user is authenticated
-  const canInstall = await pwaService.canInstall();
-  canInstallPWA.value = canInstall;
+  canInstallPWA.value = await pwaService.canInstall();
 };
-
 pwaService.notifyInstalled = () => {
   isPWAInstalled.value = true;
   canInstallPWA.value = false;
 };
-
 pwaService.notifyUpdateAvailable = () => {
   hasUpdateAvailable.value = true;
 };
-
 pwaService.notifyOnlineStatus = (online) => {
   isOnline.value = online;
 };
 
-// Lifecycle
 onMounted(() => {
   checkPWAStatus();
-  
-  // Check status periodically (async function is fine in setInterval)
-  const statusInterval = setInterval(() => {
-    checkPWAStatus();
-  }, 5000);
-  
-  onUnmounted(() => {
-    clearInterval(statusInterval);
-  });
+  const statusInterval = setInterval(() => checkPWAStatus(), 5000);
+  onUnmounted(() => clearInterval(statusInterval));
 });
 </script>
 
 <style scoped>
-/* Base Styles - Mobile First */
+/* ─── Footer shell ─────────────────────────────────────── */
 .footer {
-  background-color: var(--bg-primary);
+  background: var(--surface-app-bar);
   color: var(--text-primary);
-  border-top: 1px solid var(--border-light);
-  padding: var(--space-3) 0 0 0;
+  border-top: 1px solid var(--surface-border);
   font-size: var(--text-sm);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* Wrapper */
-.container {
+.footer-inner {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 var(--space-3);
-}
-
-/* Grid for Cards */
-.footer-columns {
+  padding: var(--space-3) var(--space-4);
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
 }
 
-/* Card Layout - Clean containers, no borders on desktop */
-.footer-card {
-  background-color: transparent;
-  border: none;
-  border-radius: var(--radius-lg);
+/* ─── Block layout ─────────────────────────────────────── */
+.footer-block {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
   padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
   min-width: 0;
-  max-width: 100%;
 }
-
-/* Card Heading - Subtle uppercase section labels */
-.card-title {
-  margin: 0 0 var(--space-2);
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-/* Footer-specific button overrides */
-.footer .btn {
-  margin-top: var(--space-2);
-  min-height: 36px;
-}
-
-/* Theme toggle button */
-.theme-toggle-btn {
-  width: 100%;
-  padding: var(--space-2-5) var(--space-4);
-  min-height: 44px;
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  margin-top: 0;
-  border: 1px solid var(--border-light);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  display: flex;
+.block-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
+  color: var(--color-primary-600);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  border-radius: var(--radius-md);
-  transition: var(--transition-fast);
-}
-
-.theme-toggle-btn:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-medium);
-}
-
-.theme-toggle-btn .btn-icon {
-  width: 18px;
-  height: 18px;
   flex-shrink: 0;
 }
-
-.theme-toggle-btn .btn-text {
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-}
-
-.install-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.install-hint {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  margin: 0;
-  font-style: italic;
-}
-
-/* Timecode Card Specific */
-.timecode-timesource-flex {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.timecode-section {
-  flex: none;
-}
-
-.timesource-section {
+.block-body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.block-label {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  line-height: 1;
 }
 
-/* Timecode display - hero element */
-.timecode-display {
-  padding: var(--space-2) 0;
-  margin-bottom: var(--space-1);
-}
-
-/* Hero timecode text */
+/* ─── Timecode ─────────────────────────────────────────── */
+.timecode-block .block-body { gap: 6px; }
 .timecode {
   font-family: var(--font-family-mono);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  margin: 0 0 var(--space-0-5) 0;
-  text-align: center;
-  color: var(--text-primary);
-  letter-spacing: 0.02em;
-  line-height: 1.1;
-}
-
-.timecode-section .timecode {
-  text-align: left;
-}
-
-.timecode-section .time-source {
-  text-align: left;
-}
-
-.time-source {
-  font-size: var(--text-xs);
-  text-align: center;
-  margin: 0;
-  color: var(--text-tertiary);
-}
-
-/* Session Card - clean inline display */
-.compact-user-info {
-  padding: var(--space-2) 0;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-}
-
-.user-email {
-  color: var(--text-primary);
-  font-weight: var(--font-medium);
-}
-
-.guest-text {
-  color: var(--text-secondary);
-}
-
-.admin-badge {
-  background-color: var(--color-warning-500);
-  color: var(--text-inverse);
-  padding: var(--space-0-5) var(--space-1-5);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  margin-left: var(--space-1-5);
+  font-size: var(--text-xl);
   font-weight: var(--font-semibold);
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-
-/* Section Divider - lighter */
-.section-divider {
-  height: 1px;
-  background-color: var(--border-light);
-  margin: var(--space-2-5) 0;
-  width: 100%;
-  opacity: 0.6;
-}
-
-/* Storage Section */
-.usage-details {
-  display: flex;
-  justify-content: space-between;
+.timecode-source { width: 100%; min-width: 0; }
+.timecode-source :deep(select),
+.timecode-source :deep(.form-select) {
   font-size: var(--text-xs);
-  margin-bottom: var(--space-1-5);
-  color: var(--text-secondary);
-}
-
-.usage-text {
-  color: var(--text-secondary);
-  font-weight: var(--font-medium);
-}
-
-.storage-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.usage-indicator {
-  padding: var(--space-0-5) var(--space-1-5);
+  padding: 4px 24px 4px 8px;
+  height: 28px;
   border-radius: var(--radius-sm);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card-muted);
+  color: var(--text-secondary);
+  min-height: 0;
+}
+
+/* ─── Storage ──────────────────────────────────────────── */
+.storage-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.storage-pct {
   font-size: var(--text-xs);
-  color: var(--color-success-500);
-  font-weight: var(--font-medium);
+  font-weight: var(--font-semibold);
+  color: var(--color-success-600);
+  font-variant-numeric: tabular-nums;
 }
-
-.usage-indicator.high-usage {
-  color: var(--color-warning-500);
-}
-
-/* Usage Bar */
-.usage-bar {
+.storage-pct.warning { color: var(--color-warning-600); }
+.storage-bar {
   height: 4px;
-  background-color: var(--border-light);
+  background: var(--chip-bg);
   border-radius: var(--radius-full);
   overflow: hidden;
-  margin-bottom: var(--space-2);
 }
-
-.usage-fill {
+.storage-fill {
   height: 100%;
-  background-color: var(--color-success-500);
+  background: var(--color-success-500);
   border-radius: var(--radius-full);
-  transition: var(--transition-slow);
+  transition: width var(--transition-slow);
 }
-
-.usage-fill.high-usage {
-  background-color: var(--color-warning-500);
-}
-
-/* App Section */
-.app-status-text {
-  font-size: var(--text-sm);
-  margin: 0;
-  color: var(--color-success-500);
-}
-
-.install-unavailable {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-/* Footer Bottom - minimal */
-.footer-bottom {
-  padding: var(--space-2) 0;
-  text-align: center;
+.storage-fill.warning { background: var(--color-warning-500); }
+.storage-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   font-size: var(--text-xs);
-  margin-top: var(--space-1);
   color: var(--text-tertiary);
-  border-top: 1px solid var(--border-light);
+}
+.storage-usage {
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.storage-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: border-color var(--transition-normal), color var(--transition-normal), background var(--transition-normal);
+  flex-shrink: 0;
+}
+.storage-clear-btn:hover {
+  border-color: var(--color-error-300);
+  color: var(--color-error-600);
+  background: var(--color-error-50);
+}
+.storage-clear-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* ─── App status ───────────────────────────────────────── */
+.app-block .block-body { gap: 4px; }
+.app-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-primary-200);
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal);
+}
+.app-action-btn:hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-300);
+}
+.app-action-btn.update {
+  border-color: var(--color-warning-300);
+  background: var(--color-warning-50);
+  color: var(--color-warning-800);
+}
+.app-action-btn.update:hover {
+  background: var(--color-warning-100);
+}
+.app-status {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+.app-status.installed { color: var(--color-success-700); font-weight: var(--font-medium); }
+.app-install-hint { color: var(--text-tertiary); font-style: normal; }
+
+/* ─── Bottom strip ─────────────────────────────────────── */
+.footer-bottom {
+  border-top: 1px solid var(--surface-border);
+  padding: 8px var(--space-4);
+  text-align: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
 .copyright-text {
-  margin: 0;
+  font-size: 11px;
   color: var(--text-tertiary);
+  letter-spacing: 0.01em;
 }
 
-/* Focus States for Accessibility */
-.btn:focus {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 2px;
-}
-
-/* Tablet Breakpoint (601px - 1024px) */
+/* ─── Tablet ───────────────────────────────────────────── */
 @media (min-width: 601px) {
-  .container {
-    padding: 0 var(--space-4);
-  }
-
-  .footer-columns {
-    grid-template-columns: 1fr 1fr 1fr;
+  .footer-inner {
+    grid-template-columns: 1.1fr 1.3fr 1fr;
     gap: var(--space-3);
+    padding: var(--space-3) var(--space-6);
+    align-items: stretch;
   }
-
-  .timecode-timesource-flex {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-4);
-  }
-
-  .timecode {
-    font-size: var(--text-3xl);
-  }
+  .timecode { font-size: var(--text-2xl); }
+  .footer-block { padding: var(--space-3) var(--space-4); }
+  .footer-bottom { padding: 8px var(--space-6); }
 }
 
-/* Desktop Breakpoint (1025px+) */
+/* ─── Desktop ──────────────────────────────────────────── */
 @media (min-width: 1025px) {
-  .container {
-    padding: 0 var(--space-5);
+  .footer-inner {
+    padding: var(--space-3) var(--space-8);
   }
-
-  .footer-columns {
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: var(--space-4);
-  }
-
-  .timecode {
-    font-size: var(--text-4xl);
-  }
-
-  .footer .btn {
-    padding: var(--space-2) var(--space-4);
-    font-size: var(--text-sm);
-  }
+  .timecode { font-size: var(--text-2xl); }
+  .footer-bottom { padding: 8px var(--space-8); }
 }
 
-/* High Contrast Mode Support */
-@media (prefers-contrast: high) {
-  .footer {
-    border-top-width: 2px;
-  }
-
-  .footer-card {
-    border: 2px solid var(--border-medium);
-  }
-}
-
-/* Reduced Motion Support */
-@media (prefers-reduced-motion: reduce) {
-  .footer .btn,
-  .theme-toggle-btn {
-    transition: none;
-  }
-
-  .theme-toggle-btn:hover {
-    transform: none;
-  }
-
-  .usage-fill {
-    transition: none;
-  }
-}
-
-/* Mobile layout: condense into bar and hide grid */
-@media (max-width: 768px) {
-  .footer-columns { display: none; }
-  .footer-mobile-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+/* ─── Mobile tweaks ────────────────────────────────────── */
+@media (max-width: 600px) {
+  .footer-inner {
+    padding: var(--space-2) var(--space-3);
     gap: var(--space-2);
-    padding: 0 var(--space-2) var(--space-2);
   }
-  .mobile-footer-menu { display: inline-flex; }
-  .timecode-display.compact {
-    margin: 0;
-    background: transparent;
-    border: none;
-    padding: var(--space-1) var(--space-2);
+  .footer-block {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
   }
-  .timecode-display.compact .timecode {
-    font-size: var(--text-lg);
-    font-weight: var(--font-bold);
-  }
+  .block-icon { width: 26px; height: 26px; }
+  .timecode { font-size: var(--text-lg); }
+  .app-block .block-body,
+  .storage-block .block-body { gap: 3px; }
+  .storage-meta { font-size: 10px; }
+  .footer-bottom { padding: 6px var(--space-3); }
 }
 
-/* Shared mobile menu styles (match header) */
-.mobile-menu-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: var(--z-modal);
-  display: flex; justify-content: center; align-items: flex-end;
+/* ─── Accessibility ────────────────────────────────────── */
+@media (prefers-contrast: high) {
+  .footer { border-top-width: 2px; }
+  .footer-block,
+  .storage-clear-btn,
+  .app-action-btn { border-width: 2px; }
 }
-.mobile-menu-sheet {
-  width: 100%; max-width: 640px; background: var(--bg-primary);
-  border-top-left-radius: var(--radius-xl); border-top-right-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl); padding: var(--space-4);
+@media (prefers-reduced-motion: reduce) {
+  .storage-fill,
+  .storage-clear-btn,
+  .app-action-btn { transition: none; }
 }
-.mobile-menu-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: var(--space-3);
-}
-.menu-title { font-weight: var(--font-semibold); }
-.close-btn { background: var(--bg-secondary); }
-.menu-section { margin-bottom: var(--space-3); }
-
-/* In mobile sheet, cards get subtle styling */
-.mobile-menu-sheet .footer-card {
-  background-color: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-}
-
-/* Desktop default: hide the mobile bar */
-.footer-mobile-bar { display: none; }
 </style>
