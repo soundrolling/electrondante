@@ -109,7 +109,7 @@
       <div class="legend-items" draggable="false" @dragstart.prevent.stop>
         <div
           v-for="entry in legendEntriesByMic"
-          :key="entry.nodeId"
+          :key="entry.key"
           class="legend-item"
           draggable="false"
           @dragstart.prevent.stop
@@ -120,10 +120,8 @@
             draggable="false"
           ></div>
           <div class="legend-item-text" draggable="false">
-            <span class="legend-node-names" :title="entry.nodeName">
-              {{ entry.nodeName }}
-            </span>
-            <span class="legend-label-text" draggable="false">{{ entry.buttonName }}</span>
+            <span class="legend-label-text" draggable="false">{{ entry.gearName }}</span>
+            <span class="legend-gear-count" draggable="false">x{{ entry.count }}</span>
           </div>
         </div>
       </div>
@@ -486,11 +484,11 @@
           <button @click="showMobileLegend = false" class="legend-close-btn">×</button>
         </div>
         <div class="mp-mobile-legend-items">
-          <div v-for="entry in legendEntriesByMic" :key="entry.nodeId" class="legend-item">
+          <div v-for="entry in legendEntriesByMic" :key="entry.key" class="legend-item">
             <div class="legend-color-swatch" :style="{ backgroundColor: entry.color || '#ccc' }"></div>
             <div class="legend-item-text">
-              <span class="legend-node-names">{{ entry.nodeName }}</span>
-              <span class="legend-label-text">{{ entry.buttonName }}</span>
+              <span class="legend-label-text">{{ entry.gearName }}</span>
+              <span class="legend-gear-count">x{{ entry.count }}</span>
             </div>
           </div>
         </div>
@@ -849,28 +847,23 @@ const uniqueLegendButtons = computed(() => {
     return (nodeNamesByColorKey.value[key] || []).length > 0
   })
 })
-// Per-mic entries for the floating canvas legend — one row per placed
-// mic so each position can be read off individually. Sorted naturally
-// (STAGE L / STAGE LL / STAGE LLL …) so neighbouring mics group together.
+// Legend entries grouped by gear type — one row per unique colour+name pair,
+// showing a count of how many nodes use that gear.
 const legendEntriesByMic = computed(() => {
-  const out = []
+  const groups = new Map()
   for (const n of props.nodes || []) {
     if (!n.color_button_id) continue
-    const name = (n.track_name || n.label || '').trim()
-    if (!name) continue
     const btn = (colorButtons.value || []).find(b => b.id === n.color_button_id)
     if (!btn) continue
-    out.push({
-      nodeId: n.id,
-      nodeName: name,
-      buttonName: btn.name || '',
-      color: btn.color || '#ccc',
-    })
+    const key = colorButtonKey(btn)
+    if (!groups.has(key)) {
+      groups.set(key, { key, gearName: btn.name || '', color: btn.color || '#ccc', count: 0 })
+    }
+    groups.get(key).count++
   }
-  out.sort((a, b) =>
-    a.nodeName.localeCompare(b.nodeName, undefined, { numeric: true, sensitivity: 'base' })
+  return Array.from(groups.values()).sort((a, b) =>
+    a.gearName.localeCompare(b.gearName, undefined, { sensitivity: 'base' })
   )
-  return out
 })
 // True when the selected mic's colour resolves to this dedup entry.
 function isDedupBtnActive(btn) {
@@ -4820,6 +4813,14 @@ defineExpose({ getCanvasDataURL })
   font-weight: 500;
 }
 
+.legend-gear-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* Filename Modal Styles */
 .filename-input-section {
   margin-bottom: 20px;
@@ -5351,12 +5352,13 @@ defineExpose({ getCanvasDataURL })
 }
 .legend-item-text {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   flex: 1;
 }
-.legend-node-names {
+.legend-label-text {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--text-heading);
@@ -5365,16 +5367,14 @@ defineExpose({ getCanvasDataURL })
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
-.legend-label-text {
-  font-size: 10px;
+.legend-gear-count {
+  font-size: 11px;
   color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   font-weight: var(--font-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Context menu (mic detail popup) — align with NodeInspector */
