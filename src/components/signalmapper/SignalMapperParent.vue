@@ -36,6 +36,20 @@
     </div>
     <button
       v-if="selectedStageHourId"
+      class="rec-day-warnings"
+      :class="['sev-' + (warningsTopSeverity || 'ok')]"
+      @click="showWarningsPanel = true"
+      :title="warnings.length ? `${warnings.length} issue${warnings.length === 1 ? '' : 's'} to review` : 'All checks passed'"
+      :aria-label="warnings.length ? `${warnings.length} warnings` : 'All checks passed'"
+    >
+      <CheckCircle2 v-if="!warnings.length" :size="14" :stroke-width="2" />
+      <AlertCircle v-else-if="warningsTopSeverity === 'error'" :size="14" :stroke-width="2" />
+      <AlertTriangle v-else-if="warningsTopSeverity === 'warning'" :size="14" :stroke-width="2" />
+      <Info v-else :size="14" :stroke-width="2" />
+      <span class="rec-day-warnings-label">{{ warnings.length || 'OK' }}</span>
+    </button>
+    <button
+      v-if="selectedStageHourId"
       class="rec-day-export"
       @click="openShowExportModal"
       :disabled="isExportingShow"
@@ -150,6 +164,83 @@
       <span class="tab-nav-bottom-label">{{ t.shortLabel || t.label }}</span>
     </button>
   </nav>
+
+  <!-- Warnings panel (side drawer on desktop / bottom sheet on mobile) -->
+  <div
+    v-if="showWarningsPanel"
+    class="warnings-backdrop"
+    @click.self="showWarningsPanel = false"
+  >
+    <aside class="warnings-panel" role="dialog" aria-label="Issues to review">
+      <header class="warnings-head">
+        <div class="warnings-head-title">
+          <span :class="['warnings-head-icon', 'sev-' + (warningsTopSeverity || 'ok')]">
+            <CheckCircle2 v-if="!warnings.length" :size="18" :stroke-width="2" />
+            <AlertCircle v-else-if="warningsTopSeverity === 'error'" :size="18" :stroke-width="2" />
+            <AlertTriangle v-else-if="warningsTopSeverity === 'warning'" :size="18" :stroke-width="2" />
+            <Info v-else :size="18" :stroke-width="2" />
+          </span>
+          <div>
+            <h3 class="warnings-title">{{ warnings.length ? 'Review before showtime' : 'Ready for showtime' }}</h3>
+            <p class="warnings-subtitle" v-if="warnings.length">
+              <span v-if="warningsBySeverity.error" class="sev-count error">{{ warningsBySeverity.error }} error{{ warningsBySeverity.error === 1 ? '' : 's' }}</span>
+              <span v-if="warningsBySeverity.warning" class="sev-count warning">{{ warningsBySeverity.warning }} warning{{ warningsBySeverity.warning === 1 ? '' : 's' }}</span>
+              <span v-if="warningsBySeverity.info" class="sev-count info">{{ warningsBySeverity.info }} note{{ warningsBySeverity.info === 1 ? '' : 's' }}</span>
+            </p>
+            <p class="warnings-subtitle" v-else>No errors, warnings or orphan nodes detected.</p>
+          </div>
+        </div>
+        <button class="warnings-close" @click="showWarningsPanel = false" aria-label="Close">
+          <X :size="18" :stroke-width="2" />
+        </button>
+      </header>
+
+      <div class="warnings-body">
+        <template v-if="!warnings.length">
+          <div class="warnings-empty">
+            <div class="warnings-empty-icon">
+              <CheckCircle2 :size="28" :stroke-width="1.75" />
+            </div>
+            <p class="warnings-empty-title">Everything looks good</p>
+            <p class="warnings-empty-hint">Placements, signal flow and the track list pass all sanity checks.</p>
+          </div>
+        </template>
+
+        <template v-else>
+          <section v-for="sev in ['error', 'warning', 'info']" :key="sev" v-show="warningsGrouped[sev].length" class="warnings-group">
+            <header class="warnings-group-head">
+              <span :class="['warnings-group-pill', 'sev-' + sev]">
+                <AlertCircle v-if="sev === 'error'" :size="12" :stroke-width="2" />
+                <AlertTriangle v-else-if="sev === 'warning'" :size="12" :stroke-width="2" />
+                <Info v-else :size="12" :stroke-width="2" />
+                {{ sev === 'error' ? 'Errors' : sev === 'warning' ? 'Warnings' : 'Notes' }}
+              </span>
+              <span class="warnings-group-count">{{ warningsGrouped[sev].length }}</span>
+            </header>
+            <ul class="warnings-list">
+              <li
+                v-for="w in warningsGrouped[sev]"
+                :key="w.id"
+                :class="['warning-row', 'sev-' + w.severity]"
+              >
+                <button class="warning-btn" @click="goToWarningTarget(w)">
+                  <div class="warning-text">
+                    <div class="warning-title">{{ w.title }}</div>
+                    <div class="warning-detail">{{ w.detail }}</div>
+                    <div class="warning-target">
+                      Tap to open
+                      <span class="warning-tab-label">{{ w.tab === 'placement' ? 'Mic Placement' : w.tab === 'flow' ? 'Signal Flow' : w.tab === 'tracklist' ? 'Track List' : 'Setup' }}</span>
+                    </div>
+                  </div>
+                  <ChevronRight :size="16" :stroke-width="2" class="warning-chevron" />
+                </button>
+              </li>
+            </ul>
+          </section>
+        </template>
+      </div>
+    </aside>
+  </div>
 
   <!-- Show Bible Export Modal -->
   <div v-if="showExportModal" class="modal-overlay" @click.self="showExportModal = false">
@@ -283,6 +374,9 @@ import { useStageHours } from '@/composables/useStageHours'
 import { fetchTableData } from '@/services/dataService'
 import {
   ArrowLeft,
+  AlertTriangle,
+  AlertCircle,
+  Info,
   Calendar,
   Copy,
   FileDown,
@@ -290,10 +384,14 @@ import {
   Workflow,
   ListOrdered,
   Save,
+  X,
+  CheckCircle2,
+  ChevronRight,
 } from 'lucide-vue-next'
 import { buildShowPDF, defaultShowBibleFilename } from '@/services/showPdfExportService'
 import { savePDFToStorage, showExportSuccessModal } from '@/services/exportStorageService'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
+import { computeWarnings, warningsSummary, topSeverity } from '@/services/signalMapperValidation'
 
 // Lazy load heavy components for better initial load performance
 const MicPlacement = defineAsyncComponent(() => import('./MicPlacement.vue'))
@@ -343,6 +441,32 @@ const micPlacementRef = ref(null)
 const showExportModal = ref(false)
 const isExportingShow = ref(false)
 const exportProgress = ref('')
+
+// Warnings panel state
+const showWarningsPanel = ref(false)
+const warnings = computed(() => {
+  if (!selectedStageHourId.value) return []
+  return computeWarnings({
+    nodes: allNodes.value || [],
+    connections: allConnections.value || [],
+    signalPaths: signalPaths.value || [],
+  })
+})
+const warningsBySeverity = computed(() => warningsSummary(warnings.value))
+const warningsTopSeverity = computed(() => topSeverity(warnings.value))
+const warningsGrouped = computed(() => {
+  const groups = { error: [], warning: [], info: [] }
+  for (const w of warnings.value) {
+    if (groups[w.severity]) groups[w.severity].push(w)
+  }
+  return groups
+})
+function goToWarningTarget(w) {
+  if (w?.tab && ['placement', 'flow', 'tracklist', 'dante'].includes(w.tab)) {
+    setActiveTab(w.tab)
+  }
+  showWarningsPanel.value = false
+}
 const exportOptions = ref({
   filename: '',
   cover: true,
@@ -1064,7 +1188,8 @@ onMounted(async () => {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .rec-day-copy,
-.rec-day-export {
+.rec-day-export,
+.rec-day-warnings {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1081,14 +1206,75 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 .rec-day-copy:hover,
-.rec-day-export:hover:not(:disabled) {
+.rec-day-export:hover:not(:disabled),
+.rec-day-warnings:hover {
   background: var(--surface-hover);
   border-color: var(--surface-border-strong);
   color: var(--text-primary);
 }
 .rec-day-export:disabled { opacity: 0.55; cursor: not-allowed; }
 .rec-day-copy-label,
-.rec-day-export-label { display: none; }
+.rec-day-export-label,
+.rec-day-warnings-label { display: none; }
+
+.rec-day-warnings.sev-ok {
+  color: var(--color-success-700);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-success-500) 12%, transparent);
+}
+.rec-day-warnings.sev-ok svg { color: var(--color-success-600); }
+.rec-day-warnings.sev-ok:hover {
+  background: color-mix(in srgb, var(--color-success-500) 20%, transparent);
+  color: var(--color-success-800);
+}
+.rec-day-warnings.sev-info {
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-200);
+  background: var(--color-primary-50);
+}
+.rec-day-warnings.sev-info svg { color: var(--color-primary-600); }
+.rec-day-warnings.sev-info:hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-300);
+  color: var(--color-primary-800);
+}
+.rec-day-warnings.sev-warning {
+  color: var(--color-warning-800);
+  border-color: var(--color-warning-300);
+  background: var(--color-warning-50);
+}
+.rec-day-warnings.sev-warning svg { color: var(--color-warning-700); }
+.rec-day-warnings.sev-warning:hover {
+  background: var(--color-warning-100);
+  border-color: var(--color-warning-400);
+  color: var(--color-warning-900);
+}
+.rec-day-warnings.sev-error {
+  color: var(--color-error-700);
+  border-color: var(--color-error-300);
+  background: var(--color-error-50);
+}
+.rec-day-warnings.sev-error svg { color: var(--color-error-600); }
+.rec-day-warnings.sev-error:hover {
+  background: var(--color-error-100);
+  border-color: var(--color-error-400);
+  color: var(--color-error-800);
+}
+:deep(.dark) .rec-day-warnings.sev-info {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.3);
+  color: var(--color-primary-200);
+}
+:deep(.dark) .rec-day-warnings.sev-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--color-warning-200);
+}
+:deep(.dark) .rec-day-warnings.sev-error {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--color-error-200);
+}
 
 /* ─── Top tab bar (segmented) ──────────────────────────── */
 .tab-nav-top {
@@ -1325,6 +1511,287 @@ onMounted(async () => {
   box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
 }
 
+/* ─── Warnings panel ────────────────────────────────────── */
+.warnings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: var(--z-modal);
+  display: flex;
+  justify-content: flex-end;
+  animation: wFadeIn 140ms ease-out;
+}
+@keyframes wFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.warnings-panel {
+  background: var(--surface-card);
+  border-left: 1px solid var(--surface-border);
+  width: 100%;
+  max-width: 440px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(15, 23, 42, 0.2);
+  animation: wSlideIn 180ms cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+@keyframes wSlideIn { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.warnings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--surface-border);
+  flex-shrink: 0;
+}
+.warnings-head-title {
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.warnings-head-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.warnings-head-icon.sev-ok {
+  background: color-mix(in srgb, var(--color-success-500) 15%, transparent);
+  color: var(--color-success-600);
+}
+.warnings-head-icon.sev-info {
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+}
+.warnings-head-icon.sev-warning {
+  background: var(--color-warning-50);
+  color: var(--color-warning-700);
+}
+.warnings-head-icon.sev-error {
+  background: var(--color-error-50);
+  color: var(--color-error-600);
+}
+.warnings-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.warnings-subtitle {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.sev-count {
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.sev-count.error { color: var(--color-error-600); }
+.sev-count.warning { color: var(--color-warning-700); }
+.sev-count.info { color: var(--color-primary-600); }
+.warnings-close {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  flex-shrink: 0;
+}
+.warnings-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border);
+}
+
+.warnings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.warnings-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  gap: 6px;
+  margin: auto;
+}
+.warnings-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-success-500) 15%, transparent);
+  color: var(--color-success-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+}
+.warnings-empty-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0;
+}
+.warnings-empty-hint {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+  max-width: 34ch;
+}
+
+.warnings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.warnings-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.warnings-group-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.warnings-group-pill.sev-error {
+  background: var(--color-error-50);
+  color: var(--color-error-700);
+}
+.warnings-group-pill.sev-warning {
+  background: var(--color-warning-50);
+  color: var(--color-warning-800);
+}
+.warnings-group-pill.sev-info {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+}
+:deep(.dark) .warnings-group-pill.sev-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-error-200);
+}
+:deep(.dark) .warnings-group-pill.sev-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning-200);
+}
+:deep(.dark) .warnings-group-pill.sev-info {
+  background: rgba(14, 165, 233, 0.15);
+  color: var(--color-primary-200);
+}
+.warnings-group-count {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.warnings-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.warning-row {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.warning-row.sev-error { border-left: 3px solid var(--color-error-500); }
+.warning-row.sev-warning { border-left: 3px solid var(--color-warning-500); }
+.warning-row.sev-info { border-left: 3px solid var(--color-primary-500); }
+.warning-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--surface-card);
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-normal);
+}
+.warning-btn:hover { background: var(--surface-hover); }
+.warning-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+}
+.warning-text { flex: 1; min-width: 0; }
+.warning-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  line-height: 1.3;
+}
+.warning-detail {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.warning-target {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.warning-tab-label {
+  font-weight: var(--font-semibold);
+  color: var(--color-primary-600);
+}
+.warning-chevron { color: var(--text-tertiary); flex-shrink: 0; }
+
+/* Mobile: turn the side drawer into a bottom sheet */
+@media (max-width: 640px) {
+  .warnings-backdrop { align-items: flex-end; justify-content: center; }
+  .warnings-panel {
+    max-width: 100%;
+    height: 85vh;
+    border-left: none;
+    border-top: 1px solid var(--surface-border);
+    border-top-left-radius: var(--radius-xl);
+    border-top-right-radius: var(--radius-xl);
+    animation: wSheetIn 200ms cubic-bezier(0.25, 0.8, 0.35, 1);
+  }
+  @keyframes wSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .warnings-head { padding: var(--space-3) var(--space-4); }
+  .warnings-body { padding: var(--space-3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .warnings-backdrop,
+  .warnings-panel { animation: none; }
+}
+
 /* Export modal */
 .export-modal { max-width: 520px; }
 .export-field {
@@ -1390,7 +1857,8 @@ onMounted(async () => {
 @media (min-width: 601px) {
   .signal-mapper-parent { padding: var(--space-5); padding-bottom: var(--space-5); }
   .rec-day-copy-label,
-  .rec-day-export-label { display: inline; }
+  .rec-day-export-label,
+  .rec-day-warnings-label { display: inline; }
   .sm-back-label { display: inline; }
 }
 
@@ -1412,9 +1880,11 @@ onMounted(async () => {
     border-radius: var(--radius-md);
   }
   .rec-day-copy-label,
-  .rec-day-export-label { display: none; }
+  .rec-day-export-label,
+  .rec-day-warnings-label { display: none; }
   .rec-day-copy,
-  .rec-day-export { padding: 0; width: 28px; justify-content: center; }
+  .rec-day-export,
+  .rec-day-warnings { padding: 0; width: 28px; justify-content: center; }
   .tab-nav-top { display: none; }
   .tab-nav-bottom { display: flex; }
   .tab-content { border-radius: var(--radius-md); min-height: 400px; }
