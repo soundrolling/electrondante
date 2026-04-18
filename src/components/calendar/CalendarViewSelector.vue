@@ -16,7 +16,7 @@
 </template>
 
 <script setup>
-import { CalendarDays, LayoutGrid, Clock, List } from 'lucide-vue-next'
+import { CalendarDays, LayoutGrid, Clock, List, Layers } from 'lucide-vue-next'
 import { markRaw } from 'vue'
 
 defineProps({
@@ -25,10 +25,11 @@ defineProps({
 defineEmits(['update:modelValue'])
 
 const views = [
-  { id: 'month',    label: 'Month',    hint: 'Full month at a glance',         icon: markRaw(CalendarDays) },
-  { id: 'grid',     label: 'Week',     hint: 'Week grid with per-day columns', icon: markRaw(LayoutGrid) },
-  { id: 'timeline', label: 'Day',      hint: 'Single day, hour by hour',       icon: markRaw(Clock) },
-  { id: 'list',     label: 'Agenda',   hint: 'Chronological list of events',   icon: markRaw(List) },
+  { id: 'month',     label: 'Month',    hint: 'Full month at a glance',         icon: markRaw(CalendarDays) },
+  { id: 'grid',      label: 'Week',     hint: 'Week grid with per-day columns', icon: markRaw(LayoutGrid) },
+  { id: 'timeline',  label: 'Day',      hint: 'Single day, hour by hour',       icon: markRaw(Clock) },
+  { id: 'swimlanes', label: 'Swim',     hint: 'Month timeline grouped by stage / category / crew', icon: markRaw(Layers) },
+  { id: 'list',      label: 'Agenda',   hint: 'Chronological list of events',   icon: markRaw(List) },
 ]
 </script>
 

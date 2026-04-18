@@ -169,9 +169,23 @@
 
   <!-- MAIN VIEWS -->
   <section class="views-container">
+    <!-- SWIMLANES VIEW -->
+    <CalendarSwimlanesView
+      v-if="currentView==='swimlanes'"
+      :current-date="currentDate"
+      :events="sortedEvents"
+      :get-event-color="getEventColorRich"
+      :locations="locations"
+      :contacts="contacts"
+      @previous-period="handleMonthNav"
+      @next-period="handleMonthNav"
+      @jump-to-today="jumpToToday"
+      @event-click="openDetailsModal"
+    />
+
     <!-- MONTH VIEW (default) -->
     <CalendarMonthView
-      v-if="currentView==='month'"
+      v-else-if="currentView==='month'"
       :current-date="currentDate"
       :get-events-for-day="getEventsForDay"
       :get-event-color="getEventColorRich"
@@ -360,6 +374,7 @@ import CalendarListView from "./CalendarListView.vue";
 import CalendarTimelineView from "./CalendarTimelineView.vue";
 import CalendarGridView from "./CalendarGridView.vue";
 import CalendarMonthView from "./CalendarMonthView.vue";
+import CalendarSwimlanesView from "./CalendarSwimlanesView.vue";
 import { downloadCalendarICS } from "@/services/icsExportService";
 import {
   getActiveShare,
@@ -402,6 +417,7 @@ components: {
   CalendarTimelineView,
   CalendarGridView,
   CalendarMonthView,
+  CalendarSwimlanesView,
   EventDetailsModal,
   NewEventModal,
   ConfirmationModal,
