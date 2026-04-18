@@ -636,7 +636,7 @@ export default {
     const toolDock = computed(() => [
       { key: 'stages', label: 'All Stages', icon: markRaw(LayoutGrid), action: goToLocations },
       { key: 'calendar', label: 'Calendar', icon: markRaw(Calendar), action: goToCalendar },
-      { key: 'travel', label: 'Travel', icon: markRaw(Plane), action: goToTravelHub },
+      { key: 'travel', label: 'Travel + Accommodation', icon: markRaw(Plane), action: goToTravelHub },
       { key: 'contacts', label: 'Contacts', icon: markRaw(Users), action: goToContacts },
       { key: 'gear', label: 'Gear', icon: markRaw(Wrench), action: goToGear },
       { key: 'documents', label: 'Docs', icon: markRaw(FileText), action: goToDocuments },

@@ -1,7 +1,7 @@
 <template>
 <div class="accommodations">
   <!-- Consolidated Header Section -->
-  <div class="consolidated-header">
+  <div v-if="!tripId" class="consolidated-header">
     <!-- Row 1: Back Button, Title, and Subtitle -->
     <div class="header-row-1">
       <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
@@ -841,7 +841,7 @@ setup(props) {
 
 .back-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .back-icon {
@@ -940,7 +940,7 @@ setup(props) {
 
 /* Add Button */
 .add-button {
-  background: var(--color-primary-500);
+  background: var(--btn-primary-bg);
   color: var(--text-inverse);
   border: none;
   border-radius: 8px;
@@ -958,7 +958,7 @@ setup(props) {
 }
 
 .add-button:hover {
-  background: #2563eb;
+  background: var(--btn-primary-hover-bg);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -969,7 +969,7 @@ setup(props) {
 
 .add-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .icon {
@@ -1110,7 +1110,7 @@ setup(props) {
 
 /* Button Styles */
 .primary-button {
-  background: var(--color-success-500);
+  background: var(--btn-primary-bg);
   color: var(--text-inverse);
   border: none;
   border-radius: 8px;
@@ -1124,7 +1124,7 @@ setup(props) {
 }
 
 .primary-button:hover {
-  background: #059669;
+  background: var(--btn-primary-hover-bg);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1135,7 +1135,7 @@ setup(props) {
 
 .primary-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .primary-button:disabled {
@@ -1333,7 +1333,7 @@ setup(props) {
 
 .action-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .action-button.edit-button {

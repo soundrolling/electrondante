@@ -1,7 +1,7 @@
 <template>
   <div class="documents">
   <!-- Consolidated Header Section -->
-  <div class="consolidated-header">
+  <div v-if="!tripId" class="consolidated-header">
     <!-- Row 1: Back Button, Title, and Subtitle -->
     <div class="header-row-1">
       <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
@@ -1123,7 +1123,7 @@ export default {
 
 .back-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .back-icon {
@@ -1223,7 +1223,7 @@ export default {
 
 /* Add Button */
 .add-button {
-  background: var(--color-primary-500);
+  background: var(--btn-primary-bg);
   color: var(--text-inverse);
   border: none;
   border-radius: 8px;
@@ -1241,7 +1241,7 @@ export default {
 }
 
 .add-button:hover {
-  background: #2563eb;
+  background: var(--btn-primary-hover-bg);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1252,7 +1252,7 @@ export default {
 
 .add-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .icon {
@@ -1422,7 +1422,7 @@ export default {
 
 .action-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .action-button.edit-button {
@@ -1553,7 +1553,7 @@ export default {
 
 .close-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .modal-body {
@@ -1623,7 +1623,7 @@ export default {
 
 /* Button Styles */
 .primary-button {
-  background: var(--color-success-500);
+  background: var(--btn-primary-bg);
   color: var(--text-inverse);
   border: none;
   border-radius: 8px;
@@ -1640,7 +1640,7 @@ export default {
 }
 
 .primary-button:hover {
-  background: var(--color-success-600);
+  background: var(--btn-primary-hover-bg);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1651,7 +1651,7 @@ export default {
 
 .primary-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .primary-button:disabled {
