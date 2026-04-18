@@ -349,6 +349,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
+import { mutateTableData } from '@/services/dataService'
 import { useUserStore } from '@/stores/userStore'
 import jsPDF from 'jspdf'
 import ConfirmationModal from '@/components/calendar/ConfirmationModal.vue'
@@ -822,8 +823,8 @@ function handleDownloadCancel() {
 // reorder
 async function swapOrder(a, b) {
 const oa = a.order, ob = b.order
-await supabase.from('stage_docs').update({ order: ob }).eq('id', a.id)
-await supabase.from('stage_docs').update({ order: oa }).eq('id', b.id)
+await mutateTableData('stage_docs', 'update', { id: a.id, order: ob })
+await mutateTableData('stage_docs', 'update', { id: b.id, order: oa })
 await fetchDocs()
 toast.success('Order updated')
 }
