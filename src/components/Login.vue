@@ -251,9 +251,9 @@ export default {
 .login-container {
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 16px; /* 4-point spacing system */
+  padding: 16px;
   background: var(--bg-primary);
   position: relative;
   /* Safe area support */
@@ -700,7 +700,8 @@ export default {
 /* Tablet: 601–1024px */
 @media (min-width: 601px) {
   .login-container {
-    padding: 24px; /* 8-point spacing */
+    padding: 24px;
+    align-items: center;
   }
   
   .login-card {
