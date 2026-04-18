@@ -1012,6 +1012,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../../stores/userStore';
 import { useToast } from 'vue-toastification';
 import { supabase } from '../../supabase';
+import { mutateTableData } from '@/services/dataService';
 import { format, parseISO, differenceInMinutes, isAfter, isBefore } from 'date-fns';
 
 export default {
@@ -1343,21 +1344,12 @@ setup(props) {
     isSaving.value = true;
     try {
       if (editingFlight.value && flightForm.value.id) {
-        let { error } = await supabase
-          .from('travel_flights')
-          .update({ ...flightForm.value })
-          .eq('id', flightForm.value.id);
-        if (error) throw error;
+        await mutateTableData('travel_flights', 'update', { ...flightForm.value });
         toast.success('Flight updated successfully');
       } else {
-        let { error } = await supabase
-          .from('travel_flights')
-          .insert({
-            ...flightForm.value,
-            trip_id: selectedTripId.value,
-            project_id: projectId.value
-          });
-        if (error) throw error;
+        await mutateTableData('travel_flights', 'insert', {
+          ...flightForm.value, trip_id: selectedTripId.value, project_id: projectId.value,
+        });
         toast.success('Flight added successfully');
       }
       await loadAllTransportData();
@@ -1372,8 +1364,7 @@ setup(props) {
   const deleteFlight = async id => {
     if (!confirm('Are you sure you want to delete this flight?')) return;
     try {
-      let { error } = await supabase.from('travel_flights').delete().eq('id', id);
-      if (error) throw error;
+      await mutateTableData('travel_flights', 'delete', { id });
       toast.success('Flight deleted');
       await loadAllTransportData();
     } catch (e) {
@@ -1412,21 +1403,12 @@ setup(props) {
     isSaving.value = true;
     try {
       if (editingRental.value && rentalForm.value.id) {
-        let { error } = await supabase
-          .from('travel_rental_cars')
-          .update(rentalForm.value)
-          .eq('id', rentalForm.value.id);
-        if (error) throw error;
+        await mutateTableData('travel_rental_cars', 'update', { ...rentalForm.value });
         toast.success('Rental car updated');
       } else {
-        let { error } = await supabase
-          .from('travel_rental_cars')
-          .insert({
-            ...rentalForm.value,
-            trip_id: selectedTripId.value,
-            project_id: projectId.value
-          });
-        if (error) throw error;
+        await mutateTableData('travel_rental_cars', 'insert', {
+          ...rentalForm.value, trip_id: selectedTripId.value, project_id: projectId.value,
+        });
         toast.success('Rental car added');
       }
       await loadAllTransportData();
@@ -1441,8 +1423,7 @@ setup(props) {
   const deleteRental = async id => {
     if (!confirm('Are you sure you want to delete this rental?')) return;
     try {
-      let { error } = await supabase.from('travel_rental_cars').delete().eq('id', id);
-      if (error) throw error;
+      await mutateTableData('travel_rental_cars', 'delete', { id });
       toast.success('Rental car deleted');
       await loadAllTransportData();
     } catch (e) {
@@ -1468,21 +1449,12 @@ setup(props) {
     isSaving.value = true;
     try {
       if (editingTransport.value && transportForm.value.id) {
-        let { error } = await supabase
-          .from('travel_local_transport')
-          .update(transportForm.value)
-          .eq('id', transportForm.value.id);
-        if (error) throw error;
+        await mutateTableData('travel_local_transport', 'update', { ...transportForm.value });
         toast.success('Local transport updated');
       } else {
-        let { error } = await supabase
-          .from('travel_local_transport')
-          .insert({
-            ...transportForm.value,
-            trip_id: selectedTripId.value,
-            project_id: projectId.value
-          });
-        if (error) throw error;
+        await mutateTableData('travel_local_transport', 'insert', {
+          ...transportForm.value, trip_id: selectedTripId.value, project_id: projectId.value,
+        });
         toast.success('Local transport added');
       }
       await loadAllTransportData();
@@ -1497,8 +1469,7 @@ setup(props) {
   const deleteLocalTransport = async id => {
     if (!confirm('Are you sure you want to delete this?')) return;
     try {
-      let { error } = await supabase.from('travel_local_transport').delete().eq('id', id);
-      if (error) throw error;
+      await mutateTableData('travel_local_transport', 'delete', { id });
       toast.success('Local transport deleted');
       await loadAllTransportData();
     } catch (e) {
@@ -1534,8 +1505,7 @@ setup(props) {
     }
     isSavingParking.value = true;
     try {
-      const { error } = await supabase.from('travel_parking').insert([newParking.value]);
-      if (error) throw error;
+      await mutateTableData('travel_parking', 'insert', { ...newParking.value });
       toast.success('Parking added');
       showNewParkingModal.value = false;
       await loadAllTransportData();
@@ -1554,11 +1524,7 @@ setup(props) {
       return;
     }
     try {
-      const { error } = await supabase
-        .from('travel_parking')
-        .update(editParking.value)
-        .eq('id', editParking.value.id);
-      if (error) throw error;
+      await mutateTableData('travel_parking', 'update', { ...editParking.value });
       toast.success('Parking updated');
       showEditParkingModal.value = false;
       await loadAllTransportData();
@@ -1570,8 +1536,7 @@ setup(props) {
   const deleteParking = async id => {
     if (!confirm('Are you sure you want to delete this parking entry?')) return;
     try {
-      const { error } = await supabase.from('travel_parking').delete().eq('id', id);
-      if (error) throw error;
+      await mutateTableData('travel_parking', 'delete', { id });
       toast.success('Parking deleted');
       await loadAllTransportData();
     } catch (e) {
