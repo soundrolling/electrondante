@@ -359,6 +359,7 @@ import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { format, parseISO, isAfter, isBefore, isToday } from 'date-fns'
 import { supabase } from '../../supabase'
+import { mutateTableData } from '@/services/dataService'
 import { useUserStore } from '../../stores/userStore'
 
 export default {
@@ -733,7 +734,7 @@ setup() {
   async function deleteTrip(t) {
     if (!confirm('Are you sure you want to delete this trip?')) return
     try {
-      await supabase.from('travel_trips').delete().eq('id', t.id)
+      await mutateTableData('travel_trips', 'delete', { id: t.id })
       toast.success('Trip deleted successfully')
       await fetchTrips()
     } catch {
