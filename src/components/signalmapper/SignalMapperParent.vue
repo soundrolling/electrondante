@@ -20,8 +20,16 @@
   </div>
 
   <!-- Sticky recording-day rail -->
-  <div v-if="effectiveLocationId && stageHours.length" class="rec-day-rail" role="tablist" aria-label="Recording day">
-    <Calendar :size="14" :stroke-width="2" class="rec-day-icon" />
+  <div
+    v-if="effectiveLocationId && stageHours.length"
+    class="rec-day-rail"
+    role="tablist"
+    aria-label="Recording day"
+  >
+    <div class="rec-day-kicker">
+      <Calendar :size="14" :stroke-width="2" class="rec-day-icon" />
+      <span class="rec-day-kicker-label">Recording day</span>
+    </div>
     <div class="rec-day-chips">
       <button
         v-for="stageHour in stageHours"
@@ -29,9 +37,12 @@
         role="tab"
         :aria-selected="selectedStageHourId === stageHour.id"
         :class="['rec-day-chip', { active: selectedStageHourId === stageHour.id }]"
+        :title="`Show settings for recording day ${getRecordingDayLabel(stageHour)}`"
+        :aria-label="`Recording day ${getRecordingDayLabel(stageHour)}`"
         @click="selectRecordingDay(stageHour.id)"
       >
-        {{ getRecordingDayLabel(stageHour) }}
+        <span class="rec-day-chip-prefix">Day</span>
+        <span class="rec-day-chip-num">{{ getRecordingDayLabel(stageHour) }}</span>
       </button>
     </div>
     <button
@@ -1197,6 +1208,23 @@ onMounted(async () => {
   backdrop-filter: saturate(140%) blur(6px);
 }
 .rec-day-icon { color: var(--text-tertiary); flex-shrink: 0; }
+.rec-day-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-right: 4px;
+  border-right: 1px solid var(--surface-border);
+  margin-right: 4px;
+}
+.rec-day-kicker-label {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
 .rec-day-chips {
   display: flex;
   gap: 4px;
@@ -1210,6 +1238,7 @@ onMounted(async () => {
 .rec-day-chip {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 5px 12px;
   height: 28px;
   background: var(--chip-bg);
@@ -1222,6 +1251,18 @@ onMounted(async () => {
   transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
   white-space: nowrap;
   flex-shrink: 0;
+}
+.rec-day-chip-prefix {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+}
+.rec-day-chip.active .rec-day-chip-prefix { color: var(--chip-text-active); opacity: 0.75; }
+.rec-day-chip-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-semibold);
 }
 .rec-day-chip:hover { background: var(--surface-hover); color: var(--text-primary); }
 .rec-day-chip.active {
@@ -1947,6 +1988,8 @@ onMounted(async () => {
     padding: 6px 8px;
     border-radius: var(--radius-md);
   }
+  .rec-day-kicker-label { display: none; }
+  .rec-day-kicker { padding-right: 2px; margin-right: 2px; }
   .rec-day-copy-label,
   .rec-day-export-label,
   .rec-day-warnings-label,
