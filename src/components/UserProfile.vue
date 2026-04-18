@@ -3,7 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
-import { formatWeight, getWeightUnit, setWeightUnit, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
+import { formatWeight, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
+import { useMeasurementUnit } from '../composables/useMeasurementUnit'
 import { getSetting, saveSetting } from '../utils/indexedDB';
 
 const store = useUserStore();
@@ -513,20 +514,10 @@ watch(activeTab, () => {
 });
 
 // Preferences state
-const weightUnit = ref(getWeightUnit());
+const { measurementUnit, weightUnit, setMeasurementUnit } = useMeasurementUnit()
 const alertPreference = ref('current_project'); // 'none', 'current_project', 'all_projects'
-const preferences = ref({
-  notifications: true,
-  weightUnit: getWeightUnit()
-});
 const savingPreferences = ref(false);
 const prefMsg = ref('');
-
-// Watch weight unit changes and save to localStorage
-watch(weightUnit, (newUnit) => {
-  setWeightUnit(newUnit);
-  preferences.value.weightUnit = newUnit;
-});
 
 async function loadAlertPreference() {
   try {
@@ -550,9 +541,9 @@ async function savePreferences() {
     savingPreferences.value = true;
     prefMsg.value = '';
     
-    // Save weight unit preference
-    setWeightUnit(weightUnit.value);
-    
+    // Save measurement unit to Supabase
+    await store.upsertUserProfile({ measurement_unit: measurementUnit.value });
+
     // Save alert preference
     if (alertPreference.value === 'none') {
       await saveSetting('schedule_notifications_enabled', false);
@@ -876,12 +867,12 @@ async function saveSecurity() {
               <p class="form-hint">Choose when you want to receive changeover notifications for artist schedules</p>
             </div>
             <div class="form-group">
-              <label class="form-label">Weight Unit</label>
-              <select v-model="weightUnit" class="form-input">
-                <option value="kg">Kilograms (kg)</option>
-                <option value="lbs">Pounds (lbs)</option>
+              <label class="form-label">Measurement Units</label>
+              <select v-model="measurementUnit" class="form-input">
+                <option value="metric">Metric (kg, cm, °C, km/h)</option>
+                <option value="imperial">Imperial (lb, in, °F, mph)</option>
               </select>
-              <p class="form-hint">Preferred unit for weight input and display</p>
+              <p class="form-hint">Preferred units for weight, distance, and temperature</p>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-positive" :disabled="savingPreferences">

@@ -6,6 +6,7 @@ import CryptoJS from 'crypto-js';
 import { openDB } from 'idb';
 import { useToast } from 'vue-toastification';
 import { saveSetting, getSetting, clearAllData } from '@/utils/indexedDB';
+import { useMeasurementUnit } from '../composables/useMeasurementUnit';
 
 const toast = useToast();
 
@@ -216,12 +217,13 @@ export const useUserStore = defineStore('userStore', {
       try {
         const { data, error, status } = await supabase
           .from('user_profiles')
-          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles')
+          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles, measurement_unit')
           .eq('id', this.user.id)
           .single();
         if (error && status !== 406) throw error;
         if (data) {
           this.userProfile = data;
+          useMeasurementUnit().initFromProfile(data);
           return data;
         }
         this.userProfile = {
@@ -241,7 +243,8 @@ export const useUserStore = defineStore('userStore', {
           },
           avatar_url: '',
           equipment: [],
-          calendar_event_toggles: {}
+          calendar_event_toggles: {},
+          measurement_unit: 'metric'
         };
         return this.userProfile;
       } catch (e) {
@@ -263,7 +266,7 @@ export const useUserStore = defineStore('userStore', {
         const { data, error } = await supabase
           .from('user_profiles')
           .upsert(updates)
-          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles')
+          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles, measurement_unit')
           .single();
         if (error) throw error;
         this.userProfile = data;

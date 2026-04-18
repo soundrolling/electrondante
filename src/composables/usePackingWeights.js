@@ -1,8 +1,8 @@
-import { ref } from 'vue'
-import { formatWeight, getWeightUnit, convertInputToKg } from '@/utils/weightUtils'
+import { formatWeight, convertInputToKg } from '@/utils/weightUtils'
+import { useMeasurementUnit } from '@/composables/useMeasurementUnit'
 
 export function usePackingWeights() {
-  const weightUnit = ref(getWeightUnit())
+  const { weightUnit } = useMeasurementUnit()
 
   function formatBagWeight(bagId, bags, bagItems, availableProjectGear) {
     const weightKg = getBagTotalWeight(bagId, bags, bagItems, availableProjectGear)

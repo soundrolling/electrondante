@@ -109,7 +109,7 @@
         </div>
         <div class="weather-detail-item">
           <span class="label">Wind:</span>
-          <span>{{ weather.wind_kph }} km/h</span>
+          <span>{{ isImperial ? weather.wind_mph : weather.wind_kph }} {{ speedUnit }}</span>
         </div>
       </div>
     </div>
@@ -143,6 +143,7 @@
 
 <script setup>
 import { ref, watch, onUnmounted } from 'vue'
+import { useMeasurementUnit } from '@/composables/useMeasurementUnit'
 
 const API_KEY     = import.meta.env.VITE_WEATHERAPI_KEY || process.env.VUE_APP_WEATHERAPI_KEY
 const BASE_URL    = 'https://api.weatherapi.com/v1'
@@ -162,7 +163,8 @@ const loading          = ref(false)
 const weather          = ref(null)
 const forecast         = ref([])
 const localTime        = ref('')
-const tempUnit         = ref('C')
+const { isImperial, speedUnit } = useMeasurementUnit()
+const tempUnit         = ref(isImperial.value ? 'F' : 'C')
 const favorites        = ref(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'))
 const selectedFavorite = ref('')
 
