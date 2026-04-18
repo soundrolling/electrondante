@@ -1002,13 +1002,17 @@ setup() {
       return
     }
 
-    await supabase.from('calendar_events')
-      .delete()
+    const { data: match, error: findError } = await supabase
+      .from('calendar_events')
+      .select('id')
       .eq('project_id', projectId)
       .eq('location_id', stage.id)
       .eq('event_date', event_date)
       .eq('start_time', start_time)
       .eq('category', 'recording')
+      .maybeSingle()
+    if (findError) throw findError
+    if (match) await mutateTableData('calendar_events', 'delete', { id: match.id })
   }
 
   async function saveSlot() {

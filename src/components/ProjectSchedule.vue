@@ -246,7 +246,8 @@ import { useToast } from 'vue-toastification'
 import Swal from 'sweetalert2'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { fetchTableData, mutateTableData, syncOfflineChanges } from '@/services/dataService'
+import { fetchTableData, mutateTableData } from '@/services/dataService'
+import { syncOfflineChanges } from '@/services/syncService'
 
 
 

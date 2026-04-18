@@ -1083,7 +1083,7 @@ async function importSelectedContacts() {
     }).filter(Boolean);
 
     // Import each contact (create new records for current project)
-    const importPromises = contactsToImport.map(contact => {
+    for (const contact of contactsToImport) {
       const payload = {
         project_id: currentProject.value.id,
         name: contact.name || null,
@@ -1093,10 +1093,8 @@ async function importSelectedContacts() {
         comments: contact.comments || null,
         stage_ids: contact.stage_ids || null,
       };
-      return mutateTableData('project_contacts', 'insert', payload);
-    });
-
-    await Promise.all(importPromises);
+      await mutateTableData('project_contacts', 'insert', payload);
+    }
     
     // Refresh contacts list
     await fetchContacts();

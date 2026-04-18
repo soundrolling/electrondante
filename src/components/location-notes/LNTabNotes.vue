@@ -408,9 +408,9 @@ import { useUserStore } from '@/stores/userStore';
 import {
 fetchTableData,
 mutateTableData,
-syncOfflineChanges,
 hasPendingChanges
 } from '@/services/dataService';
+import { syncOfflineChanges } from '@/services/syncService';
 import { getSetting, getData } from '@/utils/indexedDB';
 
 const props = defineProps({ locationId: { type: String, required: true } });

@@ -374,7 +374,7 @@ async function manualSync() {
 
   isSyncing.value = true;
   try {
-    const { syncOfflineChanges } = await import('@/services/dataService');
+    const { syncOfflineChanges } = await import('@/services/syncService');
     await syncOfflineChanges();
     await checkPendingSync();
     // Refresh the notes tab if it's active
