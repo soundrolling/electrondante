@@ -937,10 +937,32 @@ setup() {
     slotForm.value = { start_datetime: '', end_datetime: '', notes: '' };
   }
   async function upsertCalendarEventForStageHour(slot, stage, projectId) {
-    const event_date = slot.start_datetime.slice(0, 10);
-    const start_time = slot.start_datetime.slice(11, 16);
-    const end_time = slot.end_datetime.slice(11, 16);
-    // Try to find an existing event for this slot
+    const event_date = slot.start_datetime.slice(0, 10)
+    const start_time = slot.start_datetime.slice(11, 16)
+    const end_time   = slot.end_datetime.slice(11, 16)
+
+    if (!navigator.onLine) {
+      const cached = await getData('calendar_events')
+      const existing = cached.find(e =>
+        e.project_id === projectId &&
+        e.location_id === stage.id &&
+        e.event_date  === event_date &&
+        e.start_time  === start_time &&
+        e.category    === 'recording'
+      )
+      if (existing) {
+        await mutateTableData('calendar_events', 'update', {
+          id: existing.id, end_time, notes: slot.notes, title: 'Stage Hour',
+        })
+      } else {
+        await mutateTableData('calendar_events', 'insert', {
+          project_id: projectId, category: 'recording', event_date,
+          start_time, end_time, title: 'Stage Hour', location_id: stage.id, notes: slot.notes,
+        })
+      }
+      return
+    }
+
     const { data: existing, error: findError } = await supabase
       .from('calendar_events')
       .select('id')
@@ -949,40 +971,44 @@ setup() {
       .eq('event_date', event_date)
       .eq('start_time', start_time)
       .eq('category', 'recording')
-      .maybeSingle();
-    if (findError) throw findError;
+      .maybeSingle()
+    if (findError) throw findError
     if (existing) {
-      // Update
-      await supabase.from('calendar_events').update({
-        end_time,
-        notes: slot.notes,
-        title: 'Stage Hour',
-      }).eq('id', existing.id);
+      await mutateTableData('calendar_events', 'update', {
+        id: existing.id, end_time, notes: slot.notes, title: 'Stage Hour',
+      })
     } else {
-      // Insert
-      await supabase.from('calendar_events').insert([{
-        project_id: projectId,
-        category: 'recording',
-        event_date,
-        start_time,
-        end_time,
-        title: 'Stage Hour',
-        location_id: stage.id,
-        notes: slot.notes,
-      }]);
+      await mutateTableData('calendar_events', 'insert', {
+        project_id: projectId, category: 'recording', event_date,
+        start_time, end_time, title: 'Stage Hour', location_id: stage.id, notes: slot.notes,
+      })
     }
   }
 
   async function deleteCalendarEventForStageHour(slot, stage, projectId) {
-    const event_date = slot.start_datetime.slice(0, 10);
-    const start_time = slot.start_datetime.slice(11, 16);
+    const event_date = slot.start_datetime.slice(0, 10)
+    const start_time = slot.start_datetime.slice(11, 16)
+
+    if (!navigator.onLine) {
+      const cached = await getData('calendar_events')
+      const match = cached.find(e =>
+        e.project_id === projectId &&
+        e.location_id === stage.id &&
+        e.event_date  === event_date &&
+        e.start_time  === start_time &&
+        e.category    === 'recording'
+      )
+      if (match) await mutateTableData('calendar_events', 'delete', { id: match.id })
+      return
+    }
+
     await supabase.from('calendar_events')
       .delete()
       .eq('project_id', projectId)
       .eq('location_id', stage.id)
       .eq('event_date', event_date)
       .eq('start_time', start_time)
-      .eq('category', 'recording');
+      .eq('category', 'recording')
   }
 
   async function saveSlot() {
