@@ -342,7 +342,6 @@
                       build: d.isBuild,
                       show: d.isShow,
                       today: d.isToday,
-                      weekend: d.isWeekend,
                       'month-start': d.isMonthStart,
                       active: isDateCellActive(p.id, di),
                       interactive: d.isBuild || d.isShow,
@@ -873,7 +872,13 @@ setup() {
   /* ───────── TIMELINE STRIPS ─────────
      Per-project mini-calendar: month labels + per-day cells colored by
      build/show. Computed once for the displayed set so cards stay cheap. */
+  // Parse date strings as LOCAL midnight to avoid UTC-to-local shift for date-only strings
   const startOfDay = (ds) => {
+    if (!ds) return NaN;
+    if (typeof ds === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ds)) {
+      const [y, m, d] = ds.split('-').map(Number);
+      return new Date(y, m - 1, d).getTime();
+    }
     const d = new Date(ds);
     return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   };
@@ -890,7 +895,12 @@ setup() {
     const max = Math.max(...all);
     const startDate = new Date(min);
     const endDate = new Date(max);
-    const stripStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    // Start strip at the Monday on or before the 1st of the first event month
+    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const dow = monthStart.getDay(); // 0=Sun
+    const daysBack = dow === 0 ? 6 : dow - 1;
+    const stripStart = new Date(monthStart);
+    stripStart.setDate(stripStart.getDate() - daysBack);
     const stripEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
     const today = startOfDay(new Date());
     const oneDay = 86400000;
@@ -909,7 +919,6 @@ setup() {
       } else {
         months[months.length - 1].count += 1;
       }
-      const weekDay = d.getDay();
       const iso = d.toISOString().slice(0, 10);
       days.push({
         date: iso,
@@ -917,7 +926,6 @@ setup() {
         isBuild: buildSet.has(dayTime),
         isShow: showSet.has(dayTime),
         isToday: dayTime === today,
-        isWeekend: weekDay === 0 || weekDay === 6,
         isMonthStart: d.getDate() === 1 && days.length > 0,
         label: formatSingleDate(iso),
       });
@@ -2089,19 +2097,16 @@ setup() {
   z-index: 3;
   box-shadow: 0 0 0 2px var(--color-primary-600);
 }
-.date-strip-cell.weekend {
-  background: color-mix(in srgb, var(--chip-bg) 70%, var(--surface-border));
-}
 .date-strip-cell.build {
   background: var(--color-primary-500);
   box-shadow: inset 0 0 0 1px var(--color-primary-600);
 }
 .date-strip-cell.show {
-  background: var(--color-warning-500);
-  box-shadow: inset 0 0 0 1px var(--color-warning-600);
+  background: var(--color-success-500, hsl(142 60% 42%));
+  box-shadow: inset 0 0 0 1px var(--color-success-600, hsl(142 60% 35%));
 }
 .date-strip-cell.build.show {
-  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-warning-500) 50%, var(--color-warning-500) 100%);
+  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-success-500, hsl(142 60% 42%)) 50%, var(--color-success-500, hsl(142 60% 42%)) 100%);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }
 .date-strip-cell.today {
@@ -2461,10 +2466,10 @@ setup() {
   .filter-rail { top: 52px; }
   .date-strip { gap: 6px; }
   .date-strip-numbers { display: none; }
-  .date-strip-track { height: 28px; }
+  .date-strip-track { height: 28px; min-height: 28px; }
+  .date-strip-cell { height: 100%; min-height: 28px; border-radius: 3px; }
   .date-strip-months { height: 14px; }
   .month-label { font-size: 9px; }
-  .date-strip-cell { border-radius: 3px; }
   .card-meta-row { gap: var(--space-3); }
 }
 

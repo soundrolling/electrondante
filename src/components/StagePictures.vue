@@ -785,7 +785,9 @@ async function viewImage(path) {
     if (error) {
       toast.error(`Could not open image: ${error.message}`);
     } else {
-      window.open(data.signedUrl, '_blank');
+      const resp = await fetch(data.signedUrl);
+      const blob = await resp.blob();
+      window.open(URL.createObjectURL(blob), '_blank');
     }
   } catch (error) {
     toast.error('Error opening image');
