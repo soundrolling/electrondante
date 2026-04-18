@@ -130,46 +130,49 @@
     </div>
   </div>
 
-  <!-- Edge inspector (minimal) -->
-  <aside
-    v-if="selectedEdge && selectedEdgeData"
-    class="sfv-inspector"
-    @click.stop
-  >
-    <header class="sfv-inspector-head">
-      <div>
-        <div class="sfv-inspector-label">Connection</div>
-        <h4 class="sfv-inspector-title">
-          {{ selectedEdgeData.fromLabel }} → {{ selectedEdgeData.toLabel }}
-        </h4>
-      </div>
-      <button class="sfv-inspector-close" @click="clearSelection" aria-label="Close">
-        <X :size="16" :stroke-width="2" />
-      </button>
-    </header>
-    <div class="sfv-inspector-body">
-      <label class="sfv-field-label">Type</label>
-      <div class="sfv-type-grid">
+  <!-- Edge inspector (teleported so it anchors to the viewport, not the
+       VueFlow transform context). -->
+  <Teleport to="body">
+    <aside
+      v-if="selectedEdge && selectedEdgeData"
+      class="sfv-inspector"
+      @click.stop
+    >
+      <header class="sfv-inspector-head">
+        <div>
+          <div class="sfv-inspector-label">Connection</div>
+          <h4 class="sfv-inspector-title">
+            {{ selectedEdgeData.fromLabel }} → {{ selectedEdgeData.toLabel }}
+          </h4>
+        </div>
+        <button class="sfv-inspector-close" @click="clearSelection" aria-label="Close">
+          <X :size="16" :stroke-width="2" />
+        </button>
+      </header>
+      <div class="sfv-inspector-body">
+        <label class="sfv-field-label">Type</label>
+        <div class="sfv-type-grid">
+          <button
+            v-for="t in CONNECTION_TYPES"
+            :key="t"
+            type="button"
+            :class="['sfv-type-btn', { active: selectedEdgeData.connection_type === t }]"
+            @click="setEdgeType(t)"
+          >
+            <span class="sfv-dot" :style="{ background: CONNECTION_COLORS[t] }"></span>
+            {{ t }}
+          </button>
+        </div>
         <button
-          v-for="t in CONNECTION_TYPES"
-          :key="t"
-          type="button"
-          :class="['sfv-type-btn', { active: selectedEdgeData.connection_type === t }]"
-          @click="setEdgeType(t)"
+          class="sfv-danger-btn"
+          @click="deleteSelectedEdge"
         >
-          <span class="sfv-dot" :style="{ background: CONNECTION_COLORS[t] }"></span>
-          {{ t }}
+          <Trash2 :size="14" :stroke-width="2" />
+          Delete connection
         </button>
       </div>
-      <button
-        class="sfv-danger-btn"
-        @click="deleteSelectedEdge"
-      >
-        <Trash2 :size="14" :stroke-width="2" />
-        Delete connection
-      </button>
-    </div>
-  </aside>
+    </aside>
+  </Teleport>
 
   <!-- Full node inspector (reuses classic component).
        Teleported to body so position:fixed is viewport-anchored
@@ -803,16 +806,21 @@ onMounted(() => {
 
 /* ─── Inspector drawer ─────────────────────────────────── */
 .sfv-inspector {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  width: min(300px, calc(100vw - 2 * var(--space-4)));
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0));
+  right: 16px;
+  width: min(320px, calc(100vw - 32px));
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
-  z-index: 5;
+  z-index: var(--z-popover);
+  animation: sfv-inspector-in 140ms ease-out;
+}
+@keyframes sfv-inspector-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .sfv-inspector-head {
   display: flex;
@@ -922,11 +930,10 @@ onMounted(() => {
   .sfv-chip-group { flex: 1; overflow-x: auto; scrollbar-width: none; }
   .sfv-chip-group::-webkit-scrollbar { display: none; }
   .sfv-inspector {
-    position: fixed;
     left: var(--space-3);
     right: var(--space-3);
     top: auto;
-    bottom: 72px;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0));
     width: auto;
   }
 }
@@ -937,5 +944,6 @@ onMounted(() => {
   .sfv-type-btn,
   .sfv-danger-btn,
   .sfv-inspector-close { transition: none; }
+  .sfv-inspector { animation: none; }
 }
 </style>
