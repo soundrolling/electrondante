@@ -50,6 +50,16 @@
           </select>
         </div>
 
+        <div class="filter-group">
+          <label for="sortBy">Sort:</label>
+          <select v-model="sortBy" id="sortBy">
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+            <option value="priority">Priority</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+
         <button @click="clearFilters" class="btn btn-warning clear-filters-btn">Clear Filters</button>
       </div>
     </div>
@@ -270,7 +280,9 @@ export default {
       type: '',
       priority: ''
     })
-    
+
+    const sortBy = ref('date_desc')
+
     const expandedReports = ref([])
     
     const reports = computed(() => bugReportStore.reports)
@@ -281,22 +293,43 @@ export default {
       return filters.value.status || filters.value.type || filters.value.priority
     })
     
+    const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 }
+    const STATUS_ORDER = { open: 0, in_progress: 1, resolved: 2, closed: 3 }
+
     const filteredReports = computed(() => {
-      let filtered = reports.value
-      
+      let result = reports.value
+
       if (filters.value.status) {
-        filtered = filtered.filter(report => report.status === filters.value.status)
+        result = result.filter(r => r.status === filters.value.status)
       }
-      
       if (filters.value.type) {
-        filtered = filtered.filter(report => report.type === filters.value.type)
+        result = result.filter(r => r.type === filters.value.type)
       }
-      
       if (filters.value.priority) {
-        filtered = filtered.filter(report => report.priority === filters.value.priority)
+        result = result.filter(r => r.priority === filters.value.priority)
       }
-      
-      return filtered
+
+      const sorted = [...result]
+      switch (sortBy.value) {
+        case 'date_asc':
+          sorted.sort((a, b) => a.created_at.localeCompare(b.created_at))
+          break
+        case 'priority':
+          sorted.sort((a, b) =>
+            (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9)
+            || b.created_at.localeCompare(a.created_at)
+          )
+          break
+        case 'status':
+          sorted.sort((a, b) =>
+            (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+            || b.created_at.localeCompare(a.created_at)
+          )
+          break
+        default: // date_desc
+          sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
+      }
+      return sorted
     })
     
     const getTypeLabel = (type) => {
@@ -349,11 +382,8 @@ export default {
     }
     
     const clearFilters = () => {
-      filters.value = {
-        status: '',
-        type: '',
-        priority: ''
-      }
+      filters.value = { status: '', type: '', priority: '' }
+      sortBy.value = 'date_desc'
     }
     
     const refreshReports = async () => {
@@ -389,6 +419,7 @@ export default {
     
     return {
       filters,
+      sortBy,
       expandedReports,
       reports,
       statistics,
