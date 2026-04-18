@@ -5,7 +5,7 @@
       <div class="header-top">
         <h3>Bug Reports & Suggestions</h3>
         <div class="header-actions">
-          <button @click="refreshReports" class="btn btn-warning refresh-btn" :disabled="isLoading">
+          <button @click="refreshReports" class="btn btn-secondary refresh-btn" :disabled="isLoading">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23,4 23,10 17,10"></polyline>
               <polyline points="1,20 1,14 7,14"></polyline>
@@ -60,7 +60,7 @@
           </select>
         </div>
 
-        <button @click="clearFilters" class="btn btn-warning clear-filters-btn">Clear Filters</button>
+        <button @click="clearFilters" class="btn btn-secondary clear-filters-btn">Clear Filters</button>
       </div>
     </div>
 
@@ -114,13 +114,23 @@
         >
           <div class="report-header">
             <div class="report-meta">
-              <span class="report-type">{{ getTypeLabel(report.type) }}</span>
-              <span class="report-priority" :class="`priority-${report.priority}`">
-                {{ getPriorityLabel(report.priority) }}
-              </span>
-              <span class="report-status" :class="`status-${report.status}`">
-                {{ getStatusLabel(report.status, report.type) }}
-              </span>
+              <span class="badge badge-primary report-type">{{ getTypeLabel(report.type) }}</span>
+              <span
+                class="badge report-priority"
+                :class="{
+                  'badge-secondary': report.priority === 'low',
+                  'badge-warning': report.priority === 'medium',
+                  'badge-error': report.priority === 'high' || report.priority === 'critical'
+                }"
+              >{{ getPriorityLabel(report.priority) }}</span>
+              <span
+                class="badge report-status"
+                :class="{
+                  'badge-primary': report.status === 'open',
+                  'badge-warning': report.status === 'in_progress',
+                  'badge-success': report.status === 'resolved' || report.status === 'closed'
+                }"
+              >{{ getStatusLabel(report.status, report.type) }}</span>
             </div>
             <div class="report-actions">
               <select
@@ -140,7 +150,7 @@
               </select>
               <router-link
                 :to="{ name: 'BugReportDetail', params: { projectId: currentProjectId, reportId: report.id } }"
-                class="btn btn-primary view-details-btn"
+                class="btn btn-secondary view-details-btn"
                 title="View Details"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -149,9 +159,9 @@
                 </svg>
                 View Details
               </router-link>
-              <button 
+              <button
                 @click="toggleReportDetails(report.id)"
-                class="btn btn-primary toggle-btn"
+                class="btn btn-secondary toggle-btn"
                 :title="expandedReports.includes(report.id) ? 'Collapse' : 'Expand'"
               >
                 <svg 
@@ -482,28 +492,10 @@ export default {
   gap: var(--space-3);
 }
 
+/* .refresh-btn uses global btn btn-secondary classes */
 .refresh-btn {
-  display: flex;
-  align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: var(--color-secondary-200);
-  border-color: var(--border-medium);
-}
-
-.refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .refresh-btn svg {
@@ -540,21 +532,9 @@ export default {
   min-width: 120px;
 }
 
+/* .clear-filters-btn uses global btn btn-secondary classes */
 .clear-filters-btn {
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-error-600);
-  color: var(--text-inverse);
-  border: 1px solid var(--color-error-700);
-  border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: all var(--transition-normal);
-}
-
-.clear-filters-btn:hover {
-  background: var(--color-error-700);
-  border-color: var(--color-error-800);
 }
 
 .statistics {
@@ -662,105 +642,12 @@ export default {
   flex-wrap: wrap;
 }
 
+/* Priority and status badges use global .badge .badge-* design system classes */
+/* Scoped letter-spacing override for report badge text */
 .report-type,
 .report-priority,
 .report-status {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: var(--font-medium);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
-}
-
-.report-type {
-  background: var(--color-primary-100);
-  color: var(--color-primary-700);
-}
-
-.dark .report-type {
-  background: var(--color-primary-600);
-  color: var(--text-inverse);
-}
-
-.report-priority.priority-low {
-  background: var(--color-success-100);
-  color: var(--color-success-700);
-}
-
-.dark .report-priority.priority-low {
-  background: var(--color-success-600);
-  color: var(--text-inverse);
-}
-
-.report-priority.priority-medium {
-  background: var(--color-warning-100);
-  color: var(--color-warning-700);
-}
-
-.dark .report-priority.priority-medium {
-  background: var(--color-warning-600);
-  color: var(--text-inverse);
-}
-
-.report-priority.priority-high {
-  background: var(--color-error-100);
-  color: var(--color-error-700);
-}
-
-.dark .report-priority.priority-high {
-  background: var(--color-error-600);
-  color: var(--text-inverse);
-}
-
-.report-priority.priority-critical {
-  background: var(--color-error-200);
-  color: var(--color-error-800);
-}
-
-.dark .report-priority.priority-critical {
-  background: var(--color-error-700);
-  color: var(--text-inverse);
-}
-
-.report-status.status-open {
-  background: var(--color-primary-100);
-  color: var(--color-primary-700);
-}
-
-.dark .report-status.status-open {
-  background: var(--color-primary-600);
-  color: var(--text-inverse);
-}
-
-.report-status.status-in_progress {
-  background: var(--color-warning-100);
-  color: var(--color-warning-700);
-}
-
-.dark .report-status.status-in_progress {
-  background: var(--color-warning-600);
-  color: var(--text-inverse);
-}
-
-.report-status.status-closed {
-  background: var(--color-success-100);
-  color: var(--color-success-700);
-}
-
-.dark .report-status.status-closed {
-  background: var(--color-success-600);
-  color: var(--text-inverse);
-}
-
-.report-status.status-resolved {
-  background: var(--color-success-100);
-  color: var(--color-success-700);
-}
-
-.dark .report-status.status-resolved {
-  background: var(--color-success-600);
-  color: var(--text-inverse);
 }
 
 .report-actions {
@@ -777,19 +664,9 @@ export default {
   font-size: var(--text-sm);
 }
 
+/* .toggle-btn uses global btn btn-secondary; keep only icon rotation override */
 .toggle-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
   padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  transition: all var(--transition-normal);
-}
-
-.toggle-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
 }
 
 .toggle-btn svg {

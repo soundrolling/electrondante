@@ -19,7 +19,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Parking Entries</h2>
-      <button v-if="canManageProject" @click="openForm" class="add-button" aria-label="Add new parking entry">
+      <button v-if="canManageProject" @click="openForm" class="btn btn-positive add-button" aria-label="Add new parking entry">
         <span class="icon">+</span>
         <span class="button-text">Add Parking</span>
       </button>
@@ -230,10 +230,10 @@
           </div>
         </div>
         <div class="form-actions">
-          <button type="button" @click="closeForm" class="secondary-button">
+          <button type="button" @click="closeForm" class="btn btn-secondary">
             Cancel
           </button>
-          <button type="submit" class="primary-button" :disabled="isSaving">
+          <button type="submit" class="btn btn-primary" :disabled="isSaving">
             <span v-if="isSaving" class="loading-spinner-small"></span>
             {{ isSaving ? 'Saving...' : (editingParking ? 'Update Parking' : 'Add Parking') }}
           </button>
@@ -290,11 +290,11 @@
           </div>
         </div>
         <div v-if="canManageProject" class="parking-card-footer">
-          <button @click="editParking(entry)" class="action-button edit-button" aria-label="Edit parking entry">
+          <button @click="editParking(entry)" class="btn btn-warning action-button edit-button" aria-label="Edit parking entry">
             <span class="action-icon">✏️</span>
             <span class="action-text">Edit</span>
           </button>
-          <button @click="deleteParking(entry.id)" class="action-button delete-button" aria-label="Delete parking entry">
+          <button @click="deleteParking(entry.id)" class="btn btn-danger action-button delete-button" aria-label="Delete parking entry">
             <span class="action-icon">🗑️</span>
             <span class="action-text">Delete</span>
           </button>

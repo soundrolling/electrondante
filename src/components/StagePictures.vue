@@ -97,7 +97,7 @@
       <!-- Upload Button -->
       <div class="selected-files-upload-btn">
         <button
-          class="btn btn-primary"
+          class="btn btn-positive"
           :disabled="isUploading || !selectedFiles.length"
           @click="uploadImages"
         >
@@ -126,17 +126,17 @@
     <div class="images-header">
       <h3 class="images-title">{{ images.length }} Image{{ images.length === 1 ? '' : 's' }}</h3>
       <div class="images-actions">
-        <button 
-          class="btn btn-outline"
+        <button
+          class="btn btn-secondary"
           @click="toggleReorganizeMode"
-          :class="{ 'btn-outline--active': reorganizeMode }"
+          :class="{ 'btn-secondary--active': reorganizeMode }"
         >
           {{ reorganizeMode ? 'Done Reorganizing' : 'Reorganize' }}
         </button>
-        <button 
-          class="btn btn-outline"
+        <button
+          class="btn btn-secondary"
           @click="toggleBulkMode"
-          :class="{ 'btn-outline--active': bulkMode }"
+          :class="{ 'btn-secondary--active': bulkMode }"
           :disabled="reorganizeMode"
         >
           {{ bulkMode ? 'Cancel' : 'Select Multiple' }}
@@ -257,13 +257,13 @@
           <input
             v-model="img.name"
             placeholder="Image name"
-            class="input-field"
+            class="input-field form-input"
             @blur="updateImage(img)"
           />
           <textarea
             v-model="img.description"
             placeholder="This will show on export descriptions"
-            class="textarea-field"
+            class="textarea-field form-input"
             @blur="updateImage(img)"
           />
         </div>
@@ -1311,20 +1311,11 @@ watch(() => [props.stageId, props.venueId], async ([newStageId, newVenueId]) => 
   color: var(--text-primary);
 }
 
-.btn-outline {
-  background: transparent;
-  color: #3b82f6 !important;
-  border: 1px solid #3b82f6;
-}
-
-.btn-outline:hover:not(:disabled) {
-  background: var(--color-primary-500);
+/* Toggle active state for reorganize/bulk mode secondary buttons */
+.btn-secondary--active {
+  background: var(--color-primary-500) !important;
   color: var(--text-inverse) !important;
-}
-
-.btn-outline--active {
-  background: #3b82f6 !important;
-  color: #ffffff !important;
+  border-color: var(--color-primary-600) !important;
 }
 
 .btn-danger {
@@ -1513,28 +1504,7 @@ watch(() => [props.stageId, props.venueId], async ([newStageId, newVenueId]) => 
   justify-content: flex-end;
   margin-top: 16px;
 }
-
-.btn-primary {
-  background: #2563eb;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #1e40af;
-  color: #ffffff;
-}
+/* .btn-primary handled by global design system classes */
 
 /* Loading Section */
 .loading-section {
@@ -2054,7 +2024,7 @@ watch(() => [props.stageId, props.venueId], async ([newStageId, newVenueId]) => 
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2071,6 +2041,7 @@ watch(() => [props.stageId, props.venueId], async ([newStageId, newVenueId]) => 
   flex-direction: column;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border-medium);
+  z-index: var(--z-modal);
 }
 
 .reorganize-modal-header {

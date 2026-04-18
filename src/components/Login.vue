@@ -60,7 +60,7 @@
           </div>
         </div>
         
-        <button class="btn-primary" @click="showChangelog = false">Got it!</button>
+        <button class="btn btn-primary changelog-close-btn" @click="showChangelog = false">Got it!</button>
       </div>
     </div>
 
@@ -124,7 +124,7 @@
         </div>
       </div>
 
-      <button type="submit" :disabled="loading" class="btn-primary login-btn">
+      <button type="submit" :disabled="loading" class="btn btn-primary login-btn">
         <span v-if="loading" class="loading-spinner" aria-hidden="true"></span>
         <span v-else>Sign In to Spatial Notes</span>
       </button>
@@ -488,44 +488,17 @@ export default {
   font-size: 1.1rem;
 }
 
-/* Buttons */
-.btn-primary {
-  width: 100%;
-  padding: 16px; /* 4-point spacing */
-  background: linear-gradient(135deg, #0066cc 0%, #5856D6 100%);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px; /* 4-point spacing */
-  font-size: 16px; /* Body: 16px */
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
-  /* Minimum touch size: 44×52px */
-  min-height: 52px;
-  line-height: 1.4;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
+/* Buttons — scoped sizing/layout overrides (visual styles come from global btn btn-primary) */
 .login-btn {
+  width: 100%;
+  min-height: 52px;
   margin-top: 8px; /* 4-point spacing */
+}
+
+.changelog-close-btn {
+  width: calc(100% - 48px);
+  margin: 0 24px 24px 24px;
+  min-height: 48px;
 }
 
 .loading-spinner {
@@ -581,7 +554,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: var(--z-modal);
   padding: 16px; /* 4-point spacing */
   /* Safe area support */
   padding-top: max(16px, env(safe-area-inset-top));
@@ -671,10 +644,6 @@ export default {
   font-weight: 400;
 }
 
-.changelog-modal .btn-primary {
-  margin: 0 24px 24px 24px; /* 8-point spacing */
-}
-
 /* Mobile-First Responsive Design */
 /* Mobile: 0–600px (default) */
 @media (max-width: 600px) {
@@ -705,9 +674,7 @@ export default {
     min-height: 52px;
   }
   
-  .btn-primary,
-  .btn-secondary {
-    padding: 18px; /* 4-point spacing */
+  .login-btn {
     min-height: 56px;
   }
 }
@@ -737,41 +704,32 @@ export default {
   .login-card {
     border: 0.5px solid rgba(255, 255, 255, 0.2);
   }
-  
+
   .form-input {
-    border-width: 0.5px;
-  }
-  
-  .btn-primary,
-  .btn-secondary {
     border-width: 0.5px;
   }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary,
-  .btn-secondary,
   .version-badge,
   .toggle-password-btn {
     transition: none;
   }
-  
-  .btn-primary:hover:not(:disabled),
-  .btn-secondary:hover,
+
   .version-badge:hover {
     transform: none;
   }
 }
 
 /* Focus States for Accessibility */
-.btn-primary:focus,
-.btn-secondary:focus,
-.version-badge:focus,
-.toggle-password-btn:focus,
-.modal-close:focus {
-  outline: 2px solid #0066cc;
-  outline-offset: 2px;
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.version-badge:focus-visible,
+.toggle-password-btn:focus-visible,
+.modal-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 /* High Contrast Mode Support */
@@ -779,10 +737,8 @@ export default {
   .login-card {
     border-width: 2px;
   }
-  
-  .form-input,
-  .btn-primary,
-  .btn-secondary {
+
+  .form-input {
     border-width: 2px;
   }
 }

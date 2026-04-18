@@ -25,7 +25,7 @@
 
   <!-- Primary + image controls toolbar -->
   <div class="mp-toolbar">
-    <button class="mp-primary-btn" @click="openGearModal">
+    <button class="btn btn-primary mp-primary-btn" @click="openGearModal">
       <Plus :size="16" :stroke-width="2" />
       <span class="mp-btn-label">Add microphone</span>
     </button>
@@ -41,28 +41,28 @@
         <RotateCw :size="14" :stroke-width="2" />
         <span class="mp-toggle-label">Rotate</span>
       </label>
-      <button class="mp-icon-btn" @click="zoomIn" :disabled="!bgImage" title="Zoom in" aria-label="Zoom in">
+      <button class="btn mp-icon-btn" @click="zoomIn" :disabled="!bgImage" title="Zoom in" aria-label="Zoom in">
         <ZoomIn :size="16" :stroke-width="2" />
       </button>
-      <button class="mp-icon-btn" @click="zoomOut" :disabled="!bgImage" title="Zoom out" aria-label="Zoom out">
+      <button class="btn mp-icon-btn" @click="zoomOut" :disabled="!bgImage" title="Zoom out" aria-label="Zoom out">
         <ZoomOut :size="16" :stroke-width="2" />
       </button>
-      <button class="mp-icon-btn" @click="resetImageView" :disabled="!bgImage" title="Reset view" aria-label="Reset view">
+      <button class="btn mp-icon-btn" @click="resetImageView" :disabled="!bgImage" title="Reset view" aria-label="Reset view">
         <RotateCcw :size="16" :stroke-width="2" />
       </button>
-      <button v-if="!isMobile" class="mp-icon-btn" @click="openCropModal" :disabled="!bgImage" title="Crop image" aria-label="Crop image">
+      <button v-if="!isMobile" class="btn mp-icon-btn" @click="openCropModal" :disabled="!bgImage" title="Crop image" aria-label="Crop image">
         <Crop :size="16" :stroke-width="2" />
       </button>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
-      <button class="mp-icon-btn" @click="triggerImageUpload" :title="bgImage ? 'Replace image' : 'Upload image'" aria-label="Upload or replace image">
+      <button class="btn mp-icon-btn" @click="triggerImageUpload" :title="bgImage ? 'Replace image' : 'Upload image'" aria-label="Upload or replace image">
         <ImageIcon :size="16" :stroke-width="2" />
       </button>
-      <button v-if="!isMobile" class="mp-icon-btn" @click="exportToPDF" :disabled="!bgImage" title="Download image" aria-label="Download image">
+      <button v-if="!isMobile" class="btn btn-secondary mp-icon-btn" @click="exportToPDF" :disabled="!bgImage" title="Download image" aria-label="Download image">
         <Download :size="16" :stroke-width="2" />
       </button>
       <button
         v-if="isMobile && legendEntriesByMic.length > 0"
-        class="mp-icon-btn"
+        class="btn mp-icon-btn"
         :class="{ active: showMobileLegend }"
         @click="showMobileLegend = !showMobileLegend"
         title="Toggle legend"
@@ -220,7 +220,7 @@
             </div>
             
             <!-- Add/Edit Button -->
-            <button class="btn-primary add-color-btn-inline" @click="openColorButtonModal">
+            <button class="btn btn-primary add-color-btn-inline" @click="openColorButtonModal">
               {{ editingColorButton !== null ? '✏️ Edit' : '➕ Add' }} Entry
             </button>
 
@@ -245,8 +245,8 @@
                   </div>
                 </div>
                 <div class="item-actions-inline">
-                  <button @click="editColorButton(idx)" class="btn-warning icon-btn-inline" title="Edit">✏️</button>
-                  <button @click="deleteColorButton(btn.id, idx)" class="btn-danger icon-btn-inline" title="Delete">🗑️</button>
+                  <button @click="editColorButton(idx)" class="btn btn-warning icon-btn-inline" title="Edit">✏️</button>
+                  <button @click="deleteColorButton(btn.id, idx)" class="btn btn-danger icon-btn-inline" title="Delete">🗑️</button>
                 </div>
               </div>
             </div>
@@ -256,13 +256,13 @@
           </div>
         </div>
         <div class="context-menu-actions">
-          <button @click="deleteMicFromContextMenu" class="btn-danger context-menu-btn">
+          <button @click="deleteMicFromContextMenu" class="btn btn-danger context-menu-btn">
             🗑️ Delete
           </button>
-          <button @click="saveAndCloseContextMenu" class="btn-primary context-menu-btn">
+          <button @click="saveAndCloseContextMenu" class="btn btn-primary context-menu-btn">
             Save
           </button>
-          <button @click="closeContextMenu" class="btn-secondary context-menu-btn">
+          <button @click="closeContextMenu" class="btn btn-secondary context-menu-btn">
             Close
           </button>
         </div>
@@ -291,8 +291,8 @@
           <p class="filename-hint">.png</p>
         </div>
         <div class="filename-actions">
-          <button @click="confirmExport" class="btn-primary">Export</button>
-          <button @click="closeFilenameModal" class="btn-secondary">Cancel</button>
+          <button @click="confirmExport" class="btn btn-primary">Export</button>
+          <button @click="closeFilenameModal" class="btn btn-secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -348,8 +348,8 @@
         <p v-if="colorButtonForm.error" class="error-text">{{ colorButtonForm.error }}</p>
       </div>
       <div class="modal-footer">
-        <button @click="closeColorButtonModal" class="btn-secondary">Cancel</button>
-        <button @click="saveColorButton" class="btn-primary" :disabled="colorButtonBusy || !colorButtonForm.name || !colorButtonForm.color">
+        <button @click="closeColorButtonModal" class="btn btn-secondary">Cancel</button>
+        <button @click="saveColorButton" class="btn btn-primary" :disabled="colorButtonBusy || !colorButtonForm.name || !colorButtonForm.color">
           {{ colorButtonBusy ? 'Saving...' : 'Save' }}
         </button>
       </div>
@@ -379,8 +379,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button @click="closeCropModal" class="btn-secondary">Cancel</button>
-        <button @click="applyCrop" class="btn-primary" :disabled="cropBusy">Apply Crop</button>
+        <button @click="closeCropModal" class="btn btn-secondary">Cancel</button>
+        <button @click="applyCrop" class="btn btn-primary" :disabled="cropBusy">Apply Crop</button>
       </div>
     </div>
   </div>
@@ -399,8 +399,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button @click="cancelDelete" class="btn-secondary">Cancel</button>
-        <button @click="confirmDelete" class="btn-danger">Delete</button>
+        <button @click="cancelDelete" class="btn btn-secondary">Cancel</button>
+        <button @click="confirmDelete" class="btn btn-danger">Delete</button>
       </div>
     </div>
   </div>
@@ -468,8 +468,8 @@
             <div v-else class="orientation-center"></div>
           </div>
           <div class="orientation-actions">
-            <button @click="placeMic" :disabled="!trackNameInput.trim() || selectedOrientation === null" class="btn-primary">Place Mic</button>
-            <button @click="cancelOrientation" class="btn-secondary">Cancel</button>
+            <button @click="placeMic" :disabled="!trackNameInput.trim() || selectedOrientation === null" class="btn btn-primary">Place Mic</button>
+            <button @click="cancelOrientation" class="btn btn-secondary">Cancel</button>
           </div>
         </div>
       </div>
@@ -3766,7 +3766,7 @@ defineExpose({ getCanvasDataURL })
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
-  z-index: 1100;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
 }
@@ -3968,6 +3968,21 @@ defineExpose({ getCanvasDataURL })
   cursor: not-allowed;
 }
 
+.btn-warning {
+  padding: 10px 20px;
+  background: var(--color-warning-500);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-warning:hover {
+  background: var(--color-warning-600);
+}
+
 
 .canvas-wrapper {
   display: flex;
@@ -3989,7 +4004,7 @@ defineExpose({ getCanvasDataURL })
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000; /* Higher than context menu (1001-1002) to ensure modals appear on top */
+  z-index: var(--z-modal-backdrop);
 }
 
 .modal-content {
@@ -4310,7 +4325,7 @@ defineExpose({ getCanvasDataURL })
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1001;
+  z-index: var(--z-modal-backdrop);
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
@@ -4329,7 +4344,7 @@ defineExpose({ getCanvasDataURL })
   width: 100%;
   max-height: 90vh;
   border: 1px solid var(--border-light);
-  z-index: 1002;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   margin: auto;

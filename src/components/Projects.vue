@@ -15,7 +15,7 @@
       </div>
       <div class="page-head-actions">
         <button
-          class="btn-primary new-project-btn"
+          class="btn btn-positive new-project-btn"
           @click="toggleNewProjectForm"
           :aria-expanded="showNewProjectForm"
         >
@@ -215,7 +215,7 @@
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-positive">Create Project</button>
-        <button type="button" @click="cancelNewProject" class="btn btn-warning">
+        <button type="button" @click="cancelNewProject" class="btn btn-secondary">
           Cancel
         </button>
       </div>
@@ -235,7 +235,7 @@
       </p>
       <button
         v-if="!searchQuery && selectedStatus !== 'archived' && !showNewProjectForm"
-        class="btn-primary"
+        class="btn btn-positive"
         @click="toggleNewProjectForm"
       >
         <Plus :size="16" :stroke-width="2" />
@@ -248,7 +248,7 @@
         <article
           v-for="p in displayedProjects"
           :key="p.id"
-          :class="['project-card', { archived: p.archived }]"
+          :class="['card', 'project-card', { archived: p.archived }]"
         >
           <!-- Tier 1: primary, scannable row -->
           <div class="card-primary">
@@ -286,7 +286,7 @@
 
             <button
               @click="openProject(p)"
-              class="btn-primary card-open-btn"
+              class="btn btn-primary card-open-btn"
             >
               <span>Open project</span>
               <ArrowRight :size="16" :stroke-width="2" />
@@ -546,7 +546,7 @@
       </div>
       <div class="modal-actions">
         <button @click="saveEditProject" class="btn btn-positive">Save Changes</button>
-        <button @click="closeEditModal" class="btn btn-warning">Cancel</button>
+        <button @click="closeEditModal" class="btn btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
@@ -1437,35 +1437,6 @@ setup() {
   color: var(--text-heading);
 }
 
-/* ─── Primary / ghost buttons ─────────────────────────── */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  height: 40px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-primary-600);
-  background: var(--color-primary-500);
-  color: #ffffff;
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  cursor: pointer;
-  transition: background var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
-  white-space: nowrap;
-}
-.btn-primary:hover {
-  background: var(--color-primary-600);
-  border-color: var(--color-primary-700);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
-}
-.btn-primary:active { transform: scale(0.98); }
-.btn-primary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
 .btn-ghost {
   display: inline-flex;
   align-items: center;
@@ -1711,7 +1682,7 @@ setup() {
   margin-left: auto;
   margin-right: auto;
 }
-.empty-state .btn-primary {
+.empty-state .btn {
   display: inline-flex;
 }
 
@@ -2404,8 +2375,8 @@ setup() {
 /* ─── Mobile-specific adjustments ──────────────────────── */
 @media (max-width: 768px) {
   .page-head-inner { align-items: flex-start; }
-  .page-head-actions .btn-primary .btn-text { display: none; }
-  .page-head-actions .btn-primary {
+  .page-head-actions .new-project-btn .btn-text { display: none; }
+  .page-head-actions .new-project-btn {
     padding: 0;
     width: 40px;
   }
@@ -2436,7 +2407,6 @@ setup() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary,
   .btn-ghost,
   .icon-only-btn,
   .segmented-option,

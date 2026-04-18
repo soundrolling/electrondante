@@ -33,7 +33,7 @@
           :disabled="isUploading"
         />
         <button
-          class="btn btn-primary btn-compact"
+          class="btn btn-positive btn-compact"
           @click="triggerFileInput"
           :disabled="isUploading"
         >
@@ -57,7 +57,7 @@
         <input
           v-model="searchTerm"
           placeholder="Search documents…"
-          class="search-input-compact"
+          class="search-input-compact form-input"
         />
       </div>
 
@@ -159,7 +159,7 @@
       <!-- Upload Button -->
       <div class="selected-files-upload-btn">
         <button
-          class="btn btn-primary"
+          class="btn btn-positive"
           :disabled="isUploading || !selectedFiles.length"
           @click="uploadDocs"
         >
@@ -267,10 +267,10 @@
             </button>
           </div>
           <div v-else class="description-edit">
-            <textarea v-model="doc.description" class="textarea-edit" placeholder="Enter description..."></textarea>
+            <textarea v-model="doc.description" class="textarea-edit form-input" placeholder="Enter description..."></textarea>
             <div class="edit-actions">
-              <button class="btn btn-save" @click="saveDoc(doc)">Save</button>
-              <button class="btn btn-cancel" @click="cancelEdit">Cancel</button>
+              <button class="btn btn-positive" @click="saveDoc(doc)">Save</button>
+              <button class="btn btn-secondary" @click="cancelEdit">Cancel</button>
             </div>
           </div>
         </div>
@@ -1275,35 +1275,7 @@ function printPreview() {
   border-color: var(--color-primary-800);
 }
 
-.btn-save {
-  background: var(--color-success-500);
-  color: var(--text-inverse) !important;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: var(--color-success-600);
-  color: var(--text-inverse) !important;
-}
-
-.btn-delete {
-  background: var(--color-error-500);
-  color: var(--text-inverse) !important;
-}
-
-.btn-delete:hover:not(:disabled) {
-  background: var(--color-error-600);
-  color: var(--text-inverse) !important;
-}
-
-.btn-cancel {
-  background: var(--color-secondary-500);
-  color: var(--text-inverse) !important;
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background: var(--color-secondary-600);
-  color: var(--text-inverse) !important;
-}
+/* .btn-save and .btn-cancel replaced by global btn-positive / btn-secondary classes */
 
 .btn-icon {
   font-size: 16px;
@@ -1996,7 +1968,7 @@ function printPreview() {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.4);
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2012,6 +1984,7 @@ function printPreview() {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border-medium);
+  z-index: var(--z-modal);
 }
 .preview-modal-header {
   display: flex;

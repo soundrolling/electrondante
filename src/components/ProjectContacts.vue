@@ -148,7 +148,7 @@
           <div class="contact-actions-group" style="display:flex;align-items:center;gap:4px;margin-left:auto;">
             <button
               v-if="canManageProject"
-              class="btn action-btn edit-btn"
+              class="btn btn-warning action-btn edit-btn"
               @click="startEdit(contact)"
               title="Edit or delete contact"
             >
@@ -271,7 +271,7 @@
           </svg>
           {{ saving ? 'Saving...' : 'Save Changes' }}
         </button>
-        <button class="btn btn-warning" @click="closeEditModal">Cancel</button>
+        <button class="btn btn-secondary" @click="closeEditModal">Cancel</button>
       </div>
     </div>
   </div>
@@ -401,7 +401,7 @@
           </svg>
           {{ addingContact ? 'Adding...' : 'Add Contact' }}
         </button>
-        <button class="btn btn-warning" @click="toggleAddContact">Cancel</button>
+        <button class="btn btn-secondary" @click="toggleAddContact">Cancel</button>
       </div>
     </div>
   </div>
@@ -532,7 +532,7 @@
             </svg>
             {{ importingContacts ? 'Importing...' : `Import ${selectedImportContacts.length} Contact${selectedImportContacts.length !== 1 ? 's' : ''}` }}
           </button>
-          <button class="btn btn-warning" @click="closeImportModal">Cancel</button>
+          <button class="btn btn-secondary" @click="closeImportModal">Cancel</button>
         </div>
       </div>
     </div>
@@ -613,7 +613,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-warning" @click="closeContactInfo">Close</button>
+        <button class="btn btn-secondary" @click="closeContactInfo">Close</button>
       </div>
     </div>
   </div>
@@ -1910,7 +1910,7 @@ display: flex;
 align-items: center;
 justify-content: center;
 padding: 16px;
-z-index: 1000;
+z-index: var(--z-modal-backdrop);
 backdrop-filter: blur(4px);
 }
 
@@ -2351,7 +2351,7 @@ color: currentColor;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
 }
 .modal-content {
   background: var(--bg-primary);

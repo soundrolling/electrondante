@@ -115,7 +115,7 @@
     <div class="actions-header">
       <h2 class="section-title">Gear List</h2>
       <div class="actions-group">
-        <button class="btn btn-primary" @click="toggleAddGear">
+        <button class="btn btn-positive" @click="toggleAddGear">
           <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
           <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
         </button>
@@ -183,7 +183,7 @@
         </div>
 
         <div class="gear-actions">
-          <button class="btn btn-primary" @click="openGearInfoModal(gear)" title="Info">
+          <button class="btn btn-secondary" @click="openGearInfoModal(gear)" title="Info">
             <span class="btn-icon">ℹ️</span>
             <span class="btn-text">Info</span>
           </button>
@@ -296,7 +296,7 @@
           </div>
 
           <div class="gear-actions">
-            <button class="btn btn-primary" @click="openGearInfoModal(gear)" title="Info">
+            <button class="btn btn-secondary" @click="openGearInfoModal(gear)" title="Info">
               <span class="btn-icon">ℹ️</span>
               <span class="btn-text">Info</span>
             </button>
@@ -1809,7 +1809,7 @@ setup(props) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 16px;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);

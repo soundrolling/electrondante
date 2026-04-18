@@ -55,7 +55,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Accommodations</h2>
-      <button v-if="canManageProject" @click="openAddForm" class="add-button" aria-label="Add new accommodation">
+      <button v-if="canManageProject" @click="openAddForm" class="btn btn-positive add-button" aria-label="Add new accommodation">
         <span class="icon">+</span>
         <span class="button-text">Add Accommodation</span>
       </button>
@@ -187,11 +187,11 @@
           <button
             type="button"
             @click="cancelForm"
-            class="secondary-button"
+            class="btn btn-secondary"
           >
             Cancel
           </button>
-          <button type="submit" class="primary-button">
+          <button type="submit" class="btn btn-primary">
             {{ editingAccommodation ? 'Update' : 'Add' }} Accommodation
           </button>
         </div>
@@ -259,7 +259,7 @@
         <div v-if="canManageProject" class="accommodation-card-footer">
           <button
             @click="editAccommodation(accommodation)"
-            class="action-button edit-button"
+            class="btn btn-warning action-button edit-button"
             aria-label="Edit accommodation"
           >
             <span class="action-icon">✏️</span>
@@ -268,7 +268,7 @@
           
           <button
             @click="deleteAccommodation(accommodation)"
-            class="action-button delete-button"
+            class="btn btn-danger action-button delete-button"
             aria-label="Delete accommodation"
           >
             <span class="action-icon">🗑️</span>

@@ -2,7 +2,7 @@
 <div class="signal-mapper-parent">
   <!-- Slim header -->
   <div class="sm-header">
-    <button class="sm-back" @click="goBack" aria-label="Back">
+    <button class="btn btn-secondary sm-back" @click="goBack" aria-label="Back">
       <ArrowLeft :size="16" :stroke-width="2" />
       <span class="sm-back-label">Back</span>
     </button>

@@ -434,7 +434,7 @@
               </tr>
             </tbody>
           </table>
-          <button class="primary-button add-slot-button" @click="openAddEditSlotModal(modalStage)"><span class="icon">➕</span> Add New Slot</button>
+          <button class="btn btn-positive add-slot-button" @click="openAddEditSlotModal(modalStage)"><span class="icon">➕</span> Add New Slot</button>
         </div>
       </div>
     </div>
@@ -449,21 +449,21 @@
           <button class="close-button" @click="closeAddEditSlotModal">×</button>
         </div>
         <div class="modal-body">
-          <div class="form-field">
-            <label>Start Date & Time</label>
-            <input type="datetime-local" v-model="slotForm.start_datetime" />
+          <div class="form-field form-group">
+            <label class="form-label">Start Date & Time</label>
+            <input type="datetime-local" v-model="slotForm.start_datetime" class="form-input" />
           </div>
-          <div class="form-field">
-            <label>End Date & Time</label>
-            <input type="datetime-local" v-model="slotForm.end_datetime" />
+          <div class="form-field form-group">
+            <label class="form-label">End Date & Time</label>
+            <input type="datetime-local" v-model="slotForm.end_datetime" class="form-input" />
           </div>
-          <div class="form-field">
-            <label>Recording Day ID</label>
-            <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" />
+          <div class="form-field form-group">
+            <label class="form-label">Recording Day ID</label>
+            <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" class="form-input" />
           </div>
           <div class="form-actions">
-            <button class="primary-button save-button" @click="saveSlot">Save</button>
-            <button class="secondary-button" @click="closeAddEditSlotModal">Cancel</button>
+            <button class="btn btn-primary save-button" @click="saveSlot">Save</button>
+            <button class="btn btn-secondary" @click="closeAddEditSlotModal">Cancel</button>
           </div>
         </div>
       </div>
@@ -1757,7 +1757,7 @@ setup() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 16px;
   padding-top: env(safe-area-inset-top, 16px);
   padding-bottom: env(safe-area-inset-bottom, 16px);

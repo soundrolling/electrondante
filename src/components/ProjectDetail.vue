@@ -174,7 +174,7 @@
         </div>
         <h2 class="startup-title">Add your first stage</h2>
         <p class="startup-description">Organize recording locations and equipment by stage to get going.</p>
-        <button class="btn-primary" @click="goToLocations">
+        <button class="btn btn-positive" @click="goToLocations">
           <Plus :size="16" :stroke-width="2" />
           <span>Add a stage</span>
         </button>
@@ -241,7 +241,7 @@
     </div>
     <h2 class="error-title">Unable to load project</h2>
     <p class="error-message">Please check your connection and try again.</p>
-    <button class="btn-primary" @click="loadProject">
+    <button class="btn btn-primary" @click="loadProject">
       <RefreshCw :size="16" :stroke-width="2" />
       <span>Retry</span>
     </button>
@@ -1129,35 +1129,6 @@ export default {
   max-width: 38ch;
 }
 
-/* ─── Primary button (shared) ──────────────────────────── */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  height: 40px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-primary-600);
-  background: var(--color-primary-500);
-  color: #ffffff;
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  cursor: pointer;
-  transition: background var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
-  white-space: nowrap;
-}
-.btn-primary:hover {
-  background: var(--color-primary-600);
-  border-color: var(--color-primary-700);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
-}
-.btn-primary:active { transform: scale(0.98); }
-.btn-primary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
 /* ─── Tool dock ────────────────────────────────────────── */
 .tool-dock-section { display: flex; flex-direction: column; gap: var(--space-2); }
 .tool-dock {
@@ -1347,7 +1318,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-modal);
+  z-index: var(--z-modal-backdrop);
   padding: var(--space-4);
 }
 .tool-modal {
@@ -1359,6 +1330,7 @@ export default {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-xl);
+  z-index: var(--z-modal);
 }
 .tool-modal-header {
   display: flex;
@@ -1423,12 +1395,10 @@ export default {
   .stage-chip,
   .tool-tile,
   .utility-row,
-  .btn-primary,
   .date-strip-cell { transition: none; }
   .tool-tile:active,
   .stage-chip.touch-active,
-  .utility-row:active,
-  .btn-primary:active { transform: none; }
+  .utility-row:active { transform: none; }
   .date-strip-detail { animation: none; }
   .skeleton-header,
   .skeleton-meta,

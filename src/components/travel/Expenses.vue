@@ -59,7 +59,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Expenses</h2>
-      <button v-if="canManageProject" @click="openModal" class="add-button" aria-label="Add new expense">
+      <button v-if="canManageProject" @click="openModal" class="btn btn-positive add-button" aria-label="Add new expense">
         <span class="icon">+</span>
         <span class="button-text">Add Expense</span>
       </button>
@@ -98,12 +98,12 @@
         </div>
 
         <div class="expense-actions">
-          <button v-if="canManageProject" @click="editExpense(expense)" class="action-button edit-button" aria-label="Edit expense">
+          <button v-if="canManageProject" @click="editExpense(expense)" class="btn btn-warning action-button edit-button" aria-label="Edit expense">
             <span class="action-icon">✏️</span>
             <span class="action-text">Edit</span>
           </button>
           
-          <button v-if="canManageProject" @click="deleteExpense(expense)" class="action-button delete-button" aria-label="Delete expense">
+          <button v-if="canManageProject" @click="deleteExpense(expense)" class="btn btn-danger action-button delete-button" aria-label="Delete expense">
             <span class="action-icon">🗑️</span>
             <span class="action-text">Delete</span>
           </button>
@@ -112,7 +112,7 @@
           <button
             v-if="expense.file_path"
             @click="viewStorageFile(expense.file_path)"
-            class="action-button view-button"
+            class="btn btn-secondary action-button view-button"
             aria-label="View receipt"
           >
             <span class="action-icon">👁️</span>
@@ -122,7 +122,7 @@
           <button
             v-if="expense.file_path"
             @click="downloadForOffline(expense)"
-            class="action-button download-button"
+            class="btn btn-secondary action-button download-button"
             aria-label="Load receipt offline"
           >
             <span class="action-icon">⬇️</span>
@@ -231,10 +231,10 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" @click="closeModal" class="secondary-button">
+            <button type="button" @click="closeModal" class="btn btn-secondary">
               Cancel
             </button>
-            <button type="submit" class="primary-button" :disabled="isSaving">
+            <button type="submit" class="btn btn-primary" :disabled="isSaving">
               <span v-if="isSaving" class="loading-spinner-small"></span>
               {{ isSaving ? 'Saving...' : (editingExpense ? 'Update Expense' : 'Add Expense') }}
             </button>
@@ -1296,7 +1296,7 @@ setup(props) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 16px;
   box-sizing: border-box;
 }
@@ -1318,7 +1318,7 @@ setup(props) {
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
-  z-index: 1001;
+  z-index: var(--z-modal);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 

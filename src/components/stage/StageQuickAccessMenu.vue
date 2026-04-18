@@ -56,7 +56,7 @@
             <div v-if="showHoursManagement" class="hours-management-section">
               <div class="hours-header">
                 <h3 class="hours-title">Stage Hours & Timeslots</h3>
-                <button class="add-hours-btn" @click="openAddEditSlotModal(null)">
+                <button class="btn btn-positive add-hours-btn" @click="openAddEditSlotModal(null)">
                   <span class="btn-icon">➕</span>
                   <span class="btn-text">Add Slot</span>
                 </button>
@@ -78,7 +78,7 @@
                       <td>{{ formatDateTime(hour.end_datetime) }}</td>
                       <td>{{ hour.notes || '-' }}</td>
                       <td>
-                        <span class="hour-status" :class="{ 'past': isPastHour(hour), 'future': !isPastHour(hour) }">
+                        <span class="badge" :class="isPastHour(hour) ? 'badge-warning' : 'badge-primary'">
                           {{ isPastHour(hour) ? 'Past' : 'Scheduled' }}
                         </span>
                       </td>
@@ -141,28 +141,28 @@
             </div>
             <div class="modal-body">
               <div class="form-field">
-                <label>Start Date</label>
-                <input type="date" v-model="slotForm.start_date" />
+                <label class="form-label">Start Date</label>
+                <input type="date" v-model="slotForm.start_date" class="form-input" />
               </div>
               <div class="form-field">
-                <label>Start Time</label>
-                <input type="time" v-model="slotForm.start_time" />
+                <label class="form-label">Start Time</label>
+                <input type="time" v-model="slotForm.start_time" class="form-input" />
               </div>
               <div class="form-field">
-                <label>End Date</label>
-                <input type="date" v-model="slotForm.end_date" />
+                <label class="form-label">End Date</label>
+                <input type="date" v-model="slotForm.end_date" class="form-input" />
               </div>
               <div class="form-field">
-                <label>End Time</label>
-                <input type="time" v-model="slotForm.end_time" />
+                <label class="form-label">End Time</label>
+                <input type="time" v-model="slotForm.end_time" class="form-input" />
               </div>
               <div class="form-field">
-                <label>Recording Day ID</label>
-                <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" />
+                <label class="form-label">Recording Day ID</label>
+                <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" class="form-input" />
               </div>
               <div class="form-actions">
-                <button class="primary-button save-button" @click="saveSlot">Save</button>
-                <button class="secondary-button" @click="closeAddEditSlotModal">Cancel</button>
+                <button class="btn btn-positive save-button" @click="saveSlot">Save</button>
+                <button class="btn btn-secondary" @click="closeAddEditSlotModal">Cancel</button>
               </div>
             </div>
           </div>
@@ -657,7 +657,7 @@ background: rgba(0,0,0,0.18);
 display: flex;
 align-items: center;
 justify-content: center;
-z-index: 2000;
+z-index: var(--z-modal-backdrop);
 }
 
 /* Dark mode for modal overlay */
@@ -679,6 +679,7 @@ flex-direction: column;
 align-items: stretch;
 position: relative;
 overflow-y: auto;
+z-index: var(--z-modal);
 }
 
 /* Dark mode for modal content */
@@ -976,28 +977,10 @@ align-items: center;
 margin-bottom: 16px;
 }
 
+/* .add-hours-btn layout handled by global btn btn-positive classes */
 .add-hours-btn {
-display: flex;
-align-items: center;
-gap: 6px;
-padding: 8px 12px;
-background: var(--color-primary-500);
-  color: var(--text-inverse);
-border: none;
-border-radius: 6px;
-font-size: 0.85rem;
-font-weight: 500;
-cursor: pointer;
-transition: all 0.2s ease;
-}
-
-.add-hours-btn:hover {
-background: var(--color-primary-600);
-transform: translateY(-1px);
-}
-
-.add-hours-btn:active {
-transform: scale(0.98);
+  gap: 6px;
+  font-size: 0.85rem;
 }
 
 .hours-table-container {
@@ -1105,40 +1088,7 @@ background: var(--bg-tertiary);
 color: var(--text-primary);
 }
 
-.hour-status {
-display: inline-block;
-padding: 2px 8px;
-border-radius: 12px;
-font-size: 0.75rem;
-font-weight: 500;
-text-transform: uppercase;
-letter-spacing: 0.025em;
-}
-
-.hour-status.past {
-background: #fef3c7;
-color: #92400e;
-border: 1px solid #fde68a;
-}
-
-.hour-status.future {
-background: #dbeafe;
-color: #1e40af;
-border: 1px solid #93c5fd;
-}
-
-/* Dark mode for status badges */
-.dark .hour-status.past {
-background: rgba(251, 191, 36, 0.2);
-color: #fbbf24;
-border: 1px solid rgba(251, 191, 36, 0.4);
-}
-
-.dark .hour-status.future {
-background: rgba(59, 130, 246, 0.2);
-color: #60a5fa;
-border: 1px solid rgba(59, 130, 246, 0.4);
-}
+/* Status badges use global .badge .badge-warning / .badge-primary classes */
 
 .actions-cell {
 display: flex;
@@ -1271,67 +1221,7 @@ justify-content: flex-end;
 margin-top: 16px;
 }
 
-.primary-button {
-display: inline-flex;
-align-items: center;
-justify-content: center;
-gap: 6px;
-padding: 8px 16px;
-background: #10b981;
-color: #ffffff;
-border: none;
-border-radius: 6px;
-font-size: 0.9rem;
-font-weight: 500;
-cursor: pointer;
-transition: all 0.2s ease;
-}
-
-.primary-button:hover {
-background: #059669;
-transform: translateY(-1px);
-}
-
-.primary-button:active {
-transform: scale(0.98);
-}
-
-.secondary-button {
-display: inline-flex;
-align-items: center;
-justify-content: center;
-gap: 6px;
-padding: 8px 16px;
-background: var(--bg-secondary);
-color: var(--text-primary);
-border: 1px solid var(--border-medium);
-border-radius: 6px;
-font-size: 0.9rem;
-font-weight: 500;
-cursor: pointer;
-transition: all 0.2s ease;
-}
-
-.secondary-button:hover {
-background: var(--bg-tertiary);
-border-color: var(--color-primary-500);
-transform: translateY(-1px);
-}
-
-/* Dark mode for secondary button */
-.dark .secondary-button {
-background: var(--bg-tertiary);
-border-color: var(--border-dark);
-}
-
-.dark .secondary-button:hover {
-background: var(--bg-elevated);
-border-color: var(--color-primary-400);
-}
-
-.secondary-button:active {
-transform: scale(0.98);
-}
+/* Form action buttons use global btn/btn-positive/btn-secondary design system classes */
 .menu-list {
 display: grid;
 grid-template-columns: 1fr 1fr;

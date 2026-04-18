@@ -8,7 +8,7 @@
     <div class="dashboard-card upcoming-trips">
       <div class="card-header">
         <h2>Upcoming Trips</h2>
-        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-primary add-button" aria-label="Create new trip">
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
           <span class="icon">+</span>
           <span class="button-text">New Trip</span>
         </button>
@@ -53,7 +53,7 @@
         <div class="empty-icon">✈️</div>
         <h3>No upcoming trips</h3>
         <p>Create your first trip to get started!</p>
-        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-primary primary-button">Create First Trip</button>
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive">Create First Trip</button>
       </div>
       
       <!-- No Results from Filters -->
@@ -61,7 +61,7 @@
         <div class="empty-icon">🔍</div>
         <h3>No trips match your filters</h3>
         <p>Try adjusting your filters or create a new trip.</p>
-        <button @click="clearFilters" class="btn btn-primary primary-button">Clear Filters</button>
+        <button @click="clearFilters" class="btn btn-secondary">Clear Filters</button>
       </div>
       
       <!-- New Trip Inline Form -->
@@ -156,13 +156,13 @@
             <button
               type="button"
               @click="showNewTripModal = false"
-              class="secondary-button"
+              class="btn btn-secondary"
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
-              class="primary-button"
+            <button
+              type="submit"
+              class="btn btn-primary"
               :disabled="isSaving"
             >
               <span v-if="isSaving" class="loading-spinner-small"></span>
@@ -208,7 +208,7 @@
               <button 
                 v-if="canManageProject"
                 @click.stop="openEditTripModal(trip)" 
-                class="action-button edit-button"
+                class="btn btn-warning action-button edit-button"
                 aria-label="Edit trip"
               >
                 <span class="action-icon">✏️</span>
@@ -218,7 +218,7 @@
               <button 
                 v-if="canManageProject"
                 @click.stop="deleteTrip(trip)" 
-                class="action-button delete-button"
+                class="btn btn-danger action-button delete-button"
                 aria-label="Delete trip"
               >
                 <span class="action-icon">🗑️</span>
@@ -334,11 +334,11 @@
                 <button
                   type="button"
                   @click="showEditTripModal = false"
-                  class="secondary-button"
+                  class="btn btn-secondary"
                 >
                   Cancel
                 </button>
-                <button type="submit" class="primary-button">
+                <button type="submit" class="btn btn-primary">
                   Update Trip
                 </button>
               </div>

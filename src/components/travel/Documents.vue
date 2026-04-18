@@ -55,7 +55,7 @@
   <div v-else class="content-container">
     <div class="section-header">
       <h2>Documents</h2>
-      <button v-if="canManageProject" @click="openModal" class="add-button" aria-label="Add new document">
+      <button v-if="canManageProject" @click="openModal" class="btn btn-positive add-button" aria-label="Add new document">
         <span class="icon">+</span>
         <span class="button-text">Add Document</span>
       </button>
@@ -103,20 +103,20 @@
         </div>
         
         <div class="document-actions">
-          <button 
+          <button
             v-if="canManageProject"
-            @click="editDocument(doc)" 
-            class="action-button edit-button"
+            @click="editDocument(doc)"
+            class="btn btn-warning action-button edit-button"
             aria-label="Edit document"
           >
             <span class="action-icon">✏️</span>
             <span class="action-text">Edit</span>
           </button>
           
-          <button 
+          <button
             v-if="canManageProject"
-            @click="deleteDocument(doc)" 
-            class="action-button delete-button"
+            @click="deleteDocument(doc)"
+            class="btn btn-danger action-button delete-button"
             aria-label="Delete document"
           >
             <span class="action-icon">🗑️</span>
@@ -126,7 +126,7 @@
           <button
             v-if="doc.file_path"
             @click="viewStorageFile(doc.file_path)"
-            class="action-button view-button"
+            class="btn btn-secondary action-button view-button"
             aria-label="View document"
           >
             <span class="action-icon">👁️</span>
@@ -136,7 +136,7 @@
           <button
             v-if="doc.file_path"
             @click="downloadDocument(doc)"
-            class="action-button download-button"
+            class="btn btn-secondary action-button download-button"
             aria-label="Download document"
           >
             <span class="action-icon">⬇️</span>
@@ -243,10 +243,10 @@
           </div>
 
           <div class="form-actions">
-            <button type="button" @click="closeModal" class="secondary-button">
+            <button type="button" @click="closeModal" class="btn btn-secondary">
               Cancel
             </button>
-            <button type="submit" class="primary-button" :disabled="isSaving">
+            <button type="submit" class="btn btn-primary" :disabled="isSaving">
               <span v-if="isSaving" class="loading-spinner-small"></span>
               {{ isSaving ? 'Saving...' : (editingDocument ? 'Update Document' : 'Add Document') }}
             </button>
@@ -1489,7 +1489,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
   padding: 16px;
   box-sizing: border-box;
 }
@@ -1511,7 +1511,7 @@ export default {
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
-  z-index: 1001;
+  z-index: var(--z-modal);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
