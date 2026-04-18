@@ -544,6 +544,17 @@ setup(props) {
     }
   };
 
+  const triggerBlobDownload = (blob, filename) => {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  };
+
   // Generate a signed URL for the file
   const viewStorageFile = async (filePath) => {
     try {
@@ -555,7 +566,9 @@ setup(props) {
         toast.error("Unable to generate signed URL");
         return;
       }
-      window.open(data.signedUrl, "_blank");
+      const resp = await fetch(data.signedUrl);
+      const blob = await resp.blob();
+      window.open(URL.createObjectURL(blob), "_blank");
     } catch (err) {
       console.error("Error generating signed URL:", err);
       toast.error("Error opening file");
@@ -576,8 +589,7 @@ setup(props) {
         if (isImageFile(expense.file_path)) {
           expense.localUrl = URL.createObjectURL(cachedBlob);
         } else {
-          const objectURL = URL.createObjectURL(cachedBlob);
-          window.open(objectURL, "_blank");
+          triggerBlobDownload(cachedBlob, expense.file_path.split('/').pop() || 'file');
         }
         return;
       }
@@ -596,8 +608,7 @@ setup(props) {
         if (isImageFile(expense.file_path)) {
           expense.localUrl = URL.createObjectURL(fileBlob);
         } else {
-          const objectURL = URL.createObjectURL(fileBlob);
-          window.open(objectURL, "_blank");
+          triggerBlobDownload(fileBlob, expense.file_path.split('/').pop() || 'file');
         }
       }
     } catch (err) {

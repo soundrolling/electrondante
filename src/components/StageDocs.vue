@@ -797,22 +797,27 @@ function downloadDoc(doc) {
   showDownloadConfirm.value = true
 }
 
-function handleDownloadConfirm() {
+async function handleDownloadConfirm() {
   if (docToDownload.value) {
     try {
-      const link = document.createElement('a')
-      link.href = docToDownload.value.url
-      link.download = docToDownload.value.file_name
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      toast.success('Download started')
+      const resp = await fetch(docToDownload.value.url);
+      if (!resp.ok) throw new Error('fetch failed');
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = docToDownload.value.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.success('Download started');
     } catch (e) {
-      toast.error('Failed to download')
+      toast.error('Failed to download');
     }
-    docToDownload.value = null
+    docToDownload.value = null;
   }
-  showDownloadConfirm.value = false
+  showDownloadConfirm.value = false;
 }
 
 function handleDownloadCancel() {

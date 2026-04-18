@@ -718,7 +718,9 @@ export default {
           toast.error("Unable to generate signed URL");
           return;
         }
-        window.open(data.signedUrl, "_blank");
+        const resp = await fetch(data.signedUrl);
+        const blob = await resp.blob();
+        window.open(URL.createObjectURL(blob), "_blank");
       } catch (err) {
         console.error("Error generating signed URL:", err);
         toast.error("Error opening file");
@@ -788,8 +790,7 @@ export default {
           if (isImageFile(doc.file_path)) {
             doc.localUrl = URL.createObjectURL(cachedBlob);
           } else {
-            const objectURL = URL.createObjectURL(cachedBlob);
-            window.open(objectURL, "_blank");
+            downloadBlob(cachedBlob, doc.file_path.split('/').pop() || 'document');
           }
           return;
         }
@@ -807,8 +808,8 @@ export default {
           if (isImageFile(doc.file_path)) {
             doc.localUrl = URL.createObjectURL(fileBlob);
           } else {
-            const objectURL = URL.createObjectURL(fileBlob);
-            window.open(objectURL, "_blank");
+            const fileName = doc.title || doc.file_path.split('/').pop() || 'document';
+            downloadBlob(fileBlob, fileName);
           }
         }
       } catch (err) {
