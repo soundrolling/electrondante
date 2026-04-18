@@ -70,7 +70,7 @@
         </div>
         <div class="date-strip-months">
           <div
-            v-for="m in timeline.months"
+            v-for="m in stripMonths"
             :key="m.key"
             class="date-strip-month"
             :style="{ flex: m.count }"
@@ -80,7 +80,7 @@
         </div>
         <div class="date-strip-numbers">
           <span
-            v-for="(d, di) in timeline.days"
+            v-for="(d, di) in stripDays"
             :key="'n'+di"
             class="day-number"
             :class="{ visible: d.isBuild || d.isShow }"
@@ -88,7 +88,7 @@
         </div>
         <div class="date-strip-track">
           <button
-            v-for="(d, di) in timeline.days"
+            v-for="(d, di) in stripDays"
             :key="di"
             type="button"
             :class="[
@@ -109,19 +109,19 @@
           ></button>
         </div>
         <div
-          v-if="activeDayIdx !== null && timeline.days[activeDayIdx]"
+          v-if="activeDayIdx !== null && stripDays[activeDayIdx]"
           class="date-strip-detail"
           role="status"
           @click.stop
         >
           <div class="date-strip-detail-kind">
-            <template v-if="timeline.days[activeDayIdx].isBuild && timeline.days[activeDayIdx].isShow">
+            <template v-if="stripDays[activeDayIdx].isBuild && stripDays[activeDayIdx].isShow">
               <span class="legend-dot build"></span>
               <Hammer :size="12" :stroke-width="2" /> Build
               <span class="legend-dot show" style="margin-left:8px;"></span>
               <Drama :size="12" :stroke-width="2" /> Show
             </template>
-            <template v-else-if="timeline.days[activeDayIdx].isBuild">
+            <template v-else-if="stripDays[activeDayIdx].isBuild">
               <span class="legend-dot build"></span>
               <Hammer :size="12" :stroke-width="2" /> Build Day
             </template>
@@ -131,7 +131,7 @@
             </template>
           </div>
           <div class="date-strip-detail-label">
-            {{ timeline.days[activeDayIdx].label }}
+            {{ stripDays[activeDayIdx].label }}
           </div>
         </div>
       </div>
@@ -352,6 +352,7 @@ export default {
     const showToolModal   = ref(false);
     const selectedTool    = ref(null);
     const activeDayIdx    = ref(null);
+    const isMobileStrip   = ref(window.innerWidth < 640);
 
     const openDayDetail = (idx, hasMark) => {
       if (!hasMark) { activeDayIdx.value = null; return; }
@@ -366,15 +367,18 @@ export default {
     const handleEsc = (e) => {
       if (e.key === 'Escape') activeDayIdx.value = null;
     };
+    const handleResize = () => { isMobileStrip.value = window.innerWidth < 640; };
 
     onMounted(() => {
       loadProject();
       document.addEventListener('click', handleDocClick);
       document.addEventListener('keydown', handleEsc);
+      window.addEventListener('resize', handleResize, { passive: true });
     });
     onUnmounted(() => {
       document.removeEventListener('click', handleDocClick);
       document.removeEventListener('keydown', handleEsc);
+      window.removeEventListener('resize', handleResize);
     });
 
     /* ---------------- Project loading ---------------- */
@@ -565,8 +569,31 @@ export default {
           label: formatSingleDate(iso),
         });
       }
-      return { months, days };
+      const firstSchedIdx = days.findIndex(d => d.isBuild || d.isShow);
+      const lastSchedIdx  = days.length - 1 - [...days].reverse().findIndex(d => d.isBuild || d.isShow);
+      let trimmedDays = days;
+      let trimmedMonths = months;
+      if (firstSchedIdx >= 0) {
+        trimmedDays = days.slice(firstSchedIdx, lastSchedIdx + 1);
+        trimmedMonths = [];
+        for (const d of trimmedDays) {
+          const [yr, mo] = d.date.split('-').map(Number);
+          const monthKey = `${yr}-${mo - 1}`;
+          const label = new Date(yr, mo - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+          if (!trimmedMonths.length || trimmedMonths[trimmedMonths.length - 1].key !== monthKey) {
+            trimmedMonths.push({ key: monthKey, label, count: 1 });
+          } else {
+            trimmedMonths[trimmedMonths.length - 1].count++;
+          }
+        }
+      }
+      return { months, days, trimmedMonths, trimmedDays };
     });
+
+    const stripDays   = computed(() => timeline.value
+      ? (isMobileStrip.value ? timeline.value.trimmedDays : timeline.value.days) : []);
+    const stripMonths = computed(() => timeline.value
+      ? (isMobileStrip.value ? timeline.value.trimmedMonths : timeline.value.months) : []);
 
     /* ---------------- Next key date ---------------- */
     const formatRelative = (targetMs) => {
@@ -683,6 +710,8 @@ export default {
       toolTitle,
       /* new UI */
       timeline,
+      stripDays,
+      stripMonths,
       nextKeyDate,
       toolDock,
       activeDayIdx,
