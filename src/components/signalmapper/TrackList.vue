@@ -1,114 +1,214 @@
 <template>
 <div class="track-list-container">
-  <div class="track-list-header">
-    <h3>Track List</h3>
-    <p v-if="customTitle">{{ customTitle }}</p>
-    <p v-else>Complete signal routing from source to recorder tracks</p>
+  <!-- Header -->
+  <div class="tl-head">
+    <div class="tl-head-title">
+      <h2 class="tl-title">Track List</h2>
+      <p v-if="customTitle" class="tl-subtitle">{{ customTitle }}</p>
+      <p v-else class="tl-subtitle">Complete routing from source to recorder</p>
+    </div>
+    <div class="tl-counts" v-if="signalPaths.length > 0">
+      <span class="tl-count">
+        <span class="tl-count-value">{{ visiblePaths.length }}</span>
+        <span class="tl-count-label">tracks</span>
+      </span>
+      <span class="tl-count">
+        <span class="tl-count-value">{{ Object.keys(groupedByRecorder).length }}</span>
+        <span class="tl-count-label">recorders</span>
+      </span>
+      <span v-if="hiddenTracks.size > 0" class="tl-count muted">
+        <span class="tl-count-value">{{ hiddenTracks.size }}</span>
+        <span class="tl-count-label">hidden</span>
+      </span>
+    </div>
   </div>
 
-  <!-- Export Buttons -->
-  <div class="track-list-actions">
-    <button @click="refetchSignalPaths" class="btn-refetch" :disabled="loading">
-      🔄 {{ loading ? 'Refreshing...' : 'Refetch Signal Paths' }}
-    </button>
-    <button @click="toggleShowHidden" class="btn-toggle-hidden" :class="{ active: showHidden }">
-      {{ showHidden ? '👁️ Hide Hidden Tracks' : '👁️‍🗨️ Show Hidden Tracks' }}
-    </button>
-    <button @click="exportToPDF" class="btn-export" :disabled="signalPaths.length === 0">
-      🖨️ Print / Export PDF
-    </button>
-    <button @click="exportCSV" class="btn-export">
-      📥 Export CSV
-    </button>
+  <!-- Filter + action bar -->
+  <div class="tl-toolbar">
+    <div class="tl-search">
+      <Search :size="16" :stroke-width="2" class="tl-search-icon" />
+      <input
+        v-model="trackFilter"
+        placeholder="Search tracks, sources, recorders…"
+        class="tl-search-input"
+        type="search"
+      />
+    </div>
+    <div class="tl-actions">
+      <button
+        class="tl-chip-btn"
+        :class="{ active: showHidden }"
+        @click="toggleShowHidden"
+        :title="showHidden ? 'Hide hidden tracks' : 'Show hidden tracks'"
+      >
+        <EyeOff v-if="showHidden" :size="14" :stroke-width="2" />
+        <Eye v-else :size="14" :stroke-width="2" />
+        <span>{{ showHidden ? 'Hiding shown' : 'Show hidden' }}</span>
+      </button>
+      <button
+        class="tl-icon-btn"
+        @click="refetchSignalPaths"
+        :disabled="loading"
+        :class="{ spinning: loading }"
+        title="Refetch signal paths"
+        aria-label="Refetch signal paths"
+      >
+        <RefreshCw :size="16" :stroke-width="2" />
+      </button>
+      <button
+        class="tl-icon-btn"
+        @click="exportCSV"
+        title="Export CSV"
+        aria-label="Export CSV"
+      >
+        <FileDown :size="16" :stroke-width="2" />
+      </button>
+      <button
+        class="tl-primary-btn"
+        @click="exportToPDF"
+        :disabled="signalPaths.length === 0"
+      >
+        <Printer :size="16" :stroke-width="2" />
+        <span class="tl-primary-btn-label">Export PDF</span>
+      </button>
+    </div>
   </div>
 
-  <!-- Loading State -->
-  <div v-if="loading" class="loading-state">
-    <p>Loading track list...</p>
+  <!-- Loading -->
+  <div v-if="loading" class="tl-state loading">
+    <RefreshCw :size="20" :stroke-width="2" class="tl-state-icon spinning" />
+    <p>Loading track list…</p>
   </div>
 
-  <!-- No Data State -->
-  <div v-else-if="signalPaths.length === 0" class="no-data-state">
-    <p>No signal paths found.</p>
-    <p class="hint">Connect sources to recorders in the Signal Flow tab to see them here.</p>
+  <!-- Empty -->
+  <div v-else-if="signalPaths.length === 0" class="tl-state empty">
+    <div class="tl-state-icon-bg">
+      <ListOrdered :size="24" :stroke-width="1.5" />
+    </div>
+    <p class="tl-state-title">No tracks yet</p>
+    <p class="tl-state-hint">Connect sources to recorders in the Signal Flow tab to see tracks here.</p>
   </div>
 
-  <!-- Track List Table -->
-  <div v-else class="track-list-table-wrapper">
-    <template v-for="(tracks, recorderName) in groupedByRecorder" :key="recorderName">
-      <div class="recorder-group">
-        <h4 class="recorder-group-header">{{ recorderName }}</h4>
-        <table class="track-list-table">
+  <!-- No matches (after filter) -->
+  <div v-else-if="!hasVisibleFilteredGroups" class="tl-state empty">
+    <div class="tl-state-icon-bg">
+      <Search :size="24" :stroke-width="1.5" />
+    </div>
+    <p class="tl-state-title">No tracks match your search</p>
+    <p class="tl-state-hint">Try a different term or clear the search.</p>
+  </div>
+
+  <!-- Recorder groups -->
+  <div v-else class="tl-groups">
+    <template v-for="(tracks, recorderName) in filteredGroupedByRecorder" :key="recorderName">
+      <section v-if="tracks.length" class="tl-group">
+        <header class="tl-group-header">
+          <HardDrive :size="15" :stroke-width="2" />
+          <span class="tl-group-name">{{ recorderName }}</span>
+          <span class="tl-group-count">{{ tracks.length }}</span>
+        </header>
+
+        <!-- Desktop table -->
+        <table class="tl-table">
           <thead>
             <tr>
-              <th>Track #</th>
-              <th>Source Name</th>
-              <th>Signal Path</th>
-              <th class="actions-header">Actions</th>
+              <th class="col-num">#</th>
+              <th class="col-source">Source</th>
+              <th class="col-path">Signal path</th>
+              <th class="col-actions"></th>
             </tr>
           </thead>
           <tbody>
-            <tr 
-              v-for="path in tracks" 
-              :key="getTrackId(path)" 
-              class="track-row"
+            <tr
+              v-for="path in tracks"
+              :key="getTrackId(path)"
+              class="tl-row"
               :class="{ 'track-hidden': isTrackHidden(path) && showHidden }"
             >
-              <td class="track-number">{{ path.track_number || '—' }}</td>
-              <td class="source-name">
-                <strong 
+              <td class="col-num">{{ path.track_number || '—' }}</td>
+              <td class="col-source">
+                <button
                   v-if="path.connection_id"
-                  class="track-name-link"
+                  class="tl-track-link"
                   @click="handleTrackNameClick(path.connection_id)"
-                  :title="'Click to view connection in Signal Flow'"
+                  title="View this connection in Signal Flow"
                 >
                   {{ path.track_name || path.source_label || '—' }}
-                </strong>
-                <strong v-else>{{ path.track_name || path.source_label || '—' }}</strong>
-                <div v-if="path.source_gear_name" class="source-gear-name">
-                  ({{ path.source_gear_name }})
-                </div>
+                </button>
+                <span v-else class="tl-track-name">{{ path.track_name || path.source_label || '—' }}</span>
+                <div v-if="path.source_gear_name" class="tl-source-gear">{{ path.source_gear_name }}</div>
               </td>
-              <td class="signal-path">
-                <div class="path-flow">
+              <td class="col-path">
+                <div class="tl-path-flow">
                   <template v-for="(node, index) in reversedPath(path.path)" :key="index">
-                    <span class="path-node">
-                      {{ node }}
-                      <span v-if="index < reversedPath(path.path).length - 1" class="path-arrow">→</span>
-                    </span>
+                    <span class="tl-path-node">{{ node }}</span>
+                    <ChevronRight
+                      v-if="index < reversedPath(path.path).length - 1"
+                      :size="12"
+                      :stroke-width="2"
+                      class="tl-path-arrow"
+                    />
                   </template>
                 </div>
               </td>
-              <td class="track-actions">
-                <button 
+              <td class="col-actions">
+                <button
                   @click="toggleTrackVisibility(path)"
-                  class="btn-hide-track"
+                  class="tl-icon-btn small"
                   :title="isTrackHidden(path) ? 'Show track' : 'Hide track'"
+                  :aria-label="isTrackHidden(path) ? 'Show track' : 'Hide track'"
                 >
-                  {{ isTrackHidden(path) ? '👁️' : '👁️‍🗨️' }}
+                  <Eye v-if="isTrackHidden(path)" :size="14" :stroke-width="2" />
+                  <EyeOff v-else :size="14" :stroke-width="2" />
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </template>
-  </div>
 
-  <!-- Summary Stats -->
-  <div v-if="signalPaths.length > 0" class="track-list-summary">
-    <div class="summary-item">
-      <span class="summary-label">Total Tracks:</span>
-      <span class="summary-value">{{ visiblePaths.length }}</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">Hidden Tracks:</span>
-      <span class="summary-value">{{ hiddenTracks.size }}</span>
-    </div>
-    <div class="summary-item">
-      <span class="summary-label">Recorders:</span>
-      <span class="summary-value">{{ Object.keys(groupedByRecorder).length }}</span>
-    </div>
+        <!-- Mobile card list -->
+        <ul class="tl-cards">
+          <li
+            v-for="path in tracks"
+            :key="'c-'+getTrackId(path)"
+            class="tl-card"
+            :class="{ 'track-hidden': isTrackHidden(path) && showHidden }"
+          >
+            <div class="tl-card-top">
+              <span class="tl-card-num">Track {{ path.track_number || '—' }}</span>
+              <button
+                @click="toggleTrackVisibility(path)"
+                class="tl-icon-btn small"
+                :aria-label="isTrackHidden(path) ? 'Show track' : 'Hide track'"
+              >
+                <Eye v-if="isTrackHidden(path)" :size="14" :stroke-width="2" />
+                <EyeOff v-else :size="14" :stroke-width="2" />
+              </button>
+            </div>
+            <button
+              v-if="path.connection_id"
+              class="tl-track-link tl-card-source"
+              @click="handleTrackNameClick(path.connection_id)"
+            >
+              {{ path.track_name || path.source_label || '—' }}
+            </button>
+            <span v-else class="tl-track-name tl-card-source">{{ path.track_name || path.source_label || '—' }}</span>
+            <div v-if="path.source_gear_name" class="tl-source-gear">{{ path.source_gear_name }}</div>
+            <div class="tl-path-flow tl-card-path">
+              <template v-for="(node, index) in reversedPath(path.path)" :key="'cp'+index">
+                <span class="tl-path-node">{{ node }}</span>
+                <ChevronRight
+                  v-if="index < reversedPath(path.path).length - 1"
+                  :size="12"
+                  :stroke-width="2"
+                  class="tl-path-arrow"
+                />
+              </template>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </template>
   </div>
 
   <!-- Input Modal -->
@@ -215,6 +315,17 @@ import autoTable from 'jspdf-autotable'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
 import InputModal from '@/components/signalmapper/InputModal.vue'
 import { supabase } from '@/supabase'
+import {
+  Search,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  FileDown,
+  Printer,
+  ListOrdered,
+  HardDrive,
+  ChevronRight,
+} from 'lucide-vue-next'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -258,6 +369,9 @@ const inputModalConfig = ref({
 // Track visibility state
 const hiddenTracks = ref(new Set())
 const showHidden = ref(false)
+
+// Free-text filter across track name, source, recorder, signal path
+const trackFilter = ref('')
 
 // PDF Export modal state
 const showPDFExportModal = ref(false)
@@ -395,7 +509,7 @@ const visiblePaths = computed(() => {
 // Group paths by recorder, then sort by track number within each group
 const groupedByRecorder = computed(() => {
   const groups = {}
-  
+
   visiblePaths.value.forEach(path => {
     const recorderName = path.recorder_label || 'Unknown Recorder'
     if (!groups[recorderName]) {
@@ -403,15 +517,42 @@ const groupedByRecorder = computed(() => {
     }
     groups[recorderName].push(path)
   })
-  
+
   // Sort each group by track number using smart sorting
   Object.keys(groups).forEach(recorder => {
     groups[recorder].sort((a, b) => {
       return compareTrackNumbers(a.track_number, b.track_number)
     })
   })
-  
+
   return groups
+})
+
+// Apply search filter to the grouped view
+const filteredGroupedByRecorder = computed(() => {
+  const q = trackFilter.value.trim().toLowerCase()
+  if (!q) return groupedByRecorder.value
+  const result = {}
+  for (const [recorder, tracks] of Object.entries(groupedByRecorder.value)) {
+    const recorderMatches = recorder.toLowerCase().includes(q)
+    const filtered = tracks.filter(p => {
+      if (recorderMatches) return true
+      const fields = [
+        p.track_name,
+        p.source_label,
+        p.source_gear_name,
+        String(p.track_number || ''),
+        Array.isArray(p.path) ? p.path.join(' ') : '',
+      ].filter(Boolean).join(' ').toLowerCase()
+      return fields.includes(q)
+    })
+    if (filtered.length) result[recorder] = filtered
+  }
+  return result
+})
+
+const hasVisibleFilteredGroups = computed(() => {
+  return Object.values(filteredGroupedByRecorder.value).some(arr => arr && arr.length > 0)
 })
 
 // Sort paths by track number (for backward compatibility)
@@ -995,552 +1136,476 @@ async function confirmPDFExport() {
 </script>
 
 <style scoped>
+/* ─── Container ────────────────────────────────────────── */
 .track-list-container {
-  padding: 20px;
-}
-
-.track-list-header {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.track-list-header h3 {
-  margin: 0 0 10px 0;
-  font-size: 24px;
+  padding: var(--space-4);
   color: var(--text-primary);
-}
-
-.track-list-header p {
-  margin: 0;
-  color: var(--text-secondary);
-}
-
-.track-list-actions {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.btn-refetch {
-  padding: 10px 20px;
-  background: var(--color-secondary-500);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.btn-refetch:hover:not(:disabled) {
-  background: var(--color-secondary-600);
-}
-
-.btn-refetch:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-export,
-.btn-print {
-  padding: 10px 20px;
-  background: var(--color-primary-500);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.btn-export:hover,
-.btn-print:hover {
-  background: var(--color-primary-600);
-}
-
-.btn-toggle-hidden {
-  padding: 10px 20px;
-  background: var(--color-secondary-400);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.btn-toggle-hidden:hover {
-  background: var(--color-secondary-500);
-}
-
-.btn-toggle-hidden.active {
-  background: var(--color-primary-500);
-}
-
-.btn-toggle-hidden.active:hover {
-  background: var(--color-primary-600);
-}
-
-.loading-state,
-.no-data-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-
-.no-data-state p {
-  margin: 10px 0;
-}
-
-.no-data-state .hint {
-  font-size: 14px;
-  color: var(--text-tertiary);
-}
-
-.track-list-table-wrapper {
-  overflow-x: auto;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e9ecef);
-}
-
-.track-list-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--bg-primary);
-}
-
-.track-list-table thead {
-  background: var(--bg-secondary);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.track-list-table th {
-  padding: 15px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text-secondary);
-  border-bottom: 2px solid var(--border-color, #e9ecef);
-  font-size: 14px;
-}
-
-.track-list-table td {
-  padding: 15px;
-  border-bottom: 1px solid var(--border-color, #e9ecef);
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.track-list-table tbody tr:hover {
-  background: var(--bg-secondary);
-}
-
-.track-list-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.track-row.track-hidden {
-  opacity: 0.5;
-  background: var(--bg-tertiary, #f8f9fa);
-}
-
-.actions-header {
-  width: 80px;
-  text-align: center;
-}
-
-.track-actions {
-  text-align: center;
-  padding: 10px 15px;
-}
-
-.btn-hide-track {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-hide-track:hover {
-  background: var(--bg-secondary);
-}
-
-.recorder-group {
-  margin-bottom: 30px;
-}
-
-.recorder-group-header {
-  margin: 0 0 15px 0;
-  padding: 12px 16px;
-  background: var(--color-primary-500);
-  color: white;
-  font-size: 18px;
-  border-radius: 8px;
-  font-weight: 600;
-}
-
-.track-number {
-  font-weight: 700;
-  color: var(--color-primary-600, #007bff);
-  font-size: 16px;
-}
-
-.recorder-name {
-  font-weight: 600;
-  color: var(--color-danger-500, #dc3545);
-}
-
-.source-name strong {
-  color: var(--color-success-600, #28a745);
-  font-size: 15px;
-}
-
-.track-name-link {
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: var(--color-success-300, rgba(40, 167, 69, 0.5));
-  transition: all 0.2s ease;
-}
-
-.track-name-link:hover {
-  color: var(--color-success-700, #1e7e34);
-  text-decoration-color: var(--color-success-600, #28a745);
-  text-decoration-thickness: 2px;
-}
-
-.source-gear-name {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 4px;
-  font-weight: normal;
-}
-
-.signal-path {
-  font-family: 'Courier New', monospace;
-}
-
-.path-flow {
+/* ─── Header ───────────────────────────────────────────── */
+.tl-head {
   display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
   flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
+}
+.tl-head-title { min-width: 0; }
+.tl-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-heading);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.tl-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 2px 0 0 0;
+}
+.tl-counts { display: flex; gap: var(--space-3); }
+.tl-count { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1; }
+.tl-count-value {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--color-primary-600);
+  font-variant-numeric: tabular-nums;
+}
+.tl-count.muted .tl-count-value { color: var(--text-tertiary); }
+.tl-count-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  font-weight: var(--font-medium);
 }
 
-.path-node {
+/* ─── Toolbar ──────────────────────────────────────────── */
+.tl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+.tl-search { position: relative; flex: 1 1 220px; min-width: 180px; }
+.tl-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.tl-search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px 0 32px;
+  font-size: var(--text-sm);
+  background: var(--surface-card);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: background var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.tl-search-input::placeholder { color: var(--text-tertiary); }
+.tl-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary-300);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.tl-actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.tl-chip-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 6px 10px;
+  height: 34px;
+  background: var(--chip-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--chip-text);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
 }
-
-.path-arrow {
-  color: var(--color-primary-600, #007bff);
-  font-weight: bold;
-  margin: 0 2px;
+.tl-chip-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
+.tl-chip-btn.active {
+  background: var(--chip-bg-active);
+  color: var(--chip-text-active);
+  border-color: var(--chip-border-active);
 }
-
-.boolean-cell {
-  text-align: center;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--bg-tertiary, #e9ecef);
-  color: var(--text-secondary);
-}
-
-.status-badge.active {
-  background: var(--color-success-100, #d4edda);
-  color: var(--color-success-800, #155724);
-}
-
-.track-list-summary {
-  display: flex;
-  gap: 30px;
+.tl-icon-btn {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  padding: 20px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e9ecef);
+  width: 34px;
+  height: 34px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
 }
+.tl-icon-btn.small { width: 28px; height: 28px; background: transparent; border: none; }
+.tl-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+.tl-icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tl-icon-btn.spinning svg { animation: tlSpin 0.9s linear infinite; }
+@keyframes tlSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.tl-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 34px;
+  background: var(--color-primary-500);
+  border: 1px solid var(--color-primary-600);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal);
+}
+.tl-primary-btn:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+.tl-primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.summary-item {
+/* ─── States ───────────────────────────────────────────── */
+.tl-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  padding: var(--space-12) var(--space-4);
+  background: var(--surface-card);
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: var(--radius-lg);
+  gap: 6px;
+  text-align: center;
+}
+.tl-state-icon-bg {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--chip-bg);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+}
+.tl-state-icon.spinning { animation: tlSpin 0.9s linear infinite; color: var(--color-primary-500); }
+.tl-state-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0;
+}
+.tl-state-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+  max-width: 40ch;
 }
 
-.summary-label {
-  font-size: 12px;
+/* ─── Groups ───────────────────────────────────────────── */
+.tl-groups { display: flex; flex-direction: column; gap: var(--space-3); }
+.tl-group {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.tl-group-header {
+  position: sticky;
+  top: 96px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-card-muted);
+  border-bottom: 1px solid var(--surface-border);
   color: var(--text-secondary);
-  font-weight: 500;
+}
+.tl-group-header svg { color: var(--color-primary-500); }
+.tl-group-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tl-group-count {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  background: var(--chip-bg);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
 }
 
-.summary-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-primary-600, #007bff);
+/* ─── Table (desktop) ──────────────────────────────────── */
+.tl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.tl-table thead th {
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: transparent;
+  border-bottom: 1px solid var(--surface-border);
+}
+.tl-table thead th.col-num { width: 48px; }
+.tl-table thead th.col-source { width: 220px; }
+.tl-table thead th.col-actions { width: 40px; text-align: right; }
+.tl-table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--surface-border);
+  vertical-align: top;
+  color: var(--text-primary);
+}
+.tl-table tbody tr:last-child td { border-bottom: none; }
+.tl-table tbody tr.track-hidden { opacity: 0.45; }
+.col-num {
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.col-actions { text-align: right; }
+.tl-track-link {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary-600);
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+  text-align: left;
+}
+.tl-track-link:hover { color: var(--color-primary-700); text-decoration: underline; }
+.tl-track-name { font-weight: var(--font-semibold); color: var(--text-heading); }
+.tl-source-gear { font-size: var(--text-xs); color: var(--text-tertiary); margin-top: 2px; }
+
+/* ─── Signal path ─────────────────────────────────────── */
+.tl-path-flow {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.tl-path-node { background: var(--chip-bg); padding: 2px 7px; border-radius: var(--radius-sm); white-space: nowrap; }
+.tl-path-arrow { color: var(--text-tertiary); }
+
+/* ─── Card list (mobile) ──────────────────────────────── */
+.tl-cards { display: none; list-style: none; padding: 0; margin: 0; }
+.tl-card {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--surface-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tl-card:last-child { border-bottom: none; }
+.tl-card.track-hidden { opacity: 0.45; }
+.tl-card-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.tl-card-num {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.tl-card-source { font-size: var(--text-sm); text-align: left; line-height: 1.25; }
+.tl-card-path { margin-top: 4px; }
+
+/* ─── Mobile layout ────────────────────────────────────── */
+@media (max-width: 600px) {
+  .track-list-container { padding: var(--space-3); }
+  .tl-head { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .tl-counts { justify-content: flex-start; gap: var(--space-4); }
+  .tl-count { align-items: flex-start; }
+  .tl-toolbar { padding: 6px; }
+  .tl-actions { gap: 4px; }
+  .tl-chip-btn span { display: none; }
+  .tl-primary-btn-label { display: none; }
+  .tl-primary-btn { width: 34px; padding: 0; justify-content: center; }
+  .tl-table { display: none; }
+  .tl-cards { display: flex; flex-direction: column; }
+  .tl-group-header { top: 104px; }
 }
 
-@media (max-width: 768px) {
-  .track-list-table-wrapper {
-    overflow-x: scroll;
-  }
+:deep(.dark) .tl-path-node { background: rgba(255,255,255,0.06); }
 
-  .track-list-table {
-    min-width: 800px;
-  }
-
-  .track-list-summary {
-    flex-direction: column;
-    gap: 15px;
-  }
-}
-
-@media print {
-  /* Hide everything on the page except this component */
-  body * {
-    visibility: hidden;
-  }
-  
-  .track-list-container,
-  .track-list-container * {
-    visibility: visible;
-  }
-  
-  .track-list-container {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 0;
-    margin: 0;
-  }
-
-  .track-list-actions {
-    display: none;
-  }
-
-  .track-list-summary {
-    page-break-before: avoid;
-  }
-
-  .track-list-table {
-    page-break-inside: auto;
-  }
-
-  .track-row {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-}
-
-/* PDF Export Modal Styles */
+/* ─── PDF export modal (restyled) ──────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3000;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
 }
-
 .pdf-export-modal {
-  background: var(--bg-primary);
-  padding: 1.5rem;
-  border-radius: 8px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  max-width: 520px;
   width: 100%;
-  max-width: 500px;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  overflow: auto;
+  box-shadow: var(--shadow-xl);
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color, #e9ecef);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--surface-border);
 }
-
 .modal-header h3 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   color: var(--text-heading);
-  font-weight: 600;
 }
-
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.5rem;
-  color: var(--text-secondary);
+  font-size: var(--text-xl);
   cursor: pointer;
+  color: var(--text-tertiary);
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: var(--radius-sm);
 }
-
-.modal-close:hover {
-  background: var(--bg-secondary);
-}
-
-.modal-body {
-  margin-bottom: 1.5rem;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
+.modal-close:hover { background: var(--surface-hover); color: var(--text-primary); }
+.modal-body { padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-
 .form-input {
   width: 100%;
-  padding: 0.6rem;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  font-size: 0.95rem;
-  background: var(--bg-primary);
+  padding: 8px 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
   color: var(--text-primary);
-  box-sizing: border-box;
+  font-size: var(--text-sm);
+  min-height: 36px;
 }
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
+.form-input:focus { outline: none; border-color: var(--color-primary-400); box-shadow: 0 0 0 3px var(--focus-ring); }
 .checkbox-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
+  gap: 8px;
   color: var(--text-primary);
-  font-size: 0.95rem;
-}
-
-.checkbox-input {
-  width: 18px;
-  height: 18px;
+  font-size: var(--text-sm);
   cursor: pointer;
-  accent-color: var(--color-primary-500);
 }
-
+.checkbox-input { width: 16px; height: 16px; cursor: pointer; }
 .recorder-checkboxes {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 0.75rem;
-  background: var(--bg-secondary);
-  border-radius: 4px;
-  border: 1px solid var(--border-color, #e9ecef);
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
 }
-
-.recorder-checkbox {
-  padding: 0.5rem;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.recorder-checkbox:hover {
-  background: var(--bg-primary);
-}
-
-.checkbox-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 0.75rem;
-}
-
+.recorder-checkbox { padding: 4px 2px; }
+.checkbox-actions { display: flex; gap: var(--space-3); margin-top: 6px; }
 .btn-link {
   background: none;
   border: none;
-  color: var(--color-primary-500);
-  cursor: pointer;
-  font-size: 0.9rem;
-  text-decoration: underline;
-  padding: 0;
-  transition: color 0.2s;
-}
-
-.btn-link:hover {
   color: var(--color-primary-600);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-weight: var(--font-medium);
 }
-
+.btn-link:hover { text-decoration: underline; }
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color, #e9ecef);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--surface-border);
 }
-
-.confirm-button {
-  background: var(--color-success-500);
-  color: var(--text-inverse) !important;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
+.btn {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
+  transition: background var(--transition-normal);
 }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-warning { background: transparent; color: var(--text-secondary); border-color: var(--surface-border); }
+.btn-warning:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); border-color: var(--surface-border-strong); }
+.btn-positive { background: var(--color-primary-500); color: #ffffff; border-color: var(--color-primary-600); }
+.btn-positive:hover:not(:disabled) { background: var(--color-primary-600); box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25); }
 
-.confirm-button:hover:not(:disabled) {
-  background: var(--color-success-600);
+/* ─── Accessibility ────────────────────────────────────── */
+@media (prefers-contrast: high) {
+  .tl-toolbar,
+  .tl-group,
+  .tl-chip-btn,
+  .tl-icon-btn,
+  .tl-primary-btn,
+  .tl-state { border-width: 2px; }
 }
-
-.confirm-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancel-button {
-  background: var(--color-secondary-400);
-  color: var(--text-inverse) !important;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.cancel-button:hover {
-  background: var(--color-secondary-500);
+@media (prefers-reduced-motion: reduce) {
+  .tl-icon-btn,
+  .tl-chip-btn,
+  .tl-primary-btn,
+  .tl-search-input { transition: none; }
+  .tl-icon-btn.spinning svg { animation: none; }
+  .tl-state-icon.spinning { animation: none; }
 }
 </style>
 
