@@ -3037,99 +3037,98 @@ function calculateLegendPosition(legendWidth, legendHeight, canvasW, canvasH, co
 }
 
 function drawLegend(ctx, canvasW = null, canvasH = null) {
-  // Build legend items from color buttons
-  const legendItems = []
-  Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
-    const btn = colorButtons.value.find(b => b.id === buttonId)
-    if (btn) {
-      legendItems.push([btn.color, label || btn.name])
-    }
-  })
-  
-  if (legendItems.length === 0) return
-  
-  // Use provided dimensions or fall back to current canvas dimensions
+  // Use same grouped entries as the UI legend (gear name + count)
+  const entries = legendEntriesByMic.value
+  if (entries.length === 0) return
+
   const w = canvasW ?? canvasWidth.value
   const h = canvasH ?? canvasHeight.value
-  
+
   const LEGEND_PADDING = 12
   const LEGEND_ITEM_HEIGHT = 24
   const LEGEND_ITEM_GAP = 8
   const SWATCH_SIZE = 16
   const SWATCH_MARGIN = 8
-  const TEXT_MARGIN = 8
-  
-  // Calculate legend dimensions
+  const COUNT_GAP = 8
+
+  // Measure widest gear-name + count string
   ctx.font = '12px sans-serif'
   let maxTextWidth = 0
-  legendItems.forEach(([color, label]) => {
-    const text = label || color
-    const metrics = ctx.measureText(text)
-    maxTextWidth = Math.max(maxTextWidth, metrics.width)
+  entries.forEach(entry => {
+    const countText = `x${entry.count}`
+    const nameMetrics = ctx.measureText(entry.gearName)
+    const countMetrics = ctx.measureText(countText)
+    maxTextWidth = Math.max(maxTextWidth, nameMetrics.width + COUNT_GAP + countMetrics.width)
   })
-  
+
   const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
-  const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20 // +20 for header
-  
-  // Calculate best position that avoids mic nodes (use bottom-right as default for exports)
+  const legendHeight = (LEGEND_ITEM_HEIGHT * entries.length) + (LEGEND_ITEM_GAP * (entries.length - 1)) + LEGEND_PADDING * 2 + 20
+
   const { x: legendX, y: legendY } = calculateLegendPosition(legendWidth, legendHeight, w, h, 0)
-  
-  // Draw legend background
+
+  // Draw background card
   ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
   ctx.lineWidth = 1
-  // Use roundRect if available, otherwise draw rounded rectangle manually
   if (ctx.roundRect) {
     ctx.beginPath()
     ctx.roundRect(legendX, legendY, legendWidth, legendHeight, 8)
     ctx.fill()
     ctx.stroke()
   } else {
-    // Fallback: draw rounded rectangle manually
-    const radius = 8
+    const r = 8
     ctx.beginPath()
-    ctx.moveTo(legendX + radius, legendY)
-    ctx.lineTo(legendX + legendWidth - radius, legendY)
-    ctx.quadraticCurveTo(legendX + legendWidth, legendY, legendX + legendWidth, legendY + radius)
-    ctx.lineTo(legendX + legendWidth, legendY + legendHeight - radius)
-    ctx.quadraticCurveTo(legendX + legendWidth, legendY + legendHeight, legendX + legendWidth - radius, legendY + legendHeight)
-    ctx.lineTo(legendX + radius, legendY + legendHeight)
-    ctx.quadraticCurveTo(legendX, legendY + legendHeight, legendX, legendY + legendHeight - radius)
-    ctx.lineTo(legendX, legendY + radius)
-    ctx.quadraticCurveTo(legendX, legendY, legendX + radius, legendY)
+    ctx.moveTo(legendX + r, legendY)
+    ctx.lineTo(legendX + legendWidth - r, legendY)
+    ctx.quadraticCurveTo(legendX + legendWidth, legendY, legendX + legendWidth, legendY + r)
+    ctx.lineTo(legendX + legendWidth, legendY + legendHeight - r)
+    ctx.quadraticCurveTo(legendX + legendWidth, legendY + legendHeight, legendX + legendWidth - r, legendY + legendHeight)
+    ctx.lineTo(legendX + r, legendY + legendHeight)
+    ctx.quadraticCurveTo(legendX, legendY + legendHeight, legendX, legendY + legendHeight - r)
+    ctx.lineTo(legendX, legendY + r)
+    ctx.quadraticCurveTo(legendX, legendY, legendX + r, legendY)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
   }
-  
-  // Draw header
+
+  // Header
   ctx.fillStyle = '#333'
   ctx.font = 'bold 13px sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   ctx.fillText(props.stageName || 'Color Legend', legendX + LEGEND_PADDING, legendY + LEGEND_PADDING)
-  
-  // Draw legend items
+
+  // Items: [swatch] Gear Name  x8
   let itemY = legendY + LEGEND_PADDING + 20
-  legendItems.forEach(([color, label]) => {
-    const text = label || getColorName(color)
-    
-    // Draw color swatch
-    ctx.fillStyle = color
+  entries.forEach(entry => {
+    const swatchX = legendX + LEGEND_PADDING
+    const textX = swatchX + SWATCH_SIZE + SWATCH_MARGIN
+    const midY = itemY + SWATCH_SIZE / 2
+
+    // Color swatch
+    ctx.fillStyle = entry.color || '#ccc'
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)'
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.rect(legendX + LEGEND_PADDING, itemY, SWATCH_SIZE, SWATCH_SIZE)
+    ctx.rect(swatchX, itemY, SWATCH_SIZE, SWATCH_SIZE)
     ctx.fill()
     ctx.stroke()
-    
-    // Draw text
+
+    // Gear name
     ctx.fillStyle = '#222'
-    ctx.font = '12px sans-serif'
+    ctx.font = 'bold 12px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    ctx.fillText(text, legendX + LEGEND_PADDING + SWATCH_SIZE + SWATCH_MARGIN, itemY + SWATCH_SIZE / 2)
-    
+    ctx.fillText(entry.gearName, textX, midY)
+
+    // Count (right-aligned within the legend)
+    const countText = `x${entry.count}`
+    ctx.fillStyle = '#888'
+    ctx.font = '11px sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillText(countText, legendX + legendWidth - LEGEND_PADDING, midY)
+
     itemY += LEGEND_ITEM_HEIGHT + LEGEND_ITEM_GAP
   })
 }
@@ -3263,7 +3262,7 @@ async function confirmExport() {
   closeFilenameModal()
   
   // Use getCanvasDataURL to get a properly bounded export with all elements
-  const dataURL = getCanvasDataURL()
+  const dataURL = await getCanvasDataURL()
   if (!dataURL) {
     toast.error('Failed to generate export image')
     return
@@ -3315,7 +3314,7 @@ async function confirmExport() {
 }
 
 // Expose a method to retrieve the current canvas as a data URL for parent exports
-function getCanvasDataURL() {
+async function getCanvasDataURL() {
   // Build an export canvas that fits the background image and all mic drawings with padding
   const PADDING = 20
   const dprLocal = window.devicePixelRatio || 1
@@ -3395,25 +3394,25 @@ function getCanvasDataURL() {
   })
 
   // Include legend bounds if it exists (will be positioned in bottom right of content)
-  if (Object.keys(colorLegendMap.value).length > 0) {
+  if (legendEntriesByMic.value.length > 0) {
     const legendMeasure = document.createElement('canvas').getContext('2d')
     if (legendMeasure) {
       legendMeasure.font = '12px sans-serif'
       let maxTextWidth = 0
-      Object.entries(colorLegendMap.value).forEach(([color, label]) => {
-        const text = label || color
-        const metrics = legendMeasure.measureText(text)
-        maxTextWidth = Math.max(maxTextWidth, metrics.width)
+      legendEntriesByMic.value.forEach(entry => {
+        const countText = `x${entry.count}`
+        const w = legendMeasure.measureText(entry.gearName).width + 8 + legendMeasure.measureText(countText).width
+        maxTextWidth = Math.max(maxTextWidth, w)
       })
       const LEGEND_PADDING = 12
       const LEGEND_ITEM_HEIGHT = 24
       const LEGEND_ITEM_GAP = 8
       const SWATCH_SIZE = 16
       const SWATCH_MARGIN = 8
-      const legendItemCount = Object.keys(colorLegendMap.value).length
+      const legendItemCount = legendEntriesByMic.value.length
       const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
       const legendHeight = (LEGEND_ITEM_HEIGHT * legendItemCount) + (LEGEND_ITEM_GAP * (legendItemCount - 1)) + LEGEND_PADDING * 2 + 20
-      
+
       // Legend will be positioned in bottom right, so extend bounds to include it
       // Position it relative to the content bounds
       const legendX = maxX - legendWidth - 20
@@ -3511,17 +3510,40 @@ function getCanvasDataURL() {
   ctx.save()
   ctx.translate(-minX + PADDING, -minY + PADDING + headerHeight)
 
-  // Draw background image (with current opacity)
-  if (bgImageObj.value) {
-    ctx.globalAlpha = 1.0 // Fixed opacity
-    ctx.drawImage(
-      bgImageObj.value,
-      imageOffsetX.value,
-      imageOffsetY.value,
-      bgImageObj.value.width * scaleFactor.value,
-      bgImageObj.value.height * scaleFactor.value
-    )
-    ctx.globalAlpha = 1.0
+  // Draw background image — fetch fresh as a blob URL to avoid cross-origin canvas taint
+  if (bgImage.value && bgImageObj.value) {
+    try {
+      const resp = await fetch(bgImage.value)
+      const blob = await resp.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const exportImg = await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = blobUrl
+      })
+      ctx.globalAlpha = 1.0
+      ctx.drawImage(
+        exportImg,
+        imageOffsetX.value,
+        imageOffsetY.value,
+        bgImageObj.value.width * scaleFactor.value,
+        bgImageObj.value.height * scaleFactor.value
+      )
+      ctx.globalAlpha = 1.0
+      URL.revokeObjectURL(blobUrl)
+    } catch (_) {
+      // If fetch fails, fall back to the already-loaded image object
+      ctx.globalAlpha = 1.0
+      ctx.drawImage(
+        bgImageObj.value,
+        imageOffsetX.value,
+        imageOffsetY.value,
+        bgImageObj.value.width * scaleFactor.value,
+        bgImageObj.value.height * scaleFactor.value
+      )
+      ctx.globalAlpha = 1.0
+    }
   }
 
   // Draw all mics using the same routine as screen draw with collision-avoided label positions
@@ -3543,34 +3565,9 @@ function getCanvasDataURL() {
 
   ctx.restore()
 
-  // Draw legend if there are custom colors (after restore so it's in export canvas coordinates)
-  if (Object.keys(colorLegendMap.value).length > 0) {
-    // Calculate legend position in export canvas coordinates
-    const legendMeasure = document.createElement('canvas').getContext('2d')
-    if (legendMeasure) {
-      legendMeasure.font = '12px sans-serif'
-      let maxTextWidth = 0
-      Object.entries(colorLegendMap.value).forEach(([color, label]) => {
-        const text = label || color
-        const metrics = legendMeasure.measureText(text)
-        maxTextWidth = Math.max(maxTextWidth, metrics.width)
-      })
-      const LEGEND_PADDING = 12
-      const LEGEND_ITEM_HEIGHT = 24
-      const LEGEND_ITEM_GAP = 8
-      const SWATCH_SIZE = 16
-      const SWATCH_MARGIN = 8
-      const legendItemCount = Object.keys(colorLegendMap.value).length
-      const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + maxTextWidth + LEGEND_PADDING * 2
-      const legendHeight = (LEGEND_ITEM_HEIGHT * legendItemCount) + (LEGEND_ITEM_GAP * (legendItemCount - 1)) + LEGEND_PADDING * 2 + 20
-      
-      // Position legend in bottom right of export canvas
-      const legendX = exportW - legendWidth - PADDING
-      const legendY = exportH - legendHeight - PADDING
-      
-      // Draw legend with export canvas dimensions
-      drawLegend(ctx, exportW, exportH)
-    }
+  // Draw legend if there are placed mics with gear assigned
+  if (legendEntriesByMic.value.length > 0) {
+    drawLegend(ctx, exportW, exportH)
   }
 
   try {
