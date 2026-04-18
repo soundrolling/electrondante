@@ -498,46 +498,47 @@ setup() {
         .order('start_date', { ascending: true })
       if (error) throw error
 
-      const enriched = await Promise.all(
-        data.map(async trip => {
-          // Fetch trip members
-          const { data: tripMembers } = await supabase
-            .from('travel_trip_members')
-            .select('user_email')
-            .eq('trip_id', trip.id)
-          
-          const memberEmails = (tripMembers || []).map(tm => tm.user_email)
-          const memberNames = memberEmails.map(email => getMemberName(email))
-          
-          // Get creator name
-          const createdByName = trip.created_by ? getMemberName(trip.created_by) : null
-          
-          const [
-            { data: flights },
-            { data: accommodations },
-            { data: documents },
-            { data: expenses },
-            { data: parking }
-          ] = await Promise.all([
-            supabase.from('travel_flights').select().eq('trip_id', trip.id),
-            supabase.from('travel_accommodations').select().eq('trip_id', trip.id),
-            supabase.from('travel_documents').select().eq('trip_id', trip.id),
-            supabase.from('travel_expenses').select().eq('trip_id', trip.id),
-            supabase.from('travel_parking').select().eq('trip_id', trip.id)
-          ])
-          return {
-            ...trip,
-            flights_count: flights.length,
-            accommodations_count: accommodations.length,
-            documents_count: documents.length,
-            expenses_count: expenses.length,
-            parking_count: parking.length,
-            member_emails: memberEmails,
-            member_names: memberNames,
-            created_by_name: createdByName
-          }
-        })
-      )
+      const tripIds = (data || []).map(t => t.id)
+
+      // Batch-fetch all related data in parallel (one query per table, not per trip)
+      const [
+        { data: allMembers },
+        { data: allFlights },
+        { data: allAccommodations },
+        { data: allDocuments },
+        { data: allExpenses },
+        { data: allParking }
+      ] = await Promise.all([
+        tripIds.length ? supabase.from('travel_trip_members').select('trip_id, user_email').in('trip_id', tripIds) : Promise.resolve({ data: [] }),
+        tripIds.length ? supabase.from('travel_flights').select('trip_id').in('trip_id', tripIds) : Promise.resolve({ data: [] }),
+        tripIds.length ? supabase.from('travel_accommodations').select('trip_id').in('trip_id', tripIds) : Promise.resolve({ data: [] }),
+        tripIds.length ? supabase.from('travel_documents').select('trip_id').in('trip_id', tripIds) : Promise.resolve({ data: [] }),
+        tripIds.length ? supabase.from('travel_expenses').select('trip_id').in('trip_id', tripIds) : Promise.resolve({ data: [] }),
+        tripIds.length ? supabase.from('travel_parking').select('trip_id').in('trip_id', tripIds) : Promise.resolve({ data: [] })
+      ])
+
+      // Group counts by trip_id in memory
+      const countBy = (rows, id) => (rows || []).filter(r => r.trip_id === id).length
+      const membersByTrip = {}
+      for (const m of (allMembers || [])) {
+        if (!membersByTrip[m.trip_id]) membersByTrip[m.trip_id] = []
+        membersByTrip[m.trip_id].push(m.user_email)
+      }
+
+      const enriched = (data || []).map(trip => {
+        const memberEmails = membersByTrip[trip.id] || []
+        return {
+          ...trip,
+          flights_count: countBy(allFlights, trip.id),
+          accommodations_count: countBy(allAccommodations, trip.id),
+          documents_count: countBy(allDocuments, trip.id),
+          expenses_count: countBy(allExpenses, trip.id),
+          parking_count: countBy(allParking, trip.id),
+          member_emails: memberEmails,
+          member_names: memberEmails.map(email => getMemberName(email)),
+          created_by_name: trip.created_by ? getMemberName(trip.created_by) : null
+        }
+      })
       trips.value = enriched
     } catch (err) {
       console.error(err)

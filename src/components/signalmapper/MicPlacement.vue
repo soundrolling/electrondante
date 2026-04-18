@@ -90,6 +90,7 @@
     <!-- Color Legend (desktop only — on mobile shown as bottom sheet) -->
     <div
       v-if="showLegend && !isMobile"
+      ref="legendEl"
       class="color-legend"
       :class="{ 'legend-dragging': legendDragging }"
       :style="legendStyle"
@@ -536,6 +537,7 @@ const router = useRouter()
 const store = useUserStore()
 const canvas = ref(null)
 const canvasWrapper = ref(null)
+const legendEl = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(800)
 const canvasHeight = ref(600)
@@ -922,38 +924,20 @@ function updateLegendStyle() {
     return
   }
   
-  // If no saved position, calculate default position (bottom-right)
+  // If no saved position, place at bottom-right of canvas
   if (legendPosition.value.x === null || legendPosition.value.y === null) {
-    const legendItems = []
-    Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
-      const btn = colorButtons.value.find(b => b.id === buttonId)
-      if (btn) legendItems.push([btn.color, label || btn.name])
-    })
-    
-    if (legendItems.length === 0) {
+    if (Object.keys(colorLegendMap.value).length === 0) {
       legendStyle.value = {}
       return
     }
-    
-    // Estimate dimensions
-    const LEGEND_PADDING = 12
-    const LEGEND_ITEM_HEIGHT = 24
-    const LEGEND_ITEM_GAP = 8
-    const SWATCH_SIZE = 16
-    const SWATCH_MARGIN = 8
-    const estimatedTextWidth = 120
-    const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + estimatedTextWidth + LEGEND_PADDING * 2
-    const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
-    
-    // Calculate canvas offset within wrapper (canvas is centered)
+    const EDGE_MARGIN = 20
+    const lw = legendEl.value?.offsetWidth || 220
+    const lh = legendEl.value?.offsetHeight || 120
     const wrapperWidth = canvasWrapper.value ? canvasWrapper.value.clientWidth : canvasWidth.value
     const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
-    
-    // Default to bottom-right of canvas area
-    const EDGE_MARGIN = 20
     legendPosition.value = {
-      x: canvasOffsetX + canvasWidth.value - legendWidth - EDGE_MARGIN,
-      y: canvasHeight.value - legendHeight - EDGE_MARGIN
+      x: canvasOffsetX + canvasWidth.value - lw - EDGE_MARGIN,
+      y: canvasHeight.value - lh - EDGE_MARGIN
     }
     saveLegendPosition()
   }
@@ -968,103 +952,58 @@ function updateLegendStyle() {
   }
 }
 
+// Return clamped legend coords so it stays within the canvas area
+function clampLegendPosition(x, y) {
+  const wrapperRect = canvasWrapper.value?.getBoundingClientRect()
+  const lw = legendEl.value?.offsetWidth || 200
+  const lh = legendEl.value?.offsetHeight || 100
+  const wrapperWidth = wrapperRect?.width || canvasWidth.value
+  const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
+  return {
+    x: Math.max(canvasOffsetX, Math.min(x, canvasOffsetX + canvasWidth.value - lw)),
+    y: Math.max(0, Math.min(y, canvasHeight.value - lh))
+  }
+}
+
 // Legend drag handlers
 function onLegendDragStart(e) {
-  // Don't start drag if clicking on close button
-  if (e.target.closest('.legend-close-btn')) {
-    return
-  }
-  
+  if (e.target.closest('.legend-close-btn')) return
+
   e.preventDefault()
   e.stopPropagation()
-  
-  // Prevent default drag behavior to avoid ghost image
+
   const legendElement = e.target.closest('.color-legend')
-  if (legendElement) {
-    legendElement.setPointerCapture(e.pointerId)
-  }
-  
+  if (legendElement) legendElement.setPointerCapture(e.pointerId)
+
   legendDragging.value = true
   const rect = canvasWrapper.value.getBoundingClientRect()
   const startX = e.clientX - rect.left
   const startY = e.clientY - rect.top
-  
+
   legendDragStart.value = {
     x: startX - legendPosition.value.x,
     y: startY - legendPosition.value.y
   }
-  
-  // Update position immediately to prevent ghost
-  const newX = startX - legendDragStart.value.x
-  const newY = startY - legendDragStart.value.y
-  
-  // Get legend dimensions to constrain within canvas
-  const legendItems = []
-  Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
-    const btn = colorButtons.value.find(b => b.id === buttonId)
-    if (btn) legendItems.push([btn.color, label || btn.name])
-  })
-  
-  const LEGEND_PADDING = 12
-  const LEGEND_ITEM_HEIGHT = 24
-  const LEGEND_ITEM_GAP = 8
-  const SWATCH_SIZE = 16
-  const SWATCH_MARGIN = 8
-  const estimatedTextWidth = 120
-  const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + estimatedTextWidth + LEGEND_PADDING * 2
-  const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
-  
-  // Calculate canvas position within wrapper (canvas is centered)
-  const wrapperWidth = rect.width
-  const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
-  
-  // Constrain to canvas bounds
-  legendPosition.value = {
-    x: Math.max(canvasOffsetX, Math.min(newX, canvasOffsetX + canvasWidth.value - legendWidth)),
-    y: Math.max(0, Math.min(newY, canvasHeight.value - legendHeight))
-  }
-  
+
+  legendPosition.value = clampLegendPosition(
+    startX - legendDragStart.value.x,
+    startY - legendDragStart.value.y
+  )
   updateLegendStyle()
-  
-  // Add global event listeners for drag
+
   window.addEventListener('pointermove', onLegendDragMove)
   window.addEventListener('pointerup', onLegendDragEnd)
 }
 
 function onLegendDragMove(e) {
   if (!legendDragging.value) return
-  
+
   e.preventDefault()
   const rect = canvasWrapper.value.getBoundingClientRect()
-  const newX = e.clientX - rect.left - legendDragStart.value.x
-  const newY = e.clientY - rect.top - legendDragStart.value.y
-  
-  // Get legend dimensions to constrain within canvas
-  const legendItems = []
-  Object.entries(colorLegendMap.value).forEach(([buttonId, label]) => {
-    const btn = colorButtons.value.find(b => b.id === buttonId)
-    if (btn) legendItems.push([btn.color, label || btn.name])
-  })
-  
-  const LEGEND_PADDING = 12
-  const LEGEND_ITEM_HEIGHT = 24
-  const LEGEND_ITEM_GAP = 8
-  const SWATCH_SIZE = 16
-  const SWATCH_MARGIN = 8
-  const estimatedTextWidth = 120
-  const legendWidth = SWATCH_SIZE + SWATCH_MARGIN + estimatedTextWidth + LEGEND_PADDING * 2
-  const legendHeight = (LEGEND_ITEM_HEIGHT * legendItems.length) + (LEGEND_ITEM_GAP * (legendItems.length - 1)) + LEGEND_PADDING * 2 + 20
-  
-  // Calculate canvas position within wrapper (canvas is centered)
-  const wrapperWidth = rect.width
-  const canvasOffsetX = (wrapperWidth - canvasWidth.value) / 2
-  
-  // Constrain to canvas bounds (accounting for canvas being centered in wrapper)
-  legendPosition.value = {
-    x: Math.max(canvasOffsetX, Math.min(newX, canvasOffsetX + canvasWidth.value - legendWidth)),
-    y: Math.max(0, Math.min(newY, canvasHeight.value - legendHeight))
-  }
-  
+  legendPosition.value = clampLegendPosition(
+    e.clientX - rect.left - legendDragStart.value.x,
+    e.clientY - rect.top - legendDragStart.value.y
+  )
   updateLegendStyle()
 }
 
