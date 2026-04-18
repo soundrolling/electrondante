@@ -869,16 +869,9 @@ setup() {
     if (!all.length) return null;
     const min = Math.min(...all);
     const max = Math.max(...all);
-    const startDate = new Date(min);
-    const endDate = new Date(max);
-    // Start strip at the Monday on or before the 1st of the first event month
-    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const dow = monthStart.getDay(); // 0=Sun
-    const daysBack = dow === 0 ? 6 : dow - 1;
-    const stripStart = new Date(monthStart);
-    stripStart.setDate(stripStart.getDate() - daysBack - 2);
-    const stripEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
-    stripEnd.setDate(stripEnd.getDate() + 2);
+    // Strip spans 2 days before first event to 2 days after last event
+    const stripStart = new Date(min - 2 * 86400000);
+    const stripEnd   = new Date(max + 2 * 86400000);
     const today = startOfDay(new Date());
     const oneDay = 86400000;
     const days = [];
