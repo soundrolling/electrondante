@@ -35,6 +35,17 @@
       </button>
     </div>
     <button
+      v-if="selectedStageHourId && activeTab === 'flow'"
+      class="rec-day-editor-toggle"
+      :class="{ beta: flowEditor === 'beta' }"
+      @click="setFlowEditor(flowEditor === 'beta' ? 'classic' : 'beta')"
+      :title="flowEditor === 'beta' ? 'Switch to classic flow editor' : 'Try the new vue-flow editor (beta)'"
+      aria-label="Toggle signal flow editor"
+    >
+      <Sparkles :size="14" :stroke-width="2" />
+      <span class="rec-day-editor-label">{{ flowEditor === 'beta' ? 'Beta' : 'Classic' }}</span>
+    </button>
+    <button
       v-if="selectedStageHourId"
       class="rec-day-warnings"
       :class="['sev-' + (warningsTopSeverity || 'ok')]"
@@ -110,6 +121,24 @@
         @node-deleted="handleNodeDeleted"
       />
       
+      <SignalFlowVF
+        v-else-if="activeTab === 'flow' && selectedStageHourId && flowEditor === 'beta'"
+        :key="`flow-vf-${selectedStageHourId}`"
+        ref="signalFlowRef"
+        :projectId="projectId"
+        :locationId="effectiveLocationId"
+        :stageHourId="selectedStageHourId"
+        :nodes="allNodes"
+        :connections="allConnections"
+        :gearList="gearList"
+        :initialSelectedConnectionId="selectedConnectionId"
+        @node-updated="handleNodeUpdated"
+        @node-added="handleNodeAdded"
+        @node-deleted="handleNodeDeleted"
+        @connection-added="handleConnectionAdded"
+        @connection-updated="handleConnectionUpdated"
+        @connection-deleted="handleConnectionDeleted"
+      />
       <SignalFlow
         v-else-if="activeTab === 'flow' && selectedStageHourId"
         :key="`flow-${selectedStageHourId}`"
@@ -387,6 +416,7 @@ import {
   X,
   CheckCircle2,
   ChevronRight,
+  Sparkles,
 } from 'lucide-vue-next'
 import { buildShowPDF, defaultShowBibleFilename } from '@/services/showPdfExportService'
 import { savePDFToStorage, showExportSuccessModal } from '@/services/exportStorageService'
@@ -396,8 +426,11 @@ import { computeWarnings, warningsSummary, topSeverity } from '@/services/signal
 // Lazy load heavy components for better initial load performance
 const MicPlacement = defineAsyncComponent(() => import('./MicPlacement.vue'))
 const SignalFlow = defineAsyncComponent(() => import('./SignalFlow.vue'))
+const SignalFlowVF = defineAsyncComponent(() => import('./SignalFlowVF.vue'))
 const TrackList = defineAsyncComponent(() => import('./TrackList.vue'))
 const DanteConfig = defineAsyncComponent(() => import('./DanteConfig.vue'))
+
+const FLOW_EDITOR_KEY = 'signalMapper.flowEditor' // 'classic' | 'beta'
 
 const props = defineProps({
   projectId: {
@@ -441,6 +474,19 @@ const micPlacementRef = ref(null)
 const showExportModal = ref(false)
 const isExportingShow = ref(false)
 const exportProgress = ref('')
+
+// Flow editor preference (classic canvas vs beta vue-flow)
+const flowEditor = ref(
+  typeof localStorage !== 'undefined'
+    ? (localStorage.getItem(FLOW_EDITOR_KEY) || 'classic')
+    : 'classic'
+)
+function setFlowEditor(next) {
+  flowEditor.value = next
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(FLOW_EDITOR_KEY, next)
+  } catch {}
+}
 
 // Warnings panel state
 const showWarningsPanel = ref(false)
@@ -1189,7 +1235,8 @@ onMounted(async () => {
 }
 .rec-day-copy,
 .rec-day-export,
-.rec-day-warnings {
+.rec-day-warnings,
+.rec-day-editor-toggle {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1207,7 +1254,8 @@ onMounted(async () => {
 }
 .rec-day-copy:hover,
 .rec-day-export:hover:not(:disabled),
-.rec-day-warnings:hover {
+.rec-day-warnings:hover,
+.rec-day-editor-toggle:hover {
   background: var(--surface-hover);
   border-color: var(--surface-border-strong);
   color: var(--text-primary);
@@ -1215,7 +1263,24 @@ onMounted(async () => {
 .rec-day-export:disabled { opacity: 0.55; cursor: not-allowed; }
 .rec-day-copy-label,
 .rec-day-export-label,
-.rec-day-warnings-label { display: none; }
+.rec-day-warnings-label,
+.rec-day-editor-label { display: none; }
+
+.rec-day-editor-toggle.beta {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-200);
+  color: var(--color-primary-700);
+}
+.rec-day-editor-toggle.beta svg { color: var(--color-primary-600); }
+.rec-day-editor-toggle.beta:hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-300);
+}
+:deep(.dark) .rec-day-editor-toggle.beta {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.3);
+  color: var(--color-primary-200);
+}
 
 .rec-day-warnings.sev-ok {
   color: var(--color-success-700);
@@ -1858,7 +1923,8 @@ onMounted(async () => {
   .signal-mapper-parent { padding: var(--space-5); padding-bottom: var(--space-5); }
   .rec-day-copy-label,
   .rec-day-export-label,
-  .rec-day-warnings-label { display: inline; }
+  .rec-day-warnings-label,
+  .rec-day-editor-label { display: inline; }
   .sm-back-label { display: inline; }
 }
 
@@ -1881,10 +1947,12 @@ onMounted(async () => {
   }
   .rec-day-copy-label,
   .rec-day-export-label,
-  .rec-day-warnings-label { display: none; }
+  .rec-day-warnings-label,
+  .rec-day-editor-label { display: none; }
   .rec-day-copy,
   .rec-day-export,
-  .rec-day-warnings { padding: 0; width: 28px; justify-content: center; }
+  .rec-day-warnings,
+  .rec-day-editor-toggle { padding: 0; width: 28px; justify-content: center; }
   .tab-nav-top { display: none; }
   .tab-nav-bottom { display: flex; }
   .tab-content { border-radius: var(--radius-md); min-height: 400px; }
