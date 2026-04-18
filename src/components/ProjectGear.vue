@@ -4,7 +4,7 @@
   <!-- TOP BAR -->
   <header class="page-header ui-page-header">
     <div class="header-content">
-      <button class="btn btn-warning back-btn" @click="goBack">
+      <button class="back-btn" @click="goBack">
         <span class="btn-icon">←</span>
         <span class="btn-text">Back</span>
       </button>
@@ -42,7 +42,11 @@
   <div v-if="activeTab === 'gear'">
     <!-- FILTER & SORT FOR MAIN GEAR -->
     <section class="filter-section">
-      <div class="filter-container ui-filter-bar">
+      <button class="filter-toggle" @click="showFilters = !showFilters">
+        <span class="filter-toggle-label">🔍 Filter &amp; Sort</span>
+        <span class="filter-toggle-chevron">{{ showFilters ? '▲' : '▼' }}</span>
+      </button>
+      <div class="filter-container ui-filter-bar" v-show="showFilters">
         <div class="filter-row">
           <div class="filter-group">
             <label for="filterAssignment" class="filter-label">Filter Gear:</label>
@@ -111,11 +115,11 @@
     <div class="actions-header">
       <h2 class="section-title">Gear List</h2>
       <div class="actions-group">
-        <button class="btn btn-positive" @click="toggleAddGear">
+        <button class="btn btn-primary" @click="toggleAddGear">
           <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
           <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
         </button>
-        <button class="btn btn-purple" @click="openUserGearSelector">
+        <button class="btn btn-secondary" @click="openUserGearSelector">
           <span class="btn-icon">👤</span>
           <span class="btn-text">Add Team Gear</span>
         </button>
@@ -206,7 +210,11 @@
       
       <!-- Filter & Sort for Accessories -->
       <section class="filter-section accessories-filter">
-        <div class="filter-container ui-filter-bar">
+        <button class="filter-toggle" @click="showAccessoriesFilters = !showAccessoriesFilters">
+          <span class="filter-toggle-label">🔍 Filter Accessories</span>
+          <span class="filter-toggle-chevron">{{ showAccessoriesFilters ? '▲' : '▼' }}</span>
+        </button>
+        <div class="filter-container ui-filter-bar" v-show="showAccessoriesFilters">
           <div class="filter-row">
             <div class="filter-group">
               <label for="filterAccessories" class="filter-label">Filter:</label>
@@ -388,7 +396,7 @@
             @gear-added="handleUserGearAdded"
           />
           <div class="form-actions" style="margin-top: 12px;">
-            <button class="btn btn-warning" @click="closeUserGearSelector">Close</button>
+            <button class="btn btn-secondary" @click="closeUserGearSelector">Close</button>
           </div>
         </div>
       </div>
@@ -491,6 +499,8 @@ setup(props) {
 
   const formError = ref(null)
   const showAddGearForm = ref(false)
+  const showFilters = ref(false)
+  const showAccessoriesFilters = ref(false)
   
   // Pre-selected color options for gear
   const gearColorOptions = [
@@ -1289,7 +1299,9 @@ setup(props) {
     route,
     currentProject,
     projectId,
-    isProjectOwner
+    isProjectOwner,
+    showFilters,
+    showAccessoriesFilters
   }
 }
 }
@@ -1310,7 +1322,7 @@ setup(props) {
 
 /* Typography Scale */
 .page-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.3;
   margin: 0;
@@ -1318,9 +1330,9 @@ setup(props) {
 }
 
 .page-subtitle {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-secondary);
-  margin: 8px 0 0 0;
+  margin: 3px 0 0 0;
   line-height: 1.4;
 }
 
@@ -1334,39 +1346,41 @@ setup(props) {
 
 /* Page Header */
 .page-header {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid #e9ecef;
+  margin-bottom: 16px;
+  padding: 12px 0 10px 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 4px;
 }
 
 .back-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-light);
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--color-primary-500);
+  border: 1px solid var(--color-primary-600);
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 44px;
-  color: var(--text-primary);
+  min-height: 36px;
+  color: #ffffff;
 }
 
 .back-btn:hover {
-  border-color: var(--color-primary-500);
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-700);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
 }
 
 .back-btn:active {
@@ -1384,22 +1398,24 @@ setup(props) {
 /* Tab Navigation */
 .tab-navigation {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 0;
+  margin-bottom: 20px;
   border-bottom: 2px solid var(--border-light);
   padding-bottom: 0;
 }
 
 .tab-button {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
   background: transparent;
   border: none;
   border-bottom: 3px solid transparent;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
   transition: all 0.2s ease;
@@ -1504,6 +1520,33 @@ setup(props) {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), var(--shadow-sm);
+}
+
+/* Filter Toggle (mobile collapsible) */
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.2s ease;
+}
+
+.filter-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
+.filter-toggle-chevron {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 /* Loading Skeleton */
@@ -1937,19 +1980,13 @@ setup(props) {
 }
 
 .btn-secondary {
-  background: #6c757d;
-  color: #ffffff !important;
-  border-color: #5a6268;
+  background: var(--color-secondary-100, #f1f5f9);
+  color: var(--color-secondary-700, #334155);
+  border: 1px solid var(--color-secondary-300, #cbd5e1);
 }
 
 .btn-secondary:hover {
-  background: #5a6268;
-  color: #ffffff !important;
-}
-
-.btn-secondary .btn-icon,
-.btn-secondary .btn-text {
-  color: #ffffff !important;
+  background: var(--color-secondary-200, #e2e8f0);
 }
 
 .btn-info {
@@ -2272,7 +2309,21 @@ setup(props) {
   }
 
   .page-title {
-    font-size: 28px;
+    font-size: 26px;
+  }
+
+  .tab-button {
+    flex: unset;
+    padding: 10px 20px;
+    font-size: 15px;
+  }
+
+  .filter-toggle {
+    display: none;
+  }
+
+  .filter-container {
+    display: flex !important;
   }
 
   .filter-row {
@@ -2393,23 +2444,14 @@ setup(props) {
 .btn-secondary,
 .btn-secondary .btn-icon,
 .btn-secondary .btn-text {
-  background-color: #6c757d !important;
-  color: #ffffff !important;
-  border-color: #5a6268 !important;
+  background-color: var(--color-secondary-100, #f1f5f9) !important;
+  color: var(--color-secondary-700, #334155) !important;
+  border-color: var(--color-secondary-300, #cbd5e1) !important;
 }
 
-.btn-purple,
-.btn-purple .btn-icon,
-.btn-purple .btn-text {
-  background-color: #8b5cf6 !important;
-  color: #ffffff !important;
-  border-color: #7c3aed !important;
-}
-
-.btn-purple:hover {
-  background-color: #7c3aed !important;
-  border-color: #6d28d9 !important;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+.btn-secondary:hover {
+  background-color: var(--color-secondary-200, #e2e8f0) !important;
+  border-color: var(--color-secondary-400, #94a3b8) !important;
 }
 
 /* High Contrast Mode Support */
@@ -2453,14 +2495,9 @@ setup(props) {
   min-height: 36px;
 }
 
-/* Ensure sort buttons (btn-secondary btn-sm) have white text */
-.sort-buttons .btn-secondary {
-  color: #ffffff !important;
-}
-
+/* Sort button hover */
 .sort-buttons .btn-secondary:hover {
-  color: #ffffff !important;
-  background: #5a6268 !important;
+  background: var(--color-secondary-200, #e2e8f0) !important;
 }
 
 .reorder-list {
