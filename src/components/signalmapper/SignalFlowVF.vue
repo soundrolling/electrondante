@@ -27,47 +27,54 @@
   </header>
 
   <div class="sfv-toolbar">
-    <div class="sfv-chip-group">
+    <div class="sfv-chip-group" role="radiogroup" aria-label="Default connection type for new links">
+      <button
+        v-for="t in CONNECTION_TYPES"
+        :key="t"
+        type="button"
+        role="radio"
+        :aria-checked="connectionTypeDefault === t"
+        :class="['sfv-chip', { active: connectionTypeDefault === t }]"
+        @click="connectionTypeDefault = t"
+        :title="`New connections default to ${t}`"
+      >
+        <span class="sfv-dot" :style="{ background: CONNECTION_COLORS[t] }"></span>
+        {{ t }}
+      </button>
+    </div>
+    <div class="sfv-style-group" role="radiogroup" aria-label="Edge style">
       <button
         type="button"
-        :class="['sfv-chip', { active: connectionTypeDefault === 'Mic' }]"
-        @click="connectionTypeDefault = 'Mic'"
-        title="New connections default to Mic"
+        role="radio"
+        :aria-checked="edgeStyle === 'bezier'"
+        :class="['sfv-style-btn', { active: edgeStyle === 'bezier' }]"
+        @click="setEdgeStyle('bezier')"
+        title="Curved edges"
       >
-        <span class="sfv-dot" :style="{ background: CONNECTION_COLORS.Mic }"></span>
-        Mic
+        <Spline :size="14" :stroke-width="2" />
+        <span class="sfv-style-label">Curves</span>
       </button>
       <button
         type="button"
-        :class="['sfv-chip', { active: connectionTypeDefault === 'Line' }]"
-        @click="connectionTypeDefault = 'Line'"
+        role="radio"
+        :aria-checked="edgeStyle === 'smoothstep'"
+        :class="['sfv-style-btn', { active: edgeStyle === 'smoothstep' }]"
+        @click="setEdgeStyle('smoothstep')"
+        title="Orthogonal edges with rounded corners"
       >
-        <span class="sfv-dot" :style="{ background: CONNECTION_COLORS.Line }"></span>
-        Line
+        <CornerDownRight :size="14" :stroke-width="2" />
+        <span class="sfv-style-label">Steps</span>
       </button>
       <button
         type="button"
-        :class="['sfv-chip', { active: connectionTypeDefault === 'Dante' }]"
-        @click="connectionTypeDefault = 'Dante'"
+        role="radio"
+        :aria-checked="edgeStyle === 'straight'"
+        :class="['sfv-style-btn', { active: edgeStyle === 'straight' }]"
+        @click="setEdgeStyle('straight')"
+        title="Straight lines"
       >
-        <span class="sfv-dot" :style="{ background: CONNECTION_COLORS.Dante }"></span>
-        Dante
-      </button>
-      <button
-        type="button"
-        :class="['sfv-chip', { active: connectionTypeDefault === 'Midi' }]"
-        @click="connectionTypeDefault = 'Midi'"
-      >
-        <span class="sfv-dot" :style="{ background: CONNECTION_COLORS.Midi }"></span>
-        Midi
-      </button>
-      <button
-        type="button"
-        :class="['sfv-chip', { active: connectionTypeDefault === 'Madi' }]"
-        @click="connectionTypeDefault = 'Madi'"
-      >
-        <span class="sfv-dot" :style="{ background: CONNECTION_COLORS.Madi }"></span>
-        Madi
+        <Minus :size="14" :stroke-width="2" />
+        <span class="sfv-style-label">Straight</span>
       </button>
     </div>
     <div class="sfv-toolbar-actions">
@@ -219,6 +226,9 @@ import {
   Maximize2,
   X,
   Trash2,
+  Spline,
+  CornerDownRight,
+  Minus,
 } from 'lucide-vue-next'
 import { useToast } from 'vue-toastification'
 import {
@@ -313,6 +323,7 @@ const vfNodes = computed(() => {
 
 /* ─── Map DB connections → Vue Flow edges ─────────────── */
 const vfEdges = computed(() => {
+  const etype = edgeTypeName.value
   return (props.connections || []).map(c => {
     const type = c.connection_type || 'Mic'
     const color = CONNECTION_COLORS[type] || CONNECTION_COLORS.Default
@@ -320,11 +331,11 @@ const vfEdges = computed(() => {
       id: String(c.id),
       source: String(c.from_node_id),
       target: String(c.to_node_id),
-      type: 'smoothstep',
+      type: etype,
       label: type === 'Mic' ? '' : type,
       style: {
         stroke: color,
-        strokeWidth: 2.5,
+        strokeWidth: 2,
       },
       labelStyle: { fill: color, fontWeight: 600, fontSize: 11 },
       labelBgStyle: { fill: 'var(--surface-card)', fillOpacity: 0.9 },
@@ -367,6 +378,29 @@ onPaneReady(() => {
 
 /* ─── Default connection type for new edges ───────────── */
 const connectionTypeDefault = ref('Mic')
+
+/* ─── Edge style (persisted) ───────────────────────────── */
+const EDGE_STYLE_KEY = 'signalMapper.edgeStyle' // 'bezier' | 'smoothstep' | 'straight'
+const edgeStyle = ref(
+  typeof localStorage !== 'undefined'
+    ? (localStorage.getItem(EDGE_STYLE_KEY) || 'bezier')
+    : 'bezier'
+)
+function setEdgeStyle(next) {
+  edgeStyle.value = next
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(EDGE_STYLE_KEY, next)
+  } catch {}
+}
+// Map our style name → vue-flow edge type name
+const edgeTypeName = computed(() => {
+  switch (edgeStyle.value) {
+    case 'bezier': return 'default'      // default = cubic bezier
+    case 'straight': return 'straight'
+    case 'smoothstep':
+    default: return 'smoothstep'
+  }
+})
 
 /* ─── Selection (edges only for now) ──────────────────── */
 const selectedEdge = ref(null) // vue-flow edge object
@@ -696,6 +730,37 @@ onMounted(() => {
   border-radius: 50%;
   flex-shrink: 0;
 }
+.sfv-style-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  margin-left: var(--space-2);
+}
+.sfv-style-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  border-radius: calc(var(--radius-md) - 3px);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+}
+.sfv-style-btn:hover { color: var(--text-primary); }
+.sfv-style-btn.active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.sfv-style-label { display: inline; }
+
 .sfv-toolbar-actions {
   display: flex;
   gap: 4px;
@@ -967,6 +1032,8 @@ onMounted(() => {
   .sfv-toolbar { padding: 6px; gap: var(--space-2); }
   .sfv-chip-group { flex: 1; overflow-x: auto; scrollbar-width: none; }
   .sfv-chip-group::-webkit-scrollbar { display: none; }
+  .sfv-style-group { margin-left: 0; }
+  .sfv-style-label { display: none; }
   .sfv-inspector {
     left: var(--space-3);
     right: var(--space-3);
