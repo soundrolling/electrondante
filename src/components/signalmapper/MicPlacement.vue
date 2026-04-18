@@ -1,41 +1,60 @@
 <template>
 <div class="mic-placement-container">
-  <div class="placement-header">
-    <h3>Mic Placement</h3>
-    <p>Place microphones on the floor plan and assign track names</p>
-  </div>
-
-  <!-- Mobile Message -->
-  <div v-if="isMobile" class="mobile-message">
-    <p>📱 For better usability and to prevent errors, please view this page on a larger screen (desktop or tablet).</p>
-    <p>Mobile devices are not recommended for mic placement due to precision requirements.</p>
-  </div>
-
-  <!-- Unified Toolbar Row -->
-  <div class="placement-toolbar unified" :class="{ mobileHidden: isMobile }">
-    <!-- Mobile: collapsible image settings trigger -->
-    <div class="mobile-controls" v-if="!isMobile">
-      <button class="btn-secondary" @click="showMobileSettings = !showMobileSettings">Image Settings</button>
+  <header class="mp-head">
+    <div class="mp-head-title">
+      <h2 class="mp-title">Mic Placement</h2>
+      <p class="mp-subtitle">Place mics on the floor plan, assign track names, tap to edit</p>
     </div>
-    <div class="left-group" :class="{ mobileHidden: !showMobileSettings || isMobile }">
-      <label class="inline-setting">
+    <div class="mp-counts">
+      <span class="mp-count">
+        <span class="mp-count-value">{{ nodes.length }}</span>
+        <span class="mp-count-label">placed</span>
+      </span>
+      <span v-if="selectedMics.size > 0" class="mp-count active">
+        <span class="mp-count-value">{{ selectedMics.size }}</span>
+        <span class="mp-count-label">selected</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- Mobile tip (keeps the warning but styled consistently) -->
+  <div v-if="isMobile" class="mp-mobile-tip">
+    <Smartphone :size="14" :stroke-width="2" />
+    <span>Tap + hold to move mics. For dense placements, a tablet or desktop works better.</span>
+  </div>
+
+  <!-- Primary + image controls toolbar -->
+  <div class="mp-toolbar">
+    <button class="mp-primary-btn" @click="openGearModal">
+      <Plus :size="16" :stroke-width="2" />
+      <span>Add microphone</span>
+    </button>
+
+    <div class="mp-image-controls">
+      <label class="mp-pan-toggle" :class="{ active: panImageMode }">
         <input type="checkbox" v-model="panImageMode" />
+        <Move :size="14" :stroke-width="2" />
         <span>Pan</span>
       </label>
-      <button @click="zoomIn" :disabled="!bgImage" class="btn-secondary">🔍+</button>
-      <button @click="zoomOut" :disabled="!bgImage" class="btn-secondary">🔍-</button>
-      <button @click="resetImageView" :disabled="!bgImage" class="btn-secondary">Reset</button>
-      <button @click="openCropModal" :disabled="!bgImage" class="btn-secondary">✂️ Crop</button>
+      <button class="mp-icon-btn" @click="zoomIn" :disabled="!bgImage" title="Zoom in" aria-label="Zoom in">
+        <ZoomIn :size="16" :stroke-width="2" />
+      </button>
+      <button class="mp-icon-btn" @click="zoomOut" :disabled="!bgImage" title="Zoom out" aria-label="Zoom out">
+        <ZoomOut :size="16" :stroke-width="2" />
+      </button>
+      <button class="mp-icon-btn" @click="resetImageView" :disabled="!bgImage" title="Reset view" aria-label="Reset view">
+        <RotateCcw :size="16" :stroke-width="2" />
+      </button>
+      <button class="mp-icon-btn" @click="openCropModal" :disabled="!bgImage" title="Crop image" aria-label="Crop image">
+        <Crop :size="16" :stroke-width="2" />
+      </button>
       <input type="file" accept="image/*" @change="onImageUpload" id="image-upload" style="display:none" />
-      <button @click="triggerImageUpload" class="btn-secondary">{{ bgImage ? 'Replace' : 'Upload' }} Image</button>
-    </div>
-    <div class="center-group mobile-stack">
-      <button @click="openGearModal" class="btn-primary">➕ Add Microphone</button>
-    </div>
-    <div class="right-group">
-      <span class="mic-count">Mics Placed: {{ nodes.length }}</span>
-      <span v-if="selectedMics.size > 0" class="selection-count">{{ selectedMics.size }} selected</span>
-      <button @click="exportToPDF" class="btn-secondary">📥 Download Image</button>
+      <button class="mp-icon-btn" @click="triggerImageUpload" :title="bgImage ? 'Replace image' : 'Upload image'" aria-label="Upload or replace image">
+        <ImageIcon :size="16" :stroke-width="2" />
+      </button>
+      <button class="mp-icon-btn" @click="exportToPDF" :disabled="!bgImage" title="Download image" aria-label="Download image">
+        <Download :size="16" :stroke-width="2" />
+      </button>
     </div>
   </div>
 
@@ -448,6 +467,17 @@ import { useRouter } from 'vue-router'
 import { addNode, updateNode, deleteNode, getConnections, deleteConnection as deleteConnectionFromDB } from '@/services/signalMapperService'
 import { fetchTableData, mutateTableData } from '@/services/dataService'
 import { useUserStore } from '@/stores/userStore'
+import {
+  Plus,
+  Move,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Crop,
+  Image as ImageIcon,
+  Download,
+  Smartphone,
+} from 'lucide-vue-next'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -3413,6 +3443,183 @@ defineExpose({ getCanvasDataURL })
 </script>
 
 <style scoped>
+/* ═══ Modernized header + toolbar (Phase 3) ═══ */
+.mp-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  flex-wrap: wrap;
+}
+.mp-head-title { min-width: 0; }
+.mp-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-heading);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.mp-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 2px 0 0 0;
+}
+.mp-counts { display: flex; gap: var(--space-3); flex-shrink: 0; }
+.mp-count {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+}
+.mp-count-value {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.mp-count.active .mp-count-value { color: var(--color-primary-600); }
+.mp-count-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  font-weight: var(--font-medium);
+}
+
+.mp-mobile-tip {
+  margin: 0 var(--space-4) var(--space-3);
+  padding: 8px 10px;
+  background: var(--color-warning-50);
+  border: 1px solid var(--color-warning-200);
+  border-radius: var(--radius-md);
+  color: var(--color-warning-800);
+  font-size: var(--text-xs);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mp-mobile-tip svg { flex-shrink: 0; color: var(--color-warning-700); }
+:deep(.dark) .mp-mobile-tip {
+  background: rgba(120, 53, 15, 0.25);
+  border-color: var(--color-warning-700);
+  color: var(--color-warning-200);
+}
+
+.mp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px var(--space-4) var(--space-3);
+  flex-wrap: wrap;
+}
+.mp-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 38px;
+  background: var(--color-primary-500);
+  border: 1px solid var(--color-primary-600);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
+  flex-shrink: 0;
+}
+.mp-primary-btn:hover {
+  background: var(--color-primary-600);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+}
+.mp-primary-btn:active { transform: scale(0.98); }
+.mp-primary-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.mp-image-controls {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  align-items: center;
+  margin-left: auto;
+}
+.mp-pan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 32px;
+  border-radius: calc(var(--radius-md) - 3px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  user-select: none;
+}
+.mp-pan-toggle input { display: none; }
+.mp-pan-toggle:hover { color: var(--text-primary); }
+.mp-pan-toggle.active {
+  background: var(--surface-card);
+  color: var(--color-primary-700);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.mp-pan-toggle.active svg { color: var(--color-primary-600); }
+.mp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-md) - 3px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  padding: 0;
+}
+.mp-icon-btn:hover:not(:disabled) {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.mp-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.mp-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Mobile: wrap, larger tap targets */
+@media (max-width: 600px) {
+  .mp-head {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--space-3) var(--space-3) var(--space-2);
+    gap: var(--space-2);
+  }
+  .mp-counts { justify-content: flex-start; gap: var(--space-4); }
+  .mp-count { align-items: flex-start; }
+  .mp-toolbar {
+    padding: 6px var(--space-3) var(--space-2);
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .mp-primary-btn { width: 100%; justify-content: center; height: 42px; }
+  .mp-image-controls { margin-left: 0; flex-wrap: wrap; width: 100%; }
+  .mp-icon-btn { width: 40px; height: 40px; }
+  .mp-pan-toggle { height: 40px; padding: 0 14px; }
+  .mp-mobile-tip { margin: 0 var(--space-3) var(--space-2); }
+}
+
+/* ═══ Legacy / canvas styles below ═══ */
 .mic-placement-container {
   padding: 20px;
 }
