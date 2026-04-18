@@ -697,6 +697,13 @@ export default {
 
 /* Mobile-First Responsive Design */
 /* Mobile: 0–600px (default) */
+@media (max-width: 600px) {
+  .login-container {
+    align-items: flex-start;
+    padding-top: max(20px, env(safe-area-inset-top));
+  }
+}
+
 /* Tablet: 601–1024px */
 @media (min-width: 601px) {
   .login-container {
