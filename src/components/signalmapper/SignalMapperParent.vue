@@ -609,7 +609,7 @@ async function captureCurrentMicImage() {
   const inst = micPlacementRef.value
   if (!inst || typeof inst.getCanvasDataURL !== 'function') return null
   try {
-    return inst.getCanvasDataURL() || null
+    return (await inst.getCanvasDataURL()) || null
   } catch (err) {
     console.error('Failed to capture mic placement canvas:', err)
     return null
