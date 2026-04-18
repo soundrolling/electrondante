@@ -64,7 +64,15 @@
 
       <!-- Center: page title / primary nav -->
       <nav class="navigation">
-        <span v-if="isProjectsRoute" class="route-title">All Projects</span>
+        <router-link
+          v-if="isAuthenticated"
+          to="/projects"
+          class="nav-link"
+          :class="{ active: isActiveRoute('/projects') }"
+        >
+          <LayoutGrid :size="18" :stroke-width="2" />
+          <span class="nav-text">All Projects</span>
+        </router-link>
 
         <router-link
           v-if="showProjectHomeButton"
@@ -74,16 +82,6 @@
         >
           <Home :size="18" :stroke-width="2" />
           <span class="nav-text">Project Home</span>
-        </router-link>
-
-        <router-link
-          v-if="isAuthenticated && !isProjectsRoute"
-          to="/projects"
-          class="nav-link"
-          :class="{ active: isActiveRoute('/projects') }"
-        >
-          <LayoutGrid :size="18" :stroke-width="2" />
-          <span class="nav-text">All Projects</span>
         </router-link>
       </nav>
 
@@ -216,7 +214,7 @@
         <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="sheet-link" @click="showMobileMenu = false">
           <Home :size="18" :stroke-width="2" /> <span>Project Home</span>
         </router-link>
-        <router-link v-if="isAuthenticated && !isProjectsRoute" to="/projects" class="sheet-link" @click="showMobileMenu = false">
+        <router-link v-if="isAuthenticated" to="/projects" class="sheet-link" @click="showMobileMenu = false">
           <LayoutGrid :size="18" :stroke-width="2" /> <span>All Projects</span>
         </router-link>
         <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="sheet-link" @click="showMobileMenu = false">
