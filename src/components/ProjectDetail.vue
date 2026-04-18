@@ -281,6 +281,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 import { supabase } from '../supabase';
 import { fetchTableData } from '../services/dataService';
+import { cachedFetch } from '@/services/queryCache';
 import StageQuickAccessMenu from './stage/StageQuickAccessMenu.vue';
 import LTCTimecodeGenerator from './tools/LTCTimecodeGenerator.vue';
 import AudioSignalGenerator from './tools/AudioSignalGenerator.vue';
@@ -387,17 +388,21 @@ export default {
         const projectId = route.params.id;
         if (!projectId) { isLoading.value = false; return; }
 
-        const { data, error } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .single();
+        const { data } = await cachedFetch(
+          `project:detail:${projectId}`,
+          async () => {
+            const { data: row, error } = await supabase
+              .from('projects').select('*').eq('id', projectId).single();
+            if (error) throw error;
+            return row;
+          },
+          {
+            ttl: 5 * 60 * 1000,
+            onUpdate: (fresh) => { if (fresh) userStore.setCurrentProject(fresh); }
+          }
+        );
 
-        if (error || !data) {
-          console.error('Error fetching project:', error?.message);
-        } else {
-          userStore.setCurrentProject(data);
-        }
+        if (data) userStore.setCurrentProject(data);
 
         // Load stages for this project
         await loadStages();
@@ -412,10 +417,18 @@ export default {
     async function loadStages() {
       try {
         const projectId = route.params.id;
-        stages.value = await fetchTableData('locations', {
-          eq: { project_id: projectId },
-          order: [{ column: 'order', ascending: true }],
-        });
+        const { data } = await cachedFetch(
+          `project:stages:${projectId}`,
+          () => fetchTableData('locations', {
+            eq: { project_id: projectId },
+            order: [{ column: 'order', ascending: true }],
+          }),
+          {
+            ttl: 5 * 60 * 1000,
+            onUpdate: (fresh) => { stages.value = fresh ?? []; }
+          }
+        );
+        stages.value = data ?? [];
       } catch (err) {
         console.error('Error loading stages:', err.message);
         stages.value = [];
