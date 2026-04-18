@@ -485,15 +485,16 @@ async function fetchImages() {
 
     const loaded = [];
     for (const img of data) {
-      let url = supabase.storage
+      const { data: urlData } = supabase.storage
         .from('stage-pictures')
-        .getPublicUrl(img.file_path).publicURL;
-      
+        .getPublicUrl(img.file_path);
+      let url = urlData?.publicUrl;
+
       if (!url) {
         const { data: signed } = await supabase.storage
           .from('stage-pictures')
           .createSignedUrl(img.file_path, 3600);
-        url = signed.signedUrl;
+        url = signed?.signedUrl;
       }
       // Try to get file size from storage metadata if not present
       let size = img.size;
