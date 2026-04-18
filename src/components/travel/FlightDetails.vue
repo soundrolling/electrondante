@@ -1,7 +1,7 @@
 <template>
 <div class="flight-details">
   <!-- Consolidated Header Section -->
-  <div class="consolidated-header">
+  <div v-if="!tripId" class="consolidated-header">
     <!-- Row 1: Back Button, Title, and Subtitle -->
     <div class="header-row-1">
       <button class="back-button" @click="goBackToDashboard" aria-label="Back to dashboard">
@@ -74,7 +74,7 @@
     <div v-if="activeTab === 'flights'" class="section-content" role="tabpanel" id="flights-panel">
       <div class="section-header">
         <h2>Flight Information</h2>
-        <button v-if="canManageProject" @click="openFlightModal()" class="btn btn-positive add-button" aria-label="Add new flight">
+        <button v-if="canManageProject" @click="openFlightModal()" class="btn btn-primary add-button" aria-label="Add new flight">
           <span class="icon">+</span>
           <span class="button-text">Add Flight</span>
         </button>
@@ -162,7 +162,7 @@
     <div v-if="activeTab === 'rental'" class="section-content" role="tabpanel" id="rental-panel">
       <div class="section-header">
         <h2>Rental Car Information</h2>
-        <button v-if="canManageProject" @click="openRentalModal()" class="btn btn-positive add-button" aria-label="Add new rental car">
+        <button v-if="canManageProject" @click="openRentalModal()" class="btn btn-primary add-button" aria-label="Add new rental car">
           <span class="icon">+</span>
           <span class="button-text">Add Rental Car</span>
         </button>
@@ -240,7 +240,7 @@
     <div v-if="activeTab === 'local'" class="section-content" role="tabpanel" id="local-panel">
       <div class="section-header">
         <h2>Local Transportation</h2>
-        <button v-if="canManageProject" @click="openLocalTransportModal()" class="btn btn-positive add-button" aria-label="Add new local transport">
+        <button v-if="canManageProject" @click="openLocalTransportModal()" class="btn btn-primary add-button" aria-label="Add new local transport">
           <span class="icon">+</span>
           <span class="button-text">Add Local Transport</span>
         </button>
@@ -300,7 +300,7 @@
     <div v-if="activeTab === 'parking'" class="section-content" role="tabpanel" id="parking-panel">
       <div class="section-header">
         <h2>Airport Car Parking</h2>
-        <button v-if="canManageProject" @click="openNewParkingModal()" class="btn btn-positive add-button" aria-label="Add new parking">
+        <button v-if="canManageProject" @click="openNewParkingModal()" class="btn btn-primary add-button" aria-label="Add new parking">
           <span class="icon">🚗</span>
           <span class="button-text">Add Parking</span>
         </button>
@@ -517,7 +517,7 @@
             </button>
             <button
               type="submit"
-              class="btn btn-positive primary-button"
+              class="btn btn-primary primary-button"
               :disabled="isSaving"
             >
               <span v-if="isSaving" class="loading-spinner-small"></span>
@@ -682,7 +682,7 @@
             </button>
             <button
               type="submit"
-              class="btn btn-positive primary-button"
+              class="btn btn-primary primary-button"
               :disabled="isSaving"
             >
               {{ editingRental ? 'Update Rental' : 'Add Rental' }}
@@ -788,7 +788,7 @@
             </button>
             <button
               type="submit"
-              class="btn btn-positive primary-button"
+              class="btn btn-primary primary-button"
               :disabled="isSaving"
             >
               {{ editingTransport ? 'Update Transport' : 'Add Transport' }}
@@ -895,7 +895,7 @@
             </button>
             <button
               type="submit"
-              class="btn btn-positive primary-button"
+              class="btn btn-primary primary-button"
               :disabled="isSavingParking"
             >
               <span v-if="isSavingParking" class="loading-spinner-small"></span>
@@ -997,7 +997,7 @@
             >
               Cancel
             </button>
-            <button type="submit" class="btn btn-positive primary-button">Update Parking</button>
+            <button type="submit" class="btn btn-primary primary-button">Update Parking</button>
           </div>
         </form>
       </div>
@@ -1966,7 +1966,7 @@ setup(props) {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--color-success-500);
+  background: var(--btn-primary-bg);
   color: var(--text-inverse);
   padding: 0.5rem 1rem;
   border: none;
@@ -1977,7 +1977,7 @@ setup(props) {
   transition: background 0.2s;
 }
 .add-button:hover {
-  background: var(--color-success-600);
+  background: var(--btn-primary-hover-bg);
 }
 .add-button .icon {
   font-size: 1.1rem;
@@ -2407,7 +2407,7 @@ setup(props) {
   background-color: var(--color-secondary-600);
 }
 .primary-button {
-  background-color: var(--color-success-500);
+  background-color: var(--btn-primary-bg);
   color: var(--text-inverse);
   border-radius: 8px;
   padding: 0.5rem 1.25rem;
@@ -2416,7 +2416,7 @@ setup(props) {
   transition: background 0.2s;
 }
 .primary-button:hover {
-  background-color: var(--color-success-600);
+  background-color: var(--btn-primary-hover-bg);
 }
 .primary-button:disabled {
   background-color: var(--color-secondary-400);

@@ -8,7 +8,7 @@
     <div class="dashboard-card upcoming-trips">
       <div class="card-header">
         <h2>Upcoming Trips</h2>
-        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive add-button" aria-label="Create new trip">
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-primary add-button" aria-label="Create new trip">
           <span class="icon">+</span>
           <span class="button-text">New Trip</span>
         </button>
@@ -53,7 +53,7 @@
         <div class="empty-icon">✈️</div>
         <h3>No upcoming trips</h3>
         <p>Create your first trip to get started!</p>
-        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-positive primary-button">Create First Trip</button>
+        <button v-if="canManageProject" @click="createNewTrip" class="btn btn-primary primary-button">Create First Trip</button>
       </div>
       
       <!-- No Results from Filters -->
@@ -61,7 +61,7 @@
         <div class="empty-icon">🔍</div>
         <h3>No trips match your filters</h3>
         <p>Try adjusting your filters or create a new trip.</p>
-        <button @click="clearFilters" class="btn btn-positive primary-button">Clear Filters</button>
+        <button @click="clearFilters" class="btn btn-primary primary-button">Clear Filters</button>
       </div>
       
       <!-- New Trip Inline Form -->
@@ -909,7 +909,7 @@ setup() {
 
 /* Buttons */
 .add-button {
-  background: var(--color-primary-500);
+  background: var(--btn-primary-bg);
   color: var(--text-inverse);
   border: none;
   border-radius: var(--radius-md);
@@ -927,7 +927,7 @@ setup() {
 }
 
 .add-button:hover {
-  background: var(--color-primary-600);
+  background: var(--btn-primary-hover-bg);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -938,7 +938,7 @@ setup() {
 
 .add-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .icon {
@@ -1067,7 +1067,7 @@ setup() {
 }
 
 .primary-button {
-  background: var(--color-success-500);
+  background: var(--btn-primary-bg);
   color: white !important;
   border: none;
   border-radius: var(--radius-md);
@@ -1084,7 +1084,7 @@ setup() {
 }
 
 .primary-button:hover {
-  background: var(--color-success-600);
+  background: var(--btn-primary-hover-bg);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -1095,7 +1095,7 @@ setup() {
 
 .primary-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .primary-button:disabled {
@@ -1135,7 +1135,7 @@ setup() {
 
 .trip-card:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .trip-card-header {
@@ -1278,7 +1278,7 @@ setup() {
 
 .action-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .action-button.edit-button {
@@ -1462,7 +1462,7 @@ setup() {
 
 .close-button:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3);
 }
 
 .modal-body {
