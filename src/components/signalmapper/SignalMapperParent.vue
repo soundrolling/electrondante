@@ -1,73 +1,67 @@
 <template>
 <div class="signal-mapper-parent">
-  <!-- Top Navigation Bar -->
-  <div class="signalmapper-topbar">
-    <button class="back-button" @click="goBack" aria-label="Back">← Back</button>
-    <div class="location-label" v-if="currentLocation">
-      <strong>Location:</strong>
-      {{ currentLocation.venue_name }} – {{ currentLocation.stage_name }}
+  <!-- Slim header -->
+  <div class="sm-header">
+    <button class="sm-back" @click="goBack" aria-label="Back">
+      <ArrowLeft :size="16" :stroke-width="2" />
+      <span class="sm-back-label">Back</span>
+    </button>
+    <div class="sm-location" v-if="currentLocation">
+      <span class="sm-location-kicker">Location</span>
+      <span class="sm-location-value">
+        {{ currentLocation.venue_name }}
+        <span v-if="currentLocation.stage_name" class="sm-location-sep">·</span>
+        {{ currentLocation.stage_name }}
+      </span>
     </div>
-    <div class="location-label" v-else>
-      <strong>No location found.</strong>
+    <div class="sm-location sm-location-empty" v-else>
+      <span>No location found</span>
     </div>
-    <div class="recording-day-selector" v-if="effectiveLocationId">
-      <label for="recording-day-select">Recording Day:</label>
-      <select 
-        id="recording-day-select"
-        v-model="selectedStageHourId" 
-        @change="onRecordingDayChange"
-        class="recording-day-select"
-        :disabled="stageHours.length === 0"
+  </div>
+
+  <!-- Sticky recording-day rail -->
+  <div v-if="effectiveLocationId && stageHours.length" class="rec-day-rail" role="tablist" aria-label="Recording day">
+    <Calendar :size="14" :stroke-width="2" class="rec-day-icon" />
+    <div class="rec-day-chips">
+      <button
+        v-for="stageHour in stageHours"
+        :key="stageHour.id"
+        role="tab"
+        :aria-selected="selectedStageHourId === stageHour.id"
+        :class="['rec-day-chip', { active: selectedStageHourId === stageHour.id }]"
+        @click="selectRecordingDay(stageHour.id)"
       >
-        <option v-if="stageHours.length === 0" :value="null" disabled>No recording days available</option>
-        <option 
-          v-for="stageHour in stageHours" 
-          :key="stageHour.id" 
-          :value="stageHour.id"
-        >
-          {{ getRecordingDayLabel(stageHour) }}
-        </option>
-      </select>
-      <button 
-        v-if="selectedStageHourId && stageHours.length > 1"
-        @click="showCopyModal = true"
-        class="copy-btn"
-        title="Copy signal flow from another recording day"
-      >
-        📋 Copy from Previous
+        {{ getRecordingDayLabel(stageHour) }}
       </button>
     </div>
-  </div>
-
-  <!-- Tab Navigation -->
-  <div class="tab-navigation">
-    <button 
-      :class="['tab-btn', { active: activeTab === 'placement' }]"
-      @click="setActiveTab('placement')"
+    <button
+      v-if="selectedStageHourId && stageHours.length > 1"
+      class="rec-day-copy"
+      @click="showCopyModal = true"
+      title="Copy signal flow from another recording day"
+      aria-label="Copy from previous day"
     >
-      📍 Mic Placement
-    </button>
-    <button 
-      :class="['tab-btn', { active: activeTab === 'flow' }]"
-      @click="setActiveTab('flow')"
-    >
-      🔗 Signal Flow
-    </button>
-    <button 
-      :class="['tab-btn', { active: activeTab === 'tracklist' }]"
-      @click="setActiveTab('tracklist')"
-    >
-      📊 Track List
-    </button>
-    <button 
-      :class="['tab-btn', { active: activeTab === 'dante' }]"
-      @click="setActiveTab('dante')"
-    >
-      🎛️ Setup Files
+      <Copy :size="14" :stroke-width="2" />
+      <span class="rec-day-copy-label">Copy</span>
     </button>
   </div>
 
-  
+  <!-- Desktop / tablet tab bar (segmented) -->
+  <div class="tab-nav tab-nav-top" role="tablist" aria-label="Signal mapper sections">
+    <button
+      v-for="t in tabs"
+      :key="t.key"
+      role="tab"
+      :aria-selected="activeTab === t.key"
+      :class="['tab-nav-btn', { active: activeTab === t.key }]"
+      @click="setActiveTab(t.key)"
+    >
+      <component :is="t.icon" :size="16" :stroke-width="2" />
+      <span class="tab-nav-label">{{ t.label }}</span>
+    </button>
+  </div>
+
+
 
   <!-- Tab Content -->
   <div class="tab-content">
@@ -130,6 +124,21 @@
     </KeepAlive>
   </div>
 
+  <!-- Mobile bottom tab nav (fixed) -->
+  <nav class="tab-nav-bottom" role="tablist" aria-label="Signal mapper sections">
+    <button
+      v-for="t in tabs"
+      :key="t.key"
+      role="tab"
+      :aria-selected="activeTab === t.key"
+      :class="['tab-nav-bottom-btn', { active: activeTab === t.key }]"
+      @click="setActiveTab(t.key)"
+    >
+      <component :is="t.icon" :size="20" :stroke-width="2" />
+      <span class="tab-nav-bottom-label">{{ t.shortLabel || t.label }}</span>
+    </button>
+  </nav>
+
   <!-- Copy from Previous Recording Day Modal -->
   <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal = false">
     <div class="modal-content copy-modal">
@@ -179,13 +188,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick, defineAsyncComponent, KeepAlive } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, defineAsyncComponent, markRaw, KeepAlive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useToast } from 'vue-toastification'
-import { 
-  getNodes, 
-  getConnections, 
+import {
+  getNodes,
+  getConnections,
   getSourceNodes,
   getCompleteSignalPath,
   subscribeToNodes,
@@ -194,6 +203,15 @@ import {
 } from '@/services/signalMapperService'
 import { useStageHours } from '@/composables/useStageHours'
 import { fetchTableData } from '@/services/dataService'
+import {
+  ArrowLeft,
+  Calendar,
+  Copy,
+  MapPin,
+  Workflow,
+  ListOrdered,
+  Save,
+} from 'lucide-vue-next'
 
 // Lazy load heavy components for better initial load performance
 const MicPlacement = defineAsyncComponent(() => import('./MicPlacement.vue'))
@@ -235,6 +253,19 @@ const selectedStageHourId = ref(null)
 const showCopyModal = ref(false)
 const copySourceStageHourId = ref(null)
 const isCopying = ref(false)
+
+// Tab config (shared between desktop bar + mobile bottom nav)
+const tabs = [
+  { key: 'placement', label: 'Mic Placement', shortLabel: 'Mics', icon: markRaw(MapPin) },
+  { key: 'flow', label: 'Signal Flow', shortLabel: 'Flow', icon: markRaw(Workflow) },
+  { key: 'tracklist', label: 'Track List', shortLabel: 'Tracks', icon: markRaw(ListOrdered) },
+  { key: 'dante', label: 'Setup Files', shortLabel: 'Files', icon: markRaw(Save) },
+]
+
+function selectRecordingDay(id) {
+  selectedStageHourId.value = id
+  if (typeof onRecordingDayChange === 'function') onRecordingDayChange()
+}
 
 // Ensure children always receive a valid location id if present via route
 const effectiveLocationId = computed(() => {
@@ -603,329 +634,435 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ─── Shell ────────────────────────────────────────────── */
 .signal-mapper-parent {
-  padding: 20px;
-  max-width: 1400px;
+  max-width: 1280px;
   margin: 0 auto;
+  padding: var(--space-4);
+  padding-bottom: calc(var(--space-4) + 72px + env(safe-area-inset-bottom, 0));
 }
 
-.signalmapper-topbar {
+/* ─── Slim header ──────────────────────────────────────── */
+.sm-header {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
 }
-
-.back-button {
-  padding: 8px 16px;
-  background: var(--color-secondary-500);
-  color: var(--text-inverse);
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.back-button:hover {
-  background: var(--color-secondary-600);
-}
-
-.location-label {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.tab-navigation {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding: 10px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-}
-
-.tab-btn {
-  flex: 1;
-  padding: 12px 20px;
-  background: var(--bg-primary);
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  transition: all 0.2s;
-  color: var(--text-secondary);
-}
-
-.tab-btn:hover {
-  border-color: var(--color-primary-500);
-  background: var(--bg-secondary);
-}
-
-.tab-btn.active {
-  background: var(--color-primary-600);
-  color: var(--text-inverse);
-  border-color: var(--color-primary-700);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35), 0 6px 14px rgba(37, 99, 235, 0.25);
-  font-weight: 700;
-}
-
-.tab-content {
-  background: var(--bg-primary);
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-  min-height: 500px;
-}
-
-.no-stage-hour-message {
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.no-stage-hour-message p {
-  margin: 0;
-  font-size: 16px;
-}
-
-.recording-day-selector {
-  display: flex;
+.sm-back {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.recording-day-selector label {
-  font-size: 14px;
+  gap: 6px;
+  padding: 6px 10px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
-  font-weight: 500;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  transition: background var(--transition-normal), color var(--transition-normal);
+  flex-shrink: 0;
 }
-
-.recording-day-select {
-  padding: 6px 12px;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  background: var(--bg-primary);
+.sm-back:hover {
+  background: var(--surface-hover);
   color: var(--text-primary);
-  font-size: 14px;
-  cursor: pointer;
-  min-width: 200px;
 }
-
-.recording-day-select:focus {
+.sm-back:focus-visible {
   outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
+.sm-location {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.sm-location-kicker {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+.sm-location-value {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.sm-location-sep { color: var(--text-tertiary); margin: 0 4px; font-weight: var(--font-normal); }
+.sm-location-empty .sm-location-value { color: var(--text-tertiary); font-style: italic; font-weight: var(--font-medium); }
 
-.copy-btn {
-  padding: 6px 12px;
-  background: var(--color-primary-500);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
+/* ─── Sticky recording-day rail ────────────────────────── */
+.rec-day-rail {
+  position: sticky;
+  top: 56px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  background: var(--surface-filter-rail);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
+  backdrop-filter: saturate(140%) blur(6px);
+}
+.rec-day-icon { color: var(--text-tertiary); flex-shrink: 0; }
+.rec-day-chips {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: none;
+}
+.rec-day-chips::-webkit-scrollbar { display: none; }
+.rec-day-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  height: 28px;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-full);
+  color: var(--chip-text);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rec-day-chip:hover { background: var(--surface-hover); color: var(--text-primary); }
+.rec-day-chip.active {
+  background: var(--chip-bg-active);
+  color: var(--chip-text-active);
+  border-color: var(--chip-border-active);
+}
+.rec-day-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.rec-day-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  flex-shrink: 0;
+}
+.rec-day-copy:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+  color: var(--text-primary);
+}
+.rec-day-copy-label { display: none; }
+
+/* ─── Top tab bar (segmented) ──────────────────────────── */
+.tab-nav-top {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--chip-bg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
+}
+.tab-nav-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-lg) - 3px);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  min-width: 0;
+}
+.tab-nav-btn:hover { color: var(--text-primary); }
+.tab-nav-btn.active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  font-weight: var(--font-semibold);
+}
+.tab-nav-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.tab-nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.copy-btn:hover {
-  background: var(--color-primary-600);
+/* ─── Tab content shell ───────────────────────────────── */
+.tab-content {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  min-height: 500px;
+  overflow: hidden;
+}
+.no-stage-hour-message {
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
-/* Copy Modal Styles */
-.modal-overlay {
+/* ─── Mobile bottom tab nav (fixed) ────────────────────── */
+.tab-nav-bottom {
+  display: none;
   position: fixed;
-  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-fixed);
+  background: var(--surface-app-bar);
+  border-top: 1px solid var(--surface-border);
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0));
+  backdrop-filter: saturate(140%) blur(8px);
+}
+.tab-nav-bottom-btn {
+  flex: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: color var(--transition-normal);
+  min-height: 52px;
+  min-width: 0;
+}
+.tab-nav-bottom-btn:hover { color: var(--text-secondary); }
+.tab-nav-bottom-btn.active {
+  color: var(--color-primary-600);
+  font-weight: var(--font-semibold);
+}
+.tab-nav-bottom-btn.active svg { color: var(--color-primary-500); }
+.tab-nav-bottom-btn:focus-visible {
+  outline: none;
+  background: var(--surface-hover);
+  border-radius: var(--radius-md);
+}
+.tab-nav-bottom-label { line-height: 1; }
+
+/* ─── Modal ────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
 }
-
 .copy-modal {
-  background: var(--bg-primary);
-  border-radius: 8px;
-  padding: 0;
-  max-width: 500px;
-  width: 90%;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  max-width: 480px;
+  width: 100%;
   max-height: 90vh;
   overflow: auto;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e9ecef;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--surface-border);
 }
-
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
-  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
 }
-
 .modal-close {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: var(--text-xl);
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-normal);
 }
-
 .modal-close:hover {
-  background: #f0f0f0;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
-
-.modal-body {
-  padding: 20px;
-}
-
+.modal-body { padding: var(--space-4) var(--space-5); }
 .modal-body p {
-  margin: 0 0 15px 0;
+  margin: 0 0 var(--space-3) 0;
   color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
-
 .copy-source-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  background: var(--bg-primary);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--text-sm);
   cursor: pointer;
-  margin-bottom: 15px;
+  margin-bottom: var(--space-3);
+  min-height: 40px;
 }
-
 .copy-source-select:focus {
   outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
-
-.copy-source-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+.copy-source-select:disabled { opacity: 0.6; cursor: not-allowed; }
 .copy-warning {
-  padding: 12px;
-  background: var(--color-warning-100);
-  border: 1px solid var(--color-warning-400);
-  border-radius: 6px;
-  margin-top: 15px;
+  padding: 10px 12px;
+  background: var(--color-warning-50);
+  border: 1px solid var(--color-warning-200);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
 }
-
 .copy-warning p {
   margin: 0;
   color: var(--color-warning-800);
-  font-size: 13px;
+  font-size: var(--text-xs);
 }
-
-/* Dark mode adjustments for warning */
 .dark .copy-warning {
-  background: var(--color-warning-900);
-  border-color: var(--color-warning-600);
+  background: rgba(120, 53, 15, 0.25);
+  border-color: var(--color-warning-700);
 }
-
-.dark .copy-warning p {
-  color: var(--color-warning-200);
-}
-
+.dark .copy-warning p { color: var(--color-warning-200); }
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 20px;
-  border-top: 1px solid #e9ecef;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--surface-border);
 }
-
 .btn {
-  padding: 8px 16px;
+  padding: 8px 14px;
   border: none;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background var(--transition-normal), color var(--transition-normal);
+  min-height: 36px;
 }
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-secondary {
-  background: #6c757d;
-  color: white;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--surface-border);
 }
-
 .btn-secondary:hover:not(:disabled) {
-  background: #5a6268;
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
 }
-
 .btn-primary {
   background: var(--color-primary-500);
-  color: white;
+  color: #ffffff;
+  border: 1px solid var(--color-primary-600);
 }
-
 .btn-primary:hover:not(:disabled) {
   background: var(--color-primary-600);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
 }
 
-@media (max-width: 768px) {
-  .signal-mapper-parent {
-    padding: 15px;
-  }
+/* ─── Tablet + desktop ─────────────────────────────────── */
+@media (min-width: 601px) {
+  .signal-mapper-parent { padding: var(--space-5); padding-bottom: var(--space-5); }
+  .rec-day-copy-label { display: inline; }
+  .sm-back-label { display: inline; }
+}
 
-  .tab-navigation {
-    flex-direction: column;
-  }
+@media (min-width: 1025px) {
+  .signal-mapper-parent { padding: var(--space-6); padding-bottom: var(--space-6); }
+}
 
-  .tab-btn {
-    width: 100%;
+/* ─── Mobile ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .signal-mapper-parent { padding: var(--space-3); }
+  .sm-header { padding: 6px 8px; gap: var(--space-2); }
+  .sm-back { padding: 6px; width: 32px; justify-content: center; }
+  .sm-back-label { display: none; }
+  .sm-location-kicker { display: none; }
+  .rec-day-rail {
+    position: sticky;
+    top: 52px;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
   }
+  .rec-day-copy-label { display: none; }
+  .rec-day-copy { padding: 0; width: 28px; justify-content: center; }
+  .tab-nav-top { display: none; }
+  .tab-nav-bottom { display: flex; }
+  .tab-content { border-radius: var(--radius-md); min-height: 400px; }
+}
 
-  .signalmapper-topbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
-  .recording-day-selector {
-    margin-left: 0;
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .recording-day-select {
-    width: 100%;
-  }
-
-  .copy-btn {
-    width: 100%;
-  }
+/* ─── Accessibility ────────────────────────────────────── */
+@media (prefers-contrast: high) {
+  .sm-header,
+  .rec-day-rail,
+  .rec-day-chip,
+  .tab-nav-btn,
+  .tab-nav-bottom { border-width: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-day-chip,
+  .rec-day-copy,
+  .tab-nav-btn,
+  .tab-nav-bottom-btn,
+  .sm-back,
+  .btn { transition: none; }
 }
 </style>
+
+
 
