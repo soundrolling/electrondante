@@ -171,28 +171,34 @@
     </div>
   </aside>
 
-  <!-- Full node inspector (reuses classic component) -->
-  <NodeInspector
-    v-if="inspectorNode"
-    :projectId="projectId"
-    :node="inspectorNode"
-    :elements="props.nodes"
-    :locationId="locationId"
-    :stageHourId="stageHourId"
-    viewType="signal-flow"
-    @close="inspectorNode = null"
-    @node-deleted="onInspectorNodeDeleted"
-    @node-updated="onInspectorNodeUpdated"
-  />
+  <!-- Full node inspector (reuses classic component).
+       Teleported to body so position:fixed is viewport-anchored
+       and the modal isn't trapped inside VueFlow's transform context. -->
+  <Teleport to="body">
+    <NodeInspector
+      v-if="inspectorNode"
+      :projectId="projectId"
+      :node="inspectorNode"
+      :elements="props.nodes"
+      :locationId="locationId"
+      :stageHourId="stageHourId"
+      viewType="signal-flow"
+      @close="inspectorNode = null"
+      @node-deleted="onInspectorNodeDeleted"
+      @node-updated="onInspectorNodeUpdated"
+    />
+  </Teleport>
 
   <!-- Venue sources modal when a venue_sources node is clicked -->
-  <VenueSourcesConfigModal
-    v-if="venueSourcesNode"
-    :nodeId="venueSourcesNode.id"
-    :projectId="projectId"
-    @close="venueSourcesNode = null"
-    @saved="onVenueSourcesSaved"
-  />
+  <Teleport to="body">
+    <VenueSourcesConfigModal
+      v-if="venueSourcesNode"
+      :nodeId="venueSourcesNode.id"
+      :projectId="projectId"
+      @close="venueSourcesNode = null"
+      @saved="onVenueSourcesSaved"
+    />
+  </Teleport>
 </div>
 </template>
 
