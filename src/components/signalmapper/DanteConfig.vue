@@ -1,110 +1,184 @@
 <template>
 <div class="dante-config-container">
-  <div class="dante-header">
-    <h3>Setup Files</h3>
-    <p>Upload your Dante and stagebox setup files so you can download for future shows or with a show reset</p>
+  <header class="dc-head">
+    <div class="dc-head-title">
+      <h2 class="dc-title">Setup Files</h2>
+      <p class="dc-subtitle">Store Dante and stagebox configs for future shows or show-reset</p>
+    </div>
+    <div class="dc-counts" v-if="configurations.length > 0">
+      <span class="dc-count">
+        <span class="dc-count-value">{{ configurations.length }}</span>
+        <span class="dc-count-label">saved</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- Search + filter toolbar (only when there's something to filter) -->
+  <div v-if="configurations.length > 0" class="dc-toolbar">
+    <div class="dc-search">
+      <Search :size="16" :stroke-width="2" class="dc-search-icon" />
+      <input
+        v-model="configFilter"
+        placeholder="Search configs, locations, filenames…"
+        class="dc-search-input"
+        type="search"
+      />
+    </div>
   </div>
 
   <!-- Upload Section -->
-  <div class="dante-section">
-    <h4>📤 Upload Setup Files</h4>
-    <div 
-      class="upload-area"
-      :class="{ 'drag-over': isDragOver }"
+  <section class="dc-card">
+    <div class="dc-card-head">
+      <div class="dc-card-icon">
+        <UploadCloud :size="16" :stroke-width="2" />
+      </div>
+      <h3 class="dc-card-title">Upload setup file</h3>
+    </div>
+
+    <div
+      class="dc-dropzone"
+      :class="{ 'drag-over': isDragOver, 'has-file': !!selectedFile }"
       @drop="handleFileDrop"
       @dragover.prevent="isDragOver = true"
       @dragleave="isDragOver = false"
       @click="!selectedFile && $refs.fileInput?.click()"
     >
-      <input 
-        type="file" 
-        ref="fileInput" 
-        @change="handleFileSelect" 
+      <input
+        type="file"
+        ref="fileInput"
+        @change="handleFileSelect"
         accept=".json,.xml,.txt,.dante"
         style="display: none"
       />
-      <div v-if="!selectedFile" class="upload-placeholder">
-        <p>📁 Drag and drop a file here, or click to select</p>
-        <button @click.stop="$refs.fileInput?.click()" class="btn-upload">
-          Choose File
+      <template v-if="!selectedFile">
+        <div class="dc-dropzone-icon">
+          <FilePlus :size="22" :stroke-width="1.75" />
+        </div>
+        <p class="dc-dropzone-text">Drag and drop a file, or tap to select</p>
+        <button @click.stop="$refs.fileInput?.click()" class="dc-primary-btn">
+          <Upload :size="14" :stroke-width="2" />
+          <span>Choose file</span>
+        </button>
+        <p class="dc-dropzone-hint">Accepts .json, .xml, .txt, .dante</p>
+      </template>
+      <div v-else class="dc-file-selected">
+        <div class="dc-file-chip">
+          <FileText :size="14" :stroke-width="2" />
+          <span class="dc-file-name">{{ selectedFile.name }}</span>
+        </div>
+        <button @click.stop="clearFile" class="dc-icon-btn" aria-label="Remove selected file" title="Remove file">
+          <X :size="14" :stroke-width="2" />
         </button>
       </div>
-      <div v-else class="file-selected">
-        <span class="file-name">📄 {{ selectedFile.name }}</span>
-        <button @click.stop="clearFile" class="btn-clear">×</button>
-      </div>
     </div>
-    
-    <!-- Title and Description Fields -->
-    <div v-if="selectedFile" class="upload-form">
-      <div class="form-group">
-        <label>Title *</label>
-        <input 
-          v-model="uploadForm.title" 
-          type="text" 
-          class="input" 
-          placeholder="e.g., Main Stage Dante Setup"
+
+    <!-- Title and description fields after file is selected -->
+    <div v-if="selectedFile" class="dc-upload-form">
+      <div class="dc-form-group">
+        <label class="dc-label">Title *</label>
+        <input
+          v-model="uploadForm.title"
+          type="text"
+          class="dc-input"
+          placeholder="e.g. Main Stage Dante setup"
           required
         />
       </div>
-      <div class="form-group">
-        <label>Description</label>
-        <textarea 
-          v-model="uploadForm.description" 
-          class="input" 
+      <div class="dc-form-group">
+        <label class="dc-label">Description</label>
+        <textarea
+          v-model="uploadForm.description"
+          class="dc-input"
           rows="3"
-          placeholder="Optional description of this setup file"
+          placeholder="Optional — what scenes, what gear, what venue…"
         />
       </div>
-      <div class="form-actions">
-        <button @click="clearFile" class="btn-secondary">Cancel</button>
-        <button @click="handleUpload" class="btn-primary" :disabled="!uploadForm.title || uploading">
-          {{ uploading ? 'Uploading...' : 'Upload' }}
+      <div class="dc-form-actions">
+        <button @click="clearFile" class="dc-ghost-btn">Cancel</button>
+        <button @click="handleUpload" class="dc-primary-btn" :disabled="!uploadForm.title || uploading">
+          <Upload :size="14" :stroke-width="2" />
+          <span>{{ uploading ? 'Uploading…' : 'Upload' }}</span>
         </button>
       </div>
     </div>
-    
-    <div v-if="fileContent && !selectedFile" class="file-preview">
-      <h5>File Preview:</h5>
-      <pre class="preview-content">{{ filePreview }}</pre>
+
+    <div v-if="fileContent && !selectedFile" class="dc-preview">
+      <h5 class="dc-preview-title">Preview</h5>
+      <pre class="dc-preview-body">{{ filePreview }}</pre>
     </div>
-  </div>
+  </section>
 
   <!-- Saved Configurations -->
-  <div class="dante-section">
-    <h4>💾 Saved Configurations</h4>
-    <div v-if="loading" class="loading-state">
-      <p>Loading configurations...</p>
-    </div>
-    <div v-else-if="configurations.length === 0" class="no-data-state">
-      <p>No saved configurations yet.</p>
-      <p class="hint">Upload a Dante file and save it to get started.</p>
-    </div>
-    <div v-else class="configurations-list">
-      <div 
-        v-for="config in configurations" 
-        :key="config.id" 
-        class="config-card"
-      >
-        <div class="config-header">
-          <h5>{{ config.name }}</h5>
-          <div class="config-actions">
-            <button @click="downloadConfiguration(config)" class="btn-download">Download</button>
-            <button @click="editConfiguration(config)" class="btn-edit">Edit</button>
-            <button @click="deleteConfiguration(config.id)" class="btn-delete">Delete</button>
-          </div>
-        </div>
-        <div class="config-details">
-          <p v-if="config.description" class="config-description">{{ config.description }}</p>
-          <div class="config-meta">
-            <span v-if="config.file_name">📄 {{ config.file_name }}</span>
-            <span v-if="config.location_id">📍 {{ getLocationName(config.location_id) }}</span>
-            <span>🕒 {{ formatDate(config.updated_at) }}</span>
-          </div>
-        </div>
+  <section class="dc-card">
+    <div class="dc-card-head">
+      <div class="dc-card-icon">
+        <Save :size="16" :stroke-width="2" />
       </div>
+      <h3 class="dc-card-title">Saved configurations</h3>
     </div>
-  </div>
+
+    <div v-if="loading" class="dc-state loading">
+      <RefreshCw :size="20" :stroke-width="2" class="dc-state-icon spinning" />
+      <p>Loading…</p>
+    </div>
+    <div v-else-if="configurations.length === 0" class="dc-state empty">
+      <div class="dc-state-icon-bg">
+        <Save :size="22" :stroke-width="1.5" />
+      </div>
+      <p class="dc-state-title">No saved configurations yet</p>
+      <p class="dc-state-hint">Upload a Dante file above and you'll see it here.</p>
+    </div>
+    <div v-else-if="filteredConfigurations.length === 0" class="dc-state empty">
+      <div class="dc-state-icon-bg">
+        <Search :size="22" :stroke-width="1.5" />
+      </div>
+      <p class="dc-state-title">No configs match your search</p>
+      <p class="dc-state-hint">Try a different term or clear the search.</p>
+    </div>
+
+    <ul v-else class="dc-config-list">
+      <li
+        v-for="config in filteredConfigurations"
+        :key="config.id"
+        class="dc-config-row"
+      >
+        <div class="dc-config-icon">
+          <FileText :size="18" :stroke-width="2" />
+        </div>
+        <div class="dc-config-body">
+          <div class="dc-config-top">
+            <span class="dc-config-name">{{ config.name }}</span>
+            <span class="dc-config-time">
+              <Clock :size="11" :stroke-width="2" />
+              {{ formatDate(config.updated_at) }}
+            </span>
+          </div>
+          <p v-if="config.description" class="dc-config-desc">{{ config.description }}</p>
+          <div class="dc-config-meta">
+            <span v-if="config.file_name" class="dc-config-chip">
+              <FileText :size="11" :stroke-width="2" />
+              {{ config.file_name }}
+            </span>
+            <span v-if="config.location_id" class="dc-config-chip">
+              <MapPin :size="11" :stroke-width="2" />
+              {{ getLocationName(config.location_id) }}
+            </span>
+          </div>
+        </div>
+        <div class="dc-config-actions">
+          <button @click="downloadConfiguration(config)" class="dc-icon-btn" title="Download" aria-label="Download">
+            <Download :size="16" :stroke-width="2" />
+          </button>
+          <button @click="editConfiguration(config)" class="dc-icon-btn" title="Edit" aria-label="Edit">
+            <Pencil :size="16" :stroke-width="2" />
+          </button>
+          <button @click="deleteConfiguration(config.id)" class="dc-icon-btn danger" title="Delete" aria-label="Delete">
+            <Trash2 :size="16" :stroke-width="2" />
+          </button>
+        </div>
+      </li>
+    </ul>
+  </section>
 
   <!-- Save Configuration Modal -->
   <div v-if="showSaveModal" class="modal-overlay" @click="showSaveModal = false">
@@ -202,6 +276,21 @@
 import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
+import {
+  Search,
+  UploadCloud,
+  Upload,
+  FilePlus,
+  FileText,
+  Save,
+  RefreshCw,
+  X,
+  Clock,
+  MapPin,
+  Download,
+  Pencil,
+  Trash2,
+} from 'lucide-vue-next'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -221,6 +310,20 @@ const isDragOver = ref(false)
 const showSaveModal = ref(false)
 const editingConfig = ref(null)
 const availableLocations = ref([])
+const configFilter = ref('')
+
+const filteredConfigurations = computed(() => {
+  const q = configFilter.value.trim().toLowerCase()
+  if (!q) return configurations.value
+  return configurations.value.filter(c => {
+    const loc = c.location_id ? getLocationName(c.location_id) : ''
+    const fields = [c.name, c.description, c.file_name, loc]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return fields.includes(q)
+  })
+})
 
 const uploadForm = ref({
   title: '',
@@ -560,7 +663,9 @@ async function loadLocations() {
 
 function getLocationName(locationId) {
   const loc = availableLocations.value.find(l => l.id === locationId)
-  return loc ? `${loc.venue_name} – ${loc.stage_name}` : 'Unknown'
+  if (!loc) return 'Unknown'
+  const parts = [loc.venue_name, loc.stage_name].filter(Boolean)
+  return parts.join(' · ') || 'Unknown'
 }
 
 function formatDate(dateString) {
@@ -575,488 +680,606 @@ onMounted(async () => {
 })
 </script>
 
+
+
 <style scoped>
+/* ─── Container ────────────────────────────────────────── */
 .dante-config-container {
-  padding: 20px;
-}
-
-.dante-header {
-  margin-bottom: 30px;
-  text-align: center;
-}
-
-.dante-header h3 {
-  margin: 0 0 10px 0;
-  font-size: 24px;
+  padding: var(--space-4);
   color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.dante-header p {
+/* ─── Header ───────────────────────────────────────────── */
+.dc-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.dc-head-title { min-width: 0; }
+.dc-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-heading);
   margin: 0;
-  color: var(--text-secondary);
+  letter-spacing: -0.02em;
+}
+.dc-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 2px 0 0 0;
+}
+.dc-counts { display: flex; gap: var(--space-3); flex-shrink: 0; }
+.dc-count { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1; }
+.dc-count-value {
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--color-primary-600);
+  font-variant-numeric: tabular-nums;
+}
+.dc-count-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  font-weight: var(--font-medium);
 }
 
-.dante-section {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  border: 1px solid #e9ecef;
+/* ─── Search ───────────────────────────────────────────── */
+.dc-toolbar { padding: 0; }
+.dc-search { position: relative; width: 100%; }
+.dc-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
 }
-
-.dante-section h4 {
-  margin: 0 0 15px 0;
-  font-size: 18px;
+.dc-search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 34px;
+  font-size: var(--text-sm);
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
+  transition: background var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.dc-search-input::placeholder { color: var(--text-tertiary); }
+.dc-search-input:focus {
+  outline: none;
+  background: var(--surface-card);
+  border-color: var(--color-primary-300);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.upload-area {
-  border: 2px dashed #dee2e6;
-  border-radius: 8px;
-  padding: 40px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 20px;
+/* ─── Card ─────────────────────────────────────────────── */
+.dc-card {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.dc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--surface-card-muted);
+}
+.dc-card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dc-card-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0;
 }
 
-.upload-area:hover {
-  border-color: var(--color-primary-500);
-  background: rgba(37, 99, 235, 0.05);
-}
-
-.upload-area.drag-over {
-  border-color: var(--color-primary-500);
-  background: rgba(37, 99, 235, 0.1);
-}
-
-.upload-placeholder {
+/* ─── Dropzone ─────────────────────────────────────────── */
+.dc-dropzone {
+  margin: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  border: 1.5px dashed var(--surface-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
+  gap: var(--space-2);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-normal), background var(--transition-normal);
 }
-
-.upload-placeholder p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 14px;
+.dc-dropzone:hover {
+  border-color: var(--color-primary-400);
+  background: var(--surface-hover);
 }
-
-.file-selected {
-  display: flex;
+.dc-dropzone.drag-over {
+  border-color: var(--color-primary-500);
+  background: var(--color-primary-50);
+}
+.dc-dropzone.has-file {
+  cursor: default;
+  padding: var(--space-3) var(--space-4);
+  flex-direction: row;
+  justify-content: space-between;
+}
+.dc-dropzone-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  color: var(--color-primary-600);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+}
+.dc-dropzone-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+.dc-dropzone-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
 }
 
-.file-name {
+.dc-file-selected {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  justify-content: space-between;
+}
+.dc-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
+  min-width: 0;
+}
+.dc-file-chip svg { color: var(--color-primary-600); flex-shrink: 0; }
+.dc-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
-.btn-clear {
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
+/* ─── Buttons ──────────────────────────────────────────── */
+.dc-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  background: var(--color-primary-500);
+  border: 1px solid var(--color-primary-600);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  display: flex;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal);
+}
+.dc-primary-btn:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+.dc-primary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.dc-primary-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.dc-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+}
+.dc-ghost-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+
+.dc-icon-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
-}
-
-.btn-clear:hover {
-  background: #c82333;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-clear {
-    background: #ef4444;
-    color: white;
-  }
-  
-  .btn-clear:hover {
-    background: #dc2626;
-  }
-}
-
-.upload-form {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #dee2e6;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.btn-upload {
-  padding: 10px 20px;
-  background: var(--color-primary-500, #0ea5e9);
-  color: white;
-  border: none;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+  flex-shrink: 0;
+}
+.dc-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border);
+}
+.dc-icon-btn.danger:hover {
+  background: var(--color-error-50);
+  color: var(--color-error-600);
+  border-color: var(--color-error-200);
+}
+.dc-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.btn-upload:hover {
-  background: var(--color-primary-600, #0284c7);
+/* ─── Upload form ──────────────────────────────────────── */
+.dc-upload-form {
+  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.dc-form-group { display: flex; flex-direction: column; gap: 6px; }
+.dc-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dc-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  min-height: 40px;
+  font-family: inherit;
+}
+.dc-input:focus {
+  outline: none;
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.dc-form-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
 }
 
-@media (prefers-color-scheme: dark) {
-  .btn-upload {
-    background: var(--color-primary-600, #0284c7);
-    color: white;
-  }
-  
-  .btn-upload:hover {
-    background: var(--color-primary-700, #0369a1);
-  }
+/* ─── Preview ──────────────────────────────────────────── */
+.dc-preview { padding: 0 var(--space-4) var(--space-4); }
+.dc-preview-title {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px 0;
 }
-
-.file-name {
+.dc-preview-body {
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-family: var(--font-family-mono);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.file-preview {
-  margin-top: 15px;
-  padding: 15px;
-  background: var(--bg-primary);
-  border-radius: 6px;
-  border: 1px solid #dee2e6;
-}
-
-.file-preview h5 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.preview-content {
-  margin: 0;
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: 'Courier New', monospace;
   max-height: 200px;
-  overflow-y: auto;
+  overflow: auto;
   white-space: pre-wrap;
   word-break: break-all;
 }
 
-.loading-state,
-.no-data-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-secondary);
-}
-
-.no-data-state .hint {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
-.configurations-list {
-  display: grid;
-  gap: 15px;
-}
-
-.config-card {
-  background: var(--bg-primary);
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 15px;
-  transition: box-shadow 0.2s;
-}
-
-.config-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.config-header {
+/* ─── States ───────────────────────────────────────────── */
+.dc-state {
+  padding: var(--space-8) var(--space-4);
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 10px;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
 }
-
-.config-header h5 {
+.dc-state-icon-bg {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: var(--chip-bg);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+}
+.dc-state-icon.spinning { animation: dcSpin 0.9s linear infinite; color: var(--color-primary-500); }
+@keyframes dcSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.dc-state-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
   margin: 0;
-  font-size: 16px;
-  color: var(--text-primary);
 }
+.dc-state-hint {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0;
+  max-width: 40ch;
+}
+.dc-state.loading p { font-size: var(--text-sm); color: var(--text-tertiary); margin: 0; }
 
-.config-actions {
+/* ─── Config list ──────────────────────────────────────── */
+.dc-config-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.dc-config-row {
   display: flex;
-  gap: 8px;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--surface-border);
 }
-
-.btn-download,
-.btn-edit,
-.btn-delete {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color 0.2s;
+.dc-config-row:last-child { border-bottom: none; }
+.dc-config-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-
-.btn-download {
-  background: var(--color-primary-500, #0ea5e9);
-  color: white;
+.dc-config-body { flex: 1; min-width: 0; }
+.dc-config-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
-
-.btn-download:hover {
-  background: var(--color-primary-600, #0284c7);
+.dc-config-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
-
-.btn-edit {
-  background: var(--color-secondary-500, #64748b);
-  color: white;
+.dc-config-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
-
-.btn-edit:hover {
-  background: var(--color-secondary-600, #475569);
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-download {
-    background: var(--color-primary-600, #0284c7);
-    color: white;
-  }
-  
-  .btn-download:hover {
-    background: var(--color-primary-700, #0369a1);
-  }
-  
-  .btn-edit {
-    background: var(--color-secondary-600, #475569);
-    color: white;
-  }
-  
-  .btn-edit:hover {
-    background: var(--color-secondary-700, #334155);
-  }
-}
-
-.btn-delete {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-delete:hover {
-  background: #c82333;
-}
-
-@media (prefers-color-scheme: dark) {
-  .btn-delete {
-    background: #ef4444;
-    color: white;
-  }
-  
-  .btn-delete:hover {
-    background: #dc2626;
-  }
-}
-
-.config-details {
-  margin-top: 10px;
-}
-
-.config-description {
-  margin: 0 0 10px 0;
+.dc-config-desc {
+  font-size: var(--text-xs);
   color: var(--text-secondary);
-  font-size: 14px;
+  margin: 4px 0 0 0;
+  line-height: 1.4;
 }
-
-.config-meta {
+.dc-config-meta {
   display: flex;
-  gap: 15px;
   flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: 6px;
+  margin-top: 6px;
+}
+.dc-config-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--chip-bg);
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.dc-config-chip svg { color: var(--text-tertiary); }
+.dc-config-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
+/* ─── Modal (save + edit) ──────────────────────────────── */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
 }
-
 .modal-content {
-  background: var(--bg-primary);
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  max-width: 480px;
+  width: 100%;
   max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  overflow: auto;
+  box-shadow: var(--shadow-xl);
 }
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #dee2e6;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--surface-border);
 }
-
 .modal-header h4 {
   margin: 0;
-  font-size: 18px;
-  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
 }
-
 .close-btn {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: var(--text-xl);
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-tertiary);
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  border-radius: var(--radius-sm);
 }
-
-.close-btn:hover {
-  background: var(--bg-secondary, #f1f5f9);
-}
-
-@media (prefers-color-scheme: dark) {
-  .close-btn {
-    color: var(--text-secondary, #9ca3af);
-  }
-  
-  .close-btn:hover {
-    background: var(--bg-secondary, #374151);
-  }
-}
-
+.close-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
 .modal-body {
-  padding: 20px;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
-
-.form-group {
-  margin-bottom: 20px;
-}
-
+.form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-
 .input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  min-height: 40px;
   font-family: inherit;
 }
-
 .input:focus {
   outline: none;
-  border-color: var(--color-primary-500);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
-
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 20px;
-  border-top: 1px solid #dee2e6;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--surface-border);
 }
-
-.btn-secondary,
-.btn-primary {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
 .btn-secondary {
-  background: var(--bg-secondary, #f1f5f9);
-  color: var(--text-primary, #334155);
-  border: 1px solid var(--border-light, #cbd5e1);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
 }
-
 .btn-secondary:hover {
-  background: var(--bg-hover, #e2e8f0);
-  border-color: var(--border-medium, #94a3b8);
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
 }
-
 .btn-primary {
-  background: var(--color-primary-500, #0ea5e9);
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  height: 36px;
+  background: var(--color-primary-500);
+  border: 1px solid var(--color-primary-600);
+  border-radius: var(--radius-md);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal);
 }
-
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-600, #0284c7);
+  background: var(--color-primary-600);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ─── Mobile ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .dante-config-container { padding: var(--space-3); }
+  .dc-head { flex-direction: column; align-items: stretch; }
+  .dc-counts { justify-content: flex-start; }
+  .dc-count { align-items: flex-start; }
+  .dc-dropzone { margin: var(--space-3); padding: var(--space-4); }
+  .dc-config-row { padding: var(--space-3); gap: var(--space-2); }
+  .dc-config-actions { flex-direction: column; }
 }
 
-@media (prefers-color-scheme: dark) {
-  .btn-secondary {
-    background: var(--bg-secondary, #374151);
-    color: var(--text-primary, #f9fafb);
-    border-color: var(--border-light, #4b5563);
-  }
-  
-  .btn-secondary:hover {
-    background: var(--bg-hover, #4b5563);
-    border-color: var(--border-medium, #6b7280);
-  }
-  
-  .btn-primary {
-    background: var(--color-primary-600, #0284c7);
-    color: white;
-  }
-  
-  .btn-primary:hover:not(:disabled) {
-    background: var(--color-primary-700, #0369a1);
-  }
+/* ─── Accessibility ────────────────────────────────────── */
+@media (prefers-contrast: high) {
+  .dc-card,
+  .dc-dropzone,
+  .dc-search-input,
+  .dc-input,
+  .input,
+  .dc-ghost-btn,
+  .dc-icon-btn:hover,
+  .dc-primary-btn { border-width: 2px; }
 }
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+@media (prefers-reduced-motion: reduce) {
+  .dc-dropzone,
+  .dc-icon-btn,
+  .dc-primary-btn,
+  .dc-ghost-btn,
+  .dc-search-input,
+  .btn-primary,
+  .btn-secondary { transition: none; }
+  .dc-state-icon.spinning { animation: none; }
 }
 </style>
-
