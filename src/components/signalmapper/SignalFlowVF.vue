@@ -170,6 +170,29 @@
       </button>
     </div>
   </aside>
+
+  <!-- Full node inspector (reuses classic component) -->
+  <NodeInspector
+    v-if="inspectorNode"
+    :projectId="projectId"
+    :node="inspectorNode"
+    :elements="props.nodes"
+    :locationId="locationId"
+    :stageHourId="stageHourId"
+    viewType="signal-flow"
+    @close="inspectorNode = null"
+    @node-deleted="onInspectorNodeDeleted"
+    @node-updated="onInspectorNodeUpdated"
+  />
+
+  <!-- Venue sources modal when a venue_sources node is clicked -->
+  <VenueSourcesConfigModal
+    v-if="venueSourcesNode"
+    :nodeId="venueSourcesNode.id"
+    :projectId="projectId"
+    @close="venueSourcesNode = null"
+    @saved="onVenueSourcesSaved"
+  />
 </div>
 </template>
 
@@ -193,6 +216,8 @@ import {
   deleteConnection as deleteConnectionFromDB,
   updateNode,
 } from '@/services/signalMapperService'
+import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
+import VenueSourcesConfigModal from '@/components/signalmapper/VenueSourcesConfigModal.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -347,17 +372,49 @@ const selectedEdgeData = computed(() => {
   }
 })
 
+/* ─── Node inspector state ─────────────────────────────── */
+const inspectorNode = ref(null)      // classic NodeInspector
+const venueSourcesNode = ref(null)   // special-cased venue_sources modal
+
 function onEdgeClick({ edge }) {
   selectedEdge.value = edge
+  inspectorNode.value = null
+  venueSourcesNode.value = null
 }
-function onNodeClick() {
+function onNodeClick({ node }) {
   selectedEdge.value = null
+  const raw = node?.data?.raw
+  if (!raw) return
+  const cat = categoryOf(raw)
+  if (cat === 'venue') {
+    venueSourcesNode.value = raw
+    inspectorNode.value = null
+  } else {
+    inspectorNode.value = raw
+    venueSourcesNode.value = null
+  }
 }
 function onPaneClick() {
   selectedEdge.value = null
+  inspectorNode.value = null
+  venueSourcesNode.value = null
 }
 function clearSelection() {
   selectedEdge.value = null
+}
+
+function onInspectorNodeUpdated(updatedNode) {
+  inspectorNode.value = null
+  emit('node-updated', updatedNode)
+}
+function onInspectorNodeDeleted(nodeId) {
+  inspectorNode.value = null
+  emit('node-deleted', nodeId)
+}
+function onVenueSourcesSaved() {
+  const raw = venueSourcesNode.value
+  venueSourcesNode.value = null
+  if (raw) emit('node-updated', raw)
 }
 
 /* ─── Interactions ─────────────────────────────────────── */
