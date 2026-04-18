@@ -52,8 +52,11 @@
                 <button class="btn btn-warning cog-menu-item" @click="openEditModal(evt)">Edit</button>
                 <button class="btn btn-danger cog-menu-item delete" @click="deleteEvent(evt)">Delete</button>
               </template>
+              <template v-else-if="evt.isSynthetic && evt.category === 'travel'">
+                <button class="btn btn-warning cog-menu-item" @click="goToTravelDashboard(evt)">Edit in Travel →</button>
+              </template>
               <template v-else-if="evt.isSynthetic">
-                <div class="cog-menu-info">Travel events must be managed in the Travel section</div>
+                <button class="btn btn-warning cog-menu-item" @click="goToProjectSettings(evt)">Edit in Project Settings →</button>
               </template>
               <template v-else>
                 <button class="btn btn-warning cog-menu-item" @click="goToProjectLocations(evt)">Edit in Project Locations</button>
@@ -267,6 +270,18 @@ methods: {
       return;
     }
     this.$emit('delete', evt);
+  },
+  goToProjectSettings(evt) {
+    this.closeCogMenu();
+    const projectId = this.$route?.params?.id || evt.project_id;
+    if (!projectId) return;
+    this.$router.push({ name: 'ProjectSettings', params: { id: projectId } });
+  },
+  goToTravelDashboard(evt) {
+    this.closeCogMenu();
+    const projectId = this.$route?.params?.id || evt.project_id;
+    if (!projectId) return;
+    this.$router.push({ name: 'TravelDashboard', params: { id: projectId } });
   },
   goToProjectLocations(evt) {
     this.closeCogMenu();
