@@ -24,6 +24,7 @@
             <option value="">All</option>
             <option value="open">Open</option>
             <option value="in_progress">In Progress</option>
+            <option value="resolved">Fixed / Completed</option>
             <option value="closed">Closed</option>
           </select>
         </div>
@@ -68,6 +69,10 @@
         <div class="stat-label">In Progress</div>
       </div>
       <div class="stat-card">
+        <div class="stat-number">{{ statistics.byStatus?.resolved || 0 }}</div>
+        <div class="stat-label">Fixed / Completed</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-number">{{ statistics.byStatus?.closed || 0 }}</div>
         <div class="stat-label">Closed</div>
       </div>
@@ -104,7 +109,7 @@
                 {{ getPriorityLabel(report.priority) }}
               </span>
               <span class="report-status" :class="`status-${report.status}`">
-                {{ getStatusLabel(report.status) }}
+                {{ getStatusLabel(report.status, report.type) }}
               </span>
             </div>
             <div class="report-actions">
@@ -223,6 +228,7 @@
                   >
                     <option value="open">Open</option>
                     <option value="in_progress">In Progress</option>
+                    <option value="resolved">Fixed / Completed</option>
                     <option value="closed">Closed</option>
                   </select>
                   
@@ -312,12 +318,9 @@ export default {
       return labels[priority] || priority
     }
     
-    const getStatusLabel = (status) => {
-      const labels = {
-        open: 'Open',
-        in_progress: 'In Progress',
-        closed: 'Closed'
-      }
+    const getStatusLabel = (status, type = '') => {
+      if (status === 'resolved') return type === 'bug' ? 'Fixed' : 'Completed'
+      const labels = { open: 'Open', in_progress: 'In Progress', resolved: 'Fixed / Completed', closed: 'Closed' }
       return labels[status] || status
     }
     
@@ -705,6 +708,16 @@ export default {
 }
 
 .dark .report-status.status-closed {
+  background: var(--color-success-600);
+  color: var(--text-inverse);
+}
+
+.report-status.status-resolved {
+  background: var(--color-success-100);
+  color: var(--color-success-700);
+}
+
+.dark .report-status.status-resolved {
   background: var(--color-success-600);
   color: var(--text-inverse);
 }
