@@ -18,7 +18,6 @@ import 'vue-toastification/dist/index.css';
 import { useUserStore } from './stores/userStore';
 import { useThemeStore } from './stores/themeStore';
 import { saveSetting } from './utils/indexedDB';
-import { syncOfflineChanges } from './services/syncService'; // ✅ Centralized sync
 
 import { restoreSessionFromUrl } from './supabase';
 
@@ -89,14 +88,6 @@ async function bootstrap() {
     });
   }
 
-  window.addEventListener('online', async () => {
-    console.log('App is online; syncing offline changes...');
-    await syncOfflineChanges(true);
-  });
-
-  window.addEventListener('offline', () => {
-    console.log('App is offline');
-  });
 }
 
 bootstrap();

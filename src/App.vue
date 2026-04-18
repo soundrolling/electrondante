@@ -78,7 +78,7 @@ import ChangeoverNotificationModal from './components/ChangeoverNotificationModa
 import QuickAccessMenu from './components/QuickAccessMenu.vue'
 import ExportSuccessModal from './components/ExportSuccessModal.vue'
 import { useToast } from 'vue-toastification'
-import { syncOfflineChanges } from '@/services/dataService'
+import { syncOfflineChanges } from '@/services/syncService'
 import { startScheduleNotifications, stopScheduleNotifications, setChangeoverModalCallbacks } from '@/services/scheduleNotificationService'
 import { getExportSuccessModalState } from '@/services/exportStorageService'
 
