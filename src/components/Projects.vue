@@ -323,17 +323,61 @@
                   <span class="month-label">{{ m.label }}</span>
                 </div>
               </div>
+              <div class="date-strip-numbers">
+                <span
+                  v-for="(d, di) in timelines.get(p.id).days"
+                  :key="'n'+di"
+                  class="day-number"
+                  :class="{ visible: d.isBuild || d.isShow }"
+                >{{ d.day }}</span>
+              </div>
               <div class="date-strip-track">
-                <div
+                <button
                   v-for="(d, di) in timelines.get(p.id).days"
                   :key="di"
+                  type="button"
                   :class="[
                     'date-strip-cell',
-                    { build: d.isBuild, show: d.isShow, today: d.isToday, weekend: d.isWeekend, 'month-start': d.isMonthStart }
+                    {
+                      build: d.isBuild,
+                      show: d.isShow,
+                      today: d.isToday,
+                      weekend: d.isWeekend,
+                      'month-start': d.isMonthStart,
+                      active: isDateCellActive(p.id, di),
+                      interactive: d.isBuild || d.isShow,
+                    }
                   ]"
-                  :title="(d.isBuild && d.isShow ? 'Build + Show · ' : d.isBuild ? 'Build · ' : d.isShow ? 'Show · ' : '') + d.label"
-                  :aria-label="(d.isBuild || d.isShow ? ((d.isBuild ? 'Build day ' : '') + (d.isShow ? 'Show day ' : '')) : '') + d.label"
-                ></div>
+                  :aria-label="(d.isBuild || d.isShow ? ((d.isBuild && d.isShow ? 'Build and show day · ' : d.isBuild ? 'Build day · ' : 'Show day · ')) : '') + d.label"
+                  :tabindex="(d.isBuild || d.isShow) ? 0 : -1"
+                  @click.stop="openDateCell(p.id, di, d.isBuild || d.isShow)"
+                ></button>
+              </div>
+              <div
+                v-if="activeDateCell && activeDateCell.projectId === p.id"
+                class="date-strip-detail"
+                role="status"
+                @click.stop
+              >
+                <div class="date-strip-detail-kind">
+                  <template v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isBuild && timelines.get(p.id).days[activeDateCell.dayIdx].isShow">
+                    <span class="legend-dot build"></span>
+                    <Hammer :size="12" :stroke-width="2" /> Build
+                    <span class="legend-dot show" style="margin-left:8px;"></span>
+                    <Drama :size="12" :stroke-width="2" /> Show
+                  </template>
+                  <template v-else-if="timelines.get(p.id).days[activeDateCell.dayIdx].isBuild">
+                    <span class="legend-dot build"></span>
+                    <Hammer :size="12" :stroke-width="2" /> Build Day
+                  </template>
+                  <template v-else>
+                    <span class="legend-dot show"></span>
+                    <Drama :size="12" :stroke-width="2" /> Show Day
+                  </template>
+                </div>
+                <div class="date-strip-detail-label">
+                  {{ timelines.get(p.id).days[activeDateCell.dayIdx].label }}
+                </div>
               </div>
             </div>
 
@@ -601,6 +645,22 @@ setup() {
   const crewPopupId        = ref(null);
   const ownerMenuId        = ref(null);
   const isRefreshing       = ref(false);
+  const activeDateCell     = ref(null); // { projectId, dayIdx } | null
+
+  const openDateCell = (projectId, dayIdx, hasMark) => {
+    if (!hasMark) {
+      activeDateCell.value = null;
+      return;
+    }
+    const key = `${projectId}:${dayIdx}`;
+    const cur = activeDateCell.value;
+    activeDateCell.value = cur && cur.key === key ? null : { key, projectId, dayIdx };
+  };
+
+  const isDateCellActive = (projectId, dayIdx) => {
+    const cur = activeDateCell.value;
+    return !!cur && cur.projectId === projectId && cur.dayIdx === dayIdx;
+  };
 
   const toggleOwnerMenu = (projectId) => {
     ownerMenuId.value = ownerMenuId.value === projectId ? null : projectId;
@@ -608,9 +668,11 @@ setup() {
   };
 
   const handleDocClickForMenus = (e) => {
-    if (!ownerMenuId.value && crewPopupId.value === null) return;
     if (!e.target.closest('.owner-overflow') && !e.target.closest('.crew-toggle-btn') && !e.target.closest('.crew-list')) {
       ownerMenuId.value = null;
+    }
+    if (!e.target.closest('.date-strip')) {
+      activeDateCell.value = null;
     }
   };
   const handleEscForMenus = (e) => {
@@ -618,6 +680,7 @@ setup() {
       ownerMenuId.value = null;
       crewPopupId.value = null;
       showMobileOptions.value = false;
+      activeDateCell.value = null;
     }
   };
 
@@ -847,14 +910,16 @@ setup() {
         months[months.length - 1].count += 1;
       }
       const weekDay = d.getDay();
+      const iso = d.toISOString().slice(0, 10);
       days.push({
-        date: d.toISOString().slice(0, 10),
+        date: iso,
+        day: d.getDate(),
         isBuild: buildSet.has(dayTime),
         isShow: showSet.has(dayTime),
         isToday: dayTime === today,
         isWeekend: weekDay === 0 || weekDay === 6,
         isMonthStart: d.getDate() === 1 && days.length > 0,
-        label: formatSingleDate(d.toISOString().slice(0, 10)),
+        label: formatSingleDate(iso),
       });
     }
     return { months, days };
@@ -1312,6 +1377,9 @@ setup() {
     isRefreshing,
     nextKeyDate,
     timelines,
+    activeDateCell,
+    openDateCell,
+    isDateCellActive,
   };
 },
 };
@@ -1971,6 +2039,27 @@ setup() {
   text-overflow: ellipsis;
 }
 
+.date-strip-numbers {
+  display: flex;
+  gap: 1px;
+  height: 12px;
+  align-items: flex-end;
+}
+.day-number {
+  flex: 1 1 0;
+  min-width: 2px;
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  visibility: hidden;
+  white-space: nowrap;
+  overflow: visible;
+}
+.day-number.visible { visibility: visible; }
+
 .date-strip-track {
   display: flex;
   gap: 1px;
@@ -1982,9 +2071,23 @@ setup() {
   min-width: 2px;
   background: var(--chip-bg);
   border-radius: 2px;
-  transition: transform 120ms ease, background 120ms ease;
+  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
   position: relative;
   cursor: default;
+  padding: 0;
+  border: none;
+  appearance: none;
+}
+.date-strip-cell.interactive { cursor: pointer; }
+.date-strip-cell.interactive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+  z-index: 3;
+}
+.date-strip-cell.active {
+  transform: scaleY(1.35);
+  z-index: 3;
+  box-shadow: 0 0 0 2px var(--color-primary-600);
 }
 .date-strip-cell.weekend {
   background: color-mix(in srgb, var(--chip-bg) 70%, var(--surface-border));
@@ -2011,6 +2114,38 @@ setup() {
 
 @media (hover: none) {
   .date-strip-cell:hover { transform: none; }
+}
+
+.date-strip-detail {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: detailIn 140ms ease-out;
+}
+.date-strip-detail-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.date-strip-detail-kind svg { color: var(--text-tertiary); }
+.date-strip-detail-label {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+}
+@keyframes detailIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Spatial Crew */
