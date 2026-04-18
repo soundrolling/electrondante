@@ -145,12 +145,40 @@ export async function addOfflineChange(change) {
   try {
     const database = await openDB();
     const existing = await getAllOfflineChangesWithKeys();
-    const alreadyQueued = existing.find(e =>
-      e.value.table === change.table &&
-      e.value.operation === change.operation &&
-      e.value.data?.id === change.data?.id
-    );
-    if (alreadyQueued) return;
+
+    if (change.operation === 'delete') {
+      // Remove any queued insert or update for this id — the delete wins
+      const prior = existing.filter(
+        e => e.value.table === change.table && e.value.data?.id === change.data?.id
+      );
+      if (prior.length) {
+        // If the only prior op was an insert (temp row), cancel both — net no-op
+        const wasInsert = prior.every(e => e.value.operation === 'insert');
+        for (const p of prior) {
+          const tx = database.transaction(['offlineChanges'], 'readwrite');
+          tx.objectStore('offlineChanges').delete(p.key);
+          await waitForTransaction(tx);
+        }
+        if (wasInsert) return; // temp insert + delete = nothing to sync
+      }
+    } else if (change.operation === 'update') {
+      // Replace any existing update for the same table+id
+      const prior = existing.find(
+        e => e.value.table === change.table &&
+             e.value.operation === 'update' &&
+             e.value.data?.id === change.data?.id
+      );
+      if (prior) {
+        const tx = database.transaction(['offlineChanges'], 'readwrite');
+        tx.objectStore('offlineChanges').put(
+          { ...change, timestamp: Date.now() },
+          prior.key
+        );
+        await waitForTransaction(tx);
+        return;
+      }
+    }
+    // insert: always queue; update with no prior: queue fresh
     const tx = database.transaction(['offlineChanges'], 'readwrite');
     tx.objectStore('offlineChanges').add({ ...change, timestamp: Date.now() });
     await waitForTransaction(tx);
