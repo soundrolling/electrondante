@@ -141,7 +141,13 @@ export async function deleteData(storeName, key) {
   }
 }
 
+let _addChangeLock = Promise.resolve();
+
 export async function addOfflineChange(change) {
+  return (_addChangeLock = _addChangeLock.then(() => _doAddOfflineChange(change)));
+}
+
+async function _doAddOfflineChange(change) {
   try {
     const database = await openDB();
     const existing = await getAllOfflineChangesWithKeys();
@@ -154,11 +160,10 @@ export async function addOfflineChange(change) {
       if (prior.length) {
         // If the only prior op was an insert (temp row), cancel both — net no-op
         const wasInsert = prior.every(e => e.value.operation === 'insert');
-        for (const p of prior) {
-          const tx = database.transaction(['offlineChanges'], 'readwrite');
-          tx.objectStore('offlineChanges').delete(p.key);
-          await waitForTransaction(tx);
-        }
+        const tx = database.transaction(['offlineChanges'], 'readwrite');
+        const store = tx.objectStore('offlineChanges');
+        for (const p of prior) store.delete(p.key);
+        await waitForTransaction(tx);
         if (wasInsert) return; // temp insert + delete = nothing to sync
       }
     } else if (change.operation === 'update') {
