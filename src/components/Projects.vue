@@ -586,7 +586,7 @@ import {
 } from 'lucide-vue-next';
 
 // Cache key will be generated dynamically with user ID for security
-const getCacheKey = (userId) => `userProjects_${userId}`;
+const getCacheKey = (userId) => `userProjects_v2_${userId}`;
 
 export default {
 components: {
