@@ -215,11 +215,20 @@ export const useUserStore = defineStore('userStore', {
     async fetchUserProfile() {
       if (!this.user) return null;
       try {
-        const { data, error, status } = await supabase
+        const baseSelect = 'id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles';
+        let { data, error, status } = await supabase
           .from('user_profiles')
-          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles, measurement_unit')
+          .select(`${baseSelect}, measurement_unit`)
           .eq('id', this.user.id)
           .single();
+        // If measurement_unit column doesn't exist yet (migration pending), retry without it
+        if (error && error.code === '42703') {
+          ({ data, error, status } = await supabase
+            .from('user_profiles')
+            .select(baseSelect)
+            .eq('id', this.user.id)
+            .single());
+        }
         if (error && status !== 406) throw error;
         if (data) {
           this.userProfile = data;

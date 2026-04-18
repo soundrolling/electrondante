@@ -541,8 +541,12 @@ async function savePreferences() {
     savingPreferences.value = true;
     prefMsg.value = '';
     
-    // Save measurement unit to Supabase
-    await store.upsertUserProfile({ measurement_unit: measurementUnit.value });
+    // Save measurement unit to Supabase (silently skip if migration not yet applied)
+    try {
+      await store.upsertUserProfile({ measurement_unit: measurementUnit.value });
+    } catch (e) {
+      if (e?.code !== '42703') throw e;
+    }
 
     // Save alert preference
     if (alertPreference.value === 'none') {
