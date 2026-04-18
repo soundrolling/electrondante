@@ -92,19 +92,28 @@
         </div>
       </div>
       <div class="legend-items" draggable="false" @dragstart.prevent.stop>
-        <div 
-          v-for="(label, buttonId) in colorLegendMap" 
+        <div
+          v-for="(label, buttonId) in colorLegendMap"
           :key="buttonId"
           class="legend-item"
           draggable="false"
           @dragstart.prevent.stop
         >
-          <div 
+          <div
             class="legend-color-swatch"
             :style="{ backgroundColor: colorButtons.find(b => b.id === buttonId)?.color || '#ccc' }"
             draggable="false"
           ></div>
-          <span class="legend-label-text" draggable="false">{{ label }}</span>
+          <div class="legend-item-text" draggable="false">
+            <span
+              v-if="nodeNamesByButtonId[buttonId] && nodeNamesByButtonId[buttonId].length"
+              class="legend-node-names"
+              :title="nodeNamesByButtonId[buttonId].join(', ')"
+            >
+              {{ nodeNamesByButtonId[buttonId].join(', ') }}
+            </span>
+            <span class="legend-label-text" draggable="false">{{ label }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -713,6 +722,24 @@ const contextMenuLabelBgColor = ref('rgba(255,255,255,0.92)')
 // Color legend state
 const showLegend = ref(false)
 const colorLegendMap = ref({}) // Map of color -> label
+
+// Map color_button_id → sorted array of placed-mic track names.
+// Rendered in the legend so each colour swatch is captioned with the
+// specific mic positions using it (e.g. "STAGE LLL, STAGE LL · Shure KSM137").
+const nodeNamesByButtonId = computed(() => {
+  const out = {}
+  for (const n of props.nodes || []) {
+    if (!n.color_button_id) continue
+    const name = (n.track_name || n.label || '').trim()
+    if (!name) continue
+    if (!out[n.color_button_id]) out[n.color_button_id] = []
+    out[n.color_button_id].push(name)
+  }
+  Object.keys(out).forEach(k => {
+    out[k].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+  })
+  return out
+})
 const defaultColor = 'rgba(255,255,255,0.92)'
 
 // Legend position for DOM element (manual drag positioning)
@@ -5084,9 +5111,9 @@ defineExpose({ getCanvasDataURL })
 }
 .legend-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 4px 0;
+  padding: 5px 0;
   font-size: var(--text-sm);
   color: var(--text-primary);
 }
@@ -5096,10 +5123,34 @@ defineExpose({ getCanvasDataURL })
   border-radius: 3px;
   border: 1px solid rgba(0,0,0,0.12);
   flex-shrink: 0;
+  margin-top: 3px;
+}
+.legend-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.legend-node-names {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 .legend-label-text {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--font-medium);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

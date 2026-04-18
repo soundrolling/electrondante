@@ -1335,9 +1335,6 @@ async function confirmPDFExport() {
   overflow: hidden;
 }
 .tl-group-header {
-  position: sticky;
-  top: 96px;
-  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1372,7 +1369,9 @@ async function confirmPDFExport() {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
+  table-layout: fixed;
 }
+.tl-table thead { display: none; }
 .tl-table thead th {
   text-align: left;
   padding: 8px 14px;
@@ -1387,6 +1386,10 @@ async function confirmPDFExport() {
 .tl-table thead th.col-num { width: 48px; }
 .tl-table thead th.col-source { width: 220px; }
 .tl-table thead th.col-actions { width: 40px; text-align: right; }
+.tl-table col,
+.tl-table tbody td.col-num { width: 56px; }
+.tl-table tbody td.col-source { width: 240px; }
+.tl-table tbody td.col-actions { width: 44px; text-align: right; }
 .tl-table tbody td {
   padding: 10px 14px;
   border-bottom: 1px solid var(--surface-border);
