@@ -29,6 +29,32 @@
       >
         <span class="cal-refresh-icon" aria-hidden="true">↻</span>
       </button>
+      <div class="cal-export-wrap" ref="exportWrapRef">
+        <button
+          class="cal-refresh-btn"
+          :class="{ open: showExportMenu }"
+          @click="showExportMenu = !showExportMenu"
+          aria-label="Export calendar"
+          title="Export / subscribe"
+          :aria-expanded="showExportMenu"
+        >
+          <span class="cal-refresh-icon" aria-hidden="true">↓</span>
+        </button>
+        <div v-if="showExportMenu" class="cal-export-menu" role="menu" @click.stop>
+          <div class="cal-export-menu-head">
+            <div class="cal-export-menu-kicker">Export</div>
+            <div class="cal-export-menu-title">Share this calendar</div>
+          </div>
+          <button class="cal-export-menu-item" role="menuitem" @click="onDownloadIcs">
+            <span class="cal-export-menu-item-title">Download .ics file</span>
+            <span class="cal-export-menu-item-desc">One-off snapshot for Apple Calendar, Google, Outlook, etc.</span>
+          </button>
+          <div class="cal-export-menu-hint">
+            Subscribe URL (auto-updating) coming next — download captures everything
+            including build days and travel events.
+          </div>
+        </div>
+      </div>
       <button
         class="cal-add-btn desktop-add-button"
         @click="openNewEventModal"
@@ -253,7 +279,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useUserStore } from "../../stores/userStore";
 import { fetchTableData } from "../../services/dataService";
 import { supabase } from "../../supabase";
@@ -271,6 +297,7 @@ import CalendarListView from "./CalendarListView.vue";
 import CalendarTimelineView from "./CalendarTimelineView.vue";
 import CalendarGridView from "./CalendarGridView.vue";
 import CalendarMonthView from "./CalendarMonthView.vue";
+import { downloadCalendarICS } from "@/services/icsExportService";
 import EventDetailsModal from "./EventDetailsModal.vue";
 import NewEventModal from "./NewEventModal.vue";
 import ConfirmationModal from "./ConfirmationModal.vue";
@@ -594,6 +621,50 @@ setup(props, { emit }) {
   function onAddEventForDay(iso) {
     prefilledEventDate.value = iso
     openNewEventModal()
+  }
+
+  /* ─── .ics export menu ──────────────────────────────── */
+  const showExportMenu = ref(false)
+  const exportWrapRef = ref(null)
+
+  function onExportClickOutside(e) {
+    if (!showExportMenu.value) return
+    const wrap = exportWrapRef.value
+    if (wrap && !wrap.contains(e.target)) showExportMenu.value = false
+  }
+  function onExportEsc(e) {
+    if (e.key === 'Escape') showExportMenu.value = false
+  }
+
+  function calendarExportName() {
+    const project = userStore.getCurrentProject
+    const parts = []
+    if (project?.project_name) parts.push(project.project_name)
+    // Use the first location as the calendar subtitle if only one exists
+    if (locations.value?.length === 1) {
+      const l = locations.value[0]
+      const tail = [l.venue_name, l.stage_name].filter(Boolean).join(' · ')
+      if (tail) parts.push(tail)
+    }
+    return parts.join(' · ') || 'Show calendar'
+  }
+
+  async function onDownloadIcs() {
+    showExportMenu.value = false
+    try {
+      const project = userStore.getCurrentProject
+      const result = downloadCalendarICS({
+        calName: calendarExportName(),
+        projectId: project?.id || props.projectId || 'project',
+        events: allEvents.value || [],
+        locations: locations.value || [],
+      })
+      toastMsg.value = `Exported ${result.filename}`
+      setTimeout(() => { toastMsg.value = '' }, 3000)
+    } catch (err) {
+      console.error('ICS export failed:', err)
+      toastMsg.value = 'Failed to export calendar'
+    }
   }
 
   function getLocationName(locationId) {
@@ -1251,6 +1322,13 @@ setup(props, { emit }) {
     if (props.initialDate) {
       calendarNavigation.goToDate(props.initialDate);
     }
+    document.addEventListener('click', onExportClickOutside);
+    document.addEventListener('keydown', onExportEsc);
+  });
+
+  onUnmounted(() => {
+    document.removeEventListener('click', onExportClickOutside);
+    document.removeEventListener('keydown', onExportEsc);
   });
   
   watch(() => route.query, () => {
@@ -1319,6 +1397,7 @@ setup(props, { emit }) {
     eventCategories, categoryColors, categoryColorMap, locationColorMap, getEventColor, getEventColorRich, getLocationName,
     getStageHoursForDay, getFilteredStageHoursForDay,
     handleMonthNav, onAddEventForDay,
+    showExportMenu, exportWrapRef, onDownloadIcs,
     timeSlots, timelineDayEvents, formattedTimelineDate,
     displayCalendarDays, hasEvents, getEventsForDay,
     showDetailsModal, detailsMode, detailsEvent,
@@ -1428,6 +1507,100 @@ padding: 0 15px;
   .cal-controls-left { flex-wrap: wrap; gap: var(--space-2); }
   .cal-add-btn span:not(.cal-add-plus) { display: none; }
   .cal-add-btn { padding: 0; width: 36px; justify-content: center; }
+}
+
+/* Export menu popover */
+.cal-export-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.cal-refresh-btn.open {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+.cal-export-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  z-index: var(--z-popover);
+  animation: cal-pop-in 120ms ease-out;
+}
+@keyframes cal-pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cal-export-menu-head {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--surface-border);
+  margin-bottom: 4px;
+}
+.cal-export-menu-kicker {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.cal-export-menu-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin-top: 2px;
+}
+.cal-export-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-fast), border-color var(--transition-normal);
+}
+.cal-export-menu-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-border);
+}
+.cal-export-menu-item-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+}
+.cal-export-menu-item-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+.cal-export-menu-hint {
+  padding: 8px 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--surface-border);
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .cal-export-menu {
+    left: auto;
+    right: 0;
+    min-width: 240px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-export-menu { animation: none; }
 }
 
 /* === HEADER === */
