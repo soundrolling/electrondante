@@ -35,6 +35,17 @@
       </button>
     </div>
     <button
+      v-if="selectedStageHourId"
+      class="rec-day-export"
+      @click="openShowExportModal"
+      :disabled="isExportingShow"
+      title="Export show bible (PDF)"
+      aria-label="Export show bible PDF"
+    >
+      <FileDown :size="14" :stroke-width="2" />
+      <span class="rec-day-export-label">{{ isExportingShow ? 'Exporting…' : 'Export' }}</span>
+    </button>
+    <button
       v-if="selectedStageHourId && stageHours.length > 1"
       class="rec-day-copy"
       @click="showCopyModal = true"
@@ -73,6 +84,7 @@
       <MicPlacement
         v-if="activeTab === 'placement' && selectedStageHourId"
         :key="`placement-${selectedStageHourId}`"
+        ref="micPlacementRef"
         :projectId="projectId"
         :locationId="effectiveLocationId"
         :stageHourId="selectedStageHourId"
@@ -138,6 +150,72 @@
       <span class="tab-nav-bottom-label">{{ t.shortLabel || t.label }}</span>
     </button>
   </nav>
+
+  <!-- Show Bible Export Modal -->
+  <div v-if="showExportModal" class="modal-overlay" @click.self="showExportModal = false">
+    <div class="modal-content export-modal">
+      <div class="modal-header">
+        <h3>Export show bible</h3>
+        <button class="modal-close" @click="showExportModal = false" :disabled="isExportingShow">×</button>
+      </div>
+      <div class="modal-body">
+        <p>Generate one PDF combining the sections you choose for the current recording day.</p>
+
+        <div class="export-field">
+          <label class="export-label">Filename</label>
+          <input
+            v-model="exportOptions.filename"
+            type="text"
+            class="export-input"
+            placeholder="project-venue-stage-day-show-bible"
+            :disabled="isExportingShow"
+          />
+        </div>
+
+        <fieldset class="export-field" :disabled="isExportingShow">
+          <legend class="export-label">Include</legend>
+          <label class="export-check">
+            <input type="checkbox" v-model="exportOptions.cover" />
+            <span>Cover page</span>
+          </label>
+          <label class="export-check">
+            <input type="checkbox" v-model="exportOptions.micPlacement" />
+            <span>Mic placement image</span>
+          </label>
+          <label class="export-check">
+            <input type="checkbox" v-model="exportOptions.signalFlow" />
+            <span>Signal flow image</span>
+          </label>
+          <label class="export-check">
+            <input type="checkbox" v-model="exportOptions.trackList" />
+            <span>Track list tables</span>
+          </label>
+          <label class="export-check" v-if="exportOptions.trackList">
+            <input type="checkbox" v-model="exportOptions.includeSignalPath" />
+            <span class="sub">Include signal path column</span>
+          </label>
+        </fieldset>
+
+        <p v-if="exportProgress" class="export-progress">{{ exportProgress }}</p>
+      </div>
+      <div class="modal-footer">
+        <button
+          class="btn btn-secondary"
+          @click="showExportModal = false"
+          :disabled="isExportingShow"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary"
+          @click="runShowExport"
+          :disabled="!canRunShowExport || isExportingShow"
+        >
+          {{ isExportingShow ? 'Exporting…' : 'Export PDF' }}
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Copy from Previous Recording Day Modal -->
   <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal = false">
@@ -207,11 +285,15 @@ import {
   ArrowLeft,
   Calendar,
   Copy,
+  FileDown,
   MapPin,
   Workflow,
   ListOrdered,
   Save,
 } from 'lucide-vue-next'
+import { buildShowPDF, defaultShowBibleFilename } from '@/services/showPdfExportService'
+import { savePDFToStorage, showExportSuccessModal } from '@/services/exportStorageService'
+import { downloadPDF } from '@/utils/pdfDownloadHelper'
 
 // Lazy load heavy components for better initial load performance
 const MicPlacement = defineAsyncComponent(() => import('./MicPlacement.vue'))
@@ -254,6 +336,22 @@ const showCopyModal = ref(false)
 const copySourceStageHourId = ref(null)
 const isCopying = ref(false)
 
+// Refs to child components (for export)
+const micPlacementRef = ref(null)
+
+// Show bible export state
+const showExportModal = ref(false)
+const isExportingShow = ref(false)
+const exportProgress = ref('')
+const exportOptions = ref({
+  filename: '',
+  cover: true,
+  micPlacement: true,
+  signalFlow: true,
+  trackList: true,
+  includeSignalPath: true,
+})
+
 // Tab config (shared between desktop bar + mobile bottom nav)
 const tabs = [
   { key: 'placement', label: 'Mic Placement', shortLabel: 'Mics', icon: markRaw(MapPin) },
@@ -265,6 +363,213 @@ const tabs = [
 function selectRecordingDay(id) {
   selectedStageHourId.value = id
   if (typeof onRecordingDayChange === 'function') onRecordingDayChange()
+}
+
+/* ───────── Show bible export ───────── */
+
+const currentStageHour = computed(() => {
+  return stageHours.value.find(s => s.id === selectedStageHourId.value) || null
+})
+
+const exportMeta = computed(() => ({
+  projectName: currentProjectName.value || '',
+  venueName: currentLocation.value?.venue_name || '',
+  stageName: currentLocation.value?.stage_name || '',
+  recordingDayLabel: currentStageHour.value ? getRecordingDayLabel(currentStageHour.value) : '',
+  appName: 'Spatial Notes',
+  micCount: Array.isArray(allNodes.value)
+    ? allNodes.value.filter(n => (n.gear_type === 'source' || n.node_type === 'source') && (n.gear_id || n.type === 'gear')).length
+    : 0,
+  connectionCount: Array.isArray(allConnections.value) ? allConnections.value.length : 0,
+  trackCount: Array.isArray(signalPaths.value) ? signalPaths.value.length : 0,
+  recorderCount: Array.isArray(signalPaths.value)
+    ? new Set(signalPaths.value.map(p => p.recorder_label || 'Unknown')).size
+    : 0,
+}))
+
+const currentProjectName = ref('')
+async function fetchProjectName() {
+  if (!props.projectId) return
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('project_name')
+      .eq('id', props.projectId)
+      .single()
+    if (!error && data) currentProjectName.value = data.project_name || ''
+  } catch {}
+}
+
+const canRunShowExport = computed(() => {
+  if (!selectedStageHourId.value) return false
+  const o = exportOptions.value
+  return o.cover || o.micPlacement || o.signalFlow || o.trackList
+})
+
+function openShowExportModal() {
+  if (!selectedStageHourId.value) return
+  exportOptions.value.filename = defaultShowBibleFilename(exportMeta.value)
+  exportProgress.value = ''
+  showExportModal.value = true
+}
+
+function sleep(ms) {
+  return new Promise(res => setTimeout(res, ms))
+}
+
+async function captureCurrentMicImage() {
+  const prevTab = activeTab.value
+  if (prevTab !== 'placement') {
+    activeTab.value = 'placement'
+    await nextTick()
+    await sleep(350)
+  }
+  await nextTick()
+  const inst = micPlacementRef.value
+  if (!inst || typeof inst.getCanvasDataURL !== 'function') return null
+  try {
+    return inst.getCanvasDataURL() || null
+  } catch (err) {
+    console.error('Failed to capture mic placement canvas:', err)
+    return null
+  }
+}
+
+async function captureCurrentFlowImage() {
+  const prevTab = activeTab.value
+  if (prevTab !== 'flow') {
+    activeTab.value = 'flow'
+    await nextTick()
+    await sleep(350)
+  }
+  await nextTick()
+  const inst = signalFlowRef.value
+  if (!inst || typeof inst.getCanvasDataURL !== 'function') return null
+  try {
+    return inst.getCanvasDataURL() || null
+  } catch (err) {
+    console.error('Failed to capture signal flow canvas:', err)
+    return null
+  }
+}
+
+function reversedPathForExport(pathArr) {
+  if (!Array.isArray(pathArr)) return []
+  return [...pathArr].reverse()
+}
+
+function compareTrackNumbersForExport(a, b) {
+  const na = parseInt(a, 10)
+  const nb = parseInt(b, 10)
+  if (!isNaN(na) && !isNaN(nb)) return na - nb
+  return String(a || '').localeCompare(String(b || ''))
+}
+
+function getTrackIdForExport(p) {
+  return `${p.recorder_label || 'Unknown'}::${p.track_number || ''}::${p.track_name || p.source_label || ''}`
+}
+
+async function runShowExport() {
+  if (isExportingShow.value) return
+  if (!canRunShowExport.value) return
+
+  const originalTab = activeTab.value
+  isExportingShow.value = true
+  try {
+    const o = exportOptions.value
+    let micDataURL = null
+    let flowDataURL = null
+
+    if (o.micPlacement) {
+      exportProgress.value = 'Capturing mic placement…'
+      micDataURL = await captureCurrentMicImage()
+    }
+
+    if (o.signalFlow) {
+      exportProgress.value = 'Capturing signal flow…'
+      flowDataURL = await captureCurrentFlowImage()
+    }
+
+    exportProgress.value = 'Assembling PDF…'
+
+    const doc = await buildShowPDF({
+      meta: exportMeta.value,
+      include: {
+        cover: !!o.cover,
+        micPlacement: !!o.micPlacement && !!micDataURL,
+        signalFlow: !!o.signalFlow && !!flowDataURL,
+        trackList: !!o.trackList,
+      },
+      micPlacementDataURL: micDataURL,
+      signalFlowDataURL: flowDataURL,
+      signalPaths: signalPaths.value || [],
+      includeSignalPath: !!o.includeSignalPath,
+      getTrackId: getTrackIdForExport,
+      reversedPath: reversedPathForExport,
+      compareTrackNumbers: compareTrackNumbersForExport,
+    })
+
+    exportProgress.value = 'Saving…'
+    const filename = (o.filename?.trim() || defaultShowBibleFilename(exportMeta.value)) + '.pdf'
+
+    // Determine venue id for storage path
+    let venueId = null
+    try {
+      if (effectiveLocationId.value) {
+        const { data } = await supabase
+          .from('locations')
+          .select('venue_id')
+          .eq('id', effectiveLocationId.value)
+          .single()
+        venueId = data?.venue_id || null
+      }
+    } catch {}
+
+    const description = `Show bible${exportMeta.value.recordingDayLabel ? ' · ' + exportMeta.value.recordingDayLabel : ''}`
+    let result
+    try {
+      result = await savePDFToStorage(
+        doc,
+        filename,
+        props.projectId,
+        venueId,
+        effectiveLocationId.value,
+        description
+      )
+    } catch (err) {
+      console.error('Show bible: storage save threw, falling back to download:', err)
+      result = { success: false, error: err?.message }
+    }
+
+    if (result && result.success) {
+      showExportSuccessModal(result, filename, {
+        projectId: props.projectId,
+        venueId,
+        stageId: effectiveLocationId.value,
+        mimeType: 'application/pdf',
+      })
+    } else {
+      // Fallback: direct download
+      try {
+        await downloadPDF(doc, filename, toast)
+        toast.warning('Show bible downloaded locally — cloud save failed.')
+      } catch (dlErr) {
+        console.error('Show bible: both save and download failed:', dlErr)
+        toast.error('Failed to export show bible. Please try again.')
+      }
+    }
+
+    showExportModal.value = false
+  } catch (err) {
+    console.error('Show bible export failed:', err)
+    toast.error(`Failed to export show bible: ${err?.message || 'unknown error'}`)
+  } finally {
+    exportProgress.value = ''
+    isExportingShow.value = false
+    if (activeTab.value !== originalTab) {
+      activeTab.value = originalTab
+    }
+  }
 }
 
 // Ensure children always receive a valid location id if present via route
@@ -614,6 +919,7 @@ onMounted(async () => {
   }
   
   await fetchLocation()
+  fetchProjectName()
   if (effectiveLocationId.value) {
     await loadStageHours()
     // Auto-select first stage hour if none is selected
@@ -757,7 +1063,8 @@ onMounted(async () => {
   outline: none;
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
-.rec-day-copy {
+.rec-day-copy,
+.rec-day-export {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -773,12 +1080,15 @@ onMounted(async () => {
   transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
   flex-shrink: 0;
 }
-.rec-day-copy:hover {
+.rec-day-copy:hover,
+.rec-day-export:hover:not(:disabled) {
   background: var(--surface-hover);
   border-color: var(--surface-border-strong);
   color: var(--text-primary);
 }
-.rec-day-copy-label { display: none; }
+.rec-day-export:disabled { opacity: 0.55; cursor: not-allowed; }
+.rec-day-copy-label,
+.rec-day-export-label { display: none; }
 
 /* ─── Top tab bar (segmented) ──────────────────────────── */
 .tab-nav-top {
@@ -1015,10 +1325,72 @@ onMounted(async () => {
   box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
 }
 
+/* Export modal */
+.export-modal { max-width: 520px; }
+.export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-3);
+  border: none;
+  padding: 0;
+}
+.export-label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0;
+}
+.export-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  min-height: 40px;
+  font-family: inherit;
+}
+.export-input:focus {
+  outline: none;
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.export-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.export-check input { width: 16px; height: 16px; cursor: pointer; }
+.export-check .sub { color: var(--text-tertiary); font-size: var(--text-xs); }
+.export-progress {
+  margin-top: var(--space-3);
+  padding: 8px 10px;
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-md);
+  color: var(--color-primary-700);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+}
+.dark .export-progress {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.3);
+  color: var(--color-primary-300);
+}
+
 /* ─── Tablet + desktop ─────────────────────────────────── */
 @media (min-width: 601px) {
   .signal-mapper-parent { padding: var(--space-5); padding-bottom: var(--space-5); }
-  .rec-day-copy-label { display: inline; }
+  .rec-day-copy-label,
+  .rec-day-export-label { display: inline; }
   .sm-back-label { display: inline; }
 }
 
@@ -1039,8 +1411,10 @@ onMounted(async () => {
     padding: 6px 8px;
     border-radius: var(--radius-md);
   }
-  .rec-day-copy-label { display: none; }
-  .rec-day-copy { padding: 0; width: 28px; justify-content: center; }
+  .rec-day-copy-label,
+  .rec-day-export-label { display: none; }
+  .rec-day-copy,
+  .rec-day-export { padding: 0; width: 28px; justify-content: center; }
   .tab-nav-top { display: none; }
   .tab-nav-bottom { display: flex; }
   .tab-content { border-radius: var(--radius-md); min-height: 400px; }
