@@ -624,6 +624,8 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '../supabase';
+import { mutateTableData } from '@/services/dataService';
+import { getData } from '@/utils/indexedDB';
 import { useUserStore } from '../stores/userStore';
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue';
 
@@ -809,7 +811,7 @@ async function addContact() {
       comments: newContactComments.value.trim() || null,
       stage_ids: newContactStageIds.value.length ? newContactStageIds.value : null,
     };
-    await supabase.from('project_contacts').insert(payload).throwOnError();
+    await mutateTableData('project_contacts', 'insert', payload);
     await fetchContacts();
     selectedUserId.value =
       newContactName.value =
@@ -869,13 +871,26 @@ async function saveContact() {
 
     // If setting as lead engineer, unset any existing lead engineer for this project
     if (isLeadEngineer) {
-      await supabase
-        .from('project_contacts')
-        .update({ is_lead_engineer: false })
-        .eq('project_id', currentProject.value.id)
-        .eq('role', 'Spatial Crew')
-        .eq('is_lead_engineer', true)
-        .neq('id', editingContactId.value);
+      if (!navigator.onLine) {
+        const cached = await getData('project_contacts');
+        const toUnset = cached.filter(c =>
+          c.project_id === currentProject.value.id &&
+          c.role === 'Spatial Crew' &&
+          c.is_lead_engineer === true &&
+          c.id !== editingContactId.value
+        );
+        for (const c of toUnset) {
+          await mutateTableData('project_contacts', 'update', { ...c, is_lead_engineer: false });
+        }
+      } else {
+        await supabase
+          .from('project_contacts')
+          .update({ is_lead_engineer: false })
+          .eq('project_id', currentProject.value.id)
+          .eq('role', 'Spatial Crew')
+          .eq('is_lead_engineer', true)
+          .neq('id', editingContactId.value);
+      }
     }
 
     const upd = {
@@ -887,7 +902,7 @@ async function saveContact() {
       stage_ids: f.stage_ids,
       is_lead_engineer: isLeadEngineer,
     };
-    await supabase.from('project_contacts').update(upd).eq('id', editingContactId.value).throwOnError();
+    await mutateTableData('project_contacts', 'update', { id: editingContactId.value, ...upd });
     
     // Refresh contacts to update stage_location display
     await fetchContacts();
@@ -904,7 +919,7 @@ const goBackToDashboard = () => router.back();
 
 async function removeContact(id) {
   if (!confirm('Remove this contact?')) return;
-  await supabase.from('project_contacts').delete().eq('id', id);
+  await mutateTableData('project_contacts', 'delete', { id });
   contacts.value = contacts.value.filter(c => c.id !== id);
   // If the deleted contact is being edited, close the modal
   if (editingContactId.value === id) {
@@ -1078,7 +1093,7 @@ async function importSelectedContacts() {
         comments: contact.comments || null,
         stage_ids: contact.stage_ids || null,
       };
-      return supabase.from('project_contacts').insert(payload);
+      return mutateTableData('project_contacts', 'insert', payload);
     });
 
     await Promise.all(importPromises);
