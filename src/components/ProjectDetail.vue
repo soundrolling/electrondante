@@ -19,177 +19,216 @@
 
   <!-- Project Content -->
   <div v-else-if="currentProject" class="project-content">
-    <!-- Compact Header with Timeline -->
-    <section class="compact-header ui-page-header">
-      <div class="header-main">
-        <h1 class="project-title">{{ currentProject.project_name }}</h1>
-        <div class="project-meta">
-          <div v-if="currentProject.location" class="meta-item">
-            <span class="meta-icon">📍</span>
-            <span class="meta-text">{{ currentProject.location }}</span>
-          </div>
-          <div v-if="currentProject.official_website" class="meta-item">
-            <span class="meta-icon">🌐</span>
-            <a :href="currentProject.official_website" target="_blank" rel="noopener" class="meta-link">
-              Official Website
-            </a>
-          </div>
-        </div>
+    <!-- Status Hero -->
+    <section class="status-hero">
+      <div class="hero-top">
+        <h1 class="hero-title">{{ currentProject.project_name }}</h1>
+        <span v-if="nextKeyDate" :class="['hero-next', nextKeyDate.kind]">
+          <Drama v-if="nextKeyDate.kind === 'show'" :size="14" :stroke-width="2" />
+          <Hammer v-else :size="14" :stroke-width="2" />
+          <span class="hero-next-label">
+            {{ nextKeyDate.relative }} {{ nextKeyDate.kind === 'show' ? 'show' : 'build' }}
+          </span>
+          <span class="hero-next-date">· {{ nextKeyDate.short }}</span>
+        </span>
       </div>
-      
-      <!-- Collapsible Date Sections -->
-      <div v-if="(currentProject.main_show_days && currentProject.main_show_days.length) || (currentProject.build_days && currentProject.build_days.length)" class="dates-sections">
-        <div v-if="currentProject.build_days && currentProject.build_days.length" class="dates-panel build">
-          <button class="dates-panel-header" @click="buildDaysOpen = !buildDaysOpen">
-            <span class="dates-panel-icon">🔨</span>
-            <span class="dates-panel-title">Build Days</span>
-            <span class="dates-panel-count">{{ currentProject.build_days.length }}</span>
-            <span class="dates-panel-toggle">{{ buildDaysOpen ? '▲' : '▼' }}</span>
-          </button>
-          <div v-if="buildDaysOpen" class="dates-panel-body">
-            <div v-for="(group, gi) in groupConsecutiveDates(currentProject.build_days)" :key="'b'+gi" class="dates-panel-row">
-              <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-              <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-            </div>
+      <div class="hero-meta">
+        <span v-if="currentProject.location" class="meta-inline">
+          <MapPin :size="14" :stroke-width="2" />
+          <span>{{ currentProject.location }}</span>
+        </span>
+        <a
+          v-if="currentProject.official_website"
+          :href="currentProject.official_website"
+          target="_blank"
+          rel="noopener"
+          class="meta-inline meta-link"
+        >
+          <Globe :size="14" :stroke-width="2" />
+          <span>Official site</span>
+        </a>
+      </div>
+
+      <!-- Mini calendar strip -->
+      <div
+        v-if="timeline"
+        class="date-strip"
+        role="group"
+        aria-label="Build and show days"
+      >
+        <div class="date-strip-header">
+          <span class="legend-item">
+            <span class="legend-dot build"></span>
+            <Hammer :size="12" :stroke-width="2" />
+            <span>{{ (currentProject.build_days || []).length }} build</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot show"></span>
+            <Drama :size="12" :stroke-width="2" />
+            <span>{{ (currentProject.main_show_days || []).length }} show</span>
+          </span>
+        </div>
+        <div class="date-strip-months">
+          <div
+            v-for="m in timeline.months"
+            :key="m.key"
+            class="date-strip-month"
+            :style="{ flex: m.count }"
+          >
+            <span class="month-label">{{ m.label }}</span>
           </div>
         </div>
-        <div v-if="currentProject.main_show_days && currentProject.main_show_days.length" class="dates-panel show">
-          <button class="dates-panel-header" @click="showDaysOpen = !showDaysOpen">
-            <span class="dates-panel-icon">🎭</span>
-            <span class="dates-panel-title">Show Days</span>
-            <span class="dates-panel-count">{{ currentProject.main_show_days.length }}</span>
-            <span class="dates-panel-toggle">{{ showDaysOpen ? '▲' : '▼' }}</span>
-          </button>
-          <div v-if="showDaysOpen" class="dates-panel-body">
-            <div v-for="(group, gi) in groupConsecutiveDates(currentProject.main_show_days)" :key="'s'+gi" class="dates-panel-row">
-              <span v-if="group.length === 1">{{ formatSingleDate(group[0]) }}</span>
-              <span v-else>{{ formatSingleDate(group[0]) }} – {{ formatSingleDate(group[group.length - 1]) }}</span>
-            </div>
+        <div class="date-strip-numbers">
+          <span
+            v-for="(d, di) in timeline.days"
+            :key="'n'+di"
+            class="day-number"
+            :class="{ visible: d.isBuild || d.isShow }"
+          >{{ d.day }}</span>
+        </div>
+        <div class="date-strip-track">
+          <button
+            v-for="(d, di) in timeline.days"
+            :key="di"
+            type="button"
+            :class="[
+              'date-strip-cell',
+              {
+                build: d.isBuild,
+                show: d.isShow,
+                today: d.isToday,
+                weekend: d.isWeekend,
+                'month-start': d.isMonthStart,
+                active: activeDayIdx === di,
+                interactive: d.isBuild || d.isShow,
+              }
+            ]"
+            :aria-label="(d.isBuild || d.isShow ? ((d.isBuild && d.isShow ? 'Build and show day · ' : d.isBuild ? 'Build day · ' : 'Show day · ')) : '') + d.label"
+            :tabindex="(d.isBuild || d.isShow) ? 0 : -1"
+            @click.stop="openDayDetail(di, d.isBuild || d.isShow)"
+          ></button>
+        </div>
+        <div
+          v-if="activeDayIdx !== null && timeline.days[activeDayIdx]"
+          class="date-strip-detail"
+          role="status"
+          @click.stop
+        >
+          <div class="date-strip-detail-kind">
+            <template v-if="timeline.days[activeDayIdx].isBuild && timeline.days[activeDayIdx].isShow">
+              <span class="legend-dot build"></span>
+              <Hammer :size="12" :stroke-width="2" /> Build
+              <span class="legend-dot show" style="margin-left:8px;"></span>
+              <Drama :size="12" :stroke-width="2" /> Show
+            </template>
+            <template v-else-if="timeline.days[activeDayIdx].isBuild">
+              <span class="legend-dot build"></span>
+              <Hammer :size="12" :stroke-width="2" /> Build Day
+            </template>
+            <template v-else>
+              <span class="legend-dot show"></span>
+              <Drama :size="12" :stroke-width="2" /> Show Day
+            </template>
+          </div>
+          <div class="date-strip-detail-label">
+            {{ timeline.days[activeDayIdx].label }}
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Quick Access Stages -->
-    <section v-if="stages.length" class="stages-section">
-      <h2 class="section-title">Quick Access Stages</h2>
-      <div class="stages-grid">
+    <!-- Stages Rail -->
+    <section v-if="stages.length" class="stages-rail-section" aria-label="Stages">
+      <div class="rail-head">
+        <h2 class="section-title">Stages</h2>
+        <button class="rail-see-all" @click="goToLocations">
+          <span>View all</span>
+          <ArrowRight :size="14" :stroke-width="2" />
+        </button>
+      </div>
+      <div class="stages-rail">
         <button
           v-for="stage in stages"
           :key="stage.id"
-          class="stage-card"
+          class="stage-chip"
           @click="openStageModal(stage)"
           @touchstart="handleTouchStart"
           @touchend="handleTouchEnd"
         >
-          <div class="stage-icon">🎪</div>
-          <div class="stage-info">
-            <div class="stage-name">{{ stage.stage_name }}</div>
-            <div class="stage-venue">{{ stage.venue_name }}</div>
+          <div class="stage-chip-icon">
+            <LayoutGrid :size="18" :stroke-width="2" />
           </div>
-          <div class="stage-arrow">→</div>
+          <div class="stage-chip-info">
+            <div class="stage-chip-name">{{ stage.stage_name }}</div>
+            <div v-if="stage.venue_name" class="stage-chip-venue">{{ stage.venue_name }}</div>
+          </div>
         </button>
       </div>
     </section>
 
-    <!-- Startup Section - Show when no stages exist -->
-    <section v-if="!stages.length" class="startup-section">
+    <!-- Empty stages state -->
+    <section v-else class="startup-section">
       <div class="startup-content">
-        <div class="startup-icon">🏗️</div>
-        <h2 class="startup-title">Get Started with Your Project</h2>
-        <p class="startup-description">Add your first stage to begin organizing your recording locations and equipment.</p>
-        <button class="btn btn-primary startup-button" @click="goToLocations">
-          <span class="startup-button-icon">🏢</span>
-          <span class="startup-button-text">Add Your First Stage</span>
+        <div class="startup-icon">
+          <LayoutGrid :size="28" :stroke-width="1.5" />
+        </div>
+        <h2 class="startup-title">Add your first stage</h2>
+        <p class="startup-description">Organize recording locations and equipment by stage to get going.</p>
+        <button class="btn-primary" @click="goToLocations">
+          <Plus :size="16" :stroke-width="2" />
+          <span>Add a stage</span>
         </button>
       </div>
     </section>
 
-    <!-- Primary Actions -->
-    <section class="actions-section">
-      <h2 class="section-title">Project Tools</h2>
-      <div class="actions-grid">
-        <button class="btn btn-primary action-button primary" @click="goToLocations">
-          <span class="action-icon">🏢</span>
-          <span class="action-label">All Stages</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="goToCalendar">
-          <span class="action-icon">📅</span>
-          <span class="action-label">Calendar</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="goToTravelHub">
-          <span class="action-icon">✈️</span>
-          <span class="action-label">Travel Hub</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="goToContacts">
-          <span class="action-icon">👥</span>
-          <span class="action-label">Contacts</span>
-        </button>
-        <button class="btn btn-warning action-button" @click="goToSettings">
-          <span class="action-icon">⚙️</span>
-          <span class="action-label">Settings</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="goToGear">
-          <span class="action-icon">🔧</span>
-          <span class="action-label">Gear</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="goToDocuments">
-          <span class="action-icon">📄</span>
-          <span class="action-label">Documents</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="goToDataManagement">
-          <span class="action-icon">📊</span>
-          <span class="action-label">Data Management</span>
-        </button>
-        <button class="btn btn-positive action-button" @click="showToolsSection = !showToolsSection">
-          <span class="action-icon">🛠️</span>
-          <span class="action-label">Tools</span>
+    <!-- Tool dock -->
+    <section class="tool-dock-section" aria-label="Project tools">
+      <h2 class="section-title">Project tools</h2>
+      <div class="tool-dock">
+        <button
+          v-for="t in toolDock"
+          :key="t.key"
+          class="tool-tile"
+          :class="{ active: t.key === 'tools' && showToolsSection }"
+          @click="t.action"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+        >
+          <div class="tool-tile-icon">
+            <component :is="t.icon" :size="22" :stroke-width="1.75" />
+          </div>
+          <div class="tool-tile-label">{{ t.label }}</div>
         </button>
       </div>
     </section>
 
-    <!-- Tools Section -->
-    <section v-if="showToolsSection" class="tools-section">
-      <h2 class="section-title">Tools</h2>
-      <div class="tools-grid">
-        <button
-          class="tool-card"
-          @click="openTool('ltc')"
-          @touchstart="handleTouchStart"
-          @touchend="handleTouchEnd"
-        >
-          <div class="tool-icon">⏱️</div>
-          <div class="tool-info">
-            <div class="tool-name">LTC Timecode Generator</div>
-            <div class="tool-description">Generate Linear Timecode audio signal</div>
+    <!-- Expandable utilities -->
+    <section v-if="showToolsSection" class="utilities-section">
+      <h2 class="section-title">Utilities</h2>
+      <div class="utility-list">
+        <button class="utility-row" @click="openTool('ltc')">
+          <div class="utility-icon"><Clock :size="20" :stroke-width="2" /></div>
+          <div class="utility-info">
+            <div class="utility-name">LTC Timecode Generator</div>
+            <div class="utility-desc">Generate Linear Timecode audio signal</div>
           </div>
-          <div class="tool-arrow">→</div>
+          <ChevronRight :size="16" :stroke-width="2" class="utility-chevron" />
         </button>
-        <button
-          class="tool-card"
-          @click="openTool('audio-signal')"
-          @touchstart="handleTouchStart"
-          @touchend="handleTouchEnd"
-        >
-          <div class="tool-icon">🔊</div>
-          <div class="tool-info">
-            <div class="tool-name">Audio Signal Generator</div>
-            <div class="tool-description">Generate sine waves, noise, and sweeps</div>
+        <button class="utility-row" @click="openTool('audio-signal')">
+          <div class="utility-icon"><AudioWaveform :size="20" :stroke-width="2" /></div>
+          <div class="utility-info">
+            <div class="utility-name">Audio Signal Generator</div>
+            <div class="utility-desc">Sine waves, noise, and sweeps</div>
           </div>
-          <div class="tool-arrow">→</div>
+          <ChevronRight :size="16" :stroke-width="2" class="utility-chevron" />
         </button>
-        <button
-          class="tool-card"
-          @click="goToDanteMixer"
-          @touchstart="handleTouchStart"
-          @touchend="handleTouchEnd"
-        >
-          <div class="tool-icon">🎛️</div>
-          <div class="tool-info">
-            <div class="tool-name">Dante Monitor Mixer</div>
-            <div class="tool-description">Personal monitor mixing for live performance</div>
+        <button class="utility-row" @click="goToDanteMixer">
+          <div class="utility-icon"><Sliders :size="20" :stroke-width="2" /></div>
+          <div class="utility-info">
+            <div class="utility-name">Dante Monitor Mixer</div>
+            <div class="utility-desc">Personal monitor mixing for live performance</div>
           </div>
-          <div class="tool-arrow">→</div>
+          <ChevronRight :size="16" :stroke-width="2" class="utility-chevron" />
         </button>
       </div>
     </section>
@@ -197,12 +236,14 @@
 
   <!-- Error State -->
   <div v-else class="error-state">
-    <div class="error-icon">⚠️</div>
-    <h2 class="error-title">Unable to Load Project</h2>
+    <div class="error-icon">
+      <AlertCircle :size="32" :stroke-width="1.5" />
+    </div>
+    <h2 class="error-title">Unable to load project</h2>
     <p class="error-message">Please check your connection and try again.</p>
-    <button class="btn btn-warning retry-button" @click="loadProject">
-      <span class="retry-icon">🔄</span>
-      Retry
+    <button class="btn-primary" @click="loadProject">
+      <RefreshCw :size="16" :stroke-width="2" />
+      <span>Retry</span>
     </button>
   </div>
 
@@ -235,7 +276,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, markRaw } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 import { supabase } from '../supabase';
@@ -243,10 +284,58 @@ import { fetchTableData } from '../services/dataService';
 import StageQuickAccessMenu from './stage/StageQuickAccessMenu.vue';
 import LTCTimecodeGenerator from './tools/LTCTimecodeGenerator.vue';
 import AudioSignalGenerator from './tools/AudioSignalGenerator.vue';
+import {
+  MapPin,
+  Globe,
+  Hammer,
+  Drama,
+  ArrowRight,
+  Plus,
+  LayoutGrid,
+  Calendar,
+  Plane,
+  Users,
+  Settings,
+  Wrench,
+  FileText,
+  Database,
+  SlidersHorizontal,
+  Clock,
+  AudioWaveform,
+  Sliders,
+  ChevronRight,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-vue-next';
 
 export default {
   name: 'ProjectDetail',
-  components: { StageQuickAccessMenu, LTCTimecodeGenerator, AudioSignalGenerator },
+  components: {
+    StageQuickAccessMenu,
+    LTCTimecodeGenerator,
+    AudioSignalGenerator,
+    MapPin,
+    Globe,
+    Hammer,
+    Drama,
+    ArrowRight,
+    Plus,
+    LayoutGrid,
+    Calendar,
+    Plane,
+    Users,
+    Settings,
+    Wrench,
+    FileText,
+    Database,
+    SlidersHorizontal,
+    Clock,
+    AudioWaveform,
+    Sliders,
+    ChevronRight,
+    AlertCircle,
+    RefreshCw,
+  },
   setup() {
     const route      = useRoute();
     const router     = useRouter();
@@ -262,8 +351,31 @@ export default {
     const showDaysOpen     = ref(false);
     const showToolModal   = ref(false);
     const selectedTool    = ref(null);
+    const activeDayIdx    = ref(null);
 
-    onMounted(loadProject);
+    const openDayDetail = (idx, hasMark) => {
+      if (!hasMark) { activeDayIdx.value = null; return; }
+      activeDayIdx.value = activeDayIdx.value === idx ? null : idx;
+    };
+
+    const handleDocClick = (e) => {
+      if (activeDayIdx.value !== null && !e.target.closest('.date-strip')) {
+        activeDayIdx.value = null;
+      }
+    };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') activeDayIdx.value = null;
+    };
+
+    onMounted(() => {
+      loadProject();
+      document.addEventListener('click', handleDocClick);
+      document.addEventListener('keydown', handleEsc);
+    });
+    onUnmounted(() => {
+      document.removeEventListener('click', handleDocClick);
+      document.removeEventListener('keydown', handleEsc);
+    });
 
     /* ---------------- Project loading ---------------- */
     async function loadProject() {
@@ -401,6 +513,111 @@ export default {
       return `${start} - ${end}`;
     }
 
+    /* ---------------- Timeline ---------------- */
+    const startOfDay = (ds) => {
+      const d = new Date(ds);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    };
+
+    const timeline = computed(() => {
+      const p = currentProject.value;
+      if (!p) return null;
+      const build = (p.build_days || []).filter(Boolean);
+      const show = (p.main_show_days || []).filter(Boolean);
+      if (!build.length && !show.length) return null;
+      const buildSet = new Set(build.map(startOfDay).filter(t => !Number.isNaN(t)));
+      const showSet = new Set(show.map(startOfDay).filter(t => !Number.isNaN(t)));
+      const all = [...buildSet, ...showSet];
+      if (!all.length) return null;
+      const minT = Math.min(...all);
+      const maxT = Math.max(...all);
+      const startDate = new Date(minT);
+      const endDate = new Date(maxT);
+      const stripStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      const stripEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+      const today = startOfDay(new Date());
+      const oneDay = 86400000;
+      const days = [];
+      const months = [];
+      for (let t = stripStart.getTime(); t <= stripEnd.getTime(); t += oneDay) {
+        const d = new Date(t);
+        const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+        const dayTime = startOfDay(d);
+        if (!months.length || months[months.length - 1].key !== monthKey) {
+          months.push({
+            key: monthKey,
+            label: d.toLocaleDateString('en-US', { month: 'short' }),
+            count: 1,
+          });
+        } else {
+          months[months.length - 1].count += 1;
+        }
+        const weekDay = d.getDay();
+        const iso = d.toISOString().slice(0, 10);
+        days.push({
+          date: iso,
+          day: d.getDate(),
+          isBuild: buildSet.has(dayTime),
+          isShow: showSet.has(dayTime),
+          isToday: dayTime === today,
+          isWeekend: weekDay === 0 || weekDay === 6,
+          isMonthStart: d.getDate() === 1 && days.length > 0,
+          label: formatSingleDate(iso),
+        });
+      }
+      return { months, days };
+    });
+
+    /* ---------------- Next key date ---------------- */
+    const formatRelative = (targetMs) => {
+      const today = startOfDay(new Date());
+      const diffDays = Math.round((targetMs - today) / 86400000);
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Tomorrow';
+      if (diffDays === -1) return 'Yesterday';
+      if (diffDays > 1 && diffDays < 14) return `In ${diffDays} days`;
+      if (diffDays < -1 && diffDays > -14) return `${Math.abs(diffDays)} days ago`;
+      const d = new Date(targetMs);
+      return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+    const formatShort = (targetMs) => {
+      const d = new Date(targetMs);
+      return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+
+    const nextKeyDate = computed(() => {
+      const p = currentProject.value;
+      if (!p) return null;
+      const items = [];
+      (p.main_show_days || []).forEach(d => items.push({ kind: 'show', t: startOfDay(d) }));
+      (p.build_days || []).forEach(d => items.push({ kind: 'build', t: startOfDay(d) }));
+      const valid = items.filter(i => !Number.isNaN(i.t));
+      if (!valid.length) return null;
+      const today = startOfDay(new Date());
+      const future = valid.filter(i => i.t >= today).sort((a, b) => a.t - b.t);
+      const past = valid.sort((a, b) => b.t - a.t);
+      const chosen = future[0] || past[0];
+      if (!chosen) return null;
+      return {
+        kind: chosen.kind,
+        relative: formatRelative(chosen.t),
+        short: formatShort(chosen.t),
+      };
+    });
+
+    /* ---------------- Tool dock ---------------- */
+    const toolDock = computed(() => [
+      { key: 'stages', label: 'All Stages', icon: markRaw(LayoutGrid), action: goToLocations },
+      { key: 'calendar', label: 'Calendar', icon: markRaw(Calendar), action: goToCalendar },
+      { key: 'travel', label: 'Travel', icon: markRaw(Plane), action: goToTravelHub },
+      { key: 'contacts', label: 'Contacts', icon: markRaw(Users), action: goToContacts },
+      { key: 'gear', label: 'Gear', icon: markRaw(Wrench), action: goToGear },
+      { key: 'documents', label: 'Docs', icon: markRaw(FileText), action: goToDocuments },
+      { key: 'data', label: 'Data', icon: markRaw(Database), action: goToDataManagement },
+      { key: 'settings', label: 'Settings', icon: markRaw(Settings), action: goToSettings },
+      { key: 'tools', label: 'Utilities', icon: markRaw(SlidersHorizontal), action: () => { showToolsSection.value = !showToolsSection.value; } },
+    ]);
+
     function groupConsecutiveDates(dates) {
       if (!dates || !dates.length) return [];
       const sorted = [...dates].sort();
@@ -464,880 +681,718 @@ export default {
       openTool,
       closeToolModal,
       toolTitle,
+      /* new UI */
+      timeline,
+      nextKeyDate,
+      toolDock,
+      activeDayIdx,
+      openDayDetail,
     };
   },
 };
 </script>
 
 <style scoped>
-/* Base Styles - Mobile First */
+/* ─── Base container ───────────────────────────────────── */
 .project-detail {
   min-height: 100vh;
   background: var(--bg-primary);
-  padding: 16px;
-  padding-top: env(safe-area-inset-top, 16px);
-  padding-bottom: env(safe-area-inset-bottom, 16px);
+  padding: var(--space-4);
+  padding-top: env(safe-area-inset-top, var(--space-4));
+  padding-bottom: env(safe-area-inset-bottom, var(--space-4));
   font-family: var(--font-family-sans);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   color: var(--text-primary);
+  max-width: 960px;
+  margin: 0 auto;
 }
 
-/* Typography Scale */
-.project-title {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.3;
-  margin: 0 0 16px 0;
-  color: var(--text-heading);
+.project-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .section-title {
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.4;
-  margin: 0 0 16px 0;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   color: var(--text-heading);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
-/* Loading Skeleton */
-.loading-skeleton {
-  padding: 16px;
+/* ─── Status hero ──────────────────────────────────────── */
+.status-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.hero-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  letter-spacing: -0.02em;
+  color: var(--text-heading);
+  margin: 0;
+  line-height: 1.15;
+  text-transform: uppercase;
+  word-break: break-word;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.hero-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  flex-shrink: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.hero-next.show {
+  background: rgba(217, 119, 6, 0.1);
+  color: var(--color-warning-700);
+}
+.hero-next.build {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--color-primary-700);
+}
+.hero-next svg { flex-shrink: 0; }
+.hero-next-label { font-weight: var(--font-semibold); }
+.hero-next-date { color: inherit; opacity: 0.85; }
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.meta-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+.meta-inline svg { color: var(--text-tertiary); flex-shrink: 0; }
+.meta-link {
+  color: var(--color-primary-600);
+  text-decoration: none;
+}
+.meta-link svg { color: var(--color-primary-500); }
+.meta-link:hover { color: var(--color-primary-700); text-decoration: underline; }
+
+/* ─── Date strip (shared visual language) ──────────────── */
+.date-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+}
+.date-strip-header {
+  display: flex;
+  gap: var(--space-3);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: var(--font-medium);
+  padding-bottom: 2px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+.legend-item svg { color: var(--text-tertiary); }
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.legend-dot.build { background: var(--color-primary-500); }
+.legend-dot.show { background: var(--color-warning-500); }
+
+.date-strip-months {
+  display: flex;
+  gap: 1px;
+  height: 14px;
+}
+.date-strip-month {
+  min-width: 0;
+  position: relative;
+  border-left: 1px solid var(--surface-border);
+  padding-left: 4px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.date-strip-month:first-child { border-left: none; padding-left: 0; }
+.month-label {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.skeleton-header, .skeleton-meta, .skeleton-stages, .skeleton-actions {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+.date-strip-numbers {
+  display: flex;
+  gap: 1px;
+  height: 12px;
+  align-items: flex-end;
+}
+.day-number {
+  flex: 1 1 0;
+  min-width: 2px;
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  visibility: hidden;
+  white-space: nowrap;
+}
+.day-number.visible { visibility: visible; }
+
+.date-strip-track {
+  display: flex;
+  gap: 1px;
+  height: 20px;
+  align-items: stretch;
+}
+.date-strip-cell {
+  flex: 1 1 0;
+  min-width: 2px;
+  background: var(--chip-bg);
+  border-radius: 2px;
+  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  position: relative;
+  cursor: default;
+  padding: 0;
+  border: none;
+  appearance: none;
+}
+.date-strip-cell.interactive { cursor: pointer; }
+.date-strip-cell.interactive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+  z-index: 3;
+}
+.date-strip-cell.weekend {
+  background: color-mix(in srgb, var(--chip-bg) 70%, var(--surface-border));
+}
+.date-strip-cell.build {
+  background: var(--color-primary-500);
+  box-shadow: inset 0 0 0 1px var(--color-primary-600);
+}
+.date-strip-cell.show {
+  background: var(--color-warning-500);
+  box-shadow: inset 0 0 0 1px var(--color-warning-600);
+}
+.date-strip-cell.build.show {
+  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-warning-500) 50%, var(--color-warning-500) 100%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.today {
+  box-shadow: 0 0 0 1px var(--color-primary-600), inset 0 0 0 1px #ffffff;
+}
+.date-strip-cell:hover { transform: scaleY(1.2); z-index: 2; }
+.date-strip-cell.active {
+  transform: scaleY(1.35);
+  z-index: 3;
+  box-shadow: 0 0 0 2px var(--color-primary-600);
+}
+@media (hover: none) {
+  .date-strip-cell:hover { transform: none; }
+}
+
+.date-strip-detail {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: detailIn 140ms ease-out;
+}
+.date-strip-detail-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.date-strip-detail-kind svg { color: var(--text-tertiary); }
+.date-strip-detail-label {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+}
+@keyframes detailIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Stages rail ──────────────────────────────────────── */
+.stages-rail-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.rail-see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--color-primary-600);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+.rail-see-all:hover {
+  background: var(--surface-hover);
+  color: var(--color-primary-700);
+}
+.stages-rail {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.stages-rail::-webkit-scrollbar { height: 6px; }
+.stages-rail::-webkit-scrollbar-thumb {
+  background: var(--surface-border-strong);
+  border-radius: 999px;
+}
+.stage-chip {
+  flex-shrink: 0;
+  min-width: 180px;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
+  text-align: left;
+}
+.stage-chip:hover {
+  border-color: var(--surface-border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.stage-chip.touch-active { transform: scale(0.98); }
+.stage-chip-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.stage-chip-info { min-width: 0; }
+.stage-chip-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-chip-venue {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Empty stages (startup) ───────────────────────────── */
+.startup-section {
+  background: var(--surface-card);
+  border: 1px dashed var(--surface-border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-4);
+}
+.startup-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+}
+.startup-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--chip-bg);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.startup-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  margin: 0;
+}
+.startup-description {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-2) 0;
+  max-width: 38ch;
+}
+
+/* ─── Primary button (shared) ──────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-primary-600);
+  background: var(--color-primary-500);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-fast);
+  white-space: nowrap;
+}
+.btn-primary:hover {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-700);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* ─── Tool dock ────────────────────────────────────────── */
+.tool-dock-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.tool-dock {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+.tool-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-fast), box-shadow var(--transition-normal);
+  min-height: 84px;
+  text-align: center;
+}
+.tool-tile:hover {
+  border-color: var(--surface-border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.tool-tile:active,
+.tool-tile.touch-active {
+  transform: scale(0.97);
+  background: var(--surface-hover);
+}
+.tool-tile.active {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-200);
+}
+.tool-tile-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tool-tile.active .tool-tile-icon {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+}
+.tool-tile-label {
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+/* ─── Utilities list (collapsible) ─────────────────────── */
+.utilities-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.utility-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.utility-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-fast);
+}
+.utility-row:hover {
+  background: var(--surface-hover);
+  border-color: var(--surface-border-strong);
+}
+.utility-row:active { transform: scale(0.99); }
+.utility-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card-muted);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.utility-info { min-width: 0; flex: 1; }
+.utility-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-heading);
+  line-height: 1.2;
+}
+.utility-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.utility-chevron { color: var(--text-tertiary); flex-shrink: 0; }
+
+/* ─── Loading skeleton ─────────────────────────────────── */
+.loading-skeleton { display: flex; flex-direction: column; gap: var(--space-3); }
+.skeleton-header,
+.skeleton-meta,
+.skeleton-stages,
+.skeleton-actions,
+.skeleton-stage,
+.skeleton-action {
+  background: linear-gradient(90deg, var(--surface-card-muted) 25%, var(--surface-hover) 50%, var(--surface-card-muted) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  border-radius: var(--radius-md);
 }
-
-.skeleton-header {
-  height: 32px;
-}
-
-.skeleton-meta {
-  height: 48px;
-}
-
+.skeleton-header { height: 56px; }
+.skeleton-meta { height: 32px; }
 .skeleton-stages {
-  height: 120px;
+  height: 72px;
   display: flex;
-  gap: 12px;
+  gap: var(--space-2);
 }
-
-.skeleton-stage {
-  flex: 1;
-  height: 100%;
-  background: inherit;
-  border-radius: 8px;
-}
-
+.skeleton-stage { flex: 1; background: inherit; border-radius: var(--radius-md); }
 .skeleton-actions {
   height: 200px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  background: transparent;
+  animation: none;
 }
-
 .skeleton-action {
-  height: 100%;
-  background: inherit;
-  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-card-muted) 25%, var(--surface-hover) 50%, var(--surface-card-muted) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: var(--radius-md);
 }
-
 @keyframes loading {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-/* Project Header */
-.project-header {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-light);
-}
-
-.project-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-}
-
-.meta-icon {
-  font-size: 18px;
-  width: 24px;
-  text-align: center;
-}
-
-.meta-text {
-  color: #495057;
-}
-
-.meta-link {
-  color: #0066cc;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.meta-link:hover {
-  text-decoration: underline;
-}
-
-/* Compact Header with Timeline */
-.compact-header {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-light);
-}
-
-.header-main {
-  margin-bottom: 16px;
-}
-
-.project-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.meta-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-}
-
-.meta-text {
-  color: var(--text-secondary);
-}
-
-.meta-link {
-  color: var(--text-link);
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.meta-link:hover {
-  text-decoration: underline;
-}
-
-/* Inline Timeline */
-/* Collapsible Date Sections */
-.dates-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.dates-panel {
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--border-light);
-}
-
-.dates-panel.build {
-  border-color: var(--color-primary-200);
-}
-
-.dates-panel.show {
-  border-color: var(--color-secondary-300);
-}
-
-.dates-panel-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  background: transparent;
-}
-
-.dates-panel.build .dates-panel-header {
-  background: var(--color-primary-100);
-  color: var(--color-primary-700);
-}
-
-.dates-panel.show .dates-panel-header {
-  background: var(--color-secondary-100);
-  color: var(--color-secondary-800);
-}
-
-.dates-panel-icon {
-  font-size: 16px;
-}
-
-.dates-panel-title {
-  flex: 1;
-  text-align: left;
-}
-
-.dates-panel-count {
-  font-size: 12px;
-  font-weight: 500;
-  opacity: 0.7;
-}
-
-.dates-panel-toggle {
-  font-size: 11px;
-  opacity: 0.6;
-}
-
-.dates-panel-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.dates-panel-row {
-  padding: 8px 14px 8px 42px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  border-top: 1px solid var(--border-light);
-}
-
-/* Dark mode */
-.dark .dates-panel.build .dates-panel-header {
-  background: var(--color-primary-600);
-  color: var(--text-inverse);
-}
-
-.dark .dates-panel.show .dates-panel-header {
-  background: var(--color-secondary-600);
-  color: var(--text-inverse);
-}
-
-
-
-/* Stages Section */
-.stages-section {
-  margin-bottom: 24px;
-}
-
-.stages-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.stage-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 44px;
-  text-align: left;
-  width: 100%;
-}
-
-.stage-card:hover {
-  border-color: var(--color-primary-500);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
-}
-
-.stage-card:active,
-.stage-card.touch-active {
-  transform: scale(0.98);
-  background: var(--bg-secondary);
-}
-
-.stage-icon {
-  font-size: 24px;
-  width: 48px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.stage-info {
-  flex: 1;
-}
-
-.stage-name {
-  font-weight: 600;
-  font-size: 16px;
-  color: var(--text-heading);
-  margin-bottom: 2px;
-}
-
-.stage-venue {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.stage-arrow {
-  font-size: 18px;
-  color: var(--text-secondary);
-  font-weight: 300;
-}
-
-/* Startup Section */
-.startup-section {
-  margin-bottom: 32px;
-  padding: 32px 24px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border: 2px solid #dee2e6;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.startup-content {
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-.startup-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  display: block;
-}
-
-.startup-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin: 0 0 12px 0;
-  line-height: 1.3;
-}
-
-.startup-description {
-  font-size: 16px;
-  color: #6c757d;
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-}
-
-.startup-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 24px;
-  background: #0066cc;
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  font-size: 18px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 56px;
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
-}
-
-.startup-button:hover {
-  background: #0052a3;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 102, 204, 0.3);
-}
-
-.startup-button:active {
-  transform: scale(0.98);
-}
-
-.startup-button-icon {
-  font-size: 20px;
-  color: #ffffff;
-}
-
-.startup-button-text {
-  font-size: 16px;
-  color: #ffffff;
-}
-
-/* Actions Section */
-.actions-section {
-  margin-bottom: 24px;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.action-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 16px;
-  background: #e0f2fe; /* consistent light background */
-  border: 1px solid #7dd3fc; /* sky-300 */
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 88px;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #0c4a6e; /* dark readable text */
-}
-
-.action-button:hover {
-  background: #bae6fd; /* subtle */
-  border-color: #38bdf8; /* sky-400 */
-  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.15);
-}
-
-.action-button:active {
-  transform: scale(0.98);
-  background: #bfe3fb;
-}
-
-/* Primary variant aligns with same palette (no drastic inversion) */
-.action-button.primary {
-  background: #e0f2fe;
-  color: #0c4a6e !important;
-  border-color: #7dd3fc;
-}
-
-.action-button.primary:hover {
-  background: #bae6fd;
-  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.2);
-}
-
-/* Ensure icon/label use the readable dark text on light background */
-.action-button .action-icon,
-.action-button .action-label {
-  color: #0c4a6e !important;
-}
-
-/* Dark mode styling for action buttons */
-.dark .action-button {
-  background: var(--color-primary-700) !important;
-  border: 1px solid var(--color-primary-600) !important;
-  color: #ffffff !important;
-}
-
-.dark .action-button:hover {
-  background: var(--color-primary-600) !important;
-  border-color: var(--color-primary-500) !important;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
-  color: #ffffff !important;
-}
-
-.dark .action-button:active {
-  background: var(--color-primary-800) !important;
-  color: #ffffff !important;
-}
-
-.dark .action-button.primary,
-.dark .btn-primary.action-button {
-  background: var(--color-primary-700) !important;
-  color: #ffffff !important;
-  border-color: var(--color-primary-600) !important;
-}
-
-.dark .action-button.primary:hover,
-.dark .btn-primary.action-button:hover {
-  background: var(--color-primary-600) !important;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
-  color: #ffffff !important;
-}
-
-.dark .btn-positive.action-button {
-  background: var(--color-success-700) !important;
-  color: #ffffff !important;
-  border-color: var(--color-success-600) !important;
-}
-
-.dark .btn-positive.action-button:hover {
-  background: var(--color-success-600) !important;
-  color: #ffffff !important;
-}
-
-.dark .btn-warning.action-button {
-  background: var(--color-warning-700) !important;
-  color: #ffffff !important;
-  border-color: var(--color-warning-600) !important;
-}
-
-.dark .btn-warning.action-button:hover {
-  background: var(--color-warning-600) !important;
-  color: #ffffff !important;
-}
-
-/* Ensure icon/label use white text in dark mode */
-.dark .action-button .action-icon,
-.dark .action-button .action-label,
-.dark .action-button * {
-  color: #ffffff !important;
-}
-
-.action-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
-  display: block;
-}
-
-.action-label {
-  font-size: 14px;
-  line-height: 1.3;
-}
-
-/* Error State */
+/* ─── Error state ──────────────────────────────────────── */
 .error-state {
   text-align: center;
-  padding: 48px 16px;
-}
-
-.error-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.error-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #1a1a1a;
-}
-
-.error-message {
-  font-size: 16px;
-  color: #6c757d;
-  margin-bottom: 24px;
-}
-
-.retry-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: #0066cc;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  min-height: 44px;
-}
-
-.retry-button:hover {
-  background: #0052a3;
-}
-
-.retry-icon {
-  font-size: 18px;
-}
-
-/* Tablet Breakpoint (601px - 1024px) */
-@media (min-width: 601px) {
-  .project-detail {
-    padding: 24px;
-    max-width: 768px;
-    margin: 0 auto;
-  }
-
-  .project-title {
-    font-size: 28px;
-  }
-
-  .actions-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-  }
-
-  .stages-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-
-  .timeline-container {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-}
-
-/* Desktop Breakpoint (1025px+) */
-@media (min-width: 1025px) {
-  .project-detail {
-    padding: 32px;
-    max-width: 1024px;
-  }
-
-  .project-title {
-    font-size: 32px;
-  }
-
-  .actions-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-
-  .stages-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-
-  .timeline-container {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
-
-  .compact-header {
-    padding: 24px;
-  }
-
-  .inline-timeline {
-    flex-direction: row;
-    gap: 12px;
-  }
-
-  .stage-card {
-    padding: 20px;
-  }
-
-  .action-button {
-    padding: 24px 20px;
-    min-height: 96px;
-  }
-
-  .startup-section {
-    padding: 40px 32px;
-  }
-
-  .startup-title {
-    font-size: 28px;
-  }
-
-  .startup-description {
-    font-size: 18px;
-  }
-
-  .startup-button {
-    padding: 20px 32px;
-    font-size: 20px;
-    min-height: 64px;
-  }
-}
-
-/* Focus States for Accessibility */
-.stage-card:focus,
-.action-button:focus,
-.retry-button:focus,
-.startup-button:focus {
-  outline: 2px solid #0066cc;
-  outline-offset: 2px;
-}
-
-/* High Contrast Mode Support */
-@media (prefers-contrast: high) {
-  .project-detail {
-    border: 2px solid #000000;
-  }
-  
-  .stage-card,
-  .action-button,
-  .timeline-item {
-    border-width: 2px;
-  }
-}
-
-/* Tools Section */
-.tools-section {
-  margin-bottom: 24px;
-}
-
-.tools-grid {
+  padding: var(--space-12) var(--space-4);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.tool-card {
-  display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 44px;
-  text-align: left;
-  width: 100%;
+  gap: var(--space-3);
 }
-
-.tool-card:hover {
-  border-color: var(--color-primary-500);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
-}
-
-.tool-card:active,
-.tool-card.touch-active {
-  transform: scale(0.98);
-  background: var(--bg-secondary);
-}
-
-.tool-icon {
-  font-size: 24px;
+.error-icon {
   width: 48px;
-  text-align: center;
-  flex-shrink: 0;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--color-error-50);
+  color: var(--color-error-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.tool-info {
-  flex: 1;
-}
-
-.tool-name {
-  font-weight: 600;
-  font-size: 16px;
+.error-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   color: var(--text-heading);
-  margin-bottom: 2px;
+  margin: 0;
+}
+.error-message {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-3) 0;
 }
 
-.tool-description {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.tool-arrow {
-  font-size: 18px;
-  color: var(--text-secondary);
-  font-weight: 300;
-}
-
-/* Tool Modal */
+/* ─── Tool modal (utility opens) ───────────────────────── */
 .tool-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  z-index: 1000;
-  overflow-y: auto;
+  z-index: var(--z-modal);
+  padding: var(--space-4);
 }
-
 .tool-modal {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  max-width: 600px;
   width: 100%;
-  max-width: 900px;
   max-height: 90vh;
-  background: var(--bg-primary);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
 }
-
 .tool-modal-header {
-  padding: 1rem 1.25rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-light);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-shrink: 0;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--surface-border);
 }
-
 .tool-modal-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   color: var(--text-heading);
+  margin: 0;
 }
-
 .tool-modal-close {
   background: none;
   border: none;
-  font-size: 2rem;
-  line-height: 1;
+  font-size: var(--text-xl);
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  min-width: 36px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
 }
-
 .tool-modal-close:hover {
-  background: var(--bg-primary);
-  color: var(--text-heading);
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
+.tool-modal-body { padding: var(--space-5); }
 
-.tool-modal-body {
-  padding: 1.5rem;
-  overflow-y: auto;
-  flex: 1;
-}
-
-/* Reduced Motion Support */
-@media (prefers-reduced-motion: reduce) {
-  .stage-card,
-  .action-button,
-  .startup-button,
-  .tool-card {
-    transition: none;
-  }
-  
-  .stage-card:active,
-  .stage-card.touch-active,
-  .tool-card:active,
-  .tool-card.touch-active {
-    transform: none;
-  }
-
-  .startup-button:hover {
-    transform: none;
-  }
-
-  .startup-button:active {
-    transform: none;
-  }
-}
-
-/* Tablet and Desktop adjustments for tools */
+/* ─── Tablet ───────────────────────────────────────────── */
 @media (min-width: 601px) {
-  .tools-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
+  .project-detail { padding: var(--space-6); }
+  .hero-title { font-size: var(--text-2xl); }
+  .tool-dock { grid-template-columns: repeat(4, 1fr); gap: var(--space-3); }
+  .tool-tile { min-height: 92px; }
+  .tool-tile-label { font-size: var(--text-sm); }
+  .stage-chip { min-width: 220px; }
 }
 
+/* ─── Desktop ──────────────────────────────────────────── */
 @media (min-width: 1025px) {
-  .tools-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
+  .project-detail { padding: var(--space-8); }
+  .tool-dock { grid-template-columns: repeat(5, 1fr); }
+  .status-hero { padding: var(--space-5); }
+  .hero-title { font-size: var(--text-2xl); }
+}
+
+/* ─── Accessibility ────────────────────────────────────── */
+@media (prefers-contrast: high) {
+  .status-hero,
+  .stage-chip,
+  .tool-tile,
+  .utility-row,
+  .date-strip { border-width: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-chip,
+  .tool-tile,
+  .utility-row,
+  .btn-primary,
+  .date-strip-cell { transition: none; }
+  .tool-tile:active,
+  .stage-chip.touch-active,
+  .utility-row:active,
+  .btn-primary:active { transform: none; }
+  .date-strip-detail { animation: none; }
+  .skeleton-header,
+  .skeleton-meta,
+  .skeleton-stages,
+  .skeleton-stage,
+  .skeleton-action { animation-duration: 3s; }
 }
 </style>
+
