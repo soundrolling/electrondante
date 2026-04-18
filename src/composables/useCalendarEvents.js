@@ -3,7 +3,7 @@ import { useToast } from 'vue-toastification'
 import { fetchTableData } from '@/services/dataService'
 import { supabase } from '@/supabase'
 
-export function useCalendarEvents(projectId, userStore) {
+export function useCalendarEvents(projectId, userStore, locationsRef = null) {
   const toast = useToast()
   const loading = ref(false)
   const error = ref('')
@@ -68,6 +68,9 @@ export function useCalendarEvents(projectId, userStore) {
   // Create synthetic events from build days and travel trips
   const syntheticEvents = computed(() => {
     const project = userStore.getCurrentProject
+    const locations = locationsRef?.value || []
+    // Use the first location's id if available; fall back to null
+    const firstLocationId = locations.length > 0 ? locations[0].id : null
     let synthetic = []
 
     // Build day events
@@ -81,8 +84,26 @@ export function useCalendarEvents(projectId, userStore) {
           start_time: '00:00',
           end_time: '23:59',
           end_date: date,
-          location_id: null,
+          location_id: firstLocationId,
           notes: 'Build day (auto-added)',
+          isSynthetic: true
+        }))
+      )
+    }
+
+    // Show day events
+    if (project && Array.isArray(project.main_show_days)) {
+      synthetic = synthetic.concat(
+        project.main_show_days.map(date => ({
+          id: `show_${date}`,
+          category: 'showday',
+          title: 'Show Day',
+          event_date: date,
+          start_time: '00:00',
+          end_time: '23:59',
+          end_date: date,
+          location_id: firstLocationId,
+          notes: 'Show day (auto-added)',
           isSynthetic: true
         }))
       )
