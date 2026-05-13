@@ -3,9 +3,12 @@ import { supabase } from '../supabase';
 
 // Map a search_index row to a route + label hint the UI can navigate to.
 // Falls back to the project detail page if a kind isn't mapped.
+// If `projectId` is omitted, falls back to the row's own `project_id` (global mode).
 export function routeForResult(projectId, row) {
   const m = row?.metadata || {};
   const t = row?.source_table;
+  if (!projectId) projectId = row?.project_id;
+  if (!projectId) return { path: '/projects' };
   switch (t) {
     case 'projects':
       return { path: `/projects/${projectId}` };
@@ -92,15 +95,15 @@ export function useProjectSearch(projectIdRef) {
     if (trimmed.length < 2) return;
     const myToken = ++token;
     const projectId = typeof projectIdRef === 'function' ? projectIdRef() : projectIdRef?.value;
-    if (!projectId) return;
 
     query.value = trimmed;
     loading.value = true;
     error.value = null;
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('search', {
-        body: { projectId, query: trimmed, limit: 20 },
-      });
+      const body = { query: trimmed, limit: 20 };
+      // Omit projectId for global mode; include only when explicitly project-scoped.
+      if (projectId) body.projectId = projectId;
+      const { data, error: fnErr } = await supabase.functions.invoke('search', { body });
       if (myToken !== token) return;
       if (fnErr) throw fnErr;
       results.value = (data?.results || []);

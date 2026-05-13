@@ -19,11 +19,17 @@ type Row = {
   content: string;
   metadata: Record<string, unknown> | null;
   score: number;
+  project_id?: string;
+  project_name?: string;
 };
 
 type RankResult = { rankedIds: string[]; answer: string | null };
 
-async function haikuRank(query: string, rows: Row[]): Promise<RankResult | null> {
+async function haikuRank(
+  query: string,
+  rows: Row[],
+  opts: { scope: "project" | "global" },
+): Promise<RankResult | null> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return null;
   if (rows.length === 0) return { rankedIds: [], answer: null };
@@ -31,18 +37,24 @@ async function haikuRank(query: string, rows: Row[]): Promise<RankResult | null>
   const candidates = rows.map((r) => ({
     id: r.id,
     kind: r.source_table,
+    project: opts.scope === "global" ? (r.project_name ?? "") : undefined,
     title: (r.title ?? "").slice(0, 120),
     snippet: (r.content ?? "").slice(0, RERANK_SNIPPET_CHARS),
   }));
+
+  const scopeNote = opts.scope === "global"
+    ? "Candidates span MULTIPLE projects the user belongs to. Each candidate names its project. When answering, mention the project a fact comes from so the user knows which one. Only pick one project's data per fact unless the user explicitly asked across projects."
+    : "Candidates all come from one project.";
 
   const body = {
     model: HAIKU_MODEL,
     max_tokens: 700,
     system: [
       "You are the in-app assistant for a film/audio production app.",
-      "You receive a user's query plus candidate items from one project (notes, contacts, stages, venues, schedules, calendar events, gear, project docs, stage docs, trips, accommodations, flights, travel documents).",
+      "You receive a user's query plus candidate items (notes, contacts, stages, venues, schedules, calendar events, gear, project docs, stage docs, trips, accommodations, flights, travel documents).",
+      scopeNote,
       "Pick the candidates that are genuinely relevant and order them most-relevant first; omit anything that doesn't fit.",
-      "When the query is a question (or clearly seeks an answer rather than a navigation target), also write a concise natural-language answer (1–2 sentences) grounded only in the candidate snippets. Reference items by their title, not their id. Never invent details that aren't in the candidates.",
+      "When the query is a question (or clearly seeks an answer rather than a navigation target), also write a concise natural-language answer (1–3 sentences) grounded only in the candidate snippets. Reference items by their title, not their id. Never invent details that aren't in the candidates.",
       "If the query is just a keyword or a person/place/thing name, leave the answer empty — the user is browsing, not asking.",
       "If nothing in the candidates is relevant, return an empty ranked list and an empty answer.",
     ].join(" "),
@@ -59,7 +71,7 @@ async function haikuRank(query: string, rows: Row[]): Promise<RankResult | null>
           },
           answer: {
             type: "string",
-            description: "1–2 sentence answer to the user's question grounded in the candidates. Empty string if the query isn't a question or nothing relevant is found.",
+            description: "1–3 sentence answer grounded in the candidates. Empty string if the query isn't a question or nothing relevant is found.",
           },
         },
         required: ["ranked_ids", "answer"],
@@ -101,8 +113,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 200, headers: CORS });
   try {
     const { projectId, query, limit = 20 } = await req.json();
-    if (!projectId || typeof projectId !== "string") throw new Error("projectId required");
     if (typeof query !== "string") throw new Error("query required");
+    const projectScope: boolean = typeof projectId === "string" && projectId.length > 0;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -118,26 +130,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data, error } = await supabase.rpc("search_project", {
-      p_project_id: projectId,
-      p_query: trimmed,
-      p_query_embedding: null,
-      p_limit: FTS_CANDIDATES,
-    });
-    if (error) throw error;
-    let candidates = (data ?? []) as Row[];
+    let candidates: Row[] = [];
     let usedFallback = false;
 
-    if (candidates.length === 0) {
-      const { data: recent, error: rErr } = await supabase
-        .from("search_index")
-        .select("id, source_table, source_id, title, content, metadata")
-        .eq("project_id", projectId)
-        .order("indexed_at", { ascending: false })
-        .limit(50);
-      if (rErr) throw rErr;
-      candidates = ((recent ?? []) as Omit<Row, "score">[]).map((r) => ({ ...r, score: 0 }));
-      usedFallback = true;
+    if (projectScope) {
+      const { data, error } = await supabase.rpc("search_project", {
+        p_project_id: projectId,
+        p_query: trimmed,
+        p_query_embedding: null,
+        p_limit: FTS_CANDIDATES,
+      });
+      if (error) throw error;
+      candidates = (data ?? []) as Row[];
+
+      if (candidates.length === 0) {
+        const { data: recent, error: rErr } = await supabase
+          .from("search_index")
+          .select("id, source_table, source_id, title, content, metadata")
+          .eq("project_id", projectId)
+          .order("indexed_at", { ascending: false })
+          .limit(50);
+        if (rErr) throw rErr;
+        candidates = ((recent ?? []) as Omit<Row, "score">[]).map((r) => ({ ...r, score: 0 }));
+        usedFallback = true;
+      }
+    } else {
+      // Cross-project: RLS already scopes search_index to the user's projects.
+      const { data, error } = await supabase.rpc("search_user_projects", {
+        p_query: trimmed,
+        p_query_embedding: null,
+        p_limit: FTS_CANDIDATES,
+      });
+      if (error) throw error;
+      candidates = (data ?? []) as Row[];
+      // No fallback for global mode — an empty FTS result is a genuine miss
+      // and we don't want to ship 50 random rows from every project.
     }
 
     if (candidates.length === 0) {
@@ -146,15 +173,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Always send to Haiku so question-style queries get an answer even
-    // when only one candidate matched FTS.
-    const rank = await haikuRank(trimmed, candidates);
+    const rank = await haikuRank(trimmed, candidates, {
+      scope: projectScope ? "project" : "global",
+    });
     const finalLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
     let results: Row[];
     let answer: string | null = null;
     if (rank === null) {
-      // Haiku unavailable. FTS hits keep their order; fallback gives nothing.
       results = usedFallback ? [] : candidates.slice(0, finalLimit);
     } else {
       const byId = new Map(candidates.map((c) => [c.id, c]));
@@ -163,7 +189,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ results, answer, reranked: rank !== null }),
+      JSON.stringify({ results, answer, reranked: rank !== null, scope: projectScope ? "project" : "global" }),
       { status: 200, headers: { "Content-Type": "application/json", ...CORS } },
     );
   } catch (err) {

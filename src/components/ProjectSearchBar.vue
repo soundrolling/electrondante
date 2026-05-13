@@ -4,11 +4,12 @@
     <button
       type="button"
       class="psb-trigger"
-      :aria-label="placeholder"
+      :aria-label="effectivePlaceholder"
       @click="openPalette"
     >
-      <Search :size="16" :stroke-width="2" class="psb-icon" />
-      <span class="psb-trigger-text">{{ placeholder }}</span>
+      <Sparkles v-if="isGlobal" :size="16" :stroke-width="2" class="psb-icon psb-icon-accent" />
+      <Search v-else :size="16" :stroke-width="2" class="psb-icon" />
+      <span class="psb-trigger-text">{{ effectivePlaceholder }}</span>
       <kbd class="psb-kbd">{{ shortcutLabel }}</kbd>
     </button>
 
@@ -22,13 +23,13 @@
         <div
           class="psb-palette"
           role="dialog"
-          :aria-label="paletteplaceholder"
+          :aria-label="effectivePaletteTitle"
           @keydown.esc="closePalette"
         >
           <div class="psb-palette-head">
             <div class="psb-palette-title">
               <Sparkles :size="16" :stroke-width="2" class="psb-palette-title-icon" />
-              <span>Project assistant</span>
+              <span>{{ effectivePaletteTitle }}</span>
             </div>
             <button
               type="button"
@@ -44,7 +45,9 @@
             <!-- Empty / idle state -->
             <div v-if="!query && !loading" class="psb-idle">
               <p class="psb-idle-lead">
-                Ask anything about this project — notes, contacts, stages, schedule, gear, docs, travel.
+                {{ isGlobal
+                  ? 'Ask anything across your projects — notes, contacts, schedules, gear, travel, docs.'
+                  : 'Ask anything about this project — notes, contacts, stages, schedule, gear, docs, travel.' }}
               </p>
               <div class="psb-examples">
                 <button
@@ -98,7 +101,13 @@
                       <component :is="iconFor(r)" :size="18" :stroke-width="2" class="psb-result-icon" />
                       <div class="psb-result-body">
                         <div class="psb-result-title">{{ r.title || labelForResult(r) }}</div>
-                        <div class="psb-result-snippet">{{ snippet(r) }}</div>
+                        <div class="psb-result-meta">
+                          <span v-if="isGlobal && r.project_name" class="psb-result-project">
+                            <Folder :size="11" :stroke-width="2" />
+                            {{ r.project_name }}
+                          </span>
+                          <span class="psb-result-snippet">{{ snippet(r) }}</span>
+                        </div>
                       </div>
                       <span class="psb-result-kind">{{ labelForResult(r) }}</span>
                     </li>
@@ -164,22 +173,14 @@ const ICONS = {
   gear_table: Package,
 };
 
-const EXAMPLES = [
-  'who is the FOH engineer?',
-  'where are we staying?',
-  'what time does load-in start on the show day?',
-  'show me notes about stage right',
-  'which flights leave London?',
-  'what gear is rented?',
-];
-
 export default {
   name: 'ProjectSearchBar',
-  components: { Search, X, Loader2, Sparkles, ArrowUp },
+  components: { Search, X, Loader2, Sparkles, ArrowUp, Folder },
   props: {
-    projectId: { type: String, required: true },
-    placeholder: { type: String, default: 'Ask anything about this project…' },
-    paletteplaceholder: { type: String, default: 'Project assistant' },
+    // null/empty = global mode (search every project the user belongs to)
+    projectId: { type: String, default: null },
+    placeholder: { type: String, default: '' },
+    paletteplaceholder: { type: String, default: '' },
   },
   setup(props) {
     const router = useRouter();
@@ -194,7 +195,30 @@ export default {
 
     const isMac = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform || '');
     const shortcutLabel = computed(() => (isMac ? '⌘K' : 'Ctrl K'));
-    const examples = EXAMPLES;
+    const isGlobal = computed(() => !props.projectId);
+    const effectivePlaceholder = computed(() =>
+      props.placeholder || (isGlobal.value
+        ? 'Ask anything across your projects…'
+        : 'Ask anything about this project…'));
+    const effectivePaletteTitle = computed(() =>
+      props.paletteplaceholder || (isGlobal.value ? 'Workspace assistant' : 'Project assistant'));
+    const examples = computed(() => (isGlobal.value
+      ? [
+          'which projects start in November?',
+          'where am I staying for the malta trip?',
+          'what gear do I have rented across projects?',
+          'show me upcoming build days',
+          'who is the FOH engineer on WHP 2025?',
+          'next flight I have booked',
+        ]
+      : [
+          'who is the FOH engineer?',
+          'where are we staying?',
+          'what time does load-in start on the show day?',
+          'show me notes about stage right',
+          'which flights leave London?',
+          'what gear is rented?',
+        ]));
 
     const canSubmit = computed(() => !loading.value && draft.value.trim().length >= 2);
     const composerPlaceholder = computed(() => (query.value ? 'Ask a follow-up…' : 'Ask anything…'));
@@ -268,6 +292,7 @@ export default {
       paletteOpen, selected, paletteInputRef, bodyRef,
       draft, canSubmit, composerPlaceholder,
       shortcutLabel, examples,
+      isGlobal, effectivePlaceholder, effectivePaletteTitle,
       openPalette, closePalette, onSubmit, runExample,
       moveSelection, goToResult,
       iconFor, snippet, labelForResult,
@@ -486,14 +511,35 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.psb-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  min-width: 0;
+}
+.psb-result-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #0369a1;
+  background: #e0f2fe;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .psb-result-snippet {
-  margin-top: 2px;
   font-size: 12.5px;
   color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
+.psb-icon-accent { color: #0ea5e9; }
 .psb-result-kind {
   font-size: 11px;
   font-weight: 600;

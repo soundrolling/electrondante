@@ -27,6 +27,11 @@
     </div>
   </header>
 
+  <!-- ─── WORKSPACE ASSISTANT ──────────────────────────────── -->
+  <section class="workspace-assistant" aria-label="Search across your projects">
+    <ProjectSearchBar />
+  </section>
+
   <!-- ─── FILTER RAIL ──────────────────────────────────────── -->
   <div class="filter-rail">
     <div class="filter-rail-inner">
@@ -598,6 +603,7 @@ import { useUserStore }             from '@/stores/userStore';
 import { useToast }                 from 'vue-toastification';
 import { mutateTableData }          from '@/services/dataService';
 import { cachedFetch, setCachedQuery, clearQueryCache } from '@/services/queryCache';
+import ProjectSearchBar from './ProjectSearchBar.vue';
 import {
   Plus,
   X,
@@ -629,6 +635,7 @@ import {
 
 export default {
 components: {
+  ProjectSearchBar,
   Plus,
   X,
   Search,
@@ -1600,6 +1607,11 @@ setup() {
   background: var(--color-error-50);
   border-color: var(--color-error-300);
   color: var(--color-error-700);
+}
+
+/* ─── Workspace assistant ──────────────────────────────── */
+.workspace-assistant {
+  margin-bottom: var(--space-4);
 }
 
 /* ─── Filter rail ──────────────────────────────────────── */
