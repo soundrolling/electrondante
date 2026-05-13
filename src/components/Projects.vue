@@ -298,7 +298,7 @@
 
             <div v-if="nextKeyDate(p)" class="card-next-date">
               <span :class="['next-date-kind', nextKeyDate(p).kind]">
-                <Drama v-if="nextKeyDate(p).kind === 'show'" :size="14" :stroke-width="2" />
+                <Speaker v-if="nextKeyDate(p).kind === 'show'" :size="14" :stroke-width="2" />
                 <Hammer v-else :size="14" :stroke-width="2" />
                 {{ nextKeyDate(p).kind === 'show' ? 'Show' : 'Build' }}
               </span>
@@ -330,7 +330,7 @@
                 </span>
                 <span class="legend-item">
                   <span class="legend-dot show"></span>
-                  <Drama :size="12" :stroke-width="2" />
+                  <Speaker :size="12" :stroke-width="2" />
                   <span>{{ (p.main_show_days || []).length }}</span>
                 </span>
                 <span v-if="(p.travel_days || []).length" class="legend-item">
@@ -378,7 +378,14 @@
                     :aria-label="cellAriaLabel(d)"
                     :tabindex="(d.isBuild || d.isShow || d.isTravel) ? 0 : -1"
                     @click.stop="openDateCell(p.id, di, d.isBuild || d.isShow || d.isTravel)"
-                  ></button>
+                  >
+                    <span v-if="d.isToday && !d.isBuild && !d.isShow && !d.isTravel" class="cell-today-text">Today</span>
+                    <span v-else class="cell-icons">
+                      <Hammer v-if="d.isBuild" :size="11" :stroke-width="2.5" />
+                      <Speaker v-if="d.isShow" :size="11" :stroke-width="2.5" />
+                      <PlaneTakeoff v-if="d.isTravel" :size="11" :stroke-width="2.5" />
+                    </span>
+                  </button>
                 </template>
               </div>
               <div
@@ -394,7 +401,7 @@
                   </span>
                   <span v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isShow" class="kind-tag">
                     <span class="legend-dot show"></span>
-                    <Drama :size="12" :stroke-width="2" /> Show
+                    <Speaker :size="12" :stroke-width="2" /> Show
                   </span>
                   <span v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isTravel" class="kind-tag">
                     <span class="legend-dot travel"></span>
@@ -598,8 +605,9 @@ import {
   MapPin,
   Globe,
   Hammer,
-  Drama,
+  Speaker,
   Plane,
+  PlaneTakeoff,
   Headphones,
   ArrowRight,
   ChevronDown,
@@ -626,8 +634,9 @@ components: {
   MapPin,
   Globe,
   Hammer,
-  Drama,
+  Speaker,
   Plane,
+  PlaneTakeoff,
   Headphones,
   ArrowRight,
   ChevronDown,
@@ -2130,20 +2139,41 @@ setup() {
 .date-strip-track {
   display: flex;
   gap: 1px;
-  height: 18px;
+  height: 30px;
   align-items: stretch;
 }
 .date-strip-cell {
   flex: 1 1 0;
   min-width: 2px;
   background: var(--chip-bg);
-  border-radius: 2px;
+  border-radius: 3px;
   transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
   position: relative;
   cursor: default;
   padding: 0;
   border: none;
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  overflow: hidden;
+}
+.cell-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 0;
+}
+.cell-icons svg {
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+  flex-shrink: 0;
+}
+.cell-today-text {
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  color: var(--color-primary-700);
+  letter-spacing: 0.02em;
 }
 .date-strip-cell.interactive { cursor: pointer; }
 .date-strip-cell.interactive:focus-visible {
