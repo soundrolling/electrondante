@@ -26,7 +26,7 @@ type RankResult = { rankedIds: string[]; answer: string | null };
 async function haikuRank(query: string, rows: Row[]): Promise<RankResult | null> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return null;
-  if (rows.length < 1) return { rankedIds: [], answer: null };
+  if (rows.length === 0) return { rankedIds: [], answer: null };
 
   const candidates = rows.map((r) => ({
     id: r.id,
@@ -146,6 +146,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Always send to Haiku so question-style queries get an answer even
+    // when only one candidate matched FTS.
     const rank = await haikuRank(trimmed, candidates);
     const finalLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
