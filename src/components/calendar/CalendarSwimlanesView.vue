@@ -45,7 +45,7 @@
   </header>
 
   <!-- Scrollable swimlane chart -->
-  <div class="csv-scroll-wrap" v-if="visibleGroups.length">
+  <div ref="scrollWrapEl" class="csv-scroll-wrap" v-if="visibleGroups.length">
     <div class="csv-chart" :style="{ '--day-col': dayColWidth + 'px', '--lane-w': laneWidth + 'px' }">
       <!-- Day header row (sticky top) -->
       <div class="csv-day-header" role="row">
@@ -119,7 +119,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   ChevronLeft,
   ChevronRight,
@@ -232,8 +232,34 @@ const days = computed(() => {
 /* ─── Layout constants ────────────────────────────────── */
 const ROW_HEIGHT = 26
 const LANE_GAP = 4
-const dayColWidth = ref(40)
+const MIN_DAY_COL = 40
+const MAX_DAY_COL = 140
 const laneWidth = ref(180)
+
+// Stretch day columns to fill the wrapper when the natural width
+// (MIN_DAY_COL * daysCount) is narrower than the available track space.
+const scrollWrapEl = ref(null)
+const wrapWidth = ref(0)
+let ro = null
+onMounted(() => {
+  if (!scrollWrapEl.value || typeof ResizeObserver === 'undefined') {
+    wrapWidth.value = scrollWrapEl.value?.clientWidth || 0
+    return
+  }
+  ro = new ResizeObserver(entries => {
+    for (const entry of entries) wrapWidth.value = entry.contentRect.width
+  })
+  ro.observe(scrollWrapEl.value)
+})
+onBeforeUnmount(() => { if (ro) { ro.disconnect(); ro = null } })
+
+const dayColWidth = computed(() => {
+  const n = days.value.length || 1
+  const trackPx = Math.max(0, wrapWidth.value - laneWidth.value - 1)
+  if (!trackPx) return MIN_DAY_COL
+  const ideal = Math.floor(trackPx / n)
+  return Math.max(MIN_DAY_COL, Math.min(MAX_DAY_COL, ideal))
+})
 
 /* ─── Group events + pack bars ────────────────────────── */
 function locationLabelOf(locationId) {
