@@ -77,6 +77,8 @@ export function labelForResult(row) {
 }
 
 export function useProjectSearch(projectIdRef) {
+  // The query is the *submitted* question — what Haiku saw and answered.
+  // Free-typing in the input is component-local state, kept out of this composable.
   const query = ref('');
   const results = shallowRef([]);
   const answer = ref(null);
@@ -84,16 +86,15 @@ export function useProjectSearch(projectIdRef) {
   const error = ref(null);
 
   let token = 0;
-  let timer = null;
 
-  async function run(q) {
+  async function submit(q) {
+    const trimmed = (q ?? '').trim();
+    if (trimmed.length < 2) return;
     const myToken = ++token;
     const projectId = typeof projectIdRef === 'function' ? projectIdRef() : projectIdRef?.value;
-    if (!projectId) { results.value = []; answer.value = null; return; }
-    const trimmed = (q ?? '').trim();
-    if (trimmed.length < 2) {
-      results.value = []; answer.value = null; loading.value = false; return;
-    }
+    if (!projectId) return;
+
+    query.value = trimmed;
     loading.value = true;
     error.value = null;
     try {
@@ -114,25 +115,13 @@ export function useProjectSearch(projectIdRef) {
     }
   }
 
-  function search(q) {
-    query.value = q;
-    if (timer) clearTimeout(timer);
-    if (!q || q.trim().length < 2) {
-      results.value = [];
-      answer.value = null;
-      loading.value = false;
-      return;
-    }
-    timer = setTimeout(() => run(q), 200);
-  }
-
   function reset() {
+    token++;
     query.value = '';
     results.value = [];
     answer.value = null;
     loading.value = false;
     error.value = null;
-    if (timer) { clearTimeout(timer); timer = null; }
   }
 
   async function rebuildIndex() {
@@ -151,7 +140,7 @@ export function useProjectSearch(projectIdRef) {
     answer,
     loading,
     error,
-    search,
+    submit,
     reset,
     rebuildIndex,
   };
