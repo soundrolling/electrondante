@@ -7,20 +7,79 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, x-client-info, apikey",
 };
 
-async function embedQuery(text: string): Promise<number[] | null> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+const FTS_CANDIDATES = 30;
+const RERANK_SNIPPET_CHARS = 240;
+
+type Row = {
+  id: string;
+  source_table: string;
+  source_id: string;
+  title: string | null;
+  content: string;
+  metadata: Record<string, unknown> | null;
+  score: number;
+};
+
+async function haikuRerank(query: string, rows: Row[]): Promise<string[] | null> {
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return null;
-  const resp = await fetch("https://api.openai.com/v1/embeddings", {
+  if (rows.length < 2) return rows.map((r) => r.id);
+
+  const candidates = rows.map((r) => ({
+    id: r.id,
+    kind: r.source_table,
+    title: (r.title ?? "").slice(0, 120),
+    snippet: (r.content ?? "").slice(0, RERANK_SNIPPET_CHARS),
+  }));
+
+  const body = {
+    model: HAIKU_MODEL,
+    max_tokens: 512,
+    system:
+      "You are a search reranker for a film/audio production app. Given a user query and candidate items from one project (notes, contacts, stages, venues, schedules, calendar events, gear, docs, travel), return the candidates that are actually relevant to the query, ordered most-relevant first. Omit clearly irrelevant ones.",
+    tools: [{
+      name: "rank_results",
+      description: "Return candidate IDs ranked by relevance to the query.",
+      input_schema: {
+        type: "object",
+        properties: {
+          ranked_ids: {
+            type: "array",
+            items: { type: "string" },
+            description: "Result IDs from most to least relevant; omit irrelevant ones.",
+          },
+        },
+        required: ["ranked_ids"],
+      },
+    }],
+    tool_choice: { type: "tool", name: "rank_results" },
+    messages: [{
+      role: "user",
+      content: `Query: ${query}\n\nCandidates (JSON):\n${JSON.stringify(candidates)}`,
+    }],
+  };
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: "text-embedding-3-small", input: text }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(body),
   });
   if (!resp.ok) {
-    console.error("embedQuery failed:", resp.status, await resp.text());
+    console.error("Haiku rerank failed:", resp.status, await resp.text());
     return null;
   }
   const json = await resp.json();
-  return json?.data?.[0]?.embedding ?? null;
+  const block = (json?.content ?? []).find((b: { type: string }) => b.type === "tool_use");
+  const ids = block?.input?.ranked_ids;
+  if (!Array.isArray(ids)) return null;
+  // Constrain to the IDs we actually sent
+  const allowed = new Set(rows.map((r) => r.id));
+  return ids.filter((id: string) => allowed.has(id));
 }
 
 Deno.serve(async (req) => {
@@ -32,27 +91,48 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    // Use the caller's JWT so RLS scopes results to projects they belong to.
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
     const trimmed = query.trim();
-    const embedding = trimmed.length >= 2 ? await embedQuery(trimmed) : null;
-    const embeddingLiteral = embedding ? `[${embedding.join(",")}]` : null;
+    if (trimmed.length < 2) {
+      return new Response(JSON.stringify({ results: [], reranked: false }), {
+        status: 200, headers: { "Content-Type": "application/json", ...CORS },
+      });
+    }
 
+    // Pull a wider candidate set via FTS, then rerank with Haiku
     const { data, error } = await supabase.rpc("search_project", {
       p_project_id: projectId,
       p_query: trimmed,
-      p_query_embedding: embeddingLiteral,
-      p_limit: Math.min(Math.max(Number(limit) || 20, 1), 100),
+      p_query_embedding: null,
+      p_limit: FTS_CANDIDATES,
     });
     if (error) throw error;
+    const candidates = (data ?? []) as Row[];
+
+    if (candidates.length <= 1) {
+      return new Response(JSON.stringify({ results: candidates, reranked: false }), {
+        status: 200, headers: { "Content-Type": "application/json", ...CORS },
+      });
+    }
+
+    const rankedIds = await haikuRerank(trimmed, candidates);
+    const finalLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+
+    let results: Row[];
+    if (rankedIds && rankedIds.length) {
+      const byId = new Map(candidates.map((c) => [c.id, c]));
+      results = rankedIds.map((id) => byId.get(id)).filter((r): r is Row => !!r).slice(0, finalLimit);
+    } else {
+      // Rerank unavailable (no key, error, or empty answer) → fall back to FTS order
+      results = candidates.slice(0, finalLimit);
+    }
 
     return new Response(
-      JSON.stringify({ results: data ?? [], embedded: !!embedding }),
+      JSON.stringify({ results, reranked: !!rankedIds }),
       { status: 200, headers: { "Content-Type": "application/json", ...CORS } },
     );
   } catch (err) {
