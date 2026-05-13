@@ -180,11 +180,12 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu, Expo
   }
 
   // handle going back online: update flag and sync offline queue once
+  // syncOfflineChanges shows its own "Synced N changes" toast on success, so we
+  // don't toast here — otherwise users see two notifications.
   const handleOnline = async () => {
     updateOnlineStatus()
     try {
       await syncOfflineChanges()
-      toast.success('Offline changes synced successfully!')
     } catch (err) {
       console.error('Error syncing offline changes:', err)
       toast.error('Failed to sync offline changes.')
@@ -243,6 +244,15 @@ components: { Header, Footer, ChangeoverNotificationModal, QuickAccessMenu, Expo
       // Start schedule notifications if authenticated and have a project
       if (userStore.isAuthenticated && userStore.getCurrentProject) {
         await startScheduleNotifications(userStore.getCurrentProject.id)
+      }
+
+      // If the page was reloaded while online with pending changes, flush them.
+      // Without this, queued writes only sync on offline→online or when the user
+      // happens to visit a feature that calls sync directly.
+      if (navigator.onLine) {
+        syncOfflineChanges().catch(err => {
+          console.error('[App] Initial offline-changes sync failed:', err)
+        })
       }
     } catch (err) {
       initializationError.value = `Failed to initialize the app: ${err.message}`

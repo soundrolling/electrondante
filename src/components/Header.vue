@@ -51,14 +51,17 @@
             <span class="status-dot"></span>
             <span class="status-label">{{ onlineStatusText }}</span>
           </span>
-          <span
-            :class="['status-chip', hasPendingSync ? 'pending' : 'synced']"
+          <button
+            type="button"
+            :class="['status-chip', 'status-chip-btn', syncChipClass]"
             :title="syncStatusText"
-            role="status"
+            :aria-label="syncStatusText"
+            :disabled="syncChipDisabled"
+            @click="handleSyncClick"
           >
             <span class="status-dot"></span>
-            <span class="status-label">{{ hasPendingSync ? `${pendingCount} pending` : 'Synced' }}</span>
-          </span>
+            <span class="status-label">{{ syncLabel }}</span>
+          </button>
         </div>
       </div>
 
@@ -214,10 +217,17 @@
           <span class="status-dot"></span>
           <span class="status-label">{{ onlineStatusText }}</span>
         </span>
-        <span :class="['status-chip', hasPendingSync ? 'pending' : 'synced']">
+        <button
+          type="button"
+          :class="['status-chip', 'status-chip-btn', syncChipClass]"
+          :title="syncStatusText"
+          :aria-label="syncStatusText"
+          :disabled="syncChipDisabled"
+          @click="handleSyncClick"
+        >
           <span class="status-dot"></span>
-          <span class="status-label">{{ hasPendingSync ? `${pendingCount} pending` : 'Synced' }}</span>
-        </span>
+          <span class="status-label">{{ syncLabel }}</span>
+        </button>
       </div>
 
       <div class="menu-section nav-section">
@@ -257,6 +267,12 @@ import { useUserStore } from '../stores/userStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useBugReportStore } from '../stores/bugReportStore';
 import BugReportModal from './BugReportModal.vue';
+import {
+  isSyncing,
+  lastSyncedAt,
+  triggerManualSync,
+  getPendingBreakdown,
+} from '@/services/syncService';
 import {
   Menu,
   X,
@@ -321,7 +337,76 @@ export default {
 
     const hasPendingSync = ref(false);
     const pendingCount = ref(0);
-    const syncStatusText = computed(() => hasPendingSync.value ? 'There are changes waiting to sync' : 'All changes synced');
+    const pendingBreakdown = ref({});
+
+    const formatBreakdown = (breakdown) => {
+      const entries = Object.entries(breakdown || {});
+      if (!entries.length) return '';
+      return entries.map(([t, c]) => `${c} ${t.replace(/_/g, ' ')}`).join(', ');
+    };
+
+    const formatLastSynced = (ts) => {
+      if (!ts) return '';
+      const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      if (seconds < 5) return ' • just now';
+      if (seconds < 60) return ` • ${seconds}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return ` • ${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return ` • ${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return ` • ${days}d ago`;
+    };
+
+    const syncChipClass = computed(() => {
+      if (isSyncing.value) return 'syncing';
+      if (hasPendingSync.value) return 'pending';
+      return 'synced';
+    });
+
+    const syncLabel = computed(() => {
+      if (isSyncing.value) return 'Syncing…';
+      if (hasPendingSync.value) return `${pendingCount.value} pending`;
+      return 'Synced';
+    });
+
+    const syncStatusText = computed(() => {
+      if (isSyncing.value) return 'Syncing offline changes…';
+      if (hasPendingSync.value && !isOnline.value) {
+        return `${pendingCount.value} change${pendingCount.value === 1 ? '' : 's'} queued — will sync when you're back online`;
+      }
+      if (hasPendingSync.value) {
+        const breakdown = formatBreakdown(pendingBreakdown.value);
+        const detail = breakdown ? ` (${breakdown})` : '';
+        return `Click to sync ${pendingCount.value} pending change${pendingCount.value === 1 ? '' : 's'}${detail}`;
+      }
+      return `All changes synced${formatLastSynced(lastSyncedAt.value)}`;
+    });
+
+    const syncChipDisabled = computed(() => {
+      if (isSyncing.value) return true;
+      if (!isOnline.value) return true;
+      return false;
+    });
+
+    const refreshSyncCounts = async () => {
+      try {
+        const mod = await import('@/services/dataService');
+        const count = await mod.getPendingChangesCount?.() ?? 0;
+        pendingCount.value = count;
+        hasPendingSync.value = count > 0;
+        pendingBreakdown.value = count > 0 ? await getPendingBreakdown() : {};
+      } catch {}
+    };
+
+    const handleSyncClick = async () => {
+      if (isSyncing.value || !isOnline.value) return;
+      try {
+        await triggerManualSync();
+      } finally {
+        await refreshSyncCounts();
+      }
+    };
 
     // Logout
     const isLoggingOut = ref(false);
@@ -439,14 +524,7 @@ export default {
 
       const startSyncPolling = async () => {
         try {
-          const mod = await import('@/services/dataService');
-          const poll = async () => {
-            try {
-              const count = await mod.getPendingChangesCount?.() ?? 0;
-              pendingCount.value = count;
-              hasPendingSync.value = count > 0;
-            } catch {}
-          };
+          const poll = async () => { await refreshSyncCounts(); };
           poll();
           const id = setInterval(poll, 7000);
           onUnmounted(() => clearInterval(id));
@@ -481,6 +559,11 @@ export default {
       hasPendingSync,
       pendingCount,
       syncStatusText,
+      syncChipClass,
+      syncLabel,
+      syncChipDisabled,
+      isSyncing,
+      handleSyncClick,
 
       isLoggingOut,
       handleSignOut,
@@ -631,14 +714,47 @@ export default {
   background: var(--color-warning-500);
   animation: pulseDot 1.6s ease-in-out infinite;
 }
+.status-chip.syncing .status-dot {
+  width: 9px;
+  height: 9px;
+  background: transparent;
+  border: 1.5px solid var(--color-primary-200);
+  border-top-color: var(--color-primary-500);
+  border-radius: 50%;
+  animation: spinDot 0.7s linear infinite;
+}
 .status-chip.online .status-label,
 .status-chip.synced .status-label { color: var(--text-secondary); }
 .status-chip.offline .status-label,
-.status-chip.pending .status-label { color: var(--text-primary); }
+.status-chip.pending .status-label,
+.status-chip.syncing .status-label { color: var(--text-primary); }
+
+/* Clickable sync chip — looks like a chip, acts like a button */
+.status-chip-btn {
+  background: transparent;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.status-chip-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.status-chip-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.status-chip-btn:disabled {
+  cursor: default;
+}
 
 @keyframes pulseDot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
+}
+
+@keyframes spinDot {
+  to { transform: rotate(360deg); }
 }
 
 /* Navigation */
@@ -1050,6 +1166,7 @@ export default {
 @media (prefers-reduced-motion: reduce) {
   .user-menu-panel { animation: none; }
   .status-chip.pending .status-dot { animation: none; }
+  .status-chip.syncing .status-dot { animation-duration: 2s; }
   .user-menu-caret { transition: none; }
   .spinner { animation-duration: 2.5s; }
 }
