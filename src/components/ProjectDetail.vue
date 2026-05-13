@@ -137,6 +137,11 @@
       </div>
     </section>
 
+    <!-- Project search (inline bar + Cmd-K palette) -->
+    <section v-if="currentProject?.id" class="project-search-section" aria-label="Search this project">
+      <ProjectSearchBar :project-id="currentProject.id" />
+    </section>
+
     <!-- Stages Rail -->
     <section v-if="stages.length" class="stages-rail-section" aria-label="Stages">
       <div class="rail-head">
@@ -285,6 +290,7 @@ import { cachedFetch } from '@/services/queryCache';
 import StageQuickAccessMenu from './stage/StageQuickAccessMenu.vue';
 import LTCTimecodeGenerator from './tools/LTCTimecodeGenerator.vue';
 import AudioSignalGenerator from './tools/AudioSignalGenerator.vue';
+import ProjectSearchBar from './ProjectSearchBar.vue';
 import {
   MapPin,
   Globe,
@@ -315,6 +321,7 @@ export default {
     StageQuickAccessMenu,
     LTCTimecodeGenerator,
     AudioSignalGenerator,
+    ProjectSearchBar,
     MapPin,
     Globe,
     Hammer,
@@ -1001,6 +1008,13 @@ export default {
 @keyframes detailIn {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Project search bar ─────────────────────────────────── */
+.project-search-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* ─── Stages rail ──────────────────────────────────────── */
