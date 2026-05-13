@@ -111,9 +111,29 @@ Deno.serve(async (req) => {
       p_limit: FTS_CANDIDATES,
     });
     if (error) throw error;
-    const candidates = (data ?? []) as Row[];
+    let candidates = (data ?? []) as Row[];
+    let usedFallback = false;
 
-    if (candidates.length <= 1) {
+    // FTS finds nothing (e.g. all-stopword queries like "what is the X").
+    // Fall back to the most recent N rows so Haiku can still answer.
+    if (candidates.length === 0) {
+      const { data: recent, error: rErr } = await supabase
+        .from("search_index")
+        .select("id, source_table, source_id, title, content, metadata")
+        .eq("project_id", projectId)
+        .order("indexed_at", { ascending: false })
+        .limit(50);
+      if (rErr) throw rErr;
+      candidates = ((recent ?? []) as Omit<Row, "score">[]).map((r) => ({ ...r, score: 0 }));
+      usedFallback = true;
+    }
+
+    if (candidates.length === 0) {
+      return new Response(JSON.stringify({ results: [], reranked: false }), {
+        status: 200, headers: { "Content-Type": "application/json", ...CORS },
+      });
+    }
+    if (candidates.length === 1 && !usedFallback) {
       return new Response(JSON.stringify({ results: candidates, reranked: false }), {
         status: 200, headers: { "Content-Type": "application/json", ...CORS },
       });
@@ -123,12 +143,14 @@ Deno.serve(async (req) => {
     const finalLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
     let results: Row[];
-    if (rankedIds && rankedIds.length) {
+    if (rankedIds === null) {
+      // Haiku unavailable (no key, network error). FTS hits keep their order;
+      // the wide fallback gives nothing — those rows weren't real matches.
+      results = usedFallback ? [] : candidates.slice(0, finalLimit);
+    } else {
+      // Haiku returned an ordered list (possibly empty when nothing is relevant)
       const byId = new Map(candidates.map((c) => [c.id, c]));
       results = rankedIds.map((id) => byId.get(id)).filter((r): r is Row => !!r).slice(0, finalLimit);
-    } else {
-      // Rerank unavailable (no key, error, or empty answer) → fall back to FTS order
-      results = candidates.slice(0, finalLimit);
     }
 
     return new Response(

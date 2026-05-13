@@ -41,7 +41,7 @@
           <Loader2 :size="14" class="spin" /> Searching…
         </div>
         <div v-else-if="!loading && query.length >= 2 && !results.length" class="psb-empty">
-          No matches. <button class="psb-link" @mousedown.prevent="reindex">Build embeddings</button>
+          No matches in this project.
         </div>
         <ul v-else class="psb-results">
           <li
@@ -90,8 +90,7 @@
               <Loader2 :size="14" class="spin" /> Searching…
             </div>
             <div v-else-if="!loading && query.length >= 2 && !results.length" class="psb-empty">
-              No matches.
-              <button class="psb-link" @click="reindex">Build embeddings</button>
+              No matches in this project.
             </div>
             <div v-else-if="!query" class="psb-empty psb-hint">
               Type to search across notes, contacts, stages, schedules, gear, docs, travel…
