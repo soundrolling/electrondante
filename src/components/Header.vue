@@ -626,7 +626,7 @@ export default {
 }
 .status-chip.online .status-dot { background: var(--color-success-500); }
 .status-chip.offline .status-dot { background: var(--color-error-500); }
-.status-chip.synced .status-dot { background: var(--color-neutral-400); }
+.status-chip.synced .status-dot { background: var(--color-success-500); }
 .status-chip.pending .status-dot {
   background: var(--color-warning-500);
   animation: pulseDot 1.6s ease-in-out infinite;
