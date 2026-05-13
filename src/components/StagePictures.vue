@@ -480,41 +480,61 @@ async function fetchImages() {
       .eq('venue_id', venueId)
       .eq('stage_id', stageId)
       .order('order', { ascending: true });
-    
+
     if (error) throw error;
 
-    const loaded = [];
-    for (const img of data) {
-      const { data: urlData } = supabase.storage
+    // The stage-pictures bucket is private, so getPublicUrl() returns a URL
+    // that 400s. Always issue signed URLs. Batch in one call for speed.
+    const paths = data.map(img => img.file_path);
+    const signedByPath = new Map();
+    if (paths.length) {
+      const { data: signedList, error: signErr } = await supabase.storage
         .from('stage-pictures')
-        .getPublicUrl(img.file_path);
-      let url = urlData?.publicUrl;
-
-      if (!url) {
-        const { data: signed } = await supabase.storage
-          .from('stage-pictures')
-          .createSignedUrl(img.file_path, 3600);
-        url = signed?.signedUrl;
+        .createSignedUrls(paths, 3600);
+      if (signErr) {
+        console.error('createSignedUrls error:', signErr);
+      } else if (Array.isArray(signedList)) {
+        signedList.forEach(s => {
+          if (s && s.path && s.signedUrl) signedByPath.set(s.path, s.signedUrl);
+        });
       }
-      // Try to get file size from storage metadata if not present
+    }
+
+    // Gather sizes from storage.list per unique folder (single call each)
+    const folders = new Map(); // folder -> Promise<Map<name,size>>
+    function getFolderMetaCache(folder) {
+      if (!folders.has(folder)) {
+        folders.set(folder, (async () => {
+          const sizes = new Map();
+          try {
+            const { data: meta } = await supabase.storage
+              .from('stage-pictures')
+              .list(folder, { limit: 1000 });
+            if (Array.isArray(meta)) {
+              meta.forEach(f => {
+                const s = f?.metadata?.size ?? f?.size;
+                if (s != null) sizes.set(f.name, s);
+              });
+            }
+          } catch {}
+          return sizes;
+        })());
+      }
+      return folders.get(folder);
+    }
+
+    const loaded = await Promise.all(data.map(async (img) => {
+      const url = signedByPath.get(img.file_path) || '';
       let size = img.size;
       if (!size) {
-        try {
-          const { data: meta } = await supabase.storage
-            .from('stage-pictures')
-            .list(img.file_path.substring(0, img.file_path.lastIndexOf('/')) || '', { limit: 100 });
-          if (meta && Array.isArray(meta)) {
-            const found = meta.find(f => f.name === img.file_path.split('/').pop());
-            if (found && found.metadata && found.metadata.size) {
-              size = found.metadata.size;
-            } else if (found && found.size) {
-              size = found.size;
-            }
-          }
-        } catch {}
+        const folder = img.file_path.substring(0, img.file_path.lastIndexOf('/')) || '';
+        const name = img.file_path.split('/').pop();
+        const sizes = await getFolderMetaCache(folder);
+        size = sizes.get(name);
       }
-      loaded.push({ ...img, url, size });
-    }
+      return { ...img, url, size };
+    }));
+
     images.value = loaded;
   } catch (error) {
     console.error('Error fetching images:', error);
