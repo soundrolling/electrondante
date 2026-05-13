@@ -100,7 +100,7 @@
           
           <div class="form-row">
             <div class="form-group">
-              <label for="startDate">Start Date</label>
+              <label for="startDate">Travel Out</label>
               <input
                 type="date"
                 id="startDate"
@@ -110,7 +110,7 @@
               />
             </div>
             <div class="form-group">
-              <label for="endDate">End Date</label>
+              <label for="endDate">Travel Back</label>
               <input
                 type="date"
                 id="endDate"
@@ -120,6 +120,9 @@
               />
             </div>
           </div>
+          <p class="form-help-text">
+            These are the days you're travelling — the day you head out and the day you come back. Days in between count as build/show days, not travel.
+          </p>
           
           <div class="form-group">
             <label for="description">Description (Optional)</label>
@@ -278,7 +281,7 @@
               
               <div class="form-row">
                 <div class="form-group">
-                  <label for="editStartDate">Start Date</label>
+                  <label for="editStartDate">Travel Out</label>
                   <input
                     type="date"
                     id="editStartDate"
@@ -288,7 +291,7 @@
                   />
                 </div>
                 <div class="form-group">
-                  <label for="editEndDate">End Date</label>
+                  <label for="editEndDate">Travel Back</label>
                   <input
                     type="date"
                     id="editEndDate"
@@ -298,6 +301,9 @@
                   />
                 </div>
               </div>
+              <p class="form-help-text">
+                These are the days you're travelling — the day you head out and the day you come back. Days in between count as build/show days, not travel.
+              </p>
               
               <div class="form-group">
                 <label for="editDescription">Description (Optional)</label>
