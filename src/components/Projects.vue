@@ -302,7 +302,7 @@
               v-if="timelines.get(p.id)"
               class="date-strip"
               role="group"
-              :aria-label="`Build and show days for ${p.project_name}`"
+              :aria-label="`Build, show and travel days for ${p.project_name}`"
             >
               <div class="date-strip-header">
                 <span class="legend-item">
@@ -315,67 +315,73 @@
                   <Drama :size="12" :stroke-width="2" />
                   <span>{{ (p.main_show_days || []).length }}</span>
                 </span>
+                <span v-if="(p.travel_days || []).length" class="legend-item">
+                  <span class="legend-dot travel"></span>
+                  <Plane :size="12" :stroke-width="2" />
+                  <span>{{ (p.travel_days || []).length }}</span>
+                </span>
               </div>
               <div class="date-strip-months">
-                <div
-                  v-for="m in timelines.get(p.id).months"
-                  :key="m.key"
-                  class="date-strip-month"
-                  :style="{ flex: m.count }"
-                >
-                  <span class="month-label">{{ m.label }}</span>
-                </div>
+                <template v-for="m in timelines.get(p.id).months" :key="m.key">
+                  <div v-if="m.isGap" class="date-strip-month-gap" aria-hidden="true"></div>
+                  <div v-else class="date-strip-month" :style="{ flex: m.count }">
+                    <span class="month-label">{{ m.label }}</span>
+                  </div>
+                </template>
               </div>
               <div class="date-strip-numbers">
-                <span
-                  v-for="(d, di) in timelines.get(p.id).days"
-                  :key="'n'+di"
-                  class="day-number"
-                  :class="{ visible: d.isBuild || d.isShow }"
-                >{{ d.day }}</span>
+                <template v-for="(d, di) in timelines.get(p.id).days" :key="'n'+di">
+                  <span v-if="d.isSeparator" class="date-strip-num-gap" aria-hidden="true"></span>
+                  <span
+                    v-else
+                    class="day-number"
+                    :class="{ visible: d.isBuild || d.isShow || d.isTravel || d.isToday }"
+                  >{{ d.day }}</span>
+                </template>
               </div>
               <div class="date-strip-track">
-                <button
-                  v-for="(d, di) in timelines.get(p.id).days"
-                  :key="di"
-                  type="button"
-                  :class="[
-                    'date-strip-cell',
-                    {
-                      build: d.isBuild,
-                      show: d.isShow,
-                      today: d.isToday,
-                      'month-start': d.isMonthStart,
-                      active: isDateCellActive(p.id, di),
-                      interactive: d.isBuild || d.isShow,
-                    }
-                  ]"
-                  :aria-label="(d.isBuild || d.isShow ? ((d.isBuild && d.isShow ? 'Build and show day · ' : d.isBuild ? 'Build day · ' : 'Show day · ')) : '') + d.label"
-                  :tabindex="(d.isBuild || d.isShow) ? 0 : -1"
-                  @click.stop="openDateCell(p.id, di, d.isBuild || d.isShow)"
-                ></button>
+                <template v-for="(d, di) in timelines.get(p.id).days" :key="di">
+                  <span v-if="d.isSeparator" class="date-strip-cell-gap" aria-hidden="true">⋯</span>
+                  <button
+                    v-else
+                    type="button"
+                    :class="[
+                      'date-strip-cell',
+                      {
+                        build: d.isBuild,
+                        show: d.isShow,
+                        travel: d.isTravel,
+                        today: d.isToday,
+                        'month-start': d.isMonthStart,
+                        active: isDateCellActive(p.id, di),
+                        interactive: d.isBuild || d.isShow || d.isTravel,
+                      }
+                    ]"
+                    :aria-label="cellAriaLabel(d)"
+                    :tabindex="(d.isBuild || d.isShow || d.isTravel) ? 0 : -1"
+                    @click.stop="openDateCell(p.id, di, d.isBuild || d.isShow || d.isTravel)"
+                  ></button>
+                </template>
               </div>
               <div
-                v-if="activeDateCell && activeDateCell.projectId === p.id"
+                v-if="activeDateCell && activeDateCell.projectId === p.id && !timelines.get(p.id).days[activeDateCell.dayIdx]?.isSeparator"
                 class="date-strip-detail"
                 role="status"
                 @click.stop
               >
                 <div class="date-strip-detail-kind">
-                  <template v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isBuild && timelines.get(p.id).days[activeDateCell.dayIdx].isShow">
+                  <span v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isBuild" class="kind-tag">
                     <span class="legend-dot build"></span>
                     <Hammer :size="12" :stroke-width="2" /> Build
-                    <span class="legend-dot show" style="margin-left:8px;"></span>
-                    <Drama :size="12" :stroke-width="2" /> Show
-                  </template>
-                  <template v-else-if="timelines.get(p.id).days[activeDateCell.dayIdx].isBuild">
-                    <span class="legend-dot build"></span>
-                    <Hammer :size="12" :stroke-width="2" /> Build Day
-                  </template>
-                  <template v-else>
+                  </span>
+                  <span v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isShow" class="kind-tag">
                     <span class="legend-dot show"></span>
-                    <Drama :size="12" :stroke-width="2" /> Show Day
-                  </template>
+                    <Drama :size="12" :stroke-width="2" /> Show
+                  </span>
+                  <span v-if="timelines.get(p.id).days[activeDateCell.dayIdx].isTravel" class="kind-tag">
+                    <span class="legend-dot travel"></span>
+                    <Plane :size="12" :stroke-width="2" /> Travel
+                  </span>
                 </div>
                 <div class="date-strip-detail-label">
                   {{ timelines.get(p.id).days[activeDateCell.dayIdx].label }}
@@ -575,6 +581,7 @@ import {
   Globe,
   Hammer,
   Drama,
+  Plane,
   Headphones,
   ArrowRight,
   ChevronDown,
@@ -602,6 +609,7 @@ components: {
   Globe,
   Hammer,
   Drama,
+  Plane,
   Headphones,
   ArrowRight,
   ChevronDown,
@@ -662,6 +670,17 @@ setup() {
   const isDateCellActive = (projectId, dayIdx) => {
     const cur = activeDateCell.value;
     return !!cur && cur.projectId === projectId && cur.dayIdx === dayIdx;
+  };
+
+  const cellAriaLabel = (d) => {
+    if (!d) return '';
+    const kinds = [];
+    if (d.isBuild) kinds.push('Build');
+    if (d.isShow) kinds.push('Show');
+    if (d.isTravel) kinds.push('Travel');
+    const today = d.isToday ? 'Today · ' : '';
+    const prefix = kinds.length ? kinds.join(' and ') + ' day · ' : '';
+    return today + prefix + (d.label || '');
   };
 
   const toggleOwnerMenu = (projectId) => {
@@ -746,14 +765,21 @@ setup() {
     memberProjects.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
     const list = Array.from(map.values());
 
-    // Enrich with Spatial Crew contacts
+    // Enrich with Spatial Crew contacts + travel days (parallel)
     const projectIds = list.map(p => p.id);
     if (projectIds.length) {
-      const { data: crewContacts } = await supabase
-        .from('project_contacts')
-        .select('id, project_id, name, email, is_lead_engineer')
-        .eq('role', 'Spatial Crew')
-        .in('project_id', projectIds);
+      const [{ data: crewContacts }, { data: trips }] = await Promise.all([
+        supabase
+          .from('project_contacts')
+          .select('id, project_id, name, email, is_lead_engineer')
+          .eq('role', 'Spatial Crew')
+          .in('project_id', projectIds),
+        supabase
+          .from('travel_trips')
+          .select('project_id, start_date, end_date')
+          .in('project_id', projectIds)
+      ]);
+
       if (crewContacts) {
         const byProject = {};
         crewContacts.forEach(c => {
@@ -768,6 +794,29 @@ setup() {
           });
         });
       }
+
+      // Expand travel_trips date ranges into per-day ISO strings per project
+      const travelByProject = new Map();
+      const pad = (n) => String(n).padStart(2, '0');
+      const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      (trips || []).forEach(t => {
+        if (!t.start_date || !t.end_date) return;
+        const sParts = String(t.start_date).slice(0, 10).split('-').map(Number);
+        const eParts = String(t.end_date).slice(0, 10).split('-').map(Number);
+        if (sParts.length !== 3 || eParts.length !== 3 || sParts.some(isNaN) || eParts.some(isNaN)) return;
+        const start = new Date(sParts[0], sParts[1] - 1, sParts[2]).getTime();
+        const end = new Date(eParts[0], eParts[1] - 1, eParts[2]).getTime();
+        if (isNaN(start) || isNaN(end) || end < start) return;
+        let set = travelByProject.get(t.project_id);
+        if (!set) { set = new Set(); travelByProject.set(t.project_id, set); }
+        for (let ms = start; ms <= end; ms += 86400000) {
+          set.add(isoLocal(new Date(ms)));
+        }
+      });
+      list.forEach(p => {
+        const set = travelByProject.get(p.id);
+        p.travel_days = set ? Array.from(set).sort() : [];
+      });
     }
     return list;
   }
@@ -867,44 +916,70 @@ setup() {
   const buildTimeline = (p) => {
     const build = (p.build_days || []).filter(Boolean);
     const show = (p.main_show_days || []).filter(Boolean);
-    if (!build.length && !show.length) return null;
+    const travel = (p.travel_days || []).filter(Boolean);
+    if (!build.length && !show.length && !travel.length) return null;
     const buildSet = new Set(build.map(startOfDay).filter(t => !Number.isNaN(t)));
     const showSet = new Set(show.map(startOfDay).filter(t => !Number.isNaN(t)));
-    const all = [...buildSet, ...showSet];
+    const travelSet = new Set(travel.map(startOfDay).filter(t => !Number.isNaN(t)));
+    const all = [...buildSet, ...showSet, ...travelSet];
     if (!all.length) return null;
-    const min = Math.min(...all);
-    const max = Math.max(...all);
-    // Strip spans 2 days before first event to 2 days after last event
-    const stripStart = new Date(min - 2 * 86400000);
-    const stripEnd   = new Date(max + 2 * 86400000);
+    const minEvent = Math.min(...all);
+    const maxEvent = Math.max(...all);
     const today = startOfDay(new Date());
     const oneDay = 86400000;
+
+    // Render compact clusters instead of a continuous strip:
+    //  • Future projects (today < first event): show [today] then the event window
+    //  • Past projects (today > last event):    show only the event window
+    //  • Active (today is in [min, max]):       show the event window (today is inside)
+    // If today is within 1 day of the event window, merge into one cluster.
+    const isFuture = today < minEvent;
+    const clusters = [];
+    if (isFuture) {
+      if (today + oneDay >= minEvent) {
+        clusters.push({ start: today, end: maxEvent });
+      } else {
+        clusters.push({ start: today, end: today });
+        clusters.push({ start: minEvent, end: maxEvent });
+      }
+    } else {
+      clusters.push({ start: minEvent, end: maxEvent });
+    }
+
     const days = [];
     const months = [];
-    for (let t = stripStart.getTime(); t <= stripEnd.getTime(); t += oneDay) {
-      const d = new Date(t);
-      const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
-      const dayTime = startOfDay(d);
-      if (!months.length || months[months.length - 1].key !== monthKey) {
-        months.push({
-          key: monthKey,
-          label: d.toLocaleDateString('en-US', { month: 'short' }),
-          count: 1,
-        });
-      } else {
-        months[months.length - 1].count += 1;
+    clusters.forEach((cluster, ci) => {
+      if (ci > 0) {
+        days.push({ isSeparator: true });
+        months.push({ key: `gap-${ci}`, isGap: true });
       }
-      const iso = d.toISOString().slice(0, 10);
-      days.push({
-        date: iso,
-        day: d.getDate(),
-        isBuild: buildSet.has(dayTime),
-        isShow: showSet.has(dayTime),
-        isToday: dayTime === today,
-        isMonthStart: d.getDate() === 1 && days.length > 0,
-        label: formatSingleDate(iso),
-      });
-    }
+      for (let t = cluster.start; t <= cluster.end; t += oneDay) {
+        const d = new Date(t);
+        const monthKey = `${d.getFullYear()}-${d.getMonth()}-c${ci}`;
+        const dayTime = startOfDay(d);
+        const lastMonth = months[months.length - 1];
+        if (!lastMonth || lastMonth.isGap || lastMonth.key !== monthKey) {
+          months.push({
+            key: monthKey,
+            label: d.toLocaleDateString('en-US', { month: 'short' }),
+            count: 1,
+          });
+        } else {
+          lastMonth.count += 1;
+        }
+        const iso = d.toISOString().slice(0, 10);
+        days.push({
+          date: iso,
+          day: d.getDate(),
+          isBuild: buildSet.has(dayTime),
+          isShow: showSet.has(dayTime),
+          isTravel: travelSet.has(dayTime),
+          isToday: dayTime === today,
+          isMonthStart: d.getDate() === 1 && days.length > 0,
+          label: formatSingleDate(iso),
+        });
+      }
+    });
     return { months, days };
   };
 
@@ -1337,6 +1412,7 @@ setup() {
     activeDateCell,
     openDateCell,
     isDateCellActive,
+    cellAriaLabel,
   };
 },
 };
@@ -1952,11 +2028,28 @@ setup() {
 }
 .legend-dot.build { background: var(--color-primary-500); }
 .legend-dot.show { background: var(--color-warning-500); }
+.legend-dot.travel { background: #a855f7; }
 
 .date-strip-months {
   display: flex;
   gap: 1px;
   height: 14px;
+}
+.date-strip-month-gap {
+  flex: 0 0 14px;
+}
+.date-strip-num-gap {
+  flex: 0 0 14px;
+}
+.date-strip-cell-gap {
+  flex: 0 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
 }
 .date-strip-month {
   min-width: 0;
@@ -2032,6 +2125,10 @@ setup() {
   z-index: 3;
   box-shadow: 0 0 0 2px var(--color-primary-600);
 }
+.date-strip-cell.travel {
+  background: #a855f7;
+  box-shadow: inset 0 0 0 1px #9333ea;
+}
 .date-strip-cell.build {
   background: var(--color-primary-500);
   box-shadow: inset 0 0 0 1px var(--color-primary-600);
@@ -2042,6 +2139,21 @@ setup() {
 }
 .date-strip-cell.build.show {
   background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-success-500, hsl(142 60% 42%)) 50%, var(--color-success-500, hsl(142 60% 42%)) 100%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.travel.build:not(.show) {
+  background: linear-gradient(180deg, var(--color-primary-500) 50%, #a855f7 50%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.travel.show:not(.build) {
+  background: linear-gradient(180deg, var(--color-success-500, hsl(142 60% 42%)) 50%, #a855f7 50%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.travel.build.show {
+  background: linear-gradient(180deg,
+    var(--color-primary-500) 0%, var(--color-primary-500) 33%,
+    var(--color-success-500, hsl(142 60% 42%)) 33%, var(--color-success-500, hsl(142 60% 42%)) 66%,
+    #a855f7 66%, #a855f7 100%);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }
 .date-strip-cell.today {
@@ -2070,12 +2182,18 @@ setup() {
 .date-strip-detail-kind {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 10px;
   font-size: 11px;
   font-weight: var(--font-semibold);
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+.date-strip-detail-kind .kind-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .date-strip-detail-kind svg { color: var(--text-tertiary); }
 .date-strip-detail-label {
