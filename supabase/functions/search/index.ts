@@ -21,10 +21,12 @@ type Row = {
   score: number;
 };
 
-async function haikuRerank(query: string, rows: Row[]): Promise<string[] | null> {
+type RankResult = { rankedIds: string[]; answer: string | null };
+
+async function haikuRank(query: string, rows: Row[]): Promise<RankResult | null> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return null;
-  if (rows.length < 2) return rows.map((r) => r.id);
+  if (rows.length < 1) return { rankedIds: [], answer: null };
 
   const candidates = rows.map((r) => ({
     id: r.id,
@@ -35,25 +37,35 @@ async function haikuRerank(query: string, rows: Row[]): Promise<string[] | null>
 
   const body = {
     model: HAIKU_MODEL,
-    max_tokens: 512,
-    system:
-      "You are a search reranker for a film/audio production app. Given a user query and candidate items from one project (notes, contacts, stages, venues, schedules, calendar events, gear, docs, travel), return the candidates that are actually relevant to the query, ordered most-relevant first. Omit clearly irrelevant ones.",
+    max_tokens: 700,
+    system: [
+      "You are the in-app assistant for a film/audio production app.",
+      "You receive a user's query plus candidate items from one project (notes, contacts, stages, venues, schedules, calendar events, gear, project docs, stage docs, trips, accommodations, flights, travel documents).",
+      "Pick the candidates that are genuinely relevant and order them most-relevant first; omit anything that doesn't fit.",
+      "When the query is a question (or clearly seeks an answer rather than a navigation target), also write a concise natural-language answer (1–2 sentences) grounded only in the candidate snippets. Reference items by their title, not their id. Never invent details that aren't in the candidates.",
+      "If the query is just a keyword or a person/place/thing name, leave the answer empty — the user is browsing, not asking.",
+      "If nothing in the candidates is relevant, return an empty ranked list and an empty answer.",
+    ].join(" "),
     tools: [{
-      name: "rank_results",
-      description: "Return candidate IDs ranked by relevance to the query.",
+      name: "answer_and_rank",
+      description: "Return ranked candidate IDs plus an optional natural-language answer.",
       input_schema: {
         type: "object",
         properties: {
           ranked_ids: {
             type: "array",
             items: { type: "string" },
-            description: "Result IDs from most to least relevant; omit irrelevant ones.",
+            description: "Candidate IDs from most to least relevant. Omit irrelevant ones. May be empty.",
+          },
+          answer: {
+            type: "string",
+            description: "1–2 sentence answer to the user's question grounded in the candidates. Empty string if the query isn't a question or nothing relevant is found.",
           },
         },
-        required: ["ranked_ids"],
+        required: ["ranked_ids", "answer"],
       },
     }],
-    tool_choice: { type: "tool", name: "rank_results" },
+    tool_choice: { type: "tool", name: "answer_and_rank" },
     messages: [{
       role: "user",
       content: `Query: ${query}\n\nCandidates (JSON):\n${JSON.stringify(candidates)}`,
@@ -70,16 +82,19 @@ async function haikuRerank(query: string, rows: Row[]): Promise<string[] | null>
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
-    console.error("Haiku rerank failed:", resp.status, await resp.text());
+    console.error("Haiku rank failed:", resp.status, await resp.text());
     return null;
   }
   const json = await resp.json();
   const block = (json?.content ?? []).find((b: { type: string }) => b.type === "tool_use");
   const ids = block?.input?.ranked_ids;
+  const answer = block?.input?.answer;
   if (!Array.isArray(ids)) return null;
-  // Constrain to the IDs we actually sent
   const allowed = new Set(rows.map((r) => r.id));
-  return ids.filter((id: string) => allowed.has(id));
+  return {
+    rankedIds: ids.filter((id: string) => allowed.has(id)),
+    answer: typeof answer === "string" && answer.trim() ? answer.trim() : null,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -98,12 +113,11 @@ Deno.serve(async (req) => {
 
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      return new Response(JSON.stringify({ results: [], reranked: false }), {
+      return new Response(JSON.stringify({ results: [], answer: null, reranked: false }), {
         status: 200, headers: { "Content-Type": "application/json", ...CORS },
       });
     }
 
-    // Pull a wider candidate set via FTS, then rerank with Haiku
     const { data, error } = await supabase.rpc("search_project", {
       p_project_id: projectId,
       p_query: trimmed,
@@ -114,8 +128,6 @@ Deno.serve(async (req) => {
     let candidates = (data ?? []) as Row[];
     let usedFallback = false;
 
-    // FTS finds nothing (e.g. all-stopword queries like "what is the X").
-    // Fall back to the most recent N rows so Haiku can still answer.
     if (candidates.length === 0) {
       const { data: recent, error: rErr } = await supabase
         .from("search_index")
@@ -129,32 +141,27 @@ Deno.serve(async (req) => {
     }
 
     if (candidates.length === 0) {
-      return new Response(JSON.stringify({ results: [], reranked: false }), {
-        status: 200, headers: { "Content-Type": "application/json", ...CORS },
-      });
-    }
-    if (candidates.length === 1 && !usedFallback) {
-      return new Response(JSON.stringify({ results: candidates, reranked: false }), {
+      return new Response(JSON.stringify({ results: [], answer: null, reranked: false }), {
         status: 200, headers: { "Content-Type": "application/json", ...CORS },
       });
     }
 
-    const rankedIds = await haikuRerank(trimmed, candidates);
+    const rank = await haikuRank(trimmed, candidates);
     const finalLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
     let results: Row[];
-    if (rankedIds === null) {
-      // Haiku unavailable (no key, network error). FTS hits keep their order;
-      // the wide fallback gives nothing — those rows weren't real matches.
+    let answer: string | null = null;
+    if (rank === null) {
+      // Haiku unavailable. FTS hits keep their order; fallback gives nothing.
       results = usedFallback ? [] : candidates.slice(0, finalLimit);
     } else {
-      // Haiku returned an ordered list (possibly empty when nothing is relevant)
       const byId = new Map(candidates.map((c) => [c.id, c]));
-      results = rankedIds.map((id) => byId.get(id)).filter((r): r is Row => !!r).slice(0, finalLimit);
+      results = rank.rankedIds.map((id) => byId.get(id)).filter((r): r is Row => !!r).slice(0, finalLimit);
+      answer = rank.answer;
     }
 
     return new Response(
-      JSON.stringify({ results, reranked: !!rankedIds }),
+      JSON.stringify({ results, answer, reranked: rank !== null }),
       { status: 200, headers: { "Content-Type": "application/json", ...CORS } },
     );
   } catch (err) {

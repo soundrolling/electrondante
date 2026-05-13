@@ -14,8 +14,8 @@
         @input="onQueryInput($event.target.value)"
         @focus="inlineOpen = true"
         @blur="onInlineBlur"
-        @keydown.down.prevent="moveSelection(1, 'inline')"
-        @keydown.up.prevent="moveSelection(-1, 'inline')"
+        @keydown.down.prevent="moveSelection(1)"
+        @keydown.up.prevent="moveSelection(-1)"
         @keydown.enter.prevent="onEnter('inline')"
         @keydown.esc="onInlineEsc"
       />
@@ -37,29 +37,37 @@
         class="psb-dropdown"
         @mousedown.prevent
       >
-        <div v-if="loading && !results.length" class="psb-empty">
-          <Loader2 :size="14" class="spin" /> Searching…
+        <div v-if="loading && !results.length && !answer" class="psb-empty">
+          <Loader2 :size="14" class="spin" /> Thinking…
         </div>
-        <div v-else-if="!loading && query.length >= 2 && !results.length" class="psb-empty">
-          No matches in this project.
-        </div>
-        <ul v-else class="psb-results">
-          <li
-            v-for="(r, i) in results"
-            :key="r.id"
-            class="psb-result"
-            :class="{ selected: i === selected }"
-            @mouseenter="selected = i"
-            @click="goToResult(r)"
-          >
-            <component :is="iconFor(r)" :size="16" :stroke-width="2" class="psb-result-icon" />
-            <div class="psb-result-body">
-              <div class="psb-result-title">{{ r.title || labelForResult(r) }}</div>
-              <div class="psb-result-snippet">{{ snippet(r) }}</div>
-            </div>
-            <span class="psb-result-kind">{{ labelForResult(r) }}</span>
-          </li>
-        </ul>
+        <template v-else>
+          <!-- Natural-language answer when Haiku produced one -->
+          <div v-if="answer" class="psb-answer">
+            <Sparkles :size="14" :stroke-width="2" class="psb-answer-icon" />
+            <div class="psb-answer-text">{{ answer }}</div>
+          </div>
+
+          <div v-if="!loading && query.length >= 2 && !results.length && !answer" class="psb-empty">
+            Nothing matched. Try a name, a place, or a question.
+          </div>
+          <ul v-else-if="results.length" class="psb-results">
+            <li
+              v-for="(r, i) in results"
+              :key="r.id"
+              class="psb-result"
+              :class="{ selected: i === selected }"
+              @mouseenter="selected = i"
+              @click="goToResult(r)"
+            >
+              <component :is="iconFor(r)" :size="16" :stroke-width="2" class="psb-result-icon" />
+              <div class="psb-result-body">
+                <div class="psb-result-title">{{ r.title || labelForResult(r) }}</div>
+                <div class="psb-result-snippet">{{ snippet(r) }}</div>
+              </div>
+              <span class="psb-result-kind">{{ labelForResult(r) }}</span>
+            </li>
+          </ul>
+        </template>
       </div>
     </div>
 
@@ -78,40 +86,65 @@
               autocomplete="off"
               spellcheck="false"
               @input="onQueryInput($event.target.value)"
-              @keydown.down.prevent="moveSelection(1, 'palette')"
-              @keydown.up.prevent="moveSelection(-1, 'palette')"
+              @keydown.down.prevent="moveSelection(1)"
+              @keydown.up.prevent="moveSelection(-1)"
               @keydown.enter.prevent="onEnter('palette')"
               @keydown.esc="closePalette"
             />
             <kbd class="psb-kbd">esc</kbd>
           </div>
           <div class="psb-palette-body">
-            <div v-if="loading && !results.length" class="psb-empty">
-              <Loader2 :size="14" class="spin" /> Searching…
+            <div v-if="loading && !results.length && !answer" class="psb-empty">
+              <Loader2 :size="14" class="spin" /> Thinking…
             </div>
-            <div v-else-if="!loading && query.length >= 2 && !results.length" class="psb-empty">
-              No matches in this project.
-            </div>
-            <div v-else-if="!query" class="psb-empty psb-hint">
-              Type to search across notes, contacts, stages, schedules, gear, docs, travel…
-            </div>
-            <ul v-else class="psb-results">
-              <li
-                v-for="(r, i) in results"
-                :key="r.id"
-                class="psb-result"
-                :class="{ selected: i === selected }"
-                @mouseenter="selected = i"
-                @click="goToResult(r)"
-              >
-                <component :is="iconFor(r)" :size="18" :stroke-width="2" class="psb-result-icon" />
-                <div class="psb-result-body">
-                  <div class="psb-result-title">{{ r.title || labelForResult(r) }}</div>
-                  <div class="psb-result-snippet">{{ snippet(r) }}</div>
+            <template v-else>
+              <div v-if="answer" class="psb-answer psb-answer-palette">
+                <Sparkles :size="16" :stroke-width="2" class="psb-answer-icon" />
+                <div class="psb-answer-text">{{ answer }}</div>
+              </div>
+
+              <div v-if="!loading && query.length >= 2 && !results.length && !answer" class="psb-empty">
+                Nothing matched. Try a name, a place, or a question.
+              </div>
+
+              <!-- Empty palette: capability hints + example queries -->
+              <div v-else-if="!query" class="psb-hint-block">
+                <p class="psb-hint-lead">
+                  Ask anything about this project — notes, contacts, stages, schedule, gear, docs, travel.
+                </p>
+                <div class="psb-examples">
+                  <button
+                    v-for="ex in examples"
+                    :key="ex"
+                    class="psb-example"
+                    @click="runExample(ex)"
+                  >
+                    {{ ex }}
+                  </button>
                 </div>
-                <span class="psb-result-kind">{{ labelForResult(r) }}</span>
-              </li>
-            </ul>
+                <p class="psb-hint-foot">
+                  Tip: navigate results with <kbd class="psb-kbd-inline">↑↓</kbd>, open with <kbd class="psb-kbd-inline">enter</kbd>.
+                </p>
+              </div>
+
+              <ul v-else-if="results.length" class="psb-results">
+                <li
+                  v-for="(r, i) in results"
+                  :key="r.id"
+                  class="psb-result"
+                  :class="{ selected: i === selected }"
+                  @mouseenter="selected = i"
+                  @click="goToResult(r)"
+                >
+                  <component :is="iconFor(r)" :size="18" :stroke-width="2" class="psb-result-icon" />
+                  <div class="psb-result-body">
+                    <div class="psb-result-title">{{ r.title || labelForResult(r) }}</div>
+                    <div class="psb-result-snippet">{{ snippet(r) }}</div>
+                  </div>
+                  <span class="psb-result-kind">{{ labelForResult(r) }}</span>
+                </li>
+              </ul>
+            </template>
           </div>
         </div>
       </div>
@@ -123,7 +156,7 @@
 import { computed, onMounted, onUnmounted, ref, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  Search, X, Loader2,
+  Search, X, Loader2, Sparkles,
   StickyNote, User, MapPin, Building2, Calendar, FileText, File,
   Plane, BedDouble, Package, Folder,
 } from 'lucide-vue-next';
@@ -146,17 +179,26 @@ const ICONS = {
   gear_table: Package,
 };
 
+const EXAMPLES = [
+  'who is the FOH engineer?',
+  'where are we staying?',
+  'what time does load-in start on the show day?',
+  'show me all notes about the stage right rig',
+  'flight from london',
+  'what gear is rented?',
+];
+
 export default {
   name: 'ProjectSearchBar',
-  components: { Search, X, Loader2 },
+  components: { Search, X, Loader2, Sparkles },
   props: {
     projectId: { type: String, required: true },
-    placeholder: { type: String, default: 'Search this project…' },
-    paletteplaceholder: { type: String, default: 'Search notes, contacts, gear, schedule…' },
+    placeholder: { type: String, default: 'Ask anything about this project…' },
+    paletteplaceholder: { type: String, default: 'Ask anything — notes, contacts, schedule, gear, travel…' },
   },
   setup(props) {
     const router = useRouter();
-    const { query, results, loading, search, reset, rebuildIndex } =
+    const { query, results, answer, loading, search, reset } =
       useProjectSearch(() => props.projectId);
 
     const inlineOpen = ref(false);
@@ -167,6 +209,7 @@ export default {
 
     const isMac = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform || '');
     const shortcutLabel = computed(() => (isMac ? '⌘K' : 'Ctrl K'));
+    const examples = EXAMPLES;
 
     function onQueryInput(v) {
       selected.value = 0;
@@ -198,7 +241,6 @@ export default {
       }
     }
     function onInlineBlur() {
-      // Slight delay so result clicks register before we collapse the dropdown
       setTimeout(() => { inlineOpen.value = false; }, 120);
     }
 
@@ -221,14 +263,11 @@ export default {
       paletteOpen.value = false;
     }
 
-    async function reindex() {
-      try {
-        await rebuildIndex();
-        // Re-run the query so the new embeddings are picked up
-        if (query.value) search(query.value);
-      } catch (e) {
-        console.error('embed-index failed', e);
-      }
+    function runExample(ex) {
+      query.value = ex;
+      selected.value = 0;
+      search(ex);
+      nextTick(() => paletteInputRef.value?.focus());
     }
 
     function iconFor(r) { return ICONS[r?.source_table] || Folder; }
@@ -238,7 +277,6 @@ export default {
     }
 
     function onKeydown(e) {
-      // Cmd/Ctrl + K toggles the palette
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         if (paletteOpen.value) closePalette(); else openPalette();
@@ -251,18 +289,17 @@ export default {
     onMounted(() => { document.addEventListener('keydown', onKeydown); });
     onUnmounted(() => { document.removeEventListener('keydown', onKeydown); });
 
-    // Reset selection any time results swap
     watch(results, () => { selected.value = 0; });
 
     return {
-      query, results, loading,
+      query, results, answer, loading,
       inlineOpen, paletteOpen, selected,
       inlineInputRef, paletteInputRef,
-      shortcutLabel,
+      shortcutLabel, examples,
       onQueryInput, clearQuery, moveSelection, onEnter,
       onInlineEsc, onInlineBlur,
       openPalette, closePalette,
-      goToResult, reindex,
+      goToResult, runExample,
       iconFor, snippet, labelForResult,
     };
   },
@@ -302,7 +339,8 @@ export default {
   min-width: 0;
 }
 .psb-input::placeholder { color: #94a3b8; }
-.psb-kbd {
+.psb-kbd,
+.psb-kbd-inline {
   font: 11px ui-monospace, Menlo, monospace;
   color: #64748b;
   background: #f1f5f9;
@@ -322,7 +360,7 @@ export default {
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  max-height: 50vh;
+  max-height: 60vh;
   overflow: auto;
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -331,7 +369,27 @@ export default {
   z-index: 90;
 }
 
-/* Results list (shared with palette) */
+/* Answer block */
+.psb-answer {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #f0f9ff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+.psb-answer-palette {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 14px 16px;
+}
+.psb-answer-icon { color: #0ea5e9; flex-shrink: 0; margin-top: 2px; }
+.psb-answer-text {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+/* Results list */
 .psb-results { list-style: none; margin: 0; padding: 6px; }
 .psb-result {
   display: flex;
@@ -382,11 +440,39 @@ export default {
   align-items: center;
   gap: 8px;
 }
-.psb-hint { padding: 16px; }
-.psb-link {
-  border: 0; background: transparent; padding: 0;
-  color: #0ea5e9; cursor: pointer; font: inherit;
-  text-decoration: underline;
+
+/* Empty palette: capability hints */
+.psb-hint-block { padding: 16px 18px 18px; }
+.psb-hint-lead {
+  font-size: 13.5px;
+  color: #475569;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+.psb-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.psb-example {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.psb-example:hover {
+  border-color: #cbd5e1;
+  background: #fff;
+}
+.psb-hint-foot {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 /* Palette overlay */

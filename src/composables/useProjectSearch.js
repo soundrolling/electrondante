@@ -79,6 +79,7 @@ export function labelForResult(row) {
 export function useProjectSearch(projectIdRef) {
   const query = ref('');
   const results = shallowRef([]);
+  const answer = ref(null);
   const loading = ref(false);
   const error = ref(null);
 
@@ -88,22 +89,26 @@ export function useProjectSearch(projectIdRef) {
   async function run(q) {
     const myToken = ++token;
     const projectId = typeof projectIdRef === 'function' ? projectIdRef() : projectIdRef?.value;
-    if (!projectId) { results.value = []; return; }
+    if (!projectId) { results.value = []; answer.value = null; return; }
     const trimmed = (q ?? '').trim();
-    if (trimmed.length < 2) { results.value = []; loading.value = false; return; }
+    if (trimmed.length < 2) {
+      results.value = []; answer.value = null; loading.value = false; return;
+    }
     loading.value = true;
     error.value = null;
     try {
       const { data, error: fnErr } = await supabase.functions.invoke('search', {
         body: { projectId, query: trimmed, limit: 20 },
       });
-      if (myToken !== token) return; // stale
+      if (myToken !== token) return;
       if (fnErr) throw fnErr;
       results.value = (data?.results || []);
+      answer.value = data?.answer || null;
     } catch (e) {
       if (myToken !== token) return;
       error.value = e?.message || String(e);
       results.value = [];
+      answer.value = null;
     } finally {
       if (myToken === token) loading.value = false;
     }
@@ -114,15 +119,17 @@ export function useProjectSearch(projectIdRef) {
     if (timer) clearTimeout(timer);
     if (!q || q.trim().length < 2) {
       results.value = [];
+      answer.value = null;
       loading.value = false;
       return;
     }
-    timer = setTimeout(() => run(q), 150);
+    timer = setTimeout(() => run(q), 200);
   }
 
   function reset() {
     query.value = '';
     results.value = [];
+    answer.value = null;
     loading.value = false;
     error.value = null;
     if (timer) { clearTimeout(timer); timer = null; }
@@ -141,6 +148,7 @@ export function useProjectSearch(projectIdRef) {
   return {
     query,
     results: computed(() => results.value),
+    answer,
     loading,
     error,
     search,
