@@ -23,14 +23,16 @@
     <section class="status-hero">
       <div class="hero-top">
         <h1 class="hero-title">{{ currentProject.project_name }}</h1>
-        <span v-if="nextKeyDate" :class="['hero-next', nextKeyDate.kind]">
-          <Speaker v-if="nextKeyDate.kind === 'show'" :size="14" :stroke-width="2" />
-          <Plane v-else-if="nextKeyDate.kind === 'travel'" :size="14" :stroke-width="2" />
-          <Hammer v-else :size="14" :stroke-width="2" />
+        <span v-if="projectSpan" class="hero-next span">
+          <Calendar :size="14" :stroke-width="2" />
           <span class="hero-next-label">
-            {{ nextKeyDate.relative }} {{ nextKeyDate.kind }}
+            <template v-if="projectSpan.sameDay">
+              Project on {{ projectSpan.startShort }}
+            </template>
+            <template v-else>
+              Project from {{ projectSpan.startShort }} to {{ projectSpan.endShort }}
+            </template>
           </span>
-          <span class="hero-next-date">· {{ nextKeyDate.short }}</span>
         </span>
       </div>
       <div class="hero-meta">
@@ -687,41 +689,27 @@ export default {
       return prefix + d.label;
     };
 
-    /* ---------------- Next key date ---------------- */
-    const formatRelative = (targetMs) => {
-      const today = startOfDay(new Date());
-      const diffDays = Math.round((targetMs - today) / 86400000);
-      if (diffDays === 0) return 'Today';
-      if (diffDays === 1) return 'Tomorrow';
-      if (diffDays === -1) return 'Yesterday';
-      if (diffDays > 1 && diffDays < 14) return `In ${diffDays} days`;
-      if (diffDays < -1 && diffDays > -14) return `${Math.abs(diffDays)} days ago`;
-      const d = new Date(targetMs);
-      return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
-    };
+    /* ---------------- Project span (start → end including travel) ---------------- */
     const formatShort = (targetMs) => {
       const d = new Date(targetMs);
       return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
     };
 
-    const nextKeyDate = computed(() => {
+    const projectSpan = computed(() => {
       const p = currentProject.value;
       if (!p) return null;
-      const items = [];
-      (p.main_show_days || []).forEach(d => items.push({ kind: 'show', t: startOfDay(d) }));
-      (p.build_days || []).forEach(d => items.push({ kind: 'build', t: startOfDay(d) }));
-      (travelDayList.value || []).forEach(d => items.push({ kind: 'travel', t: startOfDay(d) }));
-      const valid = items.filter(i => !Number.isNaN(i.t));
-      if (!valid.length) return null;
-      const today = startOfDay(new Date());
-      const future = valid.filter(i => i.t >= today).sort((a, b) => a.t - b.t);
-      const past = valid.sort((a, b) => b.t - a.t);
-      const chosen = future[0] || past[0];
-      if (!chosen) return null;
+      const times = [];
+      const push = (d) => { const t = startOfDay(d); if (!Number.isNaN(t)) times.push(t); };
+      (p.main_show_days || []).forEach(push);
+      (p.build_days || []).forEach(push);
+      (travelDayList.value || []).forEach(push);
+      if (!times.length) return null;
+      const minT = Math.min(...times);
+      const maxT = Math.max(...times);
       return {
-        kind: chosen.kind,
-        relative: formatRelative(chosen.t),
-        short: formatShort(chosen.t),
+        startShort: formatShort(minT),
+        endShort: formatShort(maxT),
+        sameDay: minT === maxT,
       };
     });
 
@@ -805,7 +793,7 @@ export default {
       timeline,
       stripDays,
       stripMonths,
-      nextKeyDate,
+      projectSpan,
       toolDock,
       activeDayIdx,
       openDayDetail,
@@ -898,6 +886,11 @@ export default {
 .hero-next.travel {
   background: rgba(168, 85, 247, 0.12);
   color: #7e22ce;
+}
+.hero-next.span {
+  background: var(--surface-card-muted, rgba(15, 23, 42, 0.05));
+  color: var(--text-secondary);
+  border: 1px solid var(--surface-border);
 }
 .hero-next svg { flex-shrink: 0; }
 .hero-next-label { font-weight: var(--font-semibold); }

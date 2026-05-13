@@ -296,13 +296,16 @@
               </a>
             </div>
 
-            <div v-if="nextKeyDate(p)" class="card-next-date">
-              <span :class="['next-date-kind', nextKeyDate(p).kind]">
-                <Speaker v-if="nextKeyDate(p).kind === 'show'" :size="14" :stroke-width="2" />
-                <Hammer v-else :size="14" :stroke-width="2" />
-                {{ nextKeyDate(p).kind === 'show' ? 'Show' : 'Build' }}
+            <div v-if="projectSpan(p)" class="card-next-date">
+              <Calendar :size="14" :stroke-width="2" />
+              <span class="next-date-value">
+                <template v-if="projectSpan(p).sameDay">
+                  Project on {{ projectSpan(p).startShort }}
+                </template>
+                <template v-else>
+                  Project from {{ projectSpan(p).startShort }} to {{ projectSpan(p).endShort }}
+                </template>
               </span>
-              <span class="next-date-value">{{ nextKeyDate(p).label }}</span>
             </div>
 
             <button
@@ -619,6 +622,7 @@ import {
   Trash2,
   LogOut,
   LayoutGrid,
+  Calendar,
 } from 'lucide-vue-next';
 
 // Cache key will be generated dynamically with user ID for security
@@ -648,6 +652,7 @@ components: {
   Trash2,
   LogOut,
   LayoutGrid,
+  Calendar,
 },
 setup() {
   /* ───────── REACTIVE STATE ───────── */
@@ -1032,24 +1037,30 @@ setup() {
     return map;
   });
 
-  /* ───────── NEXT KEY DATE ─────────
-     Picks the soonest upcoming show or build day; falls back to the most
-     recent past one so the card always has context. Used by Tier 1 chip. */
-  const nextKeyDate = (p) => {
-    const now = Date.now();
-    const items = [];
-    (p.main_show_days || []).forEach(d => items.push({ kind: 'show', date: d }));
-    (p.build_days || []).forEach(d => items.push({ kind: 'build', date: d }));
-    if (!items.length) return null;
-    const parsed = items
-      .map(i => ({ ...i, t: new Date(i.date).getTime() }))
-      .filter(i => !Number.isNaN(i.t));
-    if (!parsed.length) return null;
-    const upcoming = parsed
-      .filter(i => i.t >= now - 24 * 60 * 60 * 1000)
-      .sort((a, b) => a.t - b.t)[0];
-    const chosen = upcoming || parsed.sort((a, b) => b.t - a.t)[0];
-    return chosen ? { kind: chosen.kind, label: formatSingleDate(chosen.date) } : null;
+  /* ───────── PROJECT SPAN ─────────
+     Earliest → latest day across build, show, and travel. Shown on the
+     Tier 1 chip so the card surfaces the full project window at a glance. */
+  function formatShort(dStr) {
+    if (!dStr) return '';
+    const d = new Date(dStr);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  const projectSpan = (p) => {
+    const times = [];
+    const push = (d) => { const t = new Date(d).getTime(); if (!Number.isNaN(t)) times.push(t); };
+    (p.main_show_days || []).forEach(push);
+    (p.build_days || []).forEach(push);
+    (p.travel_days || []).forEach(push);
+    if (!times.length) return null;
+    const minT = Math.min(...times);
+    const maxT = Math.max(...times);
+    return {
+      startShort: formatShort(new Date(minT)),
+      endShort: formatShort(new Date(maxT)),
+      sameDay: minT === maxT,
+    };
   };
 
   /* ─────────────────────────────────────────────
@@ -1447,7 +1458,7 @@ setup() {
     ownerMenuId,
     toggleOwnerMenu,
     isRefreshing,
-    nextKeyDate,
+    projectSpan,
     timelines,
     activeDateCell,
     openDateCell,
@@ -1987,35 +1998,16 @@ setup() {
 .card-next-date {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
   padding: 6px 10px;
   background: var(--surface-card-muted);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   align-self: flex-start;
+  color: var(--text-secondary);
 }
-.next-date-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-size: 11px;
-  font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1;
-}
-.next-date-kind.show {
-  background: rgba(217, 119, 6, 0.12);
-  color: var(--color-warning-700);
-}
-.next-date-kind.build {
-  background: rgba(14, 165, 233, 0.12);
-  color: var(--color-primary-700);
-}
-.next-date-kind svg { width: 12px; height: 12px; }
+.card-next-date svg { color: var(--text-tertiary); flex-shrink: 0; }
 .next-date-value {
   color: var(--text-primary);
   font-weight: var(--font-medium);
