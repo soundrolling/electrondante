@@ -617,25 +617,32 @@ export default {
       const all = [...buildSet, ...showSet, ...travelSet];
       if (!all.length) return null;
       const minEvent = Math.min(...all);
-      const maxEvent = Math.max(...all);
       const today = startOfDay(new Date());
       const oneDay = 86400000;
+      const GAP_THRESHOLD_DAYS = 4;
 
-      // Render compact clusters instead of a continuous strip:
-      //  • Future projects: show [today] then the event window
-      //  • Past/active projects: show only the event window
-      // If today is within 1 day of the event window, merge into one cluster.
-      const isFuture = today < minEvent;
+      // Split the event window itself into sub-clusters wherever consecutive
+      // event days sit more than GAP_THRESHOLD_DAYS apart, so a sparse project
+      // doesn't drag a long dead band across the strip.
+      const sortedEventDays = [...new Set(all)].sort((a, b) => a - b);
       const clusters = [];
-      if (isFuture) {
-        if (today + oneDay >= minEvent) {
-          clusters.push({ start: today, end: maxEvent });
+      for (const t of sortedEventDays) {
+        const last = clusters[clusters.length - 1];
+        if (last && (t - last.end) / oneDay <= GAP_THRESHOLD_DAYS) {
+          last.end = t;
         } else {
-          clusters.push({ start: today, end: today });
-          clusters.push({ start: minEvent, end: maxEvent });
+          clusters.push({ start: t, end: t });
         }
-      } else {
-        clusters.push({ start: minEvent, end: maxEvent });
+      }
+
+      // Future projects: prepend today as its own cluster, unless today is
+      // already within a day of the first event (then merge it in).
+      if (today < minEvent) {
+        if (today + oneDay >= minEvent) {
+          clusters[0].start = today;
+        } else {
+          clusters.unshift({ start: today, end: today });
+        }
       }
 
       const days = [];
