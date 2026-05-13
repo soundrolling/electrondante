@@ -189,7 +189,7 @@
             :class="{ 
               'image-preview--selectable': bulkMode
             }"
-            @click="bulkMode ? toggleImageSelection(img.id) : viewImage(img.file_path)"
+            @click="bulkMode ? toggleImageSelection(img.id) : viewImage(img)"
             @load="onImageLoad"
             :draggable="false"
           />
@@ -226,7 +226,7 @@
 
           <!-- Unified Action Row -->
         <div class="card-action-row">
-          <button class="card-action-btn" @click="viewImage(img.file_path)" :title="'View full image'">
+          <button class="card-action-btn" @click="viewImage(img)" :title="'View full image'">
             <span class="card-action-icon">👁️</span>
           </button>
           <button class="card-action-btn" @click="toggleEditMode(img)" :title="'Edit image'">
@@ -795,23 +795,17 @@ async function deleteSelectedImages() {
 }
 
 
-// Image viewing
-async function viewImage(path) {
-  try {
-    const { data, error } = await supabase.storage
-      .from('stage-pictures')
-      .createSignedUrl(path, 60);
-    
-    if (error) {
-      toast.error(`Could not open image: ${error.message}`);
-    } else {
-      const resp = await fetch(data.signedUrl);
-      const blob = await resp.blob();
-      window.open(URL.createObjectURL(blob), '_blank');
-    }
-  } catch (error) {
-    toast.error('Error opening image');
+// Image viewing — open the signed URL directly so the browser renders the
+// image natively. The previous fetch→blob→createObjectURL path lost the
+// user-gesture context (multiple awaits before window.open) and Safari/Chrome
+// would either block the popup or open a blob: URL with no rendered content.
+function viewImage(img) {
+  const url = typeof img === 'string' ? img : img?.url;
+  if (!url) {
+    toast.error('Image is still loading, try again in a moment');
+    return;
   }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 // Image Editing Modal State
