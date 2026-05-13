@@ -817,23 +817,19 @@ setup() {
         });
       }
 
-      // Expand travel_trips date ranges into per-day ISO strings per project
+      // Mark only the first and last day of each trip as travel days
+      // (outbound + return); intermediate days are show/build days, not travel.
       const travelByProject = new Map();
-      const pad = (n) => String(n).padStart(2, '0');
-      const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
       (trips || []).forEach(t => {
         if (!t.start_date || !t.end_date) return;
-        const sParts = String(t.start_date).slice(0, 10).split('-').map(Number);
-        const eParts = String(t.end_date).slice(0, 10).split('-').map(Number);
-        if (sParts.length !== 3 || eParts.length !== 3 || sParts.some(isNaN) || eParts.some(isNaN)) return;
-        const start = new Date(sParts[0], sParts[1] - 1, sParts[2]).getTime();
-        const end = new Date(eParts[0], eParts[1] - 1, eParts[2]).getTime();
-        if (isNaN(start) || isNaN(end) || end < start) return;
+        const startIso = String(t.start_date).slice(0, 10);
+        const endIso = String(t.end_date).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startIso) || !/^\d{4}-\d{2}-\d{2}$/.test(endIso)) return;
+        if (endIso < startIso) return;
         let set = travelByProject.get(t.project_id);
         if (!set) { set = new Set(); travelByProject.set(t.project_id, set); }
-        for (let ms = start; ms <= end; ms += 86400000) {
-          set.add(isoLocal(new Date(ms)));
-        }
+        set.add(startIso);
+        if (endIso !== startIso) set.add(endIso);
       });
       list.forEach(p => {
         const set = travelByProject.get(p.id);
