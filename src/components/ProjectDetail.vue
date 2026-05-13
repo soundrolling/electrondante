@@ -25,9 +25,10 @@
         <h1 class="hero-title">{{ currentProject.project_name }}</h1>
         <span v-if="nextKeyDate" :class="['hero-next', nextKeyDate.kind]">
           <Drama v-if="nextKeyDate.kind === 'show'" :size="14" :stroke-width="2" />
+          <Plane v-else-if="nextKeyDate.kind === 'travel'" :size="14" :stroke-width="2" />
           <Hammer v-else :size="14" :stroke-width="2" />
           <span class="hero-next-label">
-            {{ nextKeyDate.relative }} {{ nextKeyDate.kind === 'show' ? 'show' : 'build' }}
+            {{ nextKeyDate.relative }} {{ nextKeyDate.kind }}
           </span>
           <span class="hero-next-date">· {{ nextKeyDate.short }}</span>
         </span>
@@ -54,7 +55,7 @@
         v-if="timeline"
         class="date-strip"
         role="group"
-        aria-label="Build and show days"
+        aria-label="Build, show and travel days"
       >
         <div class="date-strip-header">
           <span class="legend-item">
@@ -66,6 +67,11 @@
             <span class="legend-dot show"></span>
             <Drama :size="12" :stroke-width="2" />
             <span>{{ (currentProject.main_show_days || []).length }} show</span>
+          </span>
+          <span v-if="travelDayList.length" class="legend-item">
+            <span class="legend-dot travel"></span>
+            <Plane :size="12" :stroke-width="2" />
+            <span>{{ travelDayList.length }} travel</span>
           </span>
         </div>
         <div class="date-strip-months">
@@ -83,7 +89,7 @@
             v-for="(d, di) in stripDays"
             :key="'n'+di"
             class="day-number"
-            :class="{ visible: d.isBuild || d.isShow }"
+            :class="{ visible: d.isBuild || d.isShow || d.isTravel }"
           >{{ d.day }}</span>
         </div>
         <div class="date-strip-track">
@@ -96,16 +102,17 @@
               {
                 build: d.isBuild,
                 show: d.isShow,
+                travel: d.isTravel,
                 today: d.isToday,
                 weekend: d.isWeekend,
                 'month-start': d.isMonthStart,
                 active: activeDayIdx === di,
-                interactive: d.isBuild || d.isShow,
+                interactive: d.isBuild || d.isShow || d.isTravel,
               }
             ]"
-            :aria-label="(d.isBuild || d.isShow ? ((d.isBuild && d.isShow ? 'Build and show day · ' : d.isBuild ? 'Build day · ' : 'Show day · ')) : '') + d.label"
-            :tabindex="(d.isBuild || d.isShow) ? 0 : -1"
-            @click.stop="openDayDetail(di, d.isBuild || d.isShow)"
+            :aria-label="cellAriaLabel(d)"
+            :tabindex="(d.isBuild || d.isShow || d.isTravel) ? 0 : -1"
+            @click.stop="openDayDetail(di, d.isBuild || d.isShow || d.isTravel)"
           ></button>
         </div>
         <div
@@ -115,19 +122,23 @@
           @click.stop
         >
           <div class="date-strip-detail-kind">
-            <template v-if="stripDays[activeDayIdx].isBuild && stripDays[activeDayIdx].isShow">
+            <template v-if="stripDays[activeDayIdx].isBuild">
               <span class="legend-dot build"></span>
               <Hammer :size="12" :stroke-width="2" /> Build
-              <span class="legend-dot show" style="margin-left:8px;"></span>
+            </template>
+            <template v-if="stripDays[activeDayIdx].isShow">
+              <span
+                class="legend-dot show"
+                :style="stripDays[activeDayIdx].isBuild ? 'margin-left:8px;' : ''"
+              ></span>
               <Drama :size="12" :stroke-width="2" /> Show
             </template>
-            <template v-else-if="stripDays[activeDayIdx].isBuild">
-              <span class="legend-dot build"></span>
-              <Hammer :size="12" :stroke-width="2" /> Build Day
-            </template>
-            <template v-else>
-              <span class="legend-dot show"></span>
-              <Drama :size="12" :stroke-width="2" /> Show Day
+            <template v-if="stripDays[activeDayIdx].isTravel">
+              <span
+                class="legend-dot travel"
+                :style="(stripDays[activeDayIdx].isBuild || stripDays[activeDayIdx].isShow) ? 'margin-left:8px;' : ''"
+              ></span>
+              <Plane :size="12" :stroke-width="2" /> Travel
             </template>
           </div>
           <div class="date-strip-detail-label">
@@ -352,6 +363,7 @@ export default {
     const isLoading       = ref(true);
     const currentProject  = computed(() => userStore.getCurrentProject);
     const stages          = ref([]);
+    const travelDayList   = ref([]);  // ISO date strings of travel out + travel back days
     const showStageModal  = ref(false);
     const selectedStage   = ref(null);
     const showToolsSection = ref(false);
@@ -411,12 +423,52 @@ export default {
 
         if (data) userStore.setCurrentProject(data);
 
-        // Load stages for this project
-        await loadStages();
+        // Load stages + travel days in parallel
+        await Promise.all([loadStages(), loadTravelDays()]);
       } catch (err) {
         console.error('Unexpected error fetching project:', err.message);
       } finally {
         isLoading.value = false;
+      }
+    }
+
+    /* ---------------- Travel days loading ---------------- */
+    function tripsToTravelDays(trips) {
+      const set = new Set();
+      for (const t of (trips || [])) {
+        if (!t?.start_date || !t?.end_date) continue;
+        const s = String(t.start_date).slice(0, 10);
+        const e = String(t.end_date).slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || !/^\d{4}-\d{2}-\d{2}$/.test(e)) continue;
+        if (e < s) continue;
+        set.add(s);
+        if (e !== s) set.add(e);
+      }
+      return Array.from(set).sort();
+    }
+
+    async function loadTravelDays() {
+      try {
+        const projectId = route.params.id;
+        const { data } = await cachedFetch(
+          `project:travel-days:${projectId}`,
+          async () => {
+            const { data, error } = await supabase
+              .from('travel_trips')
+              .select('start_date, end_date')
+              .eq('project_id', projectId);
+            if (error) throw error;
+            return data || [];
+          },
+          {
+            ttl: 5 * 60 * 1000,
+            onUpdate: (fresh) => { travelDayList.value = tripsToTravelDays(fresh); }
+          }
+        );
+        travelDayList.value = tripsToTravelDays(data || []);
+      } catch (err) {
+        console.error('Error loading travel days:', err.message);
+        travelDayList.value = [];
       }
     }
 
@@ -548,10 +600,12 @@ export default {
       if (!p) return null;
       const build = (p.build_days || []).filter(Boolean);
       const show = (p.main_show_days || []).filter(Boolean);
-      if (!build.length && !show.length) return null;
+      const travel = (travelDayList.value || []).filter(Boolean);
+      if (!build.length && !show.length && !travel.length) return null;
       const buildSet = new Set(build.map(startOfDay).filter(t => !Number.isNaN(t)));
       const showSet = new Set(show.map(startOfDay).filter(t => !Number.isNaN(t)));
-      const all = [...buildSet, ...showSet];
+      const travelSet = new Set(travel.map(startOfDay).filter(t => !Number.isNaN(t)));
+      const all = [...buildSet, ...showSet, ...travelSet];
       if (!all.length) return null;
       const minT = Math.min(...all);
       const maxT = Math.max(...all);
@@ -583,14 +637,15 @@ export default {
           day: d.getDate(),
           isBuild: buildSet.has(dayTime),
           isShow: showSet.has(dayTime),
+          isTravel: travelSet.has(dayTime),
           isToday: dayTime === today,
           isWeekend: weekDay === 0 || weekDay === 6,
           isMonthStart: d.getDate() === 1 && days.length > 0,
           label: formatSingleDate(iso),
         });
       }
-      const firstSchedIdx = days.findIndex(d => d.isBuild || d.isShow);
-      const lastSchedIdx  = days.length - 1 - [...days].reverse().findIndex(d => d.isBuild || d.isShow);
+      const firstSchedIdx = days.findIndex(d => d.isBuild || d.isShow || d.isTravel);
+      const lastSchedIdx  = days.length - 1 - [...days].reverse().findIndex(d => d.isBuild || d.isShow || d.isTravel);
       let trimmedDays = days;
       let trimmedMonths = months;
       if (firstSchedIdx >= 0) {
@@ -615,6 +670,15 @@ export default {
     const stripMonths = computed(() => timeline.value
       ? (isMobileStrip.value ? timeline.value.trimmedMonths : timeline.value.months) : []);
 
+    const cellAriaLabel = (d) => {
+      const kinds = [];
+      if (d.isBuild) kinds.push('Build');
+      if (d.isShow) kinds.push('Show');
+      if (d.isTravel) kinds.push('Travel');
+      const prefix = kinds.length ? `${kinds.join(' and ')} day · ` : '';
+      return prefix + d.label;
+    };
+
     /* ---------------- Next key date ---------------- */
     const formatRelative = (targetMs) => {
       const today = startOfDay(new Date());
@@ -638,6 +702,7 @@ export default {
       const items = [];
       (p.main_show_days || []).forEach(d => items.push({ kind: 'show', t: startOfDay(d) }));
       (p.build_days || []).forEach(d => items.push({ kind: 'build', t: startOfDay(d) }));
+      (travelDayList.value || []).forEach(d => items.push({ kind: 'travel', t: startOfDay(d) }));
       const valid = items.filter(i => !Number.isNaN(i.t));
       if (!valid.length) return null;
       const today = startOfDay(new Date());
@@ -736,6 +801,8 @@ export default {
       toolDock,
       activeDayIdx,
       openDayDetail,
+      travelDayList,
+      cellAriaLabel,
     };
   },
 };
@@ -820,6 +887,10 @@ export default {
   background: rgba(14, 165, 233, 0.1);
   color: var(--color-primary-700);
 }
+.hero-next.travel {
+  background: rgba(168, 85, 247, 0.12);
+  color: #7e22ce;
+}
 .hero-next svg { flex-shrink: 0; }
 .hero-next-label { font-weight: var(--font-semibold); }
 .hero-next-date { color: inherit; opacity: 0.85; }
@@ -879,6 +950,7 @@ export default {
 }
 .legend-dot.build { background: var(--color-primary-500); }
 .legend-dot.show { background: var(--color-warning-500); }
+.legend-dot.travel { background: #a855f7; }
 
 .date-strip-months {
   display: flex;
@@ -963,6 +1035,25 @@ export default {
 }
 .date-strip-cell.build.show {
   background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-warning-500) 50%, var(--color-warning-500) 100%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.travel {
+  background: #a855f7;
+  box-shadow: inset 0 0 0 1px #9333ea;
+}
+.date-strip-cell.travel.build:not(.show) {
+  background: linear-gradient(180deg, var(--color-primary-500) 50%, #a855f7 50%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.travel.show:not(.build) {
+  background: linear-gradient(180deg, var(--color-warning-500) 50%, #a855f7 50%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+}
+.date-strip-cell.travel.build.show {
+  background: linear-gradient(180deg,
+    var(--color-primary-500) 0%, var(--color-primary-500) 33%,
+    var(--color-warning-500) 33%, var(--color-warning-500) 66%,
+    #a855f7 66%, #a855f7 100%);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }
 .date-strip-cell.today {
