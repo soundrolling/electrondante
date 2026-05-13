@@ -262,7 +262,25 @@
             </div>
 
             <div class="card-meta-row">
-              <span v-if="p.location" class="meta-inline">
+              <template v-if="p.venues && p.venues.length">
+                <template v-for="v in p.venues" :key="v.id">
+                  <a
+                    v-if="v.maps_link"
+                    :href="v.maps_link"
+                    target="_blank"
+                    rel="noopener"
+                    class="meta-inline meta-link"
+                  >
+                    <MapPin :size="14" :stroke-width="2" />
+                    <span>{{ v.venue_name }}</span>
+                  </a>
+                  <span v-else class="meta-inline">
+                    <MapPin :size="14" :stroke-width="2" />
+                    <span>{{ v.venue_name }}</span>
+                  </span>
+                </template>
+              </template>
+              <span v-else-if="p.location" class="meta-inline">
                 <MapPin :size="14" :stroke-width="2" />
                 <span>{{ p.location }}</span>
               </span>
@@ -765,10 +783,10 @@ setup() {
     memberProjects.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
     const list = Array.from(map.values());
 
-    // Enrich with Spatial Crew contacts + travel days (parallel)
+    // Enrich with Spatial Crew contacts + travel days + venues (parallel)
     const projectIds = list.map(p => p.id);
     if (projectIds.length) {
-      const [{ data: crewContacts }, { data: trips }] = await Promise.all([
+      const [{ data: crewContacts }, { data: trips }, { data: venues }] = await Promise.all([
         supabase
           .from('project_contacts')
           .select('id, project_id, name, email, is_lead_engineer')
@@ -777,6 +795,10 @@ setup() {
         supabase
           .from('travel_trips')
           .select('project_id, start_date, end_date')
+          .in('project_id', projectIds),
+        supabase
+          .from('venues')
+          .select('id, project_id, venue_name, maps_link')
           .in('project_id', projectIds)
       ]);
 
@@ -816,6 +838,19 @@ setup() {
       list.forEach(p => {
         const set = travelByProject.get(p.id);
         p.travel_days = set ? Array.from(set).sort() : [];
+      });
+
+      // Attach venues (stage locations) per project
+      const venuesByProject = new Map();
+      (venues || []).forEach(v => {
+        if (!v.venue_name) return;
+        let arr = venuesByProject.get(v.project_id);
+        if (!arr) { arr = []; venuesByProject.set(v.project_id, arr); }
+        arr.push({ id: v.id, venue_name: v.venue_name, maps_link: v.maps_link || null });
+      });
+      list.forEach(p => {
+        const arr = venuesByProject.get(p.id) || [];
+        p.venues = arr.sort((a, b) => a.venue_name.localeCompare(b.venue_name));
       });
     }
     return list;
