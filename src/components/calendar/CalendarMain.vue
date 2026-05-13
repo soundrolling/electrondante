@@ -1420,18 +1420,33 @@ setup(props, { emit }) {
   }
 
   // Helper functions for calendar grid
+  // Accepts either an ISO date string ("YYYY-MM-DD") or a Date object.
+  // Date instances are converted using local-time components so the day
+  // shown on screen matches the day used for comparison.
+  function toLocalIsoDate(d) {
+    if (typeof d === 'string') return d.length > 10 ? d.slice(0, 10) : d;
+    if (d instanceof Date) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+    return '';
+  }
   function hasEvents(d) {
+    const dateStr = toLocalIsoDate(d);
     return sortedEvents.value.some(e => {
       const eventStart = e.event_date;
       const eventEnd = e.end_date || e.event_date;
-      return d >= eventStart && d <= eventEnd;
+      return dateStr >= eventStart && dateStr <= eventEnd;
     });
   }
   function getEventsForDay(d) {
+    const dateStr = toLocalIsoDate(d);
     return sortedEvents.value.filter(e => {
       const eventStart = e.event_date;
       const eventEnd = e.end_date || e.event_date;
-      return d >= eventStart && d <= eventEnd;
+      return dateStr >= eventStart && dateStr <= eventEnd;
     });
   }
 
