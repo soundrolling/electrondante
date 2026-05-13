@@ -27,10 +27,10 @@
           <Calendar :size="14" :stroke-width="2" />
           <span class="hero-next-label">
             <template v-if="projectSpan.sameDay">
-              Project on {{ projectSpan.startShort }}
+              {{ t('projectDetail.projectOn', { date: projectSpan.startShort }) }}
             </template>
             <template v-else>
-              Project from {{ projectSpan.startShort }} to {{ projectSpan.endShort }}
+              {{ t('projectDetail.projectFromTo', { start: projectSpan.startShort, end: projectSpan.endShort }) }}
             </template>
           </span>
         </span>
@@ -48,7 +48,7 @@
           class="meta-inline meta-link"
         >
           <Globe :size="14" :stroke-width="2" />
-          <span>Official site</span>
+          <span>{{ t('projects.officialSite') }}</span>
         </a>
       </div>
 
@@ -63,17 +63,17 @@
           <span class="legend-item">
             <span class="legend-dot build"></span>
             <Hammer :size="12" :stroke-width="2" />
-            <span>{{ (currentProject.build_days || []).length }} build</span>
+            <span>{{ (currentProject.build_days || []).length }} {{ t('projectDetail.buildLabel') }}</span>
           </span>
           <span class="legend-item">
             <span class="legend-dot show"></span>
             <Speaker :size="12" :stroke-width="2" />
-            <span>{{ (currentProject.main_show_days || []).length }} show</span>
+            <span>{{ (currentProject.main_show_days || []).length }} {{ t('projectDetail.showLabel') }}</span>
           </span>
           <span v-if="travelDayList.length" class="legend-item">
             <span class="legend-dot travel"></span>
             <Plane :size="12" :stroke-width="2" />
-            <span>{{ travelDayList.length }} travel</span>
+            <span>{{ travelDayList.length }} {{ t('projectDetail.travelLabel') }}</span>
           </span>
         </div>
         <div class="date-strip-months">
@@ -117,7 +117,7 @@
               :tabindex="(d.isBuild || d.isShow || d.isTravel) ? 0 : -1"
               @click.stop="openDayDetail(di, d.isBuild || d.isShow || d.isTravel)"
             >
-              <span v-if="d.isToday && !d.isBuild && !d.isShow && !d.isTravel" class="cell-today-text">Today</span>
+              <span v-if="d.isToday && !d.isBuild && !d.isShow && !d.isTravel" class="cell-today-text">{{ t('projectDetail.today') }}</span>
               <span v-else class="cell-icons">
                 <Hammer v-if="d.isBuild" :size="11" :stroke-width="2.5" />
                 <Speaker v-if="d.isShow" :size="11" :stroke-width="2.5" />
@@ -135,21 +135,21 @@
           <div class="date-strip-detail-kind">
             <template v-if="stripDays[activeDayIdx].isBuild">
               <span class="legend-dot build"></span>
-              <Hammer :size="12" :stroke-width="2" /> Build
+              <Hammer :size="12" :stroke-width="2" /> {{ t('projectDetail.buildKind') }}
             </template>
             <template v-if="stripDays[activeDayIdx].isShow">
               <span
                 class="legend-dot show"
                 :style="stripDays[activeDayIdx].isBuild ? 'margin-left:8px;' : ''"
               ></span>
-              <Speaker :size="12" :stroke-width="2" /> Show
+              <Speaker :size="12" :stroke-width="2" /> {{ t('projectDetail.showKind') }}
             </template>
             <template v-if="stripDays[activeDayIdx].isTravel">
               <span
                 class="legend-dot travel"
                 :style="(stripDays[activeDayIdx].isBuild || stripDays[activeDayIdx].isShow) ? 'margin-left:8px;' : ''"
               ></span>
-              <Plane :size="12" :stroke-width="2" /> Travel
+              <Plane :size="12" :stroke-width="2" /> {{ t('projectDetail.travelKind') }}
             </template>
           </div>
           <div class="date-strip-detail-label">
@@ -167,9 +167,9 @@
     <!-- Stages Rail -->
     <section v-if="stages.length" class="stages-rail-section" aria-label="Stages">
       <div class="rail-head">
-        <h2 class="section-title">Stages</h2>
+        <h2 class="section-title">{{ t('projectDetail.stages') }}</h2>
         <button class="rail-see-all" @click="goToLocations">
-          <span>View all</span>
+          <span>{{ t('projectDetail.viewAll') }}</span>
           <ArrowRight :size="14" :stroke-width="2" />
         </button>
       </div>
@@ -199,61 +199,61 @@
         <div class="startup-icon">
           <LayoutGrid :size="28" :stroke-width="1.5" />
         </div>
-        <h2 class="startup-title">Add your first stage</h2>
-        <p class="startup-description">Organize recording locations and equipment by stage to get going.</p>
+        <h2 class="startup-title">{{ t('projectDetail.addFirstStage') }}</h2>
+        <p class="startup-description">{{ t('projectDetail.addStageDesc') }}</p>
         <button class="btn btn-positive" @click="goToLocations">
           <Plus :size="16" :stroke-width="2" />
-          <span>Add a stage</span>
+          <span>{{ t('projectDetail.addStage') }}</span>
         </button>
       </div>
     </section>
 
     <!-- Tool dock -->
     <section class="tool-dock-section" aria-label="Project tools">
-      <h2 class="section-title">Project tools</h2>
+      <h2 class="section-title">{{ t('projectDetail.projectTools') }}</h2>
       <div class="tool-dock">
         <button
-          v-for="t in toolDock"
-          :key="t.key"
+          v-for="tool in toolDock"
+          :key="tool.key"
           class="tool-tile"
-          :class="{ active: t.key === 'tools' && showToolsSection }"
-          @click="t.action"
+          :class="{ active: tool.key === 'tools' && showToolsSection }"
+          @click="tool.action"
           @touchstart="handleTouchStart"
           @touchend="handleTouchEnd"
         >
           <div class="tool-tile-icon">
-            <component :is="t.icon" :size="22" :stroke-width="1.75" />
+            <component :is="tool.icon" :size="22" :stroke-width="1.75" />
           </div>
-          <div class="tool-tile-label">{{ t.label }}</div>
+          <div class="tool-tile-label">{{ tool.label }}</div>
         </button>
       </div>
     </section>
 
     <!-- Expandable utilities -->
     <section v-if="showToolsSection" class="utilities-section">
-      <h2 class="section-title">Utilities</h2>
+      <h2 class="section-title">{{ t('projectDetail.utilities') }}</h2>
       <div class="utility-list">
         <button class="utility-row" @click="openTool('ltc')">
           <div class="utility-icon"><Clock :size="20" :stroke-width="2" /></div>
           <div class="utility-info">
-            <div class="utility-name">LTC Timecode Generator</div>
-            <div class="utility-desc">Generate Linear Timecode audio signal</div>
+            <div class="utility-name">{{ t('projectDetail.tool.ltc') }}</div>
+            <div class="utility-desc">{{ t('projectDetail.tool.ltcDesc') }}</div>
           </div>
           <ChevronRight :size="16" :stroke-width="2" class="utility-chevron" />
         </button>
         <button class="utility-row" @click="openTool('audio-signal')">
           <div class="utility-icon"><AudioWaveform :size="20" :stroke-width="2" /></div>
           <div class="utility-info">
-            <div class="utility-name">Audio Signal Generator</div>
-            <div class="utility-desc">Sine waves, noise, and sweeps</div>
+            <div class="utility-name">{{ t('projectDetail.tool.audioSignal') }}</div>
+            <div class="utility-desc">{{ t('projectDetail.tool.audioSignalDesc') }}</div>
           </div>
           <ChevronRight :size="16" :stroke-width="2" class="utility-chevron" />
         </button>
         <button class="utility-row" @click="goToDanteMixer">
           <div class="utility-icon"><Sliders :size="20" :stroke-width="2" /></div>
           <div class="utility-info">
-            <div class="utility-name">Dante Monitor Mixer</div>
-            <div class="utility-desc">Personal monitor mixing for live performance</div>
+            <div class="utility-name">{{ t('projectDetail.tool.danteMixer') }}</div>
+            <div class="utility-desc">{{ t('projectDetail.tool.danteMixerDesc') }}</div>
           </div>
           <ChevronRight :size="16" :stroke-width="2" class="utility-chevron" />
         </button>
@@ -266,11 +266,11 @@
     <div class="error-icon">
       <AlertCircle :size="32" :stroke-width="1.5" />
     </div>
-    <h2 class="error-title">Unable to load project</h2>
-    <p class="error-message">Please check your connection and try again.</p>
+    <h2 class="error-title">{{ t('projectDetail.error.title') }}</h2>
+    <p class="error-message">{{ t('projectDetail.error.body') }}</p>
     <button class="btn btn-primary" @click="loadProject">
       <RefreshCw :size="16" :stroke-width="2" />
-      <span>Retry</span>
+      <span>{{ t('common.retry') }}</span>
     </button>
   </div>
 
@@ -309,6 +309,7 @@ import { useUserStore } from '../stores/userStore';
 import { supabase } from '../supabase';
 import { fetchTableData } from '../services/dataService';
 import { cachedFetch } from '@/services/queryCache';
+import { useI18n } from '@/composables/useI18n';
 import StageQuickAccessMenu from './stage/StageQuickAccessMenu.vue';
 import LTCTimecodeGenerator from './tools/LTCTimecodeGenerator.vue';
 import AudioSignalGenerator from './tools/AudioSignalGenerator.vue';
@@ -372,6 +373,7 @@ export default {
     const route      = useRoute();
     const router     = useRouter();
     const userStore  = useUserStore();
+    const { t }      = useI18n();
 
     const isLoading       = ref(true);
     const currentProject  = computed(() => userStore.getCurrentProject);
@@ -567,9 +569,9 @@ export default {
     }
 
     const toolTitle = computed(() => {
-      if (selectedTool.value === 'ltc') return 'LTC Timecode Generator';
-      if (selectedTool.value === 'audio-signal') return 'Audio Signal Generator';
-      return 'Tool';
+      if (selectedTool.value === 'ltc') return t('projectDetail.tool.ltc');
+      if (selectedTool.value === 'audio-signal') return t('projectDetail.tool.audioSignal');
+      return t('projectDetail.toolGeneric');
     });
 
     function ordinal(n) {
@@ -722,15 +724,15 @@ export default {
 
     /* ---------------- Tool dock ---------------- */
     const toolDock = computed(() => [
-      { key: 'stages', label: 'All Stages', icon: markRaw(LayoutGrid), action: goToLocations },
-      { key: 'calendar', label: 'Calendar', icon: markRaw(Calendar), action: goToCalendar },
-      { key: 'travel', label: 'Travel + Accommodation', icon: markRaw(Plane), action: goToTravelHub },
-      { key: 'contacts', label: 'Contacts', icon: markRaw(Users), action: goToContacts },
-      { key: 'gear', label: 'Gear', icon: markRaw(Wrench), action: goToGear },
-      { key: 'documents', label: 'Docs', icon: markRaw(FileText), action: goToDocuments },
-      { key: 'data', label: 'Data', icon: markRaw(Database), action: goToDataManagement },
-      { key: 'settings', label: 'Settings', icon: markRaw(Settings), action: goToSettings },
-      { key: 'tools', label: 'Utilities', icon: markRaw(SlidersHorizontal), action: () => { showToolsSection.value = !showToolsSection.value; } },
+      { key: 'stages',    label: t('projectDetail.dock.stages'),    icon: markRaw(LayoutGrid),         action: goToLocations },
+      { key: 'calendar',  label: t('projectDetail.dock.calendar'),  icon: markRaw(Calendar),           action: goToCalendar },
+      { key: 'travel',    label: t('projectDetail.dock.travel'),    icon: markRaw(Plane),              action: goToTravelHub },
+      { key: 'contacts',  label: t('projectDetail.dock.contacts'),  icon: markRaw(Users),              action: goToContacts },
+      { key: 'gear',      label: t('projectDetail.dock.gear'),      icon: markRaw(Wrench),             action: goToGear },
+      { key: 'documents', label: t('projectDetail.dock.documents'), icon: markRaw(FileText),           action: goToDocuments },
+      { key: 'data',      label: t('projectDetail.dock.data'),      icon: markRaw(Database),           action: goToDataManagement },
+      { key: 'settings',  label: t('projectDetail.dock.settings'),  icon: markRaw(Settings),           action: goToSettings },
+      { key: 'tools',     label: t('projectDetail.utilities'),      icon: markRaw(SlidersHorizontal),  action: () => { showToolsSection.value = !showToolsSection.value; } },
     ]);
 
     function groupConsecutiveDates(dates) {
@@ -806,6 +808,7 @@ export default {
       openDayDetail,
       travelDayList,
       cellAriaLabel,
+      t,
     };
   },
 };

@@ -2,8 +2,8 @@
   <div v-if="isOpen" class="modal-overlay" @click="closeModal">
     <div class="modal-container" @click.stop>
       <div class="modal-header">
-        <h3>Report Center</h3>
-        <button @click="closeModal" class="btn btn-warning close-btn" title="Close">
+        <h3>{{ t('bugReport.center') }}</h3>
+        <button @click="closeModal" class="btn btn-warning close-btn" :title="t('common.close')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -13,16 +13,16 @@
 
       <!-- Tabs -->
       <div class="tabs">
-        <button type="button" class="tab" :class="{ active: activeTab === 'new' }" @click="activeTab = 'new'">New Report</button>
+        <button type="button" class="tab" :class="{ active: activeTab === 'new' }" @click="activeTab = 'new'">{{ t('bugReport.tabs.new') }}</button>
         <button type="button" class="tab" :class="{ active: activeTab === 'review' }" @click="activeTab = 'review'">
-          Review <span v-if="openReportsCount > 0" class="tab-badge">{{ openReportsCount }}</span>
+          {{ t('bugReport.tabs.review') }} <span v-if="openReportsCount > 0" class="tab-badge">{{ openReportsCount }}</span>
         </button>
       </div>
 
       <form v-if="activeTab === 'new'" @submit.prevent="submitReport" class="modal-form">
         <!-- Quick Actions -->
         <div class="quick-actions">
-          <h4>Quick Report</h4>
+          <h4>{{ t('bugReport.quickReport') }}</h4>
           <div class="quick-buttons">
             <button type="button" @click="quickReport('bug')" class="btn btn-danger quick-btn bug">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -30,36 +30,36 @@
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
               </svg>
-              Report Bug
+              {{ t('bugReport.quick.bug') }}
             </button>
             <button type="button" @click="quickReport('suggestion')" class="btn btn-positive quick-btn suggestion">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 12l2 2 4-4"></path>
                 <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"></path>
               </svg>
-              Suggest Feature
+              {{ t('bugReport.quick.suggestion') }}
             </button>
             <button type="button" @click="quickReport('improvement')" class="btn btn-warning quick-btn improvement">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
               </svg>
-              Suggest Improvement
+              {{ t('bugReport.quick.improvement') }}
             </button>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="reportType">Type</label>
+          <label for="reportType">{{ t('bugReport.field.type') }}</label>
           <select v-model="formData.type" id="reportType" required>
-            <option value="">Select type...</option>
-            <option value="bug">Bug Report</option>
-            <option value="suggestion">Feature Suggestion</option>
-            <option value="improvement">Improvement</option>
+            <option value="">{{ t('bugReport.field.type.placeholder') }}</option>
+            <option value="bug">{{ t('bugReport.field.type.bug') }}</option>
+            <option value="suggestion">{{ t('bugReport.field.type.suggestion') }}</option>
+            <option value="improvement">{{ t('bugReport.field.type.improvement') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="title">Title</label>
+          <label for="title">{{ t('bugReport.field.title') }}</label>
           <input
             v-model="formData.title"
             type="text"
@@ -72,7 +72,7 @@
         </div>
 
         <div class="form-group" v-if="formData.type !== 'bug'">
-          <label for="description">Description</label>
+          <label for="description">{{ t('bugReport.field.description') }}</label>
           <textarea
             v-model="formData.description"
             id="description"
@@ -85,43 +85,43 @@
         </div>
 
         <div class="form-group">
-          <label for="priority">Priority</label>
+          <label for="priority">{{ t('bugReport.field.priority') }}</label>
           <select v-model="formData.priority" id="priority" required>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="low">{{ t('bugReport.field.priority.low') }}</option>
+            <option value="medium">{{ t('bugReport.field.priority.medium') }}</option>
+            <option value="high">{{ t('bugReport.field.priority.high') }}</option>
+            <option value="critical">{{ t('bugReport.field.priority.critical') }}</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="browser">Browser & Version</label>
+          <label for="browser">{{ t('bugReport.field.browser') }}</label>
           <input
             v-model="formData.browser"
             type="text"
             id="browser"
-            placeholder="Auto-detected browser information"
+            :placeholder="t('bugReport.field.browserAuto')"
             readonly
             class="auto-filled"
           />
-          <small class="field-note">Automatically detected from your browser</small>
+          <small class="field-note">{{ t('bugReport.field.browserNote') }}</small>
         </div>
 
         <div class="form-group">
-          <label for="device">Device Information</label>
+          <label for="device">{{ t('bugReport.field.device') }}</label>
           <input
             v-model="formData.device"
             type="text"
             id="device"
-            placeholder="Auto-detected device information"
+            :placeholder="t('bugReport.field.deviceAuto')"
             readonly
             class="auto-filled"
           />
-          <small class="field-note">Automatically detected from your system</small>
+          <small class="field-note">{{ t('bugReport.field.deviceNote') }}</small>
         </div>
 
         <div class="form-group" v-if="formData.type === 'bug'">
-          <label for="steps">Steps to Reproduce</label>
+          <label for="steps">{{ t('bugReport.field.steps') }}</label>
           <textarea
             v-model="formData.steps"
             id="steps"
@@ -132,10 +132,10 @@
         </div>
 
         <div class="form-group" v-if="formData.type === 'bug'">
-          <label for="expected">Expected vs Actual Behavior</label>
+          <label for="expected">{{ t('bugReport.field.behavior') }}</label>
           <div class="behavior-grid">
             <div>
-              <label for="expectedBehavior">Expected:</label>
+              <label for="expectedBehavior">{{ t('bugReport.field.expected') }}</label>
               <textarea
                 v-model="formData.expectedBehavior"
                 id="expectedBehavior"
@@ -145,7 +145,7 @@
               <div class="char-count">{{ formData.expectedBehavior.length }}/1000</div>
             </div>
             <div>
-              <label for="actualBehavior">Actual:</label>
+              <label for="actualBehavior">{{ t('bugReport.field.actual') }}</label>
               <textarea
                 v-model="formData.actualBehavior"
                 id="actualBehavior"
@@ -160,14 +160,14 @@
 
         <div class="form-actions">
           <button type="button" @click="closeModal" class="btn btn-warning cancel-btn">
-            Cancel
+            {{ t('common.cancel') }}
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             class="btn btn-positive submit-btn"
             :disabled="isSubmitting || !isFormValid"
           >
-            {{ isSubmitting ? 'Submitting...' : 'Submit Report' }}
+            {{ isSubmitting ? t('bugReport.submitting') : t('bugReport.submit') }}
           </button>
         </div>
       </form>
@@ -184,6 +184,7 @@ import { ref, computed, watch } from 'vue'
 import BugReportList from './BugReportList.vue'
 import { useBugReportStore } from '../stores/bugReportStore'
 import { useToast } from 'vue-toastification'
+import { useI18n } from '@/composables/useI18n'
 
 export default {
   name: 'BugReportModal',
@@ -198,6 +199,7 @@ export default {
   setup(props, { emit }) {
     const toast = useToast()
     const bugReportStore = useBugReportStore()
+    const { t } = useI18n()
     
     const isSubmitting = ref(false)
     const activeTab = ref('new')
@@ -306,18 +308,18 @@ export default {
 
     const getTitlePlaceholder = () => {
       const type = formData.value.type
-      if (type === 'bug') return 'e.g., Login button not working on mobile'
-      if (type === 'suggestion') return 'e.g., Add dark mode toggle'
-      if (type === 'improvement') return 'e.g., Make calendar more responsive'
-      return 'Brief description of the issue or suggestion'
+      if (type === 'bug') return t('bugReport.field.titlePlaceholder.bug')
+      if (type === 'suggestion') return t('bugReport.field.titlePlaceholder.suggestion')
+      if (type === 'improvement') return t('bugReport.field.titlePlaceholder.improvement')
+      return t('bugReport.field.titlePlaceholder.default')
     }
 
     const getDescriptionPlaceholder = () => {
       const type = formData.value.type
-      if (type === 'bug') return 'Describe what happened, what you expected to happen, and any error messages you saw...'
-      if (type === 'suggestion') return 'Describe the feature you\'d like to see and how it would help you...'
-      if (type === 'improvement') return 'Describe what could be improved and how it would make things better...'
-      return 'Please provide detailed information about the bug or suggestion...'
+      if (type === 'bug') return t('bugReport.field.descPlaceholder.bug')
+      if (type === 'suggestion') return t('bugReport.field.descPlaceholder.suggestion')
+      if (type === 'improvement') return t('bugReport.field.descPlaceholder.improvement')
+      return t('bugReport.field.descPlaceholder.default')
     }
 
     const autoFillDescription = () => {
@@ -423,10 +425,10 @@ export default {
         emit('submit', reportData)
         resetForm()
         closeModal()
-        toast.success('Report submitted successfully!')
+        toast.success(t('bugReport.success'))
       } catch (error) {
         console.error('Error submitting report:', error)
-        toast.error('Failed to submit report. Please try again.')
+        toast.error(t('bugReport.failure'))
       } finally {
         isSubmitting.value = false
       }
@@ -452,7 +454,8 @@ export default {
       autoFillDescription,
       quickReport,
       activeTab,
-      openReportsCount
+      openReportsCount,
+      t,
     }
   }
 }

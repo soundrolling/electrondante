@@ -7,10 +7,9 @@
   <header class="page-head">
     <div class="page-head-inner">
       <div class="page-title-group">
-        <h1 class="page-title">Projects</h1>
+        <h1 class="page-title">{{ t('projects.title') }}</h1>
         <p v-if="!loading" class="page-subtitle">
-          {{ displayedProjects.length }} {{ selectedStatus === 'archived' ? 'archived' : 'active' }}
-          {{ displayedProjects.length === 1 ? 'project' : 'projects' }}
+          {{ projectCountLabel }}
         </p>
       </div>
       <div class="page-head-actions">
@@ -21,7 +20,7 @@
         >
           <X v-if="showNewProjectForm" :size="18" :stroke-width="2" />
           <Plus v-else :size="18" :stroke-width="2" />
-          <span class="btn-text">{{ showNewProjectForm ? 'Close' : 'New Project' }}</span>
+          <span class="btn-text">{{ showNewProjectForm ? t('common.close') : t('projects.newProject') }}</span>
         </button>
       </div>
     </div>
@@ -39,7 +38,7 @@
         <Search :size="16" :stroke-width="2" class="search-field-icon" />
         <input
           v-model="searchQuery"
-          placeholder="Search projects…"
+          :placeholder="t('projects.searchPlaceholder')"
           class="search-field-input"
           type="search"
         />
@@ -53,7 +52,7 @@
           :class="['segmented-option', { active: selectedStatus === 'active' }]"
           @click="selectedStatus = 'active'"
         >
-          Active
+          {{ t('projects.statusActive') }}
         </button>
         <button
           type="button"
@@ -62,7 +61,7 @@
           :class="['segmented-option', { active: selectedStatus === 'archived' }]"
           @click="selectedStatus = 'archived'"
         >
-          Archived
+          {{ t('projects.role.archived') }}
         </button>
       </div>
 
@@ -74,20 +73,20 @@
             v-model="selectedSortOption"
             @change="sortProjects"
             class="sort-control-select"
-            aria-label="Sort projects"
+            :aria-label="t('projects.sort')"
           >
-            <option value="newest">Newest → Oldest</option>
-            <option value="oldest">Oldest → Newest</option>
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
+            <option value="newest">{{ t('projects.sort.newest') }}</option>
+            <option value="oldest">{{ t('projects.sort.oldest') }}</option>
+            <option value="az">{{ t('projects.sort.az') }}</option>
+            <option value="za">{{ t('projects.sort.za') }}</option>
           </select>
         </div>
         <button
           @click="refreshProjects"
           class="icon-only-btn"
           :class="{ spinning: isRefreshing }"
-          title="Refresh projects"
-          aria-label="Refresh projects"
+          :title="t('common.refresh')"
+          :aria-label="t('common.refresh')"
         >
           <RefreshCw :size="16" :stroke-width="2" />
         </button>
@@ -105,21 +104,21 @@
 
     <!-- Mobile-only expanded filter drawer -->
     <div v-if="showMobileOptions" class="filter-drawer">
-      <label class="drawer-label">Sort</label>
+      <label class="drawer-label">{{ t('projects.sort') }}</label>
       <select
         id="sort_m"
         v-model="selectedSortOption"
         @change="sortProjects"
         class="sort-control-select"
       >
-        <option value="newest">Newest → Oldest</option>
-        <option value="oldest">Oldest → Newest</option>
-        <option value="az">A → Z</option>
-        <option value="za">Z → A</option>
+        <option value="newest">{{ t('projects.sort.newest') }}</option>
+        <option value="oldest">{{ t('projects.sort.oldest') }}</option>
+        <option value="az">{{ t('projects.sort.az') }}</option>
+        <option value="za">{{ t('projects.sort.za') }}</option>
       </select>
       <button @click="refreshProjects" class="btn-ghost drawer-refresh">
         <RefreshCw :size="16" :stroke-width="2" />
-        <span>Refresh</span>
+        <span>{{ t('common.refresh') }}</span>
       </button>
     </div>
   </div>
@@ -144,29 +143,29 @@
       class="new-project-form"
       @submit.prevent="addProject"
     >
-      <h2 class="form-title">Create a New Project</h2>
+      <h2 class="form-title">{{ t('projects.createNew') }}</h2>
       <div class="form-grid">
         <div class="form-group">
-          <label for="newProjectName" class="form-label">Project Name</label>
+          <label for="newProjectName" class="form-label">{{ t('projects.field.name') }}</label>
           <input
             id="newProjectName"
             v-model="newProjectName"
-            placeholder="Project name…"
+            :placeholder="t('projects.field.namePlaceholder')"
             class="form-input"
             required
           />
         </div>
         <div class="form-group">
-          <label for="newProjectLocation" class="form-label">Location</label>
+          <label for="newProjectLocation" class="form-label">{{ t('projects.field.location') }}</label>
           <input
             id="newProjectLocation"
             v-model="newProjectLocation"
-            placeholder="e.g. London, UK"
+            :placeholder="t('projects.field.locationPlaceholder')"
             class="form-input"
           />
         </div>
         <div class="form-group">
-          <label for="newProjectWebsite" class="form-label">Official Website</label>
+          <label for="newProjectWebsite" class="form-label">{{ t('projects.field.website') }}</label>
           <input
             id="newProjectWebsite"
             v-model="newProjectWebsite"
@@ -176,7 +175,7 @@
           />
         </div>
         <div class="form-group">
-          <label for="newProjectShowDays" class="form-label">Show Days</label>
+          <label for="newProjectShowDays" class="form-label">{{ t('projects.field.showDays') }}</label>
           <div class="multi-date-picker">
             <div class="multi-date-add-row">
               <input
@@ -185,7 +184,7 @@
                 class="form-input"
                 @keydown.enter.prevent="addNewShowDay"
               />
-              <button type="button" class="btn btn-positive btn-sm" @click="addNewShowDay">Add</button>
+              <button type="button" class="btn btn-positive btn-sm" @click="addNewShowDay">{{ t('common.add') }}</button>
             </div>
             <div v-if="newShowDaysList.length" class="multi-date-tags">
               <span v-for="(day, idx) in newShowDaysList" :key="day" class="date-tag show">
@@ -193,11 +192,11 @@
                 <button type="button" class="date-tag-remove" @click="newShowDaysList.splice(idx, 1)">✕</button>
               </span>
             </div>
-            <div v-else class="multi-date-empty">No show days added</div>
+            <div v-else class="multi-date-empty">{{ t('projects.noShowDays') }}</div>
           </div>
         </div>
         <div class="form-group">
-          <label for="newProjectBuildDays" class="form-label">Build Days</label>
+          <label for="newProjectBuildDays" class="form-label">{{ t('projects.field.buildDays') }}</label>
           <div class="multi-date-picker">
             <div class="multi-date-add-row">
               <input
@@ -206,7 +205,7 @@
                 class="form-input"
                 @keydown.enter.prevent="addNewBuildDay"
               />
-              <button type="button" class="btn btn-positive btn-sm" @click="addNewBuildDay">Add</button>
+              <button type="button" class="btn btn-positive btn-sm" @click="addNewBuildDay">{{ t('common.add') }}</button>
             </div>
             <div v-if="newBuildDaysList.length" class="multi-date-tags">
               <span v-for="(day, idx) in newBuildDaysList" :key="day" class="date-tag">
@@ -214,14 +213,14 @@
                 <button type="button" class="date-tag-remove" @click="newBuildDaysList.splice(idx, 1)">✕</button>
               </span>
             </div>
-            <div v-else class="multi-date-empty">No build days added</div>
+            <div v-else class="multi-date-empty">{{ t('projects.noBuildDays') }}</div>
           </div>
         </div>
       </div>
       <div class="form-actions">
-        <button type="submit" class="btn btn-positive">Create Project</button>
+        <button type="submit" class="btn btn-positive">{{ t('projects.createProject') }}</button>
         <button type="button" @click="cancelNewProject" class="btn btn-secondary">
-          Cancel
+          {{ t('common.cancel') }}
         </button>
       </div>
     </form>
@@ -233,10 +232,10 @@
         <LayoutGrid :size="28" :stroke-width="1.5" />
       </div>
       <h3 class="empty-state-title">
-        {{ searchQuery ? 'No projects match your search' : selectedStatus === 'archived' ? 'No archived projects' : 'No active projects yet' }}
+        {{ searchQuery ? t('projects.empty.search') : selectedStatus === 'archived' ? t('projects.empty.archived') : t('projects.empty.none') }}
       </h3>
       <p class="empty-state-text">
-        {{ searchQuery ? 'Try a different search term or clear the search.' : selectedStatus === 'archived' ? 'Archived projects will appear here.' : 'Create your first project to get started.' }}
+        {{ searchQuery ? t('projects.empty.searchHint') : selectedStatus === 'archived' ? t('projects.empty.archivedHint') : t('projects.empty.noneHint') }}
       </p>
       <button
         v-if="!searchQuery && selectedStatus !== 'archived' && !showNewProjectForm"
@@ -244,7 +243,7 @@
         @click="toggleNewProjectForm"
       >
         <Plus :size="16" :stroke-width="2" />
-        <span>New Project</span>
+        <span>{{ t('projects.newProject') }}</span>
       </button>
     </div>
 
@@ -259,11 +258,11 @@
           <div class="card-primary">
             <div class="card-top">
               <h3 class="card-title">{{ p.project_name }}</h3>
-              <span v-if="p.archived" class="card-badge archived">Archived</span>
-              <span v-else-if="p.role === 'owner'" class="card-badge owner">Owner</span>
-              <span v-else-if="p.role === 'admin'" class="card-badge admin">Admin</span>
-              <span v-else-if="p.role === 'contributor'" class="card-badge contributor">Contributor</span>
-              <span v-else-if="p.role === 'viewer'" class="card-badge viewer">Viewer</span>
+              <span v-if="p.archived" class="card-badge archived">{{ t('projects.role.archived') }}</span>
+              <span v-else-if="p.role === 'owner'" class="card-badge owner">{{ t('projects.role.owner') }}</span>
+              <span v-else-if="p.role === 'admin'" class="card-badge admin">{{ t('projects.role.admin') }}</span>
+              <span v-else-if="p.role === 'contributor'" class="card-badge contributor">{{ t('projects.role.contributor') }}</span>
+              <span v-else-if="p.role === 'viewer'" class="card-badge viewer">{{ t('projects.role.viewer') }}</span>
             </div>
 
             <div class="card-meta-row">
@@ -297,7 +296,7 @@
                 class="meta-inline meta-link"
               >
                 <Globe :size="14" :stroke-width="2" />
-                <span>Official site</span>
+                <span>{{ t('projects.officialSite') }}</span>
               </a>
             </div>
 
@@ -603,6 +602,7 @@ import { useUserStore }             from '@/stores/userStore';
 import { useToast }                 from 'vue-toastification';
 import { mutateTableData }          from '@/services/dataService';
 import { cachedFetch, setCachedQuery, clearQueryCache } from '@/services/queryCache';
+import { useI18n }                  from '@/composables/useI18n';
 import ProjectSearchBar from './ProjectSearchBar.vue';
 import {
   Plus,
@@ -748,6 +748,7 @@ setup() {
   const userStore = useUserStore();
   const toast     = useToast();
   const router    = useRouter();
+  const { t }     = useI18n();
 
   /* ───────── DISPLAYED LIST (search filter) ───────── */
   const filteredProjects = computed(() =>
@@ -766,6 +767,16 @@ setup() {
   const displayedProjects = computed(() =>
     selectedStatus.value === 'archived' ? archivedProjects.value : activeProjects.value
   );
+
+  // Localized project count subtitle: "5 active projects" / "5 proyectos activos"
+  const projectCountLabel = computed(() => {
+    const n = displayedProjects.value.length;
+    const status = selectedStatus.value === 'archived' ? 'archived' : 'active';
+    const key = n === 1
+      ? `projects.count.${status}`
+      : `projects.count.${status}Plural`;
+    return t(key, { n });
+  });
 
   /* ───────── UI ACTIONS ───────── */
   const toggleNewProjectForm = () =>
@@ -1477,6 +1488,8 @@ setup() {
     openDateCell,
     isDateCellActive,
     cellAriaLabel,
+    t,
+    projectCountLabel,
   };
 },
 };

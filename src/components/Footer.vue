@@ -21,7 +21,7 @@
       </div>
       <div class="block-body">
         <div class="storage-row">
-          <span class="block-label">Storage</span>
+          <span class="block-label">{{ t('footer.storage') }}</span>
           <span
             class="storage-pct"
             :class="{ warning: usagePercentage > 80 }"
@@ -39,11 +39,11 @@
           <button
             class="storage-clear-btn"
             @click="confirmAndClearCache"
-            title="Clear cache"
-            aria-label="Clear cache"
+            :title="t('footer.clearCache')"
+            :aria-label="t('footer.clearCache')"
           >
             <Trash2 :size="13" :stroke-width="2" />
-            <span>Clear</span>
+            <span>{{ t('footer.clear') }}</span>
           </button>
         </div>
       </div>
@@ -66,29 +66,29 @@
         </template>
       </div>
       <div class="block-body">
-        <div class="block-label">App</div>
+        <div class="block-label">{{ t('footer.app') }}</div>
         <div v-if="hasUpdateAvailable">
           <button class="app-action-btn update" @click="updatePWA">
-            <span>Update available</span>
+            <span>{{ t('footer.updateAvailable') }}</span>
           </button>
         </div>
         <div v-else-if="isPWAInstalled" class="app-status installed">
-          <span>Installed</span>
+          <span>{{ t('footer.installed') }}</span>
         </div>
         <div v-else-if="canInstallPWA">
           <button class="app-action-btn install" @click="installPWA">
-            <span>Install app</span>
+            <span>{{ t('footer.installApp') }}</span>
           </button>
         </div>
         <div v-else class="app-status">
-          <span class="app-install-hint">Use browser menu to install</span>
+          <span class="app-install-hint">{{ t('footer.installHint') }}</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="footer-bottom">
-    <span class="copyright-text">&copy; {{ currentYear }} Soundrolling Notes</span>
+    <span class="copyright-text">{{ t('footer.copyright', { year: currentYear }) }}</span>
   </div>
 </footer>
 </template>
@@ -98,6 +98,9 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import TimeSourceSelector from './TimeSourceSelector.vue';
 import pwaService from '@/services/pwaService';
+import { useI18n } from '@/composables/useI18n';
+
+const { t } = useI18n();
 import {
   Clock,
   HardDrive,
@@ -171,7 +174,7 @@ const checkPWAStatus = async () => {
 };
 
 const confirmAndClearCache = () => {
-  if (window.confirm('Are you sure you want to clear the cache?')) {
+  if (window.confirm(t('footer.clearCacheConfirm'))) {
     emit('clearCache');
   }
 };

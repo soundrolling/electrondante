@@ -4,7 +4,7 @@
   <div v-if="isLoggingOut" class="spinner-overlay">
     <div class="spinner-container">
       <div class="spinner"></div>
-      <p class="spinner-text">Signing out...</p>
+      <p class="spinner-text">{{ t('header.signingOut') }}</p>
     </div>
   </div>
 
@@ -16,7 +16,7 @@
         <button
           class="icon-btn mobile-menu-btn"
           @click="showMobileMenu = true"
-          aria-label="Open menu"
+          :aria-label="t('header.openMenu')"
         >
           <Menu :size="20" :stroke-width="2" />
         </button>
@@ -25,18 +25,18 @@
           v-if="showBackButton"
           @click="goBack"
           class="ghost-btn back-btn"
-          title="Go back"
+          :title="t('header.goBack')"
         >
           <ArrowLeft :size="18" :stroke-width="2" />
-          <span class="btn-text">Back</span>
+          <span class="btn-text">{{ t('header.back') }}</span>
         </button>
 
         <button
           v-if="showProjectHomeButton"
           @click="goToProjectHome"
           class="icon-btn home-btn mobile-only"
-          title="Project Home"
-          aria-label="Project Home"
+          :title="t('header.projectHome')"
+          :aria-label="t('header.projectHome')"
         >
           <Home :size="20" :stroke-width="2" />
         </button>
@@ -74,7 +74,7 @@
           :class="{ active: isActiveRoute('/projects') }"
         >
           <LayoutGrid :size="18" :stroke-width="2" />
-          <span class="nav-text">All Projects</span>
+          <span class="nav-text">{{ t('header.allProjects') }}</span>
         </router-link>
 
         <router-link
@@ -84,7 +84,7 @@
           :class="{ active: isActiveRoute(`/projects/${currentProject.id}`) }"
         >
           <Home :size="18" :stroke-width="2" />
-          <span class="nav-text">Project Home</span>
+          <span class="nav-text">{{ t('header.projectHome') }}</span>
         </router-link>
       </nav>
 
@@ -102,8 +102,8 @@
           v-if="isAuthenticated"
           @click="showBugReportModal = true"
           class="icon-btn mobile-only bug-btn-mobile"
-          title="Report a bug or suggestion"
-          aria-label="Report a bug"
+          :title="t('header.reportBugTitle')"
+          :aria-label="t('header.reportBug')"
         >
           <Bug :size="20" :stroke-width="2" />
           <span v-if="openReportsCount > 0" class="icon-badge">{{ openReportsCount }}</span>
@@ -121,7 +121,7 @@
             @click="toggleUserMenu"
             aria-haspopup="menu"
             :aria-expanded="showUserMenu"
-            title="Account"
+            :title="t('header.account')"
           >
             <span class="avatar" aria-hidden="true">{{ userInitial }}</span>
             <span class="user-menu-caret" aria-hidden="true">
@@ -146,7 +146,7 @@
               @click="closeUserMenu"
             >
               <LayoutGrid :size="18" :stroke-width="2" />
-              <span>All Projects</span>
+              <span>{{ t('header.allProjects') }}</span>
             </router-link>
 
             <router-link
@@ -156,7 +156,7 @@
               @click="closeUserMenu"
             >
               <User :size="18" :stroke-width="2" />
-              <span>My Profile</span>
+              <span>{{ t('header.myProfile') }}</span>
             </router-link>
 
             <button
@@ -165,7 +165,7 @@
               @click="openBugReport"
             >
               <Bug :size="18" :stroke-width="2" />
-              <span>Report a Bug</span>
+              <span>{{ t('header.reportBug') }}</span>
               <span v-if="openReportsCount > 0" class="menu-item-badge">{{ openReportsCount }}</span>
             </button>
 
@@ -176,7 +176,18 @@
             >
               <Sun v-if="themeStore.isDark" :size="18" :stroke-width="2" />
               <Moon v-else :size="18" :stroke-width="2" />
-              <span>{{ themeStore.isDark ? 'Light mode' : 'Dark mode' }}</span>
+              <span>{{ themeStore.isDark ? t('header.lightMode') : t('header.darkMode') }}</span>
+            </button>
+
+            <button
+              class="user-menu-item"
+              role="menuitem"
+              @click="onToggleLocale"
+              :title="t('header.language')"
+            >
+              <Globe :size="18" :stroke-width="2" />
+              <span>{{ t('header.language') }}</span>
+              <span class="menu-item-trailing">{{ locale === 'es' ? 'Español' : 'English' }}</span>
             </button>
 
             <div class="user-menu-divider" role="separator"></div>
@@ -187,7 +198,7 @@
               @click="handleSignOut"
             >
               <LogOut :size="18" :stroke-width="2" />
-              <span>Sign out</span>
+              <span>{{ t('header.signOut') }}</span>
             </button>
           </div>
         </div>
@@ -206,8 +217,8 @@
   <div v-if="showMobileMenu" class="mobile-menu-backdrop" @click.self="showMobileMenu = false">
     <div class="mobile-menu-sheet" role="dialog" aria-modal="true">
       <div class="mobile-menu-header">
-        <span class="menu-title">Menu</span>
-        <button class="icon-btn close-btn" @click="showMobileMenu = false" aria-label="Close menu">
+        <span class="menu-title">{{ t('header.menu') }}</span>
+        <button class="icon-btn close-btn" @click="showMobileMenu = false" :aria-label="t('header.closeMenu')">
           <X :size="20" :stroke-width="2" />
         </button>
       </div>
@@ -232,13 +243,13 @@
 
       <div class="menu-section nav-section">
         <router-link v-if="showProjectHomeButton" :to="{ name: 'ProjectDetail', params: { id: currentProject.id } }" class="sheet-link" @click="showMobileMenu = false">
-          <Home :size="18" :stroke-width="2" /> <span>Project Home</span>
+          <Home :size="18" :stroke-width="2" /> <span>{{ t('header.projectHome') }}</span>
         </router-link>
         <router-link v-if="isAuthenticated" to="/projects" class="sheet-link" @click="showMobileMenu = false">
-          <LayoutGrid :size="18" :stroke-width="2" /> <span>All Projects</span>
+          <LayoutGrid :size="18" :stroke-width="2" /> <span>{{ t('header.allProjects') }}</span>
         </router-link>
         <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="sheet-link" @click="showMobileMenu = false">
-          <User :size="18" :stroke-width="2" /> <span>My Profile</span>
+          <User :size="18" :stroke-width="2" /> <span>{{ t('header.myProfile') }}</span>
         </router-link>
       </div>
 
@@ -246,13 +257,18 @@
         <button class="sheet-link" @click="toggleTheme(); showMobileMenu = false">
           <Sun v-if="themeStore.isDark" :size="18" :stroke-width="2" />
           <Moon v-else :size="18" :stroke-width="2" />
-          <span>{{ themeStore.isDark ? 'Light mode' : 'Dark mode' }}</span>
+          <span>{{ themeStore.isDark ? t('header.lightMode') : t('header.darkMode') }}</span>
+        </button>
+        <button class="sheet-link" @click="onToggleLocale">
+          <Globe :size="18" :stroke-width="2" />
+          <span>{{ t('header.language') }}</span>
+          <span class="sheet-link-trailing">{{ locale === 'es' ? 'Español' : 'English' }}</span>
         </button>
         <button v-if="isAuthenticated" class="sheet-link" @click="showBugReportModal = true; showMobileMenu = false">
-          <Bug :size="18" :stroke-width="2" /> <span>Report a Bug</span>
+          <Bug :size="18" :stroke-width="2" /> <span>{{ t('header.reportBug') }}</span>
         </button>
         <button v-if="isAuthenticated" class="sheet-link danger" @click="handleSignOut">
-          <LogOut :size="18" :stroke-width="2" /> <span>Sign Out</span>
+          <LogOut :size="18" :stroke-width="2" /> <span>{{ t('header.signOut') }}</span>
         </button>
       </div>
     </div>
@@ -266,6 +282,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 import { useThemeStore } from '../stores/themeStore';
 import { useBugReportStore } from '../stores/bugReportStore';
+import { useI18n } from '@/composables/useI18n';
 import BugReportModal from './BugReportModal.vue';
 import {
   isSyncing,
@@ -285,6 +302,7 @@ import {
   Moon,
   LogOut,
   ChevronDown,
+  Globe,
 } from 'lucide-vue-next';
 
 export default {
@@ -301,11 +319,13 @@ export default {
     Moon,
     LogOut,
     ChevronDown,
+    Globe,
   },
   setup() {
     const userStore = useUserStore();
     const themeStore = useThemeStore();
     const bugReportStore = useBugReportStore();
+    const { t, locale, toggleLocale } = useI18n();
     const router = useRouter();
     const route = useRoute();
     const currentRouteName = computed(() => (route && route.name) ? route.name : '');
@@ -332,7 +352,7 @@ export default {
 
     // Online / sync
     const isOnline = ref(navigator.onLine);
-    const onlineStatusText = computed(() => (isOnline.value ? 'Online' : 'Offline'));
+    const onlineStatusText = computed(() => (isOnline.value ? t('header.online') : t('header.offline')));
     const onlineStatusClass = computed(() => (isOnline.value ? 'online' : 'offline'));
 
     const hasPendingSync = ref(false);
@@ -348,14 +368,14 @@ export default {
     const formatLastSynced = (ts) => {
       if (!ts) return '';
       const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-      if (seconds < 5) return ' • just now';
-      if (seconds < 60) return ` • ${seconds}s ago`;
+      if (seconds < 5) return ` • ${t('common.justNow')}`;
+      if (seconds < 60) return ` • ${t('common.secondsAgo', { n: seconds })}`;
       const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return ` • ${minutes}m ago`;
+      if (minutes < 60) return ` • ${t('common.minutesAgo', { n: minutes })}`;
       const hours = Math.floor(minutes / 60);
-      if (hours < 24) return ` • ${hours}h ago`;
+      if (hours < 24) return ` • ${t('common.hoursAgo', { n: hours })}`;
       const days = Math.floor(hours / 24);
-      return ` • ${days}d ago`;
+      return ` • ${t('common.daysAgo', { n: days })}`;
     };
 
     const syncChipClass = computed(() => {
@@ -365,22 +385,24 @@ export default {
     });
 
     const syncLabel = computed(() => {
-      if (isSyncing.value) return 'Syncing…';
-      if (hasPendingSync.value) return `${pendingCount.value} pending`;
-      return 'Synced';
+      if (isSyncing.value) return t('header.syncing');
+      if (hasPendingSync.value) return t('header.pending', { n: pendingCount.value });
+      return t('header.synced');
     });
 
     const syncStatusText = computed(() => {
-      if (isSyncing.value) return 'Syncing offline changes…';
+      if (isSyncing.value) return t('header.syncingChanges');
       if (hasPendingSync.value && !isOnline.value) {
-        return `${pendingCount.value} change${pendingCount.value === 1 ? '' : 's'} queued — will sync when you're back online`;
+        const key = pendingCount.value === 1 ? 'header.queuedOffline' : 'header.queuedOfflinePlural';
+        return t(key, { n: pendingCount.value });
       }
       if (hasPendingSync.value) {
         const breakdown = formatBreakdown(pendingBreakdown.value);
         const detail = breakdown ? ` (${breakdown})` : '';
-        return `Click to sync ${pendingCount.value} pending change${pendingCount.value === 1 ? '' : 's'}${detail}`;
+        const key = pendingCount.value === 1 ? 'header.clickToSync' : 'header.clickToSyncPlural';
+        return `${t(key, { n: pendingCount.value })}${detail}`;
       }
-      return `All changes synced${formatLastSynced(lastSyncedAt.value)}`;
+      return `${t('header.allSynced')}${formatLastSynced(lastSyncedAt.value)}`;
     });
 
     const syncChipDisabled = computed(() => {
@@ -451,6 +473,11 @@ export default {
     const toggleTheme = () => {
       themeStore.toggleTheme();
       showUserMenu.value = false;
+    };
+    const onToggleLocale = () => {
+      toggleLocale();
+      showUserMenu.value = false;
+      showMobileMenu.value = false;
     };
     const handleDocClick = (e) => {
       if (!showUserMenu.value) return;
@@ -584,6 +611,9 @@ export default {
       closeUserMenu,
       openBugReport,
       toggleTheme,
+      onToggleLocale,
+      t,
+      locale,
       userEmail,
       userDisplayName,
       userInitial,
@@ -984,6 +1014,19 @@ export default {
   padding: 2px 6px;
   border-radius: 9999px;
   line-height: 1;
+}
+
+.menu-item-trailing,
+.sheet-link-trailing {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.01em;
+}
+.user-menu-item:hover .menu-item-trailing,
+.sheet-link:hover .sheet-link-trailing {
+  color: var(--text-secondary);
 }
 
 .user-menu-divider {

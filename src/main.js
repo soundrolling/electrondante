@@ -17,6 +17,7 @@ import 'vue-toastification/dist/index.css';
 
 import { useUserStore } from './stores/userStore';
 import { useThemeStore } from './stores/themeStore';
+import { useI18nStore } from './stores/i18nStore';
 import { saveSetting } from './utils/indexedDB';
 
 import { restoreSessionFromUrl } from './supabase';
@@ -47,6 +48,10 @@ async function bootstrap() {
   // Initialize theme store early to prevent FOUC
   const themeStore = useThemeStore(pinia);
   themeStore.initialize();
+
+  // Initialize i18n store early so the first paint uses the correct language
+  const i18nStore = useI18nStore(pinia);
+  i18nStore.initialize();
 
   // ← register the named export here
   app.use(VueFlow);

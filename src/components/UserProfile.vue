@@ -5,11 +5,15 @@ import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
 import { formatWeight, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
 import { useMeasurementUnit } from '../composables/useMeasurementUnit'
+import { useI18n } from '@/composables/useI18n';
 import { getSetting, saveSetting } from '../utils/indexedDB';
 
 const store = useUserStore();
 const route = useRoute();
 const router = useRouter();
+const { t, locale, setLocale } = useI18n();
+const selectedLocale = ref(locale.value);
+watch(locale, (val) => { selectedLocale.value = val; });
 
 /* ---------- page‑level state ---------- */
 const loading = ref(false);
@@ -37,19 +41,19 @@ const profile = ref({
 });
 
 /* tabs */
-const tabs = [
-  { id: 'profile', label: 'Profile', icon: '👤' },
-  { id: 'gear', label: 'My Gear', icon: '🎛️' },
-  { id: 'preferences', label: 'Preferences', icon: '⚙️' },
-  { id: 'security', label: 'Security', icon: '🔒' }
-];
+const tabs = computed(() => [
+  { id: 'profile', label: t('profile.tabs.profile'), icon: '👤' },
+  { id: 'gear', label: t('profile.tabs.gear'), icon: '🎛️' },
+  { id: 'preferences', label: t('profile.tabs.preferences'), icon: '⚙️' },
+  { id: 'security', label: t('profile.tabs.security'), icon: '🔒' }
+]);
 
 // Get active tab from route, default to 'profile'
 const activeTab = computed({
   get: () => {
     const tabFromRoute = route.params.tab || 'profile';
     // Validate tab exists, fallback to 'profile'
-    return tabs.some(t => t.id === tabFromRoute) ? tabFromRoute : 'profile';
+    return tabs.value.some(tab => tab.id === tabFromRoute) ? tabFromRoute : 'profile';
   },
   set: (newTab) => {
     if (newTab !== route.params.tab) {
@@ -60,7 +64,7 @@ const activeTab = computed({
 
 // Watch route changes and redirect if invalid tab
 watch(() => route.params.tab, (newTab) => {
-  if (newTab && !tabs.some(t => t.id === newTab)) {
+  if (newTab && !tabs.value.some(tab => tab.id === newTab)) {
     // Invalid tab, redirect to profile
     router.replace('/profile/profile');
   }
@@ -184,10 +188,10 @@ async function saveProfile() {
     saving.value = true;
     errorMsg.value = '';
     successMsg.value = '';
-    
+
     await store.upsertUserProfile({ ...profile.value });
-    successMsg.value = 'Profile updated successfully!';
-    
+    successMsg.value = t('profile.saved');
+
     // Clear success message after 3 seconds
     setTimeout(() => {
       successMsg.value = '';
@@ -540,12 +544,17 @@ async function savePreferences() {
   try {
     savingPreferences.value = true;
     prefMsg.value = '';
-    
+
     // Save measurement unit to Supabase (silently skip if migration not yet applied)
     try {
       await store.upsertUserProfile({ measurement_unit: measurementUnit.value });
     } catch (e) {
       if (e?.code !== '42703') throw e;
+    }
+
+    // Save default language preference (localStorage-only for now)
+    if (selectedLocale.value && selectedLocale.value !== locale.value) {
+      setLocale(selectedLocale.value);
     }
 
     // Save alert preference
@@ -555,7 +564,7 @@ async function savePreferences() {
       await saveSetting('schedule_notifications_enabled', true);
       await saveSetting('schedule_notification_scope', alertPreference.value);
     }
-    
+
     // Restart notifications with new settings if service is running
     try {
       const { startScheduleNotifications, stopScheduleNotifications } = await import('@/services/scheduleNotificationService');
@@ -566,12 +575,12 @@ async function savePreferences() {
     } catch (error) {
       console.warn('Could not restart notification service:', error);
     }
-    
-    prefMsg.value = 'Preferences saved!';
+
+    prefMsg.value = t('profile.preferences.saved');
     setTimeout(() => { prefMsg.value = ''; }, 2000);
   } catch (error) {
     console.error('Error saving preferences:', error);
-    prefMsg.value = 'Failed to save preferences';
+    prefMsg.value = t('profile.preferences.saveFailed');
     setTimeout(() => { prefMsg.value = ''; }, 3000);
   } finally {
     savingPreferences.value = false;
@@ -589,11 +598,11 @@ const secMsg = ref('');
 
 async function saveSecurity() {
   if (!security.value.currentPassword || !security.value.newPassword || !security.value.confirmPassword) {
-    secMsg.value = 'Please fill all fields.';
+    secMsg.value = t('profile.security.fillAllFields');
     return;
   }
   if (security.value.newPassword !== security.value.confirmPassword) {
-    secMsg.value = 'Passwords do not match.';
+    secMsg.value = t('profile.security.passwordsDontMatch');
     return;
   }
   savingSecurity.value = true;
@@ -603,18 +612,18 @@ async function saveSecurity() {
     const { error } = await supabase.auth.updateUser({ password: security.value.newPassword });
     if (error) {
       if (error.message && error.message.toLowerCase().includes('jwt expired')) {
-        secMsg.value = 'Session expired. Please log in again.';
+        secMsg.value = t('profile.security.sessionExpired');
       } else {
-        secMsg.value = error.message || 'Failed to change password.';
+        secMsg.value = error.message || t('profile.security.changeFailed');
       }
     } else {
-      secMsg.value = 'Password changed!';
+      secMsg.value = t('profile.security.passwordChanged');
       security.value.currentPassword = '';
       security.value.newPassword = '';
       security.value.confirmPassword = '';
     }
   } catch (e) {
-    secMsg.value = e.message || 'Failed to change password.';
+    secMsg.value = e.message || t('profile.security.changeFailed');
   } finally {
     savingSecurity.value = false;
     setTimeout(() => { secMsg.value = ''; }, 3000);
@@ -627,8 +636,8 @@ async function saveSecurity() {
     <!-- Header -->
     <div class="profile-header ui-page-header">
       <div class="header-content">
-        <h1 class="profile-title">My Profile</h1>
-        <p class="profile-subtitle">Manage your account settings and personal gear</p>
+        <h1 class="profile-title">{{ t('profile.title') }}</h1>
+        <p class="profile-subtitle">{{ t('profile.subtitle') }}</p>
       </div>
     </div>
 
@@ -650,87 +659,87 @@ async function saveSecurity() {
       <!-- Profile Tab -->
       <div v-if="activeTab === 'profile'" class="tab-content" key="profile">
         <div class="content-card">
-          <h2 class="section-title">Personal Information</h2>
+          <h2 class="section-title">{{ t('profile.personalInfo') }}</h2>
           <form @submit.prevent="saveProfile" class="profile-form">
             <div class="form-grid">
               <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <input 
-                  :value="userEmail" 
-                  disabled 
+                <label class="form-label">{{ t('profile.field.email') }}</label>
+                <input
+                  :value="userEmail"
+                  disabled
                   class="form-input readonly"
                   type="email"
                 />
-                <span class="input-note">Email cannot be changed</span>
+                <span class="input-note">{{ t('profile.emailLocked') }}</span>
               </div>
               <div class="form-group">
-                <label class="form-label">Full Name</label>
-                <input 
-                  v-model="profile.full_name" 
+                <label class="form-label">{{ t('profile.field.fullName') }}</label>
+                <input
+                  v-model="profile.full_name"
                   class="form-input"
-                  placeholder="Enter your full name"
+                  :placeholder="t('profile.placeholder.fullName')"
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Phone Number</label>
-                <input 
-                  v-model="profile.phone" 
+                <label class="form-label">{{ t('profile.field.phone') }}</label>
+                <input
+                  v-model="profile.phone"
                   class="form-input"
-                  placeholder="Enter your phone number"
+                  :placeholder="t('profile.placeholder.phone')"
                   type="tel"
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Company</label>
-                <input 
-                  v-model="profile.company" 
+                <label class="form-label">{{ t('profile.field.company') }}</label>
+                <input
+                  v-model="profile.company"
                   class="form-input"
-                  placeholder="Enter your company name"
+                  :placeholder="t('profile.placeholder.company')"
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Role/Position</label>
-                <input 
-                  v-model="profile.role" 
+                <label class="form-label">{{ t('profile.field.role') }}</label>
+                <input
+                  v-model="profile.role"
                   class="form-input"
-                  placeholder="Enter your role or position"
+                  :placeholder="t('profile.placeholder.role')"
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">Location</label>
-                <input 
-                  v-model="profile.location" 
+                <label class="form-label">{{ t('profile.field.location') }}</label>
+                <input
+                  v-model="profile.location"
                   class="form-input"
-                  placeholder="Enter your location"
+                  :placeholder="t('profile.placeholder.location')"
                 />
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Bio</label>
-              <textarea 
-                v-model="profile.bio" 
+              <label class="form-label">{{ t('profile.field.bio') }}</label>
+              <textarea
+                v-model="profile.bio"
                 class="form-textarea"
-                placeholder="Tell us about yourself..."
+                :placeholder="t('profile.placeholder.bio')"
                 rows="4"
               ></textarea>
             </div>
             <div class="form-group">
-              <label class="form-label">Website</label>
-              <input 
-                v-model="profile.website" 
+              <label class="form-label">{{ t('profile.field.website') }}</label>
+              <input
+                v-model="profile.website"
                 class="form-input"
-                placeholder="https://your-website.com"
+                :placeholder="t('profile.placeholder.website')"
                 type="url"
               />
             </div>
             <div class="form-actions">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 class="btn btn-positive"
                 :disabled="saving"
               >
                 <span v-if="saving" class="loading-spinner"></span>
-                {{ saving ? 'Saving...' : 'Save Changes' }}
+                {{ saving ? t('common.saving') : t('profile.saveChanges') }}
               </button>
             </div>
           </form>
@@ -742,19 +751,19 @@ async function saveSecurity() {
         <div class="content-card">
           <div class="gear-header">
             <div class="gear-header-left">
-              <h2 class="section-title">My Gear</h2>
+              <h2 class="section-title">{{ t('profile.gear.title') }}</h2>
               <div class="gear-stats">
                 <div class="stat-item">
                   <span class="stat-number">{{ gearStats.total }}</span>
-                  <span class="stat-label">Items</span>
+                  <span class="stat-label">{{ t('profile.gear.items') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-number">{{ gearStats.types }}</span>
-                  <span class="stat-label">Types</span>
+                  <span class="stat-label">{{ t('profile.gear.types') }}</span>
                 </div>
                 <div class="stat-item">
                   <span class="stat-number">{{ gearStats.totalQuantity }}</span>
-                  <span class="stat-label">Total Qty</span>
+                  <span class="stat-label">{{ t('profile.gear.totalQuantity') }}</span>
                 </div>
               </div>
             </div>
@@ -859,28 +868,36 @@ async function saveSecurity() {
       <!-- Preferences Tab -->
       <div v-if="activeTab === 'preferences'" class="tab-content" key="preferences">
         <div class="content-card">
-          <h2 class="section-title">Preferences</h2>
+          <h2 class="section-title">{{ t('profile.preferences.title') }}</h2>
           <form class="pref-form" @submit.prevent="savePreferences">
             <div class="form-group">
-              <label class="form-label">Changeover Alert Preference</label>
-              <select v-model="alertPreference" class="form-input">
-                <option value="none">No Alert</option>
-                <option value="current_project">Alert In Project Only</option>
-                <option value="all_projects">Alert Across All Projects</option>
+              <label class="form-label">{{ t('profile.preferences.language') }}</label>
+              <select v-model="selectedLocale" class="form-input">
+                <option value="en">{{ t('profile.preferences.langEnglish') }}</option>
+                <option value="es">{{ t('profile.preferences.langSpanish') }}</option>
               </select>
-              <p class="form-hint">Choose when you want to receive changeover notifications for artist schedules</p>
+              <p class="form-hint">{{ t('profile.preferences.languageHint') }}</p>
             </div>
             <div class="form-group">
-              <label class="form-label">Measurement Units</label>
-              <select v-model="measurementUnit" class="form-input">
-                <option value="metric">Metric (kg, cm, °C, km/h)</option>
-                <option value="imperial">Imperial (lb, in, °F, mph)</option>
+              <label class="form-label">{{ t('profile.preferences.changeoverAlert') }}</label>
+              <select v-model="alertPreference" class="form-input">
+                <option value="none">{{ t('profile.preferences.alertNone') }}</option>
+                <option value="current_project">{{ t('profile.preferences.alertCurrent') }}</option>
+                <option value="all_projects">{{ t('profile.preferences.alertAll') }}</option>
               </select>
-              <p class="form-hint">Preferred units for weight, distance, and temperature</p>
+              <p class="form-hint">{{ t('profile.preferences.changeoverHint') }}</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">{{ t('profile.preferences.units') }}</label>
+              <select v-model="measurementUnit" class="form-input">
+                <option value="metric">{{ t('profile.preferences.unitsMetric') }}</option>
+                <option value="imperial">{{ t('profile.preferences.unitsImperial') }}</option>
+              </select>
+              <p class="form-hint">{{ t('profile.preferences.unitsHint') }}</p>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-positive" :disabled="savingPreferences">
-                {{ savingPreferences ? 'Saving...' : 'Save Preferences' }}
+                {{ savingPreferences ? t('common.saving') : t('profile.preferences.save') }}
               </button>
             </div>
             <div v-if="prefMsg" class="pref-msg">{{ prefMsg }}</div>
@@ -891,23 +908,23 @@ async function saveSecurity() {
       <!-- Security Tab -->
       <div v-if="activeTab === 'security'" class="tab-content" key="security">
         <div class="content-card">
-          <h2 class="section-title">Security</h2>
+          <h2 class="section-title">{{ t('profile.security.title') }}</h2>
           <form class="security-form" @submit.prevent="saveSecurity">
             <div class="form-group">
-              <label class="form-label">Current Password</label>
+              <label class="form-label">{{ t('profile.security.currentPassword') }}</label>
               <input type="password" v-model="security.currentPassword" class="form-input" autocomplete="current-password" />
             </div>
             <div class="form-group">
-              <label class="form-label">New Password</label>
+              <label class="form-label">{{ t('profile.security.newPassword') }}</label>
               <input type="password" v-model="security.newPassword" class="form-input" autocomplete="new-password" />
             </div>
             <div class="form-group">
-              <label class="form-label">Confirm New Password</label>
+              <label class="form-label">{{ t('profile.security.confirmPassword') }}</label>
               <input type="password" v-model="security.confirmPassword" class="form-input" autocomplete="new-password" />
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-positive" :disabled="savingSecurity">
-                {{ savingSecurity ? 'Saving...' : 'Change Password' }}
+                {{ savingSecurity ? t('common.saving') : t('profile.security.changePassword') }}
               </button>
             </div>
             <div v-if="secMsg" class="sec-msg">{{ secMsg }}</div>
