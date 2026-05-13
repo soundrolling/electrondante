@@ -75,45 +75,47 @@
           </span>
         </div>
         <div class="date-strip-months">
-          <div
-            v-for="m in stripMonths"
-            :key="m.key"
-            class="date-strip-month"
-            :style="{ flex: m.count }"
-          >
-            <span class="month-label">{{ m.label }}</span>
-          </div>
+          <template v-for="m in stripMonths" :key="m.key">
+            <div v-if="m.isGap" class="date-strip-month-gap" aria-hidden="true"></div>
+            <div v-else class="date-strip-month" :style="{ flex: m.count }">
+              <span class="month-label">{{ m.label }}</span>
+            </div>
+          </template>
         </div>
         <div class="date-strip-numbers">
-          <span
-            v-for="(d, di) in stripDays"
-            :key="'n'+di"
-            class="day-number"
-            :class="{ visible: d.isBuild || d.isShow || d.isTravel }"
-          >{{ d.day }}</span>
+          <template v-for="(d, di) in stripDays" :key="'n'+di">
+            <span v-if="d.isSeparator" class="date-strip-num-gap" aria-hidden="true"></span>
+            <span
+              v-else
+              class="day-number"
+              :class="{ visible: d.isBuild || d.isShow || d.isTravel || d.isToday }"
+            >{{ d.day }}</span>
+          </template>
         </div>
         <div class="date-strip-track">
-          <button
-            v-for="(d, di) in stripDays"
-            :key="di"
-            type="button"
-            :class="[
-              'date-strip-cell',
-              {
-                build: d.isBuild,
-                show: d.isShow,
-                travel: d.isTravel,
-                today: d.isToday,
-                weekend: d.isWeekend,
-                'month-start': d.isMonthStart,
-                active: activeDayIdx === di,
-                interactive: d.isBuild || d.isShow || d.isTravel,
-              }
-            ]"
-            :aria-label="cellAriaLabel(d)"
-            :tabindex="(d.isBuild || d.isShow || d.isTravel) ? 0 : -1"
-            @click.stop="openDayDetail(di, d.isBuild || d.isShow || d.isTravel)"
-          ></button>
+          <template v-for="(d, di) in stripDays" :key="di">
+            <span v-if="d.isSeparator" class="date-strip-cell-gap" aria-hidden="true">⋯</span>
+            <button
+              v-else
+              type="button"
+              :class="[
+                'date-strip-cell',
+                {
+                  build: d.isBuild,
+                  show: d.isShow,
+                  travel: d.isTravel,
+                  today: d.isToday,
+                  weekend: d.isWeekend,
+                  'month-start': d.isMonthStart,
+                  active: activeDayIdx === di,
+                  interactive: d.isBuild || d.isShow || d.isTravel,
+                }
+              ]"
+              :aria-label="cellAriaLabel(d)"
+              :tabindex="(d.isBuild || d.isShow || d.isTravel) ? 0 : -1"
+              @click.stop="openDayDetail(di, d.isBuild || d.isShow || d.isTravel)"
+            ></button>
+          </template>
         </div>
         <div
           v-if="activeDayIdx !== null && stripDays[activeDayIdx]"
@@ -372,7 +374,6 @@ export default {
     const showToolModal   = ref(false);
     const selectedTool    = ref(null);
     const activeDayIdx    = ref(null);
-    const isMobileStrip   = ref(window.innerWidth < 640);
 
     const openDayDetail = (idx, hasMark) => {
       if (!hasMark) { activeDayIdx.value = null; return; }
@@ -387,18 +388,15 @@ export default {
     const handleEsc = (e) => {
       if (e.key === 'Escape') activeDayIdx.value = null;
     };
-    const handleResize = () => { isMobileStrip.value = window.innerWidth < 640; };
 
     onMounted(() => {
       loadProject();
       document.addEventListener('click', handleDocClick);
       document.addEventListener('keydown', handleEsc);
-      window.addEventListener('resize', handleResize, { passive: true });
     });
     onUnmounted(() => {
       document.removeEventListener('click', handleDocClick);
       document.removeEventListener('keydown', handleEsc);
-      window.removeEventListener('resize', handleResize);
     });
 
     /* ---------------- Project loading ---------------- */
@@ -607,68 +605,69 @@ export default {
       const travelSet = new Set(travel.map(startOfDay).filter(t => !Number.isNaN(t)));
       const all = [...buildSet, ...showSet, ...travelSet];
       if (!all.length) return null;
-      const minT = Math.min(...all);
-      const maxT = Math.max(...all);
-      const startDate = new Date(minT);
-      const endDate = new Date(maxT);
-      const stripStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-      const stripEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+      const minEvent = Math.min(...all);
+      const maxEvent = Math.max(...all);
       const today = startOfDay(new Date());
       const oneDay = 86400000;
+
+      // Render compact clusters instead of a continuous strip:
+      //  • Future projects: show [today] then the event window
+      //  • Past/active projects: show only the event window
+      // If today is within 1 day of the event window, merge into one cluster.
+      const isFuture = today < minEvent;
+      const clusters = [];
+      if (isFuture) {
+        if (today + oneDay >= minEvent) {
+          clusters.push({ start: today, end: maxEvent });
+        } else {
+          clusters.push({ start: today, end: today });
+          clusters.push({ start: minEvent, end: maxEvent });
+        }
+      } else {
+        clusters.push({ start: minEvent, end: maxEvent });
+      }
+
       const days = [];
       const months = [];
-      for (let t = stripStart.getTime(); t <= stripEnd.getTime(); t += oneDay) {
-        const d = new Date(t);
-        const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
-        const dayTime = startOfDay(d);
-        if (!months.length || months[months.length - 1].key !== monthKey) {
-          months.push({
-            key: monthKey,
-            label: d.toLocaleDateString('en-US', { month: 'short' }),
-            count: 1,
-          });
-        } else {
-          months[months.length - 1].count += 1;
+      clusters.forEach((cluster, ci) => {
+        if (ci > 0) {
+          days.push({ isSeparator: true });
+          months.push({ key: `gap-${ci}`, isGap: true });
         }
-        const weekDay = d.getDay();
-        const iso = d.toISOString().slice(0, 10);
-        days.push({
-          date: iso,
-          day: d.getDate(),
-          isBuild: buildSet.has(dayTime),
-          isShow: showSet.has(dayTime),
-          isTravel: travelSet.has(dayTime),
-          isToday: dayTime === today,
-          isWeekend: weekDay === 0 || weekDay === 6,
-          isMonthStart: d.getDate() === 1 && days.length > 0,
-          label: formatSingleDate(iso),
-        });
-      }
-      const firstSchedIdx = days.findIndex(d => d.isBuild || d.isShow || d.isTravel);
-      const lastSchedIdx  = days.length - 1 - [...days].reverse().findIndex(d => d.isBuild || d.isShow || d.isTravel);
-      let trimmedDays = days;
-      let trimmedMonths = months;
-      if (firstSchedIdx >= 0) {
-        trimmedDays = days.slice(firstSchedIdx, lastSchedIdx + 1);
-        trimmedMonths = [];
-        for (const d of trimmedDays) {
-          const [yr, mo] = d.date.split('-').map(Number);
-          const monthKey = `${yr}-${mo - 1}`;
-          const label = new Date(yr, mo - 1, 1).toLocaleDateString('en-US', { month: 'short' });
-          if (!trimmedMonths.length || trimmedMonths[trimmedMonths.length - 1].key !== monthKey) {
-            trimmedMonths.push({ key: monthKey, label, count: 1 });
+        for (let t = cluster.start; t <= cluster.end; t += oneDay) {
+          const d = new Date(t);
+          const monthKey = `${d.getFullYear()}-${d.getMonth()}-c${ci}`;
+          const dayTime = startOfDay(d);
+          const lastMonth = months[months.length - 1];
+          if (!lastMonth || lastMonth.isGap || lastMonth.key !== monthKey) {
+            months.push({
+              key: monthKey,
+              label: d.toLocaleDateString('en-US', { month: 'short' }),
+              count: 1,
+            });
           } else {
-            trimmedMonths[trimmedMonths.length - 1].count++;
+            lastMonth.count += 1;
           }
+          const weekDay = d.getDay();
+          const iso = d.toISOString().slice(0, 10);
+          days.push({
+            date: iso,
+            day: d.getDate(),
+            isBuild: buildSet.has(dayTime),
+            isShow: showSet.has(dayTime),
+            isTravel: travelSet.has(dayTime),
+            isToday: dayTime === today,
+            isWeekend: weekDay === 0 || weekDay === 6,
+            isMonthStart: d.getDate() === 1 && days.length > 0,
+            label: formatSingleDate(iso),
+          });
         }
-      }
-      return { months, days, trimmedMonths, trimmedDays };
+      });
+      return { months, days };
     });
 
-    const stripDays   = computed(() => timeline.value
-      ? (isMobileStrip.value ? timeline.value.trimmedDays : timeline.value.days) : []);
-    const stripMonths = computed(() => timeline.value
-      ? (isMobileStrip.value ? timeline.value.trimmedMonths : timeline.value.months) : []);
+    const stripDays   = computed(() => timeline.value ? timeline.value.days : []);
+    const stripMonths = computed(() => timeline.value ? timeline.value.months : []);
 
     const cellAriaLabel = (d) => {
       const kinds = [];
@@ -956,6 +955,18 @@ export default {
   display: flex;
   gap: 1px;
   height: 14px;
+}
+.date-strip-month-gap { flex: 0 0 14px; }
+.date-strip-num-gap { flex: 0 0 14px; }
+.date-strip-cell-gap {
+  flex: 0 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
 }
 .date-strip-month {
   min-width: 0;
