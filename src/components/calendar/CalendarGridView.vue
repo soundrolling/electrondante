@@ -496,6 +496,8 @@ font-weight: 700;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
 }
 .event-list-item {
   background: var(--bg-secondary);
