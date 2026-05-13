@@ -354,10 +354,12 @@ const router = useRouter();
 const toast = useToast();
 const userStore = useUserStore();
 
-// Pull IDs from props with fallback to route (for compatibility)
-const projectId = props.projectId || route.params.id;
-const venueId = props.venueId || route.query.venueId;
-const stageId = props.stageId || route.query.stageId;
+// Pull IDs from props with fallback to route (for compatibility).
+// `let` so the route/props watchers below can refresh them when the
+// stage dropdown navigates to a different stage.
+let projectId = props.projectId || route.params.id;
+let venueId = props.venueId || route.query.venueId;
+let stageId = props.stageId || route.query.stageId;
 
 // Reactive state
 const venueName = ref('Loading…');
@@ -1203,9 +1205,11 @@ onMounted(async () => {
 });
 
 // Watch for route changes (when navigating between stages)
-watch(() => route.query.stageId, async (newVal) => {
-  if (newVal) {
-    selectedStageId.value = newVal;
+watch(() => [route.query.stageId, route.query.venueId], async ([newStageId, newVenueId]) => {
+  if (newStageId) {
+    stageId = newStageId;
+    if (newVenueId) venueId = newVenueId;
+    selectedStageId.value = newStageId;
     await fetchNames();
     await fetchImages();
   }
@@ -1214,6 +1218,8 @@ watch(() => route.query.stageId, async (newVal) => {
 // Also watch props in case they change
 watch(() => [props.stageId, props.venueId], async ([newStageId, newVenueId]) => {
   if (newStageId) {
+    stageId = newStageId;
+    if (newVenueId) venueId = newVenueId;
     selectedStageId.value = newStageId;
     await fetchNames();
     await fetchImages();
