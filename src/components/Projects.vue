@@ -256,6 +256,9 @@
               <h3 class="card-title">{{ p.project_name }}</h3>
               <span v-if="p.archived" class="card-badge archived">Archived</span>
               <span v-else-if="p.role === 'owner'" class="card-badge owner">Owner</span>
+              <span v-else-if="p.role === 'admin'" class="card-badge admin">Admin</span>
+              <span v-else-if="p.role === 'contributor'" class="card-badge contributor">Contributor</span>
+              <span v-else-if="p.role === 'viewer'" class="card-badge viewer">Viewer</span>
             </div>
 
             <div class="card-meta-row">
@@ -770,9 +773,11 @@ setup() {
   }
 
   function _applyProjects(list, uid) {
-    // Security: only keep rows that belong to this user
+    // Security: only keep rows that belong to this user.
+    // Valid project_members roles: owner, admin, contributor, viewer.
+    // 'member' is kept for legacy/cached rows from older schema versions.
     const valid = list.filter(p =>
-      p.user_id === uid || (p.role && ['owner', 'member', 'viewer'].includes(p.role))
+      p.user_id === uid || (p.role && ['owner', 'admin', 'contributor', 'viewer', 'member'].includes(p.role))
     );
     projects.value = valid;
     sortProjects();
@@ -1818,6 +1823,21 @@ setup() {
   background: var(--color-primary-50);
   color: var(--color-primary-700);
   border: 1px solid var(--color-primary-100);
+}
+.card-badge.admin {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+.card-badge.contributor {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.card-badge.viewer {
+  background: var(--color-neutral-50, #f9fafb);
+  color: var(--color-neutral-600);
+  border: 1px solid var(--color-neutral-200);
 }
 .card-badge.archived {
   background: var(--color-neutral-100);
