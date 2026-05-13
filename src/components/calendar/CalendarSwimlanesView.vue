@@ -175,22 +175,56 @@ function toIso(d) {
   return `${y}-${m}-${day}`
 }
 
-const days = computed(() => {
+// Full-month bounds — used to decide which events belong to this month
+// before we narrow the visible columns to the event span.
+const monthBounds = computed(() => {
   const year  = props.currentDate.getFullYear()
   const month = props.currentDate.getMonth()
-  const count = new Date(year, month + 1, 0).getDate()
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  return {
+    start: toIso(new Date(year, month, 1)),
+    end:   toIso(new Date(year, month, lastDay)),
+  }
+})
+
+// Earliest and latest dates touched by an event in this month (clamped
+// to the month so cross-month events don't blow the column range out).
+const eventDateRange = computed(() => {
+  const b = monthBounds.value
+  let minStart = null
+  let maxEnd = null
+  for (const ev of props.events || []) {
+    const startIso = (ev.event_date || '').slice(0, 10)
+    const endIso = (ev.end_date || ev.event_date || '').slice(0, 10)
+    if (!startIso || !endIso) continue
+    if (endIso < b.start || startIso > b.end) continue
+    const cs = startIso < b.start ? b.start : startIso
+    const ce = endIso > b.end ? b.end : endIso
+    if (minStart === null || cs < minStart) minStart = cs
+    if (maxEnd === null || ce > maxEnd) maxEnd = ce
+  }
+  return minStart && maxEnd ? { start: minStart, end: maxEnd } : null
+})
+
+const days = computed(() => {
+  const range = eventDateRange.value
+  if (!range) return []
   const today = new Date(); today.setHours(0, 0, 0, 0)
+  const [sy, sm, sd] = range.start.split('-').map(n => parseInt(n, 10))
+  const [ey, em, ed] = range.end.split('-').map(n => parseInt(n, 10))
+  const cursor = new Date(sy, sm - 1, sd)
+  const last   = new Date(ey, em - 1, ed)
   const out = []
-  for (let d = 1; d <= count; d++) {
-    const date = new Date(year, month, d)
-    const dow = date.getDay()
+  while (cursor.getTime() <= last.getTime()) {
+    const dow = cursor.getDay()
     out.push({
-      iso: toIso(date),
-      num: d,
-      weekday: date.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1),
+      iso: toIso(cursor),
+      num: cursor.getDate(),
+      weekday: cursor.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 1),
       isWeekend: dow === 0 || dow === 6,
-      isToday: date.getTime() === today.getTime(),
+      isToday: cursor.getTime() === today.getTime(),
     })
+    cursor.setDate(cursor.getDate() + 1)
   }
   return out
 })

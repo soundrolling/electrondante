@@ -30,7 +30,7 @@
 
   <!-- Weekday row -->
   <div class="cmv-weekdays" aria-hidden="true">
-    <div v-for="(wd, i) in weekdayLabels" :key="wd" :class="['cmv-weekday', { weekend: i === 0 || i === 6 }]">
+    <div v-for="(wd, i) in weekdayLabels" :key="wd" :class="['cmv-weekday', { weekend: i === 5 || i === 6 }]">
       {{ wd }}
     </div>
   </div>
@@ -215,7 +215,7 @@ const emit = defineEmits([
 ])
 
 /* ─── Month math ──────────────────────────────────────── */
-const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 const monthLabel = computed(() =>
   props.currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
@@ -242,7 +242,7 @@ const cells = computed(() => {
   const month = anchor.getMonth()
   const first = new Date(year, month, 1)
   const gridStart = new Date(first)
-  gridStart.setDate(1 - first.getDay()) // back-up to Sunday
+  gridStart.setDate(1 - ((first.getDay() + 6) % 7)) // back-up to Monday
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
