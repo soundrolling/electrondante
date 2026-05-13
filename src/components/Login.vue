@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.1.1">
-        <span class="version-text">v2.1.1</span>
-        <span class="version-date">April 18th 2026</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.2.0">
+        <span class="version-text">v2.2.0</span>
+        <span class="version-date">May 13th 2026</span>
       </button>
     </div>
 
@@ -19,44 +19,49 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.1.1</h2>
+          <h2 id="changelog-title">What's New in 2.2.0</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔧 Bug Fixes</h3>
-            <p>Fixed a project visibility issue where users with a different authentication email than their team membership email couldn't see their assigned projects. Projects now load correctly regardless of email mismatch.</p>
+            <h3>🔍 Workspace Search &amp; Chat</h3>
+            <p>A new project-scoped chat surface on the Projects page (and Cmd-K everywhere) answers questions across your workspace. Results are reranked with Claude Haiku, then formatted as a single chat-style answer with capability hints — submit on Enter, no live searching as you type.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🗂️ All Projects in Nav</h3>
-            <p>The "All Projects" link is now always visible in the navigation bar and mobile menu, making it easy to return to the full project list from anywhere in the app.</p>
+            <h3>📅 Calendar Refinements</h3>
+            <p>The Swim view now collapses to just the days that actually have events — no more empty leading and trailing columns. The Month view starts each week on Monday, show days render with their stage location, and mobile filters/tabs/legend are tighter and cleaner.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>📶 Offline Sync</h3>
-            <p>Major offline-first improvements across the app. Stage document reordering, flight detail transport changes, and more now queue automatically when offline and sync when connectivity is restored — no lost work on set.</p>
+            <h3>📊 Smarter Project Date Strips</h3>
+            <p>Project tiles and the project-home strip now break into compact clusters around today and any large internal gaps — joined by a dash — so sparse builds stop dragging long dead bands across the card. Travel days appear in the strip and hero, and the project chip shows the full project span instead of just the next event.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🎙️ Mic Placement Mobile UX</h3>
-            <p>Completely redesigned mic placement interface for mobile devices. Improved touch targets, better layout on small screens, and smoother interactions when working on the go.</p>
+            <h3>🗺️ Stage Venues as Map Links</h3>
+            <p>Stage venues on project cards are now tappable map links — one tap opens the venue in your default maps app, ready for routing on the way to load-in.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🗺️ Signal Mapper Beta is Now Default</h3>
-            <p>The redesigned Signal Mapper is now the default view for all users. The improved interface offers better performance, cleaner node layout, and more intuitive connection management.</p>
+            <h3>🔄 Live Sync Status</h3>
+            <p>The sync chip in the header now goes green the moment all changes are saved, shows the in-flight pending count, and is click-to-sync. A fresh flush also runs on each app load, so you always start with the latest state.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🧳 Travel Data Improvements</h3>
-            <p>Travel records now use dedicated IndexedDB stores for faster local access and more reliable offline support. Sync consolidation and race condition fixes ensure travel data stays consistent across devices.</p>
+            <h3>🧳 Travel Out / Travel Back</h3>
+            <p>Trip dates are now labelled "Travel Out" and "Travel Back" everywhere they appear, and only the first and last day of a trip count as travel days — long haul layovers no longer mark every day in between.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>📊 Report Center Upgrades</h3>
-            <p>Report center now includes additional data points and improved filtering options. Reports generate faster and are more accurate across large projects.</p>
+            <h3>👥 Project Access Fix</h3>
+            <p>Projects now load for every team member with an owner, admin, contributor, or viewer role — fixing cases where users with non-standard role memberships could end up with an empty project list.</p>
+          </div>
+
+          <div class="changelog-section">
+            <h3>🛠️ Stage Pictures &amp; Stability</h3>
+            <p>Stage picture thumbnails now load correctly from the private bucket via signed URLs, the picture dropdown refetches when you switch stages, image viewing skips the blob round-trip, and notes save to the project you're actually viewing — even when you switch quickly between projects.</p>
           </div>
         </div>
         
