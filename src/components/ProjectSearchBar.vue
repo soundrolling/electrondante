@@ -78,10 +78,60 @@
                   <div class="psb-bubble-body">{{ answer }}</div>
                 </div>
 
-                <div v-if="!answer && !results.length" class="psb-bubble psb-bubble-assistant">
+                <!-- Proposed write awaiting confirmation -->
+                <div v-if="proposal" class="psb-proposal">
+                  <div class="psb-proposal-head">
+                    <component :is="proposalIcon" :size="16" :stroke-width="2" class="psb-proposal-icon" />
+                    <span class="psb-proposal-title">{{ proposalTitle }}</span>
+                  </div>
+                  <dl class="psb-proposal-fields">
+                    <template v-for="row in proposalFields" :key="row.label">
+                      <dt>{{ row.label }}</dt>
+                      <dd>{{ row.value }}</dd>
+                    </template>
+                  </dl>
+                  <div class="psb-proposal-actions">
+                    <button
+                      type="button"
+                      class="psb-btn psb-btn-ghost"
+                      :disabled="acting"
+                      @click="cancelProposal"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      class="psb-btn psb-btn-primary"
+                      :disabled="acting"
+                      @click="confirmProposal"
+                    >
+                      <Loader2 v-if="acting" :size="14" :stroke-width="2" class="spin" />
+                      <Check v-else :size="14" :stroke-width="2.5" />
+                      <span>{{ acting ? 'Saving…' : 'Confirm' }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Post-action confirmation -->
+                <div
+                  v-if="actionResult"
+                  class="psb-bubble psb-bubble-assistant"
+                  :class="{ 'psb-bubble-success': actionResult.ok, 'psb-bubble-error': !actionResult.ok }"
+                >
+                  <Check v-if="actionResult.ok" :size="16" :stroke-width="2.5" class="psb-bubble-icon" />
+                  <X v-else :size="16" :stroke-width="2.5" class="psb-bubble-icon" />
+                  <div class="psb-bubble-body">
+                    {{ actionResult.ok ? actionResult.summary : actionResult.error }}
+                  </div>
+                </div>
+
+                <div
+                  v-if="!answer && !proposal && !actionResult && !results.length"
+                  class="psb-bubble psb-bubble-assistant"
+                >
                   <Sparkles :size="16" :stroke-width="2" class="psb-bubble-icon" />
                   <div class="psb-bubble-body">
-                    Nothing in this project matched. Try rephrasing, or use a name, place, or topic.
+                    Nothing matched. Try rephrasing, or use a name, place, or topic.
                   </div>
                 </div>
 
@@ -150,10 +200,42 @@
 import { computed, onMounted, onUnmounted, ref, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  Search, X, Loader2, Sparkles, ArrowUp,
+  Search, X, Loader2, Sparkles, ArrowUp, Check,
   StickyNote, User, MapPin, Building2, Calendar, FileText, File,
   Plane, BedDouble, Package, Folder,
 } from 'lucide-vue-next';
+
+const PROPOSAL_LABELS = {
+  add_note: 'Add note',
+  add_contact: 'Add contact',
+  add_calendar_event: 'Add calendar event',
+};
+const PROPOSAL_ICONS = {
+  add_note: StickyNote,
+  add_contact: User,
+  add_calendar_event: Calendar,
+};
+const PROPOSAL_FIELDS = {
+  add_note: [
+    { key: 'note', label: 'Note' },
+    { key: 'location_hint', label: 'Location' },
+  ],
+  add_contact: [
+    { key: 'name', label: 'Name' },
+    { key: 'role', label: 'Role' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'comments', label: 'Notes' },
+  ],
+  add_calendar_event: [
+    { key: 'title', label: 'Title' },
+    { key: 'event_date', label: 'Date' },
+    { key: 'start_time', label: 'Start' },
+    { key: 'end_time', label: 'End' },
+    { key: 'category', label: 'Category' },
+    { key: 'notes', label: 'Notes' },
+  ],
+};
 import { useProjectSearch, routeForResult, labelForResult } from '../composables/useProjectSearch';
 
 const ICONS = {
@@ -175,7 +257,7 @@ const ICONS = {
 
 export default {
   name: 'ProjectSearchBar',
-  components: { Search, X, Loader2, Sparkles, ArrowUp, Folder },
+  components: { Search, X, Loader2, Sparkles, ArrowUp, Check, Folder },
   props: {
     // null/empty = global mode (search every project the user belongs to)
     projectId: { type: String, default: null },
@@ -184,8 +266,11 @@ export default {
   },
   setup(props) {
     const router = useRouter();
-    const { query, results, answer, loading, submit, reset } =
-      useProjectSearch(() => props.projectId);
+    const {
+      query, results, answer, proposal, actionResult,
+      loading, acting,
+      submit, confirmProposal, cancelProposal, reset,
+    } = useProjectSearch(() => props.projectId);
 
     const paletteOpen = ref(false);
     const selected = ref(0);
@@ -220,8 +305,19 @@ export default {
           'what gear is rented?',
         ]));
 
-    const canSubmit = computed(() => !loading.value && draft.value.trim().length >= 2);
+    const canSubmit = computed(() => !loading.value && !acting.value && draft.value.trim().length >= 2);
     const composerPlaceholder = computed(() => (query.value ? 'Ask a follow-up…' : 'Ask anything…'));
+
+    const proposalIcon = computed(() => (proposal.value ? PROPOSAL_ICONS[proposal.value.kind] || StickyNote : StickyNote));
+    const proposalTitle = computed(() => (proposal.value ? PROPOSAL_LABELS[proposal.value.kind] || 'Proposed change' : ''));
+    const proposalFields = computed(() => {
+      if (!proposal.value) return [];
+      const spec = PROPOSAL_FIELDS[proposal.value.kind] || [];
+      const payload = proposal.value.payload || {};
+      return spec
+        .map(({ key, label }) => ({ label, value: payload[key] }))
+        .filter((r) => r.value != null && String(r.value).trim() !== '');
+    });
 
     function openPalette() {
       paletteOpen.value = true;
@@ -289,6 +385,9 @@ export default {
 
     return {
       query, results, answer, loading,
+      proposal, actionResult, acting,
+      proposalIcon, proposalTitle, proposalFields,
+      confirmProposal, cancelProposal,
       paletteOpen, selected, paletteInputRef, bodyRef,
       draft, canSubmit, composerPlaceholder,
       shortcutLabel, examples,
@@ -540,6 +639,97 @@ export default {
   min-width: 0;
 }
 .psb-icon-accent { color: #0ea5e9; }
+
+/* Proposal confirmation card */
+.psb-proposal {
+  align-self: stretch;
+  border: 1px solid #bae6fd;
+  background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.psb-proposal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #0c4a6e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.psb-proposal-icon { color: #0ea5e9; }
+.psb-proposal-fields {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  row-gap: 6px;
+  column-gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.psb-proposal-fields dt {
+  font-weight: 500;
+  color: #64748b;
+  text-transform: capitalize;
+}
+.psb-proposal-fields dd {
+  margin: 0;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.psb-proposal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.psb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: 0;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.psb-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+.psb-btn-ghost {
+  background: transparent;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.psb-btn-ghost:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.psb-btn-primary {
+  background: #0ea5e9;
+  color: #fff;
+}
+.psb-btn-primary:hover:not(:disabled) { background: #0284c7; }
+
+/* Status bubbles */
+.psb-bubble-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.psb-bubble-success .psb-bubble-icon { color: #059669; }
+.psb-bubble-error {
+  background: #fef2f2;
+  color: #7f1d1d;
+  border: 1px solid #fecaca;
+}
+.psb-bubble-error .psb-bubble-icon { color: #dc2626; }
 .psb-result-kind {
   font-size: 11px;
   font-weight: 600;

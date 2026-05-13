@@ -85,7 +85,10 @@ export function useProjectSearch(projectIdRef) {
   const query = ref('');
   const results = shallowRef([]);
   const answer = ref(null);
+  const proposal = ref(null);      // { kind, projectId, payload } pending confirmation
+  const actionResult = ref(null);  // { ok, summary } or { ok:false, error }
   const loading = ref(false);
+  const acting = ref(false);
   const error = ref(null);
 
   let token = 0;
@@ -97,25 +100,53 @@ export function useProjectSearch(projectIdRef) {
     const projectId = typeof projectIdRef === 'function' ? projectIdRef() : projectIdRef?.value;
 
     query.value = trimmed;
+    proposal.value = null;
+    actionResult.value = null;
     loading.value = true;
     error.value = null;
     try {
       const body = { query: trimmed, limit: 20 };
-      // Omit projectId for global mode; include only when explicitly project-scoped.
       if (projectId) body.projectId = projectId;
       const { data, error: fnErr } = await supabase.functions.invoke('search', { body });
       if (myToken !== token) return;
       if (fnErr) throw fnErr;
       results.value = (data?.results || []);
       answer.value = data?.answer || null;
+      proposal.value = data?.proposal || null;
     } catch (e) {
       if (myToken !== token) return;
       error.value = e?.message || String(e);
       results.value = [];
       answer.value = null;
+      proposal.value = null;
     } finally {
       if (myToken === token) loading.value = false;
     }
+  }
+
+  async function confirmProposal() {
+    if (!proposal.value || acting.value) return;
+    acting.value = true;
+    actionResult.value = null;
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('assistant-action', {
+        body: { proposal: proposal.value },
+      });
+      if (fnErr) throw fnErr;
+      if (data?.error) throw new Error(data.error);
+      actionResult.value = { ok: true, summary: data?.summary || 'Saved.' };
+      proposal.value = null;
+    } catch (e) {
+      actionResult.value = { ok: false, error: e?.message || String(e) };
+    } finally {
+      acting.value = false;
+    }
+  }
+
+  function cancelProposal() {
+    if (acting.value) return;
+    proposal.value = null;
+    actionResult.value = { ok: false, error: 'Cancelled.' };
   }
 
   function reset() {
@@ -123,7 +154,10 @@ export function useProjectSearch(projectIdRef) {
     query.value = '';
     results.value = [];
     answer.value = null;
+    proposal.value = null;
+    actionResult.value = null;
     loading.value = false;
+    acting.value = false;
     error.value = null;
   }
 
@@ -141,9 +175,14 @@ export function useProjectSearch(projectIdRef) {
     query,
     results: computed(() => results.value),
     answer,
+    proposal,
+    actionResult,
     loading,
+    acting,
     error,
     submit,
+    confirmProposal,
+    cancelProposal,
     reset,
     rebuildIndex,
   };

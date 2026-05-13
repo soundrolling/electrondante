@@ -23,16 +23,89 @@ type Row = {
   project_name?: string;
 };
 
-type RankResult = { rankedIds: string[]; answer: string | null };
+type Scope = "project" | "global";
+type AnswerResult = { kind: "answer"; rankedIds: string[]; answer: string | null };
+type ProposalKind = "add_note" | "add_contact" | "add_calendar_event";
+type ProposalResult = {
+  kind: "proposal";
+  proposalKind: ProposalKind;
+  payload: Record<string, unknown>;
+};
+type HaikuResult = AnswerResult | ProposalResult;
 
-async function haikuRank(
+const ANSWER_TOOL = {
+  name: "answer_and_rank",
+  description: "Return ranked candidate IDs plus an optional natural-language answer. Use when the user is asking a question or browsing.",
+  input_schema: {
+    type: "object",
+    properties: {
+      ranked_ids: {
+        type: "array",
+        items: { type: "string" },
+        description: "Candidate IDs from most to least relevant. Omit irrelevant ones. May be empty.",
+      },
+      answer: {
+        type: "string",
+        description: "1–3 sentence answer grounded in the candidates. Empty string if the query isn't a question or nothing relevant is found.",
+      },
+    },
+    required: ["ranked_ids", "answer"],
+  },
+};
+
+const WRITE_TOOLS = [
+  {
+    name: "propose_add_note",
+    description: "Propose adding a new note to this project. Use this when the user asks you to add, save, jot down, or record a note. Nothing is saved until the user confirms.",
+    input_schema: {
+      type: "object",
+      properties: {
+        note: { type: "string", description: "The full note body the user wants to save." },
+        location_hint: { type: "string", description: "Optional stage or location name the note is about (matched server-side). Leave empty if not specified." },
+      },
+      required: ["note"],
+    },
+  },
+  {
+    name: "propose_add_contact",
+    description: "Propose adding a new contact to this project. Use this when the user asks to add/save a person, contact, crew member, vendor, etc. Nothing is saved until the user confirms.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Contact's full name." },
+        role: { type: "string", description: "Job title / role on the project, e.g. 'FOH engineer'." },
+        email: { type: "string" },
+        phone: { type: "string" },
+        comments: { type: "string", description: "Any additional context." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "propose_add_calendar_event",
+    description: "Propose adding a calendar event to this project. Use this when the user asks to add/save/schedule something on a date or time. Nothing is saved until the user confirms.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        event_date: { type: "string", description: "ISO date YYYY-MM-DD. Resolve relative dates (e.g. 'next Thursday') against today's date in the system message." },
+        category: { type: "string", description: "Free-form category, e.g. build, show, travel, meeting, load-in, soundcheck." },
+        start_time: { type: "string", description: "HH:MM 24-hour. Optional." },
+        end_time: { type: "string", description: "HH:MM 24-hour. Optional." },
+        notes: { type: "string", description: "Optional details." },
+      },
+      required: ["title", "event_date"],
+    },
+  },
+];
+
+async function haikuTurn(
   query: string,
   rows: Row[],
-  opts: { scope: "project" | "global" },
-): Promise<RankResult | null> {
+  opts: { scope: Scope; today: string; allowWrites: boolean },
+): Promise<HaikuResult | null> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return null;
-  if (rows.length === 0) return { rankedIds: [], answer: null };
 
   const candidates = rows.map((r) => ({
     id: r.id,
@@ -43,41 +116,29 @@ async function haikuRank(
   }));
 
   const scopeNote = opts.scope === "global"
-    ? "Candidates span MULTIPLE projects the user belongs to. Each candidate names its project. When answering, mention the project a fact comes from so the user knows which one. Only pick one project's data per fact unless the user explicitly asked across projects."
+    ? "Candidates span MULTIPLE projects the user belongs to. Each candidate names its project. When answering, mention the project a fact comes from."
     : "Candidates all come from one project.";
+
+  const writeNote = opts.allowWrites
+    ? "If the user is asking you to ADD, CREATE, SAVE, JOT DOWN, RECORD, or SCHEDULE something (rather than asking a question), call the appropriate propose_* tool instead of answer_and_rank. Pick exactly one tool per turn."
+    : "Write tools are disabled in this scope. Always use answer_and_rank.";
+
+  const tools = opts.allowWrites ? [ANSWER_TOOL, ...WRITE_TOOLS] : [ANSWER_TOOL];
 
   const body = {
     model: HAIKU_MODEL,
     max_tokens: 700,
     system: [
+      `Today is ${opts.today}.`,
       "You are the in-app assistant for a film/audio production app.",
       "You receive a user's query plus candidate items (notes, contacts, stages, venues, schedules, calendar events, gear, project docs, stage docs, trips, accommodations, flights, travel documents).",
       scopeNote,
-      "Pick the candidates that are genuinely relevant and order them most-relevant first; omit anything that doesn't fit.",
-      "When the query is a question (or clearly seeks an answer rather than a navigation target), also write a concise natural-language answer (1–3 sentences) grounded only in the candidate snippets. Reference items by their title, not their id. Never invent details that aren't in the candidates.",
-      "If the query is just a keyword or a person/place/thing name, leave the answer empty — the user is browsing, not asking.",
-      "If nothing in the candidates is relevant, return an empty ranked list and an empty answer.",
+      writeNote,
+      "When using answer_and_rank: pick the candidates that are genuinely relevant and order them most-relevant first. Write a 1–3 sentence answer grounded only in the candidate snippets when the query is a question. Reference items by title, not id. Never invent details.",
+      "If the user query is just a keyword or a person/place/thing name, leave the answer empty — the user is browsing.",
     ].join(" "),
-    tools: [{
-      name: "answer_and_rank",
-      description: "Return ranked candidate IDs plus an optional natural-language answer.",
-      input_schema: {
-        type: "object",
-        properties: {
-          ranked_ids: {
-            type: "array",
-            items: { type: "string" },
-            description: "Candidate IDs from most to least relevant. Omit irrelevant ones. May be empty.",
-          },
-          answer: {
-            type: "string",
-            description: "1–3 sentence answer grounded in the candidates. Empty string if the query isn't a question or nothing relevant is found.",
-          },
-        },
-        required: ["ranked_ids", "answer"],
-      },
-    }],
-    tool_choice: { type: "tool", name: "answer_and_rank" },
+    tools,
+    tool_choice: { type: "any" },
     messages: [{
       role: "user",
       content: `Query: ${query}\n\nCandidates (JSON):\n${JSON.stringify(candidates)}`,
@@ -94,19 +155,33 @@ async function haikuRank(
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
-    console.error("Haiku rank failed:", resp.status, await resp.text());
+    console.error("Haiku turn failed:", resp.status, await resp.text());
     return null;
   }
   const json = await resp.json();
   const block = (json?.content ?? []).find((b: { type: string }) => b.type === "tool_use");
-  const ids = block?.input?.ranked_ids;
-  const answer = block?.input?.answer;
-  if (!Array.isArray(ids)) return null;
-  const allowed = new Set(rows.map((r) => r.id));
-  return {
-    rankedIds: ids.filter((id: string) => allowed.has(id)),
-    answer: typeof answer === "string" && answer.trim() ? answer.trim() : null,
-  };
+  if (!block) return null;
+
+  const name = block.name as string;
+  if (name === "answer_and_rank") {
+    const ids = block.input?.ranked_ids;
+    const answer = block.input?.answer;
+    if (!Array.isArray(ids)) return null;
+    const allowed = new Set(rows.map((r) => r.id));
+    return {
+      kind: "answer",
+      rankedIds: ids.filter((id: string) => allowed.has(id)),
+      answer: typeof answer === "string" && answer.trim() ? answer.trim() : null,
+    };
+  }
+  if (name === "propose_add_note" || name === "propose_add_contact" || name === "propose_add_calendar_event") {
+    return {
+      kind: "proposal",
+      proposalKind: name.replace("propose_", "") as ProposalKind,
+      payload: (block.input ?? {}) as Record<string, unknown>,
+    };
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -155,7 +230,6 @@ Deno.serve(async (req) => {
         usedFallback = true;
       }
     } else {
-      // Cross-project: RLS already scopes search_index to the user's projects.
       const { data, error } = await supabase.rpc("search_user_projects", {
         p_query: trimmed,
         p_query_embedding: null,
@@ -163,33 +237,63 @@ Deno.serve(async (req) => {
       });
       if (error) throw error;
       candidates = (data ?? []) as Row[];
-      // No fallback for global mode — an empty FTS result is a genuine miss
-      // and we don't want to ship 50 random rows from every project.
     }
 
-    if (candidates.length === 0) {
+    // Global mode with no candidates: bail. Project mode: still let Haiku see
+    // the query so it can propose writes from scratch.
+    if (candidates.length === 0 && !projectScope) {
       return new Response(JSON.stringify({ results: [], answer: null, reranked: false }), {
         status: 200, headers: { "Content-Type": "application/json", ...CORS },
       });
     }
 
-    const rank = await haikuRank(trimmed, candidates, {
+    const today = new Date().toISOString().slice(0, 10);
+    const haiku = await haikuTurn(trimmed, candidates, {
       scope: projectScope ? "project" : "global",
+      today,
+      allowWrites: projectScope,
     });
+
     const finalLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
 
-    let results: Row[];
-    let answer: string | null = null;
-    if (rank === null) {
-      results = usedFallback ? [] : candidates.slice(0, finalLimit);
-    } else {
-      const byId = new Map(candidates.map((c) => [c.id, c]));
-      results = rank.rankedIds.map((id) => byId.get(id)).filter((r): r is Row => !!r).slice(0, finalLimit);
-      answer = rank.answer;
+    if (haiku === null) {
+      const results = usedFallback ? [] : candidates.slice(0, finalLimit);
+      return new Response(
+        JSON.stringify({ results, answer: null, reranked: false, scope: projectScope ? "project" : "global" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS } },
+      );
     }
 
+    if (haiku.kind === "proposal") {
+      return new Response(
+        JSON.stringify({
+          results: [],
+          answer: null,
+          reranked: true,
+          scope: projectScope ? "project" : "global",
+          proposal: {
+            kind: haiku.proposalKind,
+            projectId,
+            payload: haiku.payload,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS } },
+      );
+    }
+
+    const byId = new Map(candidates.map((c) => [c.id, c]));
+    const results = haiku.rankedIds
+      .map((id) => byId.get(id))
+      .filter((r): r is Row => !!r)
+      .slice(0, finalLimit);
+
     return new Response(
-      JSON.stringify({ results, answer, reranked: rank !== null, scope: projectScope ? "project" : "global" }),
+      JSON.stringify({
+        results,
+        answer: haiku.answer,
+        reranked: true,
+        scope: projectScope ? "project" : "global",
+      }),
       { status: 200, headers: { "Content-Type": "application/json", ...CORS } },
     );
   } catch (err) {
