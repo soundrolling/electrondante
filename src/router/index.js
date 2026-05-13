@@ -174,7 +174,7 @@ router.beforeEach(async (to, from, next) => {
   // ensure project membership
   // Some routes use :id, others use :projectId
   const pid = to.params.id || to.params.projectId;
-  if (pid && !userStore.getCurrentProject) {
+  if (pid && userStore.getCurrentProject?.id !== pid) {
     const mem = await userStore.checkProjectMember(userStore.user.email, pid);
     if (mem) {
       await userStore.fetchProjectById(pid);
