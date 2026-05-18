@@ -53,9 +53,13 @@
 
   <!-- Content Container -->
   <div v-else class="content-container">
+    <div v-if="!isCurrentUserTripOwner" class="readonly-banner">
+      <span class="readonly-icon">👁️</span>
+      <span>Read-only — this trip was created by {{ tripOwnerName || 'another member' }}.</span>
+    </div>
     <div class="section-header">
       <h2>Documents</h2>
-      <button v-if="canManageProject" @click="openModal" class="btn btn-positive add-button" aria-label="Add new document">
+      <button v-if="canManageProject && isCurrentUserTripOwner" @click="openModal" class="btn btn-positive add-button" aria-label="Add new document">
         <span class="icon">+</span>
         <span class="button-text">Add Document</span>
       </button>
@@ -104,7 +108,7 @@
         
         <div class="document-actions">
           <button
-            v-if="canManageProject"
+            v-if="canManageProject && isCurrentUserTripOwner"
             @click="editDocument(doc)"
             class="btn btn-warning action-button edit-button"
             aria-label="Edit document"
@@ -114,7 +118,7 @@
           </button>
           
           <button
-            v-if="canManageProject"
+            v-if="canManageProject && isCurrentUserTripOwner"
             @click="deleteDocument(doc)"
             class="btn btn-danger action-button delete-button"
             aria-label="Delete document"
@@ -284,7 +288,7 @@
 </template>
 
 <script>
-import { ref, nextTick, onMounted } from 'vue';
+import { ref, computed, nextTick, onMounted } from 'vue';
 import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '../../stores/userStore';
@@ -366,7 +370,20 @@ export default {
       const member = projectMembers.value.find(m => m.user_email === email)
       return member ? member.display_name : email
     }
-    
+
+    const isCurrentUserTripOwner = computed(() => {
+      if (!selectedTripId.value || !trips.value.length || !currentUserEmail.value) return false;
+      const trip = trips.value.find(t => t.id === selectedTripId.value);
+      return !!trip && (trip.created_by || '').toLowerCase() === currentUserEmail.value;
+    });
+
+    const tripOwnerName = computed(() => {
+      if (!selectedTripId.value || !trips.value.length) return '';
+      const trip = trips.value.find(t => t.id === selectedTripId.value);
+      if (!trip?.created_by) return '';
+      return getMemberName(trip.created_by);
+    });
+
     async function checkUserRole() {
       const { data: sess } = await supabase.auth.getSession();
       const email = sess?.session?.user?.email?.toLowerCase();
@@ -962,6 +979,8 @@ export default {
       isPdfFile,
       getPreviewUrl,
       canManageProject,
+      isCurrentUserTripOwner,
+      tripOwnerName,
       projectMembers,
       showPdfViewer,
       pdfLoading,
@@ -1202,6 +1221,25 @@ export default {
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border-light);
+}
+
+.readonly-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--color-primary-500);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.readonly-icon {
+  font-size: 16px;
 }
 
 .section-header {

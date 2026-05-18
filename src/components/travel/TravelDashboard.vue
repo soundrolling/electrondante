@@ -201,26 +201,29 @@
           </div>
           
           <div class="trip-card-status">
+            <span v-if="!isTripOwner(trip)" class="status-badge status-readonly" title="You can view this trip but only the creator can edit it">
+              Read-only
+            </span>
             <span class="status-badge" :class="getTripStatusClass(trip)">
               {{ getTripStatus(trip) }}
             </span>
           </div>
-          
+
           <div class="trip-card-footer">
             <div class="trip-card-actions">
-              <button 
-                v-if="canManageProject"
-                @click.stop="openEditTripModal(trip)" 
+              <button
+                v-if="canManageProject && isTripOwner(trip)"
+                @click.stop="openEditTripModal(trip)"
                 class="btn btn-warning action-button edit-button"
                 aria-label="Edit trip"
               >
                 <span class="action-icon">✏️</span>
                 <span class="action-text">Edit</span>
               </button>
-              
-              <button 
-                v-if="canManageProject"
-                @click.stop="deleteTrip(trip)" 
+
+              <button
+                v-if="canManageProject && isTripOwner(trip)"
+                @click.stop="deleteTrip(trip)"
                 class="btn btn-danger action-button delete-button"
                 aria-label="Delete trip"
               >
@@ -391,10 +394,12 @@ setup() {
   
   // Permission check
   const canManageProject = ref(false)
-  
+  const currentUserEmail = ref('')
+
   async function checkUserRole() {
     const { data: sess } = await supabase.auth.getSession()
     const email = sess?.session?.user?.email?.toLowerCase()
+    currentUserEmail.value = email || ''
     if (!email || !userStore.currentProject?.id) return
     try {
       const { data } = await supabase
@@ -408,6 +413,11 @@ setup() {
       console.error('Error checking user role:', err)
       canManageProject.value = false
     }
+  }
+
+  function isTripOwner(trip) {
+    if (!trip || !currentUserEmail.value) return false
+    return (trip.created_by || '').toLowerCase() === currentUserEmail.value
   }
 
   const newTrip = ref({
@@ -815,7 +825,8 @@ setup() {
     viewParking,
     formatDateRange,
     getTripStatus,
-    getTripStatusClass
+    getTripStatusClass,
+    isTripOwner
   }
 }
 }
@@ -1199,6 +1210,18 @@ setup() {
   display: flex;
   justify-content: flex-end;
   margin-bottom: var(--space-4);
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.status-badge.status-readonly {
+  background: var(--color-secondary-200);
+  color: var(--color-secondary-700);
+}
+
+.dark .status-badge.status-readonly {
+  background: var(--color-secondary-700);
+  color: var(--text-inverse);
 }
 
 .status-badge {

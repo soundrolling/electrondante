@@ -53,9 +53,13 @@
 
   <!-- Content Container -->
   <div v-else class="content-container">
+    <div v-if="!isCurrentUserTripOwner" class="readonly-banner">
+      <span class="readonly-icon">👁️</span>
+      <span>Read-only — this trip was created by {{ tripOwnerName || 'another member' }}.</span>
+    </div>
     <div class="section-header">
       <h2>Accommodations</h2>
-      <button v-if="canManageProject" @click="openAddForm" class="btn btn-positive add-button" aria-label="Add new accommodation">
+      <button v-if="canManageProject && isCurrentUserTripOwner" @click="openAddForm" class="btn btn-positive add-button" aria-label="Add new accommodation">
         <span class="icon">+</span>
         <span class="button-text">Add Accommodation</span>
       </button>
@@ -256,7 +260,7 @@
           </div>
         </div>
         
-        <div v-if="canManageProject" class="accommodation-card-footer">
+        <div v-if="canManageProject && isCurrentUserTripOwner" class="accommodation-card-footer">
           <button
             @click="editAccommodation(accommodation)"
             class="btn btn-warning action-button edit-button"
@@ -265,7 +269,7 @@
             <span class="action-icon">✏️</span>
             <span class="action-text">Edit</span>
           </button>
-          
+
           <button
             @click="deleteAccommodation(accommodation)"
             class="btn btn-danger action-button delete-button"
@@ -314,9 +318,23 @@ setup(props) {
   
   // Permission check
   const canManageProject = ref(false);
-  
+  const currentUserEmail = ref('');
+
   // Project members
   const projectMembers = ref([]);
+
+  const isCurrentUserTripOwner = computed(() => {
+    if (!selectedTripId.value || !trips.value.length || !currentUserEmail.value) return false;
+    const trip = trips.value.find(t => t.id === selectedTripId.value);
+    return !!trip && (trip.created_by || '').toLowerCase() === currentUserEmail.value;
+  });
+
+  const tripOwnerName = computed(() => {
+    if (!selectedTripId.value || !trips.value.length) return '';
+    const trip = trips.value.find(t => t.id === selectedTripId.value);
+    if (!trip?.created_by) return '';
+    return getMemberName(trip.created_by);
+  });
   
   // Fetch project members
   async function fetchProjectMembers() {
@@ -363,6 +381,7 @@ setup(props) {
   async function checkUserRole() {
     const { data: sess } = await supabase.auth.getSession();
     const email = sess?.session?.user?.email?.toLowerCase();
+    currentUserEmail.value = email || '';
     if (!email || !userStore.currentProject?.id) return;
     try {
       const { data } = await supabase
@@ -700,6 +719,8 @@ setup(props) {
     
     // Permissions
     canManageProject,
+    isCurrentUserTripOwner,
+    tripOwnerName,
 
     // Helpers
     formatDateRange,
@@ -919,6 +940,25 @@ setup(props) {
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border-light);
+}
+
+.readonly-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--color-primary-500);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.readonly-icon {
+  font-size: 16px;
 }
 
 .section-header {
