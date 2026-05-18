@@ -80,7 +80,17 @@ export default defineConfig(({ mode }) => {
             return 'assets/[name]-[hash][extname]'
           },
           chunkFileNames: 'assets/[name]-[hash].js',
-          entryFileNames: 'assets/[name]-[hash].js'
+          entryFileNames: 'assets/[name]-[hash].js',
+          manualChunks: {
+            supabase: ['@supabase/supabase-js', '@supabase/auth-ui-react'],
+            flow:     ['@vue-flow/core', '@vue-flow/controls'],
+            pdf:      ['jspdf', 'jspdf-autotable', 'pdfjs-dist'],
+            icons:    ['lucide-vue-next', '@fortawesome/fontawesome-free'],
+            dateutil: ['date-fns'],
+            zip:      ['jszip'],
+            crypto:   ['crypto-js'],
+            audio:    ['opus-decoder']
+          }
         }
       }
     },
