@@ -127,28 +127,28 @@ export const UserContactsService = {
   },
 
   /**
-   * Bulk-import contacts the signed-in user already collaborates with on a
-   * project. Pulls from project_members + user_profiles + project_contacts
-   * and upserts each one into the personal address book.
+   * Gather all importable contacts from a project (members via user_profiles
+   * plus external project_contacts) WITHOUT writing anything. Used to power
+   * the selective import picker in the UI. Self is excluded.
    *
-   * Returns { added, updated, skipped } counts so the UI can summarise.
+   * Returns an array of { key, name, email, phone, role, notes, source,
+   * source_project_id, alreadySaved } objects. `key` is the lowercased name
+   * — stable identifier for the picker. `alreadySaved` is true if this name
+   * already exists in the user's personal contacts.
    */
-  async importFromProject(userId, projectId) {
+  async listProjectCandidates(userId, projectId) {
     if (!userId) throw new Error('Not authenticated');
     if (!projectId) throw new Error('projectId is required');
 
-    const counts = { added: 0, updated: 0, skipped: 0 };
-    const seenNames = new Set();
-    // The personal address book is for *other* people, so skip self.
+    const skipNames = new Set();
     const { data: meRow } = await supabase
       .from('user_profiles')
       .select('full_name')
       .eq('user_id', userId)
       .maybeSingle();
     const selfName = (meRow?.full_name || '').trim().toLowerCase();
-    if (selfName) seenNames.add(selfName);
+    if (selfName) skipNames.add(selfName);
 
-    // 1) Project members → resolve names/phones from user_profiles
     const { data: members } = await supabase
       .from('project_members')
       .select('user_id, user_email, role')
@@ -163,23 +163,23 @@ export const UserContactsService = {
       profilesById = new Map((profileRows || []).map(p => [p.user_id, p]));
     }
 
-    const candidates = [];
+    const raw = [];
     for (const m of members || []) {
-      if (m.user_id === userId) continue; // skip self
+      if (m.user_id === userId) continue;
       const profile = profilesById.get(m.user_id) || {};
       const name = (profile.full_name || m.user_email || '').trim();
       if (!name) continue;
-      candidates.push({
+      raw.push({
         name,
         email: m.user_email || null,
         phone: profile.phone || null,
         role: m.role || null,
+        notes: null,
         source: 'project_member',
         source_project_id: projectId,
       });
     }
 
-    // 2) Project contacts (external collaborators stored on the project)
     const { data: contacts } = await supabase
       .from('project_contacts')
       .select('name, email, phone, role, comments')
@@ -187,7 +187,7 @@ export const UserContactsService = {
     for (const c of contacts || []) {
       const name = (c.name || '').trim();
       if (!name) continue;
-      candidates.push({
+      raw.push({
         name,
         email: c.email || null,
         phone: c.phone || null,
@@ -198,32 +198,82 @@ export const UserContactsService = {
       });
     }
 
-    for (const cand of candidates) {
+    // Dedupe candidates by lower(name) — merge non-blank fields so a member
+    // who's also listed as a project_contact gets the union of both.
+    const merged = new Map();
+    for (const cand of raw) {
       const key = cand.name.toLowerCase();
-      if (seenNames.has(key)) {
+      if (skipNames.has(key)) continue;
+      if (!merged.has(key)) {
+        merged.set(key, { key, ...cand });
+      } else {
+        const existing = merged.get(key);
+        for (const field of ['email', 'phone', 'role', 'notes']) {
+          if (!existing[field] && cand[field]) existing[field] = cand[field];
+        }
+      }
+    }
+
+    const candidates = [...merged.values()];
+    if (candidates.length === 0) return [];
+
+    // Mark candidates that are already in the user's personal contacts.
+    const { data: existing } = await supabase
+      .from('user_personal_contacts')
+      .select('name')
+      .eq('user_id', userId);
+    const existingLower = new Set(
+      (existing || []).map(r => (r.name || '').trim().toLowerCase())
+    );
+    for (const c of candidates) {
+      c.alreadySaved = existingLower.has(c.key);
+    }
+
+    candidates.sort((a, b) => a.name.localeCompare(b.name));
+    return candidates;
+  },
+
+  /**
+   * Upsert the given candidates into the personal address book. Each entry
+   * is merged by lower(name) — only blank fields on the existing record get
+   * filled, so prior manual edits are preserved. Returns { added, updated,
+   * skipped } counts.
+   */
+  async importContacts(userId, candidates) {
+    if (!userId) throw new Error('Not authenticated');
+    const list = Array.isArray(candidates) ? candidates : [];
+    const counts = { added: 0, updated: 0, skipped: 0 };
+    for (const cand of list) {
+      const name = (cand?.name || '').trim();
+      if (!name) {
         counts.skipped += 1;
         continue;
       }
-      seenNames.add(key);
       try {
-        // Detect add vs update by looking up first
         const { data: existing } = await supabase
           .from('user_personal_contacts')
           .select('id')
           .eq('user_id', userId)
-          .ilike('name', cand.name);
+          .ilike('name', name);
         const exists = (existing || []).some(
-          row => (row.name || '').trim().toLowerCase() === key
-        ) || (existing || []).length > 0;
-        await this.upsertByName(userId, cand);
+          row => (row.name || '').trim().toLowerCase() === name.toLowerCase()
+        );
+        await this.upsertByName(userId, {
+          name,
+          email: cand.email,
+          phone: cand.phone,
+          role: cand.role,
+          notes: cand.notes,
+          source: cand.source || 'project_member',
+          source_project_id: cand.source_project_id || null,
+        });
         if (exists) counts.updated += 1;
         else counts.added += 1;
       } catch (e) {
-        console.warn('Skipping contact import for', cand.name, e);
+        console.warn('Skipping contact import for', name, e);
         counts.skipped += 1;
       }
     }
-
     return counts;
   },
 

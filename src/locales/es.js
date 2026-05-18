@@ -107,6 +107,15 @@ export default {
   'profile.gear.items': 'Artículos',
   'profile.gear.types': 'Tipos',
   'profile.gear.totalQuantity': 'Cantidad total',
+  'profile.gear.ownerLabel': 'Propietario',
+  'profile.gear.ownerMe': 'Yo',
+  'profile.gear.ownerContacts': 'Mis contactos',
+  'profile.gear.ownerOther': 'Otro (escribe un nombre)',
+  'profile.gear.ownerCustomPlaceholder': 'Nombre del propietario',
+  'profile.gear.ownerSaveAsContact': 'Guardar como contacto',
+  'profile.gear.ownerSaveAsContactTitle': "Guardar '{name}' en tus contactos personales",
+  'profile.gear.ownerHintMe': 'Este equipo es tuyo. Elige un contacto u "Otro" si lo llevas temporalmente para otra persona.',
+  'profile.gear.ownerHintOther': 'Se usa cuando llevas equipo de otra persona. Gestiona tus contactos en la pestaña Contactos.',
 
   // Preferences tab
   'profile.preferences.title': 'Preferencias',
@@ -144,8 +153,12 @@ export default {
   'profile.contacts.emptyBody': 'Añade a las personas con las que colaboras y aparecerán en el selector "En préstamo a" del equipo. También puedes importar a todos los miembros de uno de tus proyectos.',
   'profile.contacts.importLabel': 'Importar desde un proyecto',
   'profile.contacts.importPlaceholder': 'Elige un proyecto…',
-  'profile.contacts.importButton': 'Importar',
-  'profile.contacts.importHint': 'Añade a todos los miembros y contactos externos del proyecto a tu libreta personal. Re-ejecutar fusiona detalles nuevos.',
+  'profile.contacts.importHint': 'Elige un proyecto y luego selecciona qué miembros y contactos añadir. Los que ya tienes guardados aparecen marcados para evitar duplicados.',
+  'profile.contacts.importNoneFound': 'No hay contactos importables en ese proyecto (puede que seas el único miembro).',
+  'profile.contacts.importSelectAll': 'Seleccionar todos',
+  'profile.contacts.importSelected': '{count} seleccionados',
+  'profile.contacts.importAlreadySaved': 'Ya guardado',
+  'profile.contacts.importSelectedBtn': 'Importar {count}',
 
   // Security tab
   'profile.security.title': 'Seguridad',

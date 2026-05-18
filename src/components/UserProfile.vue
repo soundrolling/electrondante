@@ -85,24 +85,6 @@ async function refreshGearLibrary() {
   }
 }
 
-// Distinct held_for values from current user's gear PLUS personal contacts.
-// Populates the "Holding for" datalist so repeat owners can be picked instead
-// of retyped. Contacts take precedence (they're the canonical list) but past
-// held_for names are still surfaced for backwards-compat with older gear that
-// hasn't been migrated to a saved contact.
-const heldForSuggestions = computed(() => {
-  const set = new Set();
-  for (const c of personalContacts.value) {
-    const name = (c.name || '').trim();
-    if (name) set.add(name);
-  }
-  for (const g of gear.value) {
-    const name = (g.held_for || '').trim();
-    if (name) set.add(name);
-  }
-  return [...set].sort((a, b) => a.localeCompare(b));
-});
-
 /* ---------- modal state ---------- */
 const showGearModal = ref(false);
 const isEditGear = ref(false);
@@ -126,9 +108,16 @@ const gearForm = ref({
   purchased_date: '',
   notes: '',
   condition: 'excellent',
-  availability: 'available',
-  held_for: ''
+  availability: 'available'
 });
+
+// Owner picker for the gear modal. Defaults to "me" so a new item is mine
+// until I say otherwise. Under the hood we still write to gear.held_for:
+//   - mode 'me'      → held_for = null
+//   - mode 'contact' → held_for = contact name
+//   - mode 'custom'  → held_for = typed value
+const ownerMode = ref('me');
+const ownerCustomName = ref('');
 
 const conditionOptions = [
   { value: 'excellent', label: 'Excellent' },
@@ -164,6 +153,47 @@ const savingContact = ref(false);
 const contactImportProjectId = ref('');
 const importingContacts = ref(false);
 const contactsMsg = ref('');
+
+// Selective project-import state. When a project is picked we load the
+// candidate list (members + project_contacts) and let the user check the
+// rows they actually want before pulling the trigger.
+const importCandidates = ref([]);
+const loadingCandidates = ref(false);
+const importSelectAll = ref(true);
+
+const selectedImportCount = computed(
+  () => importCandidates.value.filter(c => c.selected).length
+);
+
+watch(contactImportProjectId, async (projectId) => {
+  importCandidates.value = [];
+  importSelectAll.value = true;
+  if (!projectId) return;
+  loadingCandidates.value = true;
+  contactsError.value = '';
+  try {
+    const cands = await UserContactsService.listProjectCandidates(userId.value, projectId);
+    // Pre-check candidates that aren't already saved; leave duplicates
+    // unchecked so the user has to opt in to re-import them.
+    importCandidates.value = cands.map(c => ({ ...c, selected: !c.alreadySaved }));
+    importSelectAll.value = importCandidates.value.every(c => c.selected);
+  } catch (e) {
+    contactsError.value = e.message || 'Failed to load candidates';
+  } finally {
+    loadingCandidates.value = false;
+  }
+});
+
+function toggleImportSelectAll() {
+  const next = !importCandidates.value.every(c => c.selected);
+  importCandidates.value = importCandidates.value.map(c => ({ ...c, selected: next }));
+  importSelectAll.value = next;
+}
+
+function cancelImport() {
+  contactImportProjectId.value = '';
+  importCandidates.value = [];
+}
 
 async function fetchContacts() {
   if (!userId.value) return;
@@ -291,17 +321,18 @@ async function fetchImportableProjects() {
   }
 }
 
-// "Save as contact" beside the gear modal's Holding-for input. Only show
+// "Save as contact" beside the Owner picker's custom-name input. Only show
 // when the typed name doesn't already match an existing personal contact.
-const heldForCanSaveAsContact = computed(() => {
-  const name = (gearForm.value.held_for || '').trim();
+const ownerCanSaveAsContact = computed(() => {
+  if (ownerMode.value !== 'custom') return false;
+  const name = (ownerCustomName.value || '').trim();
   if (!name) return false;
   const lower = name.toLowerCase();
   return !personalContacts.value.some(c => (c.name || '').trim().toLowerCase() === lower);
 });
 
-async function saveHeldForAsContact() {
-  const name = (gearForm.value.held_for || '').trim();
+async function saveOwnerAsContact() {
+  const name = (ownerCustomName.value || '').trim();
   if (!name) return;
   try {
     const created = await UserContactsService.saveAsContact(userId.value, name, { source: 'manual' });
@@ -310,6 +341,9 @@ async function saveHeldForAsContact() {
     else personalContacts.value = [...personalContacts.value, created].sort(
       (a, b) => (a.name || '').localeCompare(b.name || '')
     );
+    // Switch the picker to point at the newly-saved contact.
+    ownerMode.value = `contact:${created.id}`;
+    ownerCustomName.value = '';
     contactsMsg.value = `Saved ${name} to contacts`;
     setTimeout(() => { contactsMsg.value = ''; }, 2500);
   } catch (e) {
@@ -318,15 +352,17 @@ async function saveHeldForAsContact() {
 }
 
 async function importContactsFromProject() {
-  if (!contactImportProjectId.value) return;
+  const selected = importCandidates.value.filter(c => c.selected);
+  if (!selected.length) return;
   importingContacts.value = true;
   contactsError.value = '';
   try {
-    const counts = await UserContactsService.importFromProject(userId.value, contactImportProjectId.value);
+    const counts = await UserContactsService.importContacts(userId.value, selected);
     await fetchContacts();
     contactsMsg.value = `Imported ${counts.added} new, updated ${counts.updated}, skipped ${counts.skipped}`;
     setTimeout(() => { contactsMsg.value = ''; }, 4000);
     contactImportProjectId.value = '';
+    importCandidates.value = [];
   } catch (e) {
     contactsError.value = e.message || 'Failed to import contacts';
   } finally {
@@ -419,7 +455,8 @@ function openAddGear() {
 function openEditGear(gearItem) {
   const currentUnit = weightUnit.value;
   const weightKg = gearItem.weight_kg || null;
-  
+  const heldFor = (gearItem.held_for || '').trim();
+
   gearForm.value = {
     gear_name: gearItem.gear_name,
     quantity: gearItem.quantity || 1,
@@ -434,11 +471,27 @@ function openEditGear(gearItem) {
     // Map legacy auto-set values ('in_use', 'unavailable') back to 'available'
     // so the simplified dropdown doesn't render blank.
     availability: gearItem.availability === 'maintenance' ? 'maintenance' : 'available',
-    held_for: gearItem.held_for || '',
     weight_kg: weightKg,
     weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
     weightInputUnit: currentUnit
   };
+
+  if (!heldFor) {
+    ownerMode.value = 'me';
+    ownerCustomName.value = '';
+  } else {
+    const match = personalContacts.value.find(
+      c => (c.name || '').trim().toLowerCase() === heldFor.toLowerCase()
+    );
+    if (match) {
+      ownerMode.value = `contact:${match.id}`;
+      ownerCustomName.value = '';
+    } else {
+      ownerMode.value = 'custom';
+      ownerCustomName.value = heldFor;
+    }
+  }
+
   isEditGear.value = true;
   editGearId.value = gearItem.id;
   showGearModal.value = true;
@@ -457,11 +510,12 @@ function resetGearForm() {
     notes: '',
     condition: 'excellent',
     availability: 'available',
-    held_for: '',
     weight_kg: null,
     weightInput: null,
     weightInputUnit: weightUnit.value
   };
+  ownerMode.value = 'me';
+  ownerCustomName.value = '';
   isEditGear.value = false;
   editGearId.value = null;
 }
@@ -471,9 +525,20 @@ async function saveGear() {
   if (!name) return;
 
   // Convert weight input to kg for storage
-  const weightInKg = gearForm.value.weightInput 
+  const weightInKg = gearForm.value.weightInput
     ? convertInputToKg(gearForm.value.weightInput, gearForm.value.weightInputUnit)
     : null;
+
+  // Resolve the Owner picker into a held_for value. 'me' → null (we own it),
+  // 'contact:<id>' → the contact's name, 'custom' → typed-in name.
+  let heldFor = null;
+  if (ownerMode.value && ownerMode.value.startsWith('contact:')) {
+    const id = ownerMode.value.slice('contact:'.length);
+    const match = personalContacts.value.find(c => c.id === id);
+    heldFor = match ? (match.name || '').trim() : null;
+  } else if (ownerMode.value === 'custom') {
+    heldFor = (ownerCustomName.value || '').trim() || null;
+  }
 
   const payload = {
     user_id: userId.value,
@@ -488,7 +553,7 @@ async function saveGear() {
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
     availability: gearForm.value.availability,
-    held_for: (gearForm.value.held_for || '').trim() || null,
+    held_for: heldFor,
     weight_kg: weightInKg
   };
 
@@ -1059,24 +1124,88 @@ async function saveSecurity() {
             </button>
           </div>
 
-          <!-- Import from project -->
+          <!-- Selective import from project -->
           <div v-if="importableProjects.length" class="contacts-import">
             <label class="form-label">{{ t('profile.contacts.importLabel') }}</label>
-            <div class="contacts-import-row">
-              <select v-model="contactImportProjectId" class="form-input" :disabled="importingContacts">
-                <option value="">{{ t('profile.contacts.importPlaceholder') }}</option>
-                <option v-for="p in importableProjects" :key="p.id" :value="p.id">{{ p.name }}</option>
-              </select>
-              <button
-                type="button"
-                class="btn btn-secondary"
-                :disabled="!contactImportProjectId || importingContacts"
-                @click="importContactsFromProject"
-              >
-                {{ importingContacts ? t('common.saving') : t('profile.contacts.importButton') }}
-              </button>
+            <select
+              v-model="contactImportProjectId"
+              class="form-input"
+              :disabled="importingContacts || loadingCandidates"
+            >
+              <option value="">{{ t('profile.contacts.importPlaceholder') }}</option>
+              <option v-for="p in importableProjects" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+            <p v-if="!contactImportProjectId" class="form-hint">{{ t('profile.contacts.importHint') }}</p>
+
+            <!-- Candidate picker (revealed once a project is chosen) -->
+            <div v-if="contactImportProjectId" class="import-candidates">
+              <div v-if="loadingCandidates" class="contacts-empty">
+                <div class="loading-spinner"></div>
+                <p>{{ t('common.loading') }}</p>
+              </div>
+              <div v-else-if="!importCandidates.length" class="contacts-empty">
+                <p>{{ t('profile.contacts.importNoneFound') }}</p>
+                <button type="button" class="btn btn-warning" @click="cancelImport">
+                  {{ t('common.cancel') }}
+                </button>
+              </div>
+              <template v-else>
+                <div class="import-candidates-head">
+                  <label class="import-select-all">
+                    <input
+                      type="checkbox"
+                      :checked="importCandidates.every(c => c.selected)"
+                      @change="toggleImportSelectAll"
+                    />
+                    <span>{{ t('profile.contacts.importSelectAll') }} ({{ importCandidates.length }})</span>
+                  </label>
+                  <span class="import-count">
+                    {{ t('profile.contacts.importSelected', { count: selectedImportCount }) }}
+                  </span>
+                </div>
+                <ul class="import-list">
+                  <li v-for="cand in importCandidates" :key="cand.key" class="import-row">
+                    <input
+                      type="checkbox"
+                      :id="`import-cand-${cand.key}`"
+                      v-model="cand.selected"
+                    />
+                    <label :for="`import-cand-${cand.key}`" class="import-row-body">
+                      <div class="import-row-name">
+                        {{ cand.name }}
+                        <span v-if="cand.alreadySaved" class="import-tag">{{ t('profile.contacts.importAlreadySaved') }}</span>
+                      </div>
+                      <div class="import-row-meta">
+                        <span v-if="cand.role">{{ cand.role }}</span>
+                        <span v-if="cand.email">✉ {{ cand.email }}</span>
+                        <span v-if="cand.phone">📞 {{ cand.phone }}</span>
+                      </div>
+                    </label>
+                  </li>
+                </ul>
+                <div class="import-actions">
+                  <button
+                    type="button"
+                    class="btn btn-warning"
+                    :disabled="importingContacts"
+                    @click="cancelImport"
+                  >
+                    {{ t('common.cancel') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-positive"
+                    :disabled="!selectedImportCount || importingContacts"
+                    @click="importContactsFromProject"
+                  >
+                    {{ importingContacts
+                        ? t('common.saving')
+                        : t('profile.contacts.importSelectedBtn', { count: selectedImportCount })
+                    }}
+                  </button>
+                </div>
+              </template>
             </div>
-            <p class="form-hint">{{ t('profile.contacts.importHint') }}</p>
           </div>
 
           <div v-if="contactsError" class="contacts-error">{{ contactsError }}</div>
@@ -1292,29 +1421,38 @@ async function saveSecurity() {
           </div>
 
           <div class="form-group form-group-full">
-            <label class="form-label">Holding for (optional)</label>
-            <div class="held-for-row">
+            <label class="form-label">{{ t('profile.gear.ownerLabel') }}</label>
+            <div class="owner-row">
+              <select v-model="ownerMode" class="form-input">
+                <option value="me">{{ t('profile.gear.ownerMe') }}</option>
+                <optgroup v-if="personalContacts.length" :label="t('profile.gear.ownerContacts')">
+                  <option v-for="c in personalContacts" :key="c.id" :value="`contact:${c.id}`">
+                    {{ c.name }}
+                  </option>
+                </optgroup>
+                <option value="custom">{{ t('profile.gear.ownerOther') }}</option>
+              </select>
               <input
-                v-model="gearForm.held_for"
+                v-if="ownerMode === 'custom'"
+                v-model="ownerCustomName"
                 class="form-input"
-                placeholder="Leave empty if this gear is yours. Otherwise pick or type the owner's name."
-                list="gear-held-for-suggestions"
+                :placeholder="t('profile.gear.ownerCustomPlaceholder')"
               />
               <button
-                v-if="heldForCanSaveAsContact"
+                v-if="ownerMode === 'custom' && ownerCanSaveAsContact"
                 type="button"
-                class="btn btn-secondary held-for-save-btn"
-                :title="`Save '${(gearForm.held_for || '').trim()}' to your personal contacts`"
-                @click="saveHeldForAsContact"
+                class="btn btn-secondary owner-save-btn"
+                :title="t('profile.gear.ownerSaveAsContactTitle', { name: ownerCustomName.trim() })"
+                @click="saveOwnerAsContact"
               >
-                + Save as contact
+                + {{ t('profile.gear.ownerSaveAsContact') }}
               </button>
             </div>
-            <datalist id="gear-held-for-suggestions">
-              <option v-for="name in heldForSuggestions" :key="name" :value="name" />
-            </datalist>
             <p class="form-hint">
-              Pick from your personal contacts (manage them in Preferences) or type a new name. Use this when you're temporarily carrying gear for someone else.
+              {{ ownerMode === 'me'
+                  ? t('profile.gear.ownerHintMe')
+                  : t('profile.gear.ownerHintOther')
+              }}
             </p>
           </div>
 
@@ -2712,17 +2850,6 @@ async function saveSecurity() {
   margin-bottom: 1rem;
 }
 
-.contacts-import-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: stretch;
-  margin-top: 0.25rem;
-}
-
-.contacts-import-row .form-input {
-  flex: 1;
-}
-
 .contacts-error {
   background: var(--color-danger-50, #fef2f2);
   color: var(--color-danger-700, #b91c1c);
@@ -2836,18 +2963,129 @@ async function saveSecurity() {
   border-color: var(--text-secondary);
 }
 
-.held-for-row {
+.owner-row {
   display: flex;
   gap: 0.5rem;
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
-.held-for-row .form-input {
+.owner-row > select,
+.owner-row > input {
   flex: 1;
+  min-width: 180px;
 }
 
-.held-for-save-btn {
+.owner-save-btn {
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+/* ---------- Import candidates picker ---------- */
+.import-candidates {
+  margin-top: 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.import-candidates-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 0.5rem;
+}
+
+.import-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.import-select-all input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+}
+
+.import-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.import-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.import-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.35rem;
+}
+
+.import-row:hover {
+  background: var(--bg-secondary);
+}
+
+.import-row input[type="checkbox"] {
+  margin-top: 0.2rem;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.import-row-body {
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.import-row-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.import-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+}
+
+.import-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  font-weight: 500;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 </style>

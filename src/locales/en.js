@@ -107,6 +107,15 @@ export default {
   'profile.gear.items': 'Items',
   'profile.gear.types': 'Types',
   'profile.gear.totalQuantity': 'Total Quantity',
+  'profile.gear.ownerLabel': 'Owner',
+  'profile.gear.ownerMe': 'Me',
+  'profile.gear.ownerContacts': 'My contacts',
+  'profile.gear.ownerOther': 'Other (type a name)',
+  'profile.gear.ownerCustomPlaceholder': "Enter the owner's name",
+  'profile.gear.ownerSaveAsContact': 'Save as contact',
+  'profile.gear.ownerSaveAsContactTitle': "Save '{name}' to your personal contacts",
+  'profile.gear.ownerHintMe': "This gear is yours. Pick a contact or 'Other' if you're temporarily holding it for someone else.",
+  'profile.gear.ownerHintOther': "Used when you're temporarily carrying gear for someone else. Manage your contacts list in the Contacts tab.",
 
   // Preferences tab
   'profile.preferences.title': 'Preferences',
@@ -144,8 +153,12 @@ export default {
   'profile.contacts.emptyBody': "Add people you collaborate with and they'll show up in the gear \"Holding for\" picker. You can also import everyone from one of your projects.",
   'profile.contacts.importLabel': 'Import from a project',
   'profile.contacts.importPlaceholder': 'Choose a project…',
-  'profile.contacts.importButton': 'Import',
-  'profile.contacts.importHint': 'Adds all team members and external contacts from that project to your personal address book. Re-running merges in any new details.',
+  'profile.contacts.importHint': "Pick a project, then choose which team members and contacts to add. Names you've already saved are marked so you can skip duplicates.",
+  'profile.contacts.importNoneFound': "No importable contacts on that project (you may be the only member).",
+  'profile.contacts.importSelectAll': 'Select all',
+  'profile.contacts.importSelected': '{count} selected',
+  'profile.contacts.importAlreadySaved': 'Already saved',
+  'profile.contacts.importSelectedBtn': 'Import {count}',
 
   // Security tab
   'profile.security.title': 'Security',
