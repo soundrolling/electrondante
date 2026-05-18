@@ -38,7 +38,7 @@
         <option value="reserved">Reserved</option>
         <option value="conflict">Conflicts only</option>
         <option value="maintenance">Maintenance</option>
-        <option value="unavailable">Unavailable</option>
+        <option v-if="mode === 'manage' && (showArchived || archivedCount > 0)" value="archived">Archived</option>
       </select>
       <select v-model="typeFilter" class="filter-pick">
         <option value="all">All types</option>
@@ -59,6 +59,14 @@
         <option value="others">Held for others</option>
         <option v-for="name in heldForNames" :key="name" :value="`name:${name}`">Held for {{ name }}</option>
       </select>
+      <label
+        v-if="mode === 'manage' && archivedCount > 0"
+        class="show-archived"
+        :title="`${archivedCount} archived item${archivedCount === 1 ? '' : 's'} hidden from the active library`"
+      >
+        <input type="checkbox" v-model="showArchived" />
+        <span>Show archived ({{ archivedCount }})</span>
+      </label>
       <button
         v-if="mode === 'manage'"
         type="button"
@@ -243,6 +251,7 @@
                   📋 {{ statusByGear[item.id].usages.length }} project{{ statusByGear[item.id].usages.length === 1 ? '' : 's' }}
                 </button>
                 <button
+                  v-if="!item.archived_at"
                   type="button"
                   class="tile-btn"
                   @click.stop="$emit('edit-gear', item)"
@@ -250,9 +259,28 @@
                   ✏️ Edit
                 </button>
                 <button
+                  v-if="!item.archived_at"
+                  type="button"
+                  class="tile-btn"
+                  @click.stop="$emit('archive-gear', item)"
+                  title="Remove from your active gear library. Past projects keep their reference."
+                >
+                  📦 Archive
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  class="tile-btn"
+                  @click.stop="$emit('unarchive-gear', item)"
+                  title="Restore this item to your active gear library."
+                >
+                  ↩️ Unarchive
+                </button>
+                <button
                   type="button"
                   class="tile-btn tile-btn-danger"
                   @click.stop="$emit('delete-gear', item)"
+                  title="Permanently delete. Only works if no project still references this item."
                 >
                   🗑️ Delete
                 </button>
@@ -319,6 +347,8 @@ const emit = defineEmits([
   'add-gear',
   'edit-gear',
   'delete-gear',
+  'archive-gear',
+  'unarchive-gear',
   'view-assignments',
   'selection-change',
   'gear-loaded'
@@ -334,6 +364,7 @@ const statusFilter = ref('all')
 const typeFilter = ref('all')
 const ownerFilter = ref('all')
 const heldForFilter = ref('all') // 'all' | 'mine' | 'others' | 'name:<owner>'
+const showArchived = ref(false)
 const collapsed = ref({})
 
 // Selection state for 'select' mode: { [gearId]: { quantity } }
@@ -389,9 +420,20 @@ const heldForNames = computed(() => {
   return [...set].sort((a, b) => a.localeCompare(b))
 })
 
+// Count of archived items (used for the "Show archived (N)" toggle label)
+const archivedCount = computed(() =>
+  gear.value.reduce((n, g) => n + (g.archived_at ? 1 : 0), 0)
+)
+
 const filteredGear = computed(() => {
   const term = search.value.trim().toLowerCase()
   return gear.value.filter(item => {
+    // Hide archived by default; reveal when the user toggles "Show archived"
+    // or picks the Archived status filter. (Manage mode only — select mode
+    // never shows archived gear.)
+    const archivedExposed = showArchived.value || statusFilter.value === 'archived'
+    if (item.archived_at && (props.mode !== 'manage' || !archivedExposed)) return false
+
     if (term) {
       const hay = [
         item.gear_name,
@@ -835,6 +877,24 @@ onMounted(() => loadGear())
 .gear-tile.status-in_use   { border-color: rgba(14,165,233,0.4); }
 .gear-tile.status-partial  { border-color: rgba(14,165,233,0.3); }
 .gear-tile.status-reserved { border-color: rgba(139,92,246,0.35); }
+.gear-tile.status-archived {
+  border-style: dashed;
+  border-color: var(--border-medium);
+  background: var(--bg-secondary);
+  opacity: 0.78;
+}
+.gear-tile.status-archived .tile-name { color: var(--text-secondary); }
+
+.show-archived {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  user-select: none;
+  cursor: pointer;
+}
+.show-archived input { margin: 0; }
 
 .tile-head { display: flex; gap: 0.5rem; align-items: flex-start; justify-content: space-between; }
 .tile-name-wrap { min-width: 0; flex: 1; }

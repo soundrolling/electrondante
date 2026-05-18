@@ -128,11 +128,13 @@ const conditionOptions = [
   { value: 'poor', label: 'Poor' }
 ];
 
+// "in_use" and "unavailable" are computed from project usage now, so they
+// aren't manual options. "Maintenance" stays as the explicit user override
+// for gear that's out for service. Anything no-longer-owned should be Archived
+// instead, which is a separate action on the tile.
 const availabilityOptions = [
   { value: 'available', label: 'Available' },
-  { value: 'in_use', label: 'In Use' },
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'unavailable', label: 'Unavailable' }
+  { value: 'maintenance', label: 'Maintenance (out for service)' }
 ];
 
 /* ---------- lifecycle ---------- */
@@ -231,7 +233,9 @@ function openEditGear(gearItem) {
     purchased_date: gearItem.purchased_date || '',
     notes: gearItem.notes || '',
     condition: gearItem.condition || 'excellent',
-    availability: gearItem.availability || 'available',
+    // Map legacy auto-set values ('in_use', 'unavailable') back to 'available'
+    // so the simplified dropdown doesn't render blank.
+    availability: gearItem.availability === 'maintenance' ? 'maintenance' : 'available',
     held_for: gearItem.held_for || '',
     weight_kg: weightKg,
     weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
@@ -331,14 +335,14 @@ async function saveGear() {
 }
 
 async function deleteGear(id) {
-  if (!confirm('Are you sure you want to delete this gear?')) return;
-  
+  if (!confirm('Are you sure you want to delete this gear? If it has been used in projects, choose Archive instead.')) return;
+
   try {
     const { error } = await supabase
       .from('user_gear')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
     gear.value = gear.value.filter(g => g.id !== id);
     successMsg.value = 'Gear deleted successfully!';
@@ -347,6 +351,39 @@ async function deleteGear(id) {
     setTimeout(() => {
       successMsg.value = '';
     }, 3000);
+  } catch (e) {
+    errorMsg.value = e.message;
+  }
+}
+
+async function archiveGear(item) {
+  if (!item?.id) return;
+  if (!confirm(`Archive "${item.gear_name}"? It will disappear from your active gear list, but any past project that already uses it will keep its reference.`)) return;
+  try {
+    const { error } = await supabase
+      .from('user_gear')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('id', item.id);
+    if (error) throw error;
+    successMsg.value = 'Gear archived.';
+    await refreshGearLibrary();
+    setTimeout(() => { successMsg.value = ''; }, 3000);
+  } catch (e) {
+    errorMsg.value = e.message;
+  }
+}
+
+async function unarchiveGear(item) {
+  if (!item?.id) return;
+  try {
+    const { error } = await supabase
+      .from('user_gear')
+      .update({ archived_at: null })
+      .eq('id', item.id);
+    if (error) throw error;
+    successMsg.value = 'Gear restored to your active library.';
+    await refreshGearLibrary();
+    setTimeout(() => { successMsg.value = ''; }, 3000);
   } catch (e) {
     errorMsg.value = e.message;
   }
@@ -759,6 +796,8 @@ async function saveSecurity() {
             @add-gear="openAddGear"
             @edit-gear="openEditGear"
             @delete-gear="(item) => deleteGear(item.id)"
+            @archive-gear="(item) => archiveGear(item)"
+            @unarchive-gear="(item) => unarchiveGear(item)"
             @view-assignments="openAssignmentsModal"
             @gear-loaded="(rows) => { gear = rows }"
           />

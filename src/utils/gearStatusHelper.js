@@ -232,9 +232,20 @@ export async function computeUserGearStatus(gearList, { supabase, currentProject
     const totalQty = item.quantity || 0
     const availableNow = Math.max(0, totalQty - currentlyAssigned)
 
+    // Status priority:
+    //   1. Archived (soft-deleted) — explicit user action, overrides everything.
+    //   2. Maintenance — explicit user state, set in the gear form.
+    //   3. Conflict / in_use / partial / reserved — computed from project usage.
+    //   4. Available — default.
+    //
+    // We intentionally ignore the legacy `availability === 'unavailable'` value
+    // here: it used to be auto-set by old code paths when assigned_quantity hit
+    // total quantity, but it was never auto-reset when projects ended, so it
+    // would stick around indefinitely and lie about real availability. The
+    // archived_at column now covers the "I don't own this anymore" case.
     let statusLabel = 'available'
-    if (item.availability === 'maintenance') statusLabel = 'maintenance'
-    else if (item.availability === 'unavailable') statusLabel = 'unavailable'
+    if (item.archived_at) statusLabel = 'archived'
+    else if (item.availability === 'maintenance') statusLabel = 'maintenance'
     else if (conflicts.length > 0) statusLabel = 'conflict'
     else if (currentUsages.length > 0 && availableNow === 0) statusLabel = 'in_use'
     else if (currentUsages.length > 0) statusLabel = 'partial'
@@ -264,9 +275,13 @@ export async function computeUserGearStatus(gearList, { supabase, currentProject
  */
 export function statusBadgeForGear(status) {
   switch (status?.status) {
+    case 'archived':
+      return { label: 'Archived', tone: 'muted', icon: '📦' }
     case 'maintenance':
       return { label: 'Maintenance', tone: 'warning', icon: '🛠️' }
     case 'unavailable':
+      // Retained for backwards compatibility (legacy stored values) but should
+      // not be produced by computeUserGearStatus going forward.
       return { label: 'Unavailable', tone: 'muted', icon: '⛔' }
     case 'conflict':
       return { label: 'Conflict', tone: 'danger', icon: '⚠️' }
