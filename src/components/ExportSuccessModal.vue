@@ -1,51 +1,61 @@
+<!--
+  src/components/ExportSuccessModal.vue
+
+  Migrated to use BaseModal for overlay/focus/ESC chrome (#10). The body
+  markup matches the old design; only the outer chrome is delegated.
+  Props/emits are preserved exactly so App.vue / exportStorageService do
+  not need to change.
+-->
 <template>
-  <div v-if="visible" class="modal-backdrop" @click.self="handleClose">
-    <div class="modal-content export-success-modal">
-      <div class="modal-header">
-        <h3>Export Saved Successfully</h3>
-        <button class="modal-close" @click="handleClose">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="success-icon">✓</div>
-        <p class="success-message">Your file has been saved to Documents</p>
-        <p class="filename">{{ filename }}</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" @click="handleClose">
-          Close
-        </button>
-        <button class="btn btn-primary" @click="handleDownload">
-          <span>⬇️</span>
-          <span>Download to Device</span>
-        </button>
-        <button class="btn btn-primary" @click="handleNavigate">
-          <span>📁</span>
-          <span>View Documents</span>
-        </button>
-      </div>
+  <BaseModal
+    :open="visible"
+    title="Export Saved Successfully"
+    size="md"
+    @close="handleClose"
+  >
+    <div class="success-body">
+      <div class="success-icon">✓</div>
+      <p class="success-message">Your file has been saved to Documents</p>
+      <p class="filename">{{ filename }}</p>
     </div>
-  </div>
+
+    <template #footer>
+      <button type="button" class="btn btn-secondary" @click="handleClose">
+        Close
+      </button>
+      <button type="button" class="btn btn-primary" @click="handleDownload">
+        <span>⬇️</span>
+        <span>Download to Device</span>
+      </button>
+      <button type="button" class="btn btn-primary" @click="handleNavigate">
+        <span>📁</span>
+        <span>View Documents</span>
+      </button>
+    </template>
+  </BaseModal>
 </template>
 
 <script>
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
+import BaseModal from '@/components/ui/BaseModal.vue'
 
 export default {
   name: 'ExportSuccessModal',
+  components: { BaseModal },
   props: {
     visible: {
       type: Boolean,
-      default: false
+      default: false,
     },
     filename: {
       type: String,
-      default: ''
+      default: '',
     },
     result: {
       type: Object,
-      default: null
-    }
+      default: null,
+    },
   },
   emits: ['download', 'navigate', 'close'],
   setup(props, { emit }) {
@@ -56,8 +66,11 @@ export default {
       emit('download')
     }
 
+    const handleClose = () => {
+      emit('close')
+    }
+
     const handleNavigate = () => {
-      // Navigate to Documents (ProjectDocs)
       const projectId = props.result?.projectId || userStore.getCurrentProject?.id
       if (projectId) {
         router.push({ name: 'ProjectDocs', params: { id: projectId } })
@@ -66,79 +79,18 @@ export default {
       handleClose()
     }
 
-    const handleClose = () => {
-      emit('close')
-    }
-
     return {
       handleDownload,
       handleNavigate,
-      handleClose
+      handleClose,
     }
-  }
+  },
 }
 </script>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 1000;
-}
-
-.export-success-modal {
-  width: 100%;
-  max-width: 500px;
-  background: var(--bg-primary);
-  border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modal-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-light);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-heading);
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s ease;
-}
-
-.modal-close:hover {
-  background: var(--bg-secondary);
-}
-
-.modal-body {
-  padding: 32px 20px;
+.success-body {
+  padding: 12px 0;
   text-align: center;
 }
 
@@ -168,15 +120,6 @@ export default {
   color: var(--text-secondary);
   margin: 0;
   word-break: break-all;
-}
-
-.modal-footer {
-  padding: 20px;
-  border-top: 1px solid var(--border-light);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .btn {
@@ -215,16 +158,4 @@ export default {
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-secondary);
 }
-
-@media (max-width: 768px) {
-  .modal-footer {
-    flex-direction: column;
-  }
-
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
 </style>
-
