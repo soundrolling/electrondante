@@ -1,0 +1,12 @@
+dist/
+node_modules/
+bridge-server/
+migrations/
+supabase/
+src/service-worker.js
+service-worker.js
+public/
+coverage/
+*.sql
+*.md
+package-lock.json
