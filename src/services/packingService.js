@@ -1,4 +1,7 @@
 import { supabase } from '../supabase';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('packingService')
 
 /**
  * Packing Service
@@ -85,7 +88,7 @@ export class PackingService {
                 .createSignedUrl(bag.image_path, 3600);
               imageUrl = signed?.signedUrl || null;
             } catch (err) {
-              console.warn('Could not get signed URL for bag image:', err);
+              log.warn('Could not get signed URL for bag image:', err);
             }
           }
           return { ...bag, imageUrl };
@@ -94,7 +97,7 @@ export class PackingService {
       
       return bagsWithImages;
     } catch (error) {
-      console.error('Error fetching user bags:', error);
+      log.error('Error fetching user bags:', error);
       throw error;
     }
   }
@@ -149,13 +152,13 @@ export class PackingService {
             .createSignedUrl(imagePath, 3600);
           imageUrl = signed?.signedUrl || null;
         } catch (err) {
-          console.warn('Could not get signed URL for bag image:', err);
+          log.warn('Could not get signed URL for bag image:', err);
         }
       }
       
       return { ...data, imageUrl };
     } catch (error) {
-      console.error('Error creating bag:', error);
+      log.error('Error creating bag:', error);
       throw error;
     }
   }
@@ -229,13 +232,13 @@ export class PackingService {
             .createSignedUrl(data.image_path, 3600);
           imageUrl = signed?.signedUrl || null;
         } catch (err) {
-          console.warn('Could not get signed URL for bag image:', err);
+          log.warn('Could not get signed URL for bag image:', err);
         }
       }
       
       return { ...data, imageUrl };
     } catch (error) {
-      console.error('Error updating bag:', error);
+      log.error('Error updating bag:', error);
       throw error;
     }
   }
@@ -269,7 +272,7 @@ export class PackingService {
       
       if (error) throw error;
     } catch (error) {
-      console.error('Error deleting bag:', error);
+      log.error('Error deleting bag:', error);
       throw error;
     }
   }
@@ -290,7 +293,7 @@ export class PackingService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching bag items:', error);
+      log.error('Error fetching bag items:', error);
       throw error;
     }
   }
@@ -319,7 +322,7 @@ export class PackingService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error adding item to bag:', error);
+      log.error('Error adding item to bag:', error);
       throw error;
     }
   }
@@ -348,7 +351,7 @@ export class PackingService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error updating bag item:', error);
+      log.error('Error updating bag item:', error);
       throw error;
     }
   }
@@ -367,7 +370,7 @@ export class PackingService {
       
       if (error) throw error;
     } catch (error) {
-      console.error('Error removing item from bag:', error);
+      log.error('Error removing item from bag:', error);
       throw error;
     }
   }
@@ -394,7 +397,7 @@ export class PackingService {
         items: items || []
       };
     } catch (error) {
-      console.error('Error getting bag inventory for print:', error);
+      log.error('Error getting bag inventory for print:', error);
       throw error;
     }
   }

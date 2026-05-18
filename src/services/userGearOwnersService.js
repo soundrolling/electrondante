@@ -1,4 +1,7 @@
 import { supabase } from '../supabase';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('userGearOwnersService')
 
 /**
  * User Gear Owners Service
@@ -71,7 +74,7 @@ export const UserGearOwnersService = {
       return out;
     } catch (e) {
       if (isTableMissing(e)) return out;
-      console.error('UserGearOwnersService.listForGearIds failed:', e);
+      log.error('UserGearOwnersService.listForGearIds failed:', e);
       return out;
     }
   },

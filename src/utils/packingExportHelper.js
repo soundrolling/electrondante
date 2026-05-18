@@ -1,6 +1,9 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import PackingService from '@/services/packingService'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('packingExportHelper')
 
 export async function printBagInventory(bag, effectiveProjectId, currentProject) {
   try {
@@ -61,7 +64,7 @@ export async function printBagInventory(bag, effectiveProjectId, currentProject)
 
     return result
   } catch (err) {
-    console.error('Failed to print bag inventory:', err)
+    log.error('Failed to print bag inventory:', err)
     return { success: false, error: err.message }
   }
 }
@@ -138,7 +141,7 @@ export async function printMyGearInventory(bags, effectiveProjectId, currentProj
 
     return result
   } catch (err) {
-    console.error('Failed to print gear inventory:', err)
+    log.error('Failed to print gear inventory:', err)
     return { success: false, error: err.message }
   }
 }

@@ -1,4 +1,7 @@
 import { supabase } from '../supabase';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('userGearService')
 
 /**
  * User Gear Service
@@ -40,7 +43,7 @@ export class UserGearService {
 
       if (error) {
         // Fallback to direct user_gear table query
-        console.warn('user_gear_view not available, falling back to direct query:', error);
+        log.warn('user_gear_view not available, falling back to direct query:', error);
         
         let fallbackQuery = supabase
           .from('user_gear')
@@ -71,7 +74,7 @@ export class UserGearService {
       
       return data || [];
     } catch (error) {
-      console.error('Error searching available gear:', error);
+      log.error('Error searching available gear:', error);
       throw error;
     }
   }
@@ -89,7 +92,7 @@ export class UserGearService {
 
       if (error) {
         // Fallback to direct user_gear table query
-        console.warn('user_gear_view not available, falling back to direct query:', error);
+        log.warn('user_gear_view not available, falling back to direct query:', error);
         
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('user_gear')
@@ -106,7 +109,7 @@ export class UserGearService {
       const types = [...new Set(data.map(item => item.gear_type).filter(Boolean))];
       return types.sort();
     } catch (error) {
-      console.error('Error getting gear types:', error);
+      log.error('Error getting gear types:', error);
       throw error;
     }
   }
@@ -133,7 +136,7 @@ export class UserGearService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error getting user gear:', error);
+      log.error('Error getting user gear:', error);
       throw error;
     }
   }
@@ -154,7 +157,7 @@ export class UserGearService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error getting gear owner:', error);
+      log.error('Error getting gear owner:', error);
       throw error;
     }
   }
@@ -175,7 +178,7 @@ export class UserGearService {
       if (error) throw error;
       return data?.availability === 'available';
     } catch (error) {
-      console.error('Error checking gear availability:', error);
+      log.error('Error checking gear availability:', error);
       return false;
     }
   }
@@ -198,7 +201,7 @@ export class UserGearService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error updating gear availability:', error);
+      log.error('Error updating gear availability:', error);
       throw error;
     }
   }
@@ -241,7 +244,7 @@ export class UserGearService {
 
       return stats;
     } catch (error) {
-      console.error('Error getting user gear stats:', error);
+      log.error('Error getting user gear stats:', error);
       throw error;
     }
   }
@@ -273,7 +276,7 @@ export class UserGearService {
 
       return csvRows.join('\n');
     } catch (error) {
-      console.error('Error exporting user gear:', error);
+      log.error('Error exporting user gear:', error);
       throw error;
     }
   }
@@ -295,7 +298,7 @@ export class UserGearService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error bulk updating gear availability:', error);
+      log.error('Error bulk updating gear availability:', error);
       throw error;
     }
   }

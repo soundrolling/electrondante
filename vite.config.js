@@ -12,7 +12,19 @@ export default defineConfig(({ mode }) => {
     return env[viteKey] || env[vueKey] || ''
   }
   
+  const isProd = mode === 'production'
+
   return {
+    // In prod, strip debugger statements and pure calls to chatty console
+    // methods (log/debug/info) — but keep console.warn/error visible so
+    // emergencies still surface in DevTools and unconverted call sites still
+    // feed the bug-report sink via main.js's console.error interception.
+    esbuild: isProd
+      ? {
+          drop: ['debugger'],
+          pure: ['console.log', 'console.debug', 'console.info']
+        }
+      : undefined,
     plugins: [
       vue(),
       VitePWA({

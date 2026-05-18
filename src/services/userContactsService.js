@@ -1,4 +1,7 @@
 import { supabase } from '../supabase';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('userContactsService')
 
 /**
  * User Personal Contacts Service
@@ -53,7 +56,7 @@ export const UserContactsService = {
       return data || [];
     } catch (e) {
       if (isTableMissing(e)) return [];
-      console.error('UserContactsService.list failed:', e);
+      log.error('UserContactsService.list failed:', e);
       throw e;
     }
   },
@@ -270,7 +273,7 @@ export const UserContactsService = {
         if (exists) counts.updated += 1;
         else counts.added += 1;
       } catch (e) {
-        console.warn('Skipping contact import for', name, e);
+        log.warn('Skipping contact import for', name, e);
         counts.skipped += 1;
       }
     }

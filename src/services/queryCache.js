@@ -6,6 +6,9 @@
 // Bump CACHE_VERSION to invalidate all cached entries across users.
 
 import { openDB, waitForTransaction } from '@/utils/indexedDB'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('queryCache')
 
 const STORE = 'query_cache'
 const CACHE_VERSION = 'v1'
@@ -50,7 +53,7 @@ async function _revalidate(key, queryFn, ttl, onUpdate) {
       onUpdate?.(data)
     }
   } catch (e) {
-    console.warn('[queryCache] background revalidate failed:', key, e?.message)
+    log.warn('[queryCache] background revalidate failed:', key, e?.message)
   }
 }
 

@@ -2,6 +2,9 @@
 // Service for saving and loading tool settings using IndexedDB
 
 import { openDB } from '@/utils/indexedDB'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('toolSettingsService')
 
 const STORE_NAME = 'tool_settings'
 
@@ -48,7 +51,7 @@ export async function saveToolSettings(toolRoute, userId, settings) {
       tx.onerror = () => reject(tx.error)
     })
   } catch (error) {
-    console.warn('Error saving tool settings:', error)
+    log.warn('Error saving tool settings:', error)
     // Fallback to localStorage
     const key = `tool_settings_${toolRoute}_${userId}`
     localStorage.setItem(key, JSON.stringify({ settings, updatedAt: Date.now() }))
@@ -97,7 +100,7 @@ export async function getToolSettings(toolRoute, userId) {
       }
     })
   } catch (error) {
-    console.warn('Error loading tool settings:', error)
+    log.warn('Error loading tool settings:', error)
     // Fallback to localStorage
     const storageKey = `tool_settings_${toolRoute}_${userId}`
     const stored = localStorage.getItem(storageKey)

@@ -1,3 +1,7 @@
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('pdfDownloadHelper')
+
 /**
  * Enhanced PDF Download Helper
  * Maximum compatibility across all devices with comprehensive error handling
@@ -143,7 +147,7 @@ function createSafeBlobUrl(blob) {
         URL.revokeObjectURL(url)
         cleaned = true
       } catch (error) {
-        console.warn('Failed to revoke blob URL:', error)
+        log.warn('Failed to revoke blob URL:', error)
       }
     }
   }
@@ -200,7 +204,7 @@ async function tryFileSystemAccess(blob, filename) {
     if (error.name === 'AbortError') {
       return false
     }
-    console.log('File System Access API failed:', error)
+    log.info('File System Access API failed:', error)
     return false
   }
 }
@@ -249,12 +253,12 @@ async function tryBlobDownload(blob, filename) {
         document.body.removeChild(link)
       }
     } catch (removeError) {
-      console.warn('Failed to remove link element:', removeError)
+      log.warn('Failed to remove link element:', removeError)
     }
     
     return true
   } catch (error) {
-    console.log('Blob download failed:', error)
+    log.info('Blob download failed:', error)
     return false
   } finally {
     setTimeout(cleanup, CONFIG.LONG_CLEANUP_DELAY)
@@ -302,7 +306,7 @@ async function tryDataUriDownload(dataUri, filename) {
     
     return true
   } catch (error) {
-    console.log('Data URI download failed:', error)
+    log.info('Data URI download failed:', error)
     return false
   }
 }
@@ -327,7 +331,7 @@ async function tryWindowOpen(blob) {
     cleanup()
     return false
   } catch (error) {
-    console.log('Window.open failed:', error)
+    log.info('Window.open failed:', error)
     cleanup()
     return false
   }
@@ -385,7 +389,7 @@ async function tryWithRetry(downloadFn, retries = CONFIG.MAX_RETRIES) {
         return true
       }
     } catch (error) {
-      console.log(`Attempt ${i + 1} failed:`, error)
+      log.info(`Attempt ${i + 1} failed:`, error)
     }
     
     if (i < retries) {
@@ -407,7 +411,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
   // Validate inputs
   if (!pdfDoc) {
     const errorMsg = 'PDF document is required'
-    console.error(errorMsg)
+    log.error(errorMsg)
     if (toast) {
       toast.error(errorMsg)
     } else {
@@ -427,7 +431,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
       }
       return
     } catch (saveError) {
-      console.log('jsPDF save method failed, trying alternatives:', saveError.message)
+      log.info('jsPDF save method failed, trying alternatives:', saveError.message)
     }
     
     // Generate blob once for all strategies (more efficient)
@@ -435,7 +439,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
     try {
       pdfBlob = pdfDoc.output('blob')
     } catch (blobError) {
-      console.error('Failed to create PDF blob:', blobError)
+      log.error('Failed to create PDF blob:', blobError)
       throw new Error('Could not generate PDF file')
     }
     
@@ -455,7 +459,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
           return
         }
       } catch (fsError) {
-        console.log('File System Access failed:', fsError)
+        log.info('File System Access failed:', fsError)
       }
     }
     
@@ -469,7 +473,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
         return
       }
     } catch (blobDownloadError) {
-      console.log('Blob download with retry failed:', blobDownloadError)
+      log.info('Blob download with retry failed:', blobDownloadError)
     }
     
     // Strategy 4: Data URI download (fallback for blob issues)
@@ -483,7 +487,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
         return
       }
     } catch (dataUriError) {
-      console.log('Data URI download failed:', dataUriError)
+      log.info('Data URI download failed:', dataUriError)
     }
     
     // Strategy 5: Try jsPDF data URI output directly
@@ -497,7 +501,7 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
         return
       }
     } catch (directDataUriError) {
-      console.log('Direct data URI from jsPDF failed:', directDataUriError)
+      log.info('Direct data URI from jsPDF failed:', directDataUriError)
     }
     
     // Strategy 6: Open in new window (iOS/Safari and popup-blocked scenarios)
@@ -519,14 +523,14 @@ export async function downloadPDF(pdfDoc, filename, toast = null) {
         return
       }
     } catch (windowOpenError) {
-      console.log('Window.open failed:', windowOpenError)
+      log.info('Window.open failed:', windowOpenError)
     }
     
     // All strategies failed - provide helpful error message
     throw new Error('All download methods failed')
     
   } catch (error) {
-    console.error('PDF download error:', error)
+    log.error('PDF download error:', error)
     
     // Provide context-specific error messages
     let errorMsg
@@ -585,7 +589,7 @@ export async function downloadPDFFromBuffer(arrayBuffer, filename, toast = null)
     
     throw new Error('All download methods failed')
   } catch (error) {
-    console.error('PDF download from buffer error:', error)
+    log.error('PDF download from buffer error:', error)
     const errorMsg = 'Failed to download PDF. Please try again'
     if (toast) {
       toast.error(errorMsg)

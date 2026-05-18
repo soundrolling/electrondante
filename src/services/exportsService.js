@@ -1,5 +1,8 @@
 // src/services/exportsService.js
 import { supabase } from '../supabase';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('exportsService')
 
 /**
  * Save an export to storage and track it in the database
@@ -62,7 +65,7 @@ export async function saveExport(
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
+      log.error('Storage upload error:', uploadError);
       return { success: false, error: uploadError.message };
     }
 
@@ -93,7 +96,7 @@ export async function saveExport(
         version = maxVersion + 1;
       }
     } catch (err) {
-      console.warn('Error fetching version:', err);
+      log.warn('Error fetching version:', err);
     }
 
     // Create database entry
@@ -118,7 +121,7 @@ export async function saveExport(
       .single();
 
     if (dbError) {
-      console.error('Database insert error:', dbError);
+      log.error('Database insert error:', dbError);
       // Try to clean up the uploaded file
       await supabase.storage.from(bucketName).remove([uploadData.path]);
       return { success: false, error: dbError.message };
@@ -126,7 +129,7 @@ export async function saveExport(
 
     return { success: true, exportId: exportData.id };
   } catch (error) {
-    console.error('Error saving export:', error);
+    log.error('Error saving export:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 }
@@ -159,13 +162,13 @@ export async function getProjectExports(projectId, filters = {}) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching exports:', error);
+      log.error('Error fetching exports:', error);
       return [];
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error getting project exports:', error);
+    log.error('Error getting project exports:', error);
     return [];
   }
 }
@@ -210,7 +213,7 @@ export async function downloadExport(exportId) {
       mimeType: exportRecord.mime_type,
     };
   } catch (error) {
-    console.error('Error downloading export:', error);
+    log.error('Error downloading export:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 }
@@ -242,7 +245,7 @@ export async function deleteExport(exportId) {
       .remove([exportRecord.file_path]);
 
     if (storageError) {
-      console.warn('Error deleting file from storage:', storageError);
+      log.warn('Error deleting file from storage:', storageError);
       // Continue with database deletion even if storage deletion fails
     }
 
@@ -258,7 +261,7 @@ export async function deleteExport(exportId) {
 
     return { success: true };
   } catch (error) {
-    console.error('Error deleting export:', error);
+    log.error('Error deleting export:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 }

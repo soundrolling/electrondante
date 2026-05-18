@@ -2,7 +2,9 @@
 
 import { supabase } from '../supabase'
 import { useToast } from 'vue-toastification'
+import { createLogger } from '@/utils/log'
 
+const log = createLogger('bugReportService')
 const toast = useToast()
 
 export class BugReportService {
@@ -56,7 +58,7 @@ export class BugReportService {
       toast.success('Bug report submitted successfully!')
       return data
     } catch (error) {
-      console.error('Error submitting bug report:', error)
+      log.error('Error submitting bug report:', error)
       toast.error('Failed to submit bug report. Please try again.')
       throw error
     }
@@ -76,7 +78,7 @@ export class BugReportService {
       if (error) throw error
       return data || []
     } catch (error) {
-      console.error('Error fetching bug reports:', error)
+      log.error('Error fetching bug reports:', error)
       toast.error('Failed to load bug reports')
       throw error
     }
@@ -105,7 +107,7 @@ export class BugReportService {
       toast.success('Report status updated successfully!')
       return data
     } catch (error) {
-      console.error('Error updating report status:', error)
+      log.error('Error updating report status:', error)
       toast.error('Failed to update report status')
       throw error
     }
@@ -134,7 +136,7 @@ export class BugReportService {
       toast.success('Comment added successfully!')
       return data
     } catch (error) {
-      console.error('Error adding comment:', error)
+      log.error('Error adding comment:', error)
       toast.error('Failed to add comment')
       throw error
     }
@@ -156,7 +158,7 @@ export class BugReportService {
       if (error) throw error
       return data || []
     } catch (error) {
-      console.error('Error fetching comments:', error)
+      log.error('Error fetching comments:', error)
       toast.error('Failed to load comments')
       throw error
     }
@@ -185,7 +187,7 @@ export class BugReportService {
 
       toast.success('Report deleted successfully!')
     } catch (error) {
-      console.error('Error deleting report:', error)
+      log.error('Error deleting report:', error)
       toast.error('Failed to delete report')
       throw error
     }
@@ -223,7 +225,7 @@ export class BugReportService {
 
       return stats
     } catch (error) {
-      console.error('Error fetching report statistics:', error)
+      log.error('Error fetching report statistics:', error)
       throw error
     }
   }

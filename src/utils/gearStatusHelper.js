@@ -7,6 +7,9 @@
  */
 
 import { getAllProjectDates, datesOverlap } from './gearConflictHelper'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('gearStatusHelper')
 
 const PROJECT_DATE_FIELDS = 'id, project_name, build_days, main_show_days'
 
@@ -110,7 +113,7 @@ async function fetchUsagesByUserGear(userGearIds, supabase) {
     .not('user_gear_id', 'is', null)
 
   if (gearError) {
-    console.warn('[gearStatusHelper] Failed to fetch gear_table usage rows:', gearError)
+    log.warn('[gearStatusHelper] Failed to fetch gear_table usage rows:', gearError)
     return {}
   }
   if (!gearRows?.length) return {}
@@ -127,10 +130,10 @@ async function fetchUsagesByUserGear(userGearIds, supabase) {
   ])
 
   if (projectsRes.error) {
-    console.warn('[gearStatusHelper] Failed to fetch projects for usage:', projectsRes.error)
+    log.warn('[gearStatusHelper] Failed to fetch projects for usage:', projectsRes.error)
   }
   if (assignmentsRes.error) {
-    console.warn('[gearStatusHelper] Failed to fetch assignments for usage:', assignmentsRes.error)
+    log.warn('[gearStatusHelper] Failed to fetch assignments for usage:', assignmentsRes.error)
   }
 
   const projectById = {}

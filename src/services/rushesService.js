@@ -1,6 +1,9 @@
 // src/services/rushesService.js
 import { supabase } from '../supabase';
 import { useToast } from 'vue-toastification';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('rushesService')
 
 const toast = useToast();
 
@@ -32,7 +35,7 @@ export async function fetchRushesFiles(projectId, filters = {}) {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching rushes files:', error);
+    log.error('Error fetching rushes files:', error);
     toast.error('Failed to load rushes files');
     return [];
   }
@@ -78,7 +81,7 @@ export async function updateUploadStatus(uploadId, status, frameIoUrl = null, up
     toast.success('Upload status updated');
     return data;
   } catch (error) {
-    console.error('Error updating upload status:', error);
+    log.error('Error updating upload status:', error);
     toast.error('Failed to update upload status');
     throw error;
   }
@@ -156,7 +159,7 @@ export async function updateRecorderStatus(projectId, locationId, stageHourId, r
       return data;
     }
   } catch (error) {
-    console.error('Error updating recorder status:', error);
+    log.error('Error updating recorder status:', error);
     toast.error('Failed to update recorder status');
     throw error;
   }
@@ -178,7 +181,7 @@ export async function createRushesUpload(rushesData) {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error creating rushes upload:', error);
+    log.error('Error creating rushes upload:', error);
     toast.error('Failed to create rushes upload record');
     throw error;
   }
@@ -199,7 +202,7 @@ export async function deleteRushesUpload(uploadId) {
     if (error) throw error;
     toast.success('Rushes upload record deleted');
   } catch (error) {
-    console.error('Error deleting rushes upload:', error);
+    log.error('Error deleting rushes upload:', error);
     toast.error('Failed to delete rushes upload record');
     throw error;
   }
@@ -228,7 +231,7 @@ export async function detectBWFiles(projectId) {
           });
 
         if (error) {
-          console.warn(`Error listing files in ${bucketName}:`, error);
+          log.warn(`Error listing files in ${bucketName}:`, error);
           continue;
         }
 
@@ -259,7 +262,7 @@ export async function detectBWFiles(projectId) {
                 }
               } catch (err) {
                 // Skip if folder listing fails
-                console.warn(`Error listing folder ${folderPath}:`, err);
+                log.warn(`Error listing folder ${folderPath}:`, err);
               }
             }
           }
@@ -267,13 +270,13 @@ export async function detectBWFiles(projectId) {
 
         await findBWFFiles(String(projectId), files);
       } catch (err) {
-        console.warn(`Error scanning bucket ${bucketName}:`, err);
+        log.warn(`Error scanning bucket ${bucketName}:`, err);
       }
     }
 
     return detectedFiles;
   } catch (error) {
-    console.error('Error detecting BWF files:', error);
+    log.error('Error detecting BWF files:', error);
     toast.error('Failed to detect BWF files');
     return [];
   }
@@ -324,7 +327,7 @@ export async function syncDetectedFiles(projectId, detectedFiles) {
         });
         created++;
       } catch (err) {
-        console.warn('Error creating record for file:', file.file_path, err);
+        log.warn('Error creating record for file:', file.file_path, err);
         skipped++;
       }
     }
@@ -337,7 +340,7 @@ export async function syncDetectedFiles(projectId, detectedFiles) {
       total: detectedFiles.length,
     };
   } catch (error) {
-    console.error('Error syncing detected files:', error);
+    log.error('Error syncing detected files:', error);
     toast.error('Failed to sync detected files');
     throw error;
   }

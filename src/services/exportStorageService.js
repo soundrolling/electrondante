@@ -1,6 +1,9 @@
 // src/services/exportStorageService.js
 import { supabase } from '../supabase';
 import { useToast } from 'vue-toastification';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('exportStorageService')
 
 const toast = useToast();
 
@@ -46,7 +49,7 @@ export async function saveExportToStorage(
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
+      log.error('Storage upload error:', uploadError);
       return { success: false, error: uploadError.message };
     }
 
@@ -74,7 +77,7 @@ export async function saveExportToStorage(
         maxOrder = existingDocs[0].order || 0;
       }
     } catch (err) {
-      console.warn('Error fetching max order:', err);
+      log.warn('Error fetching max order:', err);
     }
 
     // Create database entry
@@ -94,7 +97,7 @@ export async function saveExportToStorage(
       .single();
 
     if (dbError) {
-      console.error('Database insert error:', dbError);
+      log.error('Database insert error:', dbError);
       // Try to clean up the uploaded file
       await supabase.storage.from('stage-docs').remove([uploadData.path]);
       return { success: false, error: dbError.message };
@@ -110,7 +113,7 @@ export async function saveExportToStorage(
       filename: filename
     };
   } catch (error) {
-    console.error('Error saving export to storage:', error);
+    log.error('Error saving export to storage:', error);
     return { success: false, error: error.message || 'Unknown error' };
   }
 }
@@ -157,7 +160,7 @@ export async function savePDFToStorage(
     
     return result;
   } catch (error) {
-    console.error('Error generating PDF blob:', error);
+    log.error('Error generating PDF blob:', error);
     return { success: false, error: error.message || 'Failed to generate PDF' };
   }
 }
@@ -205,7 +208,7 @@ export async function savePNGToStorage(
     
     return result;
   } catch (error) {
-    console.error('Error converting PNG data URL to blob:', error);
+    log.error('Error converting PNG data URL to blob:', error);
     return { success: false, error: error.message || 'Failed to convert PNG' };
   }
 }
@@ -260,7 +263,7 @@ export function showExportSuccessModal(result, filename, options = {}) {
       toast.success('File downloaded');
       closeExportSuccessModal();
     } catch (error) {
-      console.error('Download error:', error);
+      log.error('Download error:', error);
       toast.error('Failed to download file');
     }
   };

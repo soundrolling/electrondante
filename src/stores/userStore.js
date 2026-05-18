@@ -7,6 +7,9 @@ import { openDB } from 'idb';
 import { useToast } from 'vue-toastification';
 import { saveSetting, getSetting, clearAllData } from '@/utils/indexedDB';
 import { useMeasurementUnit } from '../composables/useMeasurementUnit';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('userStore')
 
 const toast = useToast();
 
@@ -62,7 +65,7 @@ export const useUserStore = defineStore('userStore', {
         this.initializeTimeSource();
         this.isInitialized = true;
       } catch (e) {
-        console.error('Failed to initialize store:', e);
+        log.error('Failed to initialize store:', e);
         toast.error(`Init failed: ${e.message}`);
         this.authError = e.message;
         if (/(Invalid Refresh Token|expired)/i.test(e.message)) {
@@ -87,7 +90,7 @@ export const useUserStore = defineStore('userStore', {
         });
         return this.db;
       } catch (e) {
-        console.error('Failed to init IndexedDB (userStore):', e);
+        log.error('Failed to init IndexedDB (userStore):', e);
         toast.error(`IDB init failed: ${e.message}`);
         return null;
       }
@@ -123,7 +126,7 @@ export const useUserStore = defineStore('userStore', {
         const bytes = CryptoJS.AES.decrypt(cipher, ENCRYPTION_KEY);
         return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
       } catch (e) {
-        console.error('Decryption failed:', e);
+        log.error('Decryption failed:', e);
         return null;
       }
     },
@@ -138,7 +141,7 @@ export const useUserStore = defineStore('userStore', {
         try {
           await this.db.put('session', payload, 'userSession');
         } catch (e) {
-          console.error('IDB save session failed:', e);
+          log.error('IDB save session failed:', e);
         }
       }
       await saveSetting('supabase-token', accessToken);
@@ -149,7 +152,7 @@ export const useUserStore = defineStore('userStore', {
         try {
           payload = await this.db.get('session', 'userSession');
         } catch (e) {
-          console.error('IDB load session failed:', e);
+          log.error('IDB load session failed:', e);
         }
       }
       if (!payload) return null;
@@ -169,7 +172,7 @@ export const useUserStore = defineStore('userStore', {
         try {
           await this.db.put('project', enc, 'currentProject');
         } catch (e) {
-          console.error('IDB save project failed:', e);
+          log.error('IDB save project failed:', e);
         }
       }
     },
@@ -179,7 +182,7 @@ export const useUserStore = defineStore('userStore', {
         try {
           enc = await this.db.get('project', 'currentProject');
         } catch (e) {
-          console.error('IDB load project failed:', e);
+          log.error('IDB load project failed:', e);
         }
       }
       if (enc) {
@@ -206,7 +209,7 @@ export const useUserStore = defineStore('userStore', {
           return null;
         }
       } catch (e) {
-        console.error('fetchUserSession failed:', e);
+        log.error('fetchUserSession failed:', e);
         toast.error(`Session fetch error: ${e.message}`);
         throw e;
       }
@@ -257,7 +260,7 @@ export const useUserStore = defineStore('userStore', {
         };
         return this.userProfile;
       } catch (e) {
-        console.error('fetchUserProfile failed:', e);
+        log.error('fetchUserProfile failed:', e);
         toast.error(`Profile fetch error: ${e.message}`);
         throw e;
       }
@@ -281,7 +284,7 @@ export const useUserStore = defineStore('userStore', {
         this.userProfile = data;
         return data;
       } catch (e) {
-        console.error('upsertUserProfile failed:', e);
+        log.error('upsertUserProfile failed:', e);
         toast.error(`Profile save error: ${e.message}`);
         throw e;
       }
@@ -304,7 +307,7 @@ export const useUserStore = defineStore('userStore', {
         });
         return data;
       } catch (e) {
-        console.error('checkProjectMember failed:', e);
+        log.error('checkProjectMember failed:', e);
         toast.error(`Project membership check failed: ${e.message}`);
         return null;
       }
@@ -321,7 +324,7 @@ export const useUserStore = defineStore('userStore', {
         this.setCurrentProject(data);
         return data;
       } catch (e) {
-        console.error('fetchProjectById failed:', e);
+        log.error('fetchProjectById failed:', e);
         toast.error(`Project fetch error: ${e.message}`);
         throw e;
       }
@@ -332,7 +335,7 @@ export const useUserStore = defineStore('userStore', {
       this.saveProjectToLocalStorage(project);
       if (project?.id) {
         this.fetchContacts(project.id).catch((err) => {
-          console.error('fetchContacts failed:', err);
+          log.error('fetchContacts failed:', err);
           toast.error(`Contacts fetch error: ${err.message}`);
         });
       }
@@ -353,7 +356,7 @@ export const useUserStore = defineStore('userStore', {
         if (error) throw error;
         this.contacts = data ?? [];
       } catch (e) {
-        console.error('fetchContacts failed:', e);
+        log.error('fetchContacts failed:', e);
         toast.error(`Contacts fetch error: ${e.message}`);
       }
     },
@@ -375,7 +378,7 @@ export const useUserStore = defineStore('userStore', {
         this.contacts.push(data);
         return data;
       } catch (e) {
-        console.error('addContact failed:', e);
+        log.error('addContact failed:', e);
         toast.error(`Add contact failed: ${e.message}`);
         throw e;
       }
@@ -396,7 +399,7 @@ export const useUserStore = defineStore('userStore', {
         if (idx !== -1) this.contacts[idx] = data;
         return data;
       } catch (e) {
-        console.error('updateContact failed:', e);
+        log.error('updateContact failed:', e);
         toast.error(`Update contact failed: ${e.message}`);
         throw e;
       }
@@ -413,7 +416,7 @@ export const useUserStore = defineStore('userStore', {
           (c) => c.id !== contactId
         );
       } catch (e) {
-        console.error('deleteContact failed:', e);
+        log.error('deleteContact failed:', e);
         toast.error(`Delete contact failed: ${e.message}`);
         throw e;
       }
@@ -503,7 +506,7 @@ export const useUserStore = defineStore('userStore', {
           await this.db.clear('project');
           await this.db.clear('contacts');
         } catch (e) {
-          console.error('IDB clear error:', e);
+          log.error('IDB clear error:', e);
         }
       }
       await clearAllData();
@@ -527,7 +530,7 @@ export const useUserStore = defineStore('userStore', {
         if (error) throw error;
         await this.clearSession();
       } catch (e) {
-        console.error('signOut failed:', e);
+        log.error('signOut failed:', e);
         toast.error(`Sign-out failed: ${e.message}`);
         throw e;
       }
