@@ -74,15 +74,13 @@ watch(() => route.params.tab, (newTab) => {
   }
 });
 
-/* ---------- gear data ---------- */
-const gear = ref([]);
-const gearLoading = ref(false);
+/* ---------- gear ---------- */
+// UserGearLibrary owns the gear listing entirely; this component just
+// triggers a refresh after mutations via the exposed reload() method.
 const gearLibraryRef = ref(null);
 async function refreshGearLibrary() {
   if (gearLibraryRef.value?.reload) {
     await gearLibraryRef.value.reload();
-  } else {
-    await fetchGear();
   }
 }
 
@@ -420,7 +418,6 @@ async function importContactsFromProject() {
 /* ---------- lifecycle ---------- */
 onMounted(async () => {
   await fetchProfile();
-  await fetchGear();
   await loadAlertPreference();
   await fetchContacts();
 });
@@ -472,25 +469,6 @@ async function saveProfile() {
     errorMsg.value = e.message;
   } finally {
     saving.value = false;
-  }
-}
-
-/* gear CRUD */
-async function fetchGear() {
-  try {
-    gearLoading.value = true;
-  const { data, error } = await supabase
-    .from('user_gear')
-      .select('*')
-    .eq('user_id', userId.value)
-    .order('gear_name');
-    
-    if (error) throw error;
-    gear.value = data || [];
-  } catch (e) {
-    errorMsg.value = e.message;
-  } finally {
-    gearLoading.value = false;
   }
 }
 
@@ -663,7 +641,6 @@ async function saveGear() {
         .single();
       if (error) throw error;
       gearId = data.id;
-      gear.value = gear.value.map(g => g.id === editGearId.value ? data : g);
       successMsg.value = 'Gear updated successfully!';
     } else {
       const { data, error } = await supabase
@@ -673,7 +650,6 @@ async function saveGear() {
         .single();
       if (error) throw error;
       gearId = data.id;
-      gear.value.push(data);
       successMsg.value = 'Gear added successfully!';
     }
 
@@ -706,7 +682,6 @@ async function deleteGear(id) {
       .eq('id', id);
 
     if (error) throw error;
-    gear.value = gear.value.filter(g => g.id !== id);
     successMsg.value = 'Gear deleted successfully!';
     await refreshGearLibrary();
 
@@ -1157,7 +1132,6 @@ async function saveSecurity() {
             ref="gearLibraryRef"
             mode="manage"
             :user-id="userId"
-            :initial-gear="gear"
             :show-stats="true"
             @add-gear="openAddGear"
             @edit-gear="openEditGear"
@@ -1165,7 +1139,6 @@ async function saveSecurity() {
             @archive-gear="(item) => archiveGear(item)"
             @unarchive-gear="(item) => unarchiveGear(item)"
             @view-assignments="openAssignmentsModal"
-            @gear-loaded="(rows) => { gear = rows }"
           />
         </div>
       </div>

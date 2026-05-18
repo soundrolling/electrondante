@@ -771,7 +771,12 @@ watch(() => props.projectId, async () => {
   currentProject.value = null
   await refreshStatus()
 })
-watch(() => props.initialGear, () => loadGear())
+// The initialGear watcher used to chain a reload whenever the parent passed
+// in fresh rows. It created a feedback loop with `gear-loaded` once we
+// started enriching rows with `.owners` (the enriched array is a new ref →
+// watcher fires → loadGear re-enriches → emits again → ...). The library
+// now owns its own data after mount; parents should call reload() via the
+// exposed ref when they need a refresh.
 watch(() => props.teamUserIds, () => {
   if (props.mode === 'select') loadGear()
 }, { deep: true })
