@@ -77,6 +77,7 @@ export default {
   'profile.subtitle': 'Manage your account settings and personal gear',
   'profile.tabs.profile': 'Profile',
   'profile.tabs.gear': 'My Gear',
+  'profile.tabs.contacts': 'Contacts',
   'profile.tabs.preferences': 'Preferences',
   'profile.tabs.security': 'Security',
 

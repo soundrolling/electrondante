@@ -77,6 +77,7 @@ export default {
   'profile.subtitle': 'Gestiona la configuración de tu cuenta y tu equipo personal',
   'profile.tabs.profile': 'Perfil',
   'profile.tabs.gear': 'Mi equipo',
+  'profile.tabs.contacts': 'Contactos',
   'profile.tabs.preferences': 'Preferencias',
   'profile.tabs.security': 'Seguridad',
 

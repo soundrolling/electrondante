@@ -46,6 +46,7 @@ const profile = ref({
 const tabs = computed(() => [
   { id: 'profile', label: t('profile.tabs.profile'), icon: '👤' },
   { id: 'gear', label: t('profile.tabs.gear'), icon: '🎛️' },
+  { id: 'contacts', label: t('profile.tabs.contacts'), icon: '📇' },
   { id: 'preferences', label: t('profile.tabs.preferences'), icon: '⚙️' },
   { id: 'security', label: t('profile.tabs.security'), icon: '🔒' }
 ]);
@@ -739,11 +740,11 @@ function closeAssignmentsModal() {
   gearAssignments.value = [];
 }
 
-// Clear messages when tab changes, lazy-load preferences tab data.
+// Clear messages when tab changes, lazy-load contacts tab data.
 watch(activeTab, (newTab) => {
   errorMsg.value = '';
   successMsg.value = '';
-  if (newTab === 'preferences') {
+  if (newTab === 'contacts') {
     fetchImportableProjects();
     if (!personalContacts.value.length) fetchContacts();
   }
@@ -1043,9 +1044,11 @@ async function saveSecurity() {
             <div v-if="prefMsg" class="pref-msg">{{ prefMsg }}</div>
           </form>
         </div>
+      </div>
 
-        <!-- Personal Contacts -->
-        <div class="content-card" style="margin-top: 1rem;">
+      <!-- Contacts Tab -->
+      <div v-if="activeTab === 'contacts'" class="tab-content" key="contacts">
+        <div class="content-card">
           <div class="contacts-head">
             <div>
               <h2 class="section-title">{{ t('profile.contacts.title') }}</h2>
