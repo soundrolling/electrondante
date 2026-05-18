@@ -9,7 +9,7 @@ import {
   getAllOfflineChangesWithKeys,
   deleteOfflineChangeByKey,
   clearOfflineChanges,
-  getSetting
+  getSetting,
 } from '@/utils/indexedDB';
 
 const toast = useToast();
@@ -20,6 +20,22 @@ const ERROR_LOG_THROTTLE = 5000; // Only log same error once per 5 seconds
 
 function generateTempId() {
   return `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Generate a stable client-side UUID for a single queued op. This UUID is
+ * the idempotency key — sync replay records it in the `_cache_meta` op log
+ * once the server confirms the write, so a second replay of the same queue
+ * entry can short-circuit instead of duplicating.
+ *
+ * Uses `crypto.randomUUID()` where available (modern browsers + Node 19+);
+ * falls back to a timestamp+random combo otherwise.
+ */
+function generateOpUuid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `op_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
 }
 
 // Helper to check if error should be logged (throttle repeated errors)
@@ -54,8 +70,18 @@ function isNetworkError(error) {
 }
 
 // Strip local-only fields before sending to Supabase
+// (sync-layer metadata + the synthetic `temp_` id used while offline)
 function stripLocalFields(data) {
-  const { _isTemp, _queuedKey, ...clean } = data;
+  const {
+    _isTemp,
+    _queuedKey,
+    _op_uuid,
+    _temp_id,
+    _expected_updated_at,
+    _attempts,
+    _last_error,
+    ...clean
+  } = data;
   // Also remove temp IDs that start with 'temp_'
   if (clean.id && typeof clean.id === 'string' && clean.id.startsWith('temp_')) {
     delete clean.id;
@@ -172,6 +198,43 @@ export async function fetchTableData(tableName, options = {}) {
   }
 }
 
+/**
+ * Mutate a single row in `tableName`. Online: writes go directly to Supabase
+ * and the local cache is updated to match. Offline: a queue entry is appended
+ * to the `offlineChanges` store and replayed by `syncOfflineChanges` once
+ * the network returns.
+ *
+ * ## Offline queue entry schema (the contract)
+ *
+ * Each queued op has the shape:
+ *   {
+ *     table:     string,                  // Supabase table name
+ *     operation: 'insert' | 'update' | 'delete',
+ *     data: {
+ *       ...row fields,
+ *       id?:                  string,     // present for update/delete; temp id for inserts
+ *       _op_uuid:             string,     // stable client UUID — idempotency key
+ *       _temp_id?:            string,     // present on inserts; same as data.id
+ *       _expected_updated_at?: string,    // present on updates if the local row had one
+ *       _attempts:            number,     // retry counter (starts at 0)
+ *       _last_error?:         string,     // last sync error message (debugging)
+ *       _isTemp?:             boolean,    // present in the cached row, stripped before send
+ *     },
+ *     timestamp: number,                  // enqueued-at, set by addOfflineChange
+ *   }
+ *
+ * Replay (in `syncService.js`) reads each entry, rewrites any temp-id
+ * references using the temp→real map, consults the `_cache_meta` op log
+ * to skip already-applied ops, and retries with exponential backoff on
+ * retryable errors (network / 5xx / 429).
+ *
+ * Public signature is unchanged from prior versions.
+ *
+ * @param {string} tableName
+ * @param {'insert'|'update'|'delete'} operation
+ * @param {object} data
+ * @returns {Promise<object>}
+ */
 export async function mutateTableData(tableName, operation, data) {
   try {
     if (navigator.onLine) {
@@ -227,7 +290,18 @@ export async function mutateTableData(tableName, operation, data) {
         case 'insert': {
           const item = Array.isArray(data) ? data[0] : data;
           const tempId = generateTempId();
-          const tempRow = { ...item, id: tempId, _isTemp: true };
+          const opUuid = generateOpUuid();
+          // _op_uuid / _temp_id / _attempts are sync-layer metadata; stripped
+          // before the row hits Supabase. _isTemp marks the cached row so the
+          // UI can render it with a "queued" affordance.
+          const tempRow = {
+            ...item,
+            id: tempId,
+            _isTemp: true,
+            _op_uuid: opUuid,
+            _temp_id: tempId,
+            _attempts: 0,
+          };
           const existing = await getData(tableName);
           await saveData(tableName, [...existing, tempRow]);
           await addOfflineChange({ table: tableName, operation, data: tempRow });
@@ -238,10 +312,21 @@ export async function mutateTableData(tableName, operation, data) {
         case 'update': {
           const existingData = await getData(tableName);
           const existing = existingData.find(i => i.id === data.id);
-          const updated = existing && existing._isTemp
+          const opUuid = generateOpUuid();
+          // Capture the row's `updated_at` at enqueue time so the sync layer
+          // can detect server-side conflicts (someone else wrote in between).
+          // Falls back to undefined for tables without an `updated_at` column.
+          const expectedUpdatedAt = existing?.updated_at || data.updated_at;
+          const baseUpdate = existing && existing._isTemp
             ? { ...existing, ...data, _isTemp: true }
             : { ...existing, ...data };
-          const updatedData = existingData.map(item => 
+          const updated = {
+            ...baseUpdate,
+            _op_uuid: opUuid,
+            _expected_updated_at: expectedUpdatedAt,
+            _attempts: 0,
+          };
+          const updatedData = existingData.map(item =>
             item.id === data.id ? updated : item
           );
           await saveData(tableName, updatedData);
@@ -251,8 +336,13 @@ export async function mutateTableData(tableName, operation, data) {
           break;
         }
         case 'delete': {
+          const opUuid = generateOpUuid();
           await deleteData(tableName, data.id);
-          await addOfflineChange({ table: tableName, operation, data: { id: data.id } });
+          await addOfflineChange({
+            table: tableName,
+            operation,
+            data: { id: data.id, _op_uuid: opUuid, _attempts: 0 },
+          });
           toast.info('Offline delete queued');
           localResult = { success: true, id: data.id };
           break;

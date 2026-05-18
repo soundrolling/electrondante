@@ -2,7 +2,13 @@ import { useToast } from 'vue-toastification';
 const toast = useToast();
 
 const DB_NAME = 'ProjectManagementDB';
-const DB_VERSION = 16;
+// Bump this when the IndexedDB *structure* (object stores / indexes) needs to change.
+// On upgrade, new stores are created in `onupgradeneeded` below.
+export const DB_VERSION = 17;
+// Bump this when the cached *row shape* changes (e.g. a new column we want
+// surfaced to the UI). On bump, `invalidateStaleCaches()` clears any cached
+// table whose stored schemaVersion is older — forcing a re-fetch on next read.
+export const CACHE_SCHEMA_VERSION = 1;
 
 let db = null;
 
@@ -57,6 +63,12 @@ export async function openDB() {
 
       if (!database.objectStoreNames.contains('user_gear')) {
         database.createObjectStore('user_gear', { keyPath: 'id' });
+      }
+
+      // Sync metadata: cache freshness, completed-op log (idempotency), temp→real id map.
+      // Schema: { key: string, value: any, schemaVersion?: number, lastSyncedAt?: number }
+      if (!database.objectStoreNames.contains('_cache_meta')) {
+        database.createObjectStore('_cache_meta', { keyPath: 'key' });
       }
     };
 
@@ -313,6 +325,153 @@ export async function storeDocumentFile(filePath, fileBlob) {
     console.error(`storeDocumentFile(${filePath}) failed:`, e);
     toast.error(`Store document file failed: ${e.message}`);
   }
+}
+
+// -------------------------
+// Cache meta (sync metadata)
+// -------------------------
+//
+// `_cache_meta` is a small key/value store used by the sync layer for three things:
+//
+//   1. `cache:<tableName>` — `{ tableName, lastSyncedAt, schemaVersion }`.
+//      When `CACHE_SCHEMA_VERSION` is bumped, `invalidateStaleCaches()` clears
+//      any table whose stored `schemaVersion` is older than the current one.
+//
+//   2. `op:<op_uuid>` — `{ op_uuid, table, operation, completedAt, serverId? }`.
+//      Idempotency log: written when a queued op successfully applies on the
+//      server. Re-runs of the same queue entry can short-circuit by looking
+//      this up — preventing duplicate inserts after partial sync failures.
+//
+//   3. `tempIdMap` — `{ key: 'tempIdMap', value: { [tempId]: realId } }`.
+//      Survives across reloads so a CREATE in run #1 can be matched to a
+//      DELETE/UPDATE in run #2 even if the queued op was written with the temp id.
+
+/**
+ * Read a single key from `_cache_meta`. Returns the stored record (with `key`)
+ * or `null` if not present. Safe to call before the store exists (older DB
+ * versions return `null`).
+ */
+export async function getCacheMeta(key) {
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains('_cache_meta')) return null;
+    return await new Promise((resolve, reject) => {
+      const tx = database.transaction(['_cache_meta'], 'readonly');
+      const req = tx.objectStore('_cache_meta').get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.error(`getCacheMeta(${key}) failed:`, e);
+    return null;
+  }
+}
+
+/**
+ * Write a single record to `_cache_meta`. `record.key` is the primary key;
+ * any other fields are persisted verbatim.
+ */
+export async function setCacheMeta(record) {
+  try {
+    if (!record || typeof record.key !== 'string') {
+      throw new Error('setCacheMeta requires { key: string, ... }');
+    }
+    const database = await openDB();
+    if (!database.objectStoreNames.contains('_cache_meta')) return;
+    const tx = database.transaction(['_cache_meta'], 'readwrite');
+    tx.objectStore('_cache_meta').put(record);
+    await waitForTransaction(tx);
+  } catch (e) {
+    console.error(`setCacheMeta failed:`, e);
+  }
+}
+
+/**
+ * Walk every `cache:<table>` entry and clear the cached rows for any table
+ * whose stored `schemaVersion` differs from `CACHE_SCHEMA_VERSION`. The next
+ * `fetchTableData` call for that table will re-pull from Supabase.
+ *
+ * This is a no-op on a fresh DB (no cache meta exists yet) and is cheap to
+ * call on every app boot.
+ */
+export async function invalidateStaleCaches() {
+  try {
+    const database = await openDB();
+    if (!database.objectStoreNames.contains('_cache_meta')) return;
+    const entries = await new Promise((resolve, reject) => {
+      const tx = database.transaction(['_cache_meta'], 'readonly');
+      const store = tx.objectStore('_cache_meta');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    for (const meta of entries) {
+      if (!meta.key || !meta.key.startsWith('cache:')) continue;
+      const tableName = meta.key.slice('cache:'.length);
+      if ((meta.schemaVersion ?? 0) !== CACHE_SCHEMA_VERSION) {
+        if (database.objectStoreNames.contains(tableName)) {
+          const tx = database.transaction([tableName], 'readwrite');
+          tx.objectStore(tableName).clear();
+          await waitForTransaction(tx);
+        }
+        await setCacheMeta({
+          key: `cache:${tableName}`,
+          tableName,
+          lastSyncedAt: 0,
+          schemaVersion: CACHE_SCHEMA_VERSION,
+        });
+        console.log(`[invalidateStaleCaches] cleared stale cache for ${tableName}`);
+      }
+    }
+  } catch (e) {
+    console.error('invalidateStaleCaches failed:', e);
+  }
+}
+
+/**
+ * Idempotency log: was the queue op with this UUID already applied on the
+ * server? Used by the sync replay loop to avoid duplicate writes when a
+ * previous sync run partially succeeded and the queue entry survived.
+ *
+ * Returns the stored record `{ op_uuid, completedAt, serverId? }` or `null`.
+ */
+export async function getCompletedOp(opUuid) {
+  if (!opUuid) return null;
+  return await getCacheMeta(`op:${opUuid}`);
+}
+
+/**
+ * Mark a queue op as successfully applied to the server. `serverId` is
+ * optional — populated for inserts so callers can recover the real id later.
+ */
+export async function markOpCompleted(opUuid, { table, operation, serverId } = {}) {
+  if (!opUuid) return;
+  await setCacheMeta({
+    key: `op:${opUuid}`,
+    op_uuid: opUuid,
+    table,
+    operation,
+    serverId,
+    completedAt: Date.now(),
+  });
+}
+
+/**
+ * Retrieve the persisted temp-id → real-id map, used by the sync layer when
+ * an earlier CREATE op has already been applied and a later UPDATE/DELETE
+ * references the now-stale temp id.
+ */
+export async function getTempIdMap() {
+  const rec = await getCacheMeta('tempIdMap');
+  return (rec && rec.value) ? { ...rec.value } : {};
+}
+
+/**
+ * Persist the temp-id → real-id map. Pass the whole map (caller merges in
+ * the new entry); we overwrite the stored record wholesale.
+ */
+export async function setTempIdMap(map) {
+  await setCacheMeta({ key: 'tempIdMap', value: map || {} });
 }
 
 /**
