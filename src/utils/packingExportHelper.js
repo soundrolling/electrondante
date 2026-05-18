@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import PackingService from '@/services/packingService'
 import { createLogger } from '@/utils/log'
 
@@ -7,9 +5,13 @@ const log = createLogger('packingExportHelper')
 
 export async function printBagInventory(bag, effectiveProjectId, currentProject) {
   try {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
     const inventory = await PackingService.getBagInventoryForPrint(bag.id)
     const items = await PackingService.getBagItems(bag.id)
-    
+
     const doc = new jsPDF()
     let yPosition = 20
     
@@ -71,6 +73,10 @@ export async function printBagInventory(bag, effectiveProjectId, currentProject)
 
 export async function printMyGearInventory(bags, effectiveProjectId, currentProject) {
   try {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
     const doc = new jsPDF()
     let yPosition = 20
     

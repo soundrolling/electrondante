@@ -243,9 +243,6 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
 import { useToast } from 'vue-toastification'
-import Swal from 'sweetalert2'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { fetchTableData, mutateTableData } from '@/services/dataService'
 import { syncOfflineChanges } from '@/services/syncService'
 
@@ -523,14 +520,16 @@ clearForm()
 isEditing.value = false
 isFormOpen.value= false
 }
-function confirmDelete(id) {
-Swal.fire({
+async function confirmDelete(id) {
+const { default: Swal } = await import('sweetalert2')
+const r = await Swal.fire({
   title: 'Delete?',
   text: 'This cannot be undone.',
   icon: 'warning',
   showCancelButton: true,
   confirmButtonColor: '#ef4444'
-}).then(r => r.isConfirmed && deleteSchedule(id))
+})
+if (r.isConfirmed) deleteSchedule(id)
 }
 async function deleteSchedule(id) {
 isSubmitting.value = true
@@ -554,6 +553,10 @@ if (!filteredSchedules.value.length) {
 }
 isExporting.value = true
 try {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
   const doc = new jsPDF()
   const loc = currentLocation.value
     ? `${currentLocation.value.venue_name} - ${currentLocation.value.stage_name}`

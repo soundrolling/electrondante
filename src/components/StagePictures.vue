@@ -330,7 +330,6 @@ import { ref, onMounted, computed, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { supabase } from '@/supabase';
 import { useToast } from 'vue-toastification';
-import jsPDF from 'jspdf';
 import { useUserStore } from '@/stores/userStore';
 
 // Define props
@@ -907,6 +906,7 @@ async function exportPdf() {
   }
 
   try {
+    const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF('p', 'pt', 'a4');
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -1026,6 +1026,7 @@ async function exportSelectedPdf() {
   }
 
   try {
+    const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF('p', 'pt', 'a4');
     const margin = 40;
     const pageWidth = doc.internal.pageSize.getWidth();

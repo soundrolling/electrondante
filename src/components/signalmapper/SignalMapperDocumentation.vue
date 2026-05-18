@@ -259,7 +259,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/supabase'
 import { useGraphStore } from '@/stores/graphStore'
-import { jsPDF } from 'jspdf'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
 import { getNodes, getConnections } from '@/services/signalMapperService'
 import { saveExport } from '@/services/exportHistory'
@@ -468,6 +467,7 @@ return node?.label || 'Unknown'
 
 // Export functions
 async function exportFullDocumentation() {
+const { jsPDF } = await import('jspdf')
 const doc = new jsPDF('portrait', 'mm', 'a4')
 const pageW = doc.internal.pageSize.getWidth()
 const pageH = doc.internal.pageSize.getHeight()
@@ -587,6 +587,7 @@ showExportSuccessToast(toast, result, fileName, {
 }
 
 async function exportSignalFlowDoc() {
+const { jsPDF } = await import('jspdf')
 const doc = new jsPDF('portrait', 'mm', 'a4')
 const pageW = doc.internal.pageSize.getWidth()
 const pageH = doc.internal.pageSize.getHeight()
