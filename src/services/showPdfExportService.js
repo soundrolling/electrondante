@@ -14,9 +14,6 @@
  * example, export just mic placement + track list.
  */
 
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
 const PAGE_MARGIN_MM = 10
 const ACCENT_RGB = [14, 165, 233] // matches --color-primary-500
 const TEXT_DARK_RGB = [29, 29, 31]
@@ -188,6 +185,7 @@ function measureDataURL(dataURL) {
  * Mirrors the single-tab Track List export style so the PDFs stay consistent.
  */
 function drawTrackListSection(doc, {
+  autoTable,
   signalPaths,
   hiddenTrackIds = new Set(),
   includeSignalPath = true,
@@ -302,6 +300,11 @@ export async function buildShowPDF(opts) {
     compareTrackNumbers,
   } = opts
 
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+
   const doc = new jsPDF({
     unit: 'mm',
     format: 'a4',
@@ -352,6 +355,7 @@ export async function buildShowPDF(opts) {
   // 4. Track list (adds its own pages)
   if (include.trackList) {
     drawTrackListSection(doc, {
+      autoTable,
       signalPaths,
       hiddenTrackIds,
       includeSignalPath,

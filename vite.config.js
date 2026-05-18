@@ -85,7 +85,12 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             supabase: ['@supabase/supabase-js', '@supabase/auth-ui-react'],
             flow:     ['@vue-flow/core', '@vue-flow/controls'],
-            pdf:      ['jspdf', 'jspdf-autotable', 'pdfjs-dist'],
+            // pdf libs (jspdf, jspdf-autotable, pdfjs-dist) are dynamically
+            // imported in the handlers that need them (improvement #3) — let
+            // Vite produce on-demand chunks via the dynamic import graph
+            // rather than forcing a named chunk, which previously pinned
+            // Vite's __vitePreload helper inside the pdf chunk and caused
+            // it to be modulepreloaded on initial page load.
             icons:    ['lucide-vue-next', '@fortawesome/fontawesome-free'],
             dateutil: ['date-fns'],
             zip:      ['jszip'],

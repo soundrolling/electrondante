@@ -221,7 +221,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { useUserStore } from '@/stores/userStore'
-import jsPDF from 'jspdf'
 import ConfirmationModal from '@/components/calendar/ConfirmationModal.vue'
 
 // ─── PROPS ──────────────────────────────────────────────────────────────────────
@@ -567,6 +566,7 @@ async function exportPdf() {
   }
 
   try {
+    const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF('p', 'pt', 'a4')
     const margin = 40
     let y = margin

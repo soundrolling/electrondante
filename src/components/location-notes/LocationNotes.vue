@@ -144,8 +144,6 @@ import { useToast } from 'vue-toastification';
 import { useUserStore } from '@/stores/userStore';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
 import { getData, getSetting } from '@/utils/indexedDB';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 const props = defineProps({ locationId: { type: String, required: true } });
 const router = useRouter();

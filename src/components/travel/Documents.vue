@@ -295,7 +295,20 @@ import { useUserStore } from '../../stores/userStore';
 import { format, parseISO } from 'date-fns';
 import { useRouter } from 'vue-router';
 import { storeDocumentFile, getDocumentFile } from '@/utils/indexedDB';
-import * as pdfjsLib from 'pdfjs-dist';
+
+// Lazy-loaded pdfjs-dist; resolved on first PDF open to keep ~785 kB off
+// the initial bundle. Worker options are configured once on first load.
+let _pdfjsLib = null;
+async function getPdfjsLib() {
+  if (!_pdfjsLib) {
+    _pdfjsLib = await import('pdfjs-dist');
+    _pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  }
+  return _pdfjsLib;
+}
 
 export default {
   name: "Documents",
@@ -625,11 +638,6 @@ export default {
     };
 
     // ─── PDF VIEWER ───────────────────────────────────
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url
-    ).toString();
-
     const showPdfViewer = ref(false);
     const pdfLoading = ref(false);
     const pdfViewerTitle = ref('');
@@ -660,7 +668,8 @@ export default {
           return;
         }
 
-        // Load PDF
+        // Load PDF (lazy-loads pdfjs-dist on first open)
+        const pdfjsLib = await getPdfjsLib();
         const loadingTask = pdfjsLib.getDocument(data.signedUrl);
         const pdf = await loadingTask.promise;
         currentPdfDoc = pdf;

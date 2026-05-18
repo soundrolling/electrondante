@@ -310,8 +310,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { buildGraph } from '@/services/signalGraph'
 import { resolveTransformerInputLabel as svcResolveTransformerInputLabel, getOutputLabel as svcGetOutputLabel } from '@/services/portLabelService'
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
 import InputModal from '@/components/signalmapper/InputModal.vue'
 import { supabase } from '@/supabase'
@@ -963,13 +961,18 @@ async function confirmPDFExport() {
   try {
     isExportingPDF.value = true
     closePDFExportModal()
-    
+
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
+
     // Ensure filename has .pdf extension
     const fileName = pdfExportOptions.value.fileName.trim()
     const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
-    
+
     console.log('Starting PDF export...', { finalFileName, selectedRecorders: pdfExportOptions.value.selectedRecorders })
-    
+
     // Create PDF
     const doc = new jsPDF('portrait', 'mm', 'a4')
     const pageWidth = doc.internal.pageSize.getWidth()

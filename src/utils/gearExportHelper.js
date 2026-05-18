@@ -1,10 +1,12 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { useToast } from 'vue-toastification'
 
 export async function exportGearToPDF(filteredMainGearList, filteredAccessoriesList, filterLocationId, locationsList, route) {
   const toast = useToast()
-  
+
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
   const doc = new jsPDF()
   const title =
     filterLocationId.value === 'all' ? 'All Gear' :

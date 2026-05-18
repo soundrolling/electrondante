@@ -416,7 +416,6 @@
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import Swal from 'sweetalert2'
 import { useUserStore } from '../stores/userStore'
 import { useToast } from 'vue-toastification'
 import { mutateTableData } from '../services/dataService'
@@ -797,9 +796,10 @@ setup(props) {
       return
     }
 
+    const { default: Swal } = await import('sweetalert2')
     const { isConfirmed } = await Swal.fire({
       title: 'Are you sure?',
-      text: isUserGear 
+      text: isUserGear
         ? 'This will return the gear to its owner and remove it from the project.'
         : 'This will delete the gear and all related data (via cascade).',
       icon: 'warning',
@@ -856,6 +856,7 @@ setup(props) {
         newGearAmount
       )
       
+      const { default: Swal } = await import('sweetalert2')
       const { isConfirmed } = await Swal.fire({
         title: 'Reduce Assignments?',
         html: `Reducing total gear from ${currentEditGear.value.gear_amount} to ${newGearAmount} will automatically reduce assignments from ${currentTotalAssigned} to fit the new total.<br><br>This will update all stage assignments proportionally.`,

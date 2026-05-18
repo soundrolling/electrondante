@@ -113,8 +113,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useUserStore } from '../../stores/userStore'
 import PackingService from '../../services/packingService'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 const props = defineProps({
   tripId: {
@@ -186,10 +184,14 @@ function closeInventoryModal() {
 
 async function printBagInventory(bag) {
   try {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ])
     const inventory = await PackingService.getBagInventoryForPrint(bag.id)
     const items = await PackingService.getBagItems(bag.id)
     const currentProject = userStore.getCurrentProject
-    
+
     const doc = new jsPDF()
     let yPosition = 20
     

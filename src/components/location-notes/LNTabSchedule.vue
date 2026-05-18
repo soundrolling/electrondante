@@ -337,9 +337,6 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter }                        from 'vue-router'
 import { useToast }                         from 'vue-toastification'
-import Swal                                 from 'sweetalert2'
-import jsPDF                                from 'jspdf'
-import autoTable                            from 'jspdf-autotable'
 import { useUserStore }                     from '@/stores/userStore'
 import { fetchTableData, mutateTableData }  from '@/services/dataService'
 import { todayISO, niceDate, t5, getTodayTime, getDateTimeISO, pad2 } from '@/utils/scheduleHelpers'
@@ -862,6 +859,7 @@ export default {
     }
 
     async function remove(id){
+      const { default: Swal } = await import('sweetalert2')
       const { isConfirmed } = await Swal.fire({
         title: 'Delete this slot?',
         text: 'This action cannot be undone.',
@@ -930,6 +928,10 @@ export default {
     // PDF export
     async function doExportPdf(){
       try {
+        const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+          import('jspdf'),
+          import('jspdf-autotable'),
+        ])
         const doc = new jsPDF({ unit:'pt', format:'a4' })
         const exportedSchedules = getExportedSchedules()
         

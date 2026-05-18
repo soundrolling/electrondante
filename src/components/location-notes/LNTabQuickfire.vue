@@ -126,7 +126,6 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import Swal            from 'sweetalert2'
 import { useToast }    from 'vue-toastification'
 import { useUserStore }from '@/stores/userStore'
 import {
@@ -210,6 +209,7 @@ form.value = { ...buttons.value[i] }
 open.value = true
 }
 async function remove(id,i){
+const { default: Swal } = await import('sweetalert2')
 const ok = (
   await Swal.fire({
     title: 'Delete?',

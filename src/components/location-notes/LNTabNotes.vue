@@ -399,10 +399,7 @@
  * - Shows pending sync status to users
  */
 import { ref, computed, onMounted, watch } from 'vue';
-import Swal from 'sweetalert2';
 import { useToast } from 'vue-toastification';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { downloadPDF } from '@/utils/pdfDownloadHelper';
 import { useUserStore } from '@/stores/userStore';
 import {
@@ -1049,6 +1046,10 @@ function getExportedNotes() {
 
 async function doExportPdf() {
   try {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     // Get project, venue, stage/location name
     let projectName = '';
