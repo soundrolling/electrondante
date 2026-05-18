@@ -51,17 +51,18 @@ export default defineConfig(({ mode }) => {
       }
     },
     define: {
-      // Expose VUE_APP_* variables through import.meta.env for compatibility
+      // Expose VUE_APP_* variables through import.meta.env for compatibility.
+      // NEVER add SERVICE_ROLE_KEY or any server-only secret here — anything in
+      // `define` is inlined into the client bundle and trivially extractable.
+      // Service-role operations must go through supabase/functions edge functions.
       'import.meta.env.VUE_APP_SUPABASE_URL': JSON.stringify(getEnv('VITE_SUPABASE_URL', 'VUE_APP_SUPABASE_URL')),
       'import.meta.env.VUE_APP_SUPABASE_ANON_KEY': JSON.stringify(getEnv('VITE_SUPABASE_ANON_KEY', 'VUE_APP_SUPABASE_ANON_KEY')),
-      'import.meta.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY': JSON.stringify(getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY', 'VUE_APP_SUPABASE_SERVICE_ROLE_KEY')),
       'import.meta.env.VUE_APP_BRIDGE_WS_URL': JSON.stringify(getEnv('VITE_BRIDGE_WS_URL', 'VUE_APP_BRIDGE_WS_URL')),
       'import.meta.env.VUE_APP_ENCRYPTION_KEY': JSON.stringify(getEnv('VITE_ENCRYPTION_KEY', 'VUE_APP_ENCRYPTION_KEY')),
       'import.meta.env.VUE_APP_WEATHERAPI_KEY': JSON.stringify(getEnv('VITE_WEATHERAPI_KEY', 'VUE_APP_WEATHERAPI_KEY')),
       // Also support process.env for legacy code
       'process.env.VUE_APP_SUPABASE_URL': JSON.stringify(getEnv('VITE_SUPABASE_URL', 'VUE_APP_SUPABASE_URL')),
       'process.env.VUE_APP_SUPABASE_ANON_KEY': JSON.stringify(getEnv('VITE_SUPABASE_ANON_KEY', 'VUE_APP_SUPABASE_ANON_KEY')),
-      'process.env.VUE_APP_SUPABASE_SERVICE_ROLE_KEY': JSON.stringify(getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY', 'VUE_APP_SUPABASE_SERVICE_ROLE_KEY')),
       'process.env.VUE_APP_BRIDGE_WS_URL': JSON.stringify(getEnv('VITE_BRIDGE_WS_URL', 'VUE_APP_BRIDGE_WS_URL')),
       'process.env.VUE_APP_ENCRYPTION_KEY': JSON.stringify(getEnv('VITE_ENCRYPTION_KEY', 'VUE_APP_ENCRYPTION_KEY')),
       'process.env.VUE_APP_WEATHERAPI_KEY': JSON.stringify(getEnv('VITE_WEATHERAPI_KEY', 'VUE_APP_WEATHERAPI_KEY')),

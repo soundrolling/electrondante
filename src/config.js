@@ -36,11 +36,14 @@ const getEnvVar = (key, fallback = null) => {
   return value
 }
 
+// NOTE: serviceRoleKey is intentionally not exposed here. The service-role key
+// bypasses RLS and must never reach the browser. Privileged operations go
+// through supabase/functions edge functions, which read the key from their
+// own environment.
 export const config = {
   supabase: {
     url: getEnvVar('SUPABASE_URL') || getEnvVar('VUE_APP_SUPABASE_URL'),
     anonKey: getEnvVar('SUPABASE_ANON_KEY') || getEnvVar('VUE_APP_SUPABASE_ANON_KEY'),
-    serviceRoleKey: getEnvVar('SUPABASE_SERVICE_ROLE_KEY') || getEnvVar('VUE_APP_SUPABASE_SERVICE_ROLE_KEY'),
   }
 }
 

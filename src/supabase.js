@@ -2,25 +2,15 @@
 import { createClient } from '@supabase/supabase-js'
 import { config, validateConfig } from './config'
 
-const URL              = config.supabase.url
-const ANON_KEY         = config.supabase.anonKey
-const SERVICE_ROLE_KEY = config.supabase.serviceRoleKey
+const URL      = config.supabase.url
+const ANON_KEY = config.supabase.anonKey
 
-// Validate configuration before proceeding
 if (!validateConfig()) {
   throw new Error('Supabase configuration validation failed. Check your environment variables.')
 }
 
-// Debug: verify env-vars in the browser console
-console.log('✅ URL:', URL)
-console.log('✅ ANON_KEY loaded?', !!ANON_KEY)
-console.log('✅ ANON_KEY length:', ANON_KEY ? ANON_KEY.length : 0)
-// Avoid leaking service role info in the browser
-if (typeof window === 'undefined') {
-  console.log('✅ SERVICE_ROLE_KEY loaded?', !!SERVICE_ROLE_KEY)
-}
-
-// Public (anon) client
+// Public (anon) client — the only Supabase client used in the browser.
+// Privileged (service-role) operations live in supabase/functions/* edge functions.
 export const supabase = createClient(URL, ANON_KEY, {
   auth: {
     persistSession: true,
@@ -34,26 +24,6 @@ export const supabase = createClient(URL, ANON_KEY, {
     timeout: 20000,
   },
 })
-
-// Admin (service-role) client for RLS-bypassing operations
-// Only instantiate admin client in server environments (never in the browser)
-// NOTE: This is not used in the frontend - user invitations are handled via Edge Functions
-export const adminClient = (typeof window === 'undefined' && SERVICE_ROLE_KEY)
-  ? createClient(URL, SERVICE_ROLE_KEY, {
-      auth: {
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
-      global: {
-        headers: { 'X-Client-Info': 'supabase-js/2.x (admin)' },
-        timeout: 20000,
-      },
-    })
-  : null
-
-if (typeof window === 'undefined') {
-  console.log('→ adminClient ready?', !!adminClient)
-}
 
 // Clean up localStorage and redirect on sign-out
 supabase.auth.onAuthStateChange((event) => {
