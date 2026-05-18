@@ -262,7 +262,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { jsPDF } from 'jspdf'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
 import { getNodes, getConnections } from '@/services/signalMapperService'
-import { saveExport } from '@/services/exportsService'
+import { saveExport } from '@/services/exportHistory'
 import { useToast } from 'vue-toastification'
 
 const props = defineProps({
@@ -566,7 +566,7 @@ if (props.locationId) {
   }
 }
 
-const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
+const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage')
 const description = 'Signal mapper documentation export'
 
 const result = await savePDFToStorage(
@@ -640,7 +640,7 @@ if (props.locationId) {
   }
 }
 
-const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
+const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage')
 const description = 'Signal flow report export'
 
 const result = await savePDFToStorage(

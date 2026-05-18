@@ -49,7 +49,7 @@ export async function printBagInventory(bag, effectiveProjectId, currentProject)
     
     // Save PDF to storage
     const filename = `packing_bag_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const { savePDFToStorage } = await import('@/services/exportDocsStorage')
     const description = `Packing bag inventory - ${bag.name}`
     const projectId = effectiveProjectId.value
 
@@ -126,7 +126,7 @@ export async function printMyGearInventory(bags, effectiveProjectId, currentProj
     
     // Save PDF to storage
     const filename = `all_packing_bags_${new Date().toISOString().slice(0, 10)}.pdf`
-    const { savePDFToStorage } = await import('@/services/exportStorageService')
+    const { savePDFToStorage } = await import('@/services/exportDocsStorage')
     const description = 'All packing bags inventory'
     const projectId = effectiveProjectId.value
 

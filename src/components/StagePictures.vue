@@ -987,7 +987,7 @@ async function exportPdf() {
 
     // Save PDF to storage instead of downloading
     const filename = `${stageName.value.replace(/\s+/g, '_')}_Pictures.pdf`;
-    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService');
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage');
     const description = `Stage pictures export - ${stageName.value || 'Stage'}`;
     
     const result = await savePDFToStorage(
@@ -1109,7 +1109,7 @@ async function exportSelectedPdf() {
 
     // Save PDF to storage instead of downloading
     const filename = `${stageName.value.replace(/\s+/g, '_')}_Selected_Pictures.pdf`;
-    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService');
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage');
     const description = `Selected stage pictures export - ${stageName.value || 'Stage'}`;
     
     const result = await savePDFToStorage(

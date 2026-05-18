@@ -1091,7 +1091,7 @@ async function confirmPDFExport() {
     }
     
     try {
-      const { savePDFToStorage, showExportSuccessModal } = await import('@/services/exportStorageService')
+      const { savePDFToStorage, showExportSuccessModal } = await import('@/services/exportDocsStorage')
       const description = `Track list export${customTitle.value ? ` - ${customTitle.value}` : ''}${pdfExportOptions.value.recordingDateName ? ` (${pdfExportOptions.value.recordingDateName})` : ''}`
       
       console.log('Saving PDF to storage...', { projectId: props.projectId, venueId, stageId: props.locationId })

@@ -676,7 +676,7 @@ async function removeItemFromBag(itemId) {
 
 async function printBagInventory(bag) {
   const result = await printBagInventoryHelper(bag, effectiveProjectId, currentProject)
-  const { showExportSuccessToast } = await import('@/services/exportStorageService')
+  const { showExportSuccessToast } = await import('@/services/exportDocsStorage')
   const filename = `packing_bag_${bag.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
   showExportSuccessToast(toast, result, filename, {
     projectId: effectiveProjectId.value,
@@ -716,7 +716,7 @@ async function printMyGearInventory() {
     }
     
   const result = await printMyGearInventoryHelper(bags, effectiveProjectId, currentProject)
-  const { showExportSuccessToast } = await import('@/services/exportStorageService')
+  const { showExportSuccessToast } = await import('@/services/exportDocsStorage')
   const filename = `all_packing_bags_${new Date().toISOString().slice(0, 10)}.pdf`
   showExportSuccessToast(toast, result, filename, {
     projectId: effectiveProjectId.value,

@@ -578,7 +578,7 @@ try {
   }
   
   const projectId = route.params.id
-  const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
+  const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage')
   const description = `Schedule export - ${loc}${dateInfo}`
   
   const result = await savePDFToStorage(

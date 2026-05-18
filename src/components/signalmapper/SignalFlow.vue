@@ -3425,7 +3425,7 @@ async function exportToPNG() {
     const finalFileName = fileName.endsWith('.png') ? fileName : `${fileName}.png`
     
     // Save to storage instead of downloading
-    const { savePNGToStorage } = await import('@/services/exportStorageService')
+    const { savePNGToStorage } = await import('@/services/exportDocsStorage')
     const description = `Signal flow export${stageName ? ` - ${stageName}` : ''}${venueName ? ` (${venueName})` : ''}`
     
     const result = await savePNGToStorage(
@@ -3437,7 +3437,7 @@ async function exportToPNG() {
       description
     )
     
-    const { showExportSuccessModal } = await import('@/services/exportStorageService')
+    const { showExportSuccessModal } = await import('@/services/exportDocsStorage')
     showExportSuccessModal(result, finalFileName, {
       projectId: props.projectId,
       venueId,

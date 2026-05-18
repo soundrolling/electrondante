@@ -1,4 +1,12 @@
-// src/services/exportsService.js
+// src/services/exportHistory.js
+//
+// CRUD for the project_exports history table: persisting completed
+// exports (full project ZIPs, signal-mapper JSON/XML, etc.), listing
+// them for the Data Management screen, and downloading or deleting them.
+//
+// This is distinct from exportDocsStorage.js — that one writes PDFs/PNGs
+// into the stage_docs table (the project document library); this one
+// tracks ephemeral exports under their own table and bucket folder.
 import { supabase } from '../supabase';
 import { createLogger } from '@/utils/log'
 
