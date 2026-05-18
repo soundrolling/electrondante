@@ -83,6 +83,17 @@ async function refreshGearLibrary() {
   }
 }
 
+// Distinct held_for values from current user's gear, used to populate the
+// "Holding for" datalist so repeat owners can be picked instead of retyped.
+const heldForSuggestions = computed(() => {
+  const set = new Set();
+  for (const g of gear.value) {
+    const name = (g.held_for || '').trim();
+    if (name) set.add(name);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+});
+
 /* ---------- modal state ---------- */
 const showGearModal = ref(false);
 const isEditGear = ref(false);
@@ -106,7 +117,8 @@ const gearForm = ref({
   purchased_date: '',
   notes: '',
   condition: 'excellent',
-  availability: 'available'
+  availability: 'available',
+  held_for: ''
 });
 
 const conditionOptions = [
@@ -186,7 +198,7 @@ async function fetchGear() {
     gearLoading.value = true;
   const { data, error } = await supabase
     .from('user_gear')
-      .select('id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability')
+      .select('*')
     .eq('user_id', userId.value)
     .order('gear_name');
     
@@ -220,6 +232,7 @@ function openEditGear(gearItem) {
     notes: gearItem.notes || '',
     condition: gearItem.condition || 'excellent',
     availability: gearItem.availability || 'available',
+    held_for: gearItem.held_for || '',
     weight_kg: weightKg,
     weightInput: weightKg ? (currentUnit === 'lbs' ? kgToLbs(weightKg) : weightKg) : null,
     weightInputUnit: currentUnit
@@ -242,6 +255,7 @@ function resetGearForm() {
     notes: '',
     condition: 'excellent',
     availability: 'available',
+    held_for: '',
     weight_kg: null,
     weightInput: null,
     weightInputUnit: weightUnit.value
@@ -272,6 +286,7 @@ async function saveGear() {
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
     availability: gearForm.value.availability,
+    held_for: (gearForm.value.held_for || '').trim() || null,
     weight_kg: weightInKg
   };
 
@@ -970,9 +985,23 @@ async function saveSecurity() {
           </div>
 
           <div class="form-group form-group-full">
+            <label class="form-label">Holding for (optional)</label>
+            <input
+              v-model="gearForm.held_for"
+              class="form-input"
+              placeholder="Leave empty if this gear is yours. Otherwise type the owner's name."
+              list="gear-held-for-suggestions"
+            />
+            <datalist id="gear-held-for-suggestions">
+              <option v-for="name in heldForSuggestions" :key="name" :value="name" />
+            </datalist>
+            <p class="form-hint">Use this when you're temporarily carrying gear for someone else.</p>
+          </div>
+
+          <div class="form-group form-group-full">
             <label class="form-label">Notes</label>
-            <textarea 
-              v-model="gearForm.notes" 
+            <textarea
+              v-model="gearForm.notes"
               class="form-textarea"
               placeholder="Additional notes about this gear..."
               rows="3"

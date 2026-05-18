@@ -48,6 +48,17 @@
         <option value="all">All owners</option>
         <option v-for="o in availableOwners" :key="o.user_id" :value="o.user_id">{{ o.name }}</option>
       </select>
+      <select
+        v-if="mode === 'manage' && (heldForNames.length || heldForFilter !== 'all')"
+        v-model="heldForFilter"
+        class="filter-pick"
+        title="Filter by whether the gear is yours or you're holding it for someone"
+      >
+        <option value="all">Mine + held</option>
+        <option value="mine">Mine only</option>
+        <option value="others">Held for others</option>
+        <option v-for="name in heldForNames" :key="name" :value="`name:${name}`">Held for {{ name }}</option>
+      </select>
       <button
         v-if="mode === 'manage'"
         type="button"
@@ -119,6 +130,13 @@
                 <h4 class="tile-name">{{ item.gear_name }}</h4>
                 <span v-if="showOwner(item)" class="tile-owner">
                   {{ ownerNameFor(item) }}
+                </span>
+                <span
+                  v-if="item.held_for && String(item.held_for).trim()"
+                  class="tile-held-for"
+                  :title="`This item is being held for ${item.held_for}`"
+                >
+                  👤 Held for {{ item.held_for }}
                 </span>
               </div>
               <span class="status-badge" :class="`badge-${badgeFor(item).tone}`">
@@ -315,6 +333,7 @@ const search = ref('')
 const statusFilter = ref('all')
 const typeFilter = ref('all')
 const ownerFilter = ref('all')
+const heldForFilter = ref('all') // 'all' | 'mine' | 'others' | 'name:<owner>'
 const collapsed = ref({})
 
 // Selection state for 'select' mode: { [gearId]: { quantity } }
@@ -359,6 +378,17 @@ const availableOwners = computed(() => {
   return [...map.values()]
 })
 
+// Distinct "held_for" names from the loaded gear, alphabetised. Drives
+// both the held_for filter dropdown and the manage-mode badge surfacing.
+const heldForNames = computed(() => {
+  const set = new Set()
+  for (const g of gear.value) {
+    const n = (g.held_for || '').trim()
+    if (n) set.add(n)
+  }
+  return [...set].sort((a, b) => a.localeCompare(b))
+})
+
 const filteredGear = computed(() => {
   const term = search.value.trim().toLowerCase()
   return gear.value.filter(item => {
@@ -368,7 +398,8 @@ const filteredGear = computed(() => {
         item.gear_type,
         item.notes,
         item.owner_name,
-        item.listed_by_name
+        item.listed_by_name,
+        item.held_for
       ]
         .filter(Boolean)
         .join(' ')
@@ -377,6 +408,18 @@ const filteredGear = computed(() => {
     }
     if (typeFilter.value !== 'all' && item.gear_type !== typeFilter.value) return false
     if (props.showOwnerFilter && ownerFilter.value !== 'all' && item.user_id !== ownerFilter.value) return false
+
+    // Manage mode: filter by who the gear is being held for.
+    if (props.mode === 'manage' && heldForFilter.value !== 'all') {
+      const heldFor = (item.held_for || '').trim()
+      if (heldForFilter.value === 'mine' && heldFor) return false
+      if (heldForFilter.value === 'others' && !heldFor) return false
+      if (heldForFilter.value.startsWith('name:')) {
+        const target = heldForFilter.value.slice(5)
+        if (heldFor !== target) return false
+      }
+    }
+
     if (statusFilter.value !== 'all') {
       const st = statusByGear.value[item.id]?.status || 'available'
       if (statusFilter.value === 'in_use' && !['in_use', 'partial'].includes(st)) return false
@@ -489,7 +532,7 @@ async function loadGear() {
 
       const { data, error } = await supabase
         .from('user_gear')
-        .select('id, user_id, gear_name, quantity, gear_type, num_inputs, num_outputs, num_records, is_rented, purchased_date, notes, condition, availability, weight_kg')
+        .select('*')
         .in('user_id', queryUserIds)
         .order('gear_name')
 
@@ -807,6 +850,19 @@ onMounted(() => loadGear())
   margin-top: 0.15rem;
   font-size: 0.78rem;
   color: var(--text-secondary);
+}
+.tile-held-for {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* badges */
