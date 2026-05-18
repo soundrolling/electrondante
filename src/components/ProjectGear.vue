@@ -392,13 +392,13 @@
 
     <!-- USER GEAR SELECTOR MODAL -->
     <div v-if="showUserGearSelector" class="modal-overlay" @click="closeUserGearSelector">
-      <div class="modal" @click.stop>
+      <div class="modal modal-wide" @click.stop>
         <div class="modal-header">
           <h3 class="modal-title">Add Team Gear</h3>
           <button class="modal-close" @click="closeUserGearSelector">✕</button>
         </div>
         <div class="modal-body">
-          <UserGearSelector 
+          <UserGearSelector
             :project-id="String(projectId || '')"
             :locations-list="locationsList"
             @gear-selected="handleUserGearSelected"
@@ -1861,6 +1861,8 @@ setup(props) {
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
+
+.modal.modal-wide { max-width: 980px; }
 
 .modal-header {
   display: flex;

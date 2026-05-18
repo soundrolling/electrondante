@@ -7,6 +7,7 @@ import { formatWeight, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weigh
 import { useMeasurementUnit } from '../composables/useMeasurementUnit'
 import { useI18n } from '@/composables/useI18n';
 import { getSetting, saveSetting } from '../utils/indexedDB';
+import UserGearLibrary from './UserGearLibrary.vue';
 
 const store = useUserStore();
 const route = useRoute();
@@ -73,38 +74,14 @@ watch(() => route.params.tab, (newTab) => {
 /* ---------- gear data ---------- */
 const gear = ref([]);
 const gearLoading = ref(false);
-const search = ref('');
-const gearFilter = ref('all');
-
-const filteredGear = computed(() => {
-  let filtered = gear.value;
-  
-  // Search filter
-  if (search.value) {
-    filtered = filtered.filter(g => 
-      g.gear_name.toLowerCase().includes(search.value.toLowerCase()) ||
-      g.gear_type?.toLowerCase().includes(search.value.toLowerCase()) ||
-      g.notes?.toLowerCase().includes(search.value.toLowerCase())
-    );
+const gearLibraryRef = ref(null);
+async function refreshGearLibrary() {
+  if (gearLibraryRef.value?.reload) {
+    await gearLibraryRef.value.reload();
+  } else {
+    await fetchGear();
   }
-  
-  // Type filter
-  if (gearFilter.value !== 'all') {
-    filtered = filtered.filter(g => g.gear_type === gearFilter.value);
-  }
-  
-  return filtered;
-});
-
-const gearTypes = computed(() =>
-  [...new Set(gear.value.map(g => g.gear_type).filter(Boolean))]
-);
-
-const gearStats = computed(() => ({
-  total: gear.value.length,
-  types: gearTypes.value.length,
-  totalQuantity: gear.value.reduce((sum, g) => sum + (g.quantity || 1), 0)
-}));
+}
 
 /* ---------- modal state ---------- */
 const showGearModal = ref(false);
@@ -318,12 +295,13 @@ async function saveGear() {
         .insert(payload)
         .select()
         .single();
-      
+
       if (error) throw error;
       gear.value.push(data);
       successMsg.value = 'Gear added successfully!';
     }
-    
+
+    await refreshGearLibrary();
     showGearModal.value = false;
     
     // Clear success message after 3 seconds
@@ -349,7 +327,8 @@ async function deleteGear(id) {
     if (error) throw error;
     gear.value = gear.value.filter(g => g.id !== id);
     successMsg.value = 'Gear deleted successfully!';
-    
+    await refreshGearLibrary();
+
     setTimeout(() => {
       successMsg.value = '';
     }, 3000);
@@ -749,119 +728,25 @@ async function saveSecurity() {
       <!-- Gear Tab -->
       <div v-if="activeTab === 'gear'" class="tab-content" key="gear">
         <div class="content-card">
-          <div class="gear-header">
-            <div class="gear-header-left">
+          <div class="gear-page-head">
+            <div>
               <h2 class="section-title">{{ t('profile.gear.title') }}</h2>
-              <div class="gear-stats">
-                <div class="stat-item">
-                  <span class="stat-number">{{ gearStats.total }}</span>
-                  <span class="stat-label">{{ t('profile.gear.items') }}</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-number">{{ gearStats.types }}</span>
-                  <span class="stat-label">{{ t('profile.gear.types') }}</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-number">{{ gearStats.totalQuantity }}</span>
-                  <span class="stat-label">{{ t('profile.gear.totalQuantity') }}</span>
-                </div>
-              </div>
-            </div>
-            <button class="btn btn-positive" @click="openAddGear">
-              <span class="btn-icon">+</span>
-              Add Gear
-            </button>
-          </div>
-
-          <!-- Search and Filter -->
-          <div class="gear-controls">
-            <div class="search-container">
-              <input 
-                v-model="search" 
-                class="search-input"
-                placeholder="Search gear..."
-                type="search"
-              />
-              <span class="search-icon">🔍</span>
-            </div>
-            
-            <select v-model="gearFilter" class="filter-select">
-              <option value="all">All Types</option>
-              <option v-for="type in gearTypes" :key="type" :value="type">
-                {{ type }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Gear List -->
-          <div v-if="gearLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading your gear...</p>
-          </div>
-
-          <div v-else-if="filteredGear.length === 0" class="empty-state">
-            <div class="empty-icon">🎛️</div>
-            <h3>No gear found</h3>
-            <p>{{ search || gearFilter !== 'all' ? 'Try adjusting your search or filters' : 'Start by adding your first piece of gear' }}</p>
-            <button class="btn btn-positive" @click="openAddGear">Add Your First Gear</button>
-          </div>
-
-          <div v-else class="gear-grid">
-            <div 
-              v-for="item in filteredGear" 
-              :key="item.id"
-              class="gear-card"
-            >
-              <div class="gear-card-header">
-                <h3 class="gear-name">{{ item.gear_name }}</h3>
-                <div class="gear-actions">
-                  <button 
-                    class="btn-icon btn-edit"
-                    @click="openEditGear(item)"
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    class="btn-icon btn-danger"
-                    @click="deleteGear(item.id)"
-                    title="Delete"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-
-              <div class="gear-details">
-                <div class="gear-info">
-                  <span class="gear-type">{{ item.gear_type || 'No type specified' }}</span>
-                  <span class="gear-quantity">Qty: {{ item.quantity }}</span>
-                </div>
-
-                <div class="gear-meta">
-                  <span v-if="item.purchased_date" class="gear-date">
-                    Purchased: {{ new Date(item.purchased_date).toLocaleDateString() }}
-                  </span>
-                  <span class="gear-condition" :class="item.condition">
-                    {{ item.condition || 'excellent' }}
-                  </span>
-                </div>
-
-                <div class="gear-inventory">
-                  <span class="badge badge-inventory">Inventory: {{ item.quantity || 0 }}</span>
-                  <button 
-                    class="btn-assignments"
-                    @click="openAssignmentsModal(item)"
-                    title="View assignments across projects"
-                  >
-                    View Assignments
-                  </button>
-                </div>
-
-                <p v-if="item.notes" class="gear-notes">{{ item.notes }}</p>
-              </div>
+              <p class="section-sub">Your personal gear inventory. Items in use across projects are flagged here with auto-release dates and conflict warnings.</p>
             </div>
           </div>
+
+          <UserGearLibrary
+            ref="gearLibraryRef"
+            mode="manage"
+            :user-id="userId"
+            :initial-gear="gear"
+            :show-stats="true"
+            @add-gear="openAddGear"
+            @edit-gear="openEditGear"
+            @delete-gear="(item) => deleteGear(item.id)"
+            @view-assignments="openAssignmentsModal"
+            @gear-loaded="(rows) => { gear = rows }"
+          />
         </div>
       </div>
 
@@ -1283,6 +1168,17 @@ async function saveSecurity() {
   color: var(--text-heading) !important;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--border-light);
+}
+
+.gear-page-head {
+  margin-bottom: 1rem;
+}
+.gear-page-head .section-title { margin-bottom: 0.25rem; border-bottom: none; padding-bottom: 0; }
+.gear-page-head .section-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.35;
 }
 
 .subsection-title {
