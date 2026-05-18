@@ -8,6 +8,7 @@ import { useMeasurementUnit } from '../composables/useMeasurementUnit'
 import { useI18n } from '@/composables/useI18n';
 import { getSetting, saveSetting } from '../utils/indexedDB';
 import UserGearLibrary from './UserGearLibrary.vue';
+import { UserContactsService } from '../services/userContactsService';
 
 const store = useUserStore();
 const route = useRoute();
@@ -83,10 +84,17 @@ async function refreshGearLibrary() {
   }
 }
 
-// Distinct held_for values from current user's gear, used to populate the
-// "Holding for" datalist so repeat owners can be picked instead of retyped.
+// Distinct held_for values from current user's gear PLUS personal contacts.
+// Populates the "Holding for" datalist so repeat owners can be picked instead
+// of retyped. Contacts take precedence (they're the canonical list) but past
+// held_for names are still surfaced for backwards-compat with older gear that
+// hasn't been migrated to a saved contact.
 const heldForSuggestions = computed(() => {
   const set = new Set();
+  for (const c of personalContacts.value) {
+    const name = (c.name || '').trim();
+    if (name) set.add(name);
+  }
   for (const g of gear.value) {
     const name = (g.held_for || '').trim();
     if (name) set.add(name);
@@ -137,11 +145,200 @@ const availabilityOptions = [
   { value: 'maintenance', label: 'Maintenance (out for service)' }
 ];
 
+/* ---------- personal contacts ---------- */
+const personalContacts = ref([]);
+const contactsLoading = ref(false);
+const contactsError = ref('');
+const contactForm = ref({
+  id: null,
+  name: '',
+  email: '',
+  phone: '',
+  role: '',
+  notes: '',
+});
+const showContactModal = ref(false);
+const isEditContact = ref(false);
+const savingContact = ref(false);
+const contactImportProjectId = ref('');
+const importingContacts = ref(false);
+const contactsMsg = ref('');
+
+async function fetchContacts() {
+  if (!userId.value) return;
+  contactsLoading.value = true;
+  contactsError.value = '';
+  try {
+    personalContacts.value = await UserContactsService.list(userId.value);
+  } catch (e) {
+    contactsError.value = e.message || 'Failed to load contacts';
+  } finally {
+    contactsLoading.value = false;
+  }
+}
+
+function resetContactForm() {
+  contactForm.value = { id: null, name: '', email: '', phone: '', role: '', notes: '' };
+  isEditContact.value = false;
+}
+
+function openAddContact() {
+  resetContactForm();
+  showContactModal.value = true;
+}
+
+function openEditContact(contact) {
+  contactForm.value = {
+    id: contact.id,
+    name: contact.name || '',
+    email: contact.email || '',
+    phone: contact.phone || '',
+    role: contact.role || '',
+    notes: contact.notes || '',
+  };
+  isEditContact.value = true;
+  showContactModal.value = true;
+}
+
+function closeContactModal() {
+  showContactModal.value = false;
+  resetContactForm();
+}
+
+async function saveContact() {
+  const name = (contactForm.value.name || '').trim();
+  if (!name) {
+    contactsError.value = 'Name is required';
+    return;
+  }
+  savingContact.value = true;
+  contactsError.value = '';
+  try {
+    const payload = {
+      name,
+      email: contactForm.value.email,
+      phone: contactForm.value.phone,
+      role: contactForm.value.role,
+      notes: contactForm.value.notes,
+    };
+    if (isEditContact.value && contactForm.value.id) {
+      const updated = await UserContactsService.update(contactForm.value.id, payload);
+      const idx = personalContacts.value.findIndex(c => c.id === updated.id);
+      if (idx >= 0) personalContacts.value.splice(idx, 1, updated);
+    } else {
+      const created = await UserContactsService.create(userId.value, { ...payload, source: 'manual' });
+      personalContacts.value = [...personalContacts.value, created].sort(
+        (a, b) => (a.name || '').localeCompare(b.name || '')
+      );
+    }
+    closeContactModal();
+    contactsMsg.value = 'Contact saved';
+    setTimeout(() => { contactsMsg.value = ''; }, 2000);
+  } catch (e) {
+    if (e?.code === '23505') {
+      contactsError.value = 'You already have a contact with that name';
+    } else {
+      contactsError.value = e.message || 'Failed to save contact';
+    }
+  } finally {
+    savingContact.value = false;
+  }
+}
+
+async function deleteContact(contact) {
+  if (!contact?.id) return;
+  if (!confirm(`Remove "${contact.name}" from your personal contacts?`)) return;
+  try {
+    await UserContactsService.remove(contact.id);
+    personalContacts.value = personalContacts.value.filter(c => c.id !== contact.id);
+    contactsMsg.value = 'Contact removed';
+    setTimeout(() => { contactsMsg.value = ''; }, 2000);
+  } catch (e) {
+    contactsError.value = e.message || 'Failed to remove contact';
+  }
+}
+
+// Projects available for the import-from-project picker. Loaded on demand
+// (any project the user owns or is a member of).
+const importableProjects = ref([]);
+const projectsLoading = ref(false);
+async function fetchImportableProjects() {
+  if (!userId.value || projectsLoading.value) return;
+  projectsLoading.value = true;
+  try {
+    const [own, asMember] = await Promise.all([
+      supabase.from('projects').select('id, project_name').eq('user_id', userId.value),
+      supabase
+        .from('project_members')
+        .select('projects:project_id (id, project_name)')
+        .eq('user_id', userId.value),
+    ]);
+    const merged = new Map();
+    for (const p of own.data || []) merged.set(p.id, p);
+    for (const row of asMember.data || []) {
+      const p = row.projects;
+      if (p?.id) merged.set(p.id, p);
+    }
+    importableProjects.value = [...merged.values()]
+      .map(p => ({ id: p.id, name: p.project_name || 'Untitled project' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (e) {
+    console.warn('Could not load projects for import:', e);
+    importableProjects.value = [];
+  } finally {
+    projectsLoading.value = false;
+  }
+}
+
+// "Save as contact" beside the gear modal's Holding-for input. Only show
+// when the typed name doesn't already match an existing personal contact.
+const heldForCanSaveAsContact = computed(() => {
+  const name = (gearForm.value.held_for || '').trim();
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return !personalContacts.value.some(c => (c.name || '').trim().toLowerCase() === lower);
+});
+
+async function saveHeldForAsContact() {
+  const name = (gearForm.value.held_for || '').trim();
+  if (!name) return;
+  try {
+    const created = await UserContactsService.saveAsContact(userId.value, name, { source: 'manual' });
+    const idx = personalContacts.value.findIndex(c => c.id === created.id);
+    if (idx >= 0) personalContacts.value.splice(idx, 1, created);
+    else personalContacts.value = [...personalContacts.value, created].sort(
+      (a, b) => (a.name || '').localeCompare(b.name || '')
+    );
+    contactsMsg.value = `Saved ${name} to contacts`;
+    setTimeout(() => { contactsMsg.value = ''; }, 2500);
+  } catch (e) {
+    errorMsg.value = e.message || 'Failed to save contact';
+  }
+}
+
+async function importContactsFromProject() {
+  if (!contactImportProjectId.value) return;
+  importingContacts.value = true;
+  contactsError.value = '';
+  try {
+    const counts = await UserContactsService.importFromProject(userId.value, contactImportProjectId.value);
+    await fetchContacts();
+    contactsMsg.value = `Imported ${counts.added} new, updated ${counts.updated}, skipped ${counts.skipped}`;
+    setTimeout(() => { contactsMsg.value = ''; }, 4000);
+    contactImportProjectId.value = '';
+  } catch (e) {
+    contactsError.value = e.message || 'Failed to import contacts';
+  } finally {
+    importingContacts.value = false;
+  }
+}
+
 /* ---------- lifecycle ---------- */
 onMounted(async () => {
   await fetchProfile();
   await fetchGear();
   await loadAlertPreference();
+  await fetchContacts();
 });
 
 /* profile CRUD */
@@ -542,10 +739,14 @@ function closeAssignmentsModal() {
   gearAssignments.value = [];
 }
 
-// Clear messages when tab changes
-watch(activeTab, () => {
+// Clear messages when tab changes, lazy-load preferences tab data.
+watch(activeTab, (newTab) => {
   errorMsg.value = '';
   successMsg.value = '';
+  if (newTab === 'preferences') {
+    fetchImportableProjects();
+    if (!personalContacts.value.length) fetchContacts();
+  }
 });
 
 // Preferences state
@@ -842,6 +1043,70 @@ async function saveSecurity() {
             <div v-if="prefMsg" class="pref-msg">{{ prefMsg }}</div>
           </form>
         </div>
+
+        <!-- Personal Contacts -->
+        <div class="content-card" style="margin-top: 1rem;">
+          <div class="contacts-head">
+            <div>
+              <h2 class="section-title">{{ t('profile.contacts.title') }}</h2>
+              <p class="section-sub">{{ t('profile.contacts.subtitle') }}</p>
+            </div>
+            <button type="button" class="btn btn-positive add-contact-btn" @click="openAddContact">
+              + {{ t('profile.contacts.add') }}
+            </button>
+          </div>
+
+          <!-- Import from project -->
+          <div v-if="importableProjects.length" class="contacts-import">
+            <label class="form-label">{{ t('profile.contacts.importLabel') }}</label>
+            <div class="contacts-import-row">
+              <select v-model="contactImportProjectId" class="form-input" :disabled="importingContacts">
+                <option value="">{{ t('profile.contacts.importPlaceholder') }}</option>
+                <option v-for="p in importableProjects" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                :disabled="!contactImportProjectId || importingContacts"
+                @click="importContactsFromProject"
+              >
+                {{ importingContacts ? t('common.saving') : t('profile.contacts.importButton') }}
+              </button>
+            </div>
+            <p class="form-hint">{{ t('profile.contacts.importHint') }}</p>
+          </div>
+
+          <div v-if="contactsError" class="contacts-error">{{ contactsError }}</div>
+          <div v-if="contactsMsg" class="pref-msg">{{ contactsMsg }}</div>
+
+          <div v-if="contactsLoading" class="contacts-empty">
+            <div class="loading-spinner"></div>
+            <p>{{ t('common.loading') }}</p>
+          </div>
+          <div v-else-if="!personalContacts.length" class="contacts-empty">
+            <div class="contacts-empty-icon">📇</div>
+            <h4>{{ t('profile.contacts.emptyTitle') }}</h4>
+            <p>{{ t('profile.contacts.emptyBody') }}</p>
+          </div>
+          <ul v-else class="contacts-list">
+            <li v-for="contact in personalContacts" :key="contact.id" class="contact-row">
+              <div class="contact-avatar">{{ (contact.name || '?').charAt(0).toUpperCase() }}</div>
+              <div class="contact-main">
+                <div class="contact-name">{{ contact.name }}</div>
+                <div class="contact-meta">
+                  <span v-if="contact.role" class="contact-chip">{{ contact.role }}</span>
+                  <span v-if="contact.email" class="contact-chip muted">✉ {{ contact.email }}</span>
+                  <span v-if="contact.phone" class="contact-chip muted">📞 {{ contact.phone }}</span>
+                </div>
+                <p v-if="contact.notes" class="contact-notes">{{ contact.notes }}</p>
+              </div>
+              <div class="contact-actions">
+                <button type="button" class="btn-icon" :title="t('common.edit')" @click="openEditContact(contact)">✏️</button>
+                <button type="button" class="btn-icon" :title="t('common.delete')" @click="deleteContact(contact)">🗑️</button>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <!-- Security Tab -->
@@ -1025,16 +1290,29 @@ async function saveSecurity() {
 
           <div class="form-group form-group-full">
             <label class="form-label">Holding for (optional)</label>
-            <input
-              v-model="gearForm.held_for"
-              class="form-input"
-              placeholder="Leave empty if this gear is yours. Otherwise type the owner's name."
-              list="gear-held-for-suggestions"
-            />
+            <div class="held-for-row">
+              <input
+                v-model="gearForm.held_for"
+                class="form-input"
+                placeholder="Leave empty if this gear is yours. Otherwise pick or type the owner's name."
+                list="gear-held-for-suggestions"
+              />
+              <button
+                v-if="heldForCanSaveAsContact"
+                type="button"
+                class="btn btn-secondary held-for-save-btn"
+                :title="`Save '${(gearForm.held_for || '').trim()}' to your personal contacts`"
+                @click="saveHeldForAsContact"
+              >
+                + Save as contact
+              </button>
+            </div>
             <datalist id="gear-held-for-suggestions">
               <option v-for="name in heldForSuggestions" :key="name" :value="name" />
             </datalist>
-            <p class="form-hint">Use this when you're temporarily carrying gear for someone else.</p>
+            <p class="form-hint">
+              Pick from your personal contacts (manage them in Preferences) or type a new name. Use this when you're temporarily carrying gear for someone else.
+            </p>
           </div>
 
           <div class="form-group form-group-full">
@@ -1124,6 +1402,49 @@ async function saveSecurity() {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Contact Modal (add/edit personal contact) -->
+    <div v-if="showContactModal" class="modal-overlay" @click="closeContactModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>{{ isEditContact ? t('profile.contacts.editTitle') : t('profile.contacts.addTitle') }}</h3>
+          <button class="modal-close" @click="closeContactModal">×</button>
+        </div>
+        <form class="modal-form" @submit.prevent="saveContact">
+          <div class="form-group form-group-full">
+            <label class="form-label">{{ t('profile.contacts.fieldName') }} *</label>
+            <input v-model="contactForm.name" class="form-input" required autofocus />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">{{ t('profile.contacts.fieldEmail') }}</label>
+              <input v-model="contactForm.email" class="form-input" type="email" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">{{ t('profile.contacts.fieldPhone') }}</label>
+              <input v-model="contactForm.phone" class="form-input" type="tel" />
+            </div>
+          </div>
+          <div class="form-group form-group-full">
+            <label class="form-label">{{ t('profile.contacts.fieldRole') }}</label>
+            <input v-model="contactForm.role" class="form-input" :placeholder="t('profile.contacts.fieldRolePh')" />
+          </div>
+          <div class="form-group form-group-full">
+            <label class="form-label">{{ t('profile.contacts.fieldNotes') }}</label>
+            <textarea v-model="contactForm.notes" class="form-textarea" rows="3"></textarea>
+          </div>
+          <div v-if="contactsError" class="contacts-error">{{ contactsError }}</div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-warning" @click="closeContactModal">
+              {{ t('common.cancel') }}
+            </button>
+            <button type="submit" class="btn btn-positive" :disabled="savingContact">
+              {{ savingContact ? t('common.saving') : t('profile.contacts.saveBtn') }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -2365,5 +2686,165 @@ async function saveSecurity() {
   outline: none;
   border-color: var(--color-primary-500);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ---------- Personal contacts ---------- */
+.contacts-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.add-contact-btn {
+  flex-shrink: 0;
+}
+
+.contacts-import {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.contacts-import-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  margin-top: 0.25rem;
+}
+
+.contacts-import-row .form-input {
+  flex: 1;
+}
+
+.contacts-error {
+  background: var(--color-danger-50, #fef2f2);
+  color: var(--color-danger-700, #b91c1c);
+  border: 1px solid var(--color-danger-200, #fecaca);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4rem;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.contacts-empty {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--text-secondary);
+}
+
+.contacts-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.contacts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+}
+
+.contact-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary-500);
+  color: var(--text-inverse);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.contact-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.contact-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.contact-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
+
+.contact-chip {
+  font-size: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  background: var(--color-primary-100, rgba(59, 130, 246, 0.1));
+  color: var(--color-primary-700, #1d4ed8);
+  border-radius: 999px;
+}
+
+.contact-chip.muted {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.contact-notes {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0.25rem 0 0;
+}
+
+.contact-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  background: var(--bg-primary);
+  border-color: var(--text-secondary);
+}
+
+.held-for-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.held-for-row .form-input {
+  flex: 1;
+}
+
+.held-for-save-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 </style>

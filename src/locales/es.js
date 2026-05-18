@@ -126,6 +126,26 @@ export default {
   'profile.preferences.saved': '¡Preferencias guardadas!',
   'profile.preferences.saveFailed': 'No se pudieron guardar las preferencias',
 
+  // Personal contacts (usado para el selector "En préstamo a" del equipo personal)
+  'profile.contacts.title': 'Contactos personales',
+  'profile.contacts.subtitle': 'Tu libreta de contactos con la gente con la que trabajas. Se usa para asignar el dueño cuando llevas equipo de otra persona.',
+  'profile.contacts.add': 'Añadir contacto',
+  'profile.contacts.addTitle': 'Añadir contacto',
+  'profile.contacts.editTitle': 'Editar contacto',
+  'profile.contacts.saveBtn': 'Guardar contacto',
+  'profile.contacts.fieldName': 'Nombre',
+  'profile.contacts.fieldEmail': 'Email',
+  'profile.contacts.fieldPhone': 'Teléfono',
+  'profile.contacts.fieldRole': 'Rol',
+  'profile.contacts.fieldRolePh': 'Ej. Sonidista, Productor, Propietario',
+  'profile.contacts.fieldNotes': 'Notas',
+  'profile.contacts.emptyTitle': 'Aún no hay contactos personales',
+  'profile.contacts.emptyBody': 'Añade a las personas con las que colaboras y aparecerán en el selector "En préstamo a" del equipo. También puedes importar a todos los miembros de uno de tus proyectos.',
+  'profile.contacts.importLabel': 'Importar desde un proyecto',
+  'profile.contacts.importPlaceholder': 'Elige un proyecto…',
+  'profile.contacts.importButton': 'Importar',
+  'profile.contacts.importHint': 'Añade a todos los miembros y contactos externos del proyecto a tu libreta personal. Re-ejecutar fusiona detalles nuevos.',
+
   // Security tab
   'profile.security.title': 'Seguridad',
   'profile.security.currentPassword': 'Contraseña actual',

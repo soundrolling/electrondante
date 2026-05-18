@@ -126,6 +126,26 @@ export default {
   'profile.preferences.saved': 'Preferences saved!',
   'profile.preferences.saveFailed': 'Failed to save preferences',
 
+  // Personal contacts (used for the "Holding for" picker on personal gear)
+  'profile.contacts.title': 'Personal Contacts',
+  'profile.contacts.subtitle': "Your address book of people you work with. Used to assign owners when you're holding gear for someone else.",
+  'profile.contacts.add': 'Add contact',
+  'profile.contacts.addTitle': 'Add contact',
+  'profile.contacts.editTitle': 'Edit contact',
+  'profile.contacts.saveBtn': 'Save contact',
+  'profile.contacts.fieldName': 'Name',
+  'profile.contacts.fieldEmail': 'Email',
+  'profile.contacts.fieldPhone': 'Phone',
+  'profile.contacts.fieldRole': 'Role',
+  'profile.contacts.fieldRolePh': 'e.g. Sound engineer, Producer, Owner',
+  'profile.contacts.fieldNotes': 'Notes',
+  'profile.contacts.emptyTitle': 'No personal contacts yet',
+  'profile.contacts.emptyBody': "Add people you collaborate with and they'll show up in the gear \"Holding for\" picker. You can also import everyone from one of your projects.",
+  'profile.contacts.importLabel': 'Import from a project',
+  'profile.contacts.importPlaceholder': 'Choose a project…',
+  'profile.contacts.importButton': 'Import',
+  'profile.contacts.importHint': 'Adds all team members and external contacts from that project to your personal address book. Re-running merges in any new details.',
+
   // Security tab
   'profile.security.title': 'Security',
   'profile.security.currentPassword': 'Current Password',
