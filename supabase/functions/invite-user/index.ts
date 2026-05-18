@@ -40,16 +40,19 @@ Deno.serve(async (req) => {
     console.log('🏗️ Project ID:', projectId);
     console.log('👤 Role:', role);
 
-    // Check environment variables
+    // Check environment variables.
+    // EDGE_SUPABASE_SECRET is a project secret holding our sb_secret_* admin key.
+    // (We can't use SUPABASE_SERVICE_ROLE_KEY here because Supabase reserves the
+    // SUPABASE_ prefix and we're migrating off the legacy service-role JWT.)
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
+    const serviceRoleKey = Deno.env.get("EDGE_SUPABASE_SECRET");
+
     console.log('🔧 Environment check:');
     console.log('   SUPABASE_URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
-    console.log('   SERVICE_ROLE_KEY:', serviceRoleKey ? '✅ Set' : '❌ Missing');
-    
+    console.log('   EDGE_SUPABASE_SECRET:', serviceRoleKey ? '✅ Set' : '❌ Missing');
+
     if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error('Missing required environment variables: SUPABASE_URL or EDGE_SUPABASE_SECRET');
     }
 
     console.log('🔗 Creating Supabase admin client...');

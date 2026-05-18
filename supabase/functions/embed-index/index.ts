@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
     if (!projectId || typeof projectId !== "string") throw new Error("projectId required");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // EDGE_SUPABASE_SECRET holds the sb_secret_* admin key (Supabase reserves
+    // the SUPABASE_ prefix, so we can't override SUPABASE_SERVICE_ROLE_KEY).
+    const serviceKey = Deno.env.get("EDGE_SUPABASE_SECRET")!;
     const admin = createClient(supabaseUrl, serviceKey);
 
     const { data: rows, error } = await admin.rpc("search_index_pending", {
