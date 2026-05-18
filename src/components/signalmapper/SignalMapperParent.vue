@@ -430,7 +430,7 @@ import {
   Sparkles,
 } from 'lucide-vue-next'
 import { buildShowPDF, defaultShowBibleFilename } from '@/services/showPdfExportService'
-import { savePDFToStorage, showExportSuccessModal } from '@/services/exportStorageService'
+import { savePDFToStorage, showExportSuccessModal } from '@/services/exportDocsStorage'
 import { downloadPDF } from '@/utils/pdfDownloadHelper'
 import { computeWarnings, warningsSummary, topSeverity } from '@/services/signalMapperValidation'
 

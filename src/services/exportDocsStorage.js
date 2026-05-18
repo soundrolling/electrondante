@@ -1,6 +1,15 @@
-// src/services/exportStorageService.js
+// src/services/exportDocsStorage.js
+//
+// Saves PDF/PNG exports as entries in the stage_docs table (the project
+// document library) — so an exported PDF instantly shows up alongside
+// stage documents. Also surfaces the export-success modal via the
+// exportUiStore Pinia store.
+//
+// Distinct from exportHistory.js, which targets the project_exports
+// history table.
 import { supabase } from '../supabase';
 import { useToast } from 'vue-toastification';
+import { useExportUiStore } from '@/stores/exportUiStore';
 
 const toast = useToast();
 
@@ -210,18 +219,13 @@ export async function savePNGToStorage(
   }
 }
 
-// Global modal state for export success
-let exportSuccessModalState = {
-  show: false,
-  filename: '',
-  result: null,
-  onDownload: null,
-  onNavigate: null,
-  onClose: null
-};
-
 /**
- * Show export success modal
+ * Show export success modal via the exportUiStore Pinia store.
+ *
+ * Builds a payload describing the export plus the action callbacks
+ * (download, navigate) so the global ExportSuccessModal mounted in
+ * App.vue can render reactively.
+ *
  * @param {Object} result - Result from savePDFToStorage or savePNGToStorage
  * @param {string} filename - Filename for download
  * @param {Object} options - Options object with projectId, venueId, stageId, mimeType
@@ -232,7 +236,9 @@ export function showExportSuccessModal(result, filename, options = {}) {
     return;
   }
 
-  // Create download function
+  const uiStore = useExportUiStore();
+
+  // Create download function — captures `result` and `filename` in closure
   const downloadFile = () => {
     try {
       if (result.pdfDoc) {
@@ -258,65 +264,49 @@ export function showExportSuccessModal(result, filename, options = {}) {
         document.body.removeChild(link);
       }
       toast.success('File downloaded');
-      closeExportSuccessModal();
+      uiStore.closeSuccess();
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download file');
     }
   };
 
-  // Navigation will be handled by the modal component
+  // Navigation is finalised inside the modal (it has access to vue-router)
   const navigateToDataManagement = () => {
-    // This will be handled by ExportSuccessModal component
+    // No-op here; the modal handles routing.
   };
 
-  // Set modal state
-  exportSuccessModalState = {
-    show: true,
+  uiStore.showSuccess({
     filename,
     result: {
       ...result,
       projectId: options.projectId || result.projectId,
       venueId: options.venueId || result.venueId,
       stageId: options.stageId || result.stageId,
-      mimeType: options.mimeType || (filename.endsWith('.pdf') ? 'application/pdf' : 'image/png')
+      mimeType: options.mimeType || (filename.endsWith('.pdf') ? 'application/pdf' : 'image/png'),
     },
     onDownload: downloadFile,
     onNavigate: navigateToDataManagement,
-    onClose: closeExportSuccessModal
-  };
-
-  // Trigger custom event to show modal
-  window.dispatchEvent(new CustomEvent('show-export-success-modal', {
-    detail: exportSuccessModalState
-  }));
+  });
 }
 
 /**
- * Close export success modal
+ * Close export success modal.
  */
 export function closeExportSuccessModal() {
-  exportSuccessModalState.show = false;
-  window.dispatchEvent(new CustomEvent('close-export-success-modal'));
+  useExportUiStore().closeSuccess();
 }
 
 /**
- * Get current export success modal state
- */
-export function getExportSuccessModalState() {
-  return exportSuccessModalState;
-}
-
-/**
- * Helper function to show export success toast with download option (deprecated - use showExportSuccessModal)
- * @deprecated Use showExportSuccessModal instead
- * @param {Object} toast - Toast instance (unused, kept for compatibility)
+ * Helper function to show export success toast with download option.
+ * @deprecated Use showExportSuccessModal directly; kept for legacy call sites.
+ * @param {Object} _toast - Toast instance (unused, kept for compatibility)
  * @param {Object} result - Result from savePDFToStorage or savePNGToStorage
  * @param {string} filename - Filename for download
  * @param {Object} options - Optional navigation options (projectId, venueId, stageId, mimeType)
  */
-export function showExportSuccessToast(toast, result, filename, options = {}) {
-  // For backward compatibility, show modal instead
+// eslint-disable-next-line no-unused-vars
+export function showExportSuccessToast(_toast, result, filename, options = {}) {
   showExportSuccessModal(result, filename, options);
 }
 

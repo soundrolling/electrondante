@@ -1162,7 +1162,7 @@ async function doExportPdf() {
     const store = useUserStore()
     const projectId = store.getCurrentProject?.id || route.params.id
     
-    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage')
     const description = `Location notes export${exportInfo ? ` - ${exportInfo}` : ''}`
     
     const result = await savePDFToStorage(

@@ -1,9 +1,14 @@
-// src/services/exportService.js
+// src/services/exportRunner.js
+//
+// "Producer" pipeline for full project exports: walks the selected data
+// surfaces (stages, docs, pictures, gear, contacts, travel, calendar,
+// notes, schedules), builds a ZIP, and optionally persists it through
+// exportHistory.saveExport so it appears in the Data Management exports list.
 import JSZip from 'jszip';
 import { supabase } from '../supabase';
 import { fetchTableData } from './dataService';
 import { useToast } from 'vue-toastification';
-import { saveExport } from './exportsService';
+import { saveExport } from './exportHistory';
 
 const toast = useToast();
 

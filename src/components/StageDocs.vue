@@ -889,7 +889,7 @@ async function exportPdf() {
 
     // Save PDF to storage instead of downloading
     const filename = `${stageName.value.replace(/\s+/g, '_')}_Documents.pdf`
-    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
+    const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage')
     const description = `Stage documents export - ${stageName.value || 'Stage'}`
     
     const result = await savePDFToStorage(

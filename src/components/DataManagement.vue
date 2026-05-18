@@ -344,16 +344,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../stores/userStore';
 import { supabase } from '../supabase';
 import { fetchTableData } from '../services/dataService';
-import { exportProjectData, downloadZip } from '../services/exportService';
-import { 
-  fetchRushesFiles, 
+import { exportProjectData, downloadZip } from '../services/exportRunner';
+import {
+  fetchRushesFiles,
   updateRecorderStatus,
 } from '../services/rushesService';
-import { 
-  getProjectExports, 
-  downloadExport, 
-  deleteExport 
-} from '../services/exportsService';
+import {
+  getProjectExports,
+  downloadExport,
+  deleteExport
+} from '../services/exportHistory';
 import { useToast } from 'vue-toastification';
 
 export default {

@@ -3288,7 +3288,7 @@ async function confirmExport() {
     }
     
     // Save to storage instead of downloading
-    const { savePNGToStorage } = await import('@/services/exportStorageService')
+    const { savePNGToStorage } = await import('@/services/exportDocsStorage')
     const description = `Mic placement export${props.stageName ? ` - ${props.stageName}` : ''}`
     
     const result = await savePNGToStorage(
@@ -3300,7 +3300,7 @@ async function confirmExport() {
       description
     )
     
-    const { showExportSuccessModal } = await import('@/services/exportStorageService')
+    const { showExportSuccessModal } = await import('@/services/exportDocsStorage')
     showExportSuccessModal(result, filename, {
       projectId: props.projectId,
       venueId,

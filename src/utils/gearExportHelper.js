@@ -37,7 +37,7 @@ export async function exportGearToPDF(filteredMainGearList, filteredAccessoriesL
   
   // Save PDF to storage
   const filename = `gear_${new Date().toISOString().slice(0, 10)}.pdf`
-  const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportStorageService')
+  const { savePDFToStorage, showExportSuccessToast } = await import('@/services/exportDocsStorage')
   const description = `Gear export - ${title}`
   const projectId = route?.params?.id
 
