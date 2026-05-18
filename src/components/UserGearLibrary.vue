@@ -49,15 +49,16 @@
         <option v-for="o in availableOwners" :key="o.user_id" :value="o.user_id">{{ o.name }}</option>
       </select>
       <select
-        v-if="mode === 'manage' && (heldForNames.length || heldForFilter !== 'all')"
+        v-if="mode === 'manage' && (heldForNames.length || hasUnassignedAny || heldForFilter !== 'all')"
         v-model="heldForFilter"
         class="filter-pick"
-        title="Filter by whether the gear is yours or you're holding it for someone"
+        title="Filter by who owns the gear"
       >
-        <option value="all">Mine + held</option>
+        <option value="all">All owners</option>
         <option value="mine">Mine only</option>
-        <option value="others">Held for others</option>
-        <option v-for="name in heldForNames" :key="name" :value="`name:${name}`">Held for {{ name }}</option>
+        <option value="others">Has other owners</option>
+        <option v-if="hasUnassignedAny" value="unassigned">Has unassigned</option>
+        <option v-for="name in heldForNames" :key="name" :value="`name:${name}`">Owner: {{ name }}</option>
       </select>
       <label
         v-if="mode === 'manage' && archivedCount > 0"
@@ -139,13 +140,29 @@
                 <span v-if="showOwner(item)" class="tile-owner">
                   {{ ownerNameFor(item) }}
                 </span>
-                <span
-                  v-if="item.held_for && String(item.held_for).trim()"
-                  class="tile-held-for"
-                  :title="`This item is being held for ${item.held_for}`"
+                <div
+                  v-if="ownerBadges(item).length || ownerUnassigned(item) > 0"
+                  class="tile-owners"
                 >
-                  👤 Held for {{ item.held_for }}
-                </span>
+                  <span
+                    v-for="(b, bi) in ownerBadges(item)"
+                    :key="`o-${bi}`"
+                    class="tile-owner-chip"
+                    :class="{ 'tile-owner-self': b.self }"
+                    :title="b.self ? `You own ${b.quantity}` : `${b.name} owns ${b.quantity}`"
+                  >
+                    {{ b.self ? '🧍' : '👤' }}
+                    {{ b.self ? 'Me' : b.name }}
+                    <span class="tile-owner-qty">{{ b.quantity }}</span>
+                  </span>
+                  <span
+                    v-if="ownerUnassigned(item) > 0"
+                    class="tile-owner-chip tile-owner-unassigned"
+                    :title="`${ownerUnassigned(item)} of ${item.quantity} not assigned to an owner`"
+                  >
+                    ⚠️ {{ ownerUnassigned(item) }} unassigned
+                  </span>
+                </div>
               </div>
               <span class="status-badge" :class="`badge-${badgeFor(item).tone}`">
                 <span class="badge-ico">{{ badgeFor(item).icon }}</span>
@@ -323,6 +340,7 @@ import {
   statusBadgeForGear,
   formatHumanDate
 } from '../utils/gearStatusHelper'
+import { UserGearOwnersService } from '../services/userGearOwnersService'
 
 const props = defineProps({
   /** 'manage' (full CRUD) | 'select' (used inside Add Team Gear modal) */
@@ -381,6 +399,40 @@ const TYPE_META = {
 function typeLabel(t) { return TYPE_META[t]?.label || (t ? (t[0].toUpperCase() + t.slice(1)) : 'Other gear') }
 function typeIcon(t) { return TYPE_META[t]?.icon || '🎛️' }
 function typeColor(t) { return TYPE_META[t]?.color || TYPE_META.other.color }
+
+// Convert the gear.owners allocation rows into compact tile chips. Multiple
+// rows pointing at the same person are collapsed into one chip with summed
+// quantity so the tile stays readable.
+function ownerBadges(item) {
+  const allocs = Array.isArray(item.owners) ? item.owners : []
+  if (!allocs.length) return []
+  const groups = new Map()
+  for (const a of allocs) {
+    const key = a.is_self
+      ? 'self'
+      : (a.owner_contact_id ? `c:${a.owner_contact_id}` : `n:${(a.display_name || a.owner_name || '').toLowerCase()}`)
+    if (!groups.has(key)) {
+      groups.set(key, {
+        self: !!a.is_self,
+        name: a.display_name || a.owner_name || null,
+        quantity: 0,
+      })
+    }
+    groups.get(key).quantity += Number(a.quantity) || 0
+  }
+  // Surface "me" first, then alphabetical.
+  return [...groups.values()].sort((a, b) => {
+    if (a.self && !b.self) return -1
+    if (!a.self && b.self) return 1
+    return (a.name || '').localeCompare(b.name || '')
+  })
+}
+
+function ownerUnassigned(item) {
+  const total = Number(item.quantity) || 0
+  const allocated = (item.owners || []).reduce((sum, a) => sum + (Number(a.quantity) || 0), 0)
+  return Math.max(0, total - allocated)
+}
 function badgeFor(item) { return statusBadgeForGear(statusByGear.value[item.id]) }
 function formatDate(d) { return formatHumanDate(d) }
 function ioSummary(item) {
@@ -409,20 +461,60 @@ const availableOwners = computed(() => {
   return [...map.values()]
 })
 
-// Distinct "held_for" names from the loaded gear, alphabetised. Drives
-// both the held_for filter dropdown and the manage-mode badge surfacing.
+// Distinct non-self owner names from the loaded gear (read from the new
+// owners array, with legacy held_for as fallback). Drives the manage-mode
+// filter dropdown and tile filtering.
 const heldForNames = computed(() => {
   const set = new Set()
   for (const g of gear.value) {
-    const n = (g.held_for || '').trim()
-    if (n) set.add(n)
+    const allocs = Array.isArray(g.owners) ? g.owners : []
+    for (const a of allocs) {
+      if (a.is_self) continue
+      const n = (a.display_name || a.owner_name || '').trim()
+      if (n) set.add(n)
+    }
+    if (!allocs.length) {
+      const legacy = (g.held_for || '').trim()
+      if (legacy) set.add(legacy)
+    }
   }
   return [...set].sort((a, b) => a.localeCompare(b))
 })
 
+// True if the gear has any "me" slice in its allocations (or no allocations
+// and no legacy held_for, treating empty as mine for backwards compat).
+function gearHasSelf(g) {
+  const allocs = Array.isArray(g.owners) ? g.owners : []
+  if (allocs.length) return allocs.some(a => a.is_self)
+  return !((g.held_for || '').trim())
+}
+
+function gearHasOtherOwner(g, targetName = null) {
+  const allocs = Array.isArray(g.owners) ? g.owners : []
+  if (allocs.length) {
+    return allocs.some(a => {
+      if (a.is_self) return false
+      const n = (a.display_name || a.owner_name || '').trim()
+      if (!targetName) return !!n
+      return n === targetName
+    })
+  }
+  // Legacy fallback: single held_for value on the gear row.
+  const legacy = (g.held_for || '').trim()
+  if (!legacy) return false
+  if (!targetName) return true
+  return legacy === targetName
+}
+
 // Count of archived items (used for the "Show archived (N)" toggle label)
 const archivedCount = computed(() =>
   gear.value.reduce((n, g) => n + (g.archived_at ? 1 : 0), 0)
+)
+
+// Any gear with unassigned units? Used to surface the "Has unassigned"
+// filter option only when relevant.
+const hasUnassignedAny = computed(() =>
+  gear.value.some(g => ownerUnassigned(g) > 0)
 )
 
 const filteredGear = computed(() => {
@@ -435,13 +527,17 @@ const filteredGear = computed(() => {
     if (item.archived_at && (props.mode !== 'manage' || !archivedExposed)) return false
 
     if (term) {
+      const ownerHay = (item.owners || [])
+        .map(a => a.display_name || a.owner_name || '')
+        .join(' ')
       const hay = [
         item.gear_name,
         item.gear_type,
         item.notes,
         item.owner_name,
         item.listed_by_name,
-        item.held_for
+        item.held_for,
+        ownerHay
       ]
         .filter(Boolean)
         .join(' ')
@@ -451,14 +547,18 @@ const filteredGear = computed(() => {
     if (typeFilter.value !== 'all' && item.gear_type !== typeFilter.value) return false
     if (props.showOwnerFilter && ownerFilter.value !== 'all' && item.user_id !== ownerFilter.value) return false
 
-    // Manage mode: filter by who the gear is being held for.
+    // Manage mode: filter by who owns the gear (or slices of it).
     if (props.mode === 'manage' && heldForFilter.value !== 'all') {
-      const heldFor = (item.held_for || '').trim()
-      if (heldForFilter.value === 'mine' && heldFor) return false
-      if (heldForFilter.value === 'others' && !heldFor) return false
-      if (heldForFilter.value.startsWith('name:')) {
+      if (heldForFilter.value === 'mine') {
+        // Strictly mine: at least one self slice AND no other owners.
+        if (!gearHasSelf(item) || gearHasOtherOwner(item)) return false
+      } else if (heldForFilter.value === 'others') {
+        if (!gearHasOtherOwner(item)) return false
+      } else if (heldForFilter.value === 'unassigned') {
+        if (ownerUnassigned(item) <= 0) return false
+      } else if (heldForFilter.value.startsWith('name:')) {
         const target = heldForFilter.value.slice(5)
-        if (heldFor !== target) return false
+        if (!gearHasOtherOwner(item, target)) return false
       }
     }
 
@@ -598,6 +698,35 @@ async function loadGear() {
           owner_company: byId[r.user_id]?.company || r.owner_company || null
         }))
       }
+    }
+
+    // Attach per-gear owner allocations + resolve contact names so the tile
+    // can render "Me 6 · Alice 4" without an extra round-trip per tile.
+    if (rows.length) {
+      const ownersByGear = await UserGearOwnersService.listForGearIds(
+        rows.map(r => r.id)
+      )
+      const contactIds = new Set()
+      for (const allocs of ownersByGear.values()) {
+        for (const a of allocs) if (a.owner_contact_id) contactIds.add(a.owner_contact_id)
+      }
+      let contactsById = new Map()
+      if (contactIds.size) {
+        const { data: contacts } = await supabase
+          .from('user_personal_contacts')
+          .select('id, name')
+          .in('id', [...contactIds])
+        contactsById = new Map((contacts || []).map(c => [c.id, c.name]))
+      }
+      rows = rows.map(r => {
+        const allocs = (ownersByGear.get(r.id) || []).map(a => ({
+          ...a,
+          display_name: a.is_self
+            ? null
+            : (a.owner_contact_id ? (contactsById.get(a.owner_contact_id) || a.owner_name || '?') : a.owner_name || '?'),
+        }))
+        return { ...r, owners: allocs }
+      })
     }
 
     gear.value = rows
@@ -911,18 +1040,37 @@ onMounted(() => loadGear())
   font-size: 0.78rem;
   color: var(--text-secondary);
 }
-.tile-held-for {
+.tile-owners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+.tile-owner-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  margin-top: 0.3rem;
-  padding: 0.15rem 0.5rem;
+  padding: 0.12rem 0.5rem;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
   font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
+}
+.tile-owner-chip.tile-owner-self {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+.tile-owner-chip.tile-owner-unassigned {
+  background: rgba(239, 68, 68, 0.14);
+  color: #b91c1c;
+}
+.tile-owner-qty {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-weight: 700;
 }
 
 /* badges */

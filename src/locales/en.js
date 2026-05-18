@@ -114,8 +114,13 @@ export default {
   'profile.gear.ownerCustomPlaceholder': "Enter the owner's name",
   'profile.gear.ownerSaveAsContact': 'Save as contact',
   'profile.gear.ownerSaveAsContactTitle': "Save '{name}' to your personal contacts",
-  'profile.gear.ownerHintMe': "This gear is yours. Pick a contact or 'Other' if you're temporarily holding it for someone else.",
-  'profile.gear.ownerHintOther': "Used when you're temporarily carrying gear for someone else. Manage your contacts list in the Contacts tab.",
+  'profile.gear.ownersLabel': 'Owners',
+  'profile.gear.ownersAdd': 'Add owner',
+  'profile.gear.ownersAllocated': 'Allocated {allocated} of {total}',
+  'profile.gear.ownersUnassigned': '{count} unassigned',
+  'profile.gear.ownersOverBy': 'Over by {count}',
+  'profile.gear.ownersAllUnassigned': 'No owners yet — all {count} will be flagged as unassigned.',
+  'profile.gear.ownersHint': 'Split the quantity across people. Defaults to you. Leave less than the total assigned to flag the remainder as unassigned.',
 
   // Preferences tab
   'profile.preferences.title': 'Preferences',

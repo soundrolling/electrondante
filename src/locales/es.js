@@ -114,8 +114,13 @@ export default {
   'profile.gear.ownerCustomPlaceholder': 'Nombre del propietario',
   'profile.gear.ownerSaveAsContact': 'Guardar como contacto',
   'profile.gear.ownerSaveAsContactTitle': "Guardar '{name}' en tus contactos personales",
-  'profile.gear.ownerHintMe': 'Este equipo es tuyo. Elige un contacto u "Otro" si lo llevas temporalmente para otra persona.',
-  'profile.gear.ownerHintOther': 'Se usa cuando llevas equipo de otra persona. Gestiona tus contactos en la pestaña Contactos.',
+  'profile.gear.ownersLabel': 'Propietarios',
+  'profile.gear.ownersAdd': 'Añadir propietario',
+  'profile.gear.ownersAllocated': 'Asignados {allocated} de {total}',
+  'profile.gear.ownersUnassigned': '{count} sin asignar',
+  'profile.gear.ownersOverBy': 'Excedido por {count}',
+  'profile.gear.ownersAllUnassigned': 'Aún sin propietarios — los {count} se marcarán como sin asignar.',
+  'profile.gear.ownersHint': 'Reparte la cantidad entre personas. Por defecto eres tú. Deja menos del total asignado para marcar el resto como sin asignar.',
 
   // Preferences tab
   'profile.preferences.title': 'Preferencias',

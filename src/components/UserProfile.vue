@@ -9,6 +9,7 @@ import { useI18n } from '@/composables/useI18n';
 import { getSetting, saveSetting } from '../utils/indexedDB';
 import UserGearLibrary from './UserGearLibrary.vue';
 import { UserContactsService } from '../services/userContactsService';
+import { UserGearOwnersService } from '../services/userGearOwnersService';
 
 const store = useUserStore();
 const route = useRoute();
@@ -111,13 +112,60 @@ const gearForm = ref({
   availability: 'available'
 });
 
-// Owner picker for the gear modal. Defaults to "me" so a new item is mine
-// until I say otherwise. Under the hood we still write to gear.held_for:
-//   - mode 'me'      → held_for = null
-//   - mode 'contact' → held_for = contact name
-//   - mode 'custom'  → held_for = typed value
-const ownerMode = ref('me');
-const ownerCustomName = ref('');
+// Owner allocations for the gear modal. A piece of gear can be split across
+// multiple owners with per-owner quantities. Each local row carries enough
+// UI state to drive the picker; we materialise to the user_gear_owners table
+// rows at save time.
+//
+// Shape per row: { pickValue, customName, quantity }
+//   pickValue ∈ 'self' | `contact:<id>` | 'custom'
+const ownerAllocations = ref([]);
+
+const allocatedTotal = computed(() =>
+  ownerAllocations.value.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0)
+);
+
+const unallocatedRemainder = computed(
+  () => Math.max(0, (Number(gearForm.value.quantity) || 0) - allocatedTotal.value)
+);
+
+const overAllocatedBy = computed(
+  () => Math.max(0, allocatedTotal.value - (Number(gearForm.value.quantity) || 0))
+);
+
+const canAddAllocation = computed(
+  () => unallocatedRemainder.value > 0
+);
+
+function newAllocation(pickValue = 'self', quantity = 1) {
+  return { pickValue, customName: '', quantity };
+}
+
+function addAllocation() {
+  const remaining = unallocatedRemainder.value;
+  if (remaining <= 0) return;
+  const hasSelf = ownerAllocations.value.some(a => a.pickValue === 'self');
+  ownerAllocations.value.push(
+    newAllocation(hasSelf ? 'custom' : 'self', remaining)
+  );
+}
+
+function removeAllocation(idx) {
+  ownerAllocations.value.splice(idx, 1);
+}
+
+// When the user changes total gear quantity, gently rebalance: if there's
+// a single "self" allocation, snap it to the new total. Otherwise leave the
+// rows alone and let the sum warning guide them.
+watch(
+  () => gearForm.value.quantity,
+  (newQty, oldQty) => {
+    if (!Number.isFinite(newQty) || newQty <= 0) return;
+    if (ownerAllocations.value.length === 1 && ownerAllocations.value[0].pickValue === 'self') {
+      ownerAllocations.value[0].quantity = newQty;
+    }
+  }
+);
 
 const conditionOptions = [
   { value: 'excellent', label: 'Excellent' },
@@ -321,18 +369,17 @@ async function fetchImportableProjects() {
   }
 }
 
-// "Save as contact" beside the Owner picker's custom-name input. Only show
-// when the typed name doesn't already match an existing personal contact.
-const ownerCanSaveAsContact = computed(() => {
-  if (ownerMode.value !== 'custom') return false;
-  const name = (ownerCustomName.value || '').trim();
+// Per-allocation "Save as contact" check used by the Owner picker rows.
+function canSaveAllocationAsContact(alloc) {
+  if (!alloc || alloc.pickValue !== 'custom') return false;
+  const name = (alloc.customName || '').trim();
   if (!name) return false;
   const lower = name.toLowerCase();
   return !personalContacts.value.some(c => (c.name || '').trim().toLowerCase() === lower);
-});
+}
 
-async function saveOwnerAsContact() {
-  const name = (ownerCustomName.value || '').trim();
+async function saveAllocationAsContact(alloc) {
+  const name = (alloc.customName || '').trim();
   if (!name) return;
   try {
     const created = await UserContactsService.saveAsContact(userId.value, name, { source: 'manual' });
@@ -341,9 +388,9 @@ async function saveOwnerAsContact() {
     else personalContacts.value = [...personalContacts.value, created].sort(
       (a, b) => (a.name || '').localeCompare(b.name || '')
     );
-    // Switch the picker to point at the newly-saved contact.
-    ownerMode.value = `contact:${created.id}`;
-    ownerCustomName.value = '';
+    // Point this row at the newly-saved contact so it shows up consistently.
+    alloc.pickValue = `contact:${created.id}`;
+    alloc.customName = '';
     contactsMsg.value = `Saved ${name} to contacts`;
     setTimeout(() => { contactsMsg.value = ''; }, 2500);
   } catch (e) {
@@ -449,13 +496,14 @@ async function fetchGear() {
 
 function openAddGear() {
   resetGearForm();
+  // New gear defaults to "all mine" with the starting quantity.
+  ownerAllocations.value = [newAllocation('self', gearForm.value.quantity || 1)];
   showGearModal.value = true;
 }
 
-function openEditGear(gearItem) {
+async function openEditGear(gearItem) {
   const currentUnit = weightUnit.value;
   const weightKg = gearItem.weight_kg || null;
-  const heldFor = (gearItem.held_for || '').trim();
 
   gearForm.value = {
     gear_name: gearItem.gear_name,
@@ -476,25 +524,48 @@ function openEditGear(gearItem) {
     weightInputUnit: currentUnit
   };
 
-  if (!heldFor) {
-    ownerMode.value = 'me';
-    ownerCustomName.value = '';
+  // Prefer allocations attached to the gear row by the library (if present),
+  // otherwise fetch them. If neither yields anything (legacy gear that never
+  // got a backfill row), seed from the legacy held_for + quantity.
+  let allocs = Array.isArray(gearItem.owners) ? gearItem.owners : null;
+  if (!allocs) {
+    try {
+      allocs = await UserGearOwnersService.listForGear(gearItem.id);
+    } catch (e) {
+      allocs = [];
+    }
+  }
+  if (allocs.length) {
+    ownerAllocations.value = allocs.map(a => allocationFromRow(a));
   } else {
-    const match = personalContacts.value.find(
-      c => (c.name || '').trim().toLowerCase() === heldFor.toLowerCase()
-    );
-    if (match) {
-      ownerMode.value = `contact:${match.id}`;
-      ownerCustomName.value = '';
+    const legacy = (gearItem.held_for || '').trim();
+    const qty = gearItem.quantity || 1;
+    if (!legacy) {
+      ownerAllocations.value = [newAllocation('self', qty)];
     } else {
-      ownerMode.value = 'custom';
-      ownerCustomName.value = heldFor;
+      const match = personalContacts.value.find(
+        c => (c.name || '').trim().toLowerCase() === legacy.toLowerCase()
+      );
+      if (match) {
+        ownerAllocations.value = [{ pickValue: `contact:${match.id}`, customName: '', quantity: qty }];
+      } else {
+        ownerAllocations.value = [{ pickValue: 'custom', customName: legacy, quantity: qty }];
+      }
     }
   }
 
   isEditGear.value = true;
   editGearId.value = gearItem.id;
   showGearModal.value = true;
+}
+
+// Convert a DB allocation row into the local UI shape used by the picker.
+function allocationFromRow(row) {
+  if (row.is_self) return { pickValue: 'self', customName: '', quantity: row.quantity };
+  if (row.owner_contact_id) {
+    return { pickValue: `contact:${row.owner_contact_id}`, customName: '', quantity: row.quantity };
+  }
+  return { pickValue: 'custom', customName: row.owner_name || '', quantity: row.quantity };
 }
 
 function resetGearForm() {
@@ -514,31 +585,54 @@ function resetGearForm() {
     weightInput: null,
     weightInputUnit: weightUnit.value
   };
-  ownerMode.value = 'me';
-  ownerCustomName.value = '';
+  ownerAllocations.value = [];
   isEditGear.value = false;
   editGearId.value = null;
+}
+
+// Resolve a local allocation row into the DB shape expected by
+// UserGearOwnersService.replaceForGear().
+function allocationToRow(alloc) {
+  if (alloc.pickValue === 'self') {
+    return { is_self: true, quantity: alloc.quantity };
+  }
+  if (alloc.pickValue && alloc.pickValue.startsWith('contact:')) {
+    return { owner_contact_id: alloc.pickValue.slice('contact:'.length), quantity: alloc.quantity };
+  }
+  return { owner_name: (alloc.customName || '').trim() || null, quantity: alloc.quantity };
+}
+
+// Pick a "display owner" string to write back into the legacy held_for
+// column. Keeps third-party readers and the existing held_for filter usable
+// while the UI moves to the owners array. We pick the first non-self
+// allocation; if all slices are mine, we clear held_for.
+function legacyHeldForFromAllocations() {
+  const nonSelf = ownerAllocations.value.filter(a => a.pickValue !== 'self');
+  if (!nonSelf.length) return null;
+  const first = nonSelf[0];
+  if (first.pickValue && first.pickValue.startsWith('contact:')) {
+    const id = first.pickValue.slice('contact:'.length);
+    const match = personalContacts.value.find(c => c.id === id);
+    return match ? match.name : null;
+  }
+  return (first.customName || '').trim() || null;
 }
 
 async function saveGear() {
   const name = gearForm.value.gear_name.trim();
   if (!name) return;
 
+  // Block save if the user is trying to allocate more than the total quantity.
+  // Under-allocation is fine (the remainder is flagged as unassigned).
+  if (overAllocatedBy.value > 0) {
+    errorMsg.value = `Owners total ${allocatedTotal.value} exceeds quantity ${gearForm.value.quantity}.`;
+    return;
+  }
+
   // Convert weight input to kg for storage
   const weightInKg = gearForm.value.weightInput
     ? convertInputToKg(gearForm.value.weightInput, gearForm.value.weightInputUnit)
     : null;
-
-  // Resolve the Owner picker into a held_for value. 'me' → null (we own it),
-  // 'contact:<id>' → the contact's name, 'custom' → typed-in name.
-  let heldFor = null;
-  if (ownerMode.value && ownerMode.value.startsWith('contact:')) {
-    const id = ownerMode.value.slice('contact:'.length);
-    const match = personalContacts.value.find(c => c.id === id);
-    heldFor = match ? (match.name || '').trim() : null;
-  } else if (ownerMode.value === 'custom') {
-    heldFor = (ownerCustomName.value || '').trim() || null;
-  }
 
   const payload = {
     user_id: userId.value,
@@ -553,13 +647,13 @@ async function saveGear() {
     notes: gearForm.value.notes.trim() || null,
     condition: gearForm.value.condition,
     availability: gearForm.value.availability,
-    held_for: heldFor,
+    held_for: legacyHeldForFromAllocations(),
     weight_kg: weightInKg
   };
 
   try {
     saving.value = true;
-    
+    let gearId;
     if (isEditGear.value) {
       const { data, error } = await supabase
         .from('user_gear')
@@ -567,8 +661,8 @@ async function saveGear() {
         .eq('id', editGearId.value)
         .select()
         .single();
-      
       if (error) throw error;
+      gearId = data.id;
       gear.value = gear.value.map(g => g.id === editGearId.value ? data : g);
       successMsg.value = 'Gear updated successfully!';
     } else {
@@ -577,16 +671,21 @@ async function saveGear() {
         .insert(payload)
         .select()
         .single();
-
       if (error) throw error;
+      gearId = data.id;
       gear.value.push(data);
       successMsg.value = 'Gear added successfully!';
     }
 
+    // Replace owner allocations atomically. Filter zero-qty rows defensively.
+    const rows = ownerAllocations.value
+      .filter(a => Number(a.quantity) > 0)
+      .map(a => allocationToRow(a));
+    await UserGearOwnersService.replaceForGear(gearId, rows);
+
     await refreshGearLibrary();
     showGearModal.value = false;
-    
-    // Clear success message after 3 seconds
+
     setTimeout(() => {
       successMsg.value = '';
     }, 3000);
@@ -1421,38 +1520,84 @@ async function saveSecurity() {
           </div>
 
           <div class="form-group form-group-full">
-            <label class="form-label">{{ t('profile.gear.ownerLabel') }}</label>
-            <div class="owner-row">
-              <select v-model="ownerMode" class="form-input">
-                <option value="me">{{ t('profile.gear.ownerMe') }}</option>
-                <optgroup v-if="personalContacts.length" :label="t('profile.gear.ownerContacts')">
-                  <option v-for="c in personalContacts" :key="c.id" :value="`contact:${c.id}`">
-                    {{ c.name }}
-                  </option>
-                </optgroup>
-                <option value="custom">{{ t('profile.gear.ownerOther') }}</option>
-              </select>
-              <input
-                v-if="ownerMode === 'custom'"
-                v-model="ownerCustomName"
-                class="form-input"
-                :placeholder="t('profile.gear.ownerCustomPlaceholder')"
-              />
-              <button
-                v-if="ownerMode === 'custom' && ownerCanSaveAsContact"
-                type="button"
-                class="btn btn-secondary owner-save-btn"
-                :title="t('profile.gear.ownerSaveAsContactTitle', { name: ownerCustomName.trim() })"
-                @click="saveOwnerAsContact"
-              >
-                + {{ t('profile.gear.ownerSaveAsContact') }}
-              </button>
+            <div class="owners-head">
+              <label class="form-label" style="margin: 0;">{{ t('profile.gear.ownersLabel') }}</label>
+              <div class="owners-summary" :class="{
+                'owners-over': overAllocatedBy > 0,
+                'owners-flag': unallocatedRemainder > 0 && overAllocatedBy === 0,
+              }">
+                <span>
+                  {{ t('profile.gear.ownersAllocated', {
+                    allocated: allocatedTotal,
+                    total: gearForm.quantity || 0
+                  }) }}
+                </span>
+                <span v-if="overAllocatedBy > 0">
+                  · {{ t('profile.gear.ownersOverBy', { count: overAllocatedBy }) }}
+                </span>
+                <span v-else-if="unallocatedRemainder > 0">
+                  · ⚠️ {{ t('profile.gear.ownersUnassigned', { count: unallocatedRemainder }) }}
+                </span>
+              </div>
             </div>
+
+            <ul class="owners-list">
+              <li
+                v-for="(alloc, idx) in ownerAllocations"
+                :key="idx"
+                class="owner-alloc-row"
+              >
+                <select v-model="alloc.pickValue" class="form-input owner-picker">
+                  <option value="self">{{ t('profile.gear.ownerMe') }}</option>
+                  <optgroup v-if="personalContacts.length" :label="t('profile.gear.ownerContacts')">
+                    <option v-for="c in personalContacts" :key="c.id" :value="`contact:${c.id}`">
+                      {{ c.name }}
+                    </option>
+                  </optgroup>
+                  <option value="custom">{{ t('profile.gear.ownerOther') }}</option>
+                </select>
+                <input
+                  v-if="alloc.pickValue === 'custom'"
+                  v-model="alloc.customName"
+                  class="form-input owner-custom"
+                  :placeholder="t('profile.gear.ownerCustomPlaceholder')"
+                />
+                <input
+                  v-model.number="alloc.quantity"
+                  type="number"
+                  :min="1"
+                  :max="gearForm.quantity"
+                  class="form-input owner-qty"
+                />
+                <button
+                  v-if="canSaveAllocationAsContact(alloc)"
+                  type="button"
+                  class="btn-icon owner-save-btn"
+                  :title="t('profile.gear.ownerSaveAsContactTitle', { name: (alloc.customName || '').trim() })"
+                  @click="saveAllocationAsContact(alloc)"
+                >+&nbsp;★</button>
+                <button
+                  type="button"
+                  class="btn-icon"
+                  :title="t('common.remove')"
+                  @click="removeAllocation(idx)"
+                >×</button>
+              </li>
+              <li v-if="!ownerAllocations.length" class="owner-alloc-empty">
+                {{ t('profile.gear.ownersAllUnassigned', { count: gearForm.quantity || 0 }) }}
+              </li>
+            </ul>
+
+            <button
+              type="button"
+              class="btn btn-secondary owner-add-btn"
+              :disabled="!canAddAllocation"
+              @click="addAllocation"
+            >
+              + {{ t('profile.gear.ownersAdd') }}
+            </button>
             <p class="form-hint">
-              {{ ownerMode === 'me'
-                  ? t('profile.gear.ownerHintMe')
-                  : t('profile.gear.ownerHintOther')
-              }}
+              {{ t('profile.gear.ownersHint') }}
             </p>
           </div>
 
@@ -2963,22 +3108,73 @@ async function saveSecurity() {
   border-color: var(--text-secondary);
 }
 
-.owner-row {
+/* ---------- Gear modal: multi-owner allocations ---------- */
+.owners-head {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  align-items: stretch;
   flex-wrap: wrap;
+  margin-bottom: 0.5rem;
 }
 
-.owner-row > select,
-.owner-row > input {
-  flex: 1;
-  min-width: 180px;
+.owners-summary {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.owners-summary.owners-flag {
+  color: var(--color-warning-700, #b45309);
+}
+
+.owners-summary.owners-over {
+  color: var(--color-danger-700, #b91c1c);
+  font-weight: 600;
+}
+
+.owners-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.owner-alloc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 90px auto auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* When the custom-name input isn't present, collapse its column. */
+.owner-alloc-row:not(:has(.owner-custom)) {
+  grid-template-columns: minmax(0, 1fr) 90px auto auto;
+}
+
+.owner-picker, .owner-custom, .owner-qty {
+  min-width: 0;
+}
+
+.owner-qty {
+  width: 90px;
 }
 
 .owner-save-btn {
-  flex-shrink: 0;
-  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.owner-alloc-empty {
+  font-size: 0.85rem;
+  color: var(--color-warning-700, #b45309);
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-secondary);
+  border-radius: 0.35rem;
+}
+
+.owner-add-btn {
+  font-size: 0.85rem;
 }
 
 /* ---------- Import candidates picker ---------- */
