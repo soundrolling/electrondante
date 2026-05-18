@@ -2,6 +2,38 @@
 
 import { defineStore } from 'pinia'
 import { BugReportService } from '../services/bugReportService'
+import { setSink } from '@/utils/log'
+
+// Bounded in-memory ring buffer of recent warn/error events captured from the
+// logger sink. Bug reports attach this so we get the last N issues from the
+// user's session without spamming a remote service. Older entries fall out as
+// new ones land. Lives at module scope so it persists across store recreation
+// (HMR, test resets, etc.).
+const MAX_RECENT = 50
+/** @type {Array<{level: string, scope: string, message: string, timestamp: string}>} */
+export const recentLogEvents = []
+
+function safeStringify(arg) {
+  if (arg instanceof Error) return arg.stack || `${arg.name}: ${arg.message}`
+  if (typeof arg === 'string') return arg
+  try { return JSON.stringify(arg) } catch { return String(arg) }
+}
+
+// Register the logger sink once at module evaluation. Only warn/error get
+// captured — debug/info are pure DevTools chatter. Existing console.error
+// interception in main.js stays as a fallback for unconverted components.
+setSink((level, scope, args) => {
+  if (level !== 'warn' && level !== 'error') return
+  recentLogEvents.push({
+    level,
+    scope: scope || '',
+    message: args.map(safeStringify).join(' '),
+    timestamp: new Date().toISOString()
+  })
+  if (recentLogEvents.length > MAX_RECENT) {
+    recentLogEvents.splice(0, recentLogEvents.length - MAX_RECENT)
+  }
+})
 
 export const useBugReportStore = defineStore('bugReportStore', {
   state: () => ({
@@ -75,7 +107,13 @@ export const useBugReportStore = defineStore('bugReportStore', {
      */
     improvementReportsCount: (state) => {
       return state.reports.filter(report => report.type === 'improvement').length
-    }
+    },
+
+    /**
+     * Get the recent warn/error log events captured from the logger sink.
+     * Useful when attaching diagnostic context to a new bug report.
+     */
+    recentLogEvents: () => recentLogEvents.slice()
   },
 
   actions: {
