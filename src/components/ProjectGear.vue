@@ -36,6 +36,15 @@
       <span class="tab-icon">📋</span>
       <span class="tab-label">Repacking</span>
     </button>
+    <button
+      class="tab-button tab-link"
+      @click="goToUserGear"
+      title="Open your personal gear in your profile"
+    >
+      <span class="tab-icon">👤</span>
+      <span class="tab-label">My Gear</span>
+      <span class="tab-link-arrow" aria-hidden="true">↗</span>
+    </button>
   </div>
 
   <!-- GEAR TAB CONTENT -->
@@ -624,6 +633,10 @@ setup(props) {
 
   function goBack() {
     router.push({ name: 'ProjectLocations', params: { id: route?.params?.id } })
+  }
+
+  function goToUserGear() {
+    router.push({ name: 'UserProfile', params: { tab: 'gear' } })
   }
 
   async function toggleAddGear() {
@@ -1241,6 +1254,7 @@ setup(props) {
 
   return {
     goBack,
+    goToUserGear,
     filterLocationId,
     filterOwner,
     uniqueOwners,
@@ -1439,6 +1453,29 @@ setup(props) {
 
 .tab-label {
   font-size: 16px;
+}
+
+/* "My Gear" external link styled within the tab bar */
+.tab-button.tab-link {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 14px;
+  padding-right: 14px;
+  color: var(--color-primary-500);
+  border-left: 1px dashed var(--border-light);
+  border-bottom-color: transparent;
+}
+
+.tab-button.tab-link:hover {
+  color: var(--color-primary-600, var(--color-primary-500));
+  background: var(--bg-secondary);
+  border-bottom-color: transparent;
+}
+
+.tab-link-arrow {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-left: 2px;
 }
 
 /* Gear Sections */
