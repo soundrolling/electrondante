@@ -4,6 +4,9 @@ import { supabase } from '../supabase';
 import { fetchTableData } from './dataService';
 import { useToast } from 'vue-toastification';
 import { saveExport } from './exportsService';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('exportService')
 
 const toast = useToast();
 
@@ -140,14 +143,14 @@ export async function exportProjectData(projectId, selections, options = {}) {
           }
         );
       } catch (error) {
-        console.warn('Failed to save export to storage:', error);
+        log.warn('Failed to save export to storage:', error);
         // Don't fail the export if storage save fails
       }
     }
     
     return blob;
   } catch (error) {
-    console.error('Error exporting project data:', error);
+    log.error('Error exporting project data:', error);
     toast.error('Failed to export project data');
     throw error;
   }
@@ -167,7 +170,7 @@ async function exportProjectInfo(projectId, metadataFolder) {
     if (error) throw error;
     metadataFolder.file('project-info.json', JSON.stringify(data, null, 2));
   } catch (error) {
-    console.error('Error exporting project info:', error);
+    log.error('Error exporting project info:', error);
   }
 }
 
@@ -182,7 +185,7 @@ async function exportStages(projectId, metadataFolder) {
     });
     metadataFolder.file('stages.json', JSON.stringify(stages, null, 2));
   } catch (error) {
-    console.error('Error exporting stages:', error);
+    log.error('Error exporting stages:', error);
   }
 }
 
@@ -228,7 +231,7 @@ async function exportDocuments(projectId, metadataFolder, zip, selections) {
               filesCount++;
             }
           } catch (err) {
-            console.warn('Error downloading document:', doc.file_path, err);
+            log.warn('Error downloading document:', doc.file_path, err);
           }
         }
       }
@@ -236,7 +239,7 @@ async function exportDocuments(projectId, metadataFolder, zip, selections) {
 
     return { filesCount };
   } catch (error) {
-    console.error('Error exporting documents:', error);
+    log.error('Error exporting documents:', error);
     return { filesCount: 0 };
   }
 }
@@ -283,7 +286,7 @@ async function exportPictures(projectId, metadataFolder, zip, selections) {
               filesCount++;
             }
           } catch (err) {
-            console.warn('Error downloading picture:', pic.file_path, err);
+            log.warn('Error downloading picture:', pic.file_path, err);
           }
         }
       }
@@ -291,7 +294,7 @@ async function exportPictures(projectId, metadataFolder, zip, selections) {
 
     return { filesCount };
   } catch (error) {
-    console.error('Error exporting pictures:', error);
+    log.error('Error exporting pictures:', error);
     return { filesCount: 0 };
   }
 }
@@ -310,7 +313,7 @@ async function exportGear(projectId, metadataFolder) {
 
     metadataFolder.file('gear.json', JSON.stringify({ gear, assignments }, null, 2));
   } catch (error) {
-    console.error('Error exporting gear:', error);
+    log.error('Error exporting gear:', error);
   }
 }
 
@@ -324,7 +327,7 @@ async function exportContacts(projectId, metadataFolder) {
     });
     metadataFolder.file('contacts.json', JSON.stringify(contacts, null, 2));
   } catch (error) {
-    console.error('Error exporting contacts:', error);
+    log.error('Error exporting contacts:', error);
   }
 }
 
@@ -357,7 +360,7 @@ async function exportTravel(projectId, metadataFolder) {
       documents,
     }, null, 2));
   } catch (error) {
-    console.error('Error exporting travel:', error);
+    log.error('Error exporting travel:', error);
   }
 }
 
@@ -371,7 +374,7 @@ async function exportCalendar(projectId, metadataFolder) {
     });
     metadataFolder.file('calendar-events.json', JSON.stringify(events, null, 2));
   } catch (error) {
-    console.error('Error exporting calendar:', error);
+    log.error('Error exporting calendar:', error);
   }
 }
 
@@ -398,7 +401,7 @@ async function exportNotes(projectId, metadataFolder, selections) {
 
     metadataFolder.file('notes.json', JSON.stringify(notes || [], null, 2));
   } catch (error) {
-    console.error('Error exporting notes:', error);
+    log.error('Error exporting notes:', error);
   }
 }
 
@@ -429,7 +432,7 @@ async function exportArtistTimetables(projectId, metadataFolder, selections) {
 
     metadataFolder.file('artist-timetables.json', JSON.stringify(schedules || [], null, 2));
   } catch (error) {
-    console.error('Error exporting artist timetables:', error);
+    log.error('Error exporting artist timetables:', error);
   }
 }
 

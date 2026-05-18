@@ -4,6 +4,9 @@ import { fetchTableData } from '@/services/dataService'
 import { getSetting, saveSetting } from '@/utils/indexedDB'
 import { toDateTime, t5 } from '@/utils/scheduleHelpers'
 import { supabase } from '@/supabase'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('scheduleNotificationService')
 
 // Track notifications that have been shown to prevent duplicates
 // Key: `${projectId}_${scheduleId}_${recordingDate}_${startTime}_${warningMinutes}`
@@ -119,7 +122,7 @@ async function shouldShowNotificationForUser(projectId) {
           return normalizedUserProjects.includes(normalizedProjectId)
         }
       } catch (e) {
-        console.warn('[ScheduleNotifications] Could not check user projects:', e)
+        log.warn('[ScheduleNotifications] Could not check user projects:', e)
       }
       // Fallback: only show for current project if we can't determine user projects
       return normalizedProjectId === normalizedCurrentProjectId
@@ -128,7 +131,7 @@ async function shouldShowNotificationForUser(projectId) {
     // Default: only current project
     return normalizedProjectId === normalizedCurrentProjectId
   } catch (error) {
-    console.error('[ScheduleNotifications] Error checking user preference:', error)
+    log.error('[ScheduleNotifications] Error checking user preference:', error)
     // Fallback: only show for current project
     const normalizedProjectId = String(projectId)
     const normalizedCurrentProjectId = currentProjectId ? String(currentProjectId) : null
@@ -182,7 +185,7 @@ async function broadcastScheduleNotification(projectId, schedule, warningMinutes
     const channel = subscriptionChannels.get(projectId)
     
     if (!channel) {
-      console.warn(`[ScheduleNotifications] No channel found for project ${projectId}, skipping broadcast`)
+      log.warn(`[ScheduleNotifications] No channel found for project ${projectId}, skipping broadcast`)
       return
     }
     
@@ -204,12 +207,12 @@ async function broadcastScheduleNotification(projectId, schedule, warningMinutes
     })
     
     if (result === 'ok') {
-      console.log(`[ScheduleNotifications] Broadcasted notification for ${schedule.artist_name} in project ${projectId}`)
+      log.info(`[ScheduleNotifications] Broadcasted notification for ${schedule.artist_name} in project ${projectId}`)
     } else {
-      console.warn(`[ScheduleNotifications] Broadcast result: ${result}`)
+      log.warn(`[ScheduleNotifications] Broadcast result: ${result}`)
     }
   } catch (error) {
-    console.error('[ScheduleNotifications] Error broadcasting notification:', error)
+    log.error('[ScheduleNotifications] Error broadcasting notification:', error)
   }
 }
 
@@ -225,7 +228,7 @@ async function getUserProjects(userId, userEmail) {
       .eq('user_id', userId)
     
     if (ownedError) {
-      console.error('[ScheduleNotifications] Error fetching owned projects:', ownedError)
+      log.error('[ScheduleNotifications] Error fetching owned projects:', ownedError)
     }
     
     // Get projects where user is a member
@@ -235,7 +238,7 @@ async function getUserProjects(userId, userEmail) {
       .or(`user_id.eq.${userId},user_email.eq.${userEmail}`)
     
     if (memberError) {
-      console.error('[ScheduleNotifications] Error fetching member projects:', memberError)
+      log.error('[ScheduleNotifications] Error fetching member projects:', memberError)
     }
     
     // Combine and deduplicate project IDs
@@ -249,7 +252,7 @@ async function getUserProjects(userId, userEmail) {
     
     return Array.from(projectIds)
   } catch (error) {
-    console.error('[ScheduleNotifications] Error getting user projects:', error)
+    log.error('[ScheduleNotifications] Error getting user projects:', error)
     return []
   }
 }
@@ -292,7 +295,7 @@ async function checkSchedulesForNotifications() {
       userId = userStore.user?.id
       userEmail = userStore.userEmail || userStore.user?.email
     } catch (e) {
-      console.warn('[ScheduleNotifications] Could not get user store:', e)
+      log.warn('[ScheduleNotifications] Could not get user store:', e)
     }
     
     // Determine which projects to check
@@ -302,7 +305,7 @@ async function checkSchedulesForNotifications() {
       // Get all projects user is a member of
       projectIdsToCheck = await getUserProjects(userId, userEmail)
       if (projectIdsToCheck.length === 0) {
-        console.warn('[ScheduleNotifications] User has no projects, skipping check')
+        log.warn('[ScheduleNotifications] User has no projects, skipping check')
         return
       }
     } else {
@@ -355,10 +358,10 @@ async function checkSchedulesForNotifications() {
                            error?.message?.includes('NetworkError') ||
                            error?.status === 503 || error?.status === 502 || error?.status === 504;
         if (!isNetworkErr) {
-          console.error(`[ScheduleNotifications] Error checking schedules for project ${projectId}:`, error)
+          log.error(`[ScheduleNotifications] Error checking schedules for project ${projectId}:`, error)
         } else {
           // Log network errors at debug level only (throttled)
-          console.debug(`[ScheduleNotifications] Network error checking schedules for project ${projectId} (will retry)`)
+          log.debug(`[ScheduleNotifications] Network error checking schedules for project ${projectId} (will retry)`)
         }
       }
     }
@@ -368,7 +371,7 @@ async function checkSchedulesForNotifications() {
                         error?.message?.includes('NetworkError') ||
                         error?.status === 503 || error?.status === 502 || error?.status === 504;
     if (!isNetworkErr) {
-      console.error('[ScheduleNotifications] Error checking schedules for notifications:', error)
+      log.error('[ScheduleNotifications] Error checking schedules for notifications:', error)
     }
   }
 }
@@ -380,20 +383,20 @@ function subscribeToScheduleNotifications(projectId, callback) {
   try {
     const channel = supabase.channel(`schedule_notifications_${projectId}`)
       .on('broadcast', { event: 'schedule_notification' }, (payload) => {
-        console.log(`[ScheduleNotifications] Received broadcast for project ${projectId}:`, payload.payload)
+        log.info(`[ScheduleNotifications] Received broadcast for project ${projectId}:`, payload.payload)
         callback(payload.payload)
       })
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`[ScheduleNotifications] Subscribed to notifications for project ${projectId}`)
+          log.info(`[ScheduleNotifications] Subscribed to notifications for project ${projectId}`)
           // Store channel for broadcasting
           subscriptionChannels.set(projectId, channel)
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           // Only log error if it's not a network issue (which is expected during outages)
           if (err && !err.message?.includes('WebSocket') && !err.message?.includes('Failed to fetch')) {
-            console.error(`[ScheduleNotifications] Error subscribing to project ${projectId}:`, err)
+            log.error(`[ScheduleNotifications] Error subscribing to project ${projectId}:`, err)
           } else {
-            console.warn(`[ScheduleNotifications] Connection issue for project ${projectId} (will retry on next check)`)
+            log.warn(`[ScheduleNotifications] Connection issue for project ${projectId} (will retry on next check)`)
           }
         }
       })
@@ -402,7 +405,7 @@ function subscribeToScheduleNotifications(projectId, callback) {
   } catch (error) {
     // Only log unexpected errors, not network/WebSocket errors
     if (!error.message?.includes('WebSocket') && !error.message?.includes('Failed to fetch')) {
-      console.error(`[ScheduleNotifications] Error setting up subscription for project ${projectId}:`, error)
+      log.error(`[ScheduleNotifications] Error setting up subscription for project ${projectId}:`, error)
     }
     return null
   }
@@ -431,7 +434,7 @@ export async function startScheduleNotifications(projectId = null, intervalSecon
       }
     } catch (e) {
       // userStore might not be available yet
-      console.warn('[ScheduleNotifications] Could not get project from store:', e)
+      log.warn('[ScheduleNotifications] Could not get project from store:', e)
     }
   }
   
@@ -450,13 +453,13 @@ export async function startScheduleNotifications(projectId = null, intervalSecon
       if (userId && userEmail) {
         projectIdsToMonitor = await getUserProjects(userId, userEmail)
       } else {
-        console.warn('[ScheduleNotifications] Cannot get user info for all_projects scope')
+        log.warn('[ScheduleNotifications] Cannot get user info for all_projects scope')
         if (currentProjectId) {
           projectIdsToMonitor = [currentProjectId]
         }
       }
     } catch (e) {
-      console.error('[ScheduleNotifications] Error getting user projects:', e)
+      log.error('[ScheduleNotifications] Error getting user projects:', e)
       if (currentProjectId) {
         projectIdsToMonitor = [currentProjectId]
       }
@@ -464,14 +467,14 @@ export async function startScheduleNotifications(projectId = null, intervalSecon
   } else {
     // Only monitor current project
     if (!currentProjectId) {
-      console.warn('[ScheduleNotifications] No project ID available, not starting monitoring')
+      log.warn('[ScheduleNotifications] No project ID available, not starting monitoring')
       return
     }
     projectIdsToMonitor = [currentProjectId]
   }
   
   if (projectIdsToMonitor.length === 0) {
-    console.warn('[ScheduleNotifications] No projects to monitor')
+    log.warn('[ScheduleNotifications] No projects to monitor')
     return
   }
   
@@ -507,7 +510,7 @@ export async function startScheduleNotifications(projectId = null, intervalSecon
     checkSchedulesForNotifications()
   }, intervalSeconds * 1000)
   
-  console.log(`[ScheduleNotifications] Started monitoring ${projectIdsToMonitor.length} project(s) (checking every ${intervalSeconds}s)`)
+  log.info(`[ScheduleNotifications] Started monitoring ${projectIdsToMonitor.length} project(s) (checking every ${intervalSeconds}s)`)
 }
 
 /**
@@ -524,13 +527,13 @@ export function stopScheduleNotifications() {
     try {
       supabase.removeChannel(subscription)
     } catch (error) {
-      console.error('[ScheduleNotifications] Error removing subscription:', error)
+      log.error('[ScheduleNotifications] Error removing subscription:', error)
     }
   }
   activeSubscriptions = []
   subscriptionChannels.clear()
   
-  console.log('[ScheduleNotifications] Stopped monitoring')
+  log.info('[ScheduleNotifications] Stopped monitoring')
 }
 
 /**

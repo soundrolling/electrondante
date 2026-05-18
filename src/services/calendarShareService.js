@@ -10,6 +10,9 @@
  */
 
 import { supabase } from '@/supabase'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('calendarShareService')
 
 function generateToken() {
   const bytes = new Uint8Array(24)
@@ -55,7 +58,7 @@ export async function getActiveShare(projectId) {
     .limit(1)
     .maybeSingle()
   if (error) {
-    console.error('[calendarShareService] getActiveShare', error)
+    log.error('[calendarShareService] getActiveShare', error)
     return null
   }
   return data || null
@@ -96,7 +99,7 @@ export async function revokeActiveShare(projectId) {
     .eq('project_id', projectId)
     .eq('revoked', false)
   if (error) {
-    console.error('[calendarShareService] revokeActiveShare', error)
+    log.error('[calendarShareService] revokeActiveShare', error)
     return false
   }
   return true

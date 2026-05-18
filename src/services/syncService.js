@@ -50,6 +50,9 @@ import {
   CACHE_SCHEMA_VERSION,
 } from '@/utils/indexedDB';
 import { useToast } from 'vue-toastification';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('syncService')
 
 export const isSyncing = ref(false);
 export const lastSyncedAt = ref(null);
@@ -185,7 +188,7 @@ async function applyOpWithRetry(table, operation, data, entryValue, verbose) {
       }
       const wait = Math.min(BACKOFF_BASE_MS * 2 ** (attempt - 1), BACKOFF_CAP_MS);
       if (verbose) {
-        console.warn(
+        log.warn(
           `[sync] retry ${attempt}/${MAX_ATTEMPTS} for ${operation} ${table} ` +
           `in ${wait}ms (${entryValue.data._last_error})`
         );
@@ -222,7 +225,7 @@ async function applyUpdateLocally(table, id, updated) {
  */
 export async function syncOfflineChanges(verbose = false) {
   if (isSyncing.value) {
-    if (verbose) console.log('[syncOfflineChanges] Already syncing, skipping');
+    if (verbose) log.info('[syncOfflineChanges] Already syncing, skipping');
     return { successCount: 0, failCount: 0, conflictCount: 0, alreadySyncing: true };
   }
   isSyncing.value = true;
@@ -233,7 +236,7 @@ export async function syncOfflineChanges(verbose = false) {
     await invalidateStaleCaches();
 
     const entries = await getAllOfflineChangesWithKeys();
-    if (verbose) console.log(`[syncOfflineChanges] Found ${entries.length} items to sync`);
+    if (verbose) log.info(`[syncOfflineChanges] Found ${entries.length} items to sync`);
 
     let successCount = 0;
     let failCount = 0;
@@ -257,7 +260,7 @@ export async function syncOfflineChanges(verbose = false) {
         data = rewriteTempIds(data, tempIdMap);
 
         if (verbose) {
-          console.log(
+          log.info(
             `[syncOfflineChanges] ${operation.toUpperCase()} ${table} ` +
             `(op_uuid=${data?._op_uuid || 'none'})`, data
           );
@@ -268,7 +271,7 @@ export async function syncOfflineChanges(verbose = false) {
         if (opUuid) {
           const prior = await getCompletedOp(opUuid);
           if (prior) {
-            if (verbose) console.log(`[syncOfflineChanges] op ${opUuid} already applied, skipping`);
+            if (verbose) log.info(`[syncOfflineChanges] op ${opUuid} already applied, skipping`);
             // If a prior insert created the row, make sure the map is fresh.
             if (operation === 'insert' && prior.serverId && data._temp_id) {
               if (tempIdMap[data._temp_id] !== prior.serverId) {
@@ -299,7 +302,7 @@ export async function syncOfflineChanges(verbose = false) {
           if (result.conflict) {
             conflictCount++;
             if (verbose) {
-              console.warn(
+              log.warn(
                 `[syncOfflineChanges] CONFLICT on ${table} id=${data.id}: ` +
                 `server moved past _expected_updated_at — applied last-write-wins`
               );
@@ -315,7 +318,7 @@ export async function syncOfflineChanges(verbose = false) {
         await deleteOfflineChangeByKey(key);
         successCount++;
       } catch (err) {
-        console.error('[syncOfflineChanges] Failed to sync change:', err, value);
+        log.error('[syncOfflineChanges] Failed to sync change:', err, value);
         failCount++;
         // Persist the attempt count + last error so a future sync starts from
         // here rather than at zero. The op remains in the queue for next time.
@@ -350,7 +353,7 @@ export async function syncOfflineChanges(verbose = false) {
     lastSyncedAt.value = Date.now();
     return { successCount, failCount, conflictCount };
   } catch (err) {
-    console.error('[syncOfflineChanges] Failed to sync queue:', err);
+    log.error('[syncOfflineChanges] Failed to sync queue:', err);
     if (typeof window !== 'undefined') useToast()?.error('Failed to sync offline changes');
     throw err;
   } finally {

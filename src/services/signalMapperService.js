@@ -3,6 +3,9 @@ import { supabase } from '../supabase'
 import { buildGraph, getNodeType } from './signalGraph'
 import { getOutputLabel as svcGetOutputLabel } from './portLabelService'
 import { getCached, setCached, invalidateTableCache, invalidateProjectCache } from './cacheService'
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('signalMapperService')
 
 // --- CRUD for Nodes ---
 // Helper function to normalize recorder nodes
@@ -88,7 +91,7 @@ export async function getNodes(projectId, locationId = null, stageHourId = null)
           )
         )
       } catch (err) {
-        console.warn('Failed to update some recorder nodes:', err)
+        log.warn('Failed to update some recorder nodes:', err)
         // Continue even if some updates fail
       }
     }
@@ -284,11 +287,11 @@ export async function deleteConnection(id) {
       .delete()
       .eq('connection_id', id)
     if (portMapError) {
-      console.error('Error deleting port mappings:', portMapError)
+      log.error('Error deleting port mappings:', portMapError)
       // Continue with connection deletion even if port mapping deletion fails
     }
   } catch (err) {
-    console.error('Error deleting port mappings:', err)
+    log.error('Error deleting port mappings:', err)
     // Continue with connection deletion
   }
   
@@ -326,14 +329,14 @@ export function subscribeToNodes(projectId, callback) {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           // Only log non-network errors to avoid console spam
           if (err && !err.message?.includes('WebSocket') && !err.message?.includes('Failed to fetch')) {
-            console.warn(`[SignalMapper] WebSocket subscription error for nodes (project ${projectId}):`, err)
+            log.warn(`[SignalMapper] WebSocket subscription error for nodes (project ${projectId}):`, err)
           }
         }
       })
   } catch (error) {
     // Only log unexpected errors
     if (!error.message?.includes('WebSocket') && !error.message?.includes('Failed to fetch')) {
-      console.warn(`[SignalMapper] Error setting up nodes subscription (project ${projectId}):`, error)
+      log.warn(`[SignalMapper] Error setting up nodes subscription (project ${projectId}):`, error)
     }
     return null
   }
@@ -358,14 +361,14 @@ export function subscribeToConnections(projectId, callback) {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           // Only log non-network errors to avoid console spam
           if (err && !err.message?.includes('WebSocket') && !err.message?.includes('Failed to fetch')) {
-            console.warn(`[SignalMapper] WebSocket subscription error for connections (project ${projectId}):`, err)
+            log.warn(`[SignalMapper] WebSocket subscription error for connections (project ${projectId}):`, err)
           }
         }
       })
   } catch (error) {
     // Only log unexpected errors
     if (!error.message?.includes('WebSocket') && !error.message?.includes('Failed to fetch')) {
-      console.warn(`[SignalMapper] Error setting up connections subscription (project ${projectId}):`, error)
+      log.warn(`[SignalMapper] Error setting up connections subscription (project ${projectId}):`, error)
     }
     return null
   }
@@ -405,7 +408,7 @@ export async function getSourceLabelFromNode(node, outputPort) {
         .maybeSingle()
       
       if (error) {
-        console.error('Error querying venue_source_feeds:', error)
+        log.error('Error querying venue_source_feeds:', error)
         return null
       }
       
@@ -437,7 +440,7 @@ export async function getSourceLabelFromNode(node, outputPort) {
         }
       }
     } catch (err) {
-      console.error('Error in getSourceLabelFromNode for venue_sources:', err)
+      log.error('Error in getSourceLabelFromNode for venue_sources:', err)
     }
     return null
   }
@@ -546,7 +549,7 @@ export async function propagateVenueSourceNameChanges(venueSourceNodeId, project
       invalidateTableCache('nodes', projectId)
     }
   } catch (err) {
-    console.error('Error propagating venue source name changes:', err)
+    log.error('Error propagating venue source name changes:', err)
     // Don't throw - this is a background update
   }
 }
@@ -1753,7 +1756,7 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
           .insert(portMapsToInsert)
         
         if (insertPortMapError) {
-          console.error('Error copying port maps:', insertPortMapError)
+          log.error('Error copying port maps:', insertPortMapError)
           // Don't throw - port maps are optional
         }
       }
@@ -1818,7 +1821,7 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
           .insert(gainsToInsert)
         
         if (insertGainError) {
-          console.error('Error copying transformer input gains:', insertGainError)
+          log.error('Error copying transformer input gains:', insertGainError)
           // Don't throw - gains are optional
         }
       }

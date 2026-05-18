@@ -3,6 +3,9 @@
 import { defineStore } from 'pinia';
 import en from '@/locales/en';
 import es from '@/locales/es';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('i18nStore')
 
 const LOCALE_STORAGE_KEY = 'app-locale';
 const SUPPORTED = ['en', 'es'];
@@ -70,7 +73,7 @@ export const useI18nStore = defineStore('i18nStore', {
 
     setLocale(locale) {
       if (!SUPPORTED.includes(locale)) {
-        console.warn(`Unsupported locale "${locale}". Supported: ${SUPPORTED.join(', ')}`);
+        log.warn(`Unsupported locale "${locale}". Supported: ${SUPPORTED.join(', ')}`);
         return;
       }
       this.locale = locale;
@@ -78,7 +81,7 @@ export const useI18nStore = defineStore('i18nStore', {
       try {
         localStorage.setItem(LOCALE_STORAGE_KEY, locale);
       } catch (e) {
-        console.warn('Failed to persist locale:', e);
+        log.warn('Failed to persist locale:', e);
       }
     },
 

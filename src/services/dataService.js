@@ -11,6 +11,9 @@ import {
   clearOfflineChanges,
   getSetting,
 } from '@/utils/indexedDB';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('dataService')
 
 const toast = useToast();
 
@@ -94,9 +97,9 @@ async function registerBackgroundSync() {
     try {
       const reg = await navigator.serviceWorker.ready;
       await reg.sync.register('sync-notes');
-      console.log('[registerBackgroundSync] registered');
+      log.info('[registerBackgroundSync] registered');
     } catch (err) {
-      console.warn('[registerBackgroundSync] failed:', err);
+      log.warn('[registerBackgroundSync] failed:', err);
     }
   }
 }
@@ -138,9 +141,9 @@ export async function fetchTableData(tableName, options = {}) {
       // Only log if not throttled
       if (shouldLogError(tableName, 'fetch', errorMessage)) {
         if (isNetworkErr) {
-          console.warn(`[fetchTableData] Network error for ${tableName}, using cached data:`, errorMessage);
+          log.warn(`[fetchTableData] Network error for ${tableName}, using cached data:`, errorMessage);
         } else {
-          console.error(`[fetchTableData] Error fetching ${tableName}:`, error);
+          log.error(`[fetchTableData] Error fetching ${tableName}:`, error);
         }
       }
       
@@ -167,7 +170,7 @@ export async function fetchTableData(tableName, options = {}) {
     const mergedData = [...data, ...offlineNotes];
     await saveData(tableName, mergedData);
     
-    console.log(`[fetchTableData] Fetched ${data.length} online items, merged with ${offlineNotes.length} offline items`);
+    log.info(`[fetchTableData] Fetched ${data.length} online items, merged with ${offlineNotes.length} offline items`);
     return mergedData;
   } catch (e) {
     // Handle network exceptions (Failed to fetch, etc.)
@@ -176,9 +179,9 @@ export async function fetchTableData(tableName, options = {}) {
     
     if (shouldLogError(tableName, 'exception', errorMessage)) {
       if (isNetworkErr) {
-        console.warn(`[fetchTableData] Network exception for ${tableName}, using cached data:`, errorMessage);
+        log.warn(`[fetchTableData] Network exception for ${tableName}, using cached data:`, errorMessage);
       } else {
-        console.error(`[fetchTableData] Exception for ${tableName}:`, e);
+        log.error(`[fetchTableData] Exception for ${tableName}:`, e);
       }
     }
     
@@ -359,9 +362,9 @@ export async function mutateTableData(tableName, operation, data) {
     
     if (shouldLogError(tableName, 'mutate', errorMessage)) {
       if (isNetworkErr) {
-        console.warn(`[mutateTableData] Network error for ${tableName}:`, errorMessage);
+        log.warn(`[mutateTableData] Network error for ${tableName}:`, errorMessage);
       } else {
-        console.error(`[mutateTableData] Error for ${tableName}:`, e);
+        log.error(`[mutateTableData] Error for ${tableName}:`, e);
       }
     }
     
@@ -379,7 +382,7 @@ let isSyncing = false;
 export async function syncOfflineChanges() {
   if (!navigator.onLine) return;
   if (isSyncing) {
-    console.log('[syncOfflineChanges] Sync already in progress, skipping');
+    log.info('[syncOfflineChanges] Sync already in progress, skipping');
     return;
   }
   
@@ -388,13 +391,13 @@ export async function syncOfflineChanges() {
 
   const jwt = await getSetting('supabase-token', null);
   if (!jwt) {
-    console.warn('[syncOfflineChanges] No Supabase token in IndexedDB');
+    log.warn('[syncOfflineChanges] No Supabase token in IndexedDB');
     return;
   }
 
   const changesWithKeys = await getAllOfflineChangesWithKeys();
   if (!changesWithKeys.length) {
-    console.log('[syncOfflineChanges] No queued changes to sync');
+    log.info('[syncOfflineChanges] No queued changes to sync');
     return;
   }
 
@@ -404,13 +407,13 @@ export async function syncOfflineChanges() {
   for (const entry of changesWithKeys) {
     const { key, value: change } = entry;
     const { table, operation, data } = change;
-    console.log(`[syncOfflineChanges] Processing change:`, { table, operation, key });
-    console.log(`[syncOfflineChanges] Original data:`, data);
+    log.info(`[syncOfflineChanges] Processing change:`, { table, operation, key });
+    log.info(`[syncOfflineChanges] Original data:`, data);
     try {
       if (operation === 'insert') {
         // Strip all local-only fields before sending to Supabase
         const clean = stripLocalFields(data);
-        console.log(`[syncOfflineChanges] Inserting to ${table}:`, clean);
+        log.info(`[syncOfflineChanges] Inserting to ${table}:`, clean);
         const { data: inserted, error } = await supabase.from(table).insert(clean).select().single();
         if (error) throw error;
         // Remove the temp note and add the real one
@@ -426,7 +429,7 @@ export async function syncOfflineChanges() {
       } else if (operation === 'update') {
         // Strip all local-only fields before sending to Supabase
         const updFields = stripLocalFields(data);
-        console.log(`[syncOfflineChanges] Updating ${table}:`, updFields);
+        log.info(`[syncOfflineChanges] Updating ${table}:`, updFields);
         const { data: updated, error } = await supabase.from(table).update(updFields).eq('id', updFields.id).select();
         if (error) throw error;
         // Update the specific item in local storage
@@ -440,14 +443,14 @@ export async function syncOfflineChanges() {
         if (error) throw error;
         await deleteData(table, data.id);
       } else {
-        console.warn('[syncOfflineChanges] Unknown change type:', operation);
+        log.warn('[syncOfflineChanges] Unknown change type:', operation);
       }
       await deleteOfflineChangeByKey(key);
       success++;
     } catch (err) {
-      console.error(`[syncOfflineChanges] Failed to sync change (key=${key}):`, err);
-      console.error(`[syncOfflineChanges] Change data:`, change);
-      console.error(`[syncOfflineChanges] Table: ${table}, Operation: ${operation}`);
+      log.error(`[syncOfflineChanges] Failed to sync change (key=${key}):`, err);
+      log.error(`[syncOfflineChanges] Change data:`, change);
+      log.error(`[syncOfflineChanges] Table: ${table}, Operation: ${operation}`);
       fail++;
     }
   }

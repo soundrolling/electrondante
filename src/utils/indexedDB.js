@@ -1,4 +1,7 @@
 import { useToast } from 'vue-toastification';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('indexedDB')
 const toast = useToast();
 
 const DB_NAME = 'ProjectManagementDB';
@@ -78,7 +81,7 @@ export async function openDB() {
     };
 
     request.onerror = (event) => {
-      console.error('IndexedDB open error:', event.target.error);
+      log.error('IndexedDB open error:', event.target.error);
       toast.error(`Database open failed: ${event.target.error}`);
       reject(event.target.error);
     };
@@ -89,12 +92,12 @@ export function waitForTransaction(tx) {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => {
-      console.error('Transaction error:', tx.error);
+      log.error('Transaction error:', tx.error);
       toast.error(`DB transaction error: ${tx.error}`);
       reject(tx.error);
     };
     tx.onabort = () => {
-      console.error('Transaction aborted:', tx.error);
+      log.error('Transaction aborted:', tx.error);
       toast.error(`DB transaction aborted: ${tx.error}`);
       reject(tx.error);
     };
@@ -115,7 +118,7 @@ export async function saveData(storeName, data) {
 
     await waitForTransaction(tx);
   } catch (e) {
-    console.error(`saveData(${storeName}) failed:`, e);
+    log.error(`saveData(${storeName}) failed:`, e);
     toast.error(`Save to ${storeName} failed: ${e.message}`);
   }
 }
@@ -134,13 +137,13 @@ export async function getData(storeName, key = null) {
 
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => {
-        console.error(`getData(${storeName}) error:`, req.error);
+        log.error(`getData(${storeName}) error:`, req.error);
         toast.error(`Read ${storeName} failed: ${req.error}`);
         reject(req.error);
       };
     });
   } catch (e) {
-    console.error(`getData(${storeName}) exception:`, e);
+    log.error(`getData(${storeName}) exception:`, e);
     toast.error(`Read ${storeName} exception: ${e.message}`);
     return key !== null ? null : [];
   }
@@ -154,7 +157,7 @@ export async function deleteData(storeName, key) {
     store.delete(key);
     await waitForTransaction(tx);
   } catch (e) {
-    console.error(`deleteData(${storeName}, ${key}) failed:`, e);
+    log.error(`deleteData(${storeName}, ${key}) failed:`, e);
     toast.error(`Delete from ${storeName} failed: ${e.message}`);
   }
 }
@@ -206,7 +209,7 @@ async function _doAddOfflineChange(change) {
     tx.objectStore('offlineChanges').add({ ...change, timestamp: Date.now() });
     await waitForTransaction(tx);
   } catch (e) {
-    console.error('addOfflineChange failed:', e);
+    log.error('addOfflineChange failed:', e);
     toast.error(`Queue change failed: ${e.message}`);
   }
 }
@@ -239,7 +242,7 @@ export async function deleteOfflineChangeByKey(key) {
     tx.objectStore('offlineChanges').delete(key);
     await waitForTransaction(tx);
   } catch (e) {
-    console.error(`deleteOfflineChangeByKey(${key}) failed:`, e);
+    log.error(`deleteOfflineChangeByKey(${key}) failed:`, e);
     toast.error(`Delete offline change failed: ${e.message}`);
   }
 }
@@ -251,7 +254,7 @@ export async function clearOfflineChanges() {
     tx.objectStore('offlineChanges').clear();
     await waitForTransaction(tx);
   } catch (e) {
-    console.error('clearOfflineChanges failed:', e);
+    log.error('clearOfflineChanges failed:', e);
     toast.error(`Clear offline queue failed: ${e.message}`);
   }
 }
@@ -263,7 +266,7 @@ export async function saveSetting(key, value) {
     tx.objectStore('settings').put({ key, value });
     await waitForTransaction(tx);
   } catch (e) {
-    console.error(`saveSetting(${key}) failed:`, e);
+    log.error(`saveSetting(${key}) failed:`, e);
     toast.error(`Save setting failed: ${e.message}`);
   }
 }
@@ -279,13 +282,13 @@ export async function getSetting(key, defaultValue = null) {
         resolve(req.result ? req.result.value : defaultValue);
       };
       req.onerror = () => {
-        console.error(`getSetting(${key}) error:`, req.error);
+        log.error(`getSetting(${key}) error:`, req.error);
         toast.error(`Read setting failed: ${req.error}`);
         reject(req.error);
       };
     });
   } catch (e) {
-    console.error(`getSetting(${key}) exception:`, e);
+    log.error(`getSetting(${key}) exception:`, e);
     toast.error(`Read setting exception: ${e.message}`);
     return defaultValue;
   }
@@ -300,7 +303,7 @@ export async function clearAllData() {
       await waitForTransaction(tx);
     }
   } catch (e) {
-    console.error('clearAllData failed:', e);
+    log.error('clearAllData failed:', e);
     toast.error(`Clear local data failed: ${e.message}`);
   }
 }
@@ -322,7 +325,7 @@ export async function storeDocumentFile(filePath, fileBlob) {
     store.put({ filePath, blob: fileBlob });
     await waitForTransaction(tx);
   } catch (e) {
-    console.error(`storeDocumentFile(${filePath}) failed:`, e);
+    log.error(`storeDocumentFile(${filePath}) failed:`, e);
     toast.error(`Store document file failed: ${e.message}`);
   }
 }
@@ -362,7 +365,7 @@ export async function getCacheMeta(key) {
       req.onerror = () => reject(req.error);
     });
   } catch (e) {
-    console.error(`getCacheMeta(${key}) failed:`, e);
+    log.error(`getCacheMeta(${key}) failed:`, e);
     return null;
   }
 }
@@ -382,7 +385,7 @@ export async function setCacheMeta(record) {
     tx.objectStore('_cache_meta').put(record);
     await waitForTransaction(tx);
   } catch (e) {
-    console.error(`setCacheMeta failed:`, e);
+    log.error(`setCacheMeta failed:`, e);
   }
 }
 
@@ -420,11 +423,11 @@ export async function invalidateStaleCaches() {
           lastSyncedAt: 0,
           schemaVersion: CACHE_SCHEMA_VERSION,
         });
-        console.log(`[invalidateStaleCaches] cleared stale cache for ${tableName}`);
+        log.info(`[invalidateStaleCaches] cleared stale cache for ${tableName}`);
       }
     }
   } catch (e) {
-    console.error('invalidateStaleCaches failed:', e);
+    log.error('invalidateStaleCaches failed:', e);
   }
 }
 
@@ -491,13 +494,13 @@ export async function getDocumentFile(filePath) {
         resolve(result ? result.blob : null);
       };
       req.onerror = () => {
-        console.error(`getDocumentFile(${filePath}) error:`, req.error);
+        log.error(`getDocumentFile(${filePath}) error:`, req.error);
         toast.error(`Retrieve document file failed: ${req.error}`);
         reject(req.error);
       };
     });
   } catch (e) {
-    console.error(`getDocumentFile(${filePath}) exception:`, e);
+    log.error(`getDocumentFile(${filePath}) exception:`, e);
     toast.error(`Retrieve document file exception: ${e.message}`);
     return null;
   }

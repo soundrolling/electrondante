@@ -1,3 +1,7 @@
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('gearConflictHelper')
+
 /**
  * Utility functions for checking gear assignment conflicts based on project dates
  */
@@ -97,7 +101,7 @@ export async function checkGearAssignmentConflicts(userGearId, currentProjectId,
       .neq('project_id', currentProjectId);
     
     if (gearError) {
-      console.error('Error checking gear conflicts:', gearError);
+      log.error('Error checking gear conflicts:', gearError);
       return [];
     }
     
@@ -115,7 +119,7 @@ export async function checkGearAssignmentConflicts(userGearId, currentProjectId,
       .in('id', otherProjectIds);
     
     if (projectsError) {
-      console.error('Error fetching projects for conflict check:', projectsError);
+      log.error('Error fetching projects for conflict check:', projectsError);
       return [];
     }
     
@@ -125,27 +129,27 @@ export async function checkGearAssignmentConflicts(userGearId, currentProjectId,
     
     // If current project has no dates, no conflicts are possible (gear can be used anytime)
     if (currentDates.length === 0) {
-      console.log('[gearConflictHelper] Current project has no dates, no conflicts possible');
+      log.info('[gearConflictHelper] Current project has no dates, no conflicts possible');
       return [];
     }
     
-    console.log('[gearConflictHelper] Checking conflicts for project with dates:', currentDates);
+    log.info('[gearConflictHelper] Checking conflicts for project with dates:', currentDates);
     
     for (const otherProject of otherProjects || []) {
       const otherDates = getAllProjectDates(otherProject);
       
       // If other project has no dates, no conflict (it's not scheduled)
       if (otherDates.length === 0) {
-        console.log(`[gearConflictHelper] Project "${otherProject.project_name}" has no dates, skipping conflict check`);
+        log.info(`[gearConflictHelper] Project "${otherProject.project_name}" has no dates, skipping conflict check`);
         continue;
       }
       
-      console.log(`[gearConflictHelper] Comparing with project "${otherProject.project_name}" dates:`, otherDates);
+      log.info(`[gearConflictHelper] Comparing with project "${otherProject.project_name}" dates:`, otherDates);
       
       // Only create conflict if dates actually overlap
       if (datesOverlap(currentDates, otherDates)) {
         const overlappingDates = currentDates.filter(d => otherDates.includes(d));
-        console.log(`[gearConflictHelper] CONFLICT FOUND! Overlapping dates:`, overlappingDates);
+        log.info(`[gearConflictHelper] CONFLICT FOUND! Overlapping dates:`, overlappingDates);
         
         conflicts.push({
           project_name: otherProject.project_name || 'Unknown Project',
@@ -158,14 +162,14 @@ export async function checkGearAssignmentConflicts(userGearId, currentProjectId,
           }
         });
       } else {
-        console.log(`[gearConflictHelper] No conflict - dates don't overlap`);
+        log.info(`[gearConflictHelper] No conflict - dates don't overlap`);
       }
     }
     
-    console.log(`[gearConflictHelper] Total conflicts found:`, conflicts.length);
+    log.info(`[gearConflictHelper] Total conflicts found:`, conflicts.length);
     return conflicts;
   } catch (error) {
-    console.error('Error in checkGearAssignmentConflicts:', error);
+    log.error('Error in checkGearAssignmentConflicts:', error);
     return [];
   }
 }

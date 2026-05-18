@@ -1,6 +1,9 @@
 // src/stores/themeStore.js
 
 import { defineStore } from 'pinia';
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('themeStore')
 
 const THEME_STORAGE_KEY = 'app-theme';
 
@@ -33,7 +36,7 @@ const getInitialTheme = () => {
     // No stored preference, use system preference
     return getSystemPreference();
   } catch (e) {
-    console.warn('Failed to read theme from localStorage:', e);
+    log.warn('Failed to read theme from localStorage:', e);
     return getSystemPreference();
   }
 };
@@ -86,7 +89,7 @@ export const useThemeStore = defineStore('themeStore', {
       try {
         localStorage.setItem(THEME_STORAGE_KEY, this.theme);
       } catch (e) {
-        console.warn('Failed to save theme to localStorage:', e);
+        log.warn('Failed to save theme to localStorage:', e);
       }
     },
 
@@ -95,7 +98,7 @@ export const useThemeStore = defineStore('themeStore', {
      */
     setTheme(theme) {
       if (theme !== 'light' && theme !== 'dark') {
-        console.warn(`Invalid theme: ${theme}. Must be 'light' or 'dark'.`);
+        log.warn(`Invalid theme: ${theme}. Must be 'light' or 'dark'.`);
         return;
       }
       
@@ -107,7 +110,7 @@ export const useThemeStore = defineStore('themeStore', {
       try {
         localStorage.setItem(THEME_STORAGE_KEY, this.theme);
       } catch (e) {
-        console.warn('Failed to save theme to localStorage:', e);
+        log.warn('Failed to save theme to localStorage:', e);
       }
     },
 
@@ -124,7 +127,7 @@ export const useThemeStore = defineStore('themeStore', {
       try {
         localStorage.removeItem(THEME_STORAGE_KEY);
       } catch (e) {
-        console.warn('Failed to clear theme from localStorage:', e);
+        log.warn('Failed to clear theme from localStorage:', e);
       }
     },
   },

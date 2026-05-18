@@ -1,4 +1,8 @@
 // PWA Service - Handles installation, updates, and offline functionality
+import { createLogger } from '@/utils/log'
+
+const log = createLogger('pwaService')
+
 class PWAService {
   constructor() {
     this.deferredPrompt = null;
@@ -44,7 +48,7 @@ class PWAService {
           scope: '/'
         });
         
-        console.log('Service Worker registered successfully:', this.swRegistration);
+        log.info('Service Worker registered successfully:', this.swRegistration);
         
         // Listen for updates
         this.swRegistration.addEventListener('updatefound', () => {
@@ -77,7 +81,7 @@ class PWAService {
         }
         
       } catch (error) {
-        console.error('Service Worker registration failed:', error);
+        log.error('Service Worker registration failed:', error);
       }
     }
   }
@@ -135,14 +139,14 @@ class PWAService {
       // Wait for the user to respond
       const { outcome } = await this.deferredPrompt.userChoice;
       
-      console.log(`User ${outcome} the install prompt`);
+      log.info(`User ${outcome} the install prompt`);
       
       // Clear the deferred prompt
       this.deferredPrompt = null;
       
       return outcome === 'accepted';
     } catch (error) {
-      console.error('Error installing PWA:', error);
+      log.error('Error installing PWA:', error);
       throw error;
     }
   }
@@ -161,7 +165,7 @@ class PWAService {
       // Reload the page
       window.location.reload();
     } catch (error) {
-      console.error('Error updating PWA:', error);
+      log.error('Error updating PWA:', error);
       throw error;
     }
   }
@@ -175,37 +179,37 @@ class PWAService {
   // Notification methods (to be implemented by components)
   notifyInstallAvailable() {
     // This will be overridden by components that need to show install UI
-    console.log('PWA install available');
+    log.info('PWA install available');
   }
 
   notifyInstalled() {
     // This will be overridden by components that need to show installed UI
-    console.log('PWA installed successfully');
+    log.info('PWA installed successfully');
   }
 
   notifyUpdateAvailable() {
     // This will be overridden by components that need to show update UI
-    console.log('PWA update available');
+    log.info('PWA update available');
   }
 
   notifyOnlineStatus(isOnline) {
     // This will be overridden by components that need to show online status
-    console.log('PWA online status:', isOnline);
+    log.info('PWA online status:', isOnline);
   }
 
   handleServiceWorkerMessage(data) {
     switch (data.type) {
       case 'CACHE_UPDATED':
-        console.log('Cache updated:', data.payload);
+        log.info('Cache updated:', data.payload);
         break;
       case 'SYNC_COMPLETE':
-        console.log('Background sync complete:', data.payload);
+        log.info('Background sync complete:', data.payload);
         break;
       case 'OFFLINE_ACTION_QUEUED':
-        console.log('Offline action queued:', data.payload);
+        log.info('Offline action queued:', data.payload);
         break;
       default:
-        console.log('Unknown service worker message:', data);
+        log.info('Unknown service worker message:', data);
     }
   }
 
@@ -239,7 +243,7 @@ class PWAService {
       const isAuthenticated = await this.isUserAuthenticated();
       return !this.isInstalled && this.deferredPrompt !== null && isAuthenticated;
     } catch (error) {
-      console.error('Error checking canInstall:', error);
+      log.error('Error checking canInstall:', error);
       return false;
     }
   }
@@ -248,7 +252,7 @@ class PWAService {
     try {
       return this.updateAvailable;
     } catch (error) {
-      console.error('Error checking hasUpdate:', error);
+      log.error('Error checking hasUpdate:', error);
       return false;
     }
   }
@@ -257,7 +261,7 @@ class PWAService {
     try {
       return this.onlineStatus;
     } catch (error) {
-      console.error('Error checking getOnlineStatus:', error);
+      log.error('Error checking getOnlineStatus:', error);
       return navigator.onLine;
     }
   }
@@ -274,7 +278,7 @@ class PWAService {
       await Promise.all(
         cacheNames.map(cacheName => caches.delete(cacheName))
       );
-      console.log('All caches cleared');
+      log.info('All caches cleared');
     }
   }
 
