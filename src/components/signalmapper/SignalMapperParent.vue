@@ -112,7 +112,18 @@
 
   <!-- Tab Content -->
   <div class="tab-content">
-    <div v-if="!selectedStageHourId && effectiveLocationId" class="no-stage-hour-message">
+    <div v-if="effectiveLocationId && !stageHours.length" class="no-stage-hour-message empty-state">
+      <Calendar :size="32" :stroke-width="1.5" class="empty-icon" />
+      <h3 class="empty-title">No recording days yet</h3>
+      <p class="empty-body">
+        The signal mapper organises mics, signal flow and tracks per recording day.
+        Add at least one recording day for <strong>{{ currentLocation?.stage_name || 'this stage' }}</strong> to get started.
+      </p>
+      <button class="btn btn-primary empty-cta" @click="goToProjectLocations">
+        Add recording days in Project Locations
+      </button>
+    </div>
+    <div v-else-if="!selectedStageHourId && effectiveLocationId" class="no-stage-hour-message">
       <p>Please select a recording day to view signal mapper data.</p>
     </div>
     <!-- Use KeepAlive to preserve component state when switching tabs -->
@@ -772,6 +783,10 @@ const sourceNodes = computed(() => {
 
 // Navigation
 const goBack = () => router.back()
+
+function goToProjectLocations() {
+  router.push({ name: 'ProjectLocations', params: { id: props.projectId } })
+}
 
 // Set active tab and update URL
 function setActiveTab(tab) {
@@ -1439,6 +1454,32 @@ onMounted(async () => {
   text-align: center;
   color: var(--text-tertiary);
   font-size: var(--text-sm);
+}
+.no-stage-hour-message.empty-state {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.no-stage-hour-message .empty-icon {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.no-stage-hour-message .empty-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-heading, var(--text-primary));
+}
+.no-stage-hour-message .empty-body {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.no-stage-hour-message .empty-cta {
+  margin-top: var(--space-2);
 }
 
 /* ─── Mobile bottom tab nav (fixed) ────────────────────── */
