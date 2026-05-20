@@ -30,6 +30,27 @@
         <button class="link-btn" @click="clearSelection">Clear</button>
       </div>
 
+      <div class="qty-rows">
+        <div
+          v-for="item in selectedItems"
+          :key="item.gear.id"
+          class="qty-row"
+        >
+          <span class="qty-row-name">{{ item.gear.gear_name }}</span>
+          <label class="qty-row-input">
+            <span class="qty-row-label">Qty</span>
+            <input
+              type="number"
+              :value="item.quantity"
+              :min="1"
+              :max="item.gear.quantity || 1"
+              @input="onQuantityChange(item.gear.id, $event.target.value)"
+            />
+            <span class="qty-row-of">of {{ item.gear.quantity || 1 }}</span>
+          </label>
+        </div>
+      </div>
+
       <div v-if="locationsList?.length" class="stage-assignment">
         <label class="stage-lbl">Optional — assign all selected items to this stage:</label>
         <select v-model="selectedStageId" class="stage-pick">
@@ -153,6 +174,13 @@ function onStageAmountChange(id, value, maxQty) {
   stageAmounts.value[id] = num
 }
 
+function onQuantityChange(id, value) {
+  libraryRef.value?.setQuantity(id, value)
+  const item = selectedItems.value.find(i => i.gear.id === id)
+  const stageCap = item ? Math.min(stageAmounts.value[id] ?? 0, Number(value) || 0) : 0
+  if (stageAmounts.value[id] != null) stageAmounts.value[id] = Math.max(0, stageCap)
+}
+
 function clearSelection() {
   selectedItems.value = []
   selectedStageId.value = ''
@@ -252,6 +280,38 @@ watch(() => props.projectId, loadTeamMembers)
   font-size: 0.85rem;
   padding: 0;
 }
+
+.qty-rows { display: flex; flex-direction: column; gap: 0.35rem; }
+.qty-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+}
+.qty-row-name { font-weight: 600; color: var(--text-heading); }
+.qty-row-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.qty-row-input input {
+  width: 4rem;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 0.35rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: center;
+}
+.qty-row-label { text-transform: uppercase; font-size: 0.7rem; }
+.qty-row-of { font-size: 0.72rem; }
 
 .stage-assignment { display: flex; flex-direction: column; gap: 0.3rem; }
 .stage-lbl { font-size: 0.8rem; color: var(--text-secondary); }

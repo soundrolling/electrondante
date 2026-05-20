@@ -764,7 +764,13 @@ async function refreshStatus() {
   }
 }
 
-defineExpose({ reload: loadGear, refreshStatus })
+function setQuantity(id, value) {
+  const item = gear.value.find(g => g.id === id)
+  if (!item) return
+  onQuantityChange(item, value)
+}
+
+defineExpose({ reload: loadGear, refreshStatus, setQuantity })
 
 watch(() => props.userId, () => loadGear())
 watch(() => props.projectId, async () => {
