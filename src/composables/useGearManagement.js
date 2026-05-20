@@ -100,6 +100,50 @@ export function useGearManagement(projectId, userStore) {
     }
   }
 
+  function normalizeStr(v) {
+    return (v == null ? '' : String(v)).trim().toLowerCase()
+  }
+
+  function findExistingMatchingGear(payload) {
+    if (payload.is_user_gear && payload.user_gear_id) {
+      return gearList.value.find(g =>
+        g.is_user_gear === true &&
+        g.user_gear_id === payload.user_gear_id
+      ) || null
+    }
+    return gearList.value.find(g =>
+      !g.is_user_gear &&
+      normalizeStr(g.gear_name) === normalizeStr(payload.gear_name) &&
+      g.gear_type === payload.gear_type &&
+      normalizeStr(g.vendor) === normalizeStr(payload.vendor) &&
+      (g.num_inputs ?? null) === (payload.num_inputs ?? null) &&
+      (g.num_outputs ?? null) === (payload.num_outputs ?? null) &&
+      (g.num_records ?? null) === (payload.num_records ?? null)
+    ) || null
+  }
+
+  async function mergeAssignment(gearId, locationId, addAmount, existingAssignments) {
+    const locId = Number(locationId)
+    const existingAmount = existingAssignments?.[locId] || 0
+    if (existingAmount > 0) {
+      const rows = await fetchTableData('gear_assignments', {
+        eq: { gear_id: gearId, location_id: locId }
+      })
+      if (rows.length > 0) {
+        await mutateTableData('gear_assignments', 'update', {
+          id: rows[0].id,
+          assigned_amount: existingAmount + addAmount
+        })
+        return
+      }
+    }
+    await mutateTableData('gear_assignments', 'insert', {
+      gear_id: gearId,
+      location_id: locId,
+      assigned_amount: addAmount
+    })
+  }
+
   async function addGear(formData, currentProject) {
     loading.value = true
     try {
@@ -116,20 +160,38 @@ export function useGearManagement(projectId, userStore) {
         project_id: currentProject.id,
         sort_order: gearList.value.length + 1
       }
-      const inserted = await mutateTableData('gear_table', 'insert', payload)
 
-      // Process multiple assignments
+      const existing = findExistingMatchingGear(payload)
+      const addedQty = Number(formData.gearAmount) || 0
+      let targetId
+
+      if (existing) {
+        const newAmount = (Number(existing.gear_amount) || 0) + addedQty
+        await mutateTableData('gear_table', 'update', {
+          id: existing.id,
+          gear_amount: newAmount
+        })
+        targetId = existing.id
+      } else {
+        const inserted = await mutateTableData('gear_table', 'insert', payload)
+        targetId = inserted.id
+      }
+
       const validAssignments = formData.assignments || []
+      for (const assignment of validAssignments) {
+        const assignAmount = Math.min(Number(assignment.amount), addedQty)
+        if (assignAmount <= 0) continue
+        await mergeAssignment(
+          targetId,
+          assignment.locationId,
+          assignAmount,
+          existing?.assignments
+        )
+      }
 
-      if (validAssignments.length > 0) {
-        for (const assignment of validAssignments) {
-          const assignAmount = Math.min(Number(assignment.amount), formData.gearAmount)
-          await mutateTableData('gear_assignments', 'insert', {
-            gear_id: inserted.id,
-            location_id: Number(assignment.locationId),
-            assigned_amount: assignAmount
-          })
-        }
+      if (existing) {
+        toast.success(`Added ${addedQty} more to existing "${existing.gear_name}"`)
+      } else if (validAssignments.length > 0) {
         const totalAssigned = validAssignments.reduce((sum, a) => sum + Number(a.amount), 0)
         toast.success(`Gear added and ${totalAssigned} assigned across ${validAssignments.length} stage(s)`)
       } else {
@@ -313,7 +375,9 @@ export function useGearManagement(projectId, userStore) {
     addGear,
     deleteGear,
     updateGear,
-    saveReorder
+    saveReorder,
+    findExistingMatchingGear,
+    mergeAssignment
   }
 }
 

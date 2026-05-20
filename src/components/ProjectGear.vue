@@ -483,7 +483,9 @@ setup(props) {
     addGear: addGearToProject,
     deleteGear: deleteGearFromProject,
     updateGear: updateGearInProject,
-    saveReorder: saveGearReorder
+    saveReorder: saveGearReorder,
+    findExistingMatchingGear,
+    mergeAssignment
   } = useGearManagement(projectId, userStore)
 
   // Use gear filters composable
@@ -1163,10 +1165,10 @@ setup(props) {
     try {
       for (const { userGear, quantity, locationId, assignedAmount } of gearToAdd) {
         if (!userGear || !quantity || quantity < 1) continue;
-        
+
         // Get gear type from user gear
         const gearType = userGear.gear_type || 'user_gear'
-        
+
         // Convert user gear to project gear format
         // Use the same logic as addGear() function
         const projectGearPayload = {
@@ -1189,16 +1191,32 @@ setup(props) {
           is_user_gear: true
         }
 
-        const inserted = await mutateTableData('gear_table', 'insert', projectGearPayload)
-        
-        // Create assignment if location and amount specified
+        const existing = findExistingMatchingGear(projectGearPayload)
+        let targetId
+        let merged = false
+
+        if (existing) {
+          const newAmount = (Number(existing.gear_amount) || 0) + quantity
+          await mutateTableData('gear_table', 'update', {
+            id: existing.id,
+            gear_amount: newAmount
+          })
+          targetId = existing.id
+          merged = true
+        } else {
+          const inserted = await mutateTableData('gear_table', 'insert', projectGearPayload)
+          targetId = inserted.id
+        }
+
+        // Create or merge assignment if location and amount specified
         if (locationId && assignedAmount && assignedAmount > 0) {
           const assignAmount = Math.min(assignedAmount, quantity)
-          await mutateTableData('gear_assignments', 'insert', {
-            gear_id: inserted.id,
-            location_id: +locationId,
-            assigned_amount: assignAmount
-          })
+          await mergeAssignment(
+            targetId,
+            locationId,
+            assignAmount,
+            merged ? existing.assignments : null
+          )
         }
         
         // Check for date conflicts with other projects (don't block, just warn)
@@ -1223,7 +1241,8 @@ setup(props) {
         }
 
         const assignMsg = locationId && assignedAmount ? ` and ${Math.min(assignedAmount, quantity)} assigned to stage` : ''
-        toast.success(`Added ${quantity} × ${userGear.gear_name} from ${userGear.owner_name || 'Unknown'}${assignMsg}`)
+        const action = merged ? `Added ${quantity} more` : `Added ${quantity} ×`
+        toast.success(`${action} ${userGear.gear_name} from ${userGear.owner_name || 'Unknown'}${assignMsg}`)
       }
 
       closeUserGearSelector()
