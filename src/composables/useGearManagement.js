@@ -228,32 +228,37 @@ export function useGearManagement(projectId, userStore) {
         if (navigator.onLine) {
           try {
             const userGearId = gearToDelete.user_gear_id
-            const userGear = await fetchTableData('user_gear', { eq: { id: userGearId } })
-            if (!userGear || userGear.length === 0) {
-              console.warn('Could not find user gear to update:', userGearId)
-              return false
+            if (userGearId) {
+              const userGear = await fetchTableData('user_gear', { eq: { id: userGearId } })
+              if (userGear && userGear.length > 0) {
+                const currentAssigned = userGear[0]?.assigned_quantity || 0
+                const currentQuantity = userGear[0]?.quantity || 0
+                const gearAmount = gearToDelete.gear_amount || 1
+                const newAssigned = Math.max(0, currentAssigned - gearAmount)
+                const availableQty = currentQuantity - newAssigned
+
+                await mutateTableData('user_gear', 'update', {
+                  id: userGearId,
+                  assigned_quantity: newAssigned,
+                  availability: availableQty > 0 ? 'available' : 'unavailable'
+                })
+              } else {
+                console.warn('Could not find user gear to update (orphan or RLS-blocked):', userGearId)
+              }
             }
-
-            const currentAssigned = userGear[0]?.assigned_quantity || 0
-            const currentQuantity = userGear[0]?.quantity || 0
-            const gearAmount = gearToDelete.gear_amount || 1
-            const newAssigned = Math.max(0, currentAssigned - gearAmount)
-            const availableQty = currentQuantity - newAssigned
-
-            await mutateTableData('user_gear', 'update', {
-              id: userGearId,
-              assigned_quantity: newAssigned,
-              availability: availableQty > 0 ? 'available' : 'unavailable'
-            })
           } catch (err) {
             console.warn('Could not update user gear assigned_quantity:', err)
           }
+          let removed = false
           try {
-            const { data, error } = await supabase.rpc('return_user_gear_to_owner', { gear_id: gearId })
+            const { error } = await supabase.rpc('return_user_gear_to_owner', { gear_id: gearId })
             if (error) throw error
+            removed = true
             toast.success('Gear returned to owner successfully.')
           } catch (err) {
             console.warn('Could not use database function, falling back to manual delete:', err)
+          }
+          if (!removed) {
             await mutateTableData('gear_table', 'delete', { id: gearId })
             toast.success('Gear removed from project.')
           }
