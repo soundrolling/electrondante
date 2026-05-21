@@ -23,12 +23,50 @@ export function useMicCanvasView({
   imageOffsetX,
   imageOffsetY,
   scaleFactor,
+  getProjectId,
+  getLocationId,
   redraw
 }) {
   const dpr = window.devicePixelRatio || 1
   const canvasWidth = ref(800)
   const canvasHeight = ref(600)
   const nodeScaleFactor = ref(1)
+
+  const NODE_SCALE_MIN = 0.2
+  const NODE_SCALE_MAX = 10
+
+  function getNodeScaleKey() {
+    if (!getProjectId) return null
+    const projectId = getProjectId()
+    if (!projectId) return null
+    const scope = (getLocationId && getLocationId()) ?? 'default'
+    return `mic-placement-node-scale-${projectId}-${scope}`
+  }
+
+  function loadNodeScale() {
+    try {
+      const key = getNodeScaleKey()
+      if (!key) return
+      const saved = localStorage.getItem(key)
+      if (saved == null) return
+      const parsed = parseFloat(saved)
+      if (Number.isFinite(parsed) && parsed > 0) {
+        nodeScaleFactor.value = clamp(parsed, NODE_SCALE_MIN, NODE_SCALE_MAX)
+      }
+    } catch (err) {
+      console.error('Error loading node scale:', err)
+    }
+  }
+
+  function saveNodeScale() {
+    try {
+      const key = getNodeScaleKey()
+      if (!key) return
+      localStorage.setItem(key, String(nodeScaleFactor.value))
+    } catch (err) {
+      console.error('Error saving node scale:', err)
+    }
+  }
 
   const canvasStyle = computed(() =>
     `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; display: block; margin: 0 auto; background: var(--bg-primary); border-radius: 8px; border: 1px solid #e9ecef; touch-action: none;`
@@ -76,11 +114,13 @@ export function useMicCanvasView({
   }
 
   function zoomIn() {
-    nodeScaleFactor.value *= 1.1
+    nodeScaleFactor.value = clamp(nodeScaleFactor.value * 1.1, NODE_SCALE_MIN, NODE_SCALE_MAX)
+    saveNodeScale()
     redraw && redraw()
   }
   function zoomOut() {
-    nodeScaleFactor.value /= 1.1
+    nodeScaleFactor.value = clamp(nodeScaleFactor.value / 1.1, NODE_SCALE_MIN, NODE_SCALE_MAX)
+    saveNodeScale()
     redraw && redraw()
   }
 
@@ -207,6 +247,7 @@ export function useMicCanvasView({
     }
 
     nodeScaleFactor.value = 1
+    saveNodeScale()
     redraw && redraw()
   }
 
@@ -225,6 +266,8 @@ export function useMicCanvasView({
     applyZoom,
     updateCanvasSize,
     resetImageView,
+    loadNodeScale,
+    saveNodeScale,
     MIN_SCALE,
     MAX_SCALE
   }

@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.16">
-        <span class="version-text">v2.3.16</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.17">
+        <span class="version-text">v2.3.17</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.16</h2>
+          <h2 id="changelog-title">What's New in 2.3.17</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🪟 Venue Sources Now Opens In A Real Popup</h3>
-            <p>The Configure Venue Sources dialog now opens as a centered modal with a proper overlay, header, and footer buttons — it was previously rendering inline at the bottom of the page because its overlay styles weren't applied.</p>
+            <h3>🔍 Mic Node Zoom Is Remembered</h3>
+            <p>Zooming the mic placement nodes in or out now persists per stage — when you leave and come back, your node size is restored instead of snapping back to the default.</p>
           </div>
         </div>
         

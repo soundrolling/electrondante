@@ -274,12 +274,14 @@ const view = useMicCanvasView({
   imageOffsetX,
   imageOffsetY,
   scaleFactor,
+  getProjectId: () => props.projectId,
+  getLocationId: () => props.locationId,
   redraw
 })
 const {
   dpr, canvasWidth, canvasHeight, nodeScaleFactor, canvasStyle,
   canvasToImageCoords, imageToCanvasCoords, getCanvasCoords,
-  zoomIn, zoomOut, applyZoom, updateCanvasSize
+  zoomIn, zoomOut, applyZoom, updateCanvasSize, loadNodeScale
 } = view
 
 function resetView() {
@@ -609,6 +611,13 @@ watch(() => props.nodes, () => {
 
 watch(() => props.projectId, () => {
   fetchProjectInfo()
+  loadNodeScale()
+  nextTick(drawCanvas)
+})
+
+watch(() => props.locationId, () => {
+  loadNodeScale()
+  nextTick(drawCanvas)
 })
 
 watch(colorButtons, () => {
@@ -650,6 +659,7 @@ onMounted(() => {
   }
   updateCanvasSize()
   window.addEventListener('resize', updateCanvasSize)
+  loadNodeScale()
   loadImageState()
   fetchColorButtons().then(() => updateColorLegend(colorButtons))
   fetchProjectInfo()
