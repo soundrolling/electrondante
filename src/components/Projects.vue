@@ -2218,11 +2218,11 @@ setup() {
   box-shadow: inset 0 0 0 1px var(--color-primary-600);
 }
 .date-strip-cell.show {
-  background: var(--color-success-500, hsl(142 60% 42%));
-  box-shadow: inset 0 0 0 1px var(--color-success-600, hsl(142 60% 35%));
+  background: var(--color-warning-500);
+  box-shadow: inset 0 0 0 1px var(--color-warning-600);
 }
 .date-strip-cell.build.show {
-  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-success-500, hsl(142 60% 42%)) 50%, var(--color-success-500, hsl(142 60% 42%)) 100%);
+  background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-500) 50%, var(--color-warning-500) 50%, var(--color-warning-500) 100%);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }
 .date-strip-cell.travel.build:not(.show) {
@@ -2230,13 +2230,13 @@ setup() {
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }
 .date-strip-cell.travel.show:not(.build) {
-  background: linear-gradient(180deg, var(--color-success-500, hsl(142 60% 42%)) 50%, #a855f7 50%);
+  background: linear-gradient(180deg, var(--color-warning-500) 50%, #a855f7 50%);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }
 .date-strip-cell.travel.build.show {
   background: linear-gradient(180deg,
     var(--color-primary-500) 0%, var(--color-primary-500) 33%,
-    var(--color-success-500, hsl(142 60% 42%)) 33%, var(--color-success-500, hsl(142 60% 42%)) 66%,
+    var(--color-warning-500) 33%, var(--color-warning-500) 66%,
     #a855f7 66%, #a855f7 100%);
   box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
 }

@@ -490,6 +490,8 @@ setup(props, { emit }) {
   });
 
   // Category color system - consistent palette for light/dark mode
+  // build / showday / travel align with Projects.vue + ProjectDetail.vue
+  // (blue / amber / purple).
   const categoryColors = {
     calltimes: { bg: '#dcfce7', border: '#22c55e', text: '#166534', main: '#22c55e' },
     wraptimes: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', main: '#f59e0b' },
@@ -498,8 +500,9 @@ setup(props, { emit }) {
     recording: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b', main: '#ef4444' },
     meeting: { bg: '#dbeafe', border: '#3b82f6', text: '#1e3a8a', main: '#3b82f6' },
     setup: { bg: '#f3f4f6', border: '#6b7280', text: '#1f2937', main: '#6b7280' },
+    buildday: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e', main: '#0ea5e9' },
     showday: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', main: '#f59e0b' },
-    travel: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e', main: '#0ea5e9' },
+    travel: { bg: '#f3e8ff', border: '#a855f7', text: '#581c87', main: '#a855f7' },
     other: { bg: '#f5f5f5', border: '#9ca3af', text: '#374151', main: '#9ca3af' }
   };
 
@@ -512,6 +515,7 @@ setup(props, { emit }) {
     { id: 'recording', label: 'Recording', icon: '🎤', color: categoryColors.recording.main },
     { id: 'meeting', label: 'Meeting', icon: '👥', color: categoryColors.meeting.main },
     { id: 'setup', label: 'Setup/Breakdown', icon: '🛠️', color: categoryColors.setup.main },
+    { id: 'buildday', label: 'Build Day', icon: '🔨', color: categoryColors.buildday.main },
     { id: 'showday', label: 'Show Day', icon: '🎭', color: categoryColors.showday.main },
     { id: 'travel', label: 'Travel', icon: '✈️', color: categoryColors.travel.main },
     { id: 'other', label: 'Other', icon: '❓', color: categoryColors.other.main }

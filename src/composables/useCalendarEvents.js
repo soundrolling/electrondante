@@ -78,7 +78,7 @@ export function useCalendarEvents(projectId, userStore, locationsRef = null) {
       synthetic = synthetic.concat(
         project.build_days.map(date => ({
           id: `build_${date}`,
-          category: 'setup',
+          category: 'buildday',
           title: 'Build Day',
           event_date: date,
           start_time: '00:00',
