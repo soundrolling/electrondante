@@ -1,6 +1,6 @@
 {
   "name": "vue-supabase-app",
-  "version": "2.3.17",
+  "version": "2.3.18",
   "description": "Note taking and project management",
   "main": "src/main.js",
   "scripts": {

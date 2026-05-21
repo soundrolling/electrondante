@@ -127,20 +127,35 @@
                     <option :value="'__NO_SOURCE__'">-- No source --</option>
                     <option v-for="src in getAvailableSourcesForInput(n)" :key="src.feedKey" :value="src.feedKey">{{ src.label }}</option>
                   </select>
-                  <!-- Gain field for transformer inputs (only show when input is assigned) -->
-                  <div v-if="type === 'transformer' && upstreamMap[n] && upstreamMap[n] !== '__NO_SOURCE__'" style="display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; margin-top: 8px;">
-                    <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary);">Gain (dB):</label>
-                    <input 
-                      type="number" 
-                      v-model.number="inputGain[n]" 
-                      @blur="saveInputGain(n)"
-                      step="0.5" 
-                      min="-60" 
-                      max="60" 
-                      placeholder="0.0"
-                      class="input"
-                      style="padding: 6px 8px; font-size: 13px;"
-                    />
+                  <!-- Gain + phantom power for transformer inputs (only show when input is assigned) -->
+                  <div v-if="type === 'transformer' && upstreamMap[n] && upstreamMap[n] !== '__NO_SOURCE__'" style="display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px;">
+                      <label :for="`gain-${n}`" style="font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap;">Gain (dB):</label>
+                      <input
+                        :id="`gain-${n}`"
+                        type="number"
+                        v-model.number="inputGain[n]"
+                        @blur="saveInputGain(n)"
+                        step="0.5"
+                        min="-60"
+                        max="60"
+                        placeholder="0.0"
+                        class="input"
+                        style="padding: 6px 8px; font-size: 13px; flex: 1; min-width: 0;"
+                      />
+                    </div>
+                    <label
+                      :title="'Toggle +48V phantom power for this input'"
+                      style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 12px; color: var(--text-secondary); white-space: nowrap;"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="!!inputPhantomPower[n]"
+                        @change="(e) => { inputPhantomPower[n] = e.target.checked; saveInputPhantomPower(n); }"
+                        style="width: auto; min-height: unset; cursor: pointer; margin: 0;"
+                      />
+                      <span>+48V</span>
+                    </label>
                   </div>
                   <div v-if="saveStatus[n] === 'saved'" class="save-indicator">✓ Saved</div>
                   <div v-else-if="saveStatus[n] === 'cleared'" class="save-indicator">✓ Cleared</div>
@@ -237,6 +252,7 @@ const sourcePadDb = ref(0)
 const sourcePhantomPower = ref(false)
 // Transformer input gain tracking
 const inputGain = ref({}) // { inputNumber: gainDb }
+const inputPhantomPower = ref({}) // { inputNumber: boolean }
 // Delete state
 const deleting = ref(false)
 // Label editing state
@@ -418,41 +434,49 @@ async function loadInputGain() {
   try {
     const { data, error } = await supabase
       .from('transformer_input_gain')
-      .select('input_number, gain_db')
+      .select('input_number, gain_db, phantom_power')
       .eq('node_id', props.node.id)
-    
+
     if (error) throw error
-    
-    // Initialize all inputs to 0, then update with loaded values
+
+    // Initialize all inputs to defaults, then update with loaded values
     const gainMap = {}
+    const phantomMap = {}
     for (let i = 1; i <= inputCount.value; i++) {
       gainMap[i] = 0
+      phantomMap[i] = false
     }
-    
+
     if (data) {
       data.forEach(row => {
         gainMap[row.input_number] = Number(row.gain_db) || 0
+        phantomMap[row.input_number] = !!row.phantom_power
       })
     }
-    
+
     inputGain.value = gainMap
+    inputPhantomPower.value = phantomMap
   } catch (e) {
     console.error('[Inspector] failed to load input gain', e)
     // Initialize with default values on error
     const gainMap = {}
+    const phantomMap = {}
     for (let i = 1; i <= inputCount.value; i++) {
       gainMap[i] = 0
+      phantomMap[i] = false
     }
     inputGain.value = gainMap
+    inputPhantomPower.value = phantomMap
   }
 }
 
 // Save gain value for a specific transformer input
 async function saveInputGain(inputNum) {
   if (type.value !== 'transformer') return
-  
+
   const gainValue = Number(inputGain.value[inputNum]) || 0
-  
+  const phantomValue = !!inputPhantomPower.value[inputNum]
+
   try {
     // Use upsert to insert or update
     const { error } = await supabase
@@ -461,18 +485,43 @@ async function saveInputGain(inputNum) {
         node_id: props.node.id,
         project_id: props.projectId,
         input_number: Number(inputNum),
-        gain_db: gainValue
+        gain_db: gainValue,
+        phantom_power: phantomValue
       }, {
         onConflict: 'node_id,input_number'
       })
-    
+
     if (error) throw error
-    
-    // Show subtle feedback (optional - can remove if too noisy)
-    // toast.success(`Gain for Input ${inputNum} saved`)
   } catch (e) {
     console.error('[Inspector] failed to save input gain', e)
     toast.error(`Failed to save gain for Input ${inputNum}`)
+  }
+}
+
+// Save phantom power toggle for a specific transformer input
+async function saveInputPhantomPower(inputNum) {
+  if (type.value !== 'transformer') return
+
+  const gainValue = Number(inputGain.value[inputNum]) || 0
+  const phantomValue = !!inputPhantomPower.value[inputNum]
+
+  try {
+    const { error } = await supabase
+      .from('transformer_input_gain')
+      .upsert({
+        node_id: props.node.id,
+        project_id: props.projectId,
+        input_number: Number(inputNum),
+        gain_db: gainValue,
+        phantom_power: phantomValue
+      }, {
+        onConflict: 'node_id,input_number'
+      })
+
+    if (error) throw error
+  } catch (e) {
+    console.error('[Inspector] failed to save phantom power', e)
+    toast.error(`Failed to save phantom power for Input ${inputNum}`)
   }
 }
 const upstream = ref([])
@@ -1832,6 +1881,7 @@ async function clearUpstreamConnection(inputNum) {
   // Also clear gain value for transformer inputs
   if (type.value === 'transformer') {
     delete inputGain.value[inputNum]
+    delete inputPhantomPower.value[inputNum]
     try {
       await supabase
         .from('transformer_input_gain')
