@@ -25,8 +25,8 @@
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>📇 Contacts Shortcut In Account Menu</h3>
-            <p>Matching the new My Gear shortcut, the account dropdown (and the mobile menu) now also has a direct “Contacts” link — one click jumps straight to your personal contacts inventory.</p>
+            <h3>🔗 Transformer Input Mapping Stays Put</h3>
+            <p>Fixed a bug in the transformer inspector where changing one input could silently revert another one to its previous source. When you swap an input to a gear source that was already wired to the transformer, the save now moves that connection cleanly instead of failing in the background, and the rest of your mapped inputs stay exactly where you put them.</p>
           </div>
         </div>
         

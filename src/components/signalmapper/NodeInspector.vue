@@ -1467,7 +1467,14 @@ function getUpstreamLabel(inputNum) {
 async function onUpstreamChange(inputNum) {
   // Store the selected value before any async operations
   const selectedFeedKey = upstreamMap.value[inputNum]
-  
+
+  // Snapshot every other input's selection so refresh() can't quietly clobber them
+  // if their DB state somehow lags (e.g., a previous save had an unsurfaced edge case).
+  const otherSelections = {}
+  for (const [k, v] of Object.entries(upstreamMap.value)) {
+    if (Number(k) !== Number(inputNum)) otherSelections[k] = v
+  }
+
   try {
     if (type.value === 'recorder') {
       console.log('[Inspector][Change] Track selection changed:', {
@@ -1477,26 +1484,47 @@ async function onUpstreamChange(inputNum) {
         isNoSource: selectedFeedKey === '__NO_SOURCE__'
       })
     }
-    
+
     // Save first and wait for it to complete
     const result = await saveMap(inputNum, true)
-    
+
     // Rebuild the graph with fresh data AFTER save completes
     graph.value = await buildGraph(props.projectId, props.locationId, props.stageHourId)
-    
+
     // Now reload sources and labels
     await loadAvailableUpstreamSources()
     await updateUpstreamLabels()
-    
+
     // IMPORTANT: Restore the selected value if it was overwritten
     // This handles race conditions where refresh() resets the selection
     if (selectedFeedKey && selectedFeedKey !== '__NO_SOURCE__') {
       upstreamMap.value[inputNum] = selectedFeedKey
     }
-    
+
+    // Restore any other input that the refresh dropped back to __NO_SOURCE__
+    // but had a real selection moments ago. Only re-apply if the snapshot's
+    // feedKey is still a valid available source (so we don't pin a stale value
+    // after a legitimate downstream cleanup).
+    const validFeedKeys = new Set((availableUpstreamSources.value || []).map(s => s.feedKey))
+    for (const [k, snapVal] of Object.entries(otherSelections)) {
+      if (!snapVal || snapVal === '__NO_SOURCE__') continue
+      const current = upstreamMap.value[k]
+      if (current === snapVal) continue
+      if ((current === undefined || current === '__NO_SOURCE__') && validFeedKeys.has(snapVal)) {
+        upstreamMap.value[k] = snapVal
+      }
+    }
+
     if (result && result.savedCount > 0 && result.errorCount === 0) {
       saveStatus.value[inputNum] = 'saved'
       setTimeout(() => { if (saveStatus.value[inputNum] === 'saved') delete saveStatus.value[inputNum] }, 2000)
+    } else if (result && result.errorCount > 0) {
+      console.warn('[Inspector][Change] Save reported errors:', {
+        inputNum,
+        feedKey: selectedFeedKey,
+        result
+      })
+      toast.error(`Couldn't save Input ${inputNum}. Please retry.`)
     } else if (type.value === 'recorder') {
       console.warn('[Inspector][Change] Save failed or nothing saved:', {
         inputNum,
@@ -1907,7 +1935,7 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                         .eq('to_node_id', props.node.id)
                         .eq('input_number', Number(inputNum))
                         .maybeSingle()
-                      
+
                       if (existingConn) {
                         // Use existing connection, delete old one
                         await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
@@ -1918,13 +1946,47 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
                         invalidateTableCache('connections', props.projectId)
                         invalidateTableCache('graph', props.projectId)
                       } else {
-                        // Couldn't find existing connection - log and skip this connection
-                        console.warn('[Inspector][Map] duplicate key error but could not find existing connection', updateError)
-                        // Set connId to null to skip port map update
-                        connId = null
+                        // Fallback: the new source may already be connected to this target
+                        // with a different (or null) input_number. The unique constraint is on
+                        // (from_node_id, to_node_id), so we need to move that existing connection
+                        // to the desired input_number and drop the old one.
+                        const { data: existingConnAnyInput } = await supabase
+                          .from('connections')
+                          .select('id')
+                          .eq('project_id', props.projectId)
+                          .eq('from_node_id', nodeId)
+                          .eq('to_node_id', props.node.id)
+                          .maybeSingle()
+
+                        if (existingConnAnyInput && existingConnAnyInput.id !== existingConnId) {
+                          // Move the existing connection to use this input_number
+                          const { error: moveError } = await supabase
+                            .from('connections')
+                            .update({ input_number: Number(inputNum), location_id: props.locationId || null })
+                            .eq('id', existingConnAnyInput.id)
+
+                          if (!moveError) {
+                            // Drop the old connection (with the previous source) and its port maps
+                            await supabase.from('connection_port_map').delete().eq('connection_id', existingConnId)
+                            await supabase.from('connections').delete().eq('id', existingConnId)
+                            connId = existingConnAnyInput.id
+                            upstreamConnections.value[inputNum] = connId
+                            invalidateTableCache('connections', props.projectId)
+                            invalidateTableCache('graph', props.projectId)
+                          } else {
+                            console.error('[Inspector][Map] failed to move existing connection', moveError)
+                            errorCount++
+                            connId = null
+                          }
+                        } else {
+                          console.warn('[Inspector][Map] duplicate key error but could not find existing connection', updateError)
+                          errorCount++
+                          connId = null
+                        }
                       }
                     } catch (fetchErr) {
                       console.warn('[Inspector][Map] failed to fetch existing connection after duplicate key', fetchErr)
+                      errorCount++
                       // Set connId to null to skip port map update
                       connId = null
                     }
