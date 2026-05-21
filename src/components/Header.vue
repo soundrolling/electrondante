@@ -169,6 +169,16 @@
               <span>{{ t('profile.tabs.gear') }}</span>
             </router-link>
 
+            <router-link
+              :to="{ name: 'UserProfile', params: { tab: 'contacts' } }"
+              class="user-menu-item"
+              role="menuitem"
+              @click="closeUserMenu"
+            >
+              <Contact :size="18" :stroke-width="2" />
+              <span>{{ t('profile.tabs.contacts') }}</span>
+            </router-link>
+
             <button
               class="user-menu-item"
               role="menuitem"
@@ -264,6 +274,9 @@
         <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'gear' } }" class="sheet-link" @click="showMobileMenu = false">
           <Sliders :size="18" :stroke-width="2" /> <span>{{ t('profile.tabs.gear') }}</span>
         </router-link>
+        <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'contacts' } }" class="sheet-link" @click="showMobileMenu = false">
+          <Contact :size="18" :stroke-width="2" /> <span>{{ t('profile.tabs.contacts') }}</span>
+        </router-link>
       </div>
 
       <div class="menu-section actions-section">
@@ -317,6 +330,7 @@ import {
   ChevronDown,
   Globe,
   Sliders,
+  Contact,
 } from 'lucide-vue-next';
 
 export default {
@@ -335,6 +349,7 @@ export default {
     ChevronDown,
     Globe,
     Sliders,
+    Contact,
   },
   setup() {
     const userStore = useUserStore();
