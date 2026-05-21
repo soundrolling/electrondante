@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.13">
-        <span class="version-text">v2.3.13</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.14">
+        <span class="version-text">v2.3.14</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.13</h2>
+          <h2 id="changelog-title">What's New in 2.3.14</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>✂️ Crop Now Works On PDF Backgrounds</h3>
-            <p>Cropping the Mic Placement background image now renders correctly when the background started life as a PDF. The crop preview previously came up blank in that case — fixed by reusing the already-loaded image instead of re-fetching it.</p>
+            <h3>📋 Copy Inputs From Another Recorder (Backup Workflow)</h3>
+            <p>Open any recorder in Signal Flow and you'll see a new <strong>📋 Copy from…</strong> button next to Refresh Names. Pick a main recorder, hit Copy, and the backup mirrors every track-source mapping 1:1 — perfect for BU recorders that should mimic the main one.</p>
           </div>
         </div>
         

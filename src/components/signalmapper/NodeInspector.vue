@@ -53,15 +53,53 @@
           <div class="map-unified">
             <!-- Upstream (Inputs/Tracks) Section -->
             <div class="map-section">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;">
                 <h4>{{ type === 'recorder' ? 'Record Tracks' : 'Inputs' }}</h4>
-                <button 
-                  @click="refreshSourceNames" 
-                  class="btn-refresh"
-                  title="Refresh source names to show latest venue source names"
-                  style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <button
+                    v-if="type === 'recorder' && otherRecorders.length > 0"
+                    @click="showCopyFromPicker = !showCopyFromPicker"
+                    class="btn-refresh"
+                    title="Copy track sources from another recorder (mimic main recorder)"
+                    style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
+                  >
+                    📋 Copy from…
+                  </button>
+                  <button
+                    @click="refreshSourceNames"
+                    class="btn-refresh"
+                    title="Refresh source names to show latest venue source names"
+                    style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
+                  >
+                    🔄 Refresh Names
+                  </button>
+                </div>
+              </div>
+              <!-- Copy-from-recorder picker (backup recorder workflow) -->
+              <div
+                v-if="type === 'recorder' && showCopyFromPicker && otherRecorders.length > 0"
+                style="display: flex; gap: 6px; align-items: center; margin-bottom: 12px; padding: 8px; background: var(--bg-secondary); border: 1px dashed var(--border-medium); border-radius: 6px;"
+              >
+                <select v-model="copyFromRecorderId" class="select" style="flex: 1;">
+                  <option :value="null">— Select recorder to mimic —</option>
+                  <option v-for="r in otherRecorders" :key="r.id" :value="r.id">
+                    {{ r.label || r.track_name || 'Recorder' }}
+                  </option>
+                </select>
+                <button
+                  class="btn"
+                  @click="copyInputsFromRecorder"
+                  :disabled="!copyFromRecorderId || copyingFromRecorder"
                 >
-                  🔄 Refresh Names
+                  {{ copyingFromRecorder ? 'Copying…' : 'Copy' }}
+                </button>
+                <button
+                  class="btn-secondary"
+                  style="padding: 6px 10px; background: transparent; border: 1px solid var(--border-medium); border-radius: 6px; cursor: pointer; color: var(--text-primary);"
+                  @click="showCopyFromPicker = false; copyFromRecorderId = null"
+                  :disabled="copyingFromRecorder"
+                >
+                  Cancel
                 </button>
               </div>
               <div class="map-inputs">
@@ -988,6 +1026,20 @@ const availableDownstreamTargets = computed(() => {
 })
 
 const saving = ref(false)
+
+// Copy-from-recorder state (backup recorder workflow)
+const showCopyFromPicker = ref(false)
+const copyFromRecorderId = ref(null)
+const copyingFromRecorder = ref(false)
+
+// Other recorders in the same scope (for the Copy-from picker)
+const otherRecorders = computed(() => {
+  if (type.value !== 'recorder') return []
+  return (props.elements || []).filter(e => {
+    const eType = (e.gear_type || e.node_type || e.type || '').toLowerCase()
+    return eType === 'recorder' && e.id !== props.node.id
+  })
+})
 
 // Venue sources feeds editor (independent from node.num_outputs)
 const feeds = ref([]) // [{ port: number, label: string }]
@@ -2470,6 +2522,85 @@ async function saveMap(onlyInputNum = null, suppressToasts = false) {
     return { savedCount: 0, errorCount: 1 }
   } finally {
     saving.value = false
+  }
+}
+
+// Replicate the source recorder's upstream feedKeys by track number.
+// Uses the same feedKey shape that loadConnections / the input selects rely on.
+function buildSourceRecorderMap(sourceRecorderId) {
+  const result = {} // { trackNum: feedKey }
+  if (!graph.value) return result
+  const parents = (graph.value.parentsByToNode || {})[sourceRecorderId] || []
+  for (const p of parents) {
+    const src = props.elements.find(e => e.id === p.from_node_id)
+    const srcType = src ? (src.gear_type || src.node_type || src.type || '').toLowerCase() : ''
+    const portMaps = (graph.value.mapsByConnId || {})[p.id] || []
+
+    if (portMaps && portMaps.length > 0) {
+      for (const m of portMaps) {
+        const trackNum = Number(m.to_port)
+        if (!trackNum) continue
+        const inferredPort = m.from_port
+        const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
+        result[trackNum] = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
+      }
+    } else if (p.input_number) {
+      const trackNum = Number(p.input_number)
+      const inferredPort = (srcType === 'venue_sources' || srcType === 'recorder') ? trackNum : null
+      const usePortInFeedKey = (srcType === 'venue_sources' || srcType === 'transformer' || srcType === 'recorder') && inferredPort
+      result[trackNum] = usePortInFeedKey ? `${p.from_node_id}:${inferredPort}` : p.from_node_id
+    }
+  }
+  return result
+}
+
+async function copyInputsFromRecorder() {
+  if (type.value !== 'recorder') return
+  const sourceId = copyFromRecorderId.value
+  if (!sourceId) return
+  const sourceRec = props.elements.find(e => e.id === sourceId)
+  if (!sourceRec) {
+    toast.error('Source recorder not found')
+    return
+  }
+
+  const sourceLabel = sourceRec.label || sourceRec.track_name || 'recorder'
+  const confirmed = window.confirm(
+    `Copy track sources from "${sourceLabel}" to this recorder?\n\n` +
+    `This will REPLACE this recorder's current track sources to mimic the main recorder. ` +
+    `Tracks beyond the source recorder's range will be cleared.`
+  )
+  if (!confirmed) return
+
+  copyingFromRecorder.value = true
+  try {
+    const sourceMap = buildSourceRecorderMap(sourceId)
+    const numTracks = inputCount.value
+    let copiedCount = 0
+
+    for (let i = 1; i <= numTracks; i++) {
+      if (sourceMap[i]) {
+        upstreamMap.value[i] = sourceMap[i]
+        copiedCount++
+      } else {
+        upstreamMap.value[i] = '__NO_SOURCE__'
+      }
+    }
+
+    if (copiedCount === 0) {
+      toast.warning(`No track sources found on "${sourceLabel}"`)
+      return
+    }
+
+    await saveMap(null, true)
+    toast.success(`Copied ${copiedCount} track${copiedCount === 1 ? '' : 's'} from "${sourceLabel}"`)
+    copyFromRecorderId.value = null
+    showCopyFromPicker.value = false
+  } catch (err) {
+    console.error('[Inspector] copy from recorder failed', err)
+    toast.error('Failed to copy from recorder: ' + (err.message || 'Unknown error'))
+  } finally {
+    copyingFromRecorder.value = false
   }
 }
 </script>
