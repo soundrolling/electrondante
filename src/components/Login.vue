@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.2">
-        <span class="version-text">v2.3.2</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.3">
+        <span class="version-text">v2.3.3</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,24 +19,24 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.2</h2>
+          <h2 id="changelog-title">What's New in 2.3.3</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
+            <h3>👤 Team Owner Name Now Resolves</h3>
+            <p>Pulling a teammate's gear into a project used to show "Owner: Unknown" because the lookup ran through a legacy database view that joined to an empty profile table. Now we resolve owner names directly from user_profiles, so a Radial DAN-TX2 pulled from Kiko's inventory shows up as "Personal · Kiko Abarquero Fernandez" with "Owner: Kiko Abarquero Fernandez" in the details block.</p>
+          </div>
+
+          <div class="changelog-section">
+            <h3>🏷️ New Vendor Pill</h3>
+            <p>Gear added via "Add Vendor Gear" (the manual rental flow) now gets its own blue "Vendor" badge alongside the vendor name, so it's instantly distinguishable from Personal/Team gear at a glance. The existing orange "Personal" pill keeps marking gear pulled from a project member's inventory.</p>
+          </div>
+
+          <div class="changelog-section">
             <h3>🐛 No More IDB Toast On Team-Gear Delete</h3>
-            <p>Deleting a project gear row that pointed at a teammate's personal inventory was firing a scary "Save to user_gear failed: Evaluating the object store's key path did not yield a value" toast. Cause: the legacy assigned_quantity bookkeeping tried to write to the teammate's user_gear row, RLS blocks the write, the update returns nothing, and that empty result was getting pushed into the local IndexedDB cache. Fixed by skipping the bookkeeping update when you don't own the gear (the gear_assignments table is the source of truth anyway) and by hardening the cache layer so a future stray empty result can't poison it again.</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>👥 Teammate Gear Visible in Mine / Team</h3>
-            <p>Added a teammate-read RLS policy so anyone on a shared project can see each other's personal gear in the Mine / Team picker. Writes stay locked to the owner — you can browse and pull from a teammate's library, but you can't modify their inventory.</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>🎛️ Gear: Mine / Team vs Vendor</h3>
-            <p>The two gear buttons now do clearly distinct things. "Mine / Team Gear" pulls from your own personal inventory or any project member's gear — the owner filter has an explicit "Mine only" entry. "Add Vendor Gear" (formerly "Add Gear") is for one-off rental or vendor units that aren't already in anyone's library. Reservations now show every booking touching the current project with per-stage chips, and qty caps at units actually free during the project's dates.</p>
+            <p>Deleting a project gear row that pointed at a teammate's personal inventory was firing a scary "Save to user_gear failed" toast. Three-layer fix: skip the legacy assigned_quantity bookkeeping when you don't own the gear, don't poison the cache when Supabase returns no rows, and reject null/empty entries at the IndexedDB layer so it can't crash the transaction.</p>
           </div>
         </div>
         

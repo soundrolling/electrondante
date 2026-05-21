@@ -175,7 +175,18 @@
               >
                 Personal
               </button>
-              <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
+              <span class="owner-name">{{ ownerLabel(gear) }}</span>
+            </div>
+            <div v-else-if="isVendorGear(gear)" class="user-gear-indicator">
+              <button
+                type="button"
+                class="vendor-gear-badge pill-clickable"
+                title="See assignments for this vendor gear"
+                @click="openGearInfoModal(gear)"
+              >
+                Vendor
+              </button>
+              <span v-if="displayVendor(gear)" class="owner-name">{{ displayVendor(gear) }}</span>
             </div>
           </div>
           <button
@@ -199,7 +210,7 @@
           </div>
           <div v-if="gear.is_user_gear" class="detail-row">
             <span class="detail-label">Owner:</span>
-            <span class="detail-value">{{ gear.owner_name || 'Unknown' }}</span>
+            <span class="detail-value">{{ ownerLabel(gear) }}</span>
           </div>
           <div v-if="displayVendor(gear)" class="detail-row">
             <span class="detail-label">Vendor:</span>
@@ -304,7 +315,18 @@
                 >
                   Personal
                 </button>
-                <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
+                <span class="owner-name">{{ ownerLabel(gear) }}</span>
+              </div>
+              <div v-else-if="isVendorGear(gear)" class="user-gear-indicator">
+                <button
+                  type="button"
+                  class="vendor-gear-badge pill-clickable"
+                  title="See assignments for this vendor gear"
+                  @click="openGearInfoModal(gear)"
+                >
+                  Vendor
+                </button>
+                <span v-if="displayVendor(gear)" class="owner-name">{{ displayVendor(gear) }}</span>
               </div>
             </div>
             <button
@@ -328,7 +350,7 @@
             </div>
             <div v-if="gear.is_user_gear" class="detail-row">
               <span class="detail-label">Owner:</span>
-              <span class="detail-value">{{ gear.owner_name || 'Unknown' }}</span>
+              <span class="detail-value">{{ ownerLabel(gear) }}</span>
             </div>
             <div v-if="displayVendor(gear)" class="detail-row">
               <span class="detail-label">Vendor:</span>
@@ -575,6 +597,27 @@ setup(props) {
     if (!raw) return ''
     if (/\(Personal Gear\)\s*$/i.test(raw)) return ''
     return raw
+  }
+
+  // Display label for the owner of a personal/team gear row. Falls back from
+  // the resolved user_profiles full_name to the email-style owner_name field
+  // (if present) before giving up. We avoid the literal "Unknown" string so a
+  // team member with a profile but no full_name set still shows up sensibly.
+  const ownerLabel = (gear) => {
+    if (!gear?.is_user_gear) return ''
+    const name = (gear.owner_name || '').trim()
+    if (name) return name
+    if (gear.owner_company) return gear.owner_company
+    return 'Team member'
+  }
+
+  // A project-gear row is "vendor gear" when it wasn't backed by a teammate's
+  // personal inventory but was either flagged rented or has a vendor name set
+  // (i.e. came from the Add Vendor Gear modal).
+  const isVendorGear = (gear) => {
+    if (!gear || gear.is_user_gear) return false
+    if (gear.is_rented) return true
+    return !!displayVendor(gear)
   }
   
 
@@ -1418,7 +1461,9 @@ setup(props) {
     isProjectOwner,
     showFilters,
     showAccessoriesFilters,
-    displayVendor
+    displayVendor,
+    ownerLabel,
+    isVendorGear
   }
 }
 }
@@ -1855,6 +1900,24 @@ setup(props) {
   background: #92400e;
   color: var(--text-inverse);
   border: 1px solid #b45309;
+}
+
+.vendor-gear-badge {
+  background: #0ea5e9;
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dark .vendor-gear-badge {
+  background: #0c4a6e;
+  color: var(--text-inverse);
+  border: 1px solid #075985;
 }
 
 .owner-name {

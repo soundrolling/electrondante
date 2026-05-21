@@ -39,7 +39,14 @@ export function useGearManagement(projectId, userStore) {
         order: [{ column: 'sort_order', ascending: true }]
       })
 
-      // If online, try to get user information for user gear
+      // Resolve owner name + company for any project gear rows backed by a
+      // teammate's (or our own) user_gear. We deliberately skip the legacy
+      // `user_gear_view` here — it joins to the empty `profiles` table and
+      // filters by an `availability = 'available'` flag that's no longer
+      // maintained, so it always returned NULL owner names and made every
+      // teammate's gear show up as "Unknown". Direct two-step query against
+      // user_gear -> user_profiles (the canonical name source the rest of
+      // the codebase uses) avoids both traps.
       let userGearInfo = {}
       if (navigator.onLine) {
         try {
@@ -48,15 +55,28 @@ export function useGearManagement(projectId, userStore) {
             .map(g => g.user_gear_id)
 
           if (userGearIds.length > 0) {
-            const { data: userGearData, error } = await supabase
-              .from('user_gear_view')
-              .select('id, owner_name, owner_company')
+            const { data: ugRows, error: ugErr } = await supabase
+              .from('user_gear')
+              .select('id, user_id')
               .in('id', userGearIds)
+            if (ugErr) throw ugErr
 
-            if (!error && userGearData) {
-              userGearData.forEach(ug => {
-                userGearInfo[ug.id] = ug
-              })
+            const ownerIds = [...new Set((ugRows || []).map(r => r.user_id).filter(Boolean))]
+            const profilesByUserId = new Map()
+            if (ownerIds.length) {
+              const { data: profileRows } = await supabase
+                .from('user_profiles')
+                .select('user_id, full_name, company')
+                .in('user_id', ownerIds)
+              for (const p of profileRows || []) profilesByUserId.set(p.user_id, p)
+            }
+
+            for (const r of ugRows || []) {
+              const p = profilesByUserId.get(r.user_id) || {}
+              userGearInfo[r.id] = {
+                owner_name: p.full_name || null,
+                owner_company: p.company || null
+              }
             }
           }
         } catch (err) {
