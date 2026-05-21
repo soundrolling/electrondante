@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.8">
-        <span class="version-text">v2.3.8</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.9">
+        <span class="version-text">v2.3.9</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.8</h2>
+          <h2 id="changelog-title">What's New in 2.3.9</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>📊 Signal Flow Respects Gear Allocation</h3>
-            <p>The Add gear modal now shows how many of each unit you've placed versus how many are allocated to the stage (e.g. <strong>2/3</strong>). Once you've used them all, the row stays visible but greyed out with <em>“All allocated — delete one to add again”</em>, so you can't accidentally over-allocate beyond the stage's gear count.</p>
+            <h3>🔗 Signal Flow: Connection Lines Render Instantly On Tablet</h3>
+            <p>Dragging between node handles on iPad / Android tablets now draws the connection line the moment the link is saved, instead of waiting for a manual canvas refresh. The new edge is pushed straight into Vue Flow's store so touch matches the desktop mouse flow.</p>
           </div>
         </div>
         

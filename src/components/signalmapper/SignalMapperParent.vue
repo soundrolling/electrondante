@@ -1024,8 +1024,11 @@ function handleNodeDeleted(nodeId) {
 }
 
 function handleConnectionAdded(connection) {
+  // Reassign (don't mutate) so consumers with shallow watchers — including
+  // Vue Flow's :edges sync, which can miss in-place array pushes on touch
+  // devices — see a fresh reference and re-render the new connection line.
   if (!allConnections.value.some(c => c.id === connection.id)) {
-    allConnections.value.push(connection)
+    allConnections.value = [...allConnections.value, connection]
   }
   loadSignalPaths()
 }

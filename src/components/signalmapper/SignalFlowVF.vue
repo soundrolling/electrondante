@@ -479,27 +479,29 @@ const vfNodes = computed(() => {
 })
 
 /* ─── Map DB connections → Vue Flow edges ─────────────── */
+function buildEdge(c, etype) {
+  const type = c.connection_type || 'Mic'
+  const color = CONNECTION_COLORS[type] || CONNECTION_COLORS.Default
+  return {
+    id: String(c.id),
+    source: String(c.from_node_id),
+    target: String(c.to_node_id),
+    type: etype,
+    label: type === 'Mic' ? '' : type,
+    style: {
+      stroke: color,
+      strokeWidth: 2,
+    },
+    labelStyle: { fill: color, fontWeight: 600, fontSize: 11 },
+    labelBgStyle: { fill: 'var(--surface-card)', fillOpacity: 0.9 },
+    markerEnd: { type: 'arrowclosed', color, width: 16, height: 16 },
+    data: { raw: c, connection_type: type },
+  }
+}
+
 const vfEdges = computed(() => {
   const etype = edgeTypeName.value
-  return (props.connections || []).map(c => {
-    const type = c.connection_type || 'Mic'
-    const color = CONNECTION_COLORS[type] || CONNECTION_COLORS.Default
-    return {
-      id: String(c.id),
-      source: String(c.from_node_id),
-      target: String(c.to_node_id),
-      type: etype,
-      label: type === 'Mic' ? '' : type,
-      style: {
-        stroke: color,
-        strokeWidth: 2,
-      },
-      labelStyle: { fill: color, fontWeight: 600, fontSize: 11 },
-      labelBgStyle: { fill: 'var(--surface-card)', fillOpacity: 0.9 },
-      markerEnd: { type: 'arrowclosed', color, width: 16, height: 16 },
-      data: { raw: c, connection_type: type },
-    }
-  })
+  return (props.connections || []).map(c => buildEdge(c, etype))
 })
 
 /* ─── Counts for header ───────────────────────────────── */
@@ -520,6 +522,8 @@ const {
   zoomOut: vfZoomOut,
   fitView: vfFitView,
   onPaneReady,
+  addEdges: vfAddEdges,
+  findEdge: vfFindEdge,
 } = useVueFlow()
 
 function fitView() {
@@ -689,7 +693,22 @@ async function onConnect({ source, target }) {
       to_node_id: target,
       connection_type: connectionTypeDefault.value || 'Mic',
     })
-    if (row) emit('connection-added', row)
+    if (row) {
+      // Push the edge into Vue Flow's internal store immediately so the line
+      // renders without waiting for the parent's prop sync to round-trip.
+      // On touch devices the prop-based update can be missed by Vue Flow's
+      // edge sync until the next interaction, so this ensures parity with
+      // desktop mouse behavior.
+      try {
+        const edgeId = String(row.id)
+        if (!vfFindEdge(edgeId)) {
+          vfAddEdges([buildEdge(row, edgeTypeName.value)])
+        }
+      } catch (e) {
+        console.warn('SignalFlowVF: vfAddEdges failed (non-fatal)', e)
+      }
+      emit('connection-added', row)
+    }
   } catch (err) {
     console.error('SignalFlowVF: addConnection failed', err)
     toast.error('Failed to create connection')
