@@ -144,7 +144,8 @@
     </div>
 
     <p class="tip-text">
-      Filter your gear by "All," "Unassigned," "Assigned," or a specific stage.
+      Filters above apply to both Sources/Transformers/Recorders and Accessories.
+      Choose "All," "Unassigned," "Assigned," or a specific stage to narrow the list.
     </p>
 
     <!-- Main Gear Table (Source, Transformer, Recorder) -->
@@ -243,57 +244,6 @@
     <!-- Accessories & Cables Table -->
     <div class="gear-section accessories-section">
       <h3 class="gear-section-title">Accessories + Cables</h3>
-      
-      <!-- Filter & Sort for Accessories -->
-      <section class="filter-section accessories-filter">
-        <button class="filter-toggle" @click="showAccessoriesFilters = !showAccessoriesFilters">
-          <span class="filter-toggle-label">🔍 Filter Accessories</span>
-          <span class="filter-toggle-chevron">{{ showAccessoriesFilters ? '▲' : '▼' }}</span>
-        </button>
-        <div class="filter-container ui-filter-bar" v-show="showAccessoriesFilters">
-          <div class="filter-row">
-            <div class="filter-group">
-              <label for="filterAccessories" class="filter-label">Filter:</label>
-              <select id="filterAccessories" v-model="filterAccessoriesLocationId" class="filter-select">
-                <option value="all">All Accessories</option>
-                <option value="unassigned">Unassigned</option>
-                <option value="assigned">Assigned</option>
-                <option
-                  v-for="loc in locationsList"
-                  :key="loc.id"
-                  :value="String(loc.id)"
-                >
-                  {{ loc.stage_name }} ({{ loc.venue_name }})
-                </option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label for="filterAccessoriesOwner" class="filter-label">Filter Owner:</label>
-              <select id="filterAccessoriesOwner" v-model="filterAccessoriesOwner" class="filter-select">
-                <option value="all">All Owners</option>
-                <option value="project">Project Gear</option>
-                <option
-                  v-for="owner in uniqueOwners"
-                  :key="owner"
-                  :value="owner"
-                >
-                  {{ owner }}
-                </option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label for="sortAccessories" class="filter-label">Sort By:</label>
-              <select id="sortAccessories" v-model="sortAccessoriesBy" class="filter-select">
-                <option value="default">Default Order</option>
-                <option value="name-asc">Name (A-Z)</option>
-                <option value="name-desc">Name (Z-A)</option>
-                <option value="quantity-desc">Quantity (Most to Least)</option>
-                <option value="quantity-asc">Quantity (Least to Most)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- Accessories Cards -->
       <div class="gear-cards">
@@ -550,9 +500,6 @@ setup(props) {
     filterLocationId,
     filterOwner,
     sortBy,
-    filterAccessoriesLocationId,
-    filterAccessoriesOwner,
-    sortAccessoriesBy,
     uniqueOwners,
     filteredMainGearList,
     filteredAccessoriesList
@@ -567,7 +514,6 @@ setup(props) {
   const formError = ref(null)
   const showAddGearForm = ref(false)
   const showFilters = ref(false)
-  const showAccessoriesFilters = ref(false)
   
   // Pre-selected color options for gear
   const gearColorOptions = [
@@ -1414,9 +1360,6 @@ setup(props) {
     filteredAccessoriesList,
     activeTab,
     switchTab,
-    filterAccessoriesLocationId,
-    filterAccessoriesOwner,
-    sortAccessoriesBy,
     confirmDelete,
     openAssignmentModal,
     closeAssignmentModal,
@@ -1460,7 +1403,6 @@ setup(props) {
     projectId,
     isProjectOwner,
     showFilters,
-    showAccessoriesFilters,
     displayVendor,
     ownerLabel,
     isVendorGear
@@ -1644,10 +1586,6 @@ setup(props) {
   margin-top: 40px;
   padding-top: 24px;
   border-top: 2px solid #e9ecef;
-}
-
-.accessories-filter {
-  margin-bottom: 20px;
 }
 
 /* Filter Section */

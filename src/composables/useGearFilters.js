@@ -1,17 +1,15 @@
 import { ref, computed } from 'vue'
 
+// One filter bar at the top of the gear tab drives both the main gear
+// section (sources / transformers / recorders) and the accessories section.
+// We keep the previously-exposed accessories aliases (`filterAccessories*`,
+// `sortAccessoriesBy`) so any external references that still read them get
+// the unified values, but the template only renders a single set of inputs.
 export function useGearFilters(gearList, locationsList, route) {
-  // Main gear filters
   const filterLocationId = ref(route?.query?.locationId || 'all')
   const filterOwner = ref('all')
   const sortBy = ref('default')
 
-  // Accessories filters
-  const filterAccessoriesLocationId = ref(route?.query?.locationId || 'all')
-  const filterAccessoriesOwner = ref('all')
-  const sortAccessoriesBy = ref('default')
-
-  // Split gear list into main gear and accessories
   const mainGearList = computed(() => {
     return gearList.value.filter(g => g.gear_type !== 'accessories_cables')
   })
@@ -20,7 +18,6 @@ export function useGearFilters(gearList, locationsList, route) {
     return gearList.value.filter(g => g.gear_type === 'accessories_cables')
   })
 
-  // Get unique owners from gear list
   const uniqueOwners = computed(() => {
     const owners = new Set()
     gearList.value.forEach(g => {
@@ -31,22 +28,17 @@ export function useGearFilters(gearList, locationsList, route) {
     return Array.from(owners).sort()
   })
 
-  // Filter and sort main gear
-  const filteredMainGearList = computed(() => {
-    let filtered = []
+  function applyFilters(source) {
+    let filtered = source
 
-    // Apply location/assignment filter
-    if (filterLocationId.value === 'all') {
-      filtered = mainGearList.value
-    } else if (filterLocationId.value === 'unassigned') {
-      filtered = mainGearList.value.filter(g => g.unassigned_amount > 0)
+    if (filterLocationId.value === 'unassigned') {
+      filtered = filtered.filter(g => g.unassigned_amount > 0)
     } else if (filterLocationId.value === 'assigned') {
-      filtered = mainGearList.value.filter(g => g.total_assigned > 0)
-    } else {
-      filtered = mainGearList.value.filter(g => g.assignments?.[filterLocationId.value] > 0)
+      filtered = filtered.filter(g => g.total_assigned > 0)
+    } else if (filterLocationId.value !== 'all') {
+      filtered = filtered.filter(g => g.assignments?.[filterLocationId.value] > 0)
     }
 
-    // Apply owner filter
     if (filterOwner.value !== 'all') {
       if (filterOwner.value === 'project') {
         filtered = filtered.filter(g => !g.is_user_gear)
@@ -55,77 +47,37 @@ export function useGearFilters(gearList, locationsList, route) {
       }
     }
 
-    // Apply sorting
-    if (sortBy.value === 'default') {
-      return filtered
-    } else if (sortBy.value === 'name-asc') {
+    if (sortBy.value === 'name-asc') {
       return [...filtered].sort((a, b) =>
         (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
       )
-    } else if (sortBy.value === 'name-desc') {
+    }
+    if (sortBy.value === 'name-desc') {
       return [...filtered].sort((a, b) =>
         (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
       )
-    } else if (sortBy.value === 'quantity-desc') {
+    }
+    if (sortBy.value === 'quantity-desc') {
       return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
-    } else if (sortBy.value === 'quantity-asc') {
+    }
+    if (sortBy.value === 'quantity-asc') {
       return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
     }
-
     return filtered
-  })
+  }
 
-  // Filter and sort accessories
-  const filteredAccessoriesList = computed(() => {
-    let filtered = []
-
-    // Apply location/assignment filter
-    if (filterAccessoriesLocationId.value === 'all') {
-      filtered = accessoriesList.value
-    } else if (filterAccessoriesLocationId.value === 'unassigned') {
-      filtered = accessoriesList.value.filter(g => g.unassigned_amount > 0)
-    } else if (filterAccessoriesLocationId.value === 'assigned') {
-      filtered = accessoriesList.value.filter(g => g.total_assigned > 0)
-    } else {
-      filtered = accessoriesList.value.filter(g => g.assignments?.[filterAccessoriesLocationId.value] > 0)
-    }
-
-    // Apply owner filter
-    if (filterAccessoriesOwner.value !== 'all') {
-      if (filterAccessoriesOwner.value === 'project') {
-        filtered = filtered.filter(g => !g.is_user_gear)
-      } else {
-        filtered = filtered.filter(g => g.owner_name === filterAccessoriesOwner.value)
-      }
-    }
-
-    // Apply sorting
-    if (sortAccessoriesBy.value === 'default') {
-      return filtered
-    } else if (sortAccessoriesBy.value === 'name-asc') {
-      return [...filtered].sort((a, b) =>
-        (a.gear_name || '').localeCompare(b.gear_name || '', undefined, { sensitivity: 'base' })
-      )
-    } else if (sortAccessoriesBy.value === 'name-desc') {
-      return [...filtered].sort((a, b) =>
-        (b.gear_name || '').localeCompare(a.gear_name || '', undefined, { sensitivity: 'base' })
-      )
-    } else if (sortAccessoriesBy.value === 'quantity-desc') {
-      return [...filtered].sort((a, b) => (b.gear_amount || 0) - (a.gear_amount || 0))
-    } else if (sortAccessoriesBy.value === 'quantity-asc') {
-      return [...filtered].sort((a, b) => (a.gear_amount || 0) - (b.gear_amount || 0))
-    }
-
-    return filtered
-  })
+  const filteredMainGearList = computed(() => applyFilters(mainGearList.value))
+  const filteredAccessoriesList = computed(() => applyFilters(accessoriesList.value))
 
   return {
     filterLocationId,
     filterOwner,
     sortBy,
-    filterAccessoriesLocationId,
-    filterAccessoriesOwner,
-    sortAccessoriesBy,
+    // Back-compat aliases: anything that still reads these gets the unified
+    // values. The separate accessories filter UI has been removed.
+    filterAccessoriesLocationId: filterLocationId,
+    filterAccessoriesOwner: filterOwner,
+    sortAccessoriesBy: sortBy,
     mainGearList,
     accessoriesList,
     uniqueOwners,
@@ -133,4 +85,3 @@ export function useGearFilters(gearList, locationsList, route) {
     filteredAccessoriesList
   }
 }
-
