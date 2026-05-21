@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.1">
-        <span class="version-text">v2.3.1</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.2">
+        <span class="version-text">v2.3.2</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,24 +19,24 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.1</h2>
+          <h2 id="changelog-title">What's New in 2.3.2</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
+            <h3>🐛 No More IDB Toast On Team-Gear Delete</h3>
+            <p>Deleting a project gear row that pointed at a teammate's personal inventory was firing a scary "Save to user_gear failed: Evaluating the object store's key path did not yield a value" toast. Cause: the legacy assigned_quantity bookkeeping tried to write to the teammate's user_gear row, RLS blocks the write, the update returns nothing, and that empty result was getting pushed into the local IndexedDB cache. Fixed by skipping the bookkeeping update when you don't own the gear (the gear_assignments table is the source of truth anyway) and by hardening the cache layer so a future stray empty result can't poison it again.</p>
+          </div>
+
+          <div class="changelog-section">
+            <h3>👥 Teammate Gear Visible in Mine / Team</h3>
+            <p>Added a teammate-read RLS policy so anyone on a shared project can see each other's personal gear in the Mine / Team picker. Writes stay locked to the owner — you can browse and pull from a teammate's library, but you can't modify their inventory.</p>
+          </div>
+
+          <div class="changelog-section">
             <h3>🎛️ Gear: Mine / Team vs Vendor</h3>
-            <p>The two gear buttons now do clearly distinct things. "Mine / Team Gear" pulls from your own personal inventory or any project member's gear — the owner filter has an explicit "Mine only" entry so you can switch between yours and a teammate's in one tap. "Add Vendor Gear" (formerly "Add Gear") is for one-off rental or vendor units that aren't already in anyone's library, and now defaults the Rented flag on.</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>📅 Reservations Shown In Depth</h3>
-            <p>Gear tiles in the Mine / Team picker now show every booking that touches the current project, not just the first. Each row lists the project, the units locked in, when they release, and a per-stage chip ("📍 Main stage 10") so you can see exactly where the gear is going. Overlapping reservations get a red "Reserved" pill; in-use today stays blue.</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>🚫 No More Double-Booking</h3>
-            <p>The quantity picker now caps at units that are actually free during your project's dates, not the user's total inventory. The qty label shows "of N free · M total" when reservations are eating into the pool, so it's obvious why the cap is lower than what someone owns.</p>
+            <p>The two gear buttons now do clearly distinct things. "Mine / Team Gear" pulls from your own personal inventory or any project member's gear — the owner filter has an explicit "Mine only" entry. "Add Vendor Gear" (formerly "Add Gear") is for one-off rental or vendor units that aren't already in anyone's library. Reservations now show every booking touching the current project with per-stage chips, and qty caps at units actually free during the project's dates.</p>
           </div>
         </div>
         

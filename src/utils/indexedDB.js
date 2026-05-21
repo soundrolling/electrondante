@@ -110,10 +110,27 @@ export async function saveData(storeName, data) {
     const tx = database.transaction([storeName], 'readwrite');
     const store = tx.objectStore(storeName);
 
+    // Skip null/undefined entries so a stray empty Supabase response can't
+    // poison the cache with `store.put(undefined)` — IDB rejects that with
+    // "Evaluating the object store's key path did not yield a value" and the
+    // whole transaction errors out, leaking a toast on unrelated UI actions.
+    const keyPath = store.keyPath;
+    const isValid = (item) => {
+      if (item == null) return false;
+      if (typeof keyPath === 'string') return item[keyPath] != null;
+      if (Array.isArray(keyPath)) return keyPath.every(k => item[k] != null);
+      return true;
+    };
+
     if (Array.isArray(data)) {
-      data.forEach(item => store.put(item));
-    } else {
+      for (const item of data) {
+        if (isValid(item)) store.put(item);
+        else log.warn(`saveData(${storeName}) skipping invalid entry`, item);
+      }
+    } else if (isValid(data)) {
       store.put(data);
+    } else {
+      log.warn(`saveData(${storeName}) skipping invalid entry`, data);
     }
 
     await waitForTransaction(tx);

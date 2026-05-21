@@ -228,7 +228,16 @@ export function useGearManagement(projectId, userStore) {
         if (navigator.onLine) {
           try {
             const userGearId = gearToDelete.user_gear_id
-            if (userGearId) {
+            // Only the gear's owner can write to its user_gear row. Skip the
+            // bookkeeping decrement when we're operating on a teammate's gear
+            // — otherwise Supabase returns an empty UPDATE result (RLS blocks
+            // the write even though the new teammate-read policy lets us see
+            // the row), the cache layer pushes `undefined` into IDB, and IDB
+            // crashes with "Evaluating the object store's key path did not
+            // yield a value". The gear_assignments table is the source of
+            // truth for availability now; assigned_quantity is legacy.
+            const ownsUserGear = gearToDelete?.owner_id && gearToDelete.owner_id === userId.value
+            if (userGearId && ownsUserGear) {
               const userGear = await fetchTableData('user_gear', { eq: { id: userGearId } })
               if (userGear && userGear.length > 0) {
                 const currentAssigned = userGear[0]?.assigned_quantity || 0

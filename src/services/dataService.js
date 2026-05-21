@@ -261,18 +261,27 @@ export async function mutateTableData(tableName, operation, data) {
           const { id, ...fields } = data;
           const { data: updated, error } = await supabase.from(tableName).update(fields).eq('id', id).select();
           if (error) throw error;
-          
-          // Update specific item in local storage while preserving offline notes
-          const existingData = await getData(tableName);
-          const offlineNotes = existingData.filter(item => item._isTemp);
-          const onlineData = existingData.filter(item => !item._isTemp);
-          const updatedOnlineData = onlineData.map(item => 
-            item.id === id ? updated[0] : item
-          );
-          const mergedData = [...updatedOnlineData, ...offlineNotes];
-          await saveData(tableName, mergedData);
-          
-          result = updated[0];
+
+          // RLS can let a SELECT through but block the UPDATE, in which case
+          // `updated` comes back as []. Don't poison the cache with undefined
+          // — that turns into `store.put(undefined)` which IDB rejects with
+          // "Evaluating the object store's key path did not yield a value".
+          // Just skip the cache rewrite; the next fetchTableData will reconcile.
+          const updatedRow = updated && updated[0];
+          if (updatedRow) {
+            const existingData = await getData(tableName);
+            const offlineNotes = existingData.filter(item => item._isTemp);
+            const onlineData = existingData.filter(item => !item._isTemp);
+            const updatedOnlineData = onlineData.map(item =>
+              item.id === id ? updatedRow : item
+            );
+            const mergedData = [...updatedOnlineData, ...offlineNotes];
+            await saveData(tableName, mergedData);
+          } else {
+            log.warn(`[mutateTableData] update on ${tableName} returned no rows (likely RLS); cache left untouched for id=${id}`);
+          }
+
+          result = updatedRow || null;
           break;
         }
         case 'delete': {
