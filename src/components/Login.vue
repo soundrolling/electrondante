@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.6">
-        <span class="version-text">v2.3.6</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.7">
+        <span class="version-text">v2.3.7</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.6</h2>
+          <h2 id="changelog-title">What's New in 2.3.7</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🎯 Signal Flow ↔ Mic Placement Now Stay In Sync</h3>
-            <p>Mics placed on the floor plan now land in the same spot on the beta Signal Flow editor instead of scattering randomly. Drag-and-drop on the Signal Flow canvas is now reliable on both desktop and touch — bigger connection handles for fingers, proper touch-action so dragging a node never accidentally scrolls the page, and bigger tap targets on the toolbar buttons.</p>
+            <h3>🏷️ In-App Node Labeling In Signal Flow</h3>
+            <p>When you add a stagebox or recorder to a signal flow, the clunky browser “pro.soundrolling.com says…” dialog is gone. You now get a proper in-app modal with a focused input, the gear's name pre-filled, and Cancel / Add buttons — Enter confirms, Esc cancels.</p>
           </div>
         </div>
         

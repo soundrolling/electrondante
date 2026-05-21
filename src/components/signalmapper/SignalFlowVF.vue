@@ -296,6 +296,62 @@
       </div>
     </div>
   </Teleport>
+
+  <!-- Label-this-node modal (replaces native window.prompt) -->
+  <Teleport to="body">
+    <div
+      v-if="showLabelModal"
+      class="sfv-modal-backdrop"
+      @click.self="cancelLabelModal"
+    >
+      <div class="sfv-modal sfv-modal--narrow" role="dialog" aria-labelledby="sfv-label-title">
+        <header class="sfv-modal-head">
+          <h3 id="sfv-label-title" class="sfv-modal-title">Label this node</h3>
+          <button
+            class="sfv-modal-close"
+            type="button"
+            @click="cancelLabelModal"
+            aria-label="Close"
+          >
+            <X :size="18" :stroke-width="2" />
+          </button>
+        </header>
+        <form class="sfv-label-form" @submit.prevent="confirmAddGearNode">
+          <label class="sfv-label-field">
+            <span class="sfv-label-caption">Display name</span>
+            <input
+              ref="labelInputEl"
+              v-model="labelInputValue"
+              type="text"
+              class="sfv-label-input"
+              placeholder="e.g. Stage Left Stagebox"
+              autocomplete="off"
+              spellcheck="false"
+              @keydown.escape.prevent="cancelLabelModal"
+            />
+            <span class="sfv-label-hint">
+              Shown on the node in Signal Flow. Leave blank to use “{{ defaultLabelFor(pendingGear) }}”.
+            </span>
+          </label>
+          <div class="sfv-label-actions">
+            <button
+              type="button"
+              class="sfv-btn sfv-btn-ghost"
+              @click="cancelLabelModal"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="sfv-btn sfv-btn-primary"
+            >
+              Add node
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </Teleport>
 </div>
 </template>
 
@@ -693,6 +749,12 @@ function bezierPath(sx, sy, tx, ty) {
 const showGearModal = ref(false)
 const gearFilter = ref('Transformers') // 'Transformers' | 'Recorders'
 
+// Label-this-node modal (replaces native window.prompt)
+const showLabelModal = ref(false)
+const labelInputValue = ref('')
+const pendingGear = ref(null)
+const labelInputEl = ref(null)
+
 const availableGear = computed(() => {
   const filterType = gearFilter.value === 'Transformers' ? 'transformer' : 'recorder'
   return (props.gearList || []).filter(g => {
@@ -712,14 +774,35 @@ function openGearModal() {
   showGearModal.value = true
 }
 
-async function addGearNode(gear) {
+function defaultLabelFor(gear) {
+  return gear?.gear_name || (gear?.gear_type === 'recorder' ? 'Recorder' : 'Stagebox')
+}
+
+function addGearNode(gear) {
+  pendingGear.value = gear
+  labelInputValue.value = defaultLabelFor(gear)
+  showLabelModal.value = true
+  nextTick(() => {
+    const el = labelInputEl.value
+    if (el) {
+      el.focus()
+      el.select()
+    }
+  })
+}
+
+function cancelLabelModal() {
+  showLabelModal.value = false
+  pendingGear.value = null
+  labelInputValue.value = ''
+}
+
+async function confirmAddGearNode() {
+  const gear = pendingGear.value
+  if (!gear) return
   try {
-    const defaultLabel = gear.gear_name || (gear.gear_type === 'recorder' ? 'Recorder' : 'Stagebox')
-    const label = (typeof window !== 'undefined' && typeof window.prompt === 'function')
-      ? window.prompt('Label for this node', defaultLabel)
-      : defaultLabel
-    if (label === null) return // user cancelled
-    const finalLabel = (label || defaultLabel).trim() || defaultLabel
+    const fallback = defaultLabelFor(gear)
+    const finalLabel = (labelInputValue.value || '').trim() || fallback
 
     const newNode = await addNode({
       project_id: props.projectId,
@@ -740,7 +823,10 @@ async function addGearNode(gear) {
     })
 
     emit('node-added', newNode)
+    showLabelModal.value = false
     showGearModal.value = false
+    pendingGear.value = null
+    labelInputValue.value = ''
     toast.success(`Added ${finalLabel}`)
   } catch (err) {
     console.error('SignalFlowVF: addGearNode failed', err)
@@ -1430,6 +1516,83 @@ onMounted(() => {
   max-width: 38ch;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* ─── Label-this-node modal ────────────────────────────── */
+.sfv-modal--narrow { width: 420px; }
+.sfv-label-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+.sfv-label-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sfv-label-caption {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sfv-label-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+.sfv-label-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.sfv-label-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.sfv-label-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.sfv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal), transform var(--transition-fast);
+}
+.sfv-btn:active { transform: scale(0.98); }
+.sfv-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--surface-border);
+}
+.sfv-btn-ghost:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+.sfv-btn-primary {
+  background: var(--color-primary-600);
+  color: #fff;
+  border-color: var(--color-primary-600);
+}
+.sfv-btn-primary:hover {
+  background: var(--color-primary-700);
+  border-color: var(--color-primary-700);
 }
 
 @media (max-width: 600px) {
