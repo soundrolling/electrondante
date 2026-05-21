@@ -185,9 +185,13 @@
             <span class="detail-label">Assigned:</span>
             <span class="detail-value">{{ gear.total_assigned }}</span>
           </div>
-          <div v-if="gear.vendor" class="detail-row">
+          <div v-if="gear.is_user_gear" class="detail-row">
+            <span class="detail-label">Owner:</span>
+            <span class="detail-value">{{ gear.owner_name || 'Unknown' }}</span>
+          </div>
+          <div v-if="displayVendor(gear)" class="detail-row">
             <span class="detail-label">Vendor:</span>
-            <span class="detail-value">{{ gear.vendor }}</span>
+            <span class="detail-value">{{ displayVendor(gear) }}</span>
           </div>
         </div>
 
@@ -298,9 +302,13 @@
               <span class="detail-label">Assigned:</span>
               <span class="detail-value">{{ gear.total_assigned }}</span>
             </div>
-            <div v-if="gear.vendor" class="detail-row">
+            <div v-if="gear.is_user_gear" class="detail-row">
+              <span class="detail-label">Owner:</span>
+              <span class="detail-value">{{ gear.owner_name || 'Unknown' }}</span>
+            </div>
+            <div v-if="displayVendor(gear)" class="detail-row">
               <span class="detail-label">Vendor:</span>
-              <span class="detail-value">{{ gear.vendor }}</span>
+              <span class="detail-value">{{ displayVendor(gear) }}</span>
             </div>
           </div>
 
@@ -531,6 +539,15 @@ setup(props) {
     if (!color) return '#1890ff'
     const validColor = gearColorOptions.find(opt => opt.value === color)
     return validColor ? validColor.value : '#1890ff'
+  }
+
+  // Strips legacy synthetic "(Personal Gear)" suffix that used to be written
+  // into the vendor column for personal gear. Returns empty if nothing real remains.
+  const displayVendor = (gear) => {
+    const raw = (gear?.vendor || '').trim()
+    if (!raw) return ''
+    if (/\(Personal Gear\)\s*$/i.test(raw)) return ''
+    return raw
   }
   
 
@@ -1182,7 +1199,7 @@ setup(props) {
           num_records: gearType === 'recorder' ? (userGear.num_records ? Number(userGear.num_records) : null) : null,
           gear_amount: quantity,
           is_rented: userGear.is_rented ?? false,
-          vendor: `${userGear.owner_name || 'Unknown'} (Personal Gear)`,
+          vendor: userGear.is_rented ? (userGear.vendor || null) : null,
           default_color: gearType === 'source' ? (userGear.default_color || '#1890ff') : null,
           project_id: currentProject.value.id,
           sort_order: gearList.value.length + 1,
@@ -1335,7 +1352,8 @@ setup(props) {
     projectId,
     isProjectOwner,
     showFilters,
-    showAccessoriesFilters
+    showAccessoriesFilters,
+    displayVendor
   }
 }
 }
