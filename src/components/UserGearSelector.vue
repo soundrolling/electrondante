@@ -63,27 +63,9 @@
             {{ loc.stage_name }} ({{ loc.venue_name }})
           </option>
         </select>
-      </div>
-
-      <div v-if="selectedStageId" class="assigned-rows">
-        <div
-          v-for="item in selectedItems"
-          :key="item.gear.id"
-          class="assigned-row"
-        >
-          <span class="assigned-name">{{ item.gear.gear_name }}</span>
-          <span class="assigned-meta">Qty {{ item.quantity }}</span>
-          <label class="assigned-amount">
-            <span>Assign to stage</span>
-            <input
-              type="number"
-              :value="stageAmounts[item.gear.id] ?? 0"
-              :min="0"
-              :max="item.quantity"
-              @input="onStageAmountChange(item.gear.id, $event.target.value, item.quantity)"
-            />
-          </label>
-        </div>
+        <p v-if="selectedStageId" class="stage-hint">
+          Each selected item's full Qty above will be assigned to this stage.
+        </p>
       </div>
 
       <div class="selection-actions">
@@ -119,7 +101,6 @@ const libraryRef = ref(null)
 // Current selection { gear, quantity }
 const selectedItems = ref([])
 const selectedStageId = ref('')
-const stageAmounts = ref({})
 const adding = ref(false)
 
 async function loadTeamMembers() {
@@ -158,33 +139,19 @@ async function loadTeamMembers() {
 
 function onSelectionChange(items) {
   selectedItems.value = items
-  // Drop stale stage amounts when items are removed
-  const ids = new Set(items.map(i => i.gear.id))
-  Object.keys(stageAmounts.value).forEach(id => {
-    if (!ids.has(id)) delete stageAmounts.value[id]
-  })
   emit('gear-selected', items.map(({ gear, quantity }) => ({
     ...gear,
     selectedQuantity: quantity
   })))
 }
 
-function onStageAmountChange(id, value, maxQty) {
-  const num = Math.max(0, Math.min(maxQty, Number(value) || 0))
-  stageAmounts.value[id] = num
-}
-
 function onQuantityChange(id, value) {
   libraryRef.value?.setQuantity(id, value)
-  const item = selectedItems.value.find(i => i.gear.id === id)
-  const stageCap = item ? Math.min(stageAmounts.value[id] ?? 0, Number(value) || 0) : 0
-  if (stageAmounts.value[id] != null) stageAmounts.value[id] = Math.max(0, stageCap)
 }
 
 function clearSelection() {
   selectedItems.value = []
   selectedStageId.value = ''
-  stageAmounts.value = {}
   emit('gear-selected', [])
 }
 
@@ -196,7 +163,7 @@ async function addSelectedToProject() {
       userGear: gear,
       quantity,
       locationId: selectedStageId.value || null,
-      assignedAmount: selectedStageId.value ? (stageAmounts.value[gear.id] || 0) : 0
+      assignedAmount: selectedStageId.value ? quantity : 0
     }))
     emit('gear-added', payload)
     clearSelection()
@@ -323,36 +290,11 @@ watch(() => props.projectId, loadTeamMembers)
   color: var(--text-primary);
   font-size: 0.88rem;
 }
-
-.assigned-rows { display: flex; flex-direction: column; gap: 0.35rem; }
-.assigned-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.6rem;
-  align-items: center;
-  padding: 0.45rem 0.6rem;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-light);
-  border-radius: 0.4rem;
-  font-size: 0.85rem;
-}
-.assigned-name { font-weight: 600; color: var(--text-heading); }
-.assigned-meta { color: var(--text-secondary); font-size: 0.78rem; }
-.assigned-amount {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.78rem;
+.stage-hint {
+  margin: 0;
+  font-size: 0.75rem;
   color: var(--text-secondary);
-}
-.assigned-amount input {
-  width: 4rem;
-  padding: 0.25rem 0.35rem;
-  border: 1px solid var(--border-medium);
-  border-radius: 0.35rem;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  text-align: center;
+  font-style: italic;
 }
 
 .selection-actions {

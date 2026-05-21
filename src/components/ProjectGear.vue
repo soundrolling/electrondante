@@ -167,16 +167,28 @@
           <div class="gear-name-section">
             <h3 class="gear-name">{{ gear.gear_name }}</h3>
             <div v-if="gear.is_user_gear" class="user-gear-indicator">
-              <span class="user-gear-badge">Personal</span>
+              <button
+                type="button"
+                class="user-gear-badge pill-clickable"
+                title="See where this personal gear is reserved"
+                @click="openGearInfoModal(gear)"
+              >
+                Personal
+              </button>
               <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
             </div>
           </div>
-          <div class="gear-type-badge">
+          <button
+            type="button"
+            class="gear-type-badge pill-clickable"
+            title="See assignments and reservations for this gear"
+            @click="openGearInfoModal(gear)"
+          >
             {{ gear.gear_type || 'No type' }}
-          </div>
+          </button>
         </div>
-        
-        <div class="gear-details">
+
+        <button type="button" class="gear-details details-clickable" @click="openGearInfoModal(gear)" title="See where this gear is assigned and reserved">
           <div class="detail-row">
             <span class="detail-label">Available:</span>
             <span class="detail-value">{{ gear.unassigned_amount }}/{{ gear.gear_amount }}</span>
@@ -193,7 +205,7 @@
             <span class="detail-label">Vendor:</span>
             <span class="detail-value">{{ displayVendor(gear) }}</span>
           </div>
-        </div>
+        </button>
 
         <div class="gear-actions">
           <button class="btn btn-secondary" @click="openGearInfoModal(gear)" title="Info">
@@ -284,16 +296,28 @@
             <div class="gear-name-section">
               <h3 class="gear-name">{{ gear.gear_name }}</h3>
               <div v-if="gear.is_user_gear" class="user-gear-indicator">
-                <span class="user-gear-badge">Personal</span>
+                <button
+                  type="button"
+                  class="user-gear-badge pill-clickable"
+                  title="See where this personal gear is reserved"
+                  @click="openGearInfoModal(gear)"
+                >
+                  Personal
+                </button>
                 <span class="owner-name">{{ gear.owner_name || 'Unknown' }}</span>
               </div>
             </div>
-            <div class="gear-type-badge">
+            <button
+              type="button"
+              class="gear-type-badge pill-clickable"
+              title="See assignments and reservations for this gear"
+              @click="openGearInfoModal(gear)"
+            >
               {{ gear.gear_type || 'No type' }}
-            </div>
+            </button>
           </div>
-          
-          <div class="gear-details">
+
+          <button type="button" class="gear-details details-clickable" @click="openGearInfoModal(gear)" title="See where this gear is assigned and reserved">
             <div class="detail-row">
               <span class="detail-label">Available:</span>
               <span class="detail-value">{{ gear.unassigned_amount }}/{{ gear.gear_amount }}</span>
@@ -310,7 +334,7 @@
               <span class="detail-label">Vendor:</span>
               <span class="detail-value">{{ displayVendor(gear) }}</span>
             </div>
-          </div>
+          </button>
 
           <div class="gear-actions">
             <button class="btn btn-secondary" @click="openGearInfoModal(gear)" title="Info">
@@ -365,6 +389,9 @@
       :visible="gearInfoModalVisible"
       :gear-info="currentGearInfo"
       :assignments-list="currentGearAssignmentsList"
+      :gear-status="currentGearStatus"
+      :loading-status="loadingGearStatus"
+      :current-project-id="projectId"
       @close="closeGearInfoModal"
     />
 
@@ -570,6 +597,8 @@ setup(props) {
   // Gear Info Modal
   const gearInfoModalVisible    = ref(false)
   const currentGearInfo         = ref({})
+  const currentGearStatus       = ref(null)
+  const loadingGearStatus       = ref(false)
 
   // User Gear Selector Modal
   const showUserGearSelector    = ref(false)
@@ -1153,12 +1182,46 @@ setup(props) {
 
   async function openGearInfoModal(gear) {
     currentGearInfo.value = gear
+    currentGearStatus.value = null
     gearInfoModalVisible.value = true
+
+    // For personal gear, fetch cross-project reservation + conflict status so
+    // the popup can show "reserved on other projects" and any date overlaps.
+    if (gear?.is_user_gear && gear?.user_gear_id) {
+      loadingGearStatus.value = true
+      try {
+        const { computeUserGearStatus } = await import('../utils/gearStatusHelper')
+        const { data: userGearRow } = await supabase
+          .from('user_gear')
+          .select('id, quantity, availability, archived_at')
+          .eq('id', gear.user_gear_id)
+          .maybeSingle()
+        const rowForStatus = userGearRow || {
+          id: gear.user_gear_id,
+          quantity: gear.gear_amount,
+          availability: gear.availability
+        }
+        const statusMap = await computeUserGearStatus([rowForStatus], {
+          supabase,
+          currentProject: currentProject.value,
+          today: new Date()
+        })
+        if (gearInfoModalVisible.value && currentGearInfo.value?.id === gear.id) {
+          currentGearStatus.value = statusMap[gear.user_gear_id] || null
+        }
+      } catch (err) {
+        console.warn('[ProjectGear] Failed to load gear cross-project status:', err)
+      } finally {
+        loadingGearStatus.value = false
+      }
+    }
   }
 
   function closeGearInfoModal() {
     gearInfoModalVisible.value = false
     currentGearInfo.value = {}
+    currentGearStatus.value = null
+    loadingGearStatus.value = false
   }
 
   function getLocationName(locationId) {
@@ -1336,6 +1399,8 @@ setup(props) {
     gearInfoModalVisible,
     currentGearInfo,
     currentGearAssignmentsList,
+    currentGearStatus,
+    loadingGearStatus,
     openGearInfoModal,
     closeGearInfoModal,
     getLocationName,
@@ -1812,6 +1877,48 @@ setup(props) {
   background: var(--color-primary-600);
   color: var(--text-inverse);
   border: 1px solid var(--color-primary-700);
+}
+
+/* Clickable pills (Personal / type) — open info popup. Reset button defaults
+   so they keep their pill appearance, then layer hover/focus affordance. */
+.pill-clickable {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.2;
+  transition: filter 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+.pill-clickable:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+.pill-clickable:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+/* Clickable details panel — wraps the detail rows in a button so the whole
+   Available/Assigned/Vendor block opens the info popup. Reset all the button
+   chrome so it still reads as plain rows. */
+.details-clickable {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.details-clickable:hover { background: var(--bg-secondary); }
+.details-clickable:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
 }
 
 /* Gear Details */
