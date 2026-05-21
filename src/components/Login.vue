@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.10">
-        <span class="version-text">v2.3.10</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.11">
+        <span class="version-text">v2.3.11</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.10</h2>
+          <h2 id="changelog-title">What's New in 2.3.11</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🧹 Cleaner Signal Flow Edges</h3>
-            <p>Removed the inline connection-type labels (e.g. <em>Dante</em>, <em>Line</em>) from each edge on the Signal Flow canvas. The colored legend above already explains what each color means, so the lines stay clean and easier to read.</p>
+            <h3>🎛️ My Gear Shortcut In Account Menu</h3>
+            <p>The account dropdown (and the mobile menu) now has a direct “My Gear” link — one click takes you to your personal gear inventory instead of going through My Profile and switching tabs.</p>
           </div>
         </div>
         

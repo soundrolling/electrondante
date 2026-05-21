@@ -159,6 +159,16 @@
               <span>{{ t('header.myProfile') }}</span>
             </router-link>
 
+            <router-link
+              :to="{ name: 'UserProfile', params: { tab: 'gear' } }"
+              class="user-menu-item"
+              role="menuitem"
+              @click="closeUserMenu"
+            >
+              <Sliders :size="18" :stroke-width="2" />
+              <span>{{ t('profile.tabs.gear') }}</span>
+            </router-link>
+
             <button
               class="user-menu-item"
               role="menuitem"
@@ -251,6 +261,9 @@
         <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'profile' } }" class="sheet-link" @click="showMobileMenu = false">
           <User :size="18" :stroke-width="2" /> <span>{{ t('header.myProfile') }}</span>
         </router-link>
+        <router-link v-if="isAuthenticated" :to="{ name: 'UserProfile', params: { tab: 'gear' } }" class="sheet-link" @click="showMobileMenu = false">
+          <Sliders :size="18" :stroke-width="2" /> <span>{{ t('profile.tabs.gear') }}</span>
+        </router-link>
       </div>
 
       <div class="menu-section actions-section">
@@ -303,6 +316,7 @@ import {
   LogOut,
   ChevronDown,
   Globe,
+  Sliders,
 } from 'lucide-vue-next';
 
 export default {
@@ -320,6 +334,7 @@ export default {
     LogOut,
     ChevronDown,
     Globe,
+    Sliders,
   },
   setup() {
     const userStore = useUserStore();
