@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.12">
-        <span class="version-text">v2.3.12</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.13">
+        <span class="version-text">v2.3.13</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.12</h2>
+          <h2 id="changelog-title">What's New in 2.3.13</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔗 Transformer Input Mapping Stays Put</h3>
-            <p>Fixed a bug in the transformer inspector where changing one input could silently revert another one to its previous source. When you swap an input to a gear source that was already wired to the transformer, the save now moves that connection cleanly instead of failing in the background, and the rest of your mapped inputs stay exactly where you put them.</p>
+            <h3>✂️ Crop Now Works On PDF Backgrounds</h3>
+            <p>Cropping the Mic Placement background image now renders correctly when the background started life as a PDF. The crop preview previously came up blank in that case — fixed by reusing the already-loaded image instead of re-fetching it.</p>
           </div>
         </div>
         

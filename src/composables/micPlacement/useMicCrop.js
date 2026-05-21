@@ -8,12 +8,11 @@ import { useToast } from 'vue-toastification'
  *
  * Caller provides:
  *   - `cropCanvasRef` - the modal's <canvas>
- *   - `bgImage` / `bgImageObj` refs (source pixels)
+ *   - `bgImageObj` - loaded HTMLImageElement of the current background
  *   - `uploadBgToStorage` / `setBackgroundImage` from the bg image composable
  */
 export function useMicCrop({
   cropCanvasRef,
-  bgImage,
   bgImageObj,
   uploadBgToStorage,
   setBackgroundImage
@@ -77,10 +76,12 @@ export function useMicCrop({
       height: displayHeight
     }
 
-    cropImageObj.value = new Image()
-    cropImageObj.value.crossOrigin = 'anonymous'
-    cropImageObj.value.onload = () => drawCropCanvas()
-    cropImageObj.value.src = bgImage.value
+    // Reuse the already-loaded HTMLImageElement so PDFs (rendered to PNG before
+    // upload) and remote-URL images both render immediately. Re-fetching by URL
+    // here used to fail silently on CORS-cache mismatches, leaving the canvas
+    // blank.
+    cropImageObj.value = img
+    drawCropCanvas()
   }
 
   function drawCropCanvas() {

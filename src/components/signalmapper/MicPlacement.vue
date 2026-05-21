@@ -385,7 +385,6 @@ const {
 // 8. Crop
 const crop = useMicCrop({
   cropCanvasRef,
-  bgImage,
   bgImageObj,
   uploadBgToStorage,
   setBackgroundImage
