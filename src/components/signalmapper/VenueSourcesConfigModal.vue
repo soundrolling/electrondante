@@ -3,83 +3,147 @@
     <div class="modal-content venue-sources-config" @click.stop>
       <div class="modal-header">
         <h3>Configure Venue Sources</h3>
-        <button @click="close" class="close-btn">×</button>
+        <button @click="close" class="close-btn" aria-label="Close">×</button>
       </div>
-      
+
       <div class="modal-body">
         <!-- Source Types Management -->
-        <div class="source-types-section">
+        <section class="source-types-section">
           <div class="section-header">
-            <h4>Source Types</h4>
-            <button @click="addSourceType" class="btn-add-small">+ Add Source Type</button>
+            <h4 class="section-title">Source Types</h4>
+            <button @click="addSourceType" class="btn btn-secondary btn-sm">
+              <span aria-hidden="true">+</span> Add Source Type
+            </button>
           </div>
-          
-          <div v-for="(typeConfig, index) in sourceTypes" :key="index" class="source-type-item">
+
+          <div v-if="sourceTypes.length === 0" class="empty-state">
+            No source types yet — add one to get started.
+          </div>
+
+          <div
+            v-for="(typeConfig, index) in sourceTypes"
+            :key="index"
+            class="source-type-card"
+          >
             <div class="source-type-header">
-              <input 
-                v-model="typeConfig.name" 
-                class="source-type-name" 
-                placeholder="Source Type (e.g., DJ, Program)"
-                @blur="saveSourceType(index)"
-              />
-              <select v-model="typeConfig.numberingStyle" class="numbering-style-select" @change="saveSourceType(index)">
-                <option value="letters">Letters (A, B, C...)</option>
-                <option value="numbers">Numbers (1, 2, 3...)</option>
-              </select>
-              <select v-model="typeConfig.channels" class="channels-select" @change="saveSourceType(index)">
-                <option :value="1">Mono</option>
-                <option :value="2">Stereo (L/R)</option>
-              </select>
-              <button @click="removeSourceType(index)" class="btn-remove-small">×</button>
+              <div class="field">
+                <label class="field-label">Name</label>
+                <input
+                  v-model="typeConfig.name"
+                  class="field-input source-type-name"
+                  placeholder="e.g., DJ, Program"
+                  @blur="saveSourceType(index)"
+                />
+              </div>
+              <div class="field">
+                <label class="field-label">Numbering</label>
+                <select
+                  v-model="typeConfig.numberingStyle"
+                  class="field-input"
+                  @change="saveSourceType(index)"
+                >
+                  <option value="letters">Letters (A, B, C…)</option>
+                  <option value="numbers">Numbers (1, 2, 3…)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Channels</label>
+                <select
+                  v-model="typeConfig.channels"
+                  class="field-input"
+                  @change="saveSourceType(index)"
+                >
+                  <option :value="1">Mono</option>
+                  <option :value="2">Stereo (L/R)</option>
+                </select>
+              </div>
+              <button
+                @click="removeSourceType(index)"
+                class="icon-btn icon-btn-danger"
+                title="Remove source type"
+                aria-label="Remove source type"
+              >×</button>
             </div>
-            
+
             <!-- Feeds for this source type -->
             <div class="feeds-section">
               <div class="feeds-header">
-                <span class="feeds-label">Feeds:</span>
-                <button @click="addFeed(index)" class="btn-add-tiny">+ Add Feed</button>
+                <span class="feeds-label">Feeds</span>
+                <button @click="addFeed(index)" class="btn btn-secondary btn-xs">
+                  <span aria-hidden="true">+</span> Add Feed
+                </button>
               </div>
               <div class="feeds-list">
-                <div 
-                  v-for="(feed, feedIndex) in typeConfig.feeds" 
+                <div
+                  v-for="(feed, feedIndex) in typeConfig.feeds"
                   :key="feedIndex"
                   class="feed-item"
                 >
-                  <input 
-                    v-model="feed.identifier" 
-                    class="feed-identifier"
-                    :placeholder="typeConfig.numberingStyle === 'letters' ? 'A, B, C...' : '1, 2, 3...'"
+                  <input
+                    v-model="feed.identifier"
+                    class="field-input feed-identifier"
+                    :placeholder="typeConfig.numberingStyle === 'letters' ? 'A' : '1'"
                     @blur="updateFeeds(index)"
                   />
                   <span class="feed-channels">
-                    <span v-if="typeConfig.channels === 2">{{ feed.identifier }} L / {{ feed.identifier }} R</span>
-                    <span v-else>{{ feed.identifier }}</span>
+                    <template v-if="typeConfig.channels === 2">
+                      {{ feed.identifier || '—' }} L
+                      <span class="feed-sep">/</span>
+                      {{ feed.identifier || '—' }} R
+                    </template>
+                    <template v-else>{{ feed.identifier || '—' }}</template>
                   </span>
-                  <button @click="removeFeed(index, feedIndex)" class="btn-remove-tiny">×</button>
+                  <button
+                    @click="removeFeed(index, feedIndex)"
+                    class="icon-btn icon-btn-danger icon-btn-sm"
+                    title="Remove feed"
+                    aria-label="Remove feed"
+                  >×</button>
+                </div>
+                <div v-if="typeConfig.feeds.length === 0" class="empty-feeds">
+                  No feeds — add one above.
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
+        </section>
+
         <!-- Preview -->
-        <div class="preview-section">
-          <h4>Port Preview</h4>
+        <section class="preview-section">
+          <div class="section-header">
+            <h4 class="section-title">Port Preview</h4>
+            <span class="total-ports-pill">
+              {{ totalPorts }} {{ totalPorts === 1 ? 'port' : 'ports' }}
+            </span>
+          </div>
           <div class="port-preview">
-            <div v-for="(port, idx) in portPreview" :key="idx" class="port-preview-item">
-              <span class="port-number">Port {{ port.portNumber }}:</span>
+            <div
+              v-if="portPreview.length === 0"
+              class="empty-state empty-state-inset"
+            >
+              Add a source type with feeds to preview ports.
+            </div>
+            <div
+              v-for="(port, idx) in portPreview"
+              :key="idx"
+              class="port-preview-item"
+            >
+              <span class="port-number">Port {{ port.portNumber }}</span>
               <span class="port-label">{{ port.label }}</span>
             </div>
           </div>
-          <div class="total-ports">
-            Total Output Ports: <strong>{{ totalPorts }}</strong>
-          </div>
-        </div>
+        </section>
       </div>
-      
+
       <div class="modal-footer">
-        <button @click="close" class="btn-cancel">Cancel</button>
-        <button @click="save" class="btn-primary" :disabled="loading">Save Configuration</button>
+        <button @click="close" class="btn btn-secondary">Cancel</button>
+        <button
+          @click="save"
+          class="btn btn-primary"
+          :disabled="loading"
+        >
+          {{ loading ? 'Saving…' : 'Save Configuration' }}
+        </button>
       </div>
     </div>
   </div>
@@ -405,7 +469,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1050;
-  padding: 20px;
+  padding: var(--space-4, 16px);
   animation: vsc-fade 140ms ease-out;
 }
 
@@ -415,10 +479,11 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: var(--bg-primary, #ffffff);
-  border: 1px solid var(--border-light, #e2e8f0);
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl, 0 20px 60px rgba(0, 0, 0, 0.3));
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -431,7 +496,7 @@ onMounted(() => {
 }
 
 .venue-sources-config {
-  max-width: 800px;
+  max-width: 820px;
   max-height: 90vh;
 }
 
@@ -439,225 +504,340 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-light, #e2e8f0);
+  gap: var(--space-3, 12px);
+  padding: var(--space-5, 20px) var(--space-6, 24px);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text-heading, var(--text-primary, #0f172a));
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-heading, var(--text-primary));
+  line-height: 1.3;
 }
 
 .close-btn {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
+  border-radius: var(--radius-md, 8px);
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   line-height: 1;
-  color: var(--text-tertiary, #64748b);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .close-btn:hover {
-  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
-  color: var(--text-primary, #0f172a);
-  border-color: var(--border-light, #e2e8f0);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .modal-body {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: var(--space-6, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 24px);
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0.875rem 1.25rem;
-  border-top: 1px solid var(--border-light, #e2e8f0);
-  background: var(--bg-secondary, #f8fafc);
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
+  gap: var(--space-3, 12px);
+  padding: var(--space-5, 20px) var(--space-6, 24px);
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-secondary);
+  border-bottom-left-radius: var(--radius-lg, 12px);
+  border-bottom-right-radius: var(--radius-lg, 12px);
 }
 
-.btn-cancel,
-.btn-primary {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-medium, #cbd5e1);
-  background: var(--bg-primary, #ffffff);
-  color: var(--text-primary, #0f172a);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+/* Buttons in the footer/header inherit global .btn / .btn-primary /
+   .btn-secondary styles from index.css. Make compact variants here. */
+.btn-sm {
+  min-height: 36px;
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  font-size: var(--text-sm, 0.875rem);
+  border-radius: var(--radius-md, 8px);
 }
 
-.btn-cancel:hover {
-  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+.btn-xs {
+  min-height: 30px;
+  min-width: 0;
+  padding: var(--space-1, 4px) var(--space-3, 12px);
+  font-size: var(--text-xs, 0.8125rem);
+  border-radius: var(--radius-md, 6px);
 }
 
-.btn-primary {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.source-types-section {
-  margin-bottom: 2rem;
-}
-
+/* Sections */
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: var(--space-3, 12px);
+  margin-bottom: var(--space-4, 16px);
 }
 
-.source-type-item {
+.section-title {
+  margin: 0;
+  font-size: var(--text-base, 0.95rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-heading, var(--text-primary));
+  letter-spacing: 0.01em;
+}
+
+/* Source type card */
+.source-type-card {
   border: 1px solid var(--border-light);
-  border-radius: 4px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  border-radius: var(--radius-lg, 10px);
+  padding: var(--space-4, 16px);
+  margin-bottom: var(--space-3, 12px);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.source-type-card:hover {
+  border-color: var(--border-medium);
 }
 
 .source-type-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--space-3, 12px);
+  align-items: end;
+  margin-bottom: var(--space-4, 16px);
+  padding-bottom: var(--space-4, 16px);
+  border-bottom: 1px dashed var(--border-light);
+}
+
+.field {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  min-width: 0;
 }
 
-.source-type-name {
-  flex: 1;
-  padding: 0.5rem;
+.field-label {
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: var(--font-medium, 500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Compact field input — overrides the global 44px min-height that's
+   meant for full-width forms. */
+.field-input {
+  min-height: 36px;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
   border: 1px solid var(--border-medium);
-  border-radius: 4px;
+  border-radius: var(--radius-md, 6px);
   background: var(--bg-primary);
   color: var(--text-primary);
+  font-size: var(--text-sm, 0.9rem);
+  box-shadow: var(--shadow-sm, none);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
 }
 
-.numbering-style-select,
-.channels-select {
-  padding: 0.5rem;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+.field-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
 }
 
+/* Feeds */
 .feeds-section {
-  margin-left: 1rem;
+  padding-left: 0;
 }
 
 .feeds-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-3, 12px);
+}
+
+.feeds-label {
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: var(--font-medium, 500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
 }
 
 .feeds-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2, 8px);
 }
 
 .feed-item {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3, 12px);
   align-items: center;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md, 6px);
 }
 
 .feed-identifier {
-  width: 60px;
-  padding: 0.25rem;
-  border: 1px solid var(--border-medium);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  width: 72px;
+  min-height: 32px;
+  flex: 0 0 auto;
+  text-align: center;
+  font-weight: var(--font-medium, 500);
 }
 
 .feed-channels {
   flex: 1;
   color: var(--text-secondary);
-  font-size: 0.9em;
+  font-size: var(--text-sm, 0.875rem);
 }
 
+.feed-sep {
+  color: var(--text-tertiary, var(--text-secondary));
+  margin: 0 var(--space-1, 4px);
+}
+
+.empty-feeds {
+  padding: var(--space-3, 12px);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 0.875rem);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md, 6px);
+}
+
+.empty-state {
+  padding: var(--space-5, 20px);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 0.9rem);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md, 8px);
+}
+
+.empty-state-inset {
+  background: transparent;
+  border: none;
+  padding: var(--space-4, 16px);
+}
+
+/* Icon buttons (× delete) */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.icon-btn-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 1.05rem;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.icon-btn-danger {
+  color: var(--color-error-600, #dc2626);
+  background: var(--color-error-50, #fef2f2);
+  border-color: var(--color-error-100, #fee2e2);
+}
+
+.icon-btn-danger:hover {
+  color: var(--text-inverse, #ffffff);
+  background: var(--color-error-500, #ef4444);
+  border-color: var(--color-error-500, #ef4444);
+}
+
+/* Port preview */
 .preview-section {
-  border-top: 2px solid var(--border-light);
-  padding-top: 1rem;
-  margin-top: 2rem;
+  border-top: 1px solid var(--border-light);
+  padding-top: var(--space-5, 20px);
 }
 
-.port-preview {
-  max-height: 200px;
-  overflow-y: auto;
+.total-ports-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1, 4px) var(--space-3, 12px);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-light);
-  border-radius: 4px;
-  padding: 0.5rem;
-  margin: 0.5rem 0;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.port-preview-item {
-  display: flex;
-  gap: 1rem;
-  padding: 0.25rem 0;
-}
-
-.port-number {
-  font-weight: bold;
-  min-width: 80px;
-}
-
-.total-ports {
-  margin-top: 0.5rem;
-  text-align: right;
+  border-radius: 999px;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: var(--font-medium, 500);
   color: var(--text-secondary);
 }
 
-.btn-add-small,
-.btn-add-tiny {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.85em;
+.port-preview {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-primary);
 }
 
-.btn-remove-small,
-.btn-remove-tiny {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.85em;
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.port-preview-item {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: var(--space-3, 12px);
+  align-items: center;
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  border-bottom: 1px solid var(--border-light);
+  font-size: var(--text-sm, 0.875rem);
 }
 
-.btn-remove-tiny {
-  padding: 0.15rem 0.4rem;
-  font-size: 0.75em;
+.port-preview-item:last-child {
+  border-bottom: none;
+}
+
+.port-number {
+  font-weight: var(--font-semibold, 600);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.port-label {
+  color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .modal-body {
+    padding: var(--space-4, 16px);
+    gap: var(--space-4, 16px);
+  }
+  .modal-header,
+  .modal-footer {
+    padding: var(--space-4, 16px);
+  }
+  .source-type-header {
+    grid-template-columns: 1fr auto;
+    gap: var(--space-2, 8px);
+  }
+  .source-type-header .field:nth-child(2),
+  .source-type-header .field:nth-child(3) {
+    grid-column: span 1;
+  }
 }
 </style>
 

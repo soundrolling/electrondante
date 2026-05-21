@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.18">
-        <span class="version-text">v2.3.18</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.19">
+        <span class="version-text">v2.3.19</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.18</h2>
+          <h2 id="changelog-title">What's New in 2.3.19</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>⚡ +48V Phantom Power Per Transformer Input</h3>
-            <p>Each transformer input now has a <strong>+48V</strong> checkbox sitting next to its Gain (dB) field. Off by default, toggle persists per input, and clearing the input source clears the phantom flag too.</p>
+            <h3>🎨 Configure Venue Sources Refreshed</h3>
+            <p>The Configure Venue Sources modal now matches the rest of the app — labeled fields, polished source-type cards, cleaner remove buttons, and a tidier port preview.</p>
           </div>
         </div>
         
