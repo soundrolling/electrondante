@@ -1540,12 +1540,14 @@ function buildPathToSource(nodeId, connections, nodeMap) {
  * @returns {Promise<{nodes: number, connections: number}>} - Count of newly copied nodes and connections (excludes existing duplicates)
  */
 export async function copySignalFlowFromRecordingDay(projectId, locationId, sourceStageHourId, targetStageHourId) {
-  if (!sourceStageHourId || !targetStageHourId) {
-    throw new Error('Both source and target stage_hour_id must be provided')
+  // null is a valid value here — it represents the "Base" / generic stage-wide
+  // signal flow (rows with stage_hour_id IS NULL). undefined is not allowed.
+  if (sourceStageHourId === undefined || targetStageHourId === undefined) {
+    throw new Error('Both source and target stage_hour_id must be provided (use null for Base)')
   }
-  
+
   if (sourceStageHourId === targetStageHourId) {
-    throw new Error('Source and target recording days must be different')
+    throw new Error('Source and target must be different')
   }
   
   // Get all nodes and connections from source recording day
@@ -1834,9 +1836,13 @@ export async function copySignalFlowFromRecordingDay(projectId, locationId, sour
   invalidateTableCache('graph', projectId)
   invalidateTableCache('port_maps', projectId)
   invalidateTableCache('transformer_input_gain', projectId)
-  
+
   return {
     nodes: insertedNodes.length,
     connections: insertedConnections.length
   }
 }
+
+// Alias: copy between any two variants (Base = null, recording day = stage_hour_id).
+// Prefer this name when one side may be the Base.
+export const copySignalFlowFromVariant = copySignalFlowFromRecordingDay

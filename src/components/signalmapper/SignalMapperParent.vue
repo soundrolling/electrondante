@@ -19,18 +19,28 @@
     </div>
   </div>
 
-  <!-- Sticky recording-day rail -->
+  <!-- Sticky recording-day rail (always shown when we have a location) -->
   <div
-    v-if="effectiveLocationId && stageHours.length"
+    v-if="effectiveLocationId"
     class="rec-day-rail"
     role="tablist"
-    aria-label="Recording day"
+    aria-label="Signal mapper variant"
   >
     <div class="rec-day-kicker">
       <Calendar :size="14" :stroke-width="2" class="rec-day-icon" />
-      <span class="rec-day-kicker-label">Recording day</span>
+      <span class="rec-day-kicker-label">{{ stageHours.length ? 'Variant' : 'Signal flow' }}</span>
     </div>
     <div class="rec-day-chips">
+      <button
+        role="tab"
+        :aria-selected="selectedStageHourId === null"
+        :class="['rec-day-chip', 'rec-day-chip-base', { active: selectedStageHourId === null }]"
+        :title="stageHours.length ? 'Shared signal flow used as the starting point for new recording days' : 'Generic signal flow for this stage'"
+        aria-label="Base signal flow"
+        @click="selectRecordingDay(null)"
+      >
+        <span class="rec-day-chip-prefix">Base</span>
+      </button>
       <button
         v-for="stageHour in stageHours"
         :key="stageHour.id"
@@ -46,7 +56,7 @@
       </button>
     </div>
     <button
-      v-if="selectedStageHourId && activeTab === 'flow'"
+      v-if="activeTab === 'flow'"
       class="rec-day-editor-toggle"
       :class="{ beta: flowEditor === 'beta' }"
       @click="setFlowEditor(flowEditor === 'beta' ? 'classic' : 'beta')"
@@ -57,7 +67,6 @@
       <span class="rec-day-editor-label">{{ flowEditor === 'beta' ? 'Beta' : 'Classic' }}</span>
     </button>
     <button
-      v-if="selectedStageHourId"
       class="rec-day-warnings"
       :class="['sev-' + (warningsTopSeverity || 'ok')]"
       @click="showWarningsPanel = true"
@@ -71,7 +80,6 @@
       <span class="rec-day-warnings-label">{{ warnings.length || 'OK' }}</span>
     </button>
     <button
-      v-if="selectedStageHourId"
       class="rec-day-export"
       @click="openShowExportModal"
       :disabled="isExportingShow"
@@ -82,14 +90,23 @@
       <span class="rec-day-export-label">{{ isExportingShow ? 'Exporting…' : 'Export' }}</span>
     </button>
     <button
-      v-if="selectedStageHourId && stageHours.length > 1"
+      v-if="stageHours.length >= 1"
       class="rec-day-copy"
       @click="showCopyModal = true"
-      title="Copy signal flow from another recording day"
-      aria-label="Copy from previous day"
+      title="Copy signal flow from base or another recording day"
+      aria-label="Copy signal flow"
     >
       <Copy :size="14" :stroke-width="2" />
       <span class="rec-day-copy-label">Copy</span>
+    </button>
+    <button
+      class="rec-day-new"
+      @click="openNewVariantModal"
+      :title="selectedStageHourId === null ? 'Save current base as a new recording day variant' : 'Save current day as a new recording day variant'"
+      aria-label="Save as new recording day"
+    >
+      <Calendar :size="14" :stroke-width="2" />
+      <span class="rec-day-new-label">New day</span>
     </button>
   </div>
 
@@ -112,25 +129,11 @@
 
   <!-- Tab Content -->
   <div class="tab-content">
-    <div v-if="effectiveLocationId && !stageHours.length" class="no-stage-hour-message empty-state">
-      <Calendar :size="32" :stroke-width="1.5" class="empty-icon" />
-      <h3 class="empty-title">No recording days yet</h3>
-      <p class="empty-body">
-        The signal mapper organises mics, signal flow and tracks per recording day.
-        Add at least one recording day for <strong>{{ currentLocation?.stage_name || 'this stage' }}</strong> to get started.
-      </p>
-      <button class="btn btn-primary empty-cta" @click="goToProjectLocations">
-        Add recording days in Project Locations
-      </button>
-    </div>
-    <div v-else-if="!selectedStageHourId && effectiveLocationId" class="no-stage-hour-message">
-      <p>Please select a recording day to view signal mapper data.</p>
-    </div>
     <!-- Use KeepAlive to preserve component state when switching tabs -->
     <KeepAlive :max="2">
       <MicPlacement
-        v-if="activeTab === 'placement' && selectedStageHourId"
-        :key="`placement-${selectedStageHourId}`"
+        v-if="activeTab === 'placement' && effectiveLocationId"
+        :key="`placement-${variantKey}`"
         ref="micPlacementRef"
         :projectId="projectId"
         :locationId="effectiveLocationId"
@@ -142,10 +145,10 @@
         @node-added="handleNodeAdded"
         @node-deleted="handleNodeDeleted"
       />
-      
+
       <SignalFlowVF
-        v-else-if="activeTab === 'flow' && selectedStageHourId && flowEditor === 'beta'"
-        :key="`flow-vf-${selectedStageHourId}`"
+        v-else-if="activeTab === 'flow' && effectiveLocationId && flowEditor === 'beta'"
+        :key="`flow-vf-${variantKey}`"
         ref="signalFlowRef"
         :projectId="projectId"
         :locationId="effectiveLocationId"
@@ -162,8 +165,8 @@
         @connection-deleted="handleConnectionDeleted"
       />
       <SignalFlow
-        v-else-if="activeTab === 'flow' && selectedStageHourId"
-        :key="`flow-${selectedStageHourId}`"
+        v-else-if="activeTab === 'flow' && effectiveLocationId"
+        :key="`flow-${variantKey}`"
         ref="signalFlowRef"
         :projectId="projectId"
         :locationId="effectiveLocationId"
@@ -179,10 +182,10 @@
         @connection-updated="handleConnectionUpdated"
         @connection-deleted="handleConnectionDeleted"
       />
-      
+
       <TrackList
-        v-else-if="activeTab === 'tracklist' && selectedStageHourId"
-        :key="`tracklist-${selectedStageHourId}`"
+        v-else-if="activeTab === 'tracklist' && effectiveLocationId"
+        :key="`tracklist-${variantKey}`"
         :projectId="projectId"
         :locationId="effectiveLocationId"
         :stageHourId="selectedStageHourId"
@@ -359,47 +362,105 @@
     </div>
   </div>
 
-  <!-- Copy from Previous Recording Day Modal -->
+  <!-- Copy Signal Flow Modal -->
   <div v-if="showCopyModal" class="modal-overlay" @click.self="showCopyModal = false">
     <div class="modal-content copy-modal">
       <div class="modal-header">
-        <h3>Copy Signal Flow from Previous Recording Day</h3>
+        <h3>Copy Signal Flow</h3>
         <button class="modal-close" @click="showCopyModal = false">×</button>
       </div>
       <div class="modal-body">
-        <p>Select a recording day to copy signal flow from:</p>
-        <select 
-          v-model="copySourceStageHourId" 
+        <p>
+          Copy signal flow into
+          <strong>{{ currentVariantLabel }}</strong>
+          from:
+        </p>
+        <select
+          v-model="copySourceStageHourKey"
           class="copy-source-select"
           :disabled="isCopying"
         >
-          <option :value="null">-- Select Recording Day --</option>
-          <option 
-            v-for="stageHour in availableSourceStageHours" 
-            :key="stageHour.id" 
-            :value="stageHour.id"
+          <option value="">-- Select source --</option>
+          <option
+            v-for="opt in availableCopySources"
+            :key="opt.key"
+            :value="opt.key"
           >
-            {{ getRecordingDayLabel(stageHour) }}
+            {{ opt.label }}
           </option>
         </select>
-        <div class="copy-warning" v-if="copySourceStageHourId">
-          <p><strong>Warning:</strong> This will copy all nodes and connections from the selected recording day to the current one. Existing data for the current recording day will remain unchanged.</p>
+        <div class="copy-warning" v-if="copySourceStageHourKey">
+          <p><strong>Note:</strong> This will copy all nodes and connections from the selected source into <strong>{{ currentVariantLabel }}</strong>. Existing data will remain — duplicates are merged.</p>
         </div>
       </div>
       <div class="modal-footer">
-        <button 
-          class="btn btn-secondary" 
+        <button
+          class="btn btn-secondary"
           @click="showCopyModal = false"
           :disabled="isCopying"
         >
           Cancel
         </button>
-        <button 
-          class="btn btn-primary" 
+        <button
+          class="btn btn-primary"
           @click="handleCopyFromRecordingDay"
-          :disabled="!copySourceStageHourId || isCopying"
+          :disabled="!copySourceStageHourKey || isCopying"
         >
           {{ isCopying ? 'Copying...' : 'Copy' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Recording Day Variant Modal -->
+  <div v-if="showNewVariantModal" class="modal-overlay" @click.self="showNewVariantModal = false">
+    <div class="modal-content copy-modal">
+      <div class="modal-header">
+        <h3>Save as new recording day</h3>
+        <button class="modal-close" @click="showNewVariantModal = false" :disabled="isCreatingVariant">×</button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Create a new recording day variant for
+          <strong>{{ currentLocation?.stage_name || 'this stage' }}</strong>
+          and copy the current
+          <strong>{{ currentVariantLabel }}</strong>
+          signal flow into it. Edit the new day independently — the original stays unchanged.
+        </p>
+        <div class="export-field">
+          <label class="export-label">Label</label>
+          <input
+            v-model="newVariantLabel"
+            type="text"
+            class="export-input"
+            placeholder="e.g. Day 2 — Show with extra mics"
+            :disabled="isCreatingVariant"
+          />
+        </div>
+        <div class="export-field">
+          <label class="export-label">Date</label>
+          <input
+            v-model="newVariantDate"
+            type="date"
+            class="export-input"
+            :disabled="isCreatingVariant"
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          class="btn btn-secondary"
+          @click="showNewVariantModal = false"
+          :disabled="isCreatingVariant"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary"
+          @click="handleCreateVariant"
+          :disabled="isCreatingVariant || !newVariantLabel.trim()"
+        >
+          {{ isCreatingVariant ? 'Creating…' : 'Create day & copy' }}
         </button>
       </div>
     </div>
@@ -419,7 +480,7 @@ import {
   getCompleteSignalPath,
   subscribeToNodes,
   subscribeToConnections,
-  copySignalFlowFromRecordingDay
+  copySignalFlowFromVariant
 } from '@/services/signalMapperService'
 import { useStageHours } from '@/composables/useStageHours'
 import { fetchTableData } from '@/services/dataService'
@@ -484,10 +545,14 @@ const signalPaths = ref([])
 const loadingPaths = ref(false)
 const selectedConnectionId = ref(null)
 const signalFlowRef = ref(null)
-const selectedStageHourId = ref(null)
+const selectedStageHourId = ref(null) // null = Base / generic stage-wide signal flow
 const showCopyModal = ref(false)
-const copySourceStageHourId = ref(null)
+const copySourceStageHourKey = ref('') // '' = none, 'base' = base, or stage_hour id (as string/number)
 const isCopying = ref(false)
+const showNewVariantModal = ref(false)
+const isCreatingVariant = ref(false)
+const newVariantLabel = ref('')
+const newVariantDate = ref('')
 
 // Refs to child components (for export)
 const micPlacementRef = ref(null)
@@ -513,7 +578,7 @@ function setFlowEditor(next) {
 // Warnings panel state
 const showWarningsPanel = ref(false)
 const warnings = computed(() => {
-  if (!selectedStageHourId.value) return []
+  if (!effectiveLocationId.value) return []
   return computeWarnings({
     nodes: allNodes.value || [],
     connections: allConnections.value || [],
@@ -553,9 +618,33 @@ const tabs = [
 ]
 
 function selectRecordingDay(id) {
-  selectedStageHourId.value = id
+  selectedStageHourId.value = id == null ? null : id
   if (typeof onRecordingDayChange === 'function') onRecordingDayChange()
 }
+
+// Stable key for KeepAlive / child :key — uses 'base' when no recording day selected
+const variantKey = computed(() => selectedStageHourId.value == null ? 'base' : `sh-${selectedStageHourId.value}`)
+
+// Human label for the current variant (Base or Day N)
+const currentVariantLabel = computed(() => {
+  if (selectedStageHourId.value == null) return 'Base'
+  const sh = stageHours.value.find(s => s.id === selectedStageHourId.value)
+  return sh ? `Day ${getRecordingDayLabel(sh)}` : 'Day'
+})
+
+// Options for the Copy modal: Base + any recording days other than the current one
+const availableCopySources = computed(() => {
+  const out = []
+  if (selectedStageHourId.value !== null) {
+    out.push({ key: 'base', label: 'Base (generic)' })
+  }
+  for (const sh of stageHours.value) {
+    if (sh.id !== selectedStageHourId.value) {
+      out.push({ key: String(sh.id), label: `Day ${getRecordingDayLabel(sh)}` })
+    }
+  }
+  return out
+})
 
 /* ───────── Show bible export ───────── */
 
@@ -567,7 +656,9 @@ const exportMeta = computed(() => ({
   projectName: currentProjectName.value || '',
   venueName: currentLocation.value?.venue_name || '',
   stageName: currentLocation.value?.stage_name || '',
-  recordingDayLabel: currentStageHour.value ? getRecordingDayLabel(currentStageHour.value) : '',
+  recordingDayLabel: currentStageHour.value
+    ? getRecordingDayLabel(currentStageHour.value)
+    : (selectedStageHourId.value === null ? 'Base' : ''),
   appName: 'Spatial Notes',
   micCount: Array.isArray(allNodes.value)
     ? allNodes.value.filter(n => (n.gear_type === 'source' || n.node_type === 'source') && (n.gear_id || n.type === 'gear')).length
@@ -593,13 +684,13 @@ async function fetchProjectName() {
 }
 
 const canRunShowExport = computed(() => {
-  if (!selectedStageHourId.value) return false
+  if (!effectiveLocationId.value) return false
   const o = exportOptions.value
   return o.cover || o.micPlacement || o.signalFlow || o.trackList
 })
 
 function openShowExportModal() {
-  if (!selectedStageHourId.value) return
+  if (!effectiveLocationId.value) return
   exportOptions.value.filename = defaultShowBibleFilename(exportMeta.value)
   exportProgress.value = ''
   showExportModal.value = true
@@ -784,10 +875,6 @@ const sourceNodes = computed(() => {
 // Navigation
 const goBack = () => router.back()
 
-function goToProjectLocations() {
-  router.push({ name: 'ProjectLocations', params: { id: props.projectId } })
-}
-
 // Set active tab and update URL
 function setActiveTab(tab) {
   activeTab.value = tab
@@ -862,12 +949,10 @@ async function fetchGearList() {
   }
 }
 
-// Load nodes and connections - filtered by location and recording day if provided
+// Load nodes and connections - filtered by location and recording day (null = Base)
 async function loadNodesAndConnections() {
   if (!props.projectId) return
-  // Require a stage hour ID to be selected
-  if (!selectedStageHourId.value) {
-    // Clear data if no stage hour is selected
+  if (!effectiveLocationId.value) {
     allNodes.value = []
     allConnections.value = []
     signalPaths.value = []
@@ -876,15 +961,15 @@ async function loadNodesAndConnections() {
 
   try {
     const locId = effectiveLocationId.value
-    const stageHourId = selectedStageHourId.value
+    const stageHourId = selectedStageHourId.value // may be null for Base
     const [nodes, connections] = await Promise.all([
       getNodes(props.projectId, locId, stageHourId),
       getConnections(props.projectId, locId, stageHourId)
     ])
-    
+
     allNodes.value = nodes
     allConnections.value = connections
-    
+
     // Load signal paths for track list
     await loadSignalPaths()
   } catch (err) {
@@ -895,18 +980,16 @@ async function loadNodesAndConnections() {
 
 // Load signal paths
 async function loadSignalPaths() {
-  if (!props.projectId) return
-  // Require a stage hour ID to be selected
-  if (!selectedStageHourId.value) {
+  if (!props.projectId || !effectiveLocationId.value) {
     signalPaths.value = []
     loadingPaths.value = false
     return
   }
-  
+
   loadingPaths.value = true
   try {
     const locId = effectiveLocationId.value
-    const stageHourId = selectedStageHourId.value
+    const stageHourId = selectedStageHourId.value // null = Base
     signalPaths.value = await getCompleteSignalPath(props.projectId, locId, stageHourId)
   } catch (err) {
     console.error('Error loading signal paths:', err)
@@ -1028,38 +1111,36 @@ function getRecordingDayLabel(stageHour) {
   return stageHour.notes || formatStageHourFallback(stageHour)
 }
 
-const availableSourceStageHours = computed(() => {
-  return stageHours.value.filter(sh => sh.id !== selectedStageHourId.value)
-})
-
 function onRecordingDayChange() {
   loadNodesAndConnections()
 }
 
 async function handleCopyFromRecordingDay() {
-  if (!copySourceStageHourId.value || !selectedStageHourId.value) {
-    toast.error('Please select a source recording day')
+  const src = copySourceStageHourKey.value
+  if (!src) {
+    toast.error('Please choose a source')
     return
   }
-  
-  if (copySourceStageHourId.value === selectedStageHourId.value) {
-    toast.error('Cannot copy to the same recording day')
+  const sourceId = src === 'base' ? null : Number(src)
+  const targetId = selectedStageHourId.value // null = Base
+  if (sourceId === targetId) {
+    toast.error('Source and target are the same')
     return
   }
-  
+
   isCopying.value = true
   try {
-    const result = await copySignalFlowFromRecordingDay(
+    const result = await copySignalFlowFromVariant(
       props.projectId,
       effectiveLocationId.value,
-      copySourceStageHourId.value,
-      selectedStageHourId.value
+      sourceId,
+      targetId
     )
-    
+
     toast.success(`Copied ${result.nodes} nodes and ${result.connections} connections`)
     showCopyModal.value = false
-    copySourceStageHourId.value = null
-    
+    copySourceStageHourKey.value = ''
+
     // Reload data to show the copied signal flow
     await loadNodesAndConnections()
   } catch (err) {
@@ -1070,31 +1151,91 @@ async function handleCopyFromRecordingDay() {
   }
 }
 
+function openNewVariantModal() {
+  // Pre-fill label as "Day N" based on existing stage hours
+  const nextIndex = (stageHours.value?.length || 0) + 1
+  newVariantLabel.value = `Day ${nextIndex}`
+  // Default date to today
+  const today = new Date()
+  const yyyy = today.getFullYear()
+  const mm = String(today.getMonth() + 1).padStart(2, '0')
+  const dd = String(today.getDate()).padStart(2, '0')
+  newVariantDate.value = `${yyyy}-${mm}-${dd}`
+  showNewVariantModal.value = true
+}
+
+async function handleCreateVariant() {
+  if (isCreatingVariant.value) return
+  if (!newVariantLabel.value.trim()) return
+  if (!effectiveLocationId.value) {
+    toast.error('No stage selected')
+    return
+  }
+
+  isCreatingVariant.value = true
+  try {
+    // 1. Create new stage_hour row for this stage
+    const dateStr = newVariantDate.value || new Date().toISOString().slice(0, 10)
+    const startIso = `${dateStr}T09:00:00`
+    const endIso = `${dateStr}T18:00:00`
+    const orderIndex = (stageHours.value?.length || 0) + 1
+    const { data: created, error: insertErr } = await supabase
+      .from('stage_hours')
+      .insert([{
+        project_id: props.projectId,
+        stage_id: effectiveLocationId.value,
+        start_datetime: startIso,
+        end_datetime: endIso,
+        order_index: orderIndex,
+        notes: newVariantLabel.value.trim(),
+      }])
+      .select()
+      .single()
+    if (insertErr) throw insertErr
+
+    const newStageHourId = created.id
+
+    // 2. Copy from current variant (null = Base) into the new stage hour
+    const sourceId = selectedStageHourId.value
+    try {
+      await copySignalFlowFromVariant(
+        props.projectId,
+        effectiveLocationId.value,
+        sourceId,
+        newStageHourId
+      )
+    } catch (copyErr) {
+      // Non-fatal: day was created but copy failed
+      console.error('Variant created but copy failed:', copyErr)
+    }
+
+    // 3. Refresh stage hours and switch selection
+    await loadStageHours()
+    selectedStageHourId.value = newStageHourId
+    await loadNodesAndConnections()
+
+    toast.success(`Created ${newVariantLabel.value.trim()} and copied signal flow`)
+    showNewVariantModal.value = false
+  } catch (err) {
+    console.error('Failed to create variant:', err)
+    toast.error(err.message || 'Failed to create new day variant')
+  } finally {
+    isCreatingVariant.value = false
+  }
+}
+
 // Watch for location changes and reload nodes/connections
 watch(effectiveLocationId, async (newLocId) => {
   if (newLocId) {
     await loadStageHours()
   }
-  // Only load if we have a selected stage hour
-  if (selectedStageHourId.value) {
-    loadNodesAndConnections()
-  }
+  // Always reload when the location changes (Base loads stage-wide data)
+  loadNodesAndConnections()
 })
 
-// Watch for stage hours to auto-select first one if none selected
-watch(stageHours, (newStageHours) => {
-  // Auto-select first stage hour if none is selected and stage hours are available
-  if (!selectedStageHourId.value && newStageHours.length > 0) {
-    selectedStageHourId.value = newStageHours[0].id
-  }
-}, { immediate: true })
-
-// Watch for recording day changes
+// Watch for recording day changes (including switching to/from Base)
 watch(selectedStageHourId, () => {
-  // Only load if we have a selected stage hour
-  if (selectedStageHourId.value) {
-    loadNodesAndConnections()
-  }
+  loadNodesAndConnections()
 })
 
 // Lifecycle
@@ -1118,14 +1259,23 @@ onMounted(async () => {
   fetchProjectName()
   if (effectiveLocationId.value) {
     await loadStageHours()
-    // Auto-select first stage hour if none is selected
-    if (!selectedStageHourId.value && stageHours.value.length > 0) {
-      selectedStageHourId.value = stageHours.value[0].id
+    // Default to Base (selectedStageHourId stays null). If Base is empty but a
+    // recording day already has data (legacy projects), silently switch to that day
+    // so existing setups remain visible.
+    if (selectedStageHourId.value === null && stageHours.value.length > 0) {
+      try {
+        const baseNodes = await getNodes(props.projectId, effectiveLocationId.value, null)
+        if (!baseNodes.length) {
+          selectedStageHourId.value = stageHours.value[0].id
+        }
+      } catch {
+        // If the probe fails, leave selection on Base
+      }
     }
   }
   await fetchGearList()
-  // Only load nodes/connections if we have a selected stage hour
-  if (selectedStageHourId.value) {
+  // Load nodes/connections for whichever variant is active (Base or a day)
+  if (effectiveLocationId.value) {
     await loadNodesAndConnections()
   }
   const cleanup = setupRealtimeSubscriptions()
@@ -1292,7 +1442,8 @@ onMounted(async () => {
 .rec-day-copy,
 .rec-day-export,
 .rec-day-warnings,
-.rec-day-editor-toggle {
+.rec-day-editor-toggle,
+.rec-day-new {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1311,7 +1462,8 @@ onMounted(async () => {
 .rec-day-copy:hover,
 .rec-day-export:hover:not(:disabled),
 .rec-day-warnings:hover,
-.rec-day-editor-toggle:hover {
+.rec-day-editor-toggle:hover,
+.rec-day-new:hover {
   background: var(--surface-hover);
   border-color: var(--surface-border-strong);
   color: var(--text-primary);
@@ -1320,7 +1472,27 @@ onMounted(async () => {
 .rec-day-copy-label,
 .rec-day-export-label,
 .rec-day-warnings-label,
-.rec-day-editor-label { display: none; }
+.rec-day-editor-label,
+.rec-day-new-label { display: none; }
+
+/* Base chip — subtly distinct from numbered day chips */
+.rec-day-chip-base {
+  border-style: dashed;
+}
+.rec-day-chip-base.active {
+  border-style: solid;
+}
+/* The Base chip only carries the prefix text — make it readable */
+.rec-day-chip-base .rec-day-chip-prefix {
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: inherit;
+  opacity: 1;
+}
+.rec-day-chip-base.active .rec-day-chip-prefix {
+  color: var(--chip-text-active);
+  opacity: 1;
+}
 
 .rec-day-editor-toggle.beta {
   background: var(--color-primary-50);
@@ -1449,39 +1621,6 @@ onMounted(async () => {
   min-height: 500px;
   overflow: hidden;
 }
-.no-stage-hour-message {
-  padding: var(--space-12) var(--space-4);
-  text-align: center;
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-.no-stage-hour-message.empty-state {
-  max-width: 480px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-}
-.no-stage-hour-message .empty-icon {
-  color: var(--text-secondary);
-  opacity: 0.7;
-}
-.no-stage-hour-message .empty-title {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--text-heading, var(--text-primary));
-}
-.no-stage-hour-message .empty-body {
-  margin: 0;
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-.no-stage-hour-message .empty-cta {
-  margin-top: var(--space-2);
-}
-
 /* ─── Mobile bottom tab nav (fixed) ────────────────────── */
 .tab-nav-bottom {
   display: none;
@@ -2008,7 +2147,8 @@ onMounted(async () => {
   .rec-day-copy-label,
   .rec-day-export-label,
   .rec-day-warnings-label,
-  .rec-day-editor-label { display: inline; }
+  .rec-day-editor-label,
+  .rec-day-new-label { display: inline; }
   .sm-back-label { display: inline; }
 }
 
@@ -2034,11 +2174,13 @@ onMounted(async () => {
   .rec-day-copy-label,
   .rec-day-export-label,
   .rec-day-warnings-label,
-  .rec-day-editor-label { display: none; }
+  .rec-day-editor-label,
+  .rec-day-new-label { display: none; }
   .rec-day-copy,
   .rec-day-export,
   .rec-day-warnings,
-  .rec-day-editor-toggle { padding: 0; width: 28px; justify-content: center; }
+  .rec-day-editor-toggle,
+  .rec-day-new { padding: 0; width: 28px; justify-content: center; }
   .tab-nav-top { display: none; }
   .tab-nav-bottom { display: flex; }
   .tab-content { border-radius: var(--radius-md); min-height: 400px; }
