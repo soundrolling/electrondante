@@ -212,37 +212,39 @@ try {
 }
 
 async function loadStageHours() {
+  // Notes attach to recording days only.
+  const onlyRecording = (rows) => (rows || []).filter(s => (s.category || 'recording') === 'recording');
   try {
     const projectId = await getSetting('current-project-id');
-    
+
     if (isOnline.value) {
-      stageHours.value = await fetchTableData('stage_hours', {
-        eq: { 
+      stageHours.value = onlyRecording(await fetchTableData('stage_hours', {
+        eq: {
           project_id: projectId,
-          stage_id: props.locationId 
+          stage_id: props.locationId
         },
         order: { column: 'start_datetime', ascending: true }
-      });
+      }));
     } else {
-      stageHours.value = await fetchTableData('stage_hours', {
-        eq: { 
+      stageHours.value = onlyRecording(await fetchTableData('stage_hours', {
+        eq: {
           project_id: projectId,
-          stage_id: props.locationId 
+          stage_id: props.locationId
         },
         order: { column: 'start_datetime', ascending: true }
-      });
+      }));
       toast.info('Offline mode: using cached stage hours');
     }
-    
+
   } catch (error) {
     console.error('Error loading stage hours:', error);
-    stageHours.value = await fetchTableData('stage_hours', {
-      eq: { 
+    stageHours.value = onlyRecording(await fetchTableData('stage_hours', {
+      eq: {
         project_id: await getSetting('current-project-id'),
-        stage_id: props.locationId 
+        stage_id: props.locationId
       },
       order: { column: 'start_datetime', ascending: true }
-    });
+    }));
   }
 }
 onMounted(async () => {

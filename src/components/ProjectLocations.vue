@@ -88,11 +88,34 @@
         <!-- Per-day Stage Hours -->
         <div class="stage-availability">
           <div class="availability-info">
-            <span v-if="getTodaySlot(stage.id)" class="availability-status">
-              <span v-if="isStageOpenNow(stage.id)" class="status-open">🟢 Open now</span>
-              <span class="availability-time">Today: {{ formatSlot(getTodaySlot(stage.id)) }}</span>
-            </span>
-            <span v-else class="status-closed">🔴 Closed</span>
+            <!-- Live status row -->
+            <div v-if="activeNowFor(stage.id).length" class="status-open">
+              🟢 Live now ·
+              <span
+                v-for="(slot, i) in activeNowFor(stage.id)"
+                :key="slot.id"
+                class="status-chip"
+              >
+                {{ categoryMeta(slot.category).icon }} {{ categoryMeta(slot.category).label }}<span v-if="i < activeNowFor(stage.id).length - 1">,</span>
+              </span>
+            </div>
+            <div v-else-if="todaySlotsFor(stage.id).length" class="status-scheduled">
+              🟡 Scheduled today
+            </div>
+            <div v-else class="status-closed">🔴 No hours today</div>
+
+            <!-- Today summary by category -->
+            <ul v-if="todayByCategory(stage.id).length" class="category-summary">
+              <li
+                v-for="row in todayByCategory(stage.id)"
+                :key="row.key"
+                class="category-line"
+              >
+                <span class="cat-icon">{{ row.icon }}</span>
+                <span class="cat-label">{{ row.label }}:</span>
+                <span class="cat-time">{{ row.slots.map(formatSlot).join(' · ') }}</span>
+              </li>
+            </ul>
           </div>
           <button class="availability-btn" @click="openViewAllHoursModal(stage)">
             <span class="btn-icon">🕒</span>
@@ -413,17 +436,32 @@
           <button class="close-button" @click="closeViewAllHoursModal">×</button>
         </div>
         <div class="modal-body">
+          <div class="hours-filter-row">
+            <label class="hours-filter-label">Show:</label>
+            <select v-model="hoursFilterCategory" class="form-input hours-filter-select">
+              <option value="all">All types</option>
+              <option v-for="c in CATEGORIES" :key="c.key" :value="c.key">
+                {{ c.icon }} {{ c.label }}
+              </option>
+            </select>
+          </div>
           <table class="hours-table">
             <thead>
               <tr>
+                <th>Type</th>
                 <th>Start</th>
                 <th>End</th>
-                <th>Recording Day ID</th>
+                <th>Label</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="slot in allSlotsForModalStage" :key="slot.id">
+              <tr v-for="slot in filteredModalSlots" :key="slot.id">
+                <td>
+                  <span class="cat-pill" :class="`cat-${slot.category || 'recording'}`">
+                    {{ categoryMeta(slot.category).icon }} {{ categoryMeta(slot.category).label }}
+                  </span>
+                </td>
                 <td>{{ formatDateTime(slot.start_datetime) }}</td>
                 <td>{{ formatDateTime(slot.end_datetime) }}</td>
                 <td>{{ slot.notes }}</td>
@@ -432,9 +470,21 @@
                   <button class="icon-action delete" @click="deleteSlot(slot)" title="Delete"><span class="icon">🗑️</span></button>
                 </td>
               </tr>
+              <tr v-if="!filteredModalSlots.length">
+                <td colspan="5" class="empty-row">No hours yet — add one below.</td>
+              </tr>
             </tbody>
           </table>
-          <button class="btn btn-positive add-slot-button" @click="openAddEditSlotModal(modalStage)"><span class="icon">➕</span> Add New Slot</button>
+          <div class="add-slot-actions">
+            <button
+              v-for="c in CATEGORIES"
+              :key="c.key"
+              class="btn btn-secondary add-slot-cat-button"
+              @click="openAddEditSlotModal(modalStage, null, c.key)"
+            >
+              <span class="icon">➕</span> {{ c.icon }} {{ c.label }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -450,6 +500,23 @@
         </div>
         <div class="modal-body">
           <div class="form-field form-group">
+            <label class="form-label">Type</label>
+            <div class="category-picker">
+              <button
+                v-for="c in CATEGORIES"
+                :key="c.key"
+                type="button"
+                class="category-option"
+                :class="{ active: slotForm.category === c.key }"
+                @click="slotForm.category = c.key"
+              >
+                <span class="cat-icon">{{ c.icon }}</span>
+                <span class="cat-label">{{ c.label }}</span>
+              </button>
+            </div>
+            <p class="form-hint">{{ categoryMeta(slotForm.category).hint }}</p>
+          </div>
+          <div class="form-field form-group">
             <label class="form-label">Start Date & Time</label>
             <input type="datetime-local" v-model="slotForm.start_datetime" class="form-input" />
           </div>
@@ -458,8 +525,15 @@
             <input type="datetime-local" v-model="slotForm.end_datetime" class="form-input" />
           </div>
           <div class="form-field form-group">
-            <label class="form-label">Recording Day ID</label>
-            <input type="text" v-model="slotForm.notes" placeholder="e.g., 1, 2, 3, 4" class="form-input" />
+            <label class="form-label">
+              {{ slotForm.category === 'recording' ? 'Recording Day ID' : 'Label (optional)' }}
+            </label>
+            <input
+              type="text"
+              v-model="slotForm.notes"
+              :placeholder="slotForm.category === 'recording' ? 'e.g., 1, 2, 3, 4' : 'e.g., Build Day 1'"
+              class="form-input"
+            />
           </div>
           <div class="form-actions">
             <button class="btn btn-primary save-button" @click="saveSlot">Save</button>
@@ -479,6 +553,19 @@ import { useToast } from 'vue-toastification';
 import { fetchTableData, mutateTableData } from '@/services/dataService';
 import { getData } from '@/utils/indexedDB';
 import { supabase } from '@/supabase';
+
+const CATEGORIES = [
+  { key: 'recording', label: 'Recording', icon: '🎬', hint: 'When the stage is actively recording.' },
+  { key: 'build',     label: 'Build',     icon: '🛠️', hint: 'Set-up / load-in time before recording.' },
+  { key: 'wrap',      label: 'Wrap',      icon: '📦', hint: 'Tear-down / load-out after recording.' },
+  { key: 'open',      label: 'Open',      icon: '🏢', hint: 'Building access window — when the venue is open.' },
+];
+const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
+const CATEGORY_ORDER = Object.fromEntries(CATEGORIES.map((c, i) => [c.key, i]));
+
+function categoryMeta(key) {
+  return CATEGORY_MAP[key] || CATEGORY_MAP.recording;
+}
 
 export default {
 name: 'ProjectLocations',
@@ -519,10 +606,17 @@ setup() {
   const modalStage = ref(null); // The stage being viewed/edited
   const allSlotsForModalStage = ref([]);
   const editingSlot = ref(null); // The slot being edited (null for add)
+  const hoursFilterCategory = ref('all');
   const slotForm = ref({
     start_datetime: '',
     end_datetime: '',
-    notes: ''
+    notes: '',
+    category: 'recording'
+  });
+
+  const filteredModalSlots = computed(() => {
+    if (hoursFilterCategory.value === 'all') return allSlotsForModalStage.value;
+    return allSlotsForModalStage.value.filter(s => (s.category || 'recording') === hoursFilterCategory.value);
   });
 
   const modalTab = ref('edit');
@@ -861,12 +955,16 @@ setup() {
   }
 
   // Per-day hours logic
+  function slotsForStage(stageId) {
+    return stageHours.value.filter(s => s.stage_id === stageId);
+  }
   function getTodaySlot(stageId) {
     const now = new Date();
     const today = now.toISOString().slice(0, 10);
     // First, try to find a slot that is currently active (handles overnight slots)
     const activeSlot = stageHours.value.find(slot =>
       slot.stage_id === stageId &&
+      (slot.category || 'recording') === 'recording' &&
       new Date(slot.start_datetime) <= now &&
       now < new Date(slot.end_datetime)
     );
@@ -874,6 +972,7 @@ setup() {
     // If no active slot, find a slot that starts today
     return stageHours.value.find(slot =>
       slot.stage_id === stageId &&
+      (slot.category || 'recording') === 'recording' &&
       slot.start_datetime.slice(0, 10) === today
     );
   }
@@ -881,9 +980,47 @@ setup() {
     const now = new Date();
     return stageHours.value.some(slot =>
       slot.stage_id === stageId &&
+      (slot.category || 'recording') === 'recording' &&
       new Date(slot.start_datetime) <= now &&
       now < new Date(slot.end_datetime)
     );
+  }
+  function activeNowFor(stageId) {
+    const now = new Date();
+    return slotsForStage(stageId)
+      .filter(slot =>
+        new Date(slot.start_datetime) <= now &&
+        now < new Date(slot.end_datetime)
+      )
+      .sort((a, b) =>
+        (CATEGORY_ORDER[a.category] ?? 99) - (CATEGORY_ORDER[b.category] ?? 99)
+      );
+  }
+  function todaySlotsFor(stageId) {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    return slotsForStage(stageId).filter(slot => {
+      const startDay = slot.start_datetime.slice(0, 10);
+      const isActiveNow = new Date(slot.start_datetime) <= now && now < new Date(slot.end_datetime);
+      return startDay === today || isActiveNow;
+    });
+  }
+  function todayByCategory(stageId) {
+    const todays = todaySlotsFor(stageId);
+    const groups = new Map();
+    for (const slot of todays) {
+      const key = slot.category || 'recording';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(slot);
+    }
+    return CATEGORIES
+      .filter(c => groups.has(c.key))
+      .map(c => ({
+        key: c.key,
+        label: c.label,
+        icon: c.icon,
+        slots: groups.get(c.key).sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime)),
+      }));
   }
   function formatSlot(slot) {
     if (!slot) return '';
@@ -903,9 +1040,14 @@ setup() {
   // Modal logic
   function openViewAllHoursModal(stage) {
     modalStage.value = stage;
+    hoursFilterCategory.value = 'all';
     allSlotsForModalStage.value = stageHours.value
       .filter(slot => slot.stage_id === stage.id)
-      .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+      .sort((a, b) => {
+        const catDiff = (CATEGORY_ORDER[a.category] ?? 99) - (CATEGORY_ORDER[b.category] ?? 99);
+        if (catDiff !== 0) return catDiff;
+        return new Date(a.start_datetime) - new Date(b.start_datetime);
+      });
     showViewAllHoursModal.value = true;
   }
   function closeViewAllHoursModal() {
@@ -913,7 +1055,7 @@ setup() {
     modalStage.value = null;
     allSlotsForModalStage.value = [];
   }
-  function openAddEditSlotModal(stage, slot = null) {
+  function openAddEditSlotModal(stage, slot = null, defaultCategory = 'recording') {
     modalStage.value = stage;
     editingSlot.value = slot;
     showAddEditSlotModal.value = true;
@@ -921,20 +1063,22 @@ setup() {
       slotForm.value = {
         start_datetime: toLocalInputValue(slot.start_datetime),
         end_datetime: toLocalInputValue(slot.end_datetime),
-        notes: slot.notes || ''
+        notes: slot.notes || '',
+        category: slot.category || 'recording'
       };
     } else {
       slotForm.value = {
         start_datetime: '',
         end_datetime: '',
-        notes: ''
+        notes: '',
+        category: defaultCategory
       };
     }
   }
   function closeAddEditSlotModal() {
     showAddEditSlotModal.value = false;
     editingSlot.value = null;
-    slotForm.value = { start_datetime: '', end_datetime: '', notes: '' };
+    slotForm.value = { start_datetime: '', end_datetime: '', notes: '', category: 'recording' };
   }
   async function upsertCalendarEventForStageHour(slot, stage, projectId) {
     const event_date = slot.start_datetime.slice(0, 10)
@@ -1037,12 +1181,14 @@ setup() {
     }
     
     // Ensure project_id is a string (UUID) and stage_id is a number (BIGINT)
+    const category = CATEGORY_MAP[slotForm.value.category] ? slotForm.value.category : 'recording';
     const payload = {
       project_id: String(pid), // UUID should be a string
       stage_id: typeof stageId === 'string' ? parseInt(stageId, 10) : Number(stageId), // BIGINT should be a number
       start_datetime: toUTCISOString(slotForm.value.start_datetime),
       end_datetime: toUTCISOString(slotForm.value.end_datetime),
-      notes: slotForm.value.notes
+      notes: slotForm.value.notes,
+      category
     };
     
     // Final validation - ensure stage_id is a valid number
@@ -1213,9 +1359,15 @@ setup() {
     // Per-day hours
     getTodaySlot,
     isStageOpenNow,
+    activeNowFor,
+    todaySlotsFor,
+    todayByCategory,
     formatSlot,
     formatTime,
     formatDateTime,
+    // Categories
+    CATEGORIES,
+    categoryMeta,
     // Modal logic
     showViewAllHoursModal,
     openViewAllHoursModal,
@@ -1225,6 +1377,8 @@ setup() {
     closeAddEditSlotModal,
     modalStage,
     allSlotsForModalStage,
+    filteredModalSlots,
+    hoursFilterCategory,
     slotForm,
     saveSlot,
     editingSlot,
@@ -1616,9 +1770,140 @@ setup() {
   font-weight: 500;
 }
 
+.status-scheduled {
+  color: #b45309;
+  font-weight: 500;
+}
+
+.status-chip {
+  display: inline;
+  margin-right: 2px;
+}
+
 .availability-time {
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.category-summary {
+  list-style: none;
+  margin: 6px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.category-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.category-line .cat-icon {
+  font-size: 14px;
+}
+
+.category-line .cat-label {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.category-line .cat-time {
+  color: var(--text-secondary);
+}
+
+.cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #f1f5f9;
+  color: #0f172a;
+  white-space: nowrap;
+}
+.cat-pill.cat-recording { background: #dcfce7; color: #166534; }
+.cat-pill.cat-build     { background: #fef3c7; color: #92400e; }
+.cat-pill.cat-wrap      { background: #e0e7ff; color: #3730a3; }
+.cat-pill.cat-open      { background: #cffafe; color: #155e75; }
+
+.category-picker {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.category-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
+
+.category-option:hover {
+  border-color: var(--color-primary-500);
+}
+
+.category-option.active {
+  border-color: var(--color-primary-500);
+  background: rgba(0, 102, 204, 0.08);
+  color: var(--color-primary-500);
+}
+
+.form-hint {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.hours-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hours-filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.hours-filter-select {
+  max-width: 220px;
+}
+
+.add-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.add-slot-cat-button {
+  flex: 1 1 calc(50% - 8px);
+}
+
+.empty-row {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 16px;
+  font-style: italic;
 }
 
 .availability-btn {

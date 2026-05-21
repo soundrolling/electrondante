@@ -10,10 +10,12 @@ export function useStageHours(locationId) {
   async function loadStageHours() {
     const projectId = await getSetting('current-project-id')
     const locId = unref(locationId)
-    stageHours.value = await fetchTableData('stage_hours', {
+    const all = await fetchTableData('stage_hours', {
       eq: { project_id: projectId, stage_id: locId },
       order: { column: 'start_datetime', ascending: true }
     })
+    // Signal mapper / mic placement track recording days only.
+    stageHours.value = (all || []).filter(s => (s.category || 'recording') === 'recording')
   }
 
   function formatStageHourFallback(sh) {
