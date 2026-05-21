@@ -28,8 +28,8 @@
       <button v-if="!isMobile" class="btn mp-icon-btn" @click="$emit('open-crop')" :disabled="!hasBgImage" title="Crop image" aria-label="Crop image">
         <Crop :size="16" :stroke-width="2" />
       </button>
-      <input type="file" accept="image/*" @change="$emit('image-upload', $event)" id="image-upload" style="display:none" />
-      <button class="btn mp-icon-btn" @click="$emit('trigger-image-upload')" :title="hasBgImage ? 'Replace image' : 'Upload image'" aria-label="Upload or replace image">
+      <input type="file" accept="image/*,application/pdf,.pdf" @change="$emit('image-upload', $event)" id="image-upload" style="display:none" />
+      <button class="btn mp-icon-btn" @click="$emit('trigger-image-upload')" :title="hasBgImage ? 'Replace image or PDF' : 'Upload image or PDF'" aria-label="Upload or replace image or PDF">
         <ImageIcon :size="16" :stroke-width="2" />
       </button>
       <button v-if="!isMobile" class="btn btn-secondary mp-icon-btn" @click="$emit('export-png')" :disabled="!hasBgImage" title="Download image" aria-label="Download image">

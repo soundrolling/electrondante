@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.4">
-        <span class="version-text">v2.3.4</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.5">
+        <span class="version-text">v2.3.5</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,24 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.4</h2>
+          <h2 id="changelog-title">What's New in 2.3.5</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔍 One Filter Bar For Everything</h3>
-            <p>Gear and Accessories now share a single Filter Gear / Filter Owner / Sort By bar at the top of the Gear tab. The separate accessories filter row underneath has been removed — picking a stage or an owner up top now narrows both sections at once, which is what most people expected the first time around anyway.</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>👤 Team Owner Name Now Resolves</h3>
-            <p>Pulling a teammate's gear into a project used to show "Owner: Unknown" because the lookup ran through a legacy database view that joined to an empty profile table. Now we resolve owner names directly from user_profiles, so a Radial DAN-TX2 pulled from Kiko's inventory shows up as "Personal · Kiko Abarquero Fernandez".</p>
-          </div>
-
-          <div class="changelog-section">
-            <h3>🏷️ Vendor Pill + Cleaner Delete Flow</h3>
-            <p>Gear added via "Add Vendor Gear" now gets its own blue "Vendor" badge alongside the vendor name. Deleting a teammate's gear no longer fires a scary "Save to user_gear failed" toast — the legacy assigned_quantity bookkeeping is skipped when you don't own the row, and the IndexedDB cache layer rejects invalid entries before they crash the transaction.</p>
+            <h3>📄 PDF Floor Plans As Mic Placement Backgrounds</h3>
+            <p>The Mic Placement upload now accepts PDFs alongside images. Drop in a floor plan PDF and we'll render it to a high-resolution PNG and use it as the canvas backdrop — no need to screenshot or convert it first. If the PDF has multiple pages, you'll get a quick picker so you can choose which page to place mics on.</p>
           </div>
         </div>
         

@@ -146,6 +146,16 @@
       :stage-name="props.stageName"
       @close="showMobileLegend = false"
     />
+
+    <MicPlacementPdfPageModal
+      :show="showPdfPageModal"
+      :page-count="pdfPageCount"
+      :page-number="pdfPageNumber"
+      :busy="pdfBusy"
+      @cancel="cancelPdfPage"
+      @confirm="confirmPdfPage"
+      @update:page-number="pdfPageNumber = $event"
+    />
   </div>
 </template>
 
@@ -162,6 +172,9 @@ import MicPlacementCropModal from './micplacement/MicPlacementCropModal.vue'
 import MicPlacementDeleteConfirm from './micplacement/MicPlacementDeleteConfirm.vue'
 import MicPlacementGearModal from './micplacement/MicPlacementGearModal.vue'
 import MicPlacementMobileLegend from './micplacement/MicPlacementMobileLegend.vue'
+import MicPlacementPdfPageModal from './micplacement/MicPlacementPdfPageModal.vue'
+
+import { isPdfFile, getPdfPageCount, pdfPageToPngFile } from '@/utils/pdfToImage'
 
 import { useMicBackgroundImage } from '@/composables/micPlacement/useMicBackgroundImage'
 import { useMicCanvasView } from '@/composables/micPlacement/useMicCanvasView'
@@ -430,20 +443,75 @@ const {
   exportToPDF, closeFilenameModal, confirmExport, getCanvasDataURL
 } = exporter
 
-// ── Image upload entry point ─────────────────────────────
+// ── Image / PDF upload entry point ───────────────────────
 import { useToast } from 'vue-toastification'
 const toast = useToast()
+
+// PDF page-picker state: only shown for multi-page PDFs. For single-page
+// PDFs we convert and upload immediately without prompting.
+const showPdfPageModal = ref(false)
+const pdfPageCount = ref(1)
+const pdfPageNumber = ref(1)
+const pdfBusy = ref(false)
+let pendingPdfFile = null
+
+async function uploadImageFile(file) {
+  const { url, removed } = await uploadBgToStorage(file)
+  await setBackgroundImage(url)
+  toast.success(removed ? 'Previous background removed and new image uploaded' : 'Background uploaded')
+}
+
+async function convertAndUploadPdfPage(file, pageNumber) {
+  const pngFile = await pdfPageToPngFile(file, pageNumber)
+  await uploadImageFile(pngFile)
+}
+
 async function onImageUpload(e) {
   const file = e.target.files[0]
+  // Reset so re-selecting the same file still fires `change`.
+  if (e.target) e.target.value = ''
   if (!file) return
   try {
-    const { url, removed } = await uploadBgToStorage(file)
-    await setBackgroundImage(url)
-    toast.success(removed ? 'Previous background removed and new image uploaded' : 'Background uploaded')
+    if (isPdfFile(file)) {
+      const count = await getPdfPageCount(file)
+      if (count <= 1) {
+        await convertAndUploadPdfPage(file, 1)
+        return
+      }
+      pendingPdfFile = file
+      pdfPageCount.value = count
+      pdfPageNumber.value = 1
+      showPdfPageModal.value = true
+      return
+    }
+    await uploadImageFile(file)
   } catch (err) {
     toast.error(`Failed to upload background: ${err.message || err}`)
   }
 }
+
+async function confirmPdfPage() {
+  if (!pendingPdfFile) {
+    showPdfPageModal.value = false
+    return
+  }
+  pdfBusy.value = true
+  try {
+    await convertAndUploadPdfPage(pendingPdfFile, pdfPageNumber.value)
+    showPdfPageModal.value = false
+    pendingPdfFile = null
+  } catch (err) {
+    toast.error(`Failed to render PDF page: ${err.message || err}`)
+  } finally {
+    pdfBusy.value = false
+  }
+}
+
+function cancelPdfPage() {
+  showPdfPageModal.value = false
+  pendingPdfFile = null
+}
+
 function triggerImageUpload() {
   document.getElementById('image-upload').click()
 }
