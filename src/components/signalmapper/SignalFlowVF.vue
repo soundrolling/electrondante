@@ -487,13 +487,10 @@ function buildEdge(c, etype) {
     source: String(c.from_node_id),
     target: String(c.to_node_id),
     type: etype,
-    label: type === 'Mic' ? '' : type,
     style: {
       stroke: color,
       strokeWidth: 2,
     },
-    labelStyle: { fill: color, fontWeight: 600, fontSize: 11 },
-    labelBgStyle: { fill: 'var(--surface-card)', fillOpacity: 0.9 },
     markerEnd: { type: 'arrowclosed', color, width: 16, height: 16 },
     data: { raw: c, connection_type: type },
   }
