@@ -234,11 +234,13 @@
           </button>
         </div>
         <div class="gear-list">
-          <div 
-            v-for="gear in availableGear" 
+          <div
+            v-for="gear in availableGear"
             :key="gear.id"
-            @click="addGearNode(gear)"
+            @click="gear.isFull ? null : addGearNode(gear)"
             class="gear-item"
+            :class="{ 'is-full': gear.isFull }"
+            :aria-disabled="gear.isFull ? 'true' : 'false'"
           >
             <div class="gear-icon">{{ getGearIcon(gear.gear_type) }}</div>
             <div class="gear-info">
@@ -247,7 +249,13 @@
                 {{ gear.num_inputs || 0 }} in, {{ gear.num_outputs || 0 }} out
                 <span v-if="gear.num_tracks">, {{ gear.num_tracks }} tracks</span>
               </div>
+              <div v-if="gear.isFull" class="gear-allocated-msg">
+                All {{ gear.assigned }} allocated — delete one to add again
+              </div>
             </div>
+            <span class="gear-count" :class="{ 'is-full': gear.isFull }">
+              {{ gear.placed }}/{{ gear.assigned }}
+            </span>
           </div>
           <div v-if="availableGear.length === 0" class="no-gear">
             <p>No {{ gearFilter.toLowerCase() }} available for this location.</p>
@@ -470,12 +478,29 @@ const recorderCount = computed(() =>
   props.nodes.filter(n => (n.gear_type || n.type) === 'recorder').length
 )
 
-// Available gear for modal
+// Placed gear counts on the current canvas, keyed by gear_id
+const placedGearCounts = computed(() => {
+  const counts = {}
+  for (const n of props.nodes || []) {
+    if (n?.gear_id == null) continue
+    const key = String(n.gear_id)
+    counts[key] = (counts[key] || 0) + 1
+  }
+  return counts
+})
+
+// Available gear for modal — keeps fully-allocated gear in the list with isFull flag
 const availableGear = computed(() => {
   const filterType = gearFilter.value === 'Transformers' ? 'transformer' : 'recorder'
-  return props.gearList.filter(g => 
-    g.gear_type === filterType && g.assignments?.[props.locationId] > 0
-  )
+  const counts = placedGearCounts.value
+  return props.gearList
+    .filter(g => g.gear_type === filterType && g.assignments?.[props.locationId] > 0)
+    .map(g => {
+      const assigned = g.assignments?.[props.locationId] || 0
+      const placed = counts[String(g.id)] || 0
+      const remaining = Math.max(0, assigned - placed)
+      return { ...g, assigned, placed, remaining, isFull: remaining <= 0 }
+    })
 })
 
 // Venue Sources preset - only one type now
@@ -2775,6 +2800,10 @@ function handleInputCancel() {
 }
 
 async function addGearNode(gear) {
+  if (gear?.isFull) {
+    toast.info(`All ${gear.assigned} allocated — delete one to add again`)
+    return
+  }
   try {
     const label = await showInput(
       'Enter Label',
@@ -4112,6 +4141,36 @@ async function exportToPNG() {
 .gear-details {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.gear-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid #e9ecef;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.gear-item.is-full {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.gear-item.is-full:hover {
+  background: transparent;
+  border-color: #e9ecef;
+}
+
+.gear-allocated-msg {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: 4px;
 }
 
 .no-gear {

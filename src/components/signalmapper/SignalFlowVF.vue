@@ -269,7 +269,9 @@
               v-for="gear in availableGear"
               :key="gear.id"
               class="sfv-gear-row"
-              @click="addGearNode(gear)"
+              :class="{ 'is-full': gear.isFull }"
+              :aria-disabled="gear.isFull ? 'true' : 'false'"
+              @click="gear.isFull ? null : addGearNode(gear)"
             >
               <div class="sfv-gear-icon">
                 <Workflow v-if="gear.gear_type === 'transformer'" :size="18" :stroke-width="2" />
@@ -280,8 +282,19 @@
                 <div class="sfv-gear-meta">
                   {{ gear.num_inputs || 0 }} in · {{ gear.num_tracks || gear.num_outputs || 0 }} {{ gear.gear_type === 'recorder' ? 'tracks' : 'out' }}
                 </div>
+                <div v-if="gear.isFull" class="sfv-gear-allocated-msg">
+                  All {{ gear.assigned }} allocated — delete one to add again
+                </div>
               </div>
-              <Plus :size="16" :stroke-width="2" class="sfv-gear-add" />
+              <span class="sfv-gear-count" :class="{ 'is-full': gear.isFull }">
+                {{ gear.placed }}/{{ gear.assigned }}
+              </span>
+              <Plus
+                :size="16"
+                :stroke-width="2"
+                class="sfv-gear-add"
+                :class="{ 'is-full': gear.isFull }"
+              />
             </li>
           </ul>
           <div v-else class="sfv-modal-empty">
@@ -755,13 +768,31 @@ const labelInputValue = ref('')
 const pendingGear = ref(null)
 const labelInputEl = ref(null)
 
+const placedGearCounts = computed(() => {
+  const counts = {}
+  for (const n of props.nodes || []) {
+    if (n?.gear_id == null) continue
+    const key = String(n.gear_id)
+    counts[key] = (counts[key] || 0) + 1
+  }
+  return counts
+})
+
 const availableGear = computed(() => {
   const filterType = gearFilter.value === 'Transformers' ? 'transformer' : 'recorder'
-  return (props.gearList || []).filter(g => {
-    if (g.gear_type !== filterType) return false
-    const assigned = g.assignments ? g.assignments[props.locationId] : 0
-    return (assigned || 0) > 0
-  })
+  const counts = placedGearCounts.value
+  return (props.gearList || [])
+    .filter(g => {
+      if (g.gear_type !== filterType) return false
+      const assigned = g.assignments ? g.assignments[props.locationId] : 0
+      return (assigned || 0) > 0
+    })
+    .map(g => {
+      const assigned = (g.assignments && g.assignments[props.locationId]) || 0
+      const placed = counts[String(g.id)] || 0
+      const remaining = Math.max(0, assigned - placed)
+      return { ...g, assigned, placed, remaining, isFull: remaining <= 0 }
+    })
 })
 
 const hasVenueSourcesNode = computed(() => {
@@ -779,6 +810,10 @@ function defaultLabelFor(gear) {
 }
 
 function addGearNode(gear) {
+  if (gear?.isFull) {
+    toast.info(`All ${gear.assigned} allocated — delete one to add again`)
+    return
+  }
   pendingGear.value = gear
   labelInputValue.value = defaultLabelFor(gear)
   showLabelModal.value = true
@@ -1499,6 +1534,45 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
 }
 .sfv-gear-add { color: var(--color-primary-500); flex-shrink: 0; }
+.sfv-gear-count {
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--surface-border);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sfv-gear-count.is-full {
+  color: var(--text-tertiary);
+  background: transparent;
+  border-color: var(--surface-border);
+}
+.sfv-gear-row.is-full {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.sfv-gear-row.is-full:hover {
+  background: var(--surface-card);
+  border-color: var(--surface-border);
+}
+.sfv-gear-row.is-full:active { transform: none; }
+.sfv-gear-add.is-full {
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+.sfv-gear-allocated-msg {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sfv-modal-empty {
   padding: var(--space-8) var(--space-4);
   text-align: center;
