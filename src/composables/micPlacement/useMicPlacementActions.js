@@ -91,6 +91,12 @@ export function useMicPlacementActions({
 
       const colorButtonId = await findOrCreateColorButtonForGear(mic)
 
+      // Use the same normalized placement coords as the initial Signal Flow
+      // position so the beta editor doesn't drop new nodes at random spots.
+      // Clamp into [0, 1] in case the click landed outside the image rect.
+      const flowX = Math.max(0, Math.min(1, imgCoords.imgX))
+      const flowY = Math.max(0, Math.min(1, imgCoords.imgY))
+
       const newNode = await addNode({
         project_id: props.projectId,
         location_id: props.locationId || null,
@@ -101,6 +107,8 @@ export function useMicPlacementActions({
         track_name: trackName,
         x: imgCoords.imgX,
         y: imgCoords.imgY,
+        flow_x: flowX,
+        flow_y: flowY,
         rotation: rotation,
         gear_type: 'source',
         num_inputs: mic.num_inputs || 0,

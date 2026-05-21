@@ -119,6 +119,13 @@
       :snap-to-grid="false"
       :delete-key-code="['Delete', 'Backspace']"
       :connection-radius="60"
+      :pan-on-drag="[0, 1, 2]"
+      :pan-on-scroll="false"
+      :zoom-on-scroll="true"
+      :zoom-on-pinch="true"
+      :zoom-on-double-click="false"
+      :prevent-scrolling="true"
+      :no-pan-class-name="'sfv-no-pan'"
       fit-view-on-init
       @node-drag-stop="onNodeDragStop"
       @connect="onConnect"
@@ -1000,11 +1007,25 @@ onMounted(() => {
   overflow: hidden;
   min-height: 500px;
   flex: 1;
+  /* Stop the browser from interpreting touch gestures as page pan/zoom while
+     the user is dragging nodes or pinching the canvas. Vue Flow handles its
+     own gesture pipeline; the browser must stay out of the way. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .sfv-canvas.empty { background: var(--surface-card); }
 .sfv-canvas :deep(.vue-flow) {
   height: 100%;
   min-height: 500px;
+  touch-action: none;
+}
+/* Same as above — required so a single-finger drag actually drags a node
+   instead of scrolling the page on mobile Safari / Chrome. */
+.sfv-canvas :deep(.vue-flow__pane),
+.sfv-canvas :deep(.vue-flow__viewport),
+.sfv-canvas :deep(.vue-flow__node) {
+  touch-action: none;
 }
 
 /* Node styling */
@@ -1061,14 +1082,33 @@ onMounted(() => {
 }
 
 .sfv-canvas :deep(.vue-flow__handle) {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   background: var(--surface-card);
   border: 2px solid var(--text-tertiary);
+  /* Block any inherited touch-action that might prevent the connection
+     drag gesture from starting on touch devices. */
+  touch-action: none;
 }
 .sfv-canvas :deep(.vue-flow__handle:hover) {
   background: var(--color-primary-200);
   border-color: var(--color-primary-500);
+}
+/* Bigger handle hit area on touch devices so fingers can actually grab it.
+   The visible dot stays the same — we just inflate the surrounding tap
+   target with a transparent pseudo-element. */
+@media (pointer: coarse) {
+  .sfv-canvas :deep(.vue-flow__handle) {
+    width: 18px;
+    height: 18px;
+    border-width: 3px;
+  }
+  .sfv-canvas :deep(.vue-flow__handle)::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+  }
 }
 .sfv-canvas :deep(.vue-flow__edge-path) { stroke-linecap: round; }
 .sfv-canvas :deep(.vue-flow__controls) {
@@ -1397,6 +1437,15 @@ onMounted(() => {
   .sfv-head { flex-direction: column; align-items: stretch; }
   .sfv-counts { justify-content: flex-start; gap: var(--space-3); }
   .sfv-count { align-items: flex-start; }
+  /* Bigger toolbar buttons on mobile for thumb-friendly tap targets. */
+  .sfv-icon-btn { width: 40px; height: 40px; }
+  .sfv-add-btn { height: 40px; min-width: 40px; }
+  /* Slightly larger node text so labels stay legible while dragging with
+     a fingertip in front of them. */
+  .sfv-canvas :deep(.vue-flow__node.sfv-node) {
+    font-size: 13px;
+    padding: 11px 13px;
+  }
   .sfv-toolbar { padding: 6px; gap: var(--space-2); }
   .sfv-chip-group { flex: 1; overflow-x: auto; scrollbar-width: none; }
   .sfv-chip-group::-webkit-scrollbar { display: none; }
