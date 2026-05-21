@@ -53,9 +53,9 @@
           <div class="map-unified">
             <!-- Upstream (Inputs/Tracks) Section -->
             <div class="map-section">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                 <h4>{{ type === 'recorder' ? 'Record Tracks' : 'Inputs' }}</h4>
-                <div style="display: flex; gap: 6px; align-items: center;">
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                   <button
                     v-if="type === 'recorder' && otherRecorders.length > 0"
                     @click="showCopyFromPicker = !showCopyFromPicker"
@@ -64,6 +64,16 @@
                     style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
                   >
                     📋 Copy from…
+                  </button>
+                  <button
+                    v-if="type === 'transformer' || type === 'recorder'"
+                    @click="passThroughFromUpstream"
+                    class="btn-refresh"
+                    :disabled="!canPassThrough || saving"
+                    :title="canPassThrough ? 'Auto-map every input 1:1 from the connected upstream node (input 1 → upstream output 1, input 2 → output 2, etc.)' : 'Connect a transformer, recorder, or venue source upstream first'"
+                    style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
+                  >
+                    🔗 Pass-through 1:1
                   </button>
                   <button
                     @click="refreshSourceNames"
@@ -1708,6 +1718,88 @@ async function traceToOriginalVenueSource(nodeId, portNum, graph) {
   } catch (err) {
     console.error('Error tracing to original venue source:', err)
     return false
+  }
+}
+
+// Whether the current node has a compatible upstream node to pass-through from
+const canPassThrough = computed(() => {
+  if (type.value !== 'transformer' && type.value !== 'recorder') return false
+  if (!graph.value) return false
+  const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
+  return parents.some(p => {
+    const src = props.elements.find(e => e.id === p.from_node_id)
+    if (!src) return false
+    const srcType = (src.gear_type || src.node_type || src.type || '').toLowerCase()
+    return ['transformer', 'venue_sources', 'recorder'].includes(srcType)
+  })
+})
+
+// Map every input 1:1 from the connected upstream node
+// e.g. input 1 ← upstream output 1, input 2 ← upstream output 2, etc.
+async function passThroughFromUpstream() {
+  if (!graph.value || saving.value) return
+
+  const parents = (graph.value.parentsByToNode || {})[props.node.id] || []
+  if (!parents.length) {
+    toast.error('No upstream connection found. Connect a transformer, recorder, or venue source first.')
+    return
+  }
+
+  // Pick the best upstream parent: a transformer/venue_sources/recorder with the most outputs
+  let bestParent = null
+  let bestOutputs = 0
+  for (const p of parents) {
+    const src = props.elements.find(e => e.id === p.from_node_id)
+    if (!src) continue
+    const srcType = (src.gear_type || src.node_type || src.type || '').toLowerCase()
+    if (!['transformer', 'venue_sources', 'recorder'].includes(srcType)) continue
+    const srcOutputs = src.num_outputs || src.outputs || src.num_tracks || src.tracks || 0
+    if (srcOutputs > bestOutputs) {
+      bestParent = src
+      bestOutputs = srcOutputs
+    }
+  }
+
+  if (!bestParent) {
+    toast.error('No compatible upstream node found. Pass-through requires a transformer, recorder, or venue source upstream.')
+    return
+  }
+
+  // Collect available source feedKeys from this parent, sorted by port
+  const parentSources = availableUpstreamSources.value
+    .filter(src => {
+      const srcId = String(src.feedKey).includes(':') ? String(src.feedKey).split(':')[0] : String(src.feedKey)
+      return srcId === bestParent.id
+    })
+    .sort((a, b) => (Number(a.port) || 0) - (Number(b.port) || 0))
+
+  if (!parentSources.length) {
+    toast.error(`No mappable outputs available on "${bestParent.label || bestParent.track_name || 'upstream node'}". Configure its inputs/outputs first.`)
+    return
+  }
+
+  const target = Math.min(inputCount.value, parentSources.length)
+  if (target === 0) {
+    toast.error('Nothing to map.')
+    return
+  }
+
+  // Apply 1:1 mapping to upstreamMap
+  for (let i = 0; i < target; i++) {
+    upstreamMap.value[i + 1] = parentSources[i].feedKey
+  }
+
+  toast.info(`Mapping ${target} ${type.value === 'recorder' ? 'track' : 'input'}(s) 1:1 from ${bestParent.label || bestParent.track_name || 'upstream'}…`)
+
+  // Persist all mappings in one sweep
+  const result = await saveMap(null, true)
+
+  if (result.errorCount > 0 && result.savedCount === 0) {
+    toast.error('Pass-through failed. Check that the upstream node is fully configured.')
+  } else if (result.errorCount > 0) {
+    toast.warning(`Pass-through partially complete: ${result.savedCount} mapped, ${result.errorCount} failed.`)
+  } else {
+    toast.success(`Pass-through complete: ${result.savedCount} ${type.value === 'recorder' ? 'track' : 'input'}(s) mapped 1:1 from ${bestParent.label || bestParent.track_name || 'upstream'}.`)
   }
 }
 
