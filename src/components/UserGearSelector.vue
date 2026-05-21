@@ -1,10 +1,11 @@
 <template>
   <div class="user-gear-selector">
     <header class="selector-header">
-      <h3 class="selector-title">Add Team Gear</h3>
+      <h3 class="selector-title">Mine / Team Gear</h3>
       <p class="selector-subtitle">
-        Pick gear from project members' personal inventories. Items in use on other projects with
-        overlapping dates are flagged so nothing gets double-booked.
+        Pull from your own gear, or anything project members have listed in their personal inventory.
+        Use the owner filter to switch between "Mine" and a teammate. Units already reserved on
+        overlapping dates are shown in depth — you can still add what's free without going over the limit.
       </p>
     </header>
 
@@ -43,10 +44,15 @@
               type="number"
               :value="item.quantity"
               :min="1"
-              :max="item.gear.quantity || 1"
-              @input="onQuantityChange(item.gear.id, $event.target.value)"
+              :max="qtyCapFor(item)"
+              @input="onQuantityChange(item.gear.id, $event.target.value, qtyCapFor(item))"
             />
-            <span class="qty-row-of">of {{ item.gear.quantity || 1 }}</span>
+            <span class="qty-row-of">
+              of {{ qtyCapFor(item) }} free
+              <span v-if="(item.gear.quantity || 0) > qtyCapFor(item)" class="qty-row-total">
+                · {{ item.gear.quantity }} total
+              </span>
+            </span>
           </label>
         </div>
       </div>
@@ -145,8 +151,19 @@ function onSelectionChange(items) {
   })))
 }
 
-function onQuantityChange(id, value) {
-  libraryRef.value?.setQuantity(id, value)
+function qtyCapFor(item) {
+  // The library emits a per-item maxQty that already accounts for overlapping
+  // reservations on the current project's dates. Fall back to total quantity
+  // when that hasn't been computed yet.
+  if (item?.maxQty != null) return Math.max(1, item.maxQty)
+  return Math.max(1, item?.gear?.quantity || 1)
+}
+
+function onQuantityChange(id, value, cap) {
+  const item = selectedItems.value.find(i => i.gear.id === id)
+  const effectiveCap = cap ?? qtyCapFor(item)
+  const num = Math.max(1, Math.min(effectiveCap, Number(value) || 1))
+  libraryRef.value?.setQuantity(id, num)
 }
 
 function clearSelection() {
@@ -279,6 +296,7 @@ watch(() => props.projectId, loadTeamMembers)
 }
 .qty-row-label { text-transform: uppercase; font-size: 0.7rem; }
 .qty-row-of { font-size: 0.72rem; }
+.qty-row-total { color: var(--text-secondary); margin-left: 0.2rem; }
 
 .stage-assignment { display: flex; flex-direction: column; gap: 0.3rem; }
 .stage-lbl { font-size: 0.8rem; color: var(--text-secondary); }

@@ -124,13 +124,13 @@
     <div class="actions-header">
       <h2 class="section-title">Gear List</h2>
       <div class="actions-group">
-        <button class="btn btn-positive" @click="toggleAddGear">
-          <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
-          <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Gear' }}</span>
-        </button>
         <button class="btn btn-secondary" @click="openUserGearSelector">
           <span class="btn-icon">👤</span>
-          <span class="btn-text">Add Team Gear</span>
+          <span class="btn-text">Mine / Team Gear</span>
+        </button>
+        <button class="btn btn-positive" @click="toggleAddGear">
+          <span class="btn-icon">{{ showAddGearForm ? '✕' : '➕' }}</span>
+          <span class="btn-text">{{ showAddGearForm ? 'Hide' : 'Add Vendor Gear' }}</span>
         </button>
         <button class="btn btn-warning" @click="openReorderModal">
           <span class="btn-icon">↕️</span>
@@ -429,7 +429,7 @@
     <div v-if="showUserGearSelector" class="modal-overlay" @click="closeUserGearSelector">
       <div class="modal modal-wide" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">Add Team Gear</h3>
+          <h3 class="modal-title">Mine / Team Gear</h3>
           <button class="modal-close" @click="closeUserGearSelector">✕</button>
         </div>
         <div class="modal-body">

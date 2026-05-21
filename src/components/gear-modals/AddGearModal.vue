@@ -2,10 +2,14 @@
   <div v-if="visible" class="modal-overlay" @click="$emit('close')">
     <div class="modal" @click.stop>
       <div class="modal-header">
-        <h3 class="modal-title">Add New Gear</h3>
+        <h3 class="modal-title">Add Vendor Gear</h3>
         <button class="modal-close" @click="$emit('close')">✕</button>
       </div>
       <form @submit.prevent="handleSubmit" class="modal-form">
+        <p class="vendor-hint">
+          Use this for one-off vendor or rental gear that isn't already in someone's personal inventory.
+          To pull from your own or a teammate's gear, use "Mine / Team Gear" instead.
+        </p>
         <div class="form-grid">
           <div class="form-group">
             <label for="gearName" class="form-label">Gear Name<span class="required">*</span></label>
@@ -247,7 +251,7 @@ const form = ref({
   gearNumOutputs: 1,
   gearNumRecords: 1,
   gearAmount: 1,
-  isRented: false,
+  isRented: true,
   vendor: '',
   gearDefaultColor: '#1890ff'
 })
@@ -301,7 +305,7 @@ function resetForm() {
     gearNumOutputs: 1,
     gearNumRecords: 1,
     gearAmount: 1,
-    isRented: false,
+    isRented: true,
     vendor: '',
     gearDefaultColor: '#1890ff'
   }
@@ -445,6 +449,18 @@ function handleSubmit() {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.vendor-hint {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--color-primary-500);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .form-grid {

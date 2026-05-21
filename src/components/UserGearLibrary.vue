@@ -44,9 +44,10 @@
         <option value="all">All types</option>
         <option v-for="t in availableTypes" :key="t" :value="t">{{ typeLabel(t) }}</option>
       </select>
-      <select v-if="showOwnerFilter" v-model="ownerFilter" class="filter-pick">
-        <option value="all">All owners</option>
-        <option v-for="o in availableOwners" :key="o.user_id" :value="o.user_id">{{ o.name }}</option>
+      <select v-if="showOwnerFilter" v-model="ownerFilter" class="filter-pick owner-filter">
+        <option value="all">All owners (mine + team)</option>
+        <option v-if="selfOwner" :value="selfOwner.user_id">Mine only ({{ selfOwner.name }})</option>
+        <option v-for="o in teamOwnersOnly" :key="o.user_id" :value="o.user_id">{{ o.name }}</option>
       </select>
       <select
         v-if="mode === 'manage' && (heldForNames.length || hasUnassignedAny || heldForFilter !== 'all')"
@@ -177,9 +178,11 @@
                 <span class="fact-val">{{ statusByGear[item.id]?.total_quantity ?? item.quantity ?? 1 }}</span>
               </div>
               <div class="fact">
-                <span class="fact-lbl">Available</span>
-                <span class="fact-val" :class="{ 'fact-zero': (statusByGear[item.id]?.available_now ?? 0) === 0 }">
-                  {{ statusByGear[item.id]?.available_now ?? item.quantity ?? 0 }}
+                <span class="fact-lbl">{{ mode === 'select' && projectId ? 'Free' : 'Available' }}</span>
+                <span class="fact-val" :class="{ 'fact-zero': maxQtyFor(item) === 0 }">
+                  {{ mode === 'select' && projectId
+                      ? maxQtyFor(item)
+                      : (statusByGear[item.id]?.available_now ?? item.quantity ?? 0) }}
                 </span>
               </div>
               <div class="fact" v-if="item.condition">
@@ -192,47 +195,46 @@
               </div>
             </div>
 
-            <!-- Current usage -->
-            <div v-if="(statusByGear[item.id]?.current_usages?.length)" class="tile-usage">
+            <!-- Active + upcoming bookings. We render every usage (not just the
+                 first) and include the per-stage breakdown so the user can see
+                 what's already locked in and where. Overlapping bookings against
+                 the current project get a stronger "conflict" tone. -->
+            <div v-if="bookingsFor(item).length" class="tile-usage">
               <div
-                v-for="u in statusByGear[item.id].current_usages"
-                :key="u.project_id"
+                v-for="u in bookingsFor(item)"
+                :key="`${u.tone}-${u.project_id}`"
                 class="usage-row"
+                :class="{
+                  'usage-row-upcoming': u.tone === 'upcoming',
+                  'usage-row-conflict': u.tone === 'conflict'
+                }"
               >
-                <span class="usage-tag" :class="{ 'usage-conflict': (statusByGear[item.id]?.conflicts?.length) }">
-                  In use
+                <span
+                  class="usage-tag"
+                  :class="{
+                    'usage-upcoming': u.tone === 'upcoming',
+                    'usage-conflict': u.tone === 'conflict'
+                  }"
+                >
+                  {{ u.label }}
                 </span>
                 <div class="usage-detail">
-                  <strong>{{ u.project_name }}</strong>
-                  <span class="usage-dates">
-                    Until {{ formatDate(u.last_date) }} · auto-releases {{ formatDate(u.auto_release_date) }}
-                  </span>
+                  <div class="usage-line">
+                    <strong>{{ u.project_name }}</strong>
+                    <span v-if="u.amount" class="usage-amt">{{ u.amount }} unit{{ u.amount === 1 ? '' : 's' }}</span>
+                  </div>
+                  <span class="usage-dates">{{ u.timing }}</span>
+                  <div v-if="u.stages?.length" class="usage-stages">
+                    <span
+                      v-for="(s, si) in u.stages"
+                      :key="si"
+                      class="usage-stage-chip"
+                      :title="s.venue_name ? `${s.stage_name || 'Stage'} · ${s.venue_name}` : (s.stage_name || 'Unassigned')"
+                    >
+                      📍 {{ s.stage_name || 'Unassigned' }}<span v-if="s.amount" class="usage-stage-qty">{{ s.amount }}</span>
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <div v-else-if="(statusByGear[item.id]?.upcoming_usages?.length)" class="tile-usage">
-              <div class="usage-row upcoming">
-                <span class="usage-tag usage-upcoming">Reserved</span>
-                <div class="usage-detail">
-                  <strong>{{ statusByGear[item.id].upcoming_usages[0].project_name }}</strong>
-                  <span class="usage-dates">
-                    From {{ formatDate(statusByGear[item.id].upcoming_usages[0].first_date) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Conflict vs current project (select mode) -->
-            <div v-if="statusByGear[item.id]?.conflict_with_current?.length" class="tile-conflicts">
-              <div class="conflict-line">
-                <span class="conflict-ico">⚠️</span>
-                <span>
-                  Overlaps with
-                  <strong>{{ statusByGear[item.id].conflict_with_current.map(c => c.project_name).join(', ') }}</strong>
-                  on {{ statusByGear[item.id].conflict_with_current[0].overlapping_dates.length }}
-                  day{{ statusByGear[item.id].conflict_with_current[0].overlapping_dates.length === 1 ? '' : 's' }}
-                </span>
               </div>
             </div>
 
@@ -318,10 +320,15 @@
                     class="qty-input"
                     :value="selectionMap[item.id]?.quantity ?? 1"
                     :min="1"
-                    :max="item.quantity || 1"
+                    :max="maxQtyFor(item) || 1"
                     @input="onQuantityChange(item, $event.target.value)"
                   />
-                  <span class="qty-of">of {{ item.quantity || 1 }}</span>
+                  <span class="qty-of">
+                    of {{ maxQtyFor(item) }} free
+                    <span v-if="(item.quantity || 0) > maxQtyFor(item)" class="qty-of-total">
+                      · {{ item.quantity }} total
+                    </span>
+                  </span>
                 </div>
               </template>
             </footer>
@@ -341,6 +348,9 @@ import {
   formatHumanDate
 } from '../utils/gearStatusHelper'
 import { UserGearOwnersService } from '../services/userGearOwnersService'
+import { useUserStore } from '../stores/userStore'
+
+const userStore = useUserStore()
 
 const props = defineProps({
   /** 'manage' (full CRUD) | 'select' (used inside Add Team Gear modal) */
@@ -435,6 +445,76 @@ function ownerUnassigned(item) {
 }
 function badgeFor(item) { return statusBadgeForGear(statusByGear.value[item.id]) }
 function formatDate(d) { return formatHumanDate(d) }
+
+// Build a unified list of bookings for a gear tile. In select mode we surface
+// conflict-with-current entries first (they're the ones that limit how much
+// the user can grab), then in-use today, then upcoming reservations on other
+// dates. Stage info is merged in from the matching usage row.
+function bookingsFor(item) {
+  const s = statusByGear.value[item.id]
+  if (!s) return []
+  const usageByProject = new Map()
+  for (const u of s.usages || []) usageByProject.set(u.project_id, u)
+
+  const conflictIds = new Set()
+  const out = []
+
+  for (const c of s.conflict_with_current || []) {
+    conflictIds.add(c.project_id)
+    const days = c.overlapping_dates?.length || 0
+    const amt = Number(c.total_amount) || Number(c.assigned_amount) || 0
+    out.push({
+      tone: 'conflict',
+      label: 'Reserved',
+      project_id: c.project_id,
+      project_name: c.project_name,
+      amount: amt,
+      timing: `Overlaps ${days} day${days === 1 ? '' : 's'} with this project`,
+      stages: c.stages || usageByProject.get(c.project_id)?.stages || []
+    })
+  }
+
+  for (const u of s.current_usages || []) {
+    if (conflictIds.has(u.project_id)) continue
+    out.push({
+      tone: 'in_use',
+      label: 'In use',
+      project_id: u.project_id,
+      project_name: u.project_name,
+      amount: Number(u.total_amount) || Number(u.assigned_amount) || 0,
+      timing: `Until ${formatDate(u.last_date)} · auto-releases ${formatDate(u.auto_release_date)}`,
+      stages: u.stages || []
+    })
+  }
+
+  for (const u of s.upcoming_usages || []) {
+    if (conflictIds.has(u.project_id)) continue
+    out.push({
+      tone: 'upcoming',
+      label: 'Reserved',
+      project_id: u.project_id,
+      project_name: u.project_name,
+      amount: Number(u.total_amount) || Number(u.assigned_amount) || 0,
+      timing: `From ${formatDate(u.first_date)}`,
+      stages: u.stages || []
+    })
+  }
+
+  return out
+}
+
+// In select mode the qty input must not let the user reserve more units than
+// are actually free during the current project's date window. Falls back to
+// the user's total quantity when status hasn't loaded yet (or when there's no
+// project context).
+function maxQtyFor(item) {
+  const s = statusByGear.value[item.id]
+  const total = Number(item.quantity) || 0
+  if (props.mode === 'select' && s && typeof s.available_for_current === 'number') {
+    return Math.max(0, s.available_for_current)
+  }
+  return total || 1
+}
 function ioSummary(item) {
   if (item.gear_type === 'recorder' && item.num_records) return `${item.num_records} track${item.num_records === 1 ? '' : 's'}`
   if (item.gear_type === 'source' || item.gear_type === 'accessories_cables') return ''
@@ -459,6 +539,20 @@ const availableOwners = computed(() => {
     }
   }
   return [...map.values()]
+})
+
+// Pull out the logged-in user's entry separately so the owner filter can
+// surface "Mine only" as a prominent option rather than burying it inside the
+// generic owners list.
+const selfOwner = computed(() => {
+  const myId = userStore.user?.id
+  if (!myId) return null
+  return availableOwners.value.find(o => o.user_id === myId) || null
+})
+
+const teamOwnersOnly = computed(() => {
+  const myId = userStore.user?.id
+  return availableOwners.value.filter(o => o.user_id !== myId)
 })
 
 // Distinct non-self owner names from the loaded gear (read from the new
@@ -640,7 +734,7 @@ function onToggleSelect(item, shouldSelect) {
 }
 
 function onQuantityChange(item, value) {
-  const max = item.quantity || 1
+  const max = Math.max(1, maxQtyFor(item) || 1)
   const num = Math.max(1, Math.min(max, Number(value) || 1))
   if (selectionMap.value[item.id]) {
     selectionMap.value[item.id].quantity = num
@@ -651,8 +745,13 @@ function onQuantityChange(item, value) {
 function emitSelection() {
   const payload = Object.keys(selectionMap.value).map(id => {
     const item = gear.value.find(g => g.id === id)
-    return { gear: item, quantity: selectionMap.value[id].quantity }
-  }).filter(p => p.gear)
+    if (!item) return null
+    return {
+      gear: item,
+      quantity: selectionMap.value[id].quantity,
+      maxQty: maxQtyFor(item)
+    }
+  }).filter(Boolean)
   emit('selection-change', payload)
 }
 
@@ -759,6 +858,20 @@ async function refreshStatus() {
       today: new Date()
     })
     statusByGear.value = map
+    // Re-clamp any in-flight selections against the freshly-computed caps so
+    // the parent (UserGearSelector) gets up-to-date maxQty values for the
+    // bottom-bar qty rows. Without this the caps would stay at the user's
+    // raw quantity until they touch a tile.
+    if (Object.keys(selectionMap.value).length) {
+      for (const id of Object.keys(selectionMap.value)) {
+        const item = gear.value.find(g => g.id === id)
+        if (!item) continue
+        const cap = maxQtyFor(item)
+        const current = selectionMap.value[id].quantity || 1
+        if (cap > 0 && current > cap) selectionMap.value[id].quantity = cap
+      }
+      emitSelection()
+    }
   } catch (err) {
     console.warn('[UserGearLibrary] Status computation failed', err)
   }
@@ -1154,8 +1267,62 @@ onMounted(() => loadGear())
 }
 .usage-tag.usage-upcoming { background: #8b5cf6; }
 .usage-tag.usage-conflict { background: #dc2626; }
-.usage-detail { min-width: 0; font-size: 0.8rem; color: var(--text-primary); display: flex; flex-direction: column; gap: 0.1rem; }
+.usage-detail { min-width: 0; font-size: 0.8rem; color: var(--text-primary); display: flex; flex-direction: column; gap: 0.15rem; }
 .usage-dates { font-size: 0.72rem; color: var(--text-secondary); }
+.usage-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.usage-amt {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(0,0,0,0.06);
+  color: var(--text-primary);
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+}
+.usage-row.usage-row-upcoming {
+  background: rgba(139,92,246,0.07);
+  border-color: rgba(139,92,246,0.2);
+}
+.usage-row.usage-row-conflict {
+  background: rgba(220,38,38,0.07);
+  border-color: rgba(220,38,38,0.22);
+}
+.usage-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+.usage-stage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.usage-stage-qty {
+  margin-left: 0.2rem;
+  background: rgba(0,0,0,0.08);
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.qty-of-total {
+  margin-left: 0.2rem;
+  color: var(--text-secondary);
+}
 
 /* conflicts */
 .tile-conflicts {

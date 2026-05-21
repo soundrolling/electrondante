@@ -53,7 +53,7 @@ function projectActiveOn(project, todayIso) {
 /**
  * Build a usage record for a project-gear assignment.
  */
-function buildUsage(project, assignedAmount, todayIso) {
+function buildUsage(project, assignedAmount, todayIso, stages = [], totalGearAmount = 0) {
   const dates = getAllProjectDates(project).sort()
   const firstDate = minDate(dates)
   const lastDate = maxDate(dates)
@@ -68,6 +68,8 @@ function buildUsage(project, assignedAmount, todayIso) {
     last_date: lastDate,
     auto_release_date: addDays(lastDate, 1),
     assigned_amount: assignedAmount,
+    total_amount: totalGearAmount,
+    stages, // [{ location_id, stage_name, venue_name, amount }]
     is_active_now: isActiveNow,
     is_upcoming: isUpcoming,
     is_past: isPast
@@ -125,7 +127,7 @@ async function fetchUsagesByUserGear(userGearIds, supabase) {
     supabase.from('projects').select(PROJECT_DATE_FIELDS).in('id', projectIds),
     supabase
       .from('gear_assignments')
-      .select('gear_id, assigned_amount')
+      .select('gear_id, assigned_amount, location_id')
       .in('gear_id', gearTableIds)
   ])
 
@@ -136,13 +138,42 @@ async function fetchUsagesByUserGear(userGearIds, supabase) {
     log.warn('[gearStatusHelper] Failed to fetch assignments for usage:', assignmentsRes.error)
   }
 
+  // Resolve stage/venue names for the locations referenced by the
+  // assignment rows so the tile pill can show "Main stage (10)".
+  const locationIds = [
+    ...new Set((assignmentsRes.data || [])
+      .map(a => a.location_id)
+      .filter(Boolean))
+  ]
+  let locationById = {}
+  if (locationIds.length) {
+    const { data: locations, error: locErr } = await supabase
+      .from('locations')
+      .select('id, stage_name, venue_name')
+      .in('id', locationIds)
+    if (locErr) {
+      log.warn('[gearStatusHelper] Failed to fetch locations for assignments:', locErr)
+    } else {
+      for (const l of locations || []) locationById[l.id] = l
+    }
+  }
+
   const projectById = {}
   for (const p of projectsRes.data || []) projectById[p.id] = p
 
   const assignedByGearTable = {}
+  const stagesByGearTable = {}
   for (const a of assignmentsRes.data || []) {
-    assignedByGearTable[a.gear_id] =
-      (assignedByGearTable[a.gear_id] || 0) + (a.assigned_amount || 0)
+    const amt = Number(a.assigned_amount) || 0
+    assignedByGearTable[a.gear_id] = (assignedByGearTable[a.gear_id] || 0) + amt
+    if (!stagesByGearTable[a.gear_id]) stagesByGearTable[a.gear_id] = []
+    const loc = a.location_id ? locationById[a.location_id] : null
+    stagesByGearTable[a.gear_id].push({
+      location_id: a.location_id || null,
+      stage_name: loc?.stage_name || null,
+      venue_name: loc?.venue_name || null,
+      amount: amt
+    })
   }
 
   const result = {}
@@ -154,7 +185,9 @@ async function fetchUsagesByUserGear(userGearIds, supabase) {
     list.push({
       project,
       gearTableId: row.id,
-      assignedAmount: assignedByGearTable[row.id] ?? row.gear_amount ?? 0
+      assignedAmount: assignedByGearTable[row.id] ?? row.gear_amount ?? 0,
+      stages: stagesByGearTable[row.id] || [],
+      totalAmount: Number(row.gear_amount) || 0
     })
     result[row.user_gear_id] = list
   }
@@ -186,8 +219,8 @@ export async function computeUserGearStatus(gearList, { supabase, currentProject
   for (const item of gearList) {
     const rawUsages = usagesByGear[item.id] || []
     const usages = rawUsages
-      .map(u => buildUsage(u.project, u.assignedAmount, todayIso))
-      .filter(u => u.dates.length > 0 || u.assigned_amount > 0)
+      .map(u => buildUsage(u.project, u.assignedAmount, todayIso, u.stages, u.totalAmount))
+      .filter(u => u.dates.length > 0 || u.assigned_amount > 0 || u.total_amount > 0)
       .sort((a, b) => compareIsoDates(a.first_date, b.first_date))
 
     const currentUsages = usages.filter(u => u.is_active_now)
@@ -215,8 +248,12 @@ export async function computeUserGearStatus(gearList, { supabase, currentProject
 
     const conflicts = computeConflicts(usages)
 
-    // Conflict vs the project we are currently viewing (the "Add Team Gear" case)
+    // Conflict vs the project we are currently viewing (the "Mine / Team Gear" case).
+    // We also track how many units are tied up during the overlap so the qty
+    // picker can cap at (total - reserved-during-overlap) instead of letting
+    // the user double-book.
     let conflictWithCurrent = null
+    let reservedDuringCurrent = 0
     if (currentProject && currentProjectDates.length) {
       const overlapping = usages.filter(u =>
         u.project_id !== currentProject.id && datesOverlap(currentProjectDates, u.dates)
@@ -227,13 +264,23 @@ export async function computeUserGearStatus(gearList, { supabase, currentProject
           project_name: u.project_name,
           overlapping_dates: currentProjectDates.filter(d => u.dates.includes(d)),
           auto_release_date: u.auto_release_date,
-          last_date: u.last_date
+          last_date: u.last_date,
+          assigned_amount: u.assigned_amount,
+          total_amount: u.total_amount,
+          stages: u.stages
         }))
+        reservedDuringCurrent = overlapping.reduce(
+          (sum, u) => sum + (Number(u.total_amount) || Number(u.assigned_amount) || 0),
+          0
+        )
       }
     }
 
     const totalQty = item.quantity || 0
     const availableNow = Math.max(0, totalQty - currentlyAssigned)
+    const availableForCurrent = currentProject
+      ? Math.max(0, totalQty - reservedDuringCurrent)
+      : totalQty
 
     // Status priority:
     //   1. Archived (soft-deleted) — explicit user action, overrides everything.
@@ -259,6 +306,8 @@ export async function computeUserGearStatus(gearList, { supabase, currentProject
       currently_assigned: currentlyAssigned,
       total_assigned: totalAssigned,
       available_now: availableNow,
+      available_for_current: availableForCurrent,
+      reserved_during_current: reservedDuringCurrent,
       usages,
       current_usages: currentUsages,
       upcoming_usages: upcomingUsages,

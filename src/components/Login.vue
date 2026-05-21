@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.0">
-        <span class="version-text">v2.3.0</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.1">
+        <span class="version-text">v2.3.1</span>
         <span class="version-date">May 21st 2026</span>
       </button>
     </div>
@@ -19,24 +19,24 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.0</h2>
+          <h2 id="changelog-title">What's New in 2.3.1</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🕒 Stage Hours by Category</h3>
-            <p>Each stage now tracks hours by type — Recording, Build, Wrap, and Open (building access). The stage card shows a live-now indicator with which category is active and a per-category breakdown of today's hours. The Manage Hours modal has a type column, a category filter, and one-tap add buttons per category. Signal mapper and the recording-day note picker still only see Recording slots, so they keep working unchanged.</p>
+            <h3>🎛️ Gear: Mine / Team vs Vendor</h3>
+            <p>The two gear buttons now do clearly distinct things. "Mine / Team Gear" pulls from your own personal inventory or any project member's gear — the owner filter has an explicit "Mine only" entry so you can switch between yours and a teammate's in one tap. "Add Vendor Gear" (formerly "Add Gear") is for one-off rental or vendor units that aren't already in anyone's library, and now defaults the Rented flag on.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🗺️ Signal Mapper Empty State</h3>
-            <p>Signal Mapper now shows a friendly empty state with a clear CTA when a stage has no recording days yet — so the first thing you see is the next step, not a blank screen.</p>
+            <h3>📅 Reservations Shown In Depth</h3>
+            <p>Gear tiles in the Mine / Team picker now show every booking that touches the current project, not just the first. Each row lists the project, the units locked in, when they release, and a per-stage chip ("📍 Main stage 10") so you can see exactly where the gear is going. Overlapping reservations get a red "Reserved" pill; in-use today stays blue.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🎸 Gear Polish</h3>
-            <p>Team Gear's selection bar now exposes a per-item quantity input. Returning gear to its owner no longer silently bails out when the user_gear lookup fails. Adding the same gear twice merges into a single entry instead of duplicating, and personal gear rows show their owner with the synthetic vendor string dropped.</p>
+            <h3>🚫 No More Double-Booking</h3>
+            <p>The quantity picker now caps at units that are actually free during your project's dates, not the user's total inventory. The qty label shows "of N free · M total" when reservations are eating into the pool, so it's obvious why the cap is lower than what someone owns.</p>
           </div>
         </div>
         
