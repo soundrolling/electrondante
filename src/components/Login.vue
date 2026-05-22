@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.20">
-        <span class="version-text">v2.3.20</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.21">
+        <span class="version-text">v2.3.21</span>
         <span class="version-date">May 22nd 2026</span>
       </button>
     </div>
@@ -19,19 +19,19 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.20</h2>
+          <h2 id="changelog-title">What's New in 2.3.21</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>🔌 Signal Mapper: Network Switch Pass-Through</h3>
-            <p>Transformer nodes recognised as network switches (Netgear, Cisco, hubs, etc.) now act as transparent pass-throughs in the signal flow. Multiple stage boxes feeding the same switch all reach downstream recorders without forcing a strict 1:1 port mapping.</p>
+            <h3>🔌 Signal Mapper: Many-Stagebox → One-Switch Routing</h3>
+            <p>Transformers acting as network switches now expose a virtual channel pool sized to every connected source, so several stage boxes can feed the same Netgear and every channel remains pickable on downstream recorders.</p>
           </div>
 
           <div class="changelog-section">
-            <h3>🎨 Configure Venue Sources Refreshed</h3>
-            <p>The Configure Venue Sources modal now matches the rest of the app — labeled fields, polished source-type cards, cleaner remove buttons, and a tidier port preview.</p>
+            <h3>📱 Signal Mapper: Mobile Pinch & Pan</h3>
+            <p>The signal flow canvas now supports two-finger drag to pan and pinch to zoom on phones and tablets, while single-finger taps and node dragging still work as before.</p>
           </div>
         </div>
         
