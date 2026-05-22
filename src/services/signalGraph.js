@@ -76,4 +76,61 @@ export function getNodeType(node) {
   return (node?.gear_type || node?.node_type || node?.type || '').toLowerCase()
 }
 
+// Detect transformer nodes that should behave as transparent network hubs
+// (network switches like Netgear). Hubs pass signals through transparently,
+// without a strict 1:1 input→output port mapping.
+const HUB_NAME_PATTERN = /\b(netgear|switch|hub|cisco|d-link|tp-?link|unifi|ubiquiti|router)\b/i
+export function isHubTransformer(node, gearName = null) {
+  if (!node) return false
+  if (getNodeType(node) !== 'transformer') return false
+  if (node.is_hub === true) return true
+  const label = String(node.label || node.track_name || '')
+  const gear = String(gearName || node.gear_name || '')
+  return HUB_NAME_PATTERN.test(label) || HUB_NAME_PATTERN.test(gear)
+}
+
+// Compute the effective channel capacity for a transformer acting as a hub.
+// A network switch is transparent: when multiple sources feed into it, all of
+// their channels become available on the output side. The transformer's
+// physical port count is the floor — actual capacity grows with what's
+// connected so multiple stageboxes can share one switch without colliding.
+export function effectiveTransformerChannelCount(transformer, allConnections, portMapsByConnId, nodes) {
+  if (!transformer) return 0
+  const phys = Number(
+    transformer.num_outputs || transformer.numoutputs ||
+    transformer.num_inputs || transformer.numinputs ||
+    transformer.outputs || transformer.inputs || 0
+  ) || 0
+
+  let maxClaimed = 0
+  let sumOfParentChannels = 0
+
+  const incoming = (allConnections || []).filter(c =>
+    (c.to_node_id === transformer.id) || (c.to === transformer.id)
+  )
+
+  for (const conn of incoming) {
+    const maps = (portMapsByConnId && portMapsByConnId[conn.id]) || []
+    for (const m of maps) {
+      const slot = Number(m.to_port) || 0
+      if (slot > maxClaimed) maxClaimed = slot
+    }
+    const inputNum = Number(conn.input_number) || 0
+    if (inputNum > maxClaimed) maxClaimed = inputNum
+
+    if (nodes && nodes.length) {
+      const parent = nodes.find(n => n.id === (conn.from_node_id || conn.from))
+      if (parent) {
+        const out = Number(
+          parent.num_outputs || parent.numoutputs || parent.outputs ||
+          parent.num_tracks || parent.tracks || parent.num_records || parent.numrecord || 0
+        ) || 0
+        sumOfParentChannels += out
+      }
+    }
+  }
+
+  return Math.max(phys, maxClaimed, sumOfParentChannels)
+}
+
 

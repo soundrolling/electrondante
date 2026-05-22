@@ -341,7 +341,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch, shallowRef } from 'vue'
-import { buildGraph } from '@/services/signalGraph'
+import { buildGraph, isHubTransformer } from '@/services/signalGraph'
 import { getOutputLabel as svcGetOutputLabel, resolveTransformerInputLabel as svcResolveTransformerInputLabel, hydrateVenueLabels } from '@/services/portLabelService'
 import { useToast } from 'vue-toastification'
 import { useRouter } from 'vue-router'
@@ -374,8 +374,14 @@ const canvasWrapper = ref(null)
 const dpr = window.devicePixelRatio || 1
 const canvasWidth = ref(1000)
 const canvasHeight = ref(800)
-const canvasStyle = computed(() => 
-  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; transform-origin: top left;`
+// Touch pan/zoom state - applied via CSS transform so the canvas's drawing
+// logic doesn't need to know about it; getBoundingClientRect() picks up the
+// transformed geometry automatically in getCanvasCoords().
+const touchScale = ref(1.0)
+const panX = ref(0)
+const panY = ref(0)
+const canvasStyle = computed(() =>
+  `width: ${canvasWidth.value}px; height: ${canvasHeight.value}px; transform-origin: 0 0; transform: translate(${panX.value}px, ${panY.value}px) scale(${touchScale.value}); touch-action: none;`
 )
 
 // Tool state
@@ -709,11 +715,28 @@ function traceSourceLabelImpl(nodeId, inputNum, visitedNodes = new Set()) {
   
   // For transformers, trace through to find the source
   if (nodeType === 'transformer') {
+    // Hub transformer (network switch like Netgear): inputs and outputs are not
+    // bound 1:1. Walk every incoming connection and return the first source we
+    // can resolve, preferring one whose input_number matches the requested port.
+    if (isHubTransformer(node)) {
+      const allIncoming = props.connections.filter(c => (c.to_node_id === nodeId || c.to === nodeId))
+      const ordered = [
+        ...allIncoming.filter(c => c.input_number === inputNum),
+        ...allIncoming.filter(c => c.input_number !== inputNum)
+      ]
+      for (const conn of ordered) {
+        const parentId = conn.from_node_id || conn.from
+        if (!parentId || visitedNodes.has(parentId)) continue
+        const label = traceSourceLabelImpl(parentId, conn.input_number || inputNum, new Set(visitedNodes))
+        if (label) return label
+      }
+    }
+
     // Find connection feeding this transformer's input
-    const incoming = props.connections.find(c => 
+    const incoming = props.connections.find(c =>
       (c.to_node_id === nodeId || c.to === nodeId) && c.input_number === inputNum
     )
-    
+
     if (incoming) {
       const parentNodeId = incoming.from_node_id || incoming.from
       const parentNode = props.nodes.find(n => n.id === parentNodeId)
@@ -1010,13 +1033,58 @@ async function buildUpstreamLabelsForEdit() {
   if (!graphRef.value) {
     try { graphRef.value = await buildGraph(props.projectId, props.locationId) } catch {}
   }
-  const count = from?.num_outputs || from?.outputs || 0
+  let count = from?.num_outputs || from?.outputs || 0
   const fromType = (from.gear_type || from.node_type || from.type || '').toLowerCase()
   if (fromType === 'transformer') {
+    // Hub transformers can carry more channels than their physical port count.
+    const portMapsByConnId = graphRef.value?.mapsByConnId || {}
+    const effective = effectiveTransformerChannelCount(from, props.connections, portMapsByConnId, props.nodes)
+    if (effective > count) count = effective
+    // Pre-compute per-parent channel partitioning for anchor connections so we
+    // can label each pass-through channel with the source it originated from.
+    const parentConns = props.connections.filter(c =>
+      (c.to_node_id === from.id || c.to === from.id)
+    )
+    const anchorSlots = {}
+    {
+      // Collect taken slots from port_maps and direct input_number
+      const taken = new Set()
+      for (const pc of parentConns) {
+        const maps = portMapsByConnId[pc.id] || []
+        maps.forEach(m => { if (m.to_port) taken.add(Number(m.to_port)) })
+        if (pc.input_number) taken.add(Number(pc.input_number))
+      }
+      let cursor = 1
+      for (const pc of parentConns) {
+        const maps = portMapsByConnId[pc.id] || []
+        const hasMap = maps.length > 0
+        if (hasMap || pc.input_number) continue
+        const pnode = props.nodes.find(nd => nd.id === (pc.from_node_id || pc.from))
+        if (!pnode) continue
+        const pout = Number(
+          pnode.num_outputs || pnode.numoutputs || pnode.outputs ||
+          pnode.num_tracks || pnode.tracks || 0
+        ) || 0
+        for (let p = 1; p <= pout; p++) {
+          while (taken.has(cursor)) cursor++
+          anchorSlots[cursor] = { node: pnode, port: p }
+          taken.add(cursor)
+          cursor++
+        }
+      }
+    }
     for (let n = 1; n <= count; n++) {
       try {
         const label = await svcResolveTransformerInputLabel(from, n, graphRef.value)
-        if (label) upstreamLabelsForFromNode.value[n] = label
+        if (label && label !== `Input ${n}`) {
+          upstreamLabelsForFromNode.value[n] = label
+        } else if (anchorSlots[n]) {
+          const { node: pnode, port } = anchorSlots[n]
+          const base = pnode.track_name || pnode.label || 'Source'
+          upstreamLabelsForFromNode.value[n] = `${base} (out ${port})`
+        } else if (label) {
+          upstreamLabelsForFromNode.value[n] = label
+        }
       } catch {}
     }
   } else if (fromType === 'recorder') {
@@ -2108,6 +2176,10 @@ function zoomOut() {
 
 function resetZoom() {
   zoomLevel.value = 1.0
+  // Also reset touch pan/pinch so the Reset button is a true "back to home"
+  touchScale.value = 1.0
+  panX.value = 0
+  panY.value = 0
   nextTick(drawCanvas)
 }
 
@@ -2510,12 +2582,36 @@ function drawConnectionLegend(ctx, canvasWidth, canvasHeight, position = 'bottom
   ctx.restore()
 }
 
-// Pointer events
+// Multi-touch state: tracks active pointers (mouse + touch unified) so two-finger
+// pinch/pan gestures work on mobile while single-finger taps/drags keep working.
+const activePointers = new Map()
+let gestureState = null
+
 function onPointerDown(e) {
   e.preventDefault()
+
+  // Track this pointer
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+  // Second finger arrives → switch to gesture mode and cancel any in-progress drag/link
+  if (activePointers.size === 2) {
+    draggingNode.value = null
+    dragStart = null
+    const pts = [...activePointers.values()]
+    gestureState = {
+      dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y),
+      center: { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+    }
+    if (canvas.value && canvas.value.setPointerCapture) {
+      try { canvas.value.setPointerCapture(e.pointerId) } catch {}
+    }
+    return
+  }
+  if (activePointers.size > 2) return
+
   const { x, y } = getCanvasCoords(e)
   const clickedNode = getNodeAt(x, y)
-  
+
   if (tool.value === 'select') {
     if (clickedNode) {
       // Select the clicked node
@@ -2608,7 +2704,41 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
   e.preventDefault()
-  
+
+  if (activePointers.has(e.pointerId)) {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  }
+
+  // Two-finger pinch/pan: applies CSS transform to the canvas wrapper, doesn't
+  // touch normalized node coords (so saves and the spatial index stay intact).
+  if (gestureState && activePointers.size >= 2) {
+    const pts = [...activePointers.values()]
+    const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y)
+    const center = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+
+    // Pan: translate by midpoint delta
+    panX.value += (center.x - gestureState.center.x)
+    panY.value += (center.y - gestureState.center.y)
+
+    // Pinch zoom around the midpoint (in canvas-wrapper-local coords)
+    if (gestureState.dist > 0 && canvasWrapper.value) {
+      const wrap = canvasWrapper.value.getBoundingClientRect()
+      const lx = center.x - wrap.left
+      const ly = center.y - wrap.top
+      const factor = dist / gestureState.dist
+      const newScale = Math.max(minZoom, Math.min(maxZoom, touchScale.value * factor))
+      const ratio = newScale / touchScale.value
+      // Keep the point under the gesture center fixed on screen
+      panX.value = lx - (lx - panX.value) * ratio
+      panY.value = ly - (ly - panY.value) * ratio
+      touchScale.value = newScale
+    }
+
+    gestureState.dist = dist
+    gestureState.center = center
+    return
+  }
+
   // Only start dragging if we have a dragStart and mouse has moved beyond threshold
   if (dragStart && dragStart.node && !draggingNode.value) {
     const { x, y } = getCanvasCoords(e)
@@ -2634,12 +2764,25 @@ function onPointerMove(e) {
 
 async function onPointerUp(e) {
   e.preventDefault()
-  
+
+  activePointers.delete(e.pointerId)
+
+  // If we were gesturing and dropped below 2 fingers, end the gesture cleanly
+  // without falling through to drag logic (a lingering finger from a pinch
+  // shouldn't suddenly start dragging a node).
+  if (gestureState && activePointers.size < 2) {
+    gestureState = null
+    draggingNode.value = null
+    dragStart = null
+    return
+  }
+  if (gestureState) return
+
   if (draggingNode.value) {
     // Save normalized position
     await saveNodePosition(draggingNode.value)
   }
-  
+
   // Always clear drag state on pointer up
   draggingNode.value = null
   dragStart = null

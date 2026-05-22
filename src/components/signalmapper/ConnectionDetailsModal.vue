@@ -493,19 +493,43 @@ async function buildUpstreamSourceLabels() {
           }
           if (label) upstreamSourceLabels.value[m.to_port] = label
         }
-      } else {
-        // Connection has no port maps - direct connection
-        // Use input_number from connection, or default to 1 if not specified
-        const inputNum = parentConn.input_number || 1
-        const incoming = { 
+      } else if (parentConn.input_number) {
+        // Connection has no port maps but does specify input_number - direct 1:1
+        const inputNum = parentConn.input_number
+        const incoming = {
           from_node_id: parentConn.from_node_id,
           input_number: inputNum,
           output_number: inputNum
         }
         const label = await getLRAwareSourceLabel(incoming)
         if (label) {
-          // For transformers, output N = input N, so map accordingly
           upstreamSourceLabels.value[inputNum] = label
+        }
+      } else {
+        // Anchor connection (no port_map, no input_number). For hub transformers
+        // (network switches), every channel from the parent passes through. Allocate
+        // sequential slots above whatever is already claimed so multiple anchors
+        // (e.g. several stageboxes into one Netgear) don't collide on input 1.
+        const parentOutCount = Number(
+          parentFromNode.num_outputs || parentFromNode.numoutputs || parentFromNode.outputs ||
+          parentFromNode.num_tracks || parentFromNode.tracks || parentFromNode.num_records || parentFromNode.numrecord || 0
+        ) || 0
+        if (parentOutCount > 0) {
+          // Find next free slot >= 1
+          let nextSlot = 1
+          while (upstreamSourceLabels.value[nextSlot]) nextSlot++
+          for (let p = 1; p <= parentOutCount; p++) {
+            const incoming = {
+              from_node_id: parentConn.from_node_id,
+              input_number: p,
+              output_number: p
+            }
+            const label = await getLRAwareSourceLabel(incoming)
+            // Skip slots that are already claimed (in case a port_map already took them)
+            while (upstreamSourceLabels.value[nextSlot]) nextSlot++
+            if (label) upstreamSourceLabels.value[nextSlot] = label
+            nextSlot++
+          }
         }
       }
     }

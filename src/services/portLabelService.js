@@ -1,6 +1,6 @@
 // src/services/portLabelService.js
 import { supabase } from '../supabase'
-import { getNodeType } from './signalGraph'
+import { getNodeType, isHubTransformer } from './signalGraph'
 
 // Get the human label for a node's OUTPUT port.
 // graph is the object from buildGraph() in signalGraph.js
@@ -105,6 +105,28 @@ export async function resolveTransformerInputLabel(transformerNode, inputNum, gr
     }
     // For sources/venue_sources/recorders
     return await getOutputLabel(upstreamNode, inferSourcePort(upstreamNode, inputNum, parents, directParent), graph)
+  }
+
+  // Hub fallback: a network switch (Netgear etc.) is transparent — any signal on
+  // ANY incoming connection is available on every output. When no port map and
+  // no input_number match exists, walk every parent and return the first label
+  // we can resolve. This makes downstream recorders see whatever's plugged in.
+  if (isHubTransformer(transformerNode)) {
+    for (const parent of parents) {
+      const upstreamNode = graph.nodeMap[parent.from_node_id]
+      if (!upstreamNode) continue
+      const upstreamType = getNodeType(upstreamNode)
+      const maps = graph.mapsByConnId[parent.id] || []
+      let label = null
+      if (maps.length) {
+        label = await getOutputLabel(upstreamNode, maps[0].from_port, graph)
+      } else if (upstreamType === 'transformer') {
+        label = await resolveTransformerInputLabel(upstreamNode, parent.input_number || inputNum, graph, visited)
+      } else {
+        label = await getOutputLabel(upstreamNode, parent.input_number || 1, graph)
+      }
+      if (label) return label
+    }
   }
 
   // Fallback: trace from any parent (best-effort)
@@ -221,7 +243,15 @@ async function resolveRecorderTrackLabel(recorderNode, trackNum, graph, visited 
   if (!trackConn) {
     trackConn = parents.find(p => Number(p.input_number) === Number(trackNum) || Number(p.track_number) === Number(trackNum))
   }
-  
+
+  // Hub fallback: if a parent is a transparent transformer (network switch) and
+  // we couldn't find an exact track match, use the hub connection as the source.
+  // Whatever flows through the hub is available on every downstream track.
+  if (!trackConn) {
+    const hubParent = parents.find(p => isHubTransformer(graph.nodeMap[p.from_node_id]))
+    if (hubParent) trackConn = hubParent
+  }
+
   if (!trackConn) return `Track ${trackNum}`
   
   // Get the source node

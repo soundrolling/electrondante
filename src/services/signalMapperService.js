@@ -1,6 +1,6 @@
 // src/services/signalMapperService.js
 import { supabase } from '../supabase'
-import { buildGraph, getNodeType } from './signalGraph'
+import { buildGraph, getNodeType, isHubTransformer } from './signalGraph'
 import { getOutputLabel as svcGetOutputLabel } from './portLabelService'
 import { getCached, setCached, invalidateTableCache, invalidateProjectCache } from './cacheService'
 import { createLogger } from '@/utils/log'
@@ -1017,11 +1017,36 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
     
     // Add this transformer with its input number
     labels.push(currentInput ? `${node.label} Input ${currentInput}` : `${node.label}`)
-    
+
     // Find parent connections feeding this node
     const parents = parentConnsByToNode[currentNodeId] || []
     if (!parents.length) break
-    
+
+    // Hub transformer (network switch like Netgear): inputs and outputs are not
+    // bound 1:1. If port maps exist for this specific output, prefer them; else
+    // pick any incoming connection — every input is on the shared bus.
+    if (isHubTransformer(node) && parents.length > 0) {
+      const mappedParent = parents.find(p => (mapsByConnId[p.id] || []).some(m => Number(m.to_port) === Number(currentInput)))
+      const matchByInput = parents.find(c =>
+        typeof c.input_number === 'number' && Number(c.input_number) === Number(currentInput)
+      )
+      if (!mappedParent && !matchByInput) {
+        const hopConn = parents[0]
+        currentNodeId = hopConn.from_node_id
+        const hopNode = nodeMap[currentNodeId]
+        const hopMaps = mapsByConnId[hopConn.id] || []
+        if (hopMaps.length > 0) {
+          currentInput = hopMaps[0].from_port
+        } else if (hopNode && (hopNode.gear_type === 'source' || hopNode.type === 'source')) {
+          const outCount = hopNode?.num_outputs || hopNode?.outputs || 0
+          currentInput = outCount === 2 ? (Number(hopConn.input_number) % 2 === 1 ? 1 : 2) : 1
+        } else {
+          currentInput = hopConn.input_number || currentInput
+        }
+        continue
+      }
+    }
+
     // Check if any parent has a port map
     const parentWithMap = parents.find(p => (mapsByConnId[p.id] || []).length > 0)
     
