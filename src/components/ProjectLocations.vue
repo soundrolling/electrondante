@@ -102,7 +102,10 @@
             <div v-else-if="todaySlotsFor(stage.id).length" class="status-scheduled">
               🟡 Scheduled today
             </div>
-            <div v-else class="status-closed">🔴 No hours today</div>
+            <div v-else-if="upcomingByDate(stage.id).length" class="status-upcoming">
+              🔴 No hours today · Upcoming:
+            </div>
+            <div v-else class="status-closed">🔴 No hours scheduled</div>
 
             <!-- Today summary by category -->
             <ul v-if="todayByCategory(stage.id).length" class="category-summary">
@@ -114,6 +117,30 @@
                 <span class="cat-icon">{{ row.icon }}</span>
                 <span class="cat-label">{{ row.label }}:</span>
                 <span class="cat-time">{{ row.slots.map(formatSlot).join(' · ') }}</span>
+              </li>
+            </ul>
+
+            <!-- Upcoming slots (when no hours today) -->
+            <ul
+              v-else-if="upcomingByDate(stage.id).length"
+              class="category-summary upcoming-summary"
+            >
+              <li
+                v-for="row in upcomingByDate(stage.id)"
+                :key="row.key"
+                class="category-line"
+              >
+                <span class="cat-label">{{ row.label }}:</span>
+                <span class="cat-time">
+                  <span
+                    v-for="(slot, i) in row.slots"
+                    :key="slot.id"
+                    class="upcoming-slot"
+                  >
+                    <span class="cat-icon">{{ categoryMeta(slot.category).icon }}</span>
+                    {{ formatSlot(slot) }}<span v-if="i < row.slots.length - 1"> · </span>
+                  </span>
+                </span>
               </li>
             </ul>
           </div>
@@ -1022,6 +1049,43 @@ setup() {
         slots: groups.get(c.key).sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime)),
       }));
   }
+  function upcomingByDate(stageId, maxDays = 5) {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const upcoming = slotsForStage(stageId)
+      .filter(slot => {
+        const startDay = slot.start_datetime.slice(0, 10);
+        return startDay > today;
+      })
+      .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+
+    const byDay = new Map();
+    for (const slot of upcoming) {
+      const day = slot.start_datetime.slice(0, 10);
+      if (!byDay.has(day)) byDay.set(day, []);
+      byDay.get(day).push(slot);
+    }
+    return Array.from(byDay.entries())
+      .slice(0, maxDays)
+      .map(([day, slots]) => ({
+        key: day,
+        label: formatSlotDate(day),
+        slots,
+      }));
+  }
+  function formatSlotDate(dayStr) {
+    if (!dayStr) return '';
+    const [y, m, d] = dayStr.split('-').map(Number);
+    const target = new Date(y, m - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays > 1 && diffDays < 7) {
+      return target.toLocaleDateString([], { weekday: 'long' });
+    }
+    return target.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
   function formatSlot(slot) {
     if (!slot) return '';
     return `${formatTime(slot.start_datetime)}–${formatTime(slot.end_datetime)}`;
@@ -1362,6 +1426,8 @@ setup() {
     activeNowFor,
     todaySlotsFor,
     todayByCategory,
+    upcomingByDate,
+    formatSlotDate,
     formatSlot,
     formatTime,
     formatDateTime,
@@ -1773,6 +1839,24 @@ setup() {
 .status-scheduled {
   color: #b45309;
   font-weight: 500;
+}
+
+.status-upcoming {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.upcoming-summary {
+  margin-top: 2px;
+}
+
+.upcoming-slot {
+  display: inline;
+  margin-right: 2px;
+}
+
+.upcoming-slot .cat-icon {
+  margin-right: 2px;
 }
 
 .status-chip {

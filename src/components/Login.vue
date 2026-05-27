@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.28">
-        <span class="version-text">v2.3.28</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.29">
+        <span class="version-text">v2.3.29</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.28</h2>
+          <h2 id="changelog-title">What's New in 2.3.29</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🕒 Stages: Upcoming Hours Inline</h3>
+            <p>When a stage has no recording hours today, the stage card now lists the next few scheduled days inline (Tomorrow · Wednesday · etc.) with the category icon and time range for each — instead of just saying "No hours today." Lets you see what's coming up without opening Manage Hours.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔧 Dante Mixer: Auth Diagnostics (Source + Unregister Paths)</h3>
             <p>Extends the detailed auth-failure reporting to the <strong>Register as Source</strong> and <strong>Stop Source</strong> code paths on the bridge-server — they were still returning the generic "Authentication failed" message. Now all three auth paths return the actual Supabase error and the configured Supabase host. The frontend surfaces auth-related codes in both the header banner and the source-controls error slot so the failure is visible wherever you triggered it.</p>
