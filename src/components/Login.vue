@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.29">
-        <span class="version-text">v2.3.29</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.30">
+        <span class="version-text">v2.3.30</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.29</h2>
+          <h2 id="changelog-title">What's New in 2.3.30</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>📁 All Documents: Upload General Project Docs</h3>
+            <p>The <strong>All Documents</strong> page now has its own upload button and drag-drop area for general project-level documents — handbooks, briefs, anything that's not tied to a specific stage. General docs are tagged with a green "📌 General" badge so they're easy to spot in the mixed list. A new <strong>Scope</strong> filter lets you view All / General-only / Stage-specific-only.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🕒 Stages: Upcoming Hours Inline</h3>
             <p>When a stage has no recording hours today, the stage card now lists the next few scheduled days inline (Tomorrow · Wednesday · etc.) with the category icon and time range for each — instead of just saying "No hours today." Lets you see what's coming up without opening Manage Hours.</p>

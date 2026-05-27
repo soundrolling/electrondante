@@ -19,8 +19,26 @@
           <p class="header-subtitle">Project: {{ currentProject?.project_name || projectName }}</p>
         </div>
         <div class="header-actions">
-          <button 
-            class="btn btn-secondary" 
+          <input
+            ref="fileInput"
+            type="file"
+            :accept="allowedMimes.join(',')"
+            multiple
+            @change="onFileChange"
+            class="upload-input"
+            :disabled="isUploading"
+          />
+          <button
+            class="btn btn-positive"
+            @click="triggerFileInput"
+            :disabled="isUploading"
+            title="Upload general documents (handbooks, briefs, etc.) not tied to a specific stage"
+          >
+            <span class="btn-icon">📁</span>
+            {{ isUploading ? `Uploading… ${uploadProgress}%` : 'Upload General Doc' }}
+          </button>
+          <button
+            class="btn btn-secondary"
             @click="exportPdf"
             :disabled="!filteredDocs.length"
           >
@@ -29,6 +47,64 @@
           </button>
         </div>
       </header>
+
+      <!-- Upload Drop Area -->
+      <section v-if="!isLoading" class="upload-section">
+        <div
+          class="upload-area"
+          :class="{ 'upload-area--dragover': isDragOver, 'upload-area--uploading': isUploading }"
+          @drop.prevent="onDrop"
+          @dragover.prevent="isDragOver = true"
+          @dragleave.prevent="isDragOver = false"
+          @click="triggerFileInput"
+        >
+          <div class="upload-content">
+            <div class="upload-icon">📁</div>
+            <h3 class="upload-title">
+              {{ isUploading ? 'Uploading…' : 'Upload General Documents' }}
+            </h3>
+            <p class="upload-subtitle">
+              Drag & drop, or click to browse · Handbooks, briefs, project-wide reference docs
+            </p>
+            <p class="upload-info">15 MB max (PDF, Word, Excel, CSV, Text)</p>
+            <div v-if="isUploading" class="upload-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+              </div>
+              <p class="progress-text">{{ uploadProgress }}% Complete</p>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="selectedFiles.length" class="selected-files">
+          <h4 class="selected-files-title">Selected Files ({{ selectedFiles.length }})</h4>
+          <div class="file-list">
+            <div
+              v-for="(file, index) in selectedFiles"
+              :key="index"
+              class="file-item"
+            >
+              <div class="file-icon">{{ getFileIcon(file.type) }}</div>
+              <div class="file-info">
+                <p class="file-name">{{ file.name }}</p>
+                <p class="file-size">{{ formatFileSize(file.size) }}</p>
+              </div>
+              <button
+                class="file-remove"
+                @click.stop="removeSelectedFile(index)"
+                :disabled="isUploading"
+              >×</button>
+            </div>
+          </div>
+          <button
+            class="btn btn-positive"
+            :disabled="isUploading || !selectedFiles.length"
+            @click.stop="uploadDocs"
+          >
+            {{ isUploading ? 'Uploading…' : `Upload ${selectedFiles.length} File${selectedFiles.length === 1 ? '' : 's'}` }}
+          </button>
+        </div>
+      </section>
 
       <!-- Loading State -->
       <div v-if="isLoading" class="loading-section">
@@ -91,8 +167,11 @@
                   <span class="meta-item">{{ mimeLabel(doc.mime_type) }}</span>
                   <span class="meta-item">📅 {{ formatDate(doc.inserted_at) }}</span>
                   <span v-if="doc.uploaded_by" class="meta-item">👤 {{ doc.uploaded_by }}</span>
-                  <span v-if="doc.venue_name" class="meta-item">🏢 {{ doc.venue_name }}</span>
-                  <span v-if="doc.stage_name" class="meta-item">🎪 {{ doc.stage_name }}</span>
+                  <span v-if="!doc.venue_id && !doc.stage_id" class="meta-item meta-general">📌 General</span>
+                  <span v-else>
+                    <span v-if="doc.venue_name" class="meta-item">🏢 {{ doc.venue_name }}</span>
+                    <span v-if="doc.stage_name" class="meta-item">🎪 {{ doc.stage_name }}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -110,9 +189,9 @@
       <!-- Empty State -->
       <div v-else-if="!isLoading" class="empty-state">
         <div class="empty-icon">📁</div>
-        <h3 class="empty-title">No Documents Found</h3>
+        <h3 class="empty-title">No Documents Yet</h3>
         <p class="empty-description">
-          No documents found for this project. Documents are uploaded at the stage level. Navigate to a specific stage to upload documents.
+          Upload general project documents (handbooks, briefs, etc.) above, or visit a specific stage to upload stage-level documents.
         </p>
       </div>
     </div>
@@ -141,8 +220,16 @@
       <section v-if="!isLoading" class="filter-section">
         <div class="filter-container">
           <div class="stage-filter">
+            <label class="filter-label">Scope</label>
+            <select v-model="scopeFilter" class="select-stage">
+              <option value="all">All Documents</option>
+              <option value="general">📌 General Only (Project-level)</option>
+              <option value="stage">🎪 Stage-Specific Only</option>
+            </select>
+          </div>
+          <div class="stage-filter">
             <label class="filter-label">Filter by Venue</label>
-            <select v-model="selectedVenueId" class="select-stage">
+            <select v-model="selectedVenueId" class="select-stage" :disabled="scopeFilter === 'general'">
               <option value="">All Venues</option>
               <option v-for="venue in venues" :key="venue.id" :value="venue.id">
                 {{ venue.venue_name }}
@@ -151,7 +238,7 @@
           </div>
           <div class="stage-filter">
             <label class="filter-label">Filter by Stage</label>
-            <select v-model="selectedStageId" class="select-stage" :disabled="!selectedVenueId">
+            <select v-model="selectedStageId" class="select-stage" :disabled="!selectedVenueId || scopeFilter === 'general'">
               <option value="">All Stages</option>
               <option v-for="stage in filteredStages" :key="stage.id" :value="stage.id">
                 {{ stage.stage_name }}
@@ -258,6 +345,7 @@ const venues        = ref([])
 const stages        = ref([])
 const selectedVenueId = ref('')
 const selectedStageId = ref('')
+const scopeFilter   = ref('all')
 const showPreviewModal = ref(false)
 const previewDoc = ref(null)
 const showDeleteConfirm = ref(false)
@@ -265,8 +353,119 @@ const showDownloadConfirm = ref(false)
 const docToDelete = ref(null)
 const docToDownload = ref(null)
 
+// upload state
+const selectedFiles = ref([])
+const isUploading   = ref(false)
+const isDragOver    = ref(false)
+const uploadProgress = ref(0)
+const fileInput     = ref(null)
+
+const allowedMimes = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+  'text/plain'
+]
+
 // ─── NAVIGATION ─────────────────────────────────────────────────────────────────
 const goBack = () => router.back()
+
+// ─── UPLOAD ────────────────────────────────────────────────────────────────────
+function triggerFileInput() {
+  if (!isUploading.value) fileInput.value?.click()
+}
+
+function onFileChange(e) {
+  validateAndAddFiles(Array.from(e.target.files))
+  if (e.target) e.target.value = ''
+}
+
+function onDrop(e) {
+  isDragOver.value = false
+  validateAndAddFiles(Array.from(e.dataTransfer.files))
+}
+
+function validateAndAddFiles(files) {
+  const valid = files.filter(file => {
+    if (!allowedMimes.includes(file.type)) {
+      toast.error(`${file.name} is not an allowed file type`)
+      return false
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error(`${file.name} is too large (max 15MB)`)
+      return false
+    }
+    return true
+  })
+  selectedFiles.value.push(...valid)
+  if (valid.length && !isUploading.value) uploadDocs()
+}
+
+function removeSelectedFile(index) {
+  selectedFiles.value.splice(index, 1)
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+async function uploadDocs() {
+  if (!selectedFiles.value.length) return
+  isUploading.value = true
+  uploadProgress.value = 0
+
+  const generalDocs = docs.value.filter(d => !d.venue_id && !d.stage_id)
+  let maxOrder = generalDocs.length ? Math.max(...generalDocs.map(d => d.order || 0)) : 0
+  let count = 0
+  const total = selectedFiles.value.length
+
+  for (const file of selectedFiles.value) {
+    const { data, error: upErr } = await supabase.storage
+      .from('stage-docs')
+      .upload(
+        `${projectId}/_general/${Date.now()}_${file.name}`,
+        file
+      )
+    if (upErr) {
+      toast.error(upErr.message)
+      continue
+    }
+    maxOrder++
+    const { error: dbErr } = await supabase
+      .from('stage_docs')
+      .insert({
+        project_id: projectId,
+        venue_id:   null,
+        stage_id:   null,
+        file_path:  data.path,
+        file_name:  file.name,
+        mime_type:  file.type,
+        description: '',
+        order:      maxOrder
+      })
+    if (dbErr) {
+      toast.error(dbErr.message)
+      continue
+    }
+    count++
+    uploadProgress.value = Math.round((count / total) * 100)
+  }
+
+  selectedFiles.value = []
+  uploadProgress.value = 0
+  isUploading.value = false
+  if (count > 0) {
+    toast.success(`${count} document${count === 1 ? '' : 's'} uploaded`)
+    await fetchDocs()
+  }
+}
 
 // ─── UTILS ──────────────────────────────────────────────────────────────────────
 function getFileIcon(mimeType) {
@@ -390,10 +589,10 @@ async function fetchDocs() {
         .from('stage-docs')
         .createSignedUrl(d.file_path, 3600)
       d.url = urlData.signedUrl
-      
-      // Add venue/stage names
-      d.venue_name = venueMap.get(d.venue_id) || 'Unknown Venue'
-      d.stage_name = stageMap.get(d.stage_id) || 'Unknown Stage'
+
+      // Add venue/stage names (null for general docs)
+      d.venue_name = d.venue_id ? (venueMap.get(d.venue_id) || 'Unknown Venue') : ''
+      d.stage_name = d.stage_id ? (stageMap.get(d.stage_id) || 'Unknown Stage') : ''
     }
     docs.value = data
   } catch (e) {
@@ -411,9 +610,15 @@ const filteredStages = computed(() => {
 })
 
 const filteredDocs = computed(() => {
+  let list = docs.value
+  if (scopeFilter.value === 'general') {
+    list = list.filter(d => !d.venue_id && !d.stage_id)
+  } else if (scopeFilter.value === 'stage') {
+    list = list.filter(d => d.venue_id || d.stage_id)
+  }
   const t = searchTerm.value.toLowerCase()
-  if (!t) return docs.value
-  return docs.value.filter(d =>
+  if (!t) return list
+  return list.filter(d =>
     d.file_name.toLowerCase().includes(t) ||
     (d.description || '').toLowerCase().includes(t) ||
     (d.venue_name || '').toLowerCase().includes(t) ||
@@ -424,6 +629,13 @@ const filteredDocs = computed(() => {
 // ─── WATCHERS ──────────────────────────────────────────────────────────────────
 watch([selectedVenueId, selectedStageId], () => {
   fetchDocs()
+})
+
+watch(scopeFilter, (v) => {
+  if (v === 'general') {
+    selectedVenueId.value = ''
+    selectedStageId.value = ''
+  }
 })
 
 // Reset stage filter when venue changes
@@ -829,6 +1041,174 @@ onMounted(async () => {
 
 .btn-icon {
   font-size: 16px;
+}
+
+.btn-positive {
+  background: var(--color-success-600, #10b981);
+  color: var(--text-inverse, #ffffff) !important;
+  border: 1px solid var(--color-success-700, #059669);
+}
+
+.btn-positive:hover:not(:disabled) {
+  background: var(--color-success-700, #059669);
+  color: var(--text-inverse, #ffffff) !important;
+}
+
+/* Upload Section */
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.upload-area {
+  background: var(--bg-primary);
+  border: 2px dashed var(--border-medium, #cbd5e1);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-area:hover,
+.upload-area--dragover {
+  border-color: var(--color-primary-500, #3b82f6);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.upload-area--uploading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.upload-input {
+  display: none;
+}
+
+.upload-icon {
+  font-size: 36px;
+  margin-bottom: 8px;
+}
+
+.upload-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.upload-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0 0 4px 0;
+}
+
+.upload-info {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.upload-progress {
+  margin-top: 16px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-secondary);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-success-600, #10b981);
+  transition: width 0.2s ease;
+}
+
+.progress-text {
+  margin: 8px 0 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.selected-files {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.selected-files-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.file-icon {
+  font-size: 20px;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.file-remove {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 0 8px;
+}
+
+.file-remove:hover:not(:disabled) {
+  color: var(--color-error-600, #dc2626);
+}
+
+.meta-general {
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 500;
 }
 
 /* Document Count Section */
