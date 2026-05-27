@@ -88,6 +88,14 @@
                   <span v-if="isCapturing" class="client-status connected">● Capturing</span>
                   <span v-else class="client-status disconnected">○ Not Capturing</span>
                   <button
+                    @click="probeAllDevices"
+                    :disabled="!!probingDeviceId || availableDevices.length === 0 || isCapturing"
+                    class="btn btn-secondary btn-small"
+                    title="Briefly open each device to see how many channels the browser will expose"
+                  >
+                    {{ probingDeviceId ? 'Probing…' : 'Probe All' }}
+                  </button>
+                  <button
                     @click="refreshDevices"
                     :disabled="deviceLoading || isCapturing"
                     class="btn btn-secondary btn-small"
@@ -98,7 +106,7 @@
               </div>
 
               <p class="info-message">
-                Each input gives 1–2 channels. For full multitrack from Dante Virtual Soundcard, set DVS to expose its tracks as stereo pairs (e.g. <em>DVS 1-2</em>, <em>3-4</em>, …) and check each pair you want to capture. Selected channels feed a stereo broadcast mix that listeners receive.
+                Each input gives 1–2 channels. For full multitrack from Dante Virtual Soundcard, set DVS to expose its tracks as stereo pairs (e.g. <em>DVS 1-2</em>, <em>3-4</em>, …) and check each pair you want to capture. Click <strong>Probe</strong> next to any device to see what channel count it actually delivers. Selected channels feed a stereo broadcast mix that listeners receive.
               </p>
 
               <div v-if="availableDevices.length === 0" class="info-message">
@@ -106,20 +114,44 @@
               </div>
 
               <div v-else class="device-checklist">
-                <label
+                <div
                   v-for="device in availableDevices"
                   :key="device.id"
                   class="device-checkbox-row"
                   :class="{ disabled: isCapturing }"
                 >
-                  <input
-                    type="checkbox"
-                    :checked="selectedDeviceIds.includes(device.id)"
-                    :disabled="isCapturing"
-                    @change="toggleDevice(device.id)"
-                  />
-                  <span class="device-checkbox-label">{{ device.label }}</span>
-                </label>
+                  <label class="device-checkbox-main">
+                    <input
+                      type="checkbox"
+                      :checked="selectedDeviceIds.includes(device.id)"
+                      :disabled="isCapturing"
+                      @change="toggleDevice(device.id)"
+                    />
+                    <span class="device-checkbox-label">{{ device.label }}</span>
+                  </label>
+                  <div class="device-probe">
+                    <span
+                      v-if="deviceProbes[device.id]"
+                      class="device-probe-result"
+                      :class="'device-probe-result-' + deviceProbes[device.id].state"
+                      :title="deviceProbes[device.id].error || ''"
+                    >
+                      <template v-if="deviceProbes[device.id].state === 'probing'">…</template>
+                      <template v-else-if="deviceProbes[device.id].state === 'ok'">
+                        {{ deviceProbes[device.id].channelCount }} ch{{ deviceProbes[device.id].sampleRate ? ` · ${(deviceProbes[device.id].sampleRate / 1000).toFixed(deviceProbes[device.id].sampleRate % 1000 ? 1 : 0)}k` : '' }}
+                      </template>
+                      <template v-else>!</template>
+                    </span>
+                    <button
+                      @click="probeDevice(device.id)"
+                      :disabled="!!probingDeviceId || isCapturing"
+                      class="btn btn-secondary btn-tiny"
+                      title="Open this device briefly to see how many channels the browser will expose"
+                    >
+                      {{ probingDeviceId === device.id ? '…' : 'Probe' }}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <p v-if="deviceError || captureError" class="error-message">
@@ -521,7 +553,11 @@ const {
   captureError,
   availableDevices,
   selectedDeviceIds,
+  deviceProbes,
+  probingDeviceId,
   toggleDevice,
+  probeDevice,
+  probeAllDevices,
   channels: captureChannels,
   setStripGain,
   setStripPan,
@@ -2522,7 +2558,6 @@ watch(() => mixer.value, (newMixer) => {
   padding: 0.4rem 0.6rem;
   border-radius: 0.375rem;
   background: white;
-  cursor: pointer;
   transition: background 0.15s ease;
   font-size: 0.875rem;
 }
@@ -2533,6 +2568,18 @@ watch(() => mixer.value, (newMixer) => {
 
 .device-checkbox-row.disabled {
   opacity: 0.55;
+}
+
+.device-checkbox-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.device-checkbox-row.disabled .device-checkbox-main {
   cursor: not-allowed;
 }
 
@@ -2546,6 +2593,44 @@ watch(() => mixer.value, (newMixer) => {
   flex: 1;
   word-break: break-word;
   line-height: 1.3;
+}
+
+.device-probe {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.device-probe-result {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.device-probe-result-probing {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.device-probe-result-ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.device-probe-result-error {
+  background: #fee2e2;
+  color: #991b1b;
+  cursor: help;
+}
+
+.btn-tiny {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
 }
 
 /* --- Captured channel strips --- */

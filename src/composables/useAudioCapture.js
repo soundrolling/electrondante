@@ -12,6 +12,8 @@ export function useAudioCapture(wsRef, _legacyChannelCount = 32, sampleRate = 48
   // --- Device discovery state ---
   const availableDevices = ref([]); // [{id, label, groupId}]
   const selectedDeviceIds = ref([]); // ids the user has checked
+  const deviceProbes = ref({}); // { [deviceId]: { state, channelCount, sampleRate, error } }
+  const probingDeviceId = ref(null);
 
   // --- Capture state ---
   const isCapturing = ref(false);
@@ -73,6 +75,53 @@ export function useAudioCapture(wsRef, _legacyChannelCount = 32, sampleRate = 48
     const idx = selectedDeviceIds.value.indexOf(deviceId);
     if (idx >= 0) selectedDeviceIds.value.splice(idx, 1);
     else selectedDeviceIds.value.push(deviceId);
+  };
+
+  // Briefly open a device to see what the browser actually exposes, then close it.
+  // Result is stored in deviceProbes[deviceId] and the UI displays it inline.
+  const probeDevice = async (deviceId) => {
+    if (probingDeviceId.value) return; // serialize probes to avoid OS contention
+    probingDeviceId.value = deviceId;
+    deviceProbes.value = { ...deviceProbes.value, [deviceId]: { state: 'probing' } };
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: deviceId },
+          channelCount: { ideal: 16, max: 16 },
+          sampleRate: { ideal: sampleRate },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+      const track = stream.getAudioTracks()[0];
+      const settings = track.getSettings();
+      const channelCount = Math.max(1, settings.channelCount || 1);
+      stream.getTracks().forEach(t => t.stop());
+      deviceProbes.value = {
+        ...deviceProbes.value,
+        [deviceId]: {
+          state: 'ok',
+          channelCount,
+          sampleRate: settings.sampleRate || null,
+          probedAt: Date.now(),
+        },
+      };
+    } catch (err) {
+      deviceProbes.value = {
+        ...deviceProbes.value,
+        [deviceId]: { state: 'error', error: err.message || String(err) },
+      };
+    } finally {
+      probingDeviceId.value = null;
+    }
+  };
+
+  const probeAllDevices = async () => {
+    for (const dev of availableDevices.value) {
+      // eslint-disable-next-line no-await-in-loop
+      await probeDevice(dev.id);
+    }
   };
 
   // --- Open one device, add its strips to the graph ---
@@ -378,8 +427,12 @@ export function useAudioCapture(wsRef, _legacyChannelCount = 32, sampleRate = 48
     // device discovery
     availableDevices,
     selectedDeviceIds,
+    deviceProbes,
+    probingDeviceId,
     toggleDevice,
     enumerateDevices,
+    probeDevice,
+    probeAllDevices,
     // capture state
     isCapturing,
     captureError,
