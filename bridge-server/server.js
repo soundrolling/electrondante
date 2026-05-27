@@ -853,16 +853,40 @@ class DanteBridgeServer {
               this.notifyRoomStatus(roomId);
             } else {
               // Legacy single-room mode (backward compatibility)
-          if (!supabase) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
-            return;
-          }
-          
-            const { data: user, error } = await supabase.auth.getUser(data.token);
-            if (error) {
-              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
-              return;
-            }
+              if (!supabase) {
+                client.ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Bridge-server is missing SUPABASE_URL / SUPABASE_SERVICE_KEY env vars. Set them on Railway.',
+                  code: 'no_supabase_config',
+                }));
+                return;
+              }
+              if (!data.token) {
+                client.ws.send(JSON.stringify({
+                  type: 'error',
+                  message: 'Source registration failed: no token provided',
+                  code: 'no_token',
+                }));
+                return;
+              }
+
+              const { data: user, error } = await supabase.auth.getUser(data.token);
+              if (error || !user?.user) {
+                this.metrics.authFailures++;
+                const supabaseHost = (() => {
+                  try { return new URL(process.env.SUPABASE_URL || '').host; } catch { return 'unknown'; }
+                })();
+                const detail = error?.message || 'no user returned';
+                console.warn(`❌ Source-register auth failed for client ${clientId}: ${detail} (bridge supabase host: ${supabaseHost})`);
+                client.ws.send(JSON.stringify({
+                  type: 'error',
+                  message: `Source registration failed: ${detail}. Bridge is configured for Supabase host "${supabaseHost}" — verify it matches the frontend's project.`,
+                  code: 'auth_failed',
+                  supabaseHost,
+                }));
+                return;
+              }
+              this.metrics.authSuccesses++;
             
             // Check if this user is already the source (reconnection scenario)
             if (this.sourceConnection && this.sourceConnection.userId === user.user.id) {
@@ -987,16 +1011,30 @@ class DanteBridgeServer {
         case 'unregisterSource':
           // Unregister as source - can be called from source connection OR listener if they are the source user
           if (!supabase || !data.token) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
+            client.ws.send(JSON.stringify({
+              type: 'error',
+              message: !supabase
+                ? 'Bridge-server is missing SUPABASE_URL / SUPABASE_SERVICE_KEY env vars.'
+                : 'unregisterSource: no token provided',
+              code: !supabase ? 'no_supabase_config' : 'no_token',
+            }));
             return;
           }
-          
+
           try {
             const { data: user, error } = await supabase.auth.getUser(data.token);
-            if (error) {
-              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+            if (error || !user?.user) {
+              this.metrics.authFailures++;
+              const detail = error?.message || 'no user returned';
+              console.warn(`❌ unregisterSource auth failed for client ${clientId}: ${detail}`);
+              client.ws.send(JSON.stringify({
+                type: 'error',
+                message: `unregisterSource failed: ${detail}`,
+                code: 'auth_failed',
+              }));
               return;
             }
+            this.metrics.authSuccesses++;
             
             // Check if this user is the source (either as source connection or as listener)
             if (!this.sourceConnection || this.sourceConnection.userId !== user.user.id) {
