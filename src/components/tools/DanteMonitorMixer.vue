@@ -415,66 +415,83 @@
             </div>
           </div>
           
-          <!-- Listener/Mixer Section (for monitoring and mixing) -->
-          <div class="listener-mixer-section" v-if="hasSource || !isSource">
-          <h3 class="section-title">🎧 Monitor Mixer</h3>
-          
-          <!-- Preset Bar -->
-        <div class="preset-bar">
-          <select 
-            v-model="selectedPresetId"
-            @change="loadPreset"
-            class="preset-select"
-          >
-            <option value="">Select Preset</option>
-            <option 
-              v-for="preset in presets" 
-              :key="preset.id" 
-              :value="preset.id"
-            >
-              {{ preset.name }}
-            </option>
-          </select>
-          <button 
-            @click="showSavePresetModal = true"
-            class="btn btn-positive"
-          >
-            Save Preset
-          </button>
-        </div>
+          <!-- Listener stereo player (active source, you are not the source) -->
+          <div v-if="!isSource && hasSource && !isBuffering" class="stereo-player">
+            <h3 class="section-title">🎧 Now Listening</h3>
+            <div class="stereo-player-meters">
+              <div class="stereo-player-row">
+                <span class="stereo-player-label">L</span>
+                <div class="stereo-player-track">
+                  <div
+                    class="stereo-player-bar"
+                    :style="{
+                      width: peakToPercent(peakLevels[0]) + '%',
+                      background: peakToColor(peakLevels[0]),
+                    }"
+                  ></div>
+                </div>
+                <span class="stereo-player-value">{{ (peakLevels[0] ?? -60).toFixed(0) }} dB</span>
+              </div>
+              <div class="stereo-player-row">
+                <span class="stereo-player-label">R</span>
+                <div class="stereo-player-track">
+                  <div
+                    class="stereo-player-bar"
+                    :style="{
+                      width: peakToPercent(peakLevels[1]) + '%',
+                      background: peakToColor(peakLevels[1]),
+                    }"
+                  ></div>
+                </div>
+                <span class="stereo-player-value">{{ (peakLevels[1] ?? -60).toFixed(0) }} dB</span>
+              </div>
+            </div>
 
-          <!-- Channel Grid -->
-          <div class="channels-grid">
-          <DanteChannelStrip
-            v-for="(channel, index) in enabledChannels"
-            :key="channel.index"
-            :channel="channel"
-            :peak-level="peakLevels[channel.index]"
-            :peak-hold="peakHolds[channel.index]"
-            @fader-change="(value) => handleFaderChange(channel.index, value)"
-            @pan-change="(value) => handlePanChange(channel.index, value)"
-            @mute-toggle="() => handleMuteToggle(channel.index)"
-            @solo-toggle="() => handleSoloToggle(channel.index)"
-          />
-          <!-- Add Channel Button -->
-          <button 
-            v-if="enabledChannels.length < Math.min(32, channels.length)"
-            @click="addChannel"
-            class="add-channel-btn"
-            :disabled="enabledChannels.length >= 32"
-          >
-            <span class="add-icon">+</span>
-            <span class="add-label">Add Channel</span>
-          </button>
-        </div>
+            <label class="stereo-player-volume">
+              <span class="stereo-player-volume-label">Volume</span>
+              <input
+                type="range"
+                min="0"
+                max="1.5"
+                step="0.01"
+                :value="listenerVolume"
+                :disabled="listenerMuted"
+                @input="setListenerVolume(parseFloat($event.target.value))"
+              />
+              <span class="stereo-player-volume-value">{{ Math.round(listenerVolume * 100) }}%</span>
+            </label>
+
+            <div class="stereo-player-actions">
+              <button
+                @click="toggleListenerMute"
+                :class="['btn', listenerMuted ? 'btn-danger' : 'btn-secondary']"
+              >
+                {{ listenerMuted ? '🔇 Muted — click to unmute' : '🔊 Mute' }}
+              </button>
+            </div>
           </div>
-          
+
+          <!-- Source mode notice on this tab -->
+          <div v-if="isSource" class="source-mode-notice">
+            <div class="info-card">
+              <h3>🎤 You are broadcasting</h3>
+              <p>Your audio source is live to listeners. Use the <strong>Audio Source</strong> tab to adjust the broadcast mix.</p>
+              <button
+                @click="activeTab = 'source'"
+                class="btn btn-secondary"
+                style="margin-top: 1rem;"
+              >
+                Open Audio Source
+              </button>
+            </div>
+          </div>
+
           <!-- No Source Message -->
           <div class="no-source-message" v-if="!hasSource && !isSource">
             <div class="info-card">
               <h3>⚠️ No Audio Source Active</h3>
               <p>An audio source needs to be registered before you can monitor the mix.</p>
-              <button 
+              <button
                 @click="activeTab = 'source'"
                 class="btn btn-primary"
                 style="margin-top: 1rem;"
@@ -613,6 +630,33 @@ const { mixer, peakLevels, peakHolds, isBuffering, bufferStats } = useDanteMixer
 // Buffer size setting (in milliseconds, converted to samples)
 const bufferSizeMs = ref(341); // Default ~341ms
 const showBufferSettings = ref(false);
+
+// Listener-side master volume + mute (drives mixer.masterGain when present)
+const listenerVolume = ref(0.8);
+const listenerMuted = ref(false);
+const preMuteVolume = ref(0.8);
+const applyListenerGain = () => {
+  if (mixer.value?.masterGain) {
+    mixer.value.masterGain.gain.value = listenerMuted.value ? 0 : listenerVolume.value;
+  }
+};
+const setListenerVolume = (v) => {
+  const clamped = Math.max(0, Math.min(1.5, Number(v) || 0));
+  listenerVolume.value = clamped;
+  if (listenerMuted.value && clamped > 0) listenerMuted.value = false;
+  applyListenerGain();
+};
+const toggleListenerMute = () => {
+  if (listenerMuted.value) {
+    listenerMuted.value = false;
+    if (listenerVolume.value === 0) listenerVolume.value = preMuteVolume.value || 0.8;
+  } else {
+    preMuteVolume.value = listenerVolume.value;
+    listenerMuted.value = true;
+  }
+  applyListenerGain();
+};
+watch(() => mixer.value, (m) => { if (m) applyListenerGain(); });
 
 // Computed: only show enabled channels
 const enabledChannels = computed(() => {
@@ -2820,6 +2864,121 @@ watch(() => mixer.value, (newMixer) => {
   .device-checklist {
     grid-template-columns: 1fr;
   }
+}
+
+/* --- Listener stereo player --- */
+.stereo-player {
+  max-width: 560px;
+  margin: 1.5rem auto;
+  padding: 1.5rem;
+  border: 1px solid #3b82f6;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #eff6ff, #ffffff);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.08);
+}
+
+.stereo-player .section-title {
+  margin: 0 0 1rem 0;
+  text-align: center;
+  color: #1e40af;
+}
+
+.stereo-player-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 1.5rem;
+}
+
+.stereo-player-row {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr 4rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.stereo-player-label {
+  font-weight: 700;
+  color: #1e40af;
+  font-size: 1.1rem;
+}
+
+.stereo-player-track {
+  position: relative;
+  height: 18px;
+  border-radius: 9px;
+  background: #dbeafe;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.stereo-player-bar {
+  height: 100%;
+  transition: width 0.05s linear, background 0.1s linear;
+}
+
+.stereo-player-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.stereo-player-volume {
+  display: grid;
+  grid-template-columns: 5rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.stereo-player-volume input[type="range"] {
+  width: 100%;
+}
+
+.stereo-player-volume input[type="range"]:disabled {
+  opacity: 0.4;
+}
+
+.stereo-player-volume-label {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.stereo-player-volume-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #1f2937;
+}
+
+.stereo-player-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.stereo-player-actions .btn {
+  min-width: 200px;
+}
+
+/* --- Source mode notice on Monitor tab --- */
+.source-mode-notice {
+  max-width: 560px;
+  margin: 2rem auto;
+}
+
+.source-mode-notice .info-card {
+  text-align: center;
+  padding: 1.5rem;
+  border: 1px solid #10b981;
+  background: linear-gradient(180deg, #ecfdf5, #ffffff);
+  border-radius: 1rem;
+}
+
+.source-mode-notice .info-card h3 {
+  color: #047857;
+  margin-bottom: 0.5rem;
 }
 </style>
 

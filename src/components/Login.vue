@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.25">
-        <span class="version-text">v2.3.25</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.26">
+        <span class="version-text">v2.3.26</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.25</h2>
+          <h2 id="changelog-title">What's New in 2.3.26</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🎧 Dante Mixer: Listener Stereo Player</h3>
+            <p>The Monitor Mixer tab now shows a clean stereo player for listeners instead of a 32-channel grid: L/R peak meters, a single volume slider hitting the master gain, and a mute toggle. Matches the stereo broadcast model — listeners get exactly what the broadcaster sent, no personal-mix controls. If you're the broadcaster, the Monitor tab nudges you back to the Audio Source tab where the real controls live.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔎 Dante Mixer: Device Channel Probe</h3>
             <p>Each input device in the Audio Source tab now has a small <strong>Probe</strong> button that briefly opens the device and shows the actual channel count and sample rate the browser will expose — without committing to capture. Useful for spotting which Pro Tools Audio Bridge or DVS pair entries are independent stereo buses vs. duplicates. <strong>Probe All</strong> in the header runs through every device in sequence.</p>
