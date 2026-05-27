@@ -188,10 +188,6 @@
             <input v-model="fEnd" type="time" />
           </div>
           <div class="form-field">
-            <label>Date</label>
-            <input v-model="fDate" type="date" />
-          </div>
-          <div class="form-field">
             <label>Recording Day</label>
             <div class="recording-day-input-group">
               <select v-model="fStageHourId">
@@ -794,6 +790,16 @@ export default {
       }
     }
 
+    function dateFromStageHour(stageHourId) {
+      const sh = stageHours.value.find(s => s.id === stageHourId)
+      if (!sh || !sh.start_datetime) return null
+      const d = new Date(sh.start_datetime)
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+
     function openForm(item) {
       showForm.value = true
       if (item) {
@@ -807,12 +813,18 @@ export default {
       } else {
         isEdit.value = false; editId = null
         fArtist.value = fStart.value = fEnd.value = ''
-        fDate.value = todayISO()
-        // auto-detect stage hour for the given date/start time if available
-        fStageHourId.value = findStageHourIdFor(fDate.value, fStart.value) || ''
+        // Default to the currently-viewed recording day, falling back to today.
+        const currentGroupId = day.value && day.value.id && day.value.id !== 'unassigned' ? day.value.id : ''
+        fStageHourId.value = currentGroupId
+        fDate.value = dateFromStageHour(currentGroupId) || todayISO()
         fWarningMinutes.value = null
       }
     }
+
+    watch(fStageHourId, (newId) => {
+      const derived = dateFromStageHour(newId)
+      if (derived) fDate.value = derived
+    })
 
     function closeForm() {
       showForm.value = false
