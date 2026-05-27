@@ -301,11 +301,11 @@
           <button class="preview-modal-close" @click="closePreviewModal">×</button>
         </div>
         <div class="preview-modal-body">
-          <iframe v-if="isPdf(previewDoc?.mime_type)" :src="previewDoc?.url" class="preview-iframe"></iframe>
+          <PdfPreview v-if="isPdf(previewDoc?.mime_type)" :src="previewDoc.url" />
           <img v-else-if="isImage(previewDoc?.mime_type)" :src="previewDoc?.url" :alt="previewDoc?.file_name" class="preview-image" />
           <div v-else class="preview-unsupported">
             <p>Preview not available for this file type.</p>
-            <a :href="previewDoc?.url" target="_blank">Open in new tab</a>
+            <a :href="previewDoc?.url" target="_blank" rel="noopener">Open in new tab</a>
           </div>
         </div>
         <div class="preview-modal-footer">
@@ -352,6 +352,7 @@ import { supabase } from '@/supabase'
 import { mutateTableData } from '@/services/dataService'
 import { useUserStore } from '@/stores/userStore'
 import ConfirmationModal from '@/components/calendar/ConfirmationModal.vue'
+import PdfPreview from '@/components/PdfPreview.vue'
 
 // router, toast & store
 const route      = useRoute()
@@ -929,12 +930,12 @@ function closePreviewModal() {
   previewDoc.value = null
 }
 function printPreview() {
-  const iframe = document.querySelector('.preview-iframe')
   const img = document.querySelector('.preview-image')
-  if (iframe) {
-    iframe.contentWindow.focus()
-    iframe.contentWindow.print()
-  } else if (img) {
+  if (isPdf(previewDoc.value?.mime_type) && previewDoc.value?.url) {
+    window.open(previewDoc.value.url, '_blank', 'noopener')
+    return
+  }
+  if (img) {
     // For images, open in new window and print
     const printWindow = window.open('', '_blank')
     if (printWindow) {
@@ -1983,9 +1984,10 @@ function printPreview() {
 .preview-modal {
   background: var(--bg-primary);
   border-radius: 12px;
-  max-width: 90vw;
-  max-height: 90vh;
-  width: 700px;
+  max-width: 95vw;
+  max-height: 92vh;
+  width: 900px;
+  height: 85vh;
   box-shadow: 0 4px 24px rgba(0,0,0,0.18);
   display: flex;
   flex-direction: column;
@@ -2027,17 +2029,13 @@ function printPreview() {
 }
 .preview-modal-body {
   flex: 1;
+  min-height: 0;
   padding: 0;
   background: var(--bg-secondary);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-}
-.preview-iframe {
-  width: 100%;
-  height: 70vh;
-  border: none;
-  background: var(--bg-primary);
+  overflow: hidden;
 }
 .preview-image {
   max-width: 100%;

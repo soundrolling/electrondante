@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.32">
-        <span class="version-text">v2.3.32</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.33">
+        <span class="version-text">v2.3.33</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.32</h2>
+          <h2 id="changelog-title">What's New in 2.3.33</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>📄 Documents: Cross-Platform PDF Preview + Editable Descriptions</h3>
+            <p>The document preview modal now uses a PDF.js–based canvas renderer instead of an iframe, so PDFs preview consistently in Chrome, Safari, Firefox, iPad, and Android — not just desktop Chrome. The viewer has zoom in/out, fit-to-width, and a page count, with all pages rendered as scrollable canvases. The preview modal is also bigger now (900×85vh) so floor plans and mic sheets actually fit. Print falls back to opening the original PDF in a new tab where the browser's native viewer handles it. On the All Documents page, each card now has a ✏️ pencil to edit the description inline (Save / Cancel) — same pattern as Stage Documents.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>📏 Stage Documents: Compact Header (Fix)</h3>
             <p>Previous attempt to collapse the Stage Documents header onto a single row was being overridden by an older max-width: 1023px rule that re-stacked the controls on anything narrower than a full desktop. That rule is now mobile-only (max-width: 767px), so tablets and small desktops finally get the single-row Upload · Count · Search · Export layout.</p>

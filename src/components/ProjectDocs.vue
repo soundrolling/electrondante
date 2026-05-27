@@ -178,8 +178,26 @@
 
             <!-- Description Section -->
             <div class="description-section">
-              <div class="description-display">
+              <div v-if="editingId !== doc.id" class="description-display">
                 <p class="description-text">{{ doc.description || 'No description' }}</p>
+                <button
+                  class="icon-button"
+                  @click="startEditing(doc.id)"
+                  title="Edit description"
+                  aria-label="Edit description"
+                >✏️</button>
+              </div>
+              <div v-else class="description-edit">
+                <textarea
+                  v-model="doc.description"
+                  class="textarea-edit"
+                  placeholder="Enter description…"
+                  rows="3"
+                ></textarea>
+                <div class="edit-actions">
+                  <button class="btn btn-positive" @click="saveDoc(doc)">Save</button>
+                  <button class="btn btn-secondary" @click="cancelEdit">Cancel</button>
+                </div>
               </div>
             </div>
           </div>
@@ -259,11 +277,11 @@
           <button class="preview-modal-close" @click="closePreviewModal">×</button>
         </div>
         <div class="preview-modal-body">
-          <iframe v-if="isPdf(previewDoc?.mime_type)" :src="previewDoc?.url" class="preview-iframe"></iframe>
+          <PdfPreview v-if="isPdf(previewDoc?.mime_type)" :src="previewDoc.url" />
           <img v-else-if="isImage(previewDoc?.mime_type)" :src="previewDoc?.url" :alt="previewDoc?.file_name" class="preview-image" />
           <div v-else class="preview-unsupported">
             <p>Preview not available for this file type.</p>
-            <a :href="previewDoc?.url" target="_blank">Open in new tab</a>
+            <a :href="previewDoc?.url" target="_blank" rel="noopener">Open in new tab</a>
           </div>
         </div>
         <div class="preview-modal-footer">
@@ -309,6 +327,7 @@ import { useToast } from 'vue-toastification'
 import { supabase } from '@/supabase'
 import { useUserStore } from '@/stores/userStore'
 import ConfirmationModal from '@/components/calendar/ConfirmationModal.vue'
+import PdfPreview from '@/components/PdfPreview.vue'
 
 // ─── PROPS ──────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -346,6 +365,7 @@ const stages        = ref([])
 const selectedVenueId = ref('')
 const selectedStageId = ref('')
 const scopeFilter   = ref('all')
+const editingId     = ref(null)
 const showPreviewModal = ref(false)
 const previewDoc = ref(null)
 const showDeleteConfirm = ref(false)
@@ -657,12 +677,13 @@ function closePreviewModal() {
   previewDoc.value = null
 }
 function printPreview() {
-  const iframe = document.querySelector('.preview-iframe')
   const img = document.querySelector('.preview-image')
-  if (iframe) {
-    iframe.contentWindow.focus()
-    iframe.contentWindow.print()
-  } else if (img) {
+  if (isPdf(previewDoc.value?.mime_type) && previewDoc.value?.url) {
+    // Open the PDF in a new tab so the browser's native viewer can print it
+    window.open(previewDoc.value.url, '_blank', 'noopener')
+    return
+  }
+  if (img) {
     // For images, open in new window and print
     const printWindow = window.open('', '_blank')
     if (printWindow) {
@@ -714,6 +735,30 @@ function handleDownloadConfirm() {
 function handleDownloadCancel() {
   docToDownload.value = null
   showDownloadConfirm.value = false
+}
+
+// ─── EDIT DESCRIPTION ──────────────────────────────────────────────────────────
+function startEditing(id) {
+  editingId.value = id
+}
+
+function cancelEdit() {
+  editingId.value = null
+  fetchDocs()
+}
+
+async function saveDoc(doc) {
+  try {
+    const { error } = await supabase
+      .from('stage_docs')
+      .update({ description: doc.description })
+      .eq('id', doc.id)
+    if (error) throw error
+    toast.success('Description saved')
+    editingId.value = null
+  } catch (e) {
+    toast.error('Failed to save: ' + (e.message || 'Unknown error'))
+  }
 }
 
 // ─── DELETE DOCUMENT ───────────────────────────────────────────────────────────
@@ -1520,6 +1565,55 @@ onMounted(async () => {
   min-height: 20px;
 }
 
+.icon-button {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button:hover {
+  background: var(--bg-tertiary);
+}
+
+.description-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.textarea-edit {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 64px;
+  box-sizing: border-box;
+}
+
+.textarea-edit:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -1614,9 +1708,10 @@ onMounted(async () => {
 .preview-modal {
   background: var(--bg-primary);
   border-radius: 12px;
-  max-width: 90vw;
-  max-height: 90vh;
-  width: 700px;
+  max-width: 95vw;
+  max-height: 92vh;
+  width: 900px;
+  height: 85vh;
   box-shadow: 0 4px 24px rgba(0,0,0,0.18);
   display: flex;
   flex-direction: column;
@@ -1655,17 +1750,13 @@ onMounted(async () => {
 }
 .preview-modal-body {
   flex: 1;
+  min-height: 0;
   padding: 0;
   background: var(--bg-secondary);
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-}
-.preview-iframe {
-  width: 100%;
-  height: 70vh;
-  border: none;
-  background: var(--bg-primary);
+  overflow: hidden;
 }
 .preview-image {
   max-width: 100%;
