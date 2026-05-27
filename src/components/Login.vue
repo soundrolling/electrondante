@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.26">
-        <span class="version-text">v2.3.26</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.27">
+        <span class="version-text">v2.3.27</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.26</h2>
+          <h2 id="changelog-title">What's New in 2.3.27</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔧 Dante Mixer: Auth Failure Diagnostics</h3>
+            <p>The bridge-server now reports the actual reason auth fails (token expired, wrong Supabase project, missing env vars, etc.) and includes which Supabase host it's configured for, so a frontend/bridge mismatch is obvious instead of a generic "Authentication failed" message. The connection-error banner in the mixer header now shows the auth detail directly. The <code>/health</code> endpoint also exposes the configured Supabase host so you can compare without checking Railway env vars.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🎧 Dante Mixer: Listener Stereo Player</h3>
             <p>The Monitor Mixer tab now shows a clean stereo player for listeners instead of a 32-channel grid: L/R peak meters, a single volume slider hitting the master gain, and a mute toggle. Matches the stereo broadcast model — listeners get exactly what the broadcaster sent, no personal-mix controls. If you're the broadcaster, the Monitor tab nudges you back to the Audio Source tab where the real controls live.</p>

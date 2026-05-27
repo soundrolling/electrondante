@@ -1200,24 +1200,48 @@ class DanteBridgeServer {
         case 'authenticate':
           // Verify JWT token with Supabase (for listeners)
           if (!supabase) {
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Supabase not configured' }));
+            client.ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Bridge-server is missing SUPABASE_URL / SUPABASE_SERVICE_KEY env vars. Set them on Railway.',
+              code: 'no_supabase_config',
+            }));
+            return;
+          }
+          if (!data.token) {
+            client.ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Authentication failed: no token provided',
+              code: 'no_token',
+            }));
             return;
           }
           try {
             const { data: user, error } = await supabase.auth.getUser(data.token);
-            if (error) {
-              client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
+            if (error || !user?.user) {
+              this.metrics.authFailures++;
+              const supabaseHost = (() => {
+                try { return new URL(process.env.SUPABASE_URL || '').host; } catch { return 'unknown'; }
+              })();
+              const detail = error?.message || 'no user returned';
+              console.warn(`❌ Auth failed for client ${clientId}: ${detail} (bridge supabase host: ${supabaseHost})`);
+              client.ws.send(JSON.stringify({
+                type: 'error',
+                message: `Authentication failed: ${detail}. Bridge is configured for Supabase host "${supabaseHost}" — verify it matches the frontend's project.`,
+                code: 'auth_failed',
+                supabaseHost,
+              }));
               return;
             }
+            this.metrics.authSuccesses++;
             client.userId = user.user.id;
             client.ws.send(JSON.stringify({ type: 'authenticated', userId: user.user.id }));
             console.log(`✅ Listener authenticated: ${clientId} by user ${user.user.id}`);
-            
+
             // Send source status after authentication so client knows if they are the source
             const hasSource = !!this.sourceConnection;
             const sourceUserId = this.sourceConnection?.userId || null;
             const isYourSource = user.user.id === sourceUserId;
-            
+
             client.ws.send(JSON.stringify({
               type: 'sourceStatus',
               hasSource: hasSource,
@@ -1225,8 +1249,13 @@ class DanteBridgeServer {
               isYourSource: isYourSource,
             }));
           } catch (error) {
-            console.error('Authentication error:', error);
-            client.ws.send(JSON.stringify({ type: 'error', message: 'Authentication error' }));
+            this.metrics.authFailures++;
+            console.error(`❌ Auth exception for client ${clientId}:`, error);
+            client.ws.send(JSON.stringify({
+              type: 'error',
+              message: `Authentication error: ${error.message || String(error)}`,
+              code: 'auth_exception',
+            }));
           }
           break;
 
@@ -1378,6 +1407,10 @@ class DanteBridgeServer {
 
     app.get('/health', (req, res) => {
       try {
+        // Surface the configured Supabase project (first 40 chars of URL) so we can confirm
+        // it matches the frontend project without exposing service keys.
+        const supabaseUrl = process.env.SUPABASE_URL || '';
+        const supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : null;
         res.status(200).json({
           status: 'ok',
           channels: CONFIG.channels,
@@ -1387,13 +1420,20 @@ class DanteBridgeServer {
           websocketEnabled: true,
           port: CONFIG.port,
           uptime: Math.floor(process.uptime()),
+          supabase: {
+            configured: !!supabase,
+            host: supabaseHost,
+            hasServiceKey: !!process.env.SUPABASE_SERVICE_KEY,
+            authSuccesses: this.metrics?.authSuccesses ?? 0,
+            authFailures: this.metrics?.authFailures ?? 0,
+          },
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
         console.error('Error in health check:', error);
-        res.status(500).json({ 
+        res.status(500).json({
           status: 'error',
-          error: error.message 
+          error: error.message
         });
       }
     });

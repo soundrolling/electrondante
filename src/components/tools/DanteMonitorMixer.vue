@@ -1190,11 +1190,14 @@ const handleServerMessage = async (message) => {
       break;
 
     case 'error':
-      console.error('Server error:', message.message);
-      if (message.message.includes('Source already registered')) {
+      console.error('Server error:', message.message, message.code || '');
+      if (message.code === 'auth_failed' || message.code === 'no_supabase_config' || message.code === 'auth_exception') {
+        // Surface auth errors in the header banner so they don't only live in the console
+        connectionError.value = message.message;
+      } else if (message.message?.includes('Source already registered')) {
         hasSource.value = true;
         sourceRegistrationError.value = 'Another source is already active. Only one source allowed at a time.';
-      } else if (message.message.includes('Source registration')) {
+      } else if (message.message?.includes('Source registration')) {
         sourceRegistrationError.value = message.message;
       }
       break;
