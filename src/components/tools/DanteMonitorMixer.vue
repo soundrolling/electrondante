@@ -57,15 +57,17 @@
 
       <!-- Mixer Interface (if authenticated) -->
       <div v-else class="mixer-interface">
-        <!-- Tab Navigation -->
-        <div class="tab-navigation">
-          <button 
+        <!-- Tab Navigation — hidden in listener-only mode. Browser-side
+             broadcasting was retired in favour of the WaveWelder desktop
+             client, so there is only one view now (the monitor mixer). -->
+        <div v-if="!LISTENER_ONLY" class="tab-navigation">
+          <button
             @click="activeTab = 'source'"
             :class="['tab-button', { active: activeTab === 'source' }]"
           >
             🎤 Audio Source
           </button>
-          <button 
+          <button
             @click="activeTab = 'mixer'"
             :class="['tab-button', { active: activeTab === 'mixer' }]"
           >
@@ -74,7 +76,7 @@
         </div>
 
         <!-- Tab Content: Audio Source Setup -->
-        <div v-show="activeTab === 'source'" class="tab-content source-tab">
+        <div v-if="!LISTENER_ONLY" v-show="activeTab === 'source'" class="tab-content source-tab">
           <div class="source-setup-section">
             <h3 class="section-title">🎤 Audio Source Setup</h3>
 
@@ -489,15 +491,30 @@
           <!-- No Source Message -->
           <div class="no-source-message" v-if="!hasSource && !isSource">
             <div class="info-card">
-              <h3>⚠️ No Audio Source Active</h3>
-              <p>An audio source needs to be registered before you can monitor the mix.</p>
-              <button
-                @click="activeTab = 'source'"
-                class="btn btn-primary"
-                style="margin-top: 1rem;"
-              >
-                Go to Audio Source Setup
-              </button>
+              <template v-if="LISTENER_ONLY">
+                <h3>📡 No active broadcast for this project</h3>
+                <p>
+                  Open <strong>WaveWelder</strong> on the recording machine, sign in,
+                  pick <strong v-if="projectName">{{ projectName }}</strong>
+                  <strong v-else>this project</strong> from the Broadcast tab, and
+                  click <strong>Register as Source</strong>. The mix will appear
+                  here automatically once it's live.
+                </p>
+                <p v-if="!projectSubscribed" class="info-message" style="margin-top: 0.5rem;">
+                  Connecting to project channel…
+                </p>
+              </template>
+              <template v-else>
+                <h3>⚠️ No Audio Source Active</h3>
+                <p>An audio source needs to be registered before you can monitor the mix.</p>
+                <button
+                  @click="activeTab = 'source'"
+                  class="btn btn-primary"
+                  style="margin-top: 1rem;"
+                >
+                  Go to Audio Source Setup
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -530,7 +547,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { supabase } from '@/supabase';
 import { useUserStore } from '@/stores/userStore';
 import { useDanteMixer } from '@/composables/useDanteMixer';
@@ -539,7 +556,22 @@ import { useConnectionQuality } from '@/composables/useConnectionQuality';
 import DanteChannelStrip from './DanteChannelStrip.vue';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
+
+// Project this Dante page is scoped to. The route is /projects/:id/dante-mixer
+// so route.params.id is the project UUID. WaveWelder broadcasters register a
+// source against this projectId; we (the listener) subscribe to it once the
+// WebSocket is connected and we're authenticated.
+const projectId = computed(() => (route.params.id ? String(route.params.id) : null));
+const projectName = ref(null);
+const projectSubscribed = ref(false);
+
+// Listener-only: the source/broadcaster UI has been retired from the web app.
+// Broadcasting is exclusively done from the desktop WaveWelder client. These
+// refs still exist so the rest of the script (and audio capture composable)
+// keeps compiling; isSource is forced false and we never call startCapture.
+const LISTENER_ONLY = true;
 
 // Auth state
 const authenticated = ref(false);
@@ -739,9 +771,9 @@ const checkUserRole = async () => {
     }
     
     userRole.value = data?.role || null;
-    
+
     // Load audio devices for all authenticated users (not just owners/admins)
-    if (authenticated.value) {
+    if (authenticated.value && !LISTENER_ONLY) {
       loadAudioDevices();
     }
   } catch (error) {
@@ -749,6 +781,23 @@ const checkUserRole = async () => {
     userRole.value = null;
   }
 };
+
+// Resolve the project name from Supabase for the empty-state message and
+// header. The WS `projectSubscribed` message also sends it, but fetching
+// directly lets us show the name before WS finishes its round-trip.
+async function loadProjectName() {
+  if (!projectId.value) return;
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('name')
+      .eq('id', projectId.value)
+      .single();
+    if (!error && data?.name) projectName.value = data.name;
+  } catch (err) {
+    console.warn('Failed to fetch project name:', err);
+  }
+}
 
 // Check authentication on mount
 onMounted(async () => {
@@ -758,7 +807,10 @@ onMounted(async () => {
     connectWebSocket();
     loadPresets();
     checkUserRole();
-    loadAudioDevices(); // Load browser audio devices
+    loadProjectName();
+    if (!LISTENER_ONLY) {
+      loadAudioDevices(); // browser source path — listener-only build skips this
+    }
     // Default to mixer tab for listeners
     activeTab.value = 'mixer';
   }
@@ -893,6 +945,18 @@ const connectWebSocket = async () => {
           type: 'authenticate',
           token: session.access_token,
         }));
+
+        // Listener-only mode: as soon as we're authenticated, subscribe to
+        // this page's project so the bridge routes the right source's audio
+        // to us (and only members of this project are allowed in).
+        if (projectId.value) {
+          ws.send(JSON.stringify({
+            type: 'subscribeToProject',
+            token: session.access_token,
+            projectId: projectId.value,
+          }));
+          console.log(`📡 Sent subscribeToProject for ${projectId.value}`);
+        }
       }
     };
 
@@ -1119,13 +1183,17 @@ const handleServerMessage = async (message) => {
       break;
 
     case 'sourceRegistered':
+      // Listener-only build: we should never get here ourselves. Guard
+      // defensively in case of legacy/stale state — never start a capture.
+      if (LISTENER_ONLY) {
+        console.warn('Ignoring sourceRegistered in listener-only mode');
+        break;
+      }
       console.log('✅ Registered as source');
       isSource.value = true;
       hasSource.value = true;
       sourceRegistrationError.value = '';
-      // Switch to source tab when registered as source
       activeTab.value = 'source';
-      // Start capturing audio from all selected devices and send the stereo broadcast bus
       if (wsRef.value && wsRef.value.readyState === WebSocket.OPEN) {
         console.log(`🎤 Starting audio capture (${selectedDeviceIds.value.length} device(s))...`);
         try {
@@ -1134,7 +1202,6 @@ const handleServerMessage = async (message) => {
         } catch (error) {
           console.error('❌ Failed to start audio capture:', error);
           sourceRegistrationError.value = `Failed to start audio capture: ${error.message || error}`;
-          // Unregister so we don't sit in source-without-audio limbo
           try {
             wsRef.value.send(JSON.stringify({ type: 'unregisterSource' }));
           } catch { /* ignore */ }
@@ -1144,6 +1211,34 @@ const handleServerMessage = async (message) => {
         console.error('❌ WebSocket not ready for audio capture');
         sourceRegistrationError.value = 'WebSocket not connected. Cannot start audio capture.';
       }
+      break;
+
+    case 'projectSubscribed':
+      // Confirmation that we've joined a project room. Stash project name +
+      // current source status so the UI can show "live now" or the empty
+      // "open WaveWelder to broadcast" state.
+      console.log(`📡 Subscribed to project ${message.projectId}; hasSource=${message.hasSource}`);
+      projectSubscribed.value = true;
+      if (message.projectName) projectName.value = message.projectName;
+      hasSource.value = !!message.hasSource;
+      sourceUserId.value = message.sourceUserId || null;
+      break;
+
+    case 'roomStatus':
+      // Bridge sends this when listeners join/leave or broadcaster changes.
+      // For our project room, treat it as a source-status update.
+      if (typeof message.hasBroadcaster === 'boolean') {
+        hasSource.value = message.hasBroadcaster;
+      }
+      break;
+
+    case 'roomSuspended':
+      // Broadcaster disconnected from the project room. Drop to empty state;
+      // the bridge keeps the room alive for a grace period in case the
+      // WaveWelder reconnects.
+      console.log(`⏸️ Project room suspended (broadcaster left): ${message.roomId}`);
+      hasSource.value = false;
+      sourceUserId.value = null;
       break;
 
     case 'sourceUnregistered':
@@ -1351,6 +1446,15 @@ const addChannel = () => {
 
 // Source registration
 const registerAsSource = async () => {
+  // Listener-only build: browser-side broadcasting has been retired. Users
+  // who want to broadcast a project's audio open WaveWelder, pick the
+  // project, and register from there. This is left as a no-op so any
+  // surviving button doesn't throw.
+  if (LISTENER_ONLY) {
+    console.warn('registerAsSource is disabled in listener-only mode. Use WaveWelder to broadcast.');
+    sourceRegistrationError.value = 'Browser broadcasting has been retired. Use WaveWelder to broadcast to this project.';
+    return;
+  }
   if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
     sourceRegistrationError.value = 'Not connected to server';
     return;

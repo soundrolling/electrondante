@@ -55,6 +55,51 @@ try {
   console.warn('Server will continue without Supabase authentication');
 }
 
+/**
+ * Verify a user (identified by their Supabase access token) is allowed to
+ * access a given project — either they own it, or they're in project_members.
+ * Returns { ok, userId, email, role } on success, or { ok:false, error }.
+ * Uses the SERVICE_KEY-backed client so it can read across users regardless
+ * of RLS.
+ */
+async function verifyProjectMembership(token, projectId) {
+  if (!supabase) return { ok: false, error: 'Supabase not configured' };
+  if (!token) return { ok: false, error: 'Missing token' };
+  if (!projectId) return { ok: false, error: 'Missing projectId' };
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user) {
+    return { ok: false, error: userError?.message || 'Invalid token' };
+  }
+  const userId = userData.user.id;
+  const email = userData.user.email || null;
+
+  // Ownership check
+  const { data: owned, error: ownedErr } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (ownedErr) return { ok: false, error: `projects: ${ownedErr.message}` };
+  if (owned) return { ok: true, userId, email, role: 'owner' };
+
+  // Membership check
+  const orClause = email
+    ? `user_id.eq.${userId},user_email.eq.${email}`
+    : `user_id.eq.${userId}`;
+  const { data: member, error: memberErr } = await supabase
+    .from('project_members')
+    .select('role')
+    .eq('project_id', projectId)
+    .or(orClause)
+    .maybeSingle();
+  if (memberErr) return { ok: false, error: `project_members: ${memberErr.message}` };
+  if (member) return { ok: true, userId, email, role: member.role || 'member' };
+
+  return { ok: false, error: 'You are not a member of this project' };
+}
+
 class DanteBridgeServer {
   constructor() {
     // Multi-room management
@@ -193,7 +238,57 @@ class DanteBridgeServer {
     console.log(`✅ Room created: ${roomId} by user ${broadcasterUserId}`);
     return { roomId, roomCode };
   }
-  
+
+  /**
+   * Create (or reuse) an in-memory room scoped to a Supabase project. No
+   * password — access is enforced via verifyProjectMembership() against
+   * Supabase. roomId is `project:<projectUUID>` so it never collides with
+   * the 6-char invitation room codes used by the legacy room flow.
+   */
+  getOrCreateProjectRoom(projectId, projectName) {
+    const roomId = `project:${projectId}`;
+    let room = this.rooms.get(roomId);
+    if (room) {
+      if (projectName && !room.metadata.projectName) {
+        room.metadata.projectName = projectName;
+        room.metadata.name = projectName;
+      }
+      if (room.state === 'suspended') {
+        room.state = 'active';
+        room.suspendedUntil = null;
+      }
+      return room;
+    }
+    room = {
+      broadcaster: null,
+      listeners: new Map(),
+      passwordHash: null,
+      metadata: {
+        kind: 'project',
+        projectId,
+        projectName: projectName || null,
+        name: projectName || `Project ${projectId.slice(0, 8)}`,
+        createdAt: new Date().toISOString(),
+        public: false,
+      },
+      suspendedUntil: null,
+      state: 'active',
+      assignedDevices: [],
+      assignedChannels: {},
+      channelBuffers: new Array(CONFIG.channels).fill(null).map(() => []),
+      isBuffering: true,
+      bufferStartTime: null,
+      relayInterval: null,
+      relaySequence: 0,
+      _channelsReceived: new Set(),
+      _audioReceivedCount: 0,
+    };
+    this.rooms.set(roomId, room);
+    this.metrics.totalRoomsCreated++;
+    console.log(`📁 Project room created: ${roomId}${projectName ? ` (${projectName})` : ''}`);
+    return room;
+  }
+
   // Close a room
   async closeRoom(roomId) {
     const room = this.rooms.get(roomId);
@@ -759,12 +854,86 @@ class DanteBridgeServer {
 
       switch (data.type) {
         case 'registerSource':
-          // Register this connection as the audio source for a room
-          // Supports both room-based (new) and legacy single-room modes
+          // Register this connection as the audio source.
+          // Three modes (checked in order):
+          //   1) Project-scoped: { projectId, token }   — preferred
+          //   2) Room-based:     { roomId, roomToken }  — invitation rooms with password
+          //   3) Legacy:         { token }              — single global source
           try {
+            // ── Mode 1: project-scoped (new) ──
+            if (data.projectId && data.token && !data.roomId) {
+              const auth = await verifyProjectMembership(data.token, data.projectId);
+              if (!auth.ok) {
+                console.warn(`❌ Project source-register denied for client ${clientId}: ${auth.error}`);
+                client.ws.send(JSON.stringify({
+                  type: 'error',
+                  message: `Project registration failed: ${auth.error}`,
+                  code: 'project_auth_failed',
+                }));
+                return;
+              }
+
+              const room = this.getOrCreateProjectRoom(data.projectId, data.projectName);
+              const projectRoomId = `project:${data.projectId}`;
+
+              // Same-user reclaim: if this user is already the broadcaster (e.g. they
+              // restarted WaveWelder), drop the old socket and take over.
+              if (room.broadcaster && room.broadcaster.clientId !== clientId) {
+                if (room.broadcaster.userId === auth.userId) {
+                  console.log(`🔄 User ${auth.userId} reclaiming broadcaster for project ${data.projectId}`);
+                  try { room.broadcaster.ws.close(); } catch (e) { /* ignore */ }
+                } else {
+                  client.ws.send(JSON.stringify({
+                    type: 'error',
+                    message: 'Another member is already broadcasting to this project',
+                    code: 'project_busy',
+                  }));
+                  return;
+                }
+              }
+
+              // Remove from legacy listener tracking, set as room broadcaster
+              this.listeners.delete(clientId);
+              room.broadcaster = {
+                ws: client.ws,
+                userId: auth.userId,
+                clientId,
+                type: 'source',
+                roomId: projectRoomId,
+                projectId: data.projectId,
+                projectName: data.projectName || null,
+              };
+
+              // Reset buffering state for this fresh source
+              room.channelBuffers.forEach((buf) => (buf.length = 0));
+              room.isBuffering = true;
+              room.bufferStartTime = null;
+              room.relaySequence = 0;
+              room._channelsReceived = new Set();
+              if (room.relayInterval) {
+                clearInterval(room.relayInterval);
+                room.relayInterval = null;
+              }
+
+              console.log(`🎤 Project broadcaster registered: user=${auth.userId} project=${data.projectId} (${clientId})`);
+              this.metrics.authSuccesses++;
+              client.ws.send(JSON.stringify({
+                type: 'sourceRegistered',
+                projectId: data.projectId,
+                projectName: data.projectName || null,
+                userId: auth.userId,
+                channels: CONFIG.channels,
+                sampleRate: CONFIG.sampleRate,
+                listenerCount: room.listeners.size,
+              }));
+
+              this.notifyRoomStatus(projectRoomId);
+              return;
+            }
+
             const roomId = data.roomId;
             const roomToken = data.roomToken || data.token; // Support both room token and legacy Supabase token
-            
+
             if (roomId && roomToken) {
               // Room-based registration
               const room = this.rooms.get(roomId);
@@ -1035,12 +1204,38 @@ class DanteBridgeServer {
               return;
             }
             this.metrics.authSuccesses++;
-            
+
+            // Project-scoped unregister: if this user is the broadcaster for any
+            // project room, drop them from there first.
+            const userId = user.user.id;
+            for (const [rid, r] of this.rooms.entries()) {
+              if (rid.startsWith('project:') && r.broadcaster && r.broadcaster.userId === userId) {
+                console.log(`🛑 Project broadcaster unregistered: user=${userId} project=${r.metadata?.projectId} (${r.broadcaster.clientId})`);
+                if (r.broadcaster.clientId !== clientId) {
+                  try { r.broadcaster.ws.close(); } catch (e) { /* ignore */ }
+                }
+                r.broadcaster = null;
+                if (r.relayInterval) {
+                  clearInterval(r.relayInterval);
+                  r.relayInterval = null;
+                }
+                r.channelBuffers.forEach((buf) => (buf.length = 0));
+                r.isBuffering = true;
+                r.bufferStartTime = null;
+                this.notifyRoomStatus(rid);
+                client.ws.send(JSON.stringify({
+                  type: 'sourceUnregistered',
+                  projectId: r.metadata?.projectId,
+                }));
+                return;
+              }
+            }
+
             // Check if this user is the source (either as source connection or as listener)
-            if (!this.sourceConnection || this.sourceConnection.userId !== user.user.id) {
-              client.ws.send(JSON.stringify({ 
-                type: 'error', 
-                message: 'You are not the registered source' 
+            if (!this.sourceConnection || this.sourceConnection.userId !== userId) {
+              client.ws.send(JSON.stringify({
+                type: 'error',
+                message: 'You are not the registered source'
               }));
               return;
             }
@@ -1082,6 +1277,105 @@ class DanteBridgeServer {
           } catch (error) {
             console.error('Source unregistration error:', error);
             client.ws.send(JSON.stringify({ type: 'error', message: 'Source unregistration error' }));
+          }
+          break;
+
+        case 'subscribeToProject':
+          // Listener subscribes to a project room. Membership is verified
+          // server-side against project_members / projects so only people
+          // with access to the project can hear its broadcast.
+          try {
+            if (!data.projectId || !data.token) {
+              client.ws.send(JSON.stringify({
+                type: 'error',
+                message: 'subscribeToProject requires projectId and token',
+                code: 'missing_args',
+              }));
+              return;
+            }
+            const auth = await verifyProjectMembership(data.token, data.projectId);
+            if (!auth.ok) {
+              console.warn(`❌ subscribeToProject denied for client ${clientId}: ${auth.error}`);
+              client.ws.send(JSON.stringify({
+                type: 'error',
+                message: `Project access denied: ${auth.error}`,
+                code: 'project_auth_failed',
+              }));
+              return;
+            }
+            this.metrics.authSuccesses++;
+
+            // Get-or-create the project room. If no broadcaster is connected
+            // yet the room is empty/quiet; listener will still get notified
+            // when one arrives.
+            const room = this.getOrCreateProjectRoom(data.projectId, data.projectName);
+            const projectRoomId = `project:${data.projectId}`;
+
+            // Make sure the client isn't double-tracked: remove from legacy
+            // listeners and from any other room they might have joined.
+            this.listeners.delete(clientId);
+            for (const [otherId, r] of this.rooms.entries()) {
+              if (otherId !== projectRoomId && r.listeners.has(clientId)) {
+                r.listeners.delete(clientId);
+                this.notifyRoomStatus(otherId);
+              }
+            }
+
+            room.listeners.set(clientId, {
+              ws: client.ws,
+              userId: auth.userId,
+              joinedAt: Date.now(),
+            });
+            console.log(`👂 Listener joined project ${data.projectId}: ${clientId} (room listeners: ${room.listeners.size})`);
+
+            client.ws.send(JSON.stringify({
+              type: 'projectSubscribed',
+              projectId: data.projectId,
+              projectName: room.metadata?.projectName || data.projectName || null,
+              hasSource: !!room.broadcaster,
+              sourceUserId: room.broadcaster?.userId || null,
+              channels: CONFIG.channels,
+              sampleRate: CONFIG.sampleRate,
+              listenerCount: room.listeners.size,
+            }));
+
+            // If a broadcaster is already attached and relay hasn't started,
+            // kick it off so the new listener starts receiving immediately.
+            if (room.broadcaster && !room.relayInterval && !room.isBuffering) {
+              this.startRoomRelayInterval(projectRoomId);
+            }
+
+            this.notifyRoomStatus(projectRoomId);
+          } catch (error) {
+            console.error('subscribeToProject error:', error);
+            client.ws.send(JSON.stringify({ type: 'error', message: 'subscribeToProject failed' }));
+          }
+          break;
+
+        case 'unsubscribeFromProject':
+          // Listener explicitly leaves a project room. They can also just
+          // close the WS; this is only needed to switch projects without
+          // reconnecting.
+          try {
+            const projectRoomId = data.projectId ? `project:${data.projectId}` : null;
+            for (const [rid, r] of this.rooms.entries()) {
+              if (!rid.startsWith('project:')) continue;
+              if (projectRoomId && rid !== projectRoomId) continue;
+              if (r.listeners.has(clientId)) {
+                r.listeners.delete(clientId);
+                console.log(`👂 Listener left project ${rid.replace('project:', '')}: ${clientId} (remaining: ${r.listeners.size})`);
+                this.notifyRoomStatus(rid);
+                if (r.listeners.size === 0 && r.relayInterval) {
+                  this.stopRoomRelayInterval(rid);
+                }
+              }
+            }
+            client.ws.send(JSON.stringify({
+              type: 'projectUnsubscribed',
+              projectId: data.projectId || null,
+            }));
+          } catch (error) {
+            console.error('unsubscribeFromProject error:', error);
           }
           break;
 
