@@ -43,6 +43,7 @@ const DataManagement = defineAsyncComponent(() => import('../components/DataMana
 
 const SignalMapper = defineAsyncComponent(() => import('../components/signalmapper/SignalMapper.vue'));
 const DanteMonitorMixer = defineAsyncComponent(() => import('../components/tools/DanteMonitorMixer.vue'));
+const ProjectMaps = defineAsyncComponent(() => import('../components/ProjectMaps.vue'));
 
 const routes = [
   // Public / Auth
@@ -113,6 +114,7 @@ const routes = [
   { path: '/projects/:id/contacts',  name: 'ProjectContacts', component: ProjectContacts, props: true },
   { path: '/projects/:id/settings',  name: 'ProjectSettings', component: ProjectSettings, props: true },
   { path: '/projects/:id/data-management', name: 'DataManagement', component: DataManagement, props: true },
+  { path: '/projects/:id/maps',      name: 'ProjectMaps',     component: ProjectMaps,     props: true },
   
   // Tools
   { path: '/projects/:id/dante-mixer', name: 'DanteMonitorMixer', component: DanteMonitorMixer, props: true },

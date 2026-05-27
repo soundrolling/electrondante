@@ -330,6 +330,7 @@ import {
   Wrench,
   FileText,
   Database,
+  Map,
   SlidersHorizontal,
   Clock,
   AudioWaveform,
@@ -361,6 +362,7 @@ export default {
     Wrench,
     FileText,
     Database,
+    Map,
     SlidersHorizontal,
     Clock,
     AudioWaveform,
@@ -520,6 +522,9 @@ export default {
     }
     function goToSettings() {
       router.push({ name: 'ProjectSettings', params: { id: currentProject.value.id } });
+    }
+    function goToMaps() {
+      router.push({ name: 'ProjectMaps', params: { id: currentProject.value.id } });
     }
     function goToGear() {
       router.push({ name: 'ProjectGear', params: { id: currentProject.value.id } });
@@ -730,6 +735,7 @@ export default {
       { key: 'contacts',  label: t('projectDetail.dock.contacts'),  icon: markRaw(Users),              action: goToContacts },
       { key: 'gear',      label: t('projectDetail.dock.gear'),      icon: markRaw(Wrench),             action: goToGear },
       { key: 'documents', label: t('projectDetail.dock.documents'), icon: markRaw(FileText),           action: goToDocuments },
+      { key: 'maps',      label: t('projectDetail.dock.maps'),      icon: markRaw(Map),                action: goToMaps },
       { key: 'data',      label: t('projectDetail.dock.data'),      icon: markRaw(Database),           action: goToDataManagement },
       { key: 'settings',  label: t('projectDetail.dock.settings'),  icon: markRaw(Settings),           action: goToSettings },
       { key: 'tools',     label: t('projectDetail.utilities'),      icon: markRaw(SlidersHorizontal),  action: () => { showToolsSection.value = !showToolsSection.value; } },
@@ -773,6 +779,7 @@ export default {
       goToSettings,
       goToGear,
       goToDocuments,
+      goToMaps,
       goToDataManagement,
       goToDanteMixer,
       /* stage navigation */

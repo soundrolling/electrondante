@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.22">
-        <span class="version-text">v2.3.22</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.23">
+        <span class="version-text">v2.3.23</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.22</h2>
+          <h2 id="changelog-title">What's New in 2.3.23</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🗺️ New: Maps</h3>
+            <p>New Maps section under Project tools, with two tabs. Floorplans lets you upload venue plans as images and drop labeled, color-coded pins (catering, generator, FOH, etc.) — pins stay accurate even if the floorplan is resized. Locations uses OpenStreetMap to drop geographic pins anywhere in the world, with an address search bar to jump to a place quickly.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>📅 Schedule: Date Field Removed</h3>
             <p>Adding or editing an artist no longer asks for a Date — the recording day already carries it. Picking a Recording Day in the form sets the schedule date automatically.</p>

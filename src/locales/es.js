@@ -234,6 +234,7 @@ export default {
   'projectDetail.dock.contacts': 'Contactos',
   'projectDetail.dock.gear': 'Equipo',
   'projectDetail.dock.documents': 'Documentos',
+  'projectDetail.dock.maps': 'Mapas',
   'projectDetail.dock.data': 'Datos',
   'projectDetail.dock.settings': 'Configuración',
   'projectDetail.addFirstStage': 'Añade tu primer escenario',
