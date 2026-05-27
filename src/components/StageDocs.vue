@@ -965,72 +965,73 @@ function printPreview() {
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 16px 24px 24px;
   background: var(--bg-secondary);
   min-height: 100vh;
 }
 
-/* Top Bar Container - Compact Layout for Large Screens */
+/* Top Bar Container - Compact Layout */
 .top-bar-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
   background: var(--bg-primary);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   border: 1px solid var(--border-light);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .top-bar-container {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    padding: 16px 24px;
+    gap: 16px;
+    padding: 10px 16px;
   }
-  
+
   .top-bar-title {
     flex-shrink: 0;
-    min-width: 200px;
+    min-width: 0;
   }
-  
+
   .top-bar-controls {
-    display: flex;
+    flex-direction: row;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
     flex: 1;
     flex-wrap: wrap;
+    justify-content: flex-end;
   }
-  
+
   .top-bar-upload {
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  
+
   .top-bar-count {
     white-space: nowrap;
   }
-  
+
   .top-bar-search {
-    flex: 1;
-    min-width: 200px;
-    max-width: 300px;
+    flex: 1 1 180px;
+    min-width: 140px;
+    max-width: 260px;
   }
-  
+
   .top-bar-filters {
     display: flex;
     gap: 8px;
   }
-  
+
   .top-bar-export {
     flex-shrink: 0;
   }
-  
-  /* Hide mobile upload section on large screens */
+
+  /* Hide mobile upload section on tablet+ */
   .upload-section-mobile {
     display: none;
   }
@@ -1038,25 +1039,33 @@ function printPreview() {
 
 .top-bar-title {
   margin-bottom: 0;
+  min-width: 0;
 }
 
 .top-bar-title .header-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.125rem;
+  font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 4px 0;
+  margin: 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-bar-title .header-subtitle {
   color: var(--text-secondary);
-  margin: 0;
-  font-size: 0.875rem;
+  margin: 2px 0 0 0;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-bar-controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .count-text {
@@ -1150,7 +1159,7 @@ function printPreview() {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   font-size: 14px;
 }
 
