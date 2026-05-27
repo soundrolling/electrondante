@@ -1910,49 +1910,47 @@ function printPreview() {
   margin-right: auto;
 }
 
-/* Responsive Design */
-@media (max-width: 1023px) {
+/* Responsive Design - mobile only (< 768px) */
+@media (max-width: 767px) {
+  .container {
+    padding: 16px;
+  }
+
+  .top-bar-container {
+    padding: 12px 16px;
+  }
+
   .top-bar-controls {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
-  
+
   .top-bar-search {
     width: 100%;
     max-width: none;
   }
-  
+
   .top-bar-filters {
     flex-direction: column;
     width: 100%;
   }
-  
+
   .select-compact {
     width: 100%;
   }
-}
 
-@media (max-width: 768px) {
-  .container {
-    padding: 16px;
-  }
-  
-  .top-bar-container {
-    padding: 16px;
-  }
-  
   .top-bar-title .header-title {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
-  
+
   .docs-list {
     grid-template-columns: 1fr;
   }
-  
+
   .file-list {
     grid-template-columns: 1fr;
   }
-  
+
   .loading-skeleton {
     grid-template-columns: 1fr;
   }

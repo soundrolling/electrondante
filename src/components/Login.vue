@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.31">
-        <span class="version-text">v2.3.31</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.32">
+        <span class="version-text">v2.3.32</span>
         <span class="version-date">May 27th 2026</span>
       </button>
     </div>
@@ -19,14 +19,14 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.31</h2>
+          <h2 id="changelog-title">What's New in 2.3.32</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
           <div class="changelog-section">
-            <h3>📏 Stage Documents: Compact Header</h3>
-            <p>The Stage Documents header was eating ~50% of the viewport with the title, Upload, count, search, and Export PDF all stacked vertically. Now everything sits on a single row at tablet width and up (Upload · Count · Search · Export). The title shrinks from 2rem to 1.125rem with smaller padding so the document list shows above the fold.</p>
+            <h3>📏 Stage Documents: Compact Header (Fix)</h3>
+            <p>Previous attempt to collapse the Stage Documents header onto a single row was being overridden by an older max-width: 1023px rule that re-stacked the controls on anything narrower than a full desktop. That rule is now mobile-only (max-width: 767px), so tablets and small desktops finally get the single-row Upload · Count · Search · Export layout.</p>
           </div>
 
           <div class="changelog-section">
