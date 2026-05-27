@@ -76,164 +76,249 @@
         <!-- Tab Content: Audio Source Setup -->
         <div v-show="activeTab === 'source'" class="tab-content source-tab">
           <div class="source-setup-section">
-          <h3 class="section-title">🎤 Audio Source Setup</h3>
-          <div class="source-control-bar">
-            <!-- Audio Device Selection -->
+            <h3 class="section-title">🎤 Audio Source Setup</h3>
+
+            <!-- Input device picker -->
             <div class="device-selection">
-            <div class="device-header">
-              <label class="device-label">Audio Input Device:</label>
-              <span v-if="isCapturing" class="client-status connected">● Capturing</span>
-              <span v-else class="client-status disconnected">○ Not Capturing</span>
-            </div>
-            
-            <div class="device-controls">
-              <select 
-                v-model="selectedDeviceId"
-                :disabled="deviceLoading || isSource"
-                class="device-select"
-              >
-                <option value="">Default Device</option>
-                <option 
-                  v-for="device in availableDevices" 
-                  :key="device.id" 
-                  :value="device.id"
+              <div class="device-header">
+                <label class="device-label">
+                  Input Devices ({{ selectedDeviceIds.length }} selected)
+                </label>
+                <div class="device-header-actions">
+                  <span v-if="isCapturing" class="client-status connected">● Capturing</span>
+                  <span v-else class="client-status disconnected">○ Not Capturing</span>
+                  <button
+                    @click="refreshDevices"
+                    :disabled="deviceLoading || isCapturing"
+                    class="btn btn-secondary btn-small"
+                  >
+                    {{ deviceLoading ? 'Loading...' : 'Refresh' }}
+                  </button>
+                </div>
+              </div>
+
+              <p class="info-message">
+                Each input gives 1–2 channels. For full multitrack from Dante Virtual Soundcard, set DVS to expose its tracks as stereo pairs (e.g. <em>DVS 1-2</em>, <em>3-4</em>, …) and check each pair you want to capture. Selected channels feed a stereo broadcast mix that listeners receive.
+              </p>
+
+              <div v-if="availableDevices.length === 0" class="info-message">
+                No devices loaded. Click <strong>Refresh</strong> and grant microphone permission.
+              </div>
+
+              <div v-else class="device-checklist">
+                <label
+                  v-for="device in availableDevices"
+                  :key="device.id"
+                  class="device-checkbox-row"
+                  :class="{ disabled: isCapturing }"
                 >
-                  {{ device.label }}
-                </option>
-              </select>
-              <button 
-                @click="refreshDevices"
-                :disabled="deviceLoading"
-                class="btn btn-secondary btn-small"
-              >
-                {{ deviceLoading ? 'Loading...' : 'Refresh Devices' }}
-              </button>
-            </div>
-            
-            <p v-if="deviceError || captureError" class="error-message">{{ deviceError || captureError }}</p>
-            <p v-if="isSource" class="info-message">
-              Device selection disabled while source is active. Stop source to change device.
-            </p>
-            <p v-if="!isSource && availableDevices.length === 0" class="info-message">
-              Click "Refresh Devices" to load available audio input devices. You may need to grant microphone permissions.
-            </p>
-            <p v-if="!isSource && availableDevices.length > 0" class="info-message">
-              <strong>⚠️ Browser Limitation:</strong> Browsers can only access 1-2 channels from multi-channel devices like Dante Virtual Soundcard. 
-              <br><br>
-              <strong>For Dante Virtual Soundcard:</strong> Browser-based capture will work but only provides limited channels (typically 1-2). The browser cannot access individual Dante channels and will not provide proper 1-to-1 channel mapping.
-              <br><br>
-              <strong>Note:</strong> Browser channel 0 will be mapped to Mixer Channel 1. For full multi-channel support (all Dante channels), use the Electron app below.
-            </p>
-            
-            <!-- Electron App Download Info -->
-            <div class="electron-app-info" v-if="!isSource">
-              <p class="info-message electron-app-message">
-                <strong>💻 For Multi-Channel Audio:</strong> Download the Electron app for full support of devices like Dante Virtual Soundcard (16+ channels). 
-                <a 
-                  :href="electronAppDownloadUrl" 
-                  target="_blank" 
-                  class="electron-app-link"
-                >
-                  {{ electronAppDownloadText }}
-                </a>
+                  <input
+                    type="checkbox"
+                    :checked="selectedDeviceIds.includes(device.id)"
+                    :disabled="isCapturing"
+                    @change="toggleDevice(device.id)"
+                  />
+                  <span class="device-checkbox-label">{{ device.label }}</span>
+                </label>
+              </div>
+
+              <p v-if="deviceError || captureError" class="error-message">
+                {{ deviceError || captureError }}
               </p>
             </div>
-            
-            <!-- Debug Panel (for testing) -->
+
+            <!-- Captured channel strips + broadcast bus (visible only when capturing) -->
+            <div v-if="isCapturing && captureChannels.length > 0" class="capture-strips-section">
+              <div class="strips-header">
+                <h4>📊 Captured Channels ({{ captureChannels.length }})</h4>
+                <span class="strips-hint">Toggle each channel into the stereo broadcast mix. Adjust gain & pan to taste.</span>
+              </div>
+
+              <div class="capture-strip-grid">
+                <div
+                  v-for="strip in captureChannels"
+                  :key="strip.stripId"
+                  class="capture-strip"
+                  :class="{ muted: !strip.sendToBroadcast }"
+                >
+                  <div class="capture-strip-label" :title="strip.label">{{ strip.label }}</div>
+                  <div class="capture-strip-meter">
+                    <div
+                      class="capture-strip-meter-bar"
+                      :style="{
+                        width: peakToPercent(strip.peakDb) + '%',
+                        background: peakToColor(strip.peakDb),
+                      }"
+                    ></div>
+                  </div>
+                  <div class="capture-strip-meter-value">{{ strip.peakDb.toFixed(0) }} dB</div>
+
+                  <label class="capture-strip-send">
+                    <input
+                      type="checkbox"
+                      :checked="strip.sendToBroadcast"
+                      @change="setStripSend(strip.stripId, $event.target.checked)"
+                    />
+                    <span>Send to broadcast</span>
+                  </label>
+
+                  <label class="capture-strip-control">
+                    <span>Gain</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1.5"
+                      step="0.01"
+                      :value="strip.gain"
+                      @input="setStripGain(strip.stripId, parseFloat($event.target.value))"
+                    />
+                    <span class="capture-strip-control-value">{{ Math.round(strip.gain * 100) }}%</span>
+                  </label>
+
+                  <label class="capture-strip-control">
+                    <span>Pan</span>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.01"
+                      :value="strip.pan"
+                      @input="setStripPan(strip.stripId, parseFloat($event.target.value))"
+                    />
+                    <span class="capture-strip-control-value">
+                      {{ strip.pan === 0 ? 'C' : strip.pan < 0 ? `L${Math.round(-strip.pan * 100)}` : `R${Math.round(strip.pan * 100)}` }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Broadcast bus master -->
+              <div class="broadcast-bus-card">
+                <div class="broadcast-bus-header">
+                  <h4>📡 Broadcast Mix (L/R) — sent to listeners</h4>
+                </div>
+                <div class="broadcast-bus-meters">
+                  <div class="broadcast-meter-row">
+                    <span class="broadcast-meter-label">L</span>
+                    <div class="broadcast-meter-track">
+                      <div
+                        class="broadcast-meter-bar"
+                        :style="{
+                          width: peakToPercent(broadcastPeakL) + '%',
+                          background: peakToColor(broadcastPeakL),
+                        }"
+                      ></div>
+                    </div>
+                    <span class="broadcast-meter-value">{{ broadcastPeakL.toFixed(0) }} dB</span>
+                  </div>
+                  <div class="broadcast-meter-row">
+                    <span class="broadcast-meter-label">R</span>
+                    <div class="broadcast-meter-track">
+                      <div
+                        class="broadcast-meter-bar"
+                        :style="{
+                          width: peakToPercent(broadcastPeakR) + '%',
+                          background: peakToColor(broadcastPeakR),
+                        }"
+                      ></div>
+                    </div>
+                    <span class="broadcast-meter-value">{{ broadcastPeakR.toFixed(0) }} dB</span>
+                  </div>
+                </div>
+                <label class="broadcast-bus-gain">
+                  <span>Master gain</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1.5"
+                    step="0.01"
+                    :value="broadcastGain"
+                    @input="setBroadcastGain(parseFloat($event.target.value))"
+                  />
+                  <span>{{ Math.round(broadcastGain * 100) }}%</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Debug Panel -->
             <div class="debug-panel">
-              <button 
+              <button
                 @click="showDebugPanel = !showDebugPanel"
                 class="btn btn-secondary btn-small"
-                style="margin-top: 0.5rem;"
               >
                 {{ showDebugPanel ? 'Hide' : 'Show' }} Debug Info
               </button>
               <div v-if="showDebugPanel" class="debug-content">
-                <h4>Debug Information</h4>
                 <div class="debug-section">
-                  <strong>Audio Capture State:</strong>
+                  <strong>Capture:</strong>
                   <ul>
-                    <li>Is Capturing: {{ isCapturing }}</li>
-                    <li>Selected Device ID: {{ selectedDeviceId || 'Default' }}</li>
-                    <li>Available Devices: {{ availableDevices.length }}</li>
-                    <li>Capture Error: {{ captureError || 'None' }}</li>
-                    <li>Device Error: {{ deviceError || 'None' }}</li>
+                    <li>Capturing: {{ isCapturing }}</li>
+                    <li>Selected devices: {{ selectedDeviceIds.length }} of {{ availableDevices.length }}</li>
+                    <li>Captured channels: {{ captureChannels.length }}</li>
+                    <li>Capture error: {{ captureError || 'None' }}</li>
+                    <li>Device error: {{ deviceError || 'None' }}</li>
                   </ul>
                 </div>
                 <div class="debug-section">
-                  <strong>WebSocket State:</strong>
+                  <strong>WebSocket:</strong>
                   <ul>
                     <li>Connected: {{ connected }}</li>
-                    <li>Is Source: {{ isSource }}</li>
-                    <li>Has Source: {{ hasSource }}</li>
-                    <li>Source Registration Error: {{ sourceRegistrationError || 'None' }}</li>
-                    <li>Connection Error: {{ connectionError || 'None' }}</li>
+                    <li>Is source: {{ isSource }}</li>
+                    <li>Has source: {{ hasSource }}</li>
+                    <li>Source error: {{ sourceRegistrationError || 'None' }}</li>
                   </ul>
                 </div>
-                <div class="debug-section">
-                  <strong>Instructions:</strong>
-                  <p style="font-size: 0.875rem; margin-top: 0.5rem;">
-                    Check browser console (F12) for detailed logs prefixed with [AUDIO CAPTURE].<br>
-                    Copy any errors you see here or in the console and share them for debugging.
-                  </p>
-                </div>
               </div>
             </div>
-            </div>
-          </div>
-            
-          <div class="source-controls">
-            <button 
-              v-if="!isSource && !isYourSource"
-              @click="registerAsSource"
-              :disabled="!connected || hasSource"
-              class="btn btn-primary"
-            >
-              {{ hasSource ? 'Source Already Active (Another User)' : 'Register as Source' }}
-            </button>
-            <p v-if="hasSource && !isYourSource" class="info-message another-source-active">
-              <strong>⚠️ Another user is already the source.</strong> Only one source can be active at a time. Wait for the current source to stop, or ask them to transfer control.
-            </p>
-            <button 
-              v-if="isSource"
-              @click="unregisterAsSource"
-              class="btn btn-secondary"
-            >
-              Stop Source
-            </button>
-            <button 
-              v-if="!isSource && isYourSource"
-              @click="unregisterAsSource"
-              class="btn btn-danger"
-            >
-              Stop My Source (Reconnected)
-            </button>
-            <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
-            <p v-if="isYourSource && !isSource" class="info-message source-on-other-device">
-              <strong>ℹ️ You are the active source on another device.</strong> This device is in listener mode. You can stop the source from here, or switch to the source device to control it directly.
-            </p>
-            <p v-if="!hasSource && !isSource && !isYourSource" class="info-message">
-              No audio source active. Select an audio device above, then register as source to start streaming.
-            </p>
-            </div>
-          </div>
-          
-          <!-- Active Source Status (when source is active) -->
-          <div class="active-source-status" v-if="isSource">
-            <div class="source-status-card">
-              <h3 class="section-title">🎤 Active Source</h3>
-              <div class="status-info">
-                <span class="status-badge active">● Streaming Active</span>
-                <span class="status-badge device">Device: {{ selectedDeviceId ? availableDevices.find(d => d.id === selectedDeviceId)?.label || 'Selected Device' : 'Default Device' }}</span>
-              </div>
-              <button 
+
+            <!-- Source controls -->
+            <div class="source-controls">
+              <button
+                v-if="!isSource && !isYourSource"
+                @click="registerAsSource"
+                :disabled="!connected || hasSource || selectedDeviceIds.length === 0"
+                class="btn btn-primary"
+              >
+                {{ hasSource
+                    ? 'Source Already Active (Another User)'
+                    : selectedDeviceIds.length === 0
+                      ? 'Select Input Devices First'
+                      : 'Register as Source' }}
+              </button>
+              <button
+                v-if="isSource"
                 @click="unregisterAsSource"
                 class="btn btn-secondary"
-                style="margin-top: 1rem;"
               >
                 Stop Source
               </button>
-              <p v-if="sourceRegistrationError" class="error-message" style="margin-top: 0.5rem;">{{ sourceRegistrationError }}</p>
+              <button
+                v-if="!isSource && isYourSource"
+                @click="unregisterAsSource"
+                class="btn btn-danger"
+              >
+                Stop My Source (Reconnected)
+              </button>
+              <p v-if="hasSource && !isYourSource" class="info-message another-source-active">
+                <strong>⚠️ Another user is already the source.</strong> Only one source can be active at a time. Wait for them to stop or ask them to transfer control.
+              </p>
+              <p v-if="sourceRegistrationError" class="error-message">{{ sourceRegistrationError }}</p>
+              <p v-if="isYourSource && !isSource" class="info-message source-on-other-device">
+                <strong>ℹ️ You are the active source on another device.</strong> This device is in listener mode. Stop the source from here, or switch to the source device to control it directly.
+              </p>
+              <p v-if="!hasSource && !isSource && !isYourSource && selectedDeviceIds.length === 0" class="info-message">
+                Check at least one input device above, then click <strong>Register as Source</strong> to start broadcasting.
+              </p>
+            </div>
+          </div>
+
+          <!-- Active Source Status (compact, when streaming) -->
+          <div class="active-source-status" v-if="isSource">
+            <div class="source-status-card">
+              <span class="status-badge active">● Streaming Active</span>
+              <span class="status-badge device">
+                {{ deviceStreamSummary }}
+              </span>
             </div>
           </div>
         </div>
@@ -429,12 +514,22 @@ const reconnectTimer = ref(null);
 const pingInterval = ref(null);
 const audioPacketCount = ref(0); // Track received audio packets for debugging
 
-// Browser audio capture - pass isSource ref so it stops sending when not source
+// Browser audio capture - multi-device → stereo broadcast bus.
+// Passes isSource ref so the script processor only sends while we're the active source.
 const {
   isCapturing,
   captureError,
   availableDevices,
-  selectedDeviceId,
+  selectedDeviceIds,
+  toggleDevice,
+  channels: captureChannels,
+  setStripGain,
+  setStripPan,
+  setStripSend,
+  broadcastPeakL,
+  broadcastPeakR,
+  broadcastGain,
+  setBroadcastGain,
   streamLatency: captureStreamLatency,
   enumerateDevices,
   startCapture,
@@ -514,6 +609,25 @@ const electronAppDownloadText = computed(() => {
   } else {
     return 'Get Electron App';
   }
+});
+
+// Meter helpers — map peak dB (-60..0) to a 0-100% bar and a status color.
+const peakToPercent = (db) => {
+  const clamped = Math.max(-60, Math.min(0, Number(db) || -60));
+  return ((clamped + 60) / 60) * 100;
+};
+const peakToColor = (db) => {
+  if (db >= -3) return '#ef4444';
+  if (db >= -12) return '#f59e0b';
+  if (db >= -24) return '#10b981';
+  return '#3b82f6';
+};
+
+// Summary chip for the "Active Source" status row
+const deviceStreamSummary = computed(() => {
+  if (!isCapturing.value) return '';
+  const sent = captureChannels.value.filter(c => c.sendToBroadcast).length;
+  return `${captureChannels.value.length} channel${captureChannels.value.length === 1 ? '' : 's'} captured · ${sent} in broadcast mix`;
 });
 
 // Check user role
@@ -931,15 +1045,20 @@ const handleServerMessage = async (message) => {
       sourceRegistrationError.value = '';
       // Switch to source tab when registered as source
       activeTab.value = 'source';
-      // Start capturing audio from selected device
+      // Start capturing audio from all selected devices and send the stereo broadcast bus
       if (wsRef.value && wsRef.value.readyState === WebSocket.OPEN) {
-        console.log('🎤 Starting audio capture after source registration...');
+        console.log(`🎤 Starting audio capture (${selectedDeviceIds.value.length} device(s))...`);
         try {
-          await startCapture(selectedDeviceId.value || null);
+          await startCapture();
           console.log('✅ Audio capture started successfully');
         } catch (error) {
           console.error('❌ Failed to start audio capture:', error);
           sourceRegistrationError.value = `Failed to start audio capture: ${error.message || error}`;
+          // Unregister so we don't sit in source-without-audio limbo
+          try {
+            wsRef.value.send(JSON.stringify({ type: 'unregisterSource' }));
+          } catch { /* ignore */ }
+          isSource.value = false;
         }
       } else {
         console.error('❌ WebSocket not ready for audio capture');
@@ -2373,6 +2492,248 @@ watch(() => mixer.value, (newMixer) => {
   .channels-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 0.75rem;
+  }
+}
+
+/* --- Multi-device input picker --- */
+.device-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.device-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+}
+
+.device-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.375rem;
+  background: white;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-size: 0.875rem;
+}
+
+.device-checkbox-row:hover:not(.disabled) {
+  background: #eef2ff;
+}
+
+.device-checkbox-row.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.device-checkbox-row input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+.device-checkbox-label {
+  flex: 1;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+/* --- Captured channel strips --- */
+.capture-strips-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  background: white;
+}
+
+.strips-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.strips-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.strips-hint {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.capture-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.capture-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #f9fafb;
+  transition: opacity 0.15s ease;
+}
+
+.capture-strip.muted {
+  opacity: 0.55;
+  background: #f3f4f6;
+}
+
+.capture-strip-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.capture-strip-meter {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.capture-strip-meter-bar {
+  height: 100%;
+  transition: width 0.05s linear, background 0.1s linear;
+}
+
+.capture-strip-meter-value {
+  font-size: 0.6875rem;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.capture-strip-send {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.capture-strip-send input {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.capture-strip-control {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr 2.25rem;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #4b5563;
+}
+
+.capture-strip-control input[type="range"] {
+  width: 100%;
+}
+
+.capture-strip-control-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #1f2937;
+}
+
+/* --- Broadcast bus master --- */
+.broadcast-bus-card {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #3b82f6;
+  border-radius: 0.75rem;
+  background: linear-gradient(180deg, #eff6ff, #ffffff);
+}
+
+.broadcast-bus-header h4 {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e40af;
+}
+
+.broadcast-bus-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+
+.broadcast-meter-row {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.broadcast-meter-label {
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.broadcast-meter-track {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: #dbeafe;
+  overflow: hidden;
+}
+
+.broadcast-meter-bar {
+  height: 100%;
+  transition: width 0.05s linear, background 0.1s linear;
+}
+
+.broadcast-meter-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: #4b5563;
+}
+
+.broadcast-bus-gain {
+  display: grid;
+  grid-template-columns: 5rem 1fr 3rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #1f2937;
+}
+
+.broadcast-bus-gain input[type="range"] {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .capture-strip-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .device-checklist {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,480 +1,401 @@
-// Browser Audio Capture Composable
-// Captures audio from browser-accessible devices and streams to WebSocket
+// Browser Audio Capture - multi-device → stereo broadcast bus
+// Opens N audio inputs in parallel (e.g. 8x DVS stereo pairs), routes each captured
+// channel through gain/pan/send into a stereo broadcast bus, and streams the bus
+// over WebSocket as 2-channel PCM using the existing bridge-server message format.
 
-import { ref, onBeforeUnmount } from 'vue';
+import { ref, reactive, onBeforeUnmount } from 'vue';
 
-export function useAudioCapture(wsRef, channelCount = 32, sampleRate = 48000, isSourceRef = null) {
-  const audioContext = ref(null);
-  const mediaStream = ref(null);
-  const mediaStreamSource = ref(null);
-  const scriptProcessor = ref(null);
+const BUFFER_SIZE = 4096;
+const BATCH_SIZE = 4;
+
+export function useAudioCapture(wsRef, _legacyChannelCount = 32, sampleRate = 48000, isSourceRef = null) {
+  // --- Device discovery state ---
+  const availableDevices = ref([]); // [{id, label, groupId}]
+  const selectedDeviceIds = ref([]); // ids the user has checked
+
+  // --- Capture state ---
   const isCapturing = ref(false);
   const captureError = ref('');
-  const availableDevices = ref([]);
-  const selectedDeviceId = ref('');
-  
-  // Enumerate available audio input devices
+  const streamLatency = ref((BUFFER_SIZE / sampleRate) * 1000 * BATCH_SIZE);
+
+  // --- Per-channel strip state (reactive list rendered by the UI) ---
+  const channels = ref([]); // each entry: { stripId, deviceId, deviceLabel, channelIndex, label, gain, pan, sendToBroadcast, peakDb }
+
+  // --- Broadcast bus meters & master ---
+  const broadcastPeakL = ref(-60);
+  const broadcastPeakR = ref(-60);
+  const broadcastGain = ref(0.8);
+
+  // --- Internal audio graph (non-reactive) ---
+  let audioContext = null;
+  const deviceStreams = new Map(); // deviceId -> { stream, source, splitter, strips: [{stripId, gainNode, panNode, sendGain, analyser}] }
+  let broadcastBus = null;
+  let broadcastSplitter = null;
+  let broadcastAnalyserL = null;
+  let broadcastAnalyserR = null;
+  let scriptProc = null;
+  let stripCounter = 0;
+  let meterRafId = null;
+
+  const peakDbFromAnalyser = (analyser, tmpBuf) => {
+    analyser.getFloatTimeDomainData(tmpBuf);
+    let max = 0;
+    for (let i = 0; i < tmpBuf.length; i++) {
+      const a = Math.abs(tmpBuf[i]);
+      if (a > max) max = a;
+    }
+    return max > 0.0001 ? 20 * Math.log10(max) : -60;
+  };
+
+  // --- Public: enumerate available input devices ---
   const enumerateDevices = async () => {
-    console.log('🔍 [AUDIO CAPTURE] Starting device enumeration...');
     try {
-      console.log('🔍 [AUDIO CAPTURE] Requesting microphone permission...');
-      // Request permission first (required for device labels)
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('✅ [AUDIO CAPTURE] Microphone permission granted');
-      
-      console.log('🔍 [AUDIO CAPTURE] Enumerating devices...');
+      const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+      probe.getTracks().forEach(t => t.stop());
       const devices = await navigator.mediaDevices.enumerateDevices();
-      console.log(`📋 [AUDIO CAPTURE] Found ${devices.length} total devices`);
-      
-      const audioInputs = devices
-        .filter(device => device.kind === 'audioinput')
-        .map(device => ({
-          id: device.deviceId,
-          label: device.label || `Microphone ${device.deviceId.slice(0, 8)}`,
-          groupId: device.groupId,
+      availableDevices.value = devices
+        .filter(d => d.kind === 'audioinput')
+        .map(d => ({
+          id: d.deviceId,
+          label: d.label || `Microphone ${d.deviceId.slice(0, 8)}`,
+          groupId: d.groupId,
         }));
-      
-      console.log(`✅ [AUDIO CAPTURE] Found ${audioInputs.length} audio input devices:`, audioInputs);
-      availableDevices.value = audioInputs;
-      return audioInputs;
-    } catch (error) {
-      console.error('❌ [AUDIO CAPTURE] Error enumerating devices:', error);
-      console.error('❌ [AUDIO CAPTURE] Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
-      captureError.value = `Failed to enumerate devices: ${error.name} - ${error.message}`;
+      console.log(`🔍 [CAPTURE] Found ${availableDevices.value.length} audio input devices`);
+      return availableDevices.value;
+    } catch (err) {
+      captureError.value = `Failed to enumerate devices: ${err.name} - ${err.message}`;
+      console.error('❌ [CAPTURE] enumerateDevices:', err);
       return [];
     }
   };
-  
-  // Start capturing audio from selected device
-  const startCapture = async (deviceId = null) => {
-    console.log('🎤 [AUDIO CAPTURE] Starting capture...', { deviceId, isCapturing: isCapturing.value });
-    
+
+  const toggleDevice = (deviceId) => {
+    const idx = selectedDeviceIds.value.indexOf(deviceId);
+    if (idx >= 0) selectedDeviceIds.value.splice(idx, 1);
+    else selectedDeviceIds.value.push(deviceId);
+  };
+
+  // --- Open one device, add its strips to the graph ---
+  const openDevice = async (deviceId) => {
+    const constraints = {
+      audio: {
+        deviceId: { exact: deviceId },
+        channelCount: { ideal: 2, max: 2 },
+        sampleRate: { ideal: sampleRate },
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const track = stream.getAudioTracks()[0];
+    const settings = track.getSettings();
+    const channelCount = Math.max(1, settings.channelCount || 1);
+    const deviceLabel = track.label || `Device ${deviceId.slice(0, 8)}`;
+
+    const source = audioContext.createMediaStreamSource(stream);
+    const splitter = audioContext.createChannelSplitter(channelCount);
+    source.connect(splitter);
+
+    const strips = [];
+    for (let ch = 0; ch < channelCount; ch++) {
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 0.8;
+      const panNode = audioContext.createStereoPanner();
+      // Default: stereo device → ch0=L, ch1=R. Mono → center.
+      panNode.pan.value = channelCount === 2 ? (ch === 0 ? -1 : 1) : 0;
+      const sendGain = audioContext.createGain();
+      sendGain.gain.value = 1;
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0;
+
+      splitter.connect(gainNode, ch);
+      gainNode.connect(analyser);
+      analyser.connect(panNode);
+      panNode.connect(sendGain);
+      sendGain.connect(broadcastBus);
+
+      const stripId = ++stripCounter;
+      const label = channelCount === 2 ? `${deviceLabel} (${ch === 0 ? 'L' : 'R'})` : deviceLabel;
+      channels.value.push(reactive({
+        stripId,
+        deviceId,
+        deviceLabel,
+        channelIndex: ch,
+        label,
+        gain: 0.8,
+        pan: panNode.pan.value,
+        sendToBroadcast: true,
+        peakDb: -60,
+      }));
+      strips.push({ stripId, gainNode, panNode, sendGain, analyser });
+    }
+
+    deviceStreams.set(deviceId, { stream, source, splitter, strips });
+    console.log(`✅ [CAPTURE] Opened ${deviceLabel} (${channelCount} channel${channelCount === 1 ? '' : 's'})`);
+  };
+
+  const closeDevice = (deviceId) => {
+    const entry = deviceStreams.get(deviceId);
+    if (!entry) return;
+    entry.strips.forEach(s => {
+      try { s.sendGain.disconnect(); } catch { /* ignore */ }
+      try { s.panNode.disconnect(); } catch { /* ignore */ }
+      try { s.analyser.disconnect(); } catch { /* ignore */ }
+      try { s.gainNode.disconnect(); } catch { /* ignore */ }
+    });
+    try { entry.splitter.disconnect(); } catch { /* ignore */ }
+    try { entry.source.disconnect(); } catch { /* ignore */ }
+    entry.stream.getTracks().forEach(t => t.stop());
+    deviceStreams.delete(deviceId);
+    channels.value = channels.value.filter(s => s.deviceId !== deviceId);
+  };
+
+  const findStripNodes = (stripId) => {
+    for (const entry of deviceStreams.values()) {
+      const found = entry.strips.find(s => s.stripId === stripId);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const setStripGain = (stripId, value) => {
+    const v = Math.max(0, Math.min(2, Number(value) || 0));
+    const nodes = findStripNodes(stripId);
+    if (nodes) nodes.gainNode.gain.value = v;
+    const state = channels.value.find(s => s.stripId === stripId);
+    if (state) state.gain = v;
+  };
+  const setStripPan = (stripId, value) => {
+    const v = Math.max(-1, Math.min(1, Number(value) || 0));
+    const nodes = findStripNodes(stripId);
+    if (nodes) nodes.panNode.pan.value = v;
+    const state = channels.value.find(s => s.stripId === stripId);
+    if (state) state.pan = v;
+  };
+  const setStripSend = (stripId, on) => {
+    const nodes = findStripNodes(stripId);
+    if (nodes) nodes.sendGain.gain.value = on ? 1 : 0;
+    const state = channels.value.find(s => s.stripId === stripId);
+    if (state) state.sendToBroadcast = !!on;
+  };
+  const setBroadcastGain = (value) => {
+    const v = Math.max(0, Math.min(2, Number(value) || 0));
+    broadcastGain.value = v;
+    if (broadcastBus) broadcastBus.gain.value = v;
+  };
+
+  // --- Meter loop (rAF) ---
+  const startMeterLoop = () => {
+    const tmp = new Float32Array(1024);
+    const tick = () => {
+      for (const entry of deviceStreams.values()) {
+        for (const s of entry.strips) {
+          const db = peakDbFromAnalyser(s.analyser, tmp);
+          const state = channels.value.find(st => st.stripId === s.stripId);
+          if (state) state.peakDb = db;
+        }
+      }
+      if (broadcastAnalyserL && broadcastAnalyserR) {
+        broadcastPeakL.value = peakDbFromAnalyser(broadcastAnalyserL, tmp);
+        broadcastPeakR.value = peakDbFromAnalyser(broadcastAnalyserR, tmp);
+      }
+      meterRafId = requestAnimationFrame(tick);
+    };
+    meterRafId = requestAnimationFrame(tick);
+  };
+
+  // --- Start capture: open all selected devices, wire broadcast bus, start sending ---
+  const startCapture = async () => {
     if (isCapturing.value) {
-      console.warn('⚠️ [AUDIO CAPTURE] Already capturing audio, skipping');
-      captureError.value = 'Already capturing audio';
+      console.warn('⚠️ [CAPTURE] Already capturing');
       return;
     }
-    
-    // Access wsRef value (it's a ref)
+
     const ws = typeof wsRef === 'function' ? wsRef() : (wsRef?.value || wsRef);
-    console.log('🔌 [AUDIO CAPTURE] WebSocket check:', {
-      wsExists: !!ws,
-      readyState: ws ? ws.readyState : 'N/A',
-      readyStateNames: { 0: 'CONNECTING', 1: 'OPEN', 2: 'CLOSING', 3: 'CLOSED' },
-    });
-    
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      const errorMsg = `WebSocket not connected (state: ${ws ? ws.readyState : 'null'})`;
-      console.error('❌ [AUDIO CAPTURE]', errorMsg);
-      captureError.value = errorMsg;
-      throw new Error(errorMsg);
+      const msg = `WebSocket not connected (state: ${ws ? ws.readyState : 'null'})`;
+      captureError.value = msg;
+      throw new Error(msg);
     }
-    
+
+    if (selectedDeviceIds.value.length === 0) {
+      const msg = 'Select at least one input device first';
+      captureError.value = msg;
+      throw new Error(msg);
+    }
+
     try {
-      console.log('🧹 [AUDIO CAPTURE] Clearing previous errors');
       captureError.value = '';
-      
-      // Create audio context
-      console.log('🎵 [AUDIO CAPTURE] Creating AudioContext...', { sampleRate, latencyHint: 'interactive' });
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      audioContext.value = new AudioContextClass({
-        sampleRate: sampleRate,
-        latencyHint: 'interactive',
-      });
-      console.log('✅ [AUDIO CAPTURE] AudioContext created:', {
-        state: audioContext.value.state,
-        sampleRate: audioContext.value.sampleRate,
-        baseLatency: audioContext.value.baseLatency,
-      });
-      
-      // Request audio stream with device selection
-      // Try to request multiple channels if supported (up to channelCount)
-      const constraints = {
-        audio: deviceId 
-          ? { 
-              deviceId: { exact: deviceId },
-              // Try to request multiple channels (browser may limit this)
-              channelCount: { ideal: channelCount, max: channelCount },
-              sampleRate: { ideal: sampleRate },
-            }
-          : {
-              // Try to request multiple channels even for default device
-              channelCount: { ideal: channelCount, max: channelCount },
-              sampleRate: { ideal: sampleRate },
-            },
-      };
-      
-      console.log('📡 [AUDIO CAPTURE] Requesting media stream with constraints:', JSON.stringify(constraints, null, 2));
-      mediaStream.value = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('✅ [AUDIO CAPTURE] Media stream obtained:', {
-        id: mediaStream.value.id,
-        active: mediaStream.value.active,
-        audioTracks: mediaStream.value.getAudioTracks().length,
-      });
-      
-      // Get stream settings to determine actual channel count
-      const audioTrack = mediaStream.value.getAudioTracks()[0];
-      console.log('🎵 [AUDIO CAPTURE] Audio track:', {
-        id: audioTrack.id,
-        kind: audioTrack.kind,
-        label: audioTrack.label,
-        enabled: audioTrack.enabled,
-        muted: audioTrack.muted,
-        readyState: audioTrack.readyState,
-      });
-      
-      const settings = audioTrack.getSettings();
-      console.log('⚙️ [AUDIO CAPTURE] Track settings:', settings);
-      
-      // Check if this is a multi-channel device (like Dante Virtual Soundcard)
-      const deviceLabel = audioTrack.label || '';
-      const isDanteDevice = deviceLabel.toLowerCase().includes('dante') || 
-                           deviceLabel.toLowerCase().includes('virtual soundcard');
-      
-      // Ensure we have a valid channel count (at least 1, default to 2 for stereo)
-      let actualChannelCount = settings.channelCount;
-      if (!actualChannelCount || actualChannelCount < 1) {
-        console.warn('⚠️ [AUDIO CAPTURE] No channel count in settings, defaulting to 2');
-        actualChannelCount = 2;
-      }
-      const actualSampleRate = settings.sampleRate || audioContext.value.sampleRate;
-      
-      console.log('🎤 [AUDIO CAPTURE] Audio stream settings:', {
-        deviceId: settings.deviceId,
-        deviceLabel: deviceLabel,
-        channelCount: actualChannelCount,
-        sampleRate: actualSampleRate,
-        requestedChannels: channelCount,
-        isDanteDevice: isDanteDevice,
-        allSettings: settings,
-      });
-      
-      // Browser limitation warning for Dante/multi-channel devices
-      // Allow capture to proceed, but warn about limitations
-      if (isDanteDevice && actualChannelCount < 4) {
-        console.warn(`⚠️ [AUDIO CAPTURE] Dante device detected (${deviceLabel}), but browser only provides ${actualChannelCount} channel(s).`);
-        console.warn(`⚠️ [AUDIO CAPTURE] Browser will capture what's available (typically 1-2 channels).`);
-        console.warn(`⚠️ [AUDIO CAPTURE] For full multi-channel support (all Dante channels), use the Electron app.`);
-        console.warn(`⚠️ [AUDIO CAPTURE] Continuing with browser capture - channel 0 will be mapped to Channel 1 in the mixer.`);
-        // Clear any previous errors and set a warning message (non-blocking)
-        captureError.value = ''; // Clear error - this is just a limitation, not a failure
-      } else if (actualChannelCount < channelCount) {
-        console.warn(`⚠️ [AUDIO CAPTURE] Browser only provides ${actualChannelCount} channel(s), but ${channelCount} were requested.`);
-        console.warn(`⚠️ [AUDIO CAPTURE] Continuing with available channels - channel 0 will be mapped to Channel 1 in the mixer.`);
-        captureError.value = ''; // Clear error - this is just a limitation
-      } else {
-        console.log(`✅ [AUDIO CAPTURE] Full channel support: ${actualChannelCount} channels available.`);
-        captureError.value = ''; // Clear any previous errors
-      }
-      
-      // Note: Most browsers only support stereo (2 channels) via getUserMedia
-      // For multi-channel devices like Dante Virtual Soundcard, you may need:
-      // 1. A browser extension that provides multi-channel access
-      // 2. Or use the Electron app for full multi-channel support
-      // For now, we'll capture what's available (typically 1-2 channels)
-      
-      // Create media stream source
-      console.log('🔗 [AUDIO CAPTURE] Creating MediaStreamSource...');
-      mediaStreamSource.value = audioContext.value.createMediaStreamSource(mediaStream.value);
-      console.log('✅ [AUDIO CAPTURE] MediaStreamSource created:', {
-        channelCount: mediaStreamSource.value.channelCount,
-        channelCountMode: mediaStreamSource.value.channelCountMode,
-        channelInterpretation: mediaStreamSource.value.channelInterpretation,
-        numberOfInputs: mediaStreamSource.value.numberOfInputs,
-        numberOfOutputs: mediaStreamSource.value.numberOfOutputs,
-      });
-      
-      // Determine the actual number of channels available from the source
-      // The MediaStreamSource might have a different channel count than what we requested
-      const sourceChannelCount = mediaStreamSource.value.channelCount || actualChannelCount;
-      const finalChannelCount = Math.max(1, Math.min(sourceChannelCount, actualChannelCount));
-      
-      console.log('📊 [AUDIO CAPTURE] Channel configuration:', {
-        requested: channelCount,
-        settingsChannelCount: actualChannelCount,
-        sourceChannelCount: sourceChannelCount,
-        finalChannelCount: finalChannelCount,
-      });
-      
-      // Create script processor to capture audio data
-      // Buffer size: 4096 samples for better quality (higher latency but better quality)
-      // At 48kHz: 4096 samples = ~85ms latency
-      // Note: ScriptProcessorNode requires at least 1 output channel to connect to destination
-      // We use 1 output channel (mono) even though we don't need it - it's required for the node to work
-      // Input channels: use the actual available channels (at least 1)
-      // Output channels: use 1 (required for connection, but we'll silence it)
-      const bufferSize = 4096; // Increased from 256 for better quality
-      const inputChannels = Math.max(1, finalChannelCount);
-      const outputChannels = 1; // Always 1 - we don't need output, just capture
-      
-      const bufferLatencyMs = (bufferSize / audioContext.value.sampleRate) * 1000;
-      console.log(`🔧 [AUDIO CAPTURE] Creating ScriptProcessorNode:`, {
-        bufferSize,
-        inputChannels,
-        outputChannels,
-        sampleRate: audioContext.value.sampleRate,
-        bufferLatencyMs: bufferLatencyMs.toFixed(1),
-      });
-      
-      try {
-        scriptProcessor.value = audioContext.value.createScriptProcessor(bufferSize, inputChannels, outputChannels);
-        console.log('✅ [AUDIO CAPTURE] ScriptProcessorNode created successfully');
-      } catch (error) {
-        console.error('❌ [AUDIO CAPTURE] Failed to create ScriptProcessorNode:', error);
-        throw new Error(`Failed to create ScriptProcessorNode: ${error.message}`);
-      }
-      
-      let audioProcessCount = 0;
-      let audioBufferQueue = []; // Queue to batch audio before sending
-      let sequenceNumber = 0; // Sequence number for packet ordering
-      const BATCH_SIZE = 4; // Send every 4 buffers (reduces WebSocket overhead)
-      const _channelSendCount = {}; // Track send count per channel (closure variable, not this._channelSendCount)
-      const effectiveLatencyMs = bufferLatencyMs * BATCH_SIZE;
-      
-      // Update stream latency
-      streamLatency.value = effectiveLatencyMs;
-      
-      scriptProcessor.value.onaudioprocess = (e) => {
-        audioProcessCount++;
-        if (audioProcessCount === 1) {
-          console.log('🎵 [AUDIO CAPTURE] First audio buffer received:', {
-            inputChannels: e.inputBuffer.numberOfChannels,
-            inputLength: e.inputBuffer.length,
-            outputChannels: e.outputBuffer.numberOfChannels,
-            outputLength: e.outputBuffer.length,
-            sampleRate: e.inputBuffer.sampleRate,
-            bufferLatencyMs: bufferLatencyMs.toFixed(1),
-            batchSize: BATCH_SIZE,
-            effectiveLatencyMs: (bufferLatencyMs * BATCH_SIZE).toFixed(1),
-          });
-        }
-        
-        // Re-check WebSocket connection and source registration
+
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      audioContext = new Ctx({ sampleRate, latencyHint: 'interactive' });
+
+      broadcastBus = audioContext.createGain();
+      broadcastBus.gain.value = broadcastGain.value;
+      broadcastBus.channelCount = 2;
+      broadcastBus.channelCountMode = 'explicit';
+      broadcastBus.channelInterpretation = 'speakers';
+
+      broadcastSplitter = audioContext.createChannelSplitter(2);
+      broadcastAnalyserL = audioContext.createAnalyser();
+      broadcastAnalyserR = audioContext.createAnalyser();
+      broadcastAnalyserL.fftSize = 1024;
+      broadcastAnalyserR.fftSize = 1024;
+      broadcastAnalyserL.smoothingTimeConstant = 0;
+      broadcastAnalyserR.smoothingTimeConstant = 0;
+      broadcastBus.connect(broadcastSplitter);
+      broadcastSplitter.connect(broadcastAnalyserL, 0);
+      broadcastSplitter.connect(broadcastAnalyserR, 1);
+
+      // Script processor taps the broadcast bus output and sends it over WS as 2 channels (L=0, R=1)
+      scriptProc = audioContext.createScriptProcessor(BUFFER_SIZE, 2, 1);
+      broadcastBus.connect(scriptProc);
+
+      let batchL = [];
+      let batchR = [];
+      let seq = 0;
+      let firstSendLogged = false;
+
+      scriptProc.onaudioprocess = (e) => {
         const currentWs = typeof wsRef === 'function' ? wsRef() : (wsRef?.value || wsRef);
-        if (!currentWs || currentWs.readyState !== WebSocket.OPEN) {
-          if (audioProcessCount === 1 || audioProcessCount % 100 === 0) {
-            console.warn(`⚠️ [AUDIO CAPTURE] WebSocket not connected (buffer #${audioProcessCount}), skipping audio send. WS exists: ${!!currentWs}, readyState: ${currentWs ? currentWs.readyState : 'N/A'}`);
-          }
-          return;
-        }
-        
-        // Check if we're registered as source (if isSourceRef is provided)
-        const isSource = isSourceRef ? (typeof isSourceRef === 'function' ? isSourceRef() : (isSourceRef?.value ?? false)) : true;
-        if (!isSource) {
-          // Not registered as source - stop sending audio
-          if (audioProcessCount === 1 || audioProcessCount % 100 === 0) {
-            console.warn(`⚠️ [AUDIO CAPTURE] Not registered as source (buffer #${audioProcessCount}), stopping capture. isSourceRef: ${!!isSourceRef}, isSource value: ${isSource}`);
-          }
-          if (audioProcessCount === 1) {
-            stopCapture();
-          }
-          return;
-        }
-        
-        // Process each input channel
-        const inputChannelData = [];
-        const availableInputChannels = e.inputBuffer.numberOfChannels;
-        
-        for (let ch = 0; ch < availableInputChannels; ch++) {
+        if (!currentWs || currentWs.readyState !== WebSocket.OPEN) return;
+        const isSrc = isSourceRef
+          ? (typeof isSourceRef === 'function' ? isSourceRef() : (isSourceRef?.value ?? false))
+          : true;
+        if (!isSrc) return;
+
+        const inL = e.inputBuffer.getChannelData(0);
+        const inR = e.inputBuffer.numberOfChannels >= 2 ? e.inputBuffer.getChannelData(1) : inL;
+        batchL.push(Array.from(inL));
+        batchR.push(Array.from(inR));
+
+        if (batchL.length >= BATCH_SIZE) {
+          const flat = (arr) => {
+            const out = [];
+            for (const a of arr) out.push(...a);
+            return out;
+          };
+          const lSamples = flat(batchL);
+          const rSamples = flat(batchR);
+          const t = Date.now();
           try {
-            const inputData = e.inputBuffer.getChannelData(ch);
-            // Convert Float32Array to regular array for JSON serialization
-            const samples = Array.from(inputData);
-            inputChannelData.push(samples);
-          } catch (error) {
-            console.error(`❌ [AUDIO CAPTURE] Error reading channel ${ch}:`, error);
-          }
-        }
-        
-        // Add to batch queue
-        audioBufferQueue.push({
-          channels: inputChannelData,
-          timestamp: Date.now(),
-        });
-        
-        // Send batched audio data when queue reaches batch size
-        if (audioBufferQueue.length >= BATCH_SIZE) {
-          try {
-            const channelsToSend = Math.min(availableInputChannels, channelCount);
-            const batch = audioBufferQueue.splice(0, BATCH_SIZE); // Remove from queue
-            
-            // Log batch info for first few batches
-            if (audioProcessCount <= BATCH_SIZE * 3 || audioProcessCount % 200 === 0) {
-              console.log(`📦 [AUDIO CAPTURE] Processing batch (buffer #${audioProcessCount}): ${batch.length} buffers, ${channelsToSend} channels to send, available: ${availableInputChannels}, requested: ${channelCount}`);
+            currentWs.send(JSON.stringify({
+              type: 'audio', channel: 0, data: lSamples, encoding: 'pcm',
+              sampleRate: audioContext.sampleRate, bufferCount: batchL.length,
+              timestamp: t, sequence: seq,
+            }));
+            currentWs.send(JSON.stringify({
+              type: 'audio', channel: 1, data: rSamples, encoding: 'pcm',
+              sampleRate: audioContext.sampleRate, bufferCount: batchR.length,
+              timestamp: t, sequence: seq,
+            }));
+            seq++;
+            if (!firstSendLogged) {
+              console.log('📤 [CAPTURE] First broadcast send', {
+                samplesPerChannel: lSamples.length,
+                sampleRate: audioContext.sampleRate,
+              });
+              firstSendLogged = true;
             }
-            
-            // Combine all buffers in batch for each channel
-            for (let ch = 0; ch < channelsToSend; ch++) {
-              const combinedSamples = [];
-              for (const buffer of batch) {
-                if (buffer.channels[ch]) {
-                  combinedSamples.push(...buffer.channels[ch]);
-                }
-              }
-              
-              if (combinedSamples.length > 0) {
-                // Log first few sends per channel for debugging
-                if (!_channelSendCount[ch]) _channelSendCount[ch] = 0;
-                _channelSendCount[ch]++;
-                
-                if (_channelSendCount[ch] <= 3 || _channelSendCount[ch] % 100 === 0) {
-                  console.log(`📤 [AUDIO CAPTURE] Sending audio for channel ${ch}: ${combinedSamples.length} samples (packet #${_channelSendCount[ch]})`);
-                }
-                
-                currentWs.send(JSON.stringify({
-                  type: 'audio',
-                  channel: ch,
-                  data: combinedSamples,
-                  encoding: 'pcm', // Indicate PCM encoding
-                  sampleRate: audioContext.value.sampleRate,
-                  bufferCount: batch.length,
-                  timestamp: batch[0].timestamp, // Use first buffer's timestamp
-                  sequence: sequenceNumber, // Add sequence number for jitter buffering
-                }));
-              } else {
-                console.warn(`⚠️ [AUDIO CAPTURE] Channel ${ch} has no samples to send (combinedSamples.length = 0)`);
-              }
-            }
-            
-            // Increment sequence number after sending all channels
-            sequenceNumber++;
-            
-            if (audioProcessCount % 50 === 0) {
-              const effectiveLatency = (bufferLatencyMs * BATCH_SIZE).toFixed(1);
-              console.log(`📤 [AUDIO CAPTURE] Sent ${audioProcessCount} buffers (batched: ${BATCH_SIZE} buffers, ~${effectiveLatency}ms latency)`);
-            }
-          } catch (error) {
-            console.error('❌ [AUDIO CAPTURE] Error sending audio data:', error);
-            captureError.value = `Failed to send audio data: ${error.message}`;
-            // Clear queue on error to prevent buildup
-            audioBufferQueue = [];
+          } catch (err) {
+            captureError.value = `Send failed: ${err.message}`;
           }
+          batchL = [];
+          batchR = [];
         }
-        
-        // Clear the output buffer (we don't need to output anything, just capture)
-        // This prevents any audio from being played back
-        try {
-          const outputChannels = e.outputBuffer.numberOfChannels;
-          for (let ch = 0; ch < outputChannels; ch++) {
-            const outputData = e.outputBuffer.getChannelData(ch);
-            outputData.fill(0);
-          }
-        } catch (error) {
-          console.warn('⚠️ [AUDIO CAPTURE] Error clearing output buffer:', error);
-        }
+
+        const out = e.outputBuffer.getChannelData(0);
+        for (let i = 0; i < out.length; i++) out[i] = 0;
       };
-      
-      // Connect: mediaStreamSource -> scriptProcessor -> destination
-      // Note: ScriptProcessorNode must be connected to destination to work, even if output is silent
-      console.log('🔗 [AUDIO CAPTURE] Connecting audio nodes...');
-      try {
-        mediaStreamSource.value.connect(scriptProcessor.value);
-        console.log('✅ [AUDIO CAPTURE] MediaStreamSource connected to ScriptProcessor');
-        
-        scriptProcessor.value.connect(audioContext.value.destination);
-        console.log('✅ [AUDIO CAPTURE] ScriptProcessor connected to destination');
-      } catch (error) {
-        console.error('❌ [AUDIO CAPTURE] Error connecting audio nodes:', error);
-        throw new Error(`Failed to connect audio nodes: ${error.message}`);
+      scriptProc.connect(audioContext.destination);
+
+      // Open all selected devices
+      const failures = [];
+      for (const deviceId of selectedDeviceIds.value) {
+        try {
+          await openDevice(deviceId);
+        } catch (err) {
+          console.error(`❌ [CAPTURE] Failed to open device ${deviceId}:`, err);
+          const dev = availableDevices.value.find(d => d.id === deviceId);
+          failures.push(`${dev?.label || deviceId}: ${err.message}`);
+        }
       }
-      
+      if (failures.length > 0) {
+        captureError.value = `Some devices failed: ${failures.join('; ')}`;
+      }
+      if (deviceStreams.size === 0) {
+        throw new Error('No devices opened successfully');
+      }
+
+      streamLatency.value = (BUFFER_SIZE / sampleRate) * 1000 * BATCH_SIZE;
       isCapturing.value = true;
-      console.log(`✅ Audio capture started: ${inputChannels} input channels, ${outputChannels} output channel @ ${audioContext.value.sampleRate}Hz`);
-      
-      if (finalChannelCount < channelCount) {
-        console.warn(`⚠️ Device only provides ${finalChannelCount} channels, but ${channelCount} were requested.`);
-        console.warn('For multi-channel devices like Dante Virtual Soundcard, consider using the local client.js for full support.');
-      }
-      
-    } catch (error) {
-      console.error('❌ [AUDIO CAPTURE] Error starting audio capture:', error);
-      console.error('❌ [AUDIO CAPTURE] Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        code: error.code,
-        constraint: error.constraint,
-      });
-      const errorMsg = `Failed to start capture: ${error.name} - ${error.message}`;
-      captureError.value = errorMsg;
-      stopCapture();
-      throw new Error(errorMsg);
+      startMeterLoop();
+      console.log(`✅ [CAPTURE] Started: ${deviceStreams.size} device(s), ${channels.value.length} channel(s) → stereo broadcast bus`);
+    } catch (err) {
+      console.error('❌ [CAPTURE] startCapture failed:', err);
+      captureError.value = captureError.value || `Start failed: ${err.message}`;
+      await stopCapture();
+      throw err;
     }
   };
-  
-  // Stop capturing audio
-  const stopCapture = () => {
-    console.log('🛑 [AUDIO CAPTURE] Stopping capture...');
-    
-    if (scriptProcessor.value) {
-      try {
-        console.log('🔌 [AUDIO CAPTURE] Disconnecting ScriptProcessor...');
-        scriptProcessor.value.disconnect();
-        console.log('✅ [AUDIO CAPTURE] ScriptProcessor disconnected');
-      } catch (e) {
-        console.warn('⚠️ [AUDIO CAPTURE] Error disconnecting script processor:', e);
-      }
-      scriptProcessor.value = null;
+
+  const stopCapture = async () => {
+    if (meterRafId) {
+      cancelAnimationFrame(meterRafId);
+      meterRafId = null;
     }
-    
-    if (mediaStreamSource.value) {
-      try {
-        console.log('🔌 [AUDIO CAPTURE] Disconnecting MediaStreamSource...');
-        mediaStreamSource.value.disconnect();
-        console.log('✅ [AUDIO CAPTURE] MediaStreamSource disconnected');
-      } catch (e) {
-        console.warn('⚠️ [AUDIO CAPTURE] Error disconnecting media stream source:', e);
-      }
-      mediaStreamSource.value = null;
+    for (const deviceId of [...deviceStreams.keys()]) closeDevice(deviceId);
+    if (scriptProc) {
+      try { scriptProc.disconnect(); } catch { /* ignore */ }
+      scriptProc.onaudioprocess = null;
+      scriptProc = null;
     }
-    
-    if (mediaStream.value) {
-      console.log('🛑 [AUDIO CAPTURE] Stopping media stream tracks...');
-      mediaStream.value.getTracks().forEach((track, index) => {
-        console.log(`🛑 [AUDIO CAPTURE] Stopping track ${index}:`, track.label || track.id);
-        track.stop();
-      });
-      mediaStream.value = null;
+    if (broadcastSplitter) {
+      try { broadcastSplitter.disconnect(); } catch { /* ignore */ }
+      broadcastSplitter = null;
     }
-    
-    if (audioContext.value) {
-      console.log('🔌 [AUDIO CAPTURE] Closing AudioContext...');
-      audioContext.value.close().catch(e => {
-        console.warn('⚠️ [AUDIO CAPTURE] Error closing audio context:', e);
-      });
-      audioContext.value = null;
+    broadcastAnalyserL = null;
+    broadcastAnalyserR = null;
+    if (broadcastBus) {
+      try { broadcastBus.disconnect(); } catch { /* ignore */ }
+      broadcastBus = null;
     }
-    
+    if (audioContext) {
+      try { await audioContext.close(); } catch { /* ignore */ }
+      audioContext = null;
+    }
     isCapturing.value = false;
-    console.log('✅ [AUDIO CAPTURE] Capture stopped completely');
+    channels.value = [];
+    broadcastPeakL.value = -60;
+    broadcastPeakR.value = -60;
   };
-  
-  // Cleanup on unmount
-  onBeforeUnmount(() => {
-    stopCapture();
-  });
-  
-  // Calculate stream latency based on buffer size and batch size
-  const calculateStreamLatency = (bufferSize, batchSize, sampleRate) => {
-    const bufferLatencyMs = (bufferSize / sampleRate) * 1000;
-    return bufferLatencyMs * batchSize;
-  };
-  
-  const streamLatency = ref(calculateStreamLatency(4096, 4, sampleRate)); // Default values
-  
+
+  onBeforeUnmount(() => { stopCapture(); });
+
   return {
+    // device discovery
+    availableDevices,
+    selectedDeviceIds,
+    toggleDevice,
+    enumerateDevices,
+    // capture state
     isCapturing,
     captureError,
-    availableDevices,
-    selectedDeviceId,
     streamLatency,
-    enumerateDevices,
+    // per-channel strips
+    channels,
+    setStripGain,
+    setStripPan,
+    setStripSend,
+    // broadcast bus
+    broadcastPeakL,
+    broadcastPeakR,
+    broadcastGain,
+    setBroadcastGain,
+    // actions
     startCapture,
     stopCapture,
   };
 }
-
