@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.42">
-        <span class="version-text">v2.3.42</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.43">
+        <span class="version-text">v2.3.43</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.42</h2>
+          <h2 id="changelog-title">What's New in 2.3.43</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔧 Signal Flow: Forward a Recorder to a Backup</h3>
+            <p>Recorders can now be dragged as a <strong>source</strong>, so you can link a main recorder to a backup (e.g. Scorpio → BU) in the correct direction — the arrow now points <em>into</em> the backup and it detects the forwarded inputs. Previously recorders were receive-only, so the link formed backwards and the backup saw nothing.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Colour & Filter by Destination Device</h3>
             <p>The cable-layer legend now names the <strong>actual device each run goes into</strong> (→ Yamaha TIO, → Shure ANI4IN XLR, → recorder) instead of generic "Mic → box" categories. Runs are colour-coded by destination, and each pill toggles that device's cables on/off so you can isolate everything landing at one box or recorder. The mic→box / box→rec breakdown still lives in the "By run type" table.</p>

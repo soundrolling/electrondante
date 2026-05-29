@@ -469,7 +469,10 @@ const vfNodes = computed(() => {
         category: cat,
         raw: n,
       },
-      type: cat === 'source' || cat === 'venue' ? 'input' : cat === 'recorder' ? 'output' : 'default',
+      // Sources/venue only send (source handle). Transformers AND recorders get
+      // both handles so a recorder can forward to a backup recorder (e.g. Scorpio
+      // → BU) in the correct direction — an 'output'-only node has no source handle.
+      type: cat === 'source' || cat === 'venue' ? 'input' : 'default',
       class: [`sfv-node`, `sfv-node-${cat}`],
       style: {
         width: `${NODE_DEFAULT_SIZE}px`,
