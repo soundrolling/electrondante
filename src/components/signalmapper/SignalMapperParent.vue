@@ -195,6 +195,19 @@
         @refetch-paths="loadSignalPaths"
       />
 
+      <CableEstimate
+        v-else-if="activeTab === 'cabling' && effectiveLocationId"
+        :key="`cabling-${variantKey}`"
+        :projectId="projectId"
+        :locationId="effectiveLocationId"
+        :stageHourId="selectedStageHourId"
+        :nodes="allNodes"
+        :connections="allConnections"
+        :gearList="gearList"
+        :stageName="currentLocation?.stage_name"
+        @node-updated="handleNodeUpdated"
+      />
+
       <DanteConfig
         v-else-if="activeTab === 'dante'"
         :key="`dante-${effectiveLocationId}`"
@@ -500,6 +513,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Sparkles,
+  Cable,
 } from 'lucide-vue-next'
 import { buildShowPDF, defaultShowBibleFilename } from '@/services/showPdfExportService'
 import { savePDFToStorage, showExportSuccessModal } from '@/services/exportDocsStorage'
@@ -512,6 +526,7 @@ const SignalFlow = defineAsyncComponent(() => import('./SignalFlow.vue'))
 const SignalFlowVF = defineAsyncComponent(() => import('./SignalFlowVF.vue'))
 const TrackList = defineAsyncComponent(() => import('./TrackList.vue'))
 const DanteConfig = defineAsyncComponent(() => import('./DanteConfig.vue'))
+const CableEstimate = defineAsyncComponent(() => import('./CableEstimate.vue'))
 
 const FLOW_EDITOR_KEY = 'signalMapper.flowEditor' // 'classic' | 'beta'
 
@@ -527,7 +542,7 @@ const props = defineProps({
   tab: {
     type: String,
     default: 'placement',
-    validator: (value) => ['placement', 'flow', 'tracklist', 'dante'].includes(value)
+    validator: (value) => ['placement', 'flow', 'tracklist', 'cabling', 'dante'].includes(value)
   }
 })
 
@@ -614,6 +629,7 @@ const tabs = [
   { key: 'placement', label: 'Mic Placement', shortLabel: 'Mics', icon: markRaw(MapPin) },
   { key: 'flow', label: 'Signal Flow', shortLabel: 'Flow', icon: markRaw(Workflow) },
   { key: 'tracklist', label: 'Track List', shortLabel: 'Tracks', icon: markRaw(ListOrdered) },
+  { key: 'cabling', label: 'Cabling', shortLabel: 'Cable', icon: markRaw(Cable) },
   { key: 'dante', label: 'Setup Files', shortLabel: 'Files', icon: markRaw(Save) },
 ]
 

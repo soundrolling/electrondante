@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.34">
-        <span class="version-text">v2.3.34</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.35">
+        <span class="version-text">v2.3.35</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.34</h2>
+          <h2 id="changelog-title">What's New in 2.3.35</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Signal Mapper: Cable Estimate Module</h3>
+            <p>New <strong>Cabling</strong> tab in the Signal Mapper turns your mic placement and signal flow into a cable estimate. It follows the connections you've drawn — each becomes a measured cable run, and every stagebox is sized to a suggested multicore (4/8/12/16/24-way) from the mics feeding it. Calibrate the floor plan once (mark a known distance, type its real length in m or ft) and runs are measured in real units, with a bill of materials: total cable, longest run, multicore combinations, and a per-stagebox breakdown. Cable runs draw as a toggleable, colour-coded layer over the plan so the map stays clean, and any run whose endpoint isn't placed — or mic not yet wired — is flagged rather than guessed. Mics up towers? Click a node to set its height and the vertical run is added on top of the floor distance.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>⚡ Faster Startup + Bridge-Server Security Hardening</h3>
             <p>Slimmed the initial download by dropping unused libraries (including a stray UI framework that was being bundled for nothing) and loading heavy pieces — the Signal Flow diagram engine and ZIP export — only when they're actually opened, so the first screen loads noticeably lighter. The Dante bridge-server also got a security pass: connection origins are now matched exactly instead of by loose substring, room codes use cryptographically-secure randomness, and the server requires a strong signing secret to start. Signal Flow's track-list rendering and venue-source label lookups are faster on large recorder setups too.</p>
