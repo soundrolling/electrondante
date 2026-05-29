@@ -54,6 +54,8 @@
           <button class="ce-icon-btn" title="Reset view" @click="resetView"><Maximize :size="15" /></button>
           <button class="ce-icon-btn" title="Zoom in" @click="zoomBy(1.2)"><Plus :size="16" /></button>
         </div>
+
+        <button class="ce-icon-btn" title="Reset cabling layout (positions + turning points)" @click="onResetLayout"><RotateCcw :size="15" /></button>
       </div>
     </div>
 
@@ -80,6 +82,7 @@
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
         @pointerleave="onPointerUp"
+        @dblclick="onDblClick"
         @wheel="onWheel"
       />
       <div v-if="!bgImage" class="ce-overlay-msg">
@@ -90,7 +93,7 @@
       </div>
     </div>
 
-    <p class="ce-tip">Tip: click a mic or stagebox to set its height (e.g. up a tower) — it's added to the cable run.</p>
+    <p class="ce-tip">Drag a node to reposition it (mic map stays put) · click a node to set its height · click a cable to add a turning point, double-click a point to remove.</p>
 
     <!-- Bill of materials -->
     <CableEstimateBomPanel :estimate="estimate" />
@@ -118,7 +121,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { Ruler, CheckCircle2, AlertTriangle, Plus, Minus, Maximize } from 'lucide-vue-next'
+import { Ruler, CheckCircle2, AlertTriangle, Plus, Minus, Maximize, RotateCcw } from 'lucide-vue-next'
 
 import { useToast } from 'vue-toastification'
 
@@ -129,7 +132,8 @@ import CableHeightModal from './cableestimate/CableHeightModal.vue'
 import { useMicBackgroundImage } from '@/composables/micPlacement/useMicBackgroundImage'
 import { useMicCanvasView } from '@/composables/micPlacement/useMicCanvasView'
 import { useCableCalibration } from '@/composables/cableEstimate/useCableCalibration'
-import { useCableEstimate, nodeKind, hasPosition, heightMetres } from '@/composables/cableEstimate/useCableEstimate'
+import { useCableLayout } from '@/composables/cableEstimate/useCableLayout'
+import { useCableEstimate, nodeKind, hasPosition, heightMetres, effectivePosition } from '@/composables/cableEstimate/useCableEstimate'
 import { setNodeHeight } from '@/services/cableEstimateService'
 
 const props = defineProps({
@@ -217,6 +221,12 @@ const cal = useCableCalibration({
   getImageRef: () => storagePathForStage(),
 })
 
+// 3b. Cabling layout — drag overrides + cable waypoints, stored separately
+// from mic placement / signal flow.
+const cableLayout = useCableLayout({ getLocationId: () => props.locationId })
+const layout = cableLayout.layout
+const effPos = (node) => effectivePosition(node, layout.value)
+
 const imageNaturalSize = computed(() =>
   bgImageObj.value ? { width: bgImageObj.value.width, height: bgImageObj.value.height } : null,
 )
@@ -228,6 +238,7 @@ const estimateRef = useCableEstimate({
   connections: computed(() => props.connections),
   calibration: cal.calibration,
   imageNaturalSize,
+  layout,
   options,
 })
 const estimate = computed(() => estimateRef.value)
@@ -272,23 +283,59 @@ function drawRuns(ctx) {
   const est = estimate.value
   for (const run of est.runs) {
     if (!activeCategories.value.has(run.category)) continue
-    const a = imageToCanvasCoords(run.from.x, run.from.y)
-    const b = imageToCanvasCoords(run.to.x, run.to.y)
     const style = CATEGORY_META[run.category] || CATEGORY_META.other
+    const pts = run.points.map(p => imageToCanvasCoords(p.x, p.y))
+    // Polyline through any turning points.
     ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
+    ctx.moveTo(pts[0].x, pts[0].y)
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
     ctx.strokeStyle = style.color
     ctx.lineWidth = style.width
     ctx.stroke()
+    // Length label at the polyline midpoint.
     if (showLengths.value && run.length != null) {
-      drawPill(ctx, `${round1(run.length)} ${est.unit}`, (a.x + b.x) / 2, (a.y + b.y) / 2)
+      const mid = polylineMidpoint(pts)
+      drawPill(ctx, `${round1(run.length)} ${est.unit}`, mid.x, mid.y)
     }
+    // Turning-point handles.
+    for (let j = 1; j < pts.length - 1; j++) drawWaypointHandle(ctx, pts[j], style.color)
   }
 }
 
+function drawWaypointHandle(ctx, p, color) {
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI)
+  ctx.fillStyle = '#fff'
+  ctx.strokeStyle = color
+  ctx.lineWidth = 2
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}
+
+function polylineMidpoint(pts) {
+  // Point at half the total polyline length — nicer than the bounding-box centre.
+  const segs = []
+  let total = 0
+  for (let i = 0; i < pts.length - 1; i++) {
+    const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y)
+    segs.push(d); total += d
+  }
+  let half = total / 2
+  for (let i = 0; i < segs.length; i++) {
+    if (half <= segs[i] || i === segs.length - 1) {
+      const t = segs[i] ? half / segs[i] : 0
+      return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * t, y: pts[i].y + (pts[i + 1].y - pts[i].y) * t }
+    }
+    half -= segs[i]
+  }
+  return pts[0]
+}
+
 function drawNode(ctx, node) {
-  const { x, y } = imageToCanvasCoords(Number(node.x), Number(node.y))
+  const ep = effPos(node)
+  const { x, y } = imageToCanvasCoords(ep.x, ep.y)
   const kind = nodeKind(node)
   ctx.save()
   ctx.lineWidth = 1.5
@@ -410,39 +457,74 @@ function drawCableCanvas() {
 }
 _redraw = drawCableCanvas
 
-// ── Pointer interaction (pan / zoom / calibration clicks) ────
+// ── Pointer interaction (drag nodes / waypoints, add waypoints, pan, zoom) ──
 const cursorImg = ref(null)
 let panning = false
 let lastPan = null
+let nodePress = null  // { node, moved, start } — distinguishes click (height) from drag (move)
+let wpDrag = null     // { connId, index } — waypoint being dragged
+const DRAG_THRESHOLD = 4 // canvas px of movement before a node press becomes a drag
 
 function onPointerDown(e) {
   try { canvasRef.value?.setPointerCapture?.(e.pointerId) } catch {}
   const cc = getCanvasCoords(e)
+
   if (cal.isCalibrating.value) {
     const img = canvasToImageCoords(cc.x, cc.y)
     cal.addPoint(img.imgX, img.imgY)
     redraw()
     return
   }
+
+  // Existing turning point → drag it.
+  const wp = getWaypointAtCanvas(cc.x, cc.y)
+  if (wp) { wpDrag = wp; return }
+
+  // Node → press (release without moving = height editor; drag = reposition).
   const node = getNodeAtCanvas(cc.x, cc.y)
-  if (node) {
-    openHeightEditor(node)
+  if (node) { nodePress = { node, moved: false, start: cc }; return }
+
+  // Cable segment → drop a turning point there and start dragging it.
+  const seg = getCableSegmentAtCanvas(cc.x, cc.y)
+  if (seg) {
+    const idx = cableLayout.addWaypoint(seg.connId, seg.point, seg.segIndex)
+    wpDrag = { connId: seg.connId, index: idx }
+    nextTick(redraw)
     return
   }
+
+  // Empty space → pan.
   panning = true
   lastPan = cc
 }
 
 function onPointerMove(e) {
+  const cc = getCanvasCoords(e)
+
   if (cal.isCalibrating.value && cal.draftP1.value && !cal.draftP2.value) {
-    const cc = getCanvasCoords(e)
     const img = canvasToImageCoords(cc.x, cc.y)
     cursorImg.value = { x: img.imgX, y: img.imgY }
     redraw()
     return
   }
+
+  if (wpDrag) {
+    const img = canvasToImageCoords(cc.x, cc.y)
+    cableLayout.moveWaypoint(wpDrag.connId, wpDrag.index, { x: img.imgX, y: img.imgY })
+    redraw()
+    return
+  }
+
+  if (nodePress) {
+    if (!nodePress.moved && Math.hypot(cc.x - nodePress.start.x, cc.y - nodePress.start.y) <= DRAG_THRESHOLD) return
+    nodePress.moved = true
+    const img = canvasToImageCoords(cc.x, cc.y)
+    cableLayout.setNodePosition(nodePress.node.id, img.imgX, img.imgY)
+    redraw()
+    return
+  }
+
   if (panning && lastPan) {
-    const cc = getCanvasCoords(e)
     imageOffsetX.value += cc.x - lastPan.x
     imageOffsetY.value += cc.y - lastPan.y
     lastPan = cc
@@ -451,9 +533,63 @@ function onPointerMove(e) {
 }
 
 function onPointerUp(e) {
+  if (nodePress) {
+    if (!nodePress.moved) openHeightEditor(nodePress.node)
+    nodePress = null
+  }
+  wpDrag = null
   panning = false
   lastPan = null
   try { canvasRef.value?.releasePointerCapture?.(e.pointerId) } catch {}
+}
+
+function onDblClick(e) {
+  const cc = getCanvasCoords(e)
+  const wp = getWaypointAtCanvas(cc.x, cc.y)
+  if (wp) {
+    cableLayout.removeWaypoint(wp.connId, wp.index)
+    nextTick(redraw)
+  }
+}
+
+// Hit-tests (canvas px). onPointerDown order: waypoint → node → segment.
+function getWaypointAtCanvas(cx, cy) {
+  if (!showCableLayer.value) return null
+  const est = estimate.value
+  for (const run of est.runs) {
+    if (!activeCategories.value.has(run.category)) continue
+    for (let j = 1; j < run.points.length - 1; j++) {
+      const p = imageToCanvasCoords(run.points[j].x, run.points[j].y)
+      if (Math.hypot(p.x - cx, p.y - cy) <= 7) return { connId: run.connectionId, index: j - 1 }
+    }
+  }
+  return null
+}
+
+function getCableSegmentAtCanvas(cx, cy) {
+  if (!showCableLayer.value) return null
+  const est = estimate.value
+  for (const run of est.runs) {
+    if (!activeCategories.value.has(run.category)) continue
+    const pts = run.points.map(p => imageToCanvasCoords(p.x, p.y))
+    for (let i = 0; i < pts.length - 1; i++) {
+      const proj = projectOnSegment(cx, cy, pts[i], pts[i + 1])
+      if (proj.dist <= 6) {
+        const img = canvasToImageCoords(proj.x, proj.y)
+        return { connId: run.connectionId, segIndex: i, point: { x: img.imgX, y: img.imgY } }
+      }
+    }
+  }
+  return null
+}
+
+function projectOnSegment(px, py, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  let t = len2 ? ((px - a.x) * dx + (py - a.y) * dy) / len2 : 0
+  t = Math.max(0, Math.min(1, t))
+  const x = a.x + dx * t, y = a.y + dy * t
+  return { x, y, dist: Math.hypot(px - x, py - y) }
 }
 
 function onWheel(e) {
@@ -470,6 +606,11 @@ function resetView() {
   view.resetImageView({ getNodes: () => props.nodes.filter(hasPosition), fitImageToCanvas })
 }
 
+function onResetLayout() {
+  cableLayout.reset()
+  nextTick(redraw)
+}
+
 async function onConfirmCalibration(length, unit) {
   await cal.confirm(length, unit)
   displayUnit.value = unit
@@ -481,7 +622,8 @@ function getNodeAtCanvas(cx, cy) {
   for (let i = props.nodes.length - 1; i >= 0; i--) {
     const node = props.nodes[i]
     if (!hasPosition(node)) continue
-    const p = imageToCanvasCoords(Number(node.x), Number(node.y))
+    const ep = effPos(node)
+    const p = imageToCanvasCoords(ep.x, ep.y)
     if (Math.hypot(p.x - cx, p.y - cy) <= 14) return node
   }
   return null
@@ -527,7 +669,7 @@ function checkScreenSize() {
 }
 
 async function loadStage() {
-  await cal.load()
+  await Promise.all([cal.load(), cableLayout.load()])
   if (cal.calibration.value?.unit) displayUnit.value = cal.calibration.value.unit
   await loadImageState() // triggers redraw on image load
   nextTick(redraw)
@@ -548,6 +690,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
+  cableLayout.flush() // persist any pending layout change
 })
 
 // Reload when the stage changes (defensive — parent usually remounts via :key).

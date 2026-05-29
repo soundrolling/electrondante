@@ -69,6 +69,19 @@ export function heightMetres(node) {
   return Number.isFinite(h) ? h : 0
 }
 
+/**
+ * A node's position for cabling, honouring a per-stage layout override if one
+ * exists. Overrides live only in the cabling layout — the mic-map x/y is never
+ * mutated. Falls back to the mic-map position.
+ */
+export function effectivePosition(node, layout) {
+  const o = layout?.positions?.[node?.id]
+  if (o && Number.isFinite(Number(o.x)) && Number.isFinite(Number(o.y))) {
+    return { x: Number(o.x), y: Number(o.y) }
+  }
+  return { x: Number(node?.x), y: Number(node?.y) }
+}
+
 export function labelOf(node) {
   if (!node) return 'Unknown'
   return node.track_name || node.label || node.gear_name || `Node ${node.id}`
@@ -114,6 +127,7 @@ export function computeCableEstimate({
   connections = [],
   calibration = null,
   imageNaturalSize = null,
+  layout = null,
   options = {},
 } = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options }
@@ -172,9 +186,20 @@ export function computeCableEstimate({
       continue
     }
 
-    // Cable path = along the floor (horizontal) + up/down any tower
-    // (|Δheight|) — cable runs along structure, not diagonally through air.
-    const px = pixelLength(from, to)
+    // Routed polyline: effective endpoints (cabling overrides, mic map
+    // untouched) with any turning points between them.
+    const effFrom = effectivePosition(from, layout)
+    const effTo = effectivePosition(to, layout)
+    const waypoints = (layout?.waypoints?.[c.id] || [])
+      .filter(p => Number.isFinite(Number(p?.x)) && Number.isFinite(Number(p?.y)))
+      .map(p => ({ x: Number(p.x), y: Number(p.y) }))
+    const points = [effFrom, ...waypoints, effTo]
+
+    // Horizontal path = sum of the routed segments; the vertical run
+    // (|Δheight|, up/down a tower) is added once. Cable runs along structure,
+    // not diagonally through the air.
+    let px = 0
+    for (let i = 0; i < points.length - 1; i++) px += pixelLength(points[i], points[i + 1])
     const horizontalMetres = metresPerPixel != null ? px * metresPerPixel : null
     const verticalMetres = Math.abs(heightMetres(from) - heightMetres(to))
     const totalMetres = horizontalMetres != null ? horizontalMetres + verticalMetres : null
@@ -195,8 +220,10 @@ export function computeCableEstimate({
       fromKind,
       toKind,
       category: categoryFor(fromKind, toKind),
-      from: { x: Number(from.x), y: Number(from.y) },
-      to: { x: Number(to.x), y: Number(to.y) },
+      from: effFrom,
+      to: effTo,
+      points,
+      waypointCount: waypoints.length,
       pixelLength: px,
       verticalLength: fromMetres(verticalMetres, unit),
       rawLength,
@@ -282,12 +309,13 @@ export function computeCableEstimate({
  * Reactive wrapper. Pass refs/getters; returns a computed estimate that
  * recomputes when nodes, connections, calibration, image size or options change.
  */
-export function useCableEstimate({ nodes, connections, calibration, imageNaturalSize, options }) {
+export function useCableEstimate({ nodes, connections, calibration, imageNaturalSize, layout, options }) {
   return computed(() => computeCableEstimate({
     nodes: unref(nodes) || [],
     connections: unref(connections) || [],
     calibration: unref(calibration) || null,
     imageNaturalSize: unref(imageNaturalSize) || null,
+    layout: unref(layout) || null,
     options: unref(options) || {},
   }))
 }

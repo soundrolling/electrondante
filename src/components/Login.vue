@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.35">
-        <span class="version-text">v2.3.35</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.36">
+        <span class="version-text">v2.3.36</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.35</h2>
+          <h2 id="changelog-title">What's New in 2.3.36</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Movable Elements + Cable Turning Points</h3>
+            <p>The Cabling tab is now a light layout editor — and it's all stored separately from your mic placement and signal flow. <strong>Drag any node</strong> (mic, stagebox, recorder) to reposition it for cabling without moving it on the mic map. <strong>Click a cable to drop a turning point</strong>, then drag it to route the run around obstacles — the length follows the routed path. Double-click a turning point to remove it, and the reset button clears the cabling layout back to mic-map positions. Clicking a node without dragging still opens its height editor.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Signal Mapper: Cable Estimate Module</h3>
             <p>New <strong>Cabling</strong> tab in the Signal Mapper turns your mic placement and signal flow into a cable estimate. It follows the connections you've drawn — each becomes a measured cable run, and every stagebox is sized to a suggested multicore (4/8/12/16/24-way) from the mics feeding it. Calibrate the floor plan once (mark a known distance, type its real length in m or ft) and runs are measured in real units, with a bill of materials: total cable, longest run, multicore combinations, and a per-stagebox breakdown. Cable runs draw as a toggleable, colour-coded layer over the plan so the map stays clean, and any run whose endpoint isn't placed — or mic not yet wired — is flagged rather than guessed. Mics up towers? Click a node to set its height and the vertical run is added on top of the floor distance.</p>

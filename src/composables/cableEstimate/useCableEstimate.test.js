@@ -209,3 +209,53 @@ describe('computeCableEstimate — mic height (towers)', () => {
     expect(est.runs[0].length).toBeCloseTo(16, 6)        // 10 + 6
   })
 })
+
+describe('computeCableEstimate — cabling layout (overrides + waypoints)', () => {
+  const nodes = [n('mic', 'source', 0, 0), n('box', 'transformer', 0.5, 0)] // straight = 10 m
+
+  it('uses an override position without touching the mic-map coords', () => {
+    const layout = { positions: { box: { x: 0.25, y: 0 } } } // box dragged to 5 m away
+    const est = computeCableEstimate({
+      nodes,
+      connections: [conn('c', 'mic', 'box')],
+      calibration: CAL,
+      imageNaturalSize: IMG,
+      layout,
+      options: EXACT,
+    })
+    expect(est.runs[0].to).toEqual({ x: 0.25, y: 0 })
+    expect(est.runs[0].length).toBeCloseTo(5, 6) // 0.25 * 2000px * 0.01 m/px
+    // Original node object is untouched.
+    expect(nodes.find(x => x.id === 'box').x).toBe(0.5)
+  })
+
+  it('routes through waypoints and sums the polyline segments', () => {
+    const layout = { waypoints: { c: [{ x: 0.25, y: 0.25 }] } } // detour
+    const est = computeCableEstimate({
+      nodes,
+      connections: [conn('c', 'mic', 'box')],
+      calibration: CAL,
+      imageNaturalSize: IMG,
+      layout,
+      options: EXACT,
+    })
+    const run = est.runs[0]
+    expect(run.points).toHaveLength(3) // from + 1 waypoint + to
+    expect(run.waypointCount).toBe(1)
+    // 2 × hypot(500px, 250px) = 2 × 559.017 px = 1118.034 px × 0.01 = 11.180 m
+    expect(run.length).toBeCloseTo(11.1803, 3)
+  })
+
+  it('ignores malformed waypoints', () => {
+    const layout = { waypoints: { c: [{ x: 'oops' }, { x: 0.25, y: 0.25 }, null] } }
+    const est = computeCableEstimate({
+      nodes,
+      connections: [conn('c', 'mic', 'box')],
+      calibration: CAL,
+      imageNaturalSize: IMG,
+      layout,
+      options: EXACT,
+    })
+    expect(est.runs[0].waypointCount).toBe(1)
+  })
+})

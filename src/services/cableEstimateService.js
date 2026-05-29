@@ -62,6 +62,49 @@ export async function clearCalibration(locationId) {
 }
 
 /**
+ * Fetch a stage's cabling layout (position overrides + cable waypoints), or
+ * null. These are cabling-only and never touch mic placement / signal flow.
+ * @param {string|number} locationId
+ * @returns {Promise<object|null>}
+ */
+export async function getLayout(locationId) {
+  if (!locationId) return null
+  try {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('cable_layout')
+      .eq('id', locationId)
+      .single()
+    if (error) {
+      log.warn('getLayout failed', error.message)
+      return null
+    }
+    return data?.cable_layout ?? null
+  } catch (err) {
+    log.warn('getLayout threw', err)
+    return null
+  }
+}
+
+/**
+ * Save a stage's cabling layout.
+ * @param {string|number} locationId
+ * @param {object|null} layout  { positions, waypoints }
+ */
+export async function saveLayout(locationId, layout) {
+  if (!locationId) throw new Error('saveLayout: locationId is required')
+  const { error } = await supabase
+    .from('locations')
+    .update({ cable_layout: layout })
+    .eq('id', locationId)
+  if (error) {
+    log.error('saveLayout failed', error.message)
+    throw error
+  }
+  return layout
+}
+
+/**
  * Set (or clear) a node's elevation above the floor, in metres. A mic up a
  * tower adds this as a vertical run to its cable length. Pass null to clear.
  * @param {string|number} nodeId
