@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.41">
-        <span class="version-text">v2.3.41</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.42">
+        <span class="version-text">v2.3.42</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.41</h2>
+          <h2 id="changelog-title">What's New in 2.3.42</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Colour & Filter by Destination Device</h3>
+            <p>The cable-layer legend now names the <strong>actual device each run goes into</strong> (→ Yamaha TIO, → Shure ANI4IN XLR, → recorder) instead of generic "Mic → box" categories. Runs are colour-coded by destination, and each pill toggles that device's cables on/off so you can isolate everything landing at one box or recorder. The mic→box / box→rec breakdown still lives in the "By run type" table.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Stock-Cable Picklist (Splits)</h3>
             <p>The bill of materials now turns each cable type into a real <strong>picklist of stock sections</strong> rather than one big number — you don't run a single 30 m XLR, you patch 20 m + 10 m. Each run is split into cables no longer than a configurable <strong>Max single cable</strong> (default 20 m), tallied per type (e.g. XLR: <em>8 × 20 m · 3 × 10 m · 5 × 5 m</em>). The node editor shows each mic's split too (30 m → 20 + 10 m). Adjust the max in the ⚙ settings; set it to 0 to keep single runs.</p>

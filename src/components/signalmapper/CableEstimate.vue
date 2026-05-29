@@ -86,16 +86,16 @@
       <span class="ce-setting-hint">Each run = exact × (1 + %), rounded up, then split into cables no longer than the max (0 = no split / no round).</span>
     </div>
 
-    <!-- Category filter / legend (only categories actually present) -->
-    <div v-if="showCableLayer && presentCategories.length" class="ce-legend">
+    <!-- Destination filter / legend — one pill per device the cables run into -->
+    <div v-if="showCableLayer && destinations.length" class="ce-legend">
       <button
-        v-for="key in presentCategories"
-        :key="key"
-        :class="['ce-legend-pill', { off: !isCatActive(key) }]"
-        @click="toggleCategory(key)"
+        v-for="d in destinations"
+        :key="d.id"
+        :class="['ce-legend-pill', { off: !isDestActive(d.id) }]"
+        @click="toggleDest(d.id)"
       >
-        <span class="ce-swatch" :style="{ background: CATEGORY_META[key].color }"></span>
-        {{ CATEGORY_META[key].label }}
+        <span class="ce-swatch" :style="{ background: d.color }"></span>
+        → {{ d.label }}
       </button>
     </div>
 
@@ -175,13 +175,12 @@ const props = defineProps({
 
 const emit = defineEmits(['node-updated'])
 
-// ── Run-type styling (line colours + filter legend) ──────────
-const CATEGORY_META = {
-  tail:   { label: 'Mic → box', color: '#3b82f6', width: 2 },
-  trunk:  { label: 'Box → rec', color: '#8b5cf6', width: 3.5 },
-  direct: { label: 'Mic → rec', color: '#f59e0b', width: 2 },
-  link:   { label: 'Box → box', color: '#64748b', width: 2 },
-  other:  { label: 'Other',     color: '#94a3b8', width: 1.5 },
+// ── Run styling ──────────────────────────────────────────────
+// Runs are coloured by the device they terminate at; multicore trunks
+// (transformer-originated) draw thicker than single tails.
+const DEST_PALETTE = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#14b8a6', '#ec4899', '#0ea5e9', '#a16207', '#64748b']
+function widthForRun(run) {
+  return run.fromKind === 'transformer' ? 3.5 : 2
 }
 
 // ── UI state ─────────────────────────────────────────────────
@@ -196,7 +195,7 @@ const displayUnit = ref('m')
 const slackPercent = ref(15) // extra % added to every run
 const roundStep = ref(5)     // round each run up to nearest N (display unit); 0 = exact
 const maxSingle = ref(20)    // longest single cable; longer runs split into pieces; 0 = don't split
-const activeCategories = ref(new Set(['tail', 'trunk', 'direct', 'link', 'other']))
+const hiddenDestinations = ref(new Set()) // destination node ids hidden from the layer
 
 const toast = useToast()
 const M_TO_FT = 3.280839895
@@ -315,7 +314,21 @@ const estimateRef = useCableEstimate({
 })
 const estimate = computed(() => estimateRef.value)
 
-const presentCategories = computed(() => Object.keys(estimate.value.totals.byCategory || {}))
+// Distinct destination devices among the runs, each with a stable colour.
+const destinations = computed(() => {
+  const seen = new Map()
+  for (const run of estimate.value.runs) {
+    if (!seen.has(run.toId)) seen.set(run.toId, run.toLabel)
+  }
+  const list = [...seen.entries()].map(([id, label]) => ({ id, label: label || 'Device' }))
+  list.sort((a, b) => String(a.label).localeCompare(String(b.label)))
+  return list.map((d, i) => ({ ...d, color: DEST_PALETTE[i % DEST_PALETTE.length] }))
+})
+const destColorById = computed(() => {
+  const m = {}
+  for (const d of destinations.value) m[d.id] = d.color
+  return m
+})
 const calibrationLabel = computed(() => {
   const n = cal.referenceCount.value
   if (!n) return ''
@@ -332,13 +345,13 @@ const draftScaleText = computed(() => {
   return n === 1 ? '1 reference' : `${n} references · ±${Math.round(info.spreadPct)}%`
 })
 
-function isCatActive(key) {
-  return activeCategories.value.has(key)
+function isDestActive(id) {
+  return !hiddenDestinations.value.has(id)
 }
-function toggleCategory(key) {
-  const next = new Set(activeCategories.value)
-  next.has(key) ? next.delete(key) : next.add(key)
-  activeCategories.value = next
+function toggleDest(id) {
+  const next = new Set(hiddenDestinations.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  hiddenDestinations.value = next
   redraw()
 }
 
@@ -365,15 +378,15 @@ function drawPill(ctx, text, x, y, { bg: bgCol = 'rgba(255,255,255,0.92)', fg = 
 function drawRuns(ctx) {
   const est = estimate.value
   for (const run of est.runs) {
-    if (!activeCategories.value.has(run.category)) continue
-    const style = CATEGORY_META[run.category] || CATEGORY_META.other
+    if (hiddenDestinations.value.has(run.toId)) continue
+    const color = destColorById.value[run.toId] || '#64748b'
     const pts = run.points.map(p => imageToCanvasCoords(p.x, p.y))
     // Polyline through any turning points.
     ctx.beginPath()
     ctx.moveTo(pts[0].x, pts[0].y)
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
-    ctx.strokeStyle = style.color
-    ctx.lineWidth = style.width
+    ctx.strokeStyle = color
+    ctx.lineWidth = widthForRun(run)
     ctx.stroke()
     // Length label at the polyline midpoint.
     if (showLengths.value && run.length != null) {
@@ -381,7 +394,7 @@ function drawRuns(ctx) {
       drawPill(ctx, `${round1(run.length)} ${est.unit}`, mid.x, mid.y)
     }
     // Turning-point handles.
-    for (let j = 1; j < pts.length - 1; j++) drawWaypointHandle(ctx, pts[j], style.color)
+    for (let j = 1; j < pts.length - 1; j++) drawWaypointHandle(ctx, pts[j], color)
   }
 }
 
@@ -679,7 +692,7 @@ function getWaypointAtCanvas(cx, cy) {
   if (!showCableLayer.value) return null
   const est = estimate.value
   for (const run of est.runs) {
-    if (!activeCategories.value.has(run.category)) continue
+    if (hiddenDestinations.value.has(run.toId)) continue
     for (let j = 1; j < run.points.length - 1; j++) {
       const p = imageToCanvasCoords(run.points[j].x, run.points[j].y)
       if (Math.hypot(p.x - cx, p.y - cy) <= 7) return { connId: run.connectionId, index: j - 1 }
@@ -692,7 +705,7 @@ function getCableSegmentAtCanvas(cx, cy) {
   if (!showCableLayer.value) return null
   const est = estimate.value
   for (const run of est.runs) {
-    if (!activeCategories.value.has(run.category)) continue
+    if (hiddenDestinations.value.has(run.toId)) continue
     const pts = run.points.map(p => imageToCanvasCoords(p.x, p.y))
     for (let i = 0; i < pts.length - 1; i++) {
       const proj = projectOnSegment(cx, cy, pts[i], pts[i + 1])
