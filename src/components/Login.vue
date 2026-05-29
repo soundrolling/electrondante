@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.48">
-        <span class="version-text">v2.3.48</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.49">
+        <span class="version-text">v2.3.49</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.48</h2>
+          <h2 id="changelog-title">What's New in 2.3.49</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🅿️ Travel: Parking Tab Now Works</h3>
+            <p>The <strong>Parking</strong> tab in a trip's details was opening to a <strong>blank panel</strong> — it now loads properly. Log <strong>where you parked</strong> per trip: airport, parking provider, start/end date &amp; time, cost, notes, and who it's for, plus optional <strong>car</strong> and <strong>receipt</strong> photos. Add, edit, and delete entries just like the other trip tabs.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>⭐ Contacts: Rate How Helpful Each Contact Is</h3>
             <p>Project contacts now carry a <strong>helpfulness rating</strong> — from <strong>Useless</strong> to <strong>Amazing</strong> — set from a contact's detail view and shown as a colour chip in the list. A rating <strong>follows the person</strong> across every project they appear in. Admins share one <strong>team rating</strong> per person; everyone else keeps their own <strong>private</strong> rating, and admin contacts aren't rated.</p>

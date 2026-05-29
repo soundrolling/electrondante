@@ -344,6 +344,7 @@ setup(props) {
   const showForm = ref(false);
   const editingParking = ref(null);
   const parkingEntries = ref([]);
+  const trips = ref([]);
   const carImagePreview = ref(null);
   const receiptImagePreview = ref(null);
   const selectedCarImageFile = ref(null);
@@ -433,17 +434,36 @@ setup(props) {
   }
 
   const isCurrentUserTripOwner = computed(() => {
-    if (!selectedTripId.value || !trips.value.length || !currentUserEmail.value) return false;
-    const trip = trips.value.find(t => t.id === selectedTripId.value);
+    if (!normalizedTripId.value || !trips.value.length || !currentUserEmail.value) return false;
+    const trip = trips.value.find(t => t.id === normalizedTripId.value);
     return !!trip && (trip.created_by || '').toLowerCase() === currentUserEmail.value;
   });
 
   const tripOwnerName = computed(() => {
-    if (!selectedTripId.value || !trips.value.length) return '';
-    const trip = trips.value.find(t => t.id === selectedTripId.value);
+    if (!normalizedTripId.value || !trips.value.length) return '';
+    const trip = trips.value.find(t => t.id === normalizedTripId.value);
     if (!trip?.created_by) return '';
     return getMemberName(trip.created_by);
   });
+
+  const loadTrips = async () => {
+    try {
+      const currentProjectId = userStore.currentProject?.id || normalizedProjectId.value;
+      if (!currentProjectId) {
+        console.error('No project ID available');
+        return;
+      }
+      const { data, error } = await supabase
+        .from('travel_trips')
+        .select('*')
+        .eq('project_id', currentProjectId)
+        .order('start_date', { ascending: true });
+      if (error) throw error;
+      trips.value = data || [];
+    } catch (err) {
+      console.error('Error loading trips:', err);
+    }
+  };
 
   const loadParking = async () => {
     isLoading.value = true;
@@ -872,6 +892,7 @@ setup(props) {
   onMounted(async () => {
     await checkUserRole();
     await fetchProjectMembers();
+    await loadTrips();
     loadParking();
   });
 
