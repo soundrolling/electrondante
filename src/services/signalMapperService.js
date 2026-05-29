@@ -310,6 +310,49 @@ export async function deleteConnection(id) {
   }
 }
 
+// --- Connection port maps (per-feed → input) ---
+// Each row maps one source output port (from_port) to one destination input
+// (to_port) for a connection. Unique on (connection_id, from_port).
+export async function getConnectionPortMaps(connectionId) {
+  if (!connectionId) return []
+  const { data, error } = await supabase
+    .from('connection_port_map')
+    .select('from_port, to_port')
+    .eq('connection_id', connectionId)
+  if (error) {
+    log.error('getConnectionPortMaps failed', error.message)
+    return []
+  }
+  return data || []
+}
+
+/**
+ * Replace ALL port maps for a connection with the given entries. The caller
+ * passes the full set of feed→input assignments it manages, so this is
+ * authoritative for that connection. entries: [{ from_port, to_port }] (to_port>0).
+ */
+export async function saveConnectionPortMaps(projectId, connectionId, entries) {
+  if (!connectionId) throw new Error('saveConnectionPortMaps: connectionId is required')
+  const { error: delErr } = await supabase
+    .from('connection_port_map')
+    .delete()
+    .eq('connection_id', connectionId)
+  if (delErr) throw delErr
+  const rows = (entries || [])
+    .filter(e => Number(e.to_port) > 0 && Number.isFinite(Number(e.from_port)))
+    .map(e => ({ project_id: projectId, connection_id: connectionId, from_port: Number(e.from_port), to_port: Number(e.to_port) }))
+  if (rows.length) {
+    const { error: insErr } = await supabase.from('connection_port_map').insert(rows)
+    if (insErr) throw insErr
+  }
+  if (projectId) {
+    invalidateTableCache('connections', projectId)
+    invalidateTableCache('graph', projectId)
+    invalidateTableCache('port_maps', projectId)
+  }
+  return rows.length
+}
+
 // --- Real-time Subscriptions ---
 export function subscribeToNodes(projectId, callback) {
   try {

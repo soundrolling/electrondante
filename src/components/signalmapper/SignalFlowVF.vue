@@ -193,6 +193,14 @@
             {{ t }}
           </button>
         </div>
+        <EdgePortMapPanel
+          v-if="edgePortMapEligible"
+          :connection="selectedEdgeData.raw"
+          :source-node="selectedEdgeData.fromNode"
+          :target-node="selectedEdgeData.toNode"
+          :project-id="projectId"
+          @changed="onEdgePortMapChanged"
+        />
         <button
           class="sfv-danger-btn"
           @click="deleteSelectedEdge"
@@ -396,6 +404,7 @@ import {
 } from '@/services/signalMapperService'
 import NodeInspector from '@/components/signalmapper/NodeInspector.vue'
 import VenueSourcesConfigModal from '@/components/signalmapper/VenueSourcesConfigModal.vue'
+import EdgePortMapPanel from '@/components/signalmapper/EdgePortMapPanel.vue'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -575,7 +584,20 @@ const selectedEdgeData = computed(() => {
     connection_type: raw?.connection_type || 'Mic',
     fromLabel: fromNode ? labelOf(fromNode) : 'Source',
     toLabel: toNode ? labelOf(toNode) : 'Destination',
+    raw,
+    fromNode,
+    toNode,
   }
+})
+// Show the per-feed → input mapping when a multi-feed source (venue source or
+// any node with >1 output) feeds a stagebox/recorder.
+const edgePortMapEligible = computed(() => {
+  const d = selectedEdgeData.value
+  if (!d || !d.raw || !d.fromNode || !d.toNode) return false
+  const srcType = (d.fromNode.gear_type || d.fromNode.node_type || d.fromNode.type || '').toLowerCase()
+  const tgtCat = categoryOf(d.toNode)
+  const multiFeed = srcType === 'venue_sources' || Number(d.fromNode.num_outputs || d.fromNode.outputs || 0) > 1
+  return multiFeed && (tgtCat === 'transformer' || tgtCat === 'recorder')
 })
 
 /* ─── Node inspector state ─────────────────────────────── */
@@ -739,6 +761,12 @@ async function onEdgesChange(changes) {
       }
     }
   }
+}
+
+function onEdgePortMapChanged() {
+  // Port maps changed for this connection — nudge the parent to refresh paths.
+  const raw = selectedEdge.value?.data?.raw
+  if (raw) emit('connection-updated', raw)
 }
 
 async function setEdgeType(newType) {

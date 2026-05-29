@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.43">
-        <span class="version-text">v2.3.43</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.44">
+        <span class="version-text">v2.3.44</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.43</h2>
+          <h2 id="changelog-title">What's New in 2.3.44</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔧 Signal Flow: Map Venue Feeds to Stagebox Inputs</h3>
+            <p>Click a venue source → stagebox (or recorder) connection and you can now map <strong>each feed to its own input</strong> right there — stereo sources list <strong>L and R as separate rows</strong>, so a stereo feed lands on two inputs instead of counting as one source. The same per-feed list is also available in the destination node's Map tab.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔧 Signal Flow: Forward a Recorder to a Backup</h3>
             <p>Recorders can now be dragged as a <strong>source</strong>, so you can link a main recorder to a backup (e.g. Scorpio → BU) in the correct direction — the arrow now points <em>into</em> the backup and it detects the forwarded inputs. Previously recorders were receive-only, so the link formed backwards and the backup saw nothing.</p>
