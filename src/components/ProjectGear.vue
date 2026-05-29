@@ -1585,7 +1585,7 @@ setup(props) {
 .accessories-section {
   margin-top: 40px;
   padding-top: 24px;
-  border-top: 2px solid #e9ecef;
+  border-top: 2px solid var(--border-light);
 }
 
 /* Filter Section */
@@ -1680,7 +1680,7 @@ setup(props) {
 .skeleton-header,
 .skeleton-filter,
 .skeleton-gear {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -1758,7 +1758,7 @@ setup(props) {
   padding: 12px 16px;
   background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 /* Gear Cards */
@@ -1932,7 +1932,7 @@ setup(props) {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid #f1f3f4;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .detail-row:last-child {
@@ -2015,7 +2015,7 @@ setup(props) {
   justify-content: space-between;
   align-items: center;
   padding: 24px 24px 20px 24px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .modal-title {

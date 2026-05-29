@@ -1502,7 +1502,7 @@ setup() {
   padding: 12px 16px; /* align with standardized header density */
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .header-content {
@@ -1612,7 +1612,7 @@ setup() {
 .venues-stages-section {
   margin-bottom: 24px;
   background: var(--bg-primary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -1631,7 +1631,7 @@ setup() {
   gap: 8px;
   padding: 12px 16px;
   background: var(--bg-secondary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
@@ -1678,7 +1678,7 @@ setup() {
 .search-input {
   width: 100%;
   padding: 12px 16px 12px 48px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   font-size: 16px;
   background: var(--bg-primary);
@@ -1700,7 +1700,7 @@ setup() {
 
 .stage-card {
   background: var(--bg-primary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   padding: 20px;
   transition: all 0.2s ease;
@@ -1734,7 +1734,7 @@ setup() {
   justify-content: center;
   padding: 8px;
   background: var(--bg-secondary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1764,7 +1764,7 @@ setup() {
 }
 
 .venue-name {
-  color: #495057;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
@@ -1811,7 +1811,7 @@ setup() {
   padding: 16px;
   background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .availability-info {
@@ -1930,7 +1930,7 @@ setup() {
   gap: 6px;
   padding: 10px 12px;
   background: var(--bg-primary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
@@ -1996,7 +1996,7 @@ setup() {
   gap: 8px;
   padding: 12px 16px;
   background: var(--bg-primary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
@@ -2031,7 +2031,7 @@ setup() {
   justify-content: center;
   padding: 16px 12px;
   background: var(--bg-primary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2158,7 +2158,7 @@ setup() {
   justify-content: space-between;
   align-items: center;
   padding: 24px 28px 20px 28px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
   background: var(--bg-secondary);
   border-radius: 16px 16px 0 0;
 }
@@ -2194,7 +2194,7 @@ setup() {
 .modal-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
   background: var(--bg-primary);
   padding: 0 8px;
 }
@@ -2260,7 +2260,7 @@ setup() {
 .form-input {
   width: 100%;
   padding: 16px 20px;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   font-size: 16px;
   background: var(--bg-primary);
@@ -2279,7 +2279,7 @@ setup() {
 .form-select {
   width: 100%;
   padding: 16px 20px;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   font-size: 16px;
   background: var(--bg-primary);
@@ -2337,13 +2337,13 @@ setup() {
 
 .btn-secondary {
   background: var(--bg-secondary);
-  color: #1a1a1a !important;
-  border: 2px solid #e9ecef;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-light);
 }
 
 .btn-secondary:hover {
   background: var(--bg-tertiary);
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
   border-color: var(--color-primary-500);
 }
 
@@ -2374,12 +2374,12 @@ setup() {
   text-align: left;
   font-weight: 600;
   color: var(--text-primary);
-  border-bottom: 2px solid #e9ecef;
+  border-bottom: 2px solid var(--border-light);
 }
 
 .hours-table td {
   padding: 12px 16px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-light);
   color: var(--text-primary);
 }
 
@@ -2399,7 +2399,7 @@ setup() {
   justify-content: center;
   padding: 8px;
   background: var(--bg-secondary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2453,19 +2453,19 @@ setup() {
 /* Add New Slot Button - Dark Text */
 .primary-button.add-slot-button {
   background: var(--bg-secondary);
-  color: #1a1a1a !important;
-  border: 2px solid #e9ecef;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-light);
 }
 
 .primary-button.add-slot-button:hover {
   background: var(--bg-tertiary);
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
   border-color: var(--color-primary-500);
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
 }
 
 .primary-button.add-slot-button:active {
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
 }
 
 /* Save Button - Green Background */
@@ -2492,8 +2492,8 @@ setup() {
   gap: 8px;
   padding: 12px 20px;
   background: var(--bg-secondary);
-  color: #1a1a1a !important;
-  border: 2px solid #e9ecef;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border-light);
   border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
@@ -2506,13 +2506,13 @@ setup() {
 
 .secondary-button:hover {
   background: var(--bg-tertiary);
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
   border-color: var(--color-primary-500);
   transform: translateY(-1px);
 }
 
 .secondary-button:active {
-  color: #1a1a1a !important;
+  color: var(--text-primary) !important;
   transform: scale(0.98);
 }
 
@@ -2554,7 +2554,7 @@ setup() {
   padding: 24px;
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .venue-selection .form-label {
@@ -2575,7 +2575,7 @@ setup() {
   padding: 24px;
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .stages-list {
@@ -2591,7 +2591,7 @@ setup() {
   gap: 16px;
   padding: 20px;
   background: var(--bg-primary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   transition: all 0.2s ease;
 }
@@ -2613,7 +2613,7 @@ setup() {
   justify-content: center;
   padding: 8px;
   background: var(--bg-primary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2649,7 +2649,7 @@ setup() {
   justify-content: center;
   padding: 8px;
   background: var(--bg-primary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2678,7 +2678,7 @@ setup() {
 .add-stage {
   padding: 24px;
   background: var(--bg-primary);
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--border-light);
   border-radius: 12px;
   margin-top: 16px;
 }
@@ -2705,7 +2705,7 @@ setup() {
   padding: 24px;
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
 }
 
 .venue-details .form-grid {

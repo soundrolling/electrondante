@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.52">
-        <span class="version-text">v2.3.52</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.53">
+        <span class="version-text">v2.3.53</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.52</h2>
+          <h2 id="changelog-title">What's New in 2.3.53</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🌗 Dark Mode: Polish Across the App</h3>
+            <p>Fixed a batch of <strong>dark mode</strong> glitches across the app. The <strong>Map</strong> page (including the add/edit-pin dialog), <strong>Schedule</strong>, <strong>Locations</strong>, <strong>Contacts</strong>, <strong>Gear</strong>, your <strong>Profile</strong>, and the <strong>Travel</strong> tabs (Weather, Parking, Documents, Flights, Accommodation, Packing) all had spots where text went invisible, panels stayed glaring white, or borders glowed too bright in dark mode. Everything now follows your light/dark theme properly.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>💱 Expenses: Rough Conversion to Your Currency</h3>
             <p>Expenses in another currency now show an <strong>approximate equivalent in your currency</strong> right underneath — so a <strong>€100</strong> dinner reads <em>≈ £86</em> at a glance if your default is GBP. Each trip also gets an <strong>approximate total</strong> in your currency (even when expenses are mixed across currencies), and the add/edit form shows a live <em>≈</em> hint as you type. Rates refresh daily and fall back to bundled estimates offline — they're a guide, not an exact accounting figure.</p>

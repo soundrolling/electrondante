@@ -2288,7 +2288,7 @@ setup(props) {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid var(--border-medium);
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 500;

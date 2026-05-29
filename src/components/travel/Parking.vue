@@ -957,7 +957,7 @@ setup(props) {
   padding: 24px 16px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .header-section h1 {
@@ -981,7 +981,7 @@ setup(props) {
   border-radius: 12px;
   padding: 24px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .readonly-banner {
@@ -1080,7 +1080,7 @@ setup(props) {
 
 .skeleton-item {
   height: 100px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -1098,7 +1098,7 @@ setup(props) {
   color: var(--text-secondary);
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed var(--border-light);
 }
 
 .empty-icon {
@@ -1122,7 +1122,7 @@ setup(props) {
 /* Parking Form Container */
 .parking-form-container {
   background: var(--bg-secondary);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   padding: 24px 20px;
   border-radius: 12px;
   margin-bottom: 24px;
@@ -1155,7 +1155,7 @@ setup(props) {
 .form-textarea {
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
@@ -1174,7 +1174,7 @@ setup(props) {
 .form-select {
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
@@ -1212,7 +1212,7 @@ setup(props) {
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--border-medium);
   border-radius: 8px;
   background: var(--bg-secondary);
   color: var(--text-secondary);
@@ -1241,7 +1241,7 @@ setup(props) {
   margin: 0 auto;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .image-preview img {
@@ -1309,13 +1309,13 @@ setup(props) {
   padding: 16px;
   background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -1423,7 +1423,7 @@ setup(props) {
 }
 
 .loading-spinner-small {
-  border: 2px solid #f3f4f6;
+  border: 2px solid var(--border-light);
   border-top: 2px solid #10b981;
   border-radius: 50%;
   width: 16px;
@@ -1447,13 +1447,13 @@ setup(props) {
   background: var(--bg-secondary);
   border-radius: 12px;
   padding: 20px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   transition: all 0.2s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .parking-card:hover {
-  background: #f3f4f6;
+  background: var(--bg-tertiary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
@@ -1478,7 +1478,7 @@ setup(props) {
 .parking-provider {
   font-size: 14px;
   color: var(--text-secondary);
-  background: #e5e7eb;
+  background: var(--bg-tertiary);
   padding: 4px 8px;
   border-radius: 6px;
   font-weight: 500;
@@ -1499,7 +1499,7 @@ setup(props) {
   width: 100%;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .image-label {
@@ -1510,7 +1510,7 @@ setup(props) {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .parking-image {
@@ -1570,7 +1570,7 @@ setup(props) {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   color: var(--text-secondary);
   background: var(--bg-secondary);
   min-height: 44px;

@@ -129,7 +129,7 @@
               <div 
                 v-for="(assignment, index) in assignments" 
                 :key="assignment.key"
-                style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: start; padding: 12px; background: var(--bg-secondary); border: 1px solid #e9ecef; border-radius: 8px;"
+                style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: start; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 8px;"
               >
                 <div>
                   <select 
@@ -176,11 +176,11 @@
               </div>
             </div>
             
-            <div v-if="assignments.length === 0" style="text-align: center; padding: 16px; color: var(--text-secondary); font-size: 14px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid #e9ecef;">
+            <div v-if="assignments.length === 0" style="text-align: center; padding: 16px; color: var(--text-secondary); font-size: 14px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-light);">
               No assignments yet. Click "Add Stage" to assign gear to a stage.
             </div>
             
-            <div v-if="assignments.length > 0" style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid #e9ecef;">
+            <div v-if="assignments.length > 0" style="margin-top: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-light);">
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
                 <span style="color: var(--text-secondary); font-size: 14px;">
                   Total: {{ form.gearAmount }}

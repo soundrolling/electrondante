@@ -1410,7 +1410,7 @@ export default {
 
 .document-description {
   font-size: 14px;
-  color: #4b5563;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -1424,7 +1424,7 @@ export default {
 
 .document-type {
   font-size: 14px;
-  color: #4b5563;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 

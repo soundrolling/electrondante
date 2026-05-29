@@ -2448,7 +2448,7 @@ color: currentColor;
 
 .contact-location {
   font-size: 0.8rem;
-  color: #000000;
+  color: var(--text-primary);
   margin-top: 2px;
 }
 

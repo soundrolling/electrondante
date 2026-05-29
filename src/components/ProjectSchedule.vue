@@ -634,10 +634,10 @@ if (selectedLocationId.value) fetchSchedulesByLocation(selectedLocationId.value)
 
 <style scoped>
 .project-schedule {
---bg-light:      #f9fafd;
---text-dark:     #1f2937;
---text-med:      #6c7a92;
---border:        #dce0e8;
+--bg-light:      var(--bg-primary);
+--text-dark:     var(--text-primary);
+--text-med:      var(--text-secondary);
+--border:        var(--border-light);
 --accent:        #1890ff;
 --accent2:       #4a6cf7;
 --accent2-dark:  #3b5bd0;
@@ -954,12 +954,12 @@ to { transform: rotate(360deg); }
 .label-modern {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #4a5677;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 .input-modern {
   padding: 9px 10px;
-  border: 1.5px solid #e3e7ef;
+  border: 1.5px solid var(--border-light);
   border-radius: 8px;
   font-size: 0.98rem;
   background: var(--bg-primary);
@@ -978,8 +978,8 @@ to { transform: rotate(360deg); }
 .nav-btn-modern {
   width: 32px;
   height: 32px;
-  background: #f4f6fa;
-  border: 1.5px solid #e3e7ef;
+  background: var(--bg-tertiary);
+  border: 1.5px solid var(--border-light);
   border-radius: 8px;
   font-size: 1.2rem;
   color: #4a6cf7;
@@ -997,7 +997,7 @@ to { transform: rotate(360deg); }
   min-width: 120px;
   text-align: center;
   font-weight: 700;
-  color: #222b45;
+  color: var(--text-primary);
   font-size: 1.08rem;
 }
 .collapsible-form-modern {

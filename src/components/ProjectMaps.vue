@@ -774,7 +774,7 @@ export default {
 .breadcrumb-item {
   background: none;
   border: none;
-  color: var(--primary, #3b82f6);
+  color: var(--color-primary-600);
   cursor: pointer;
   padding: 0;
   font-size: 0.9rem;
@@ -794,10 +794,10 @@ export default {
 
 .tab-switcher {
   display: inline-flex;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--surface, #fff);
+  background: var(--surface-card);
 }
 .tab-btn {
   background: transparent;
@@ -808,7 +808,7 @@ export default {
   color: var(--text-secondary, #6b7280);
 }
 .tab-btn.active {
-  background: var(--primary, #3b82f6);
+  background: var(--color-primary-600);
   color: #fff;
 }
 
@@ -823,8 +823,8 @@ export default {
 }
 
 .side-panel {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
   border-radius: 10px;
   padding: 0.75rem;
   display: flex;
@@ -887,11 +887,11 @@ export default {
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
 }
 .side-item:hover { background: var(--surface-hover, #f9fafb); }
-.side-item.active { background: #eff6ff; border-color: #3b82f6; }
+.side-item.active { background: var(--chip-bg-active); border-color: #3b82f6; }
 .side-item-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .pin-list-wrap { margin-top: 0.5rem; }
@@ -903,9 +903,9 @@ export default {
   gap: 0.5rem;
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--surface-border);
   font-size: 0.875rem;
-  background: var(--surface, #fff);
+  background: var(--surface-card);
   cursor: pointer;
 }
 .pin-row:hover { background: var(--surface-hover, #f9fafb); }
@@ -927,7 +927,7 @@ export default {
   color: var(--text-secondary, #6b7280);
   border-radius: 4px;
 }
-.icon-btn:hover { background: rgba(0,0,0,0.05); color: #111827; }
+.icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
 .icon-btn.danger:hover { background: #fee2e2; color: #b91c1c; }
 
 .search-row {
@@ -938,22 +938,24 @@ export default {
 .search-input {
   flex: 1;
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--surface-border);
   border-radius: 6px;
   font-size: 0.875rem;
+  background: var(--surface-card);
+  color: var(--text-primary);
 }
 .search-result {
   font-size: 0.78rem;
   color: var(--text-secondary, #6b7280);
   padding: 0.4rem 0.5rem;
-  background: #f9fafb;
+  background: var(--surface-card-muted);
   border-radius: 6px;
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed var(--surface-border);
 }
 
 .map-stage {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
   border-radius: 10px;
   overflow: hidden;
   position: relative;
@@ -985,7 +987,8 @@ export default {
   z-index: 9999;
 }
 .modal-content {
-  background: #fff;
+  background: var(--surface-card);
+  color: var(--text-primary);
   border-radius: 10px;
   min-width: 360px;
   max-width: 460px;
@@ -995,7 +998,7 @@ export default {
 }
 .modal-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--surface-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1020,10 +1023,12 @@ export default {
 .form-field label { font-size: 0.8rem; color: var(--text-secondary, #6b7280); font-weight: 500; }
 .form-field input, .form-field textarea {
   padding: 0.5rem 0.65rem;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--surface-border);
   border-radius: 6px;
   font-size: 0.9rem;
   font-family: inherit;
+  background: var(--surface-card);
+  color: var(--text-primary);
 }
 .color-field { gap: 0.35rem; }
 .color-swatches { display: flex; flex-wrap: wrap; gap: 0.3rem; }
@@ -1038,7 +1043,7 @@ export default {
 .color-swatch.active { border-color: #111827; }
 .modal-footer {
   padding: 0.75rem 1rem;
-  border-top: 1px solid var(--border, #e5e7eb);
+  border-top: 1px solid var(--surface-border);
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;

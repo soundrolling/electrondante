@@ -310,7 +310,7 @@ clearInterval(clockTimer)
   border-radius: 12px;
   padding: 32px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   transition: all 0.2s ease;
 }
 
@@ -344,7 +344,7 @@ clearInterval(clockTimer)
 .dest-input {
   width: 100%;
   padding: 14px 18px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
@@ -372,7 +372,7 @@ clearInterval(clockTimer)
   left: 0;
   right: 0;
   background: var(--bg-primary);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 200px;
@@ -387,7 +387,7 @@ clearInterval(clockTimer)
   padding: 12px 16px;
   cursor: pointer;
   transition: background 0.2s ease;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border-light);
   font-size: 16px;
   line-height: 1.4;
   color: var(--text-secondary);
@@ -506,7 +506,7 @@ clearInterval(clockTimer)
 .favorites-select {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-medium);
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.5;
@@ -598,7 +598,7 @@ clearInterval(clockTimer)
 
 .skeleton-item {
   height: 60px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
   border-radius: 8px;
@@ -674,9 +674,9 @@ clearInterval(clockTimer)
 .current-weather {
   text-align: center;
   padding: 28px 20px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
 }
 
 .weather-location {
@@ -770,9 +770,9 @@ clearInterval(clockTimer)
 .forecast-day {
   text-align: center;
   padding: 16px 12px;
-  background: #f9fafb;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-light);
   transition: all 0.2s ease;
 }
 

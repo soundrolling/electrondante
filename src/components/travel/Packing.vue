@@ -340,7 +340,7 @@ onMounted(async () => {
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #e9ecef;
+  border: 4px solid var(--border-light);
   border-top: 4px solid #0066cc;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -364,7 +364,7 @@ onMounted(async () => {
 
 .bag-card {
   background: var(--bg-primary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -458,7 +458,7 @@ onMounted(async () => {
 
 .item-card {
   background: var(--bg-secondary);
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
   padding: 12px;
 }

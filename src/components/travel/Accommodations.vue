@@ -1118,9 +1118,9 @@ setup(props) {
 
 .member-selector-empty {
   padding: 12px;
-  background: #fef3c7;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--border-light);
 }
 
 .form-input,

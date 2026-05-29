@@ -2985,9 +2985,9 @@ async function saveSecurity() {
 }
 
 .contacts-error {
-  background: var(--color-danger-50, #fef2f2);
-  color: var(--color-danger-700, #b91c1c);
-  border: 1px solid var(--color-danger-200, #fecaca);
+  background: var(--color-error-50, #fef2f2);
+  color: var(--color-error-700, #b91c1c);
+  border: 1px solid var(--color-error-200, #fecaca);
   padding: 0.5rem 0.75rem;
   border-radius: 0.4rem;
   margin: 0.5rem 0;
@@ -3117,7 +3117,7 @@ async function saveSecurity() {
 }
 
 .owners-summary.owners-over {
-  color: var(--color-danger-700, #b91c1c);
+  color: var(--color-error-700, #b91c1c);
   font-weight: 600;
 }
 
