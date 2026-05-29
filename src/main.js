@@ -3,14 +3,10 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
-import '@fortawesome/fontawesome-free/css/all.css';
-
-// VueFlow imports
-import { VueFlow } from '@vue-flow/core';
-import '@vue-flow/core/dist/style.css';
-import '@vue-flow/core/dist/theme-default.css';
-import '@vue-flow/controls/dist/style.css';
 import './index.css';
+// VueFlow (component + styles) is imported locally by SignalFlowVF.vue, the
+// only consumer — keeping it out of the entry chunk so it loads lazily with
+// the signal-mapper route instead of on first paint.
 
 import Toast, { POSITION } from 'vue-toastification';
 import 'vue-toastification/dist/index.css';
@@ -52,9 +48,6 @@ async function bootstrap() {
   // Initialize i18n store early so the first paint uses the correct language
   const i18nStore = useI18nStore(pinia);
   i18nStore.initialize();
-
-  // ← register the named export here
-  app.use(VueFlow);
 
   app.use(Toast, {
     position: POSITION.TOP_RIGHT,

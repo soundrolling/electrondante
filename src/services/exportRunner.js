@@ -4,7 +4,6 @@
 // surfaces (stages, docs, pictures, gear, contacts, travel, calendar,
 // notes, schedules), builds a ZIP, and optionally persists it through
 // exportHistory.saveExport so it appears in the Data Management exports list.
-import JSZip from 'jszip';
 import { supabase } from '../supabase';
 import { fetchTableData } from './dataService';
 import { useToast } from 'vue-toastification';
@@ -23,6 +22,9 @@ const toast = useToast();
  * @returns {Promise<Blob>} ZIP file blob
  */
 export async function exportProjectData(projectId, selections, options = {}) {
+  // Loaded on demand so jszip stays out of the initial bundle (only needed
+  // when a user actually runs a full export).
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   const { onProgress } = options;
   let totalSteps = 0;

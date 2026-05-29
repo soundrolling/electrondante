@@ -140,10 +140,10 @@
               </td>
               <td class="col-path">
                 <div class="tl-path-flow">
-                  <template v-for="(node, index) in reversedPath(path.path)" :key="index">
+                  <template v-for="(node, index) in path.revPath" :key="index">
                     <span class="tl-path-node">{{ node }}</span>
                     <ChevronRight
-                      v-if="index < reversedPath(path.path).length - 1"
+                      v-if="index < path.revPath.length - 1"
                       :size="12"
                       :stroke-width="2"
                       class="tl-path-arrow"
@@ -195,7 +195,7 @@
             <span v-else class="tl-track-name tl-card-source">{{ path.track_name || path.source_label || '—' }}</span>
             <div v-if="path.source_gear_name" class="tl-source-gear">{{ path.source_gear_name }}</div>
             <div class="tl-path-flow tl-card-path">
-              <template v-for="(node, index) in reversedPath(path.path)" :key="'cp'+index">
+              <template v-for="(node, index) in path.revPath" :key="'cp'+index">
                 <span class="tl-path-node">{{ node }}</span>
                 <ChevronRight
                   v-if="index < reversedPath(path.path).length - 1"
@@ -513,7 +513,9 @@ const groupedByRecorder = computed(() => {
     if (!groups[recorderName]) {
       groups[recorderName] = []
     }
-    groups[recorderName].push(path)
+    // Precompute the reversed path once here instead of allocating it on every
+    // render (it was being rebuilt up to 4x per row in the template).
+    groups[recorderName].push({ ...path, revPath: reversedPath(path.path) })
   })
 
   // Sort each group by track number using smart sorting

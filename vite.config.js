@@ -95,17 +95,27 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
           manualChunks: {
-            supabase: ['@supabase/supabase-js', '@supabase/auth-ui-react'],
-            flow:     ['@vue-flow/core', '@vue-flow/controls'],
+            supabase: ['@supabase/supabase-js'],
+            // @vue-flow/core is intentionally NOT forced into a named chunk:
+            // its only consumer (SignalFlowVF.vue) is lazy-loaded, and a forced
+            // chunk was being modulepreloaded on first paint. Letting Vite emit
+            // it via the dynamic-import graph keeps it off the initial load.
             // pdf libs (jspdf, jspdf-autotable, pdfjs-dist) are dynamically
             // imported in the handlers that need them (improvement #3) — let
             // Vite produce on-demand chunks via the dynamic import graph
             // rather than forcing a named chunk, which previously pinned
             // Vite's __vitePreload helper inside the pdf chunk and caused
             // it to be modulepreloaded on initial page load.
-            icons:    ['lucide-vue-next', '@fortawesome/fontawesome-free'],
+            //
+            // jszip is likewise dynamically imported in exportRunner.js, so it
+            // no longer needs a forced chunk (it was previously being
+            // modulepreloaded on first paint despite only being used on export).
+            // lucide-vue-next is intentionally NOT forced into one chunk:
+            // doing so pulled every icon used in any lazy route into a single
+            // always-eager chunk. Letting Vite distribute it keeps the
+            // always-visible icons (Header/Footer) in the entry and route-only
+            // icons in their lazy chunks.
             dateutil: ['date-fns'],
-            zip:      ['jszip'],
             crypto:   ['crypto-js'],
             audio:    ['opus-decoder']
           }

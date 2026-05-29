@@ -1,8 +1,9 @@
 // Password hashing and validation utilities
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 
 const SALT_ROUNDS = 10;
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Hash a password
@@ -58,7 +59,9 @@ function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars like 0, O, I, 1
   let code = '';
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    // crypto.randomInt is uniform and unpredictable (Math.random is neither,
+    // and these codes gate room access).
+    code += chars.charAt(crypto.randomInt(chars.length));
   }
   return code;
 }

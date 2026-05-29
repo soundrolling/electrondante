@@ -1,7 +1,24 @@
 // JWT token generation and validation utilities
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production-use-strong-random-secret';
+// Every access / refresh / room token is signed with this secret. If it is
+// missing — or still set to the old hardcoded default that lived in this repo —
+// anyone can forge a `type:'room'` token and bypass room-password auth. So we
+// refuse to boot rather than run with a known/empty signing key.
+const INSECURE_DEFAULTS = new Set([
+  'change-me-in-production-use-strong-random-secret',
+]);
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET || INSECURE_DEFAULTS.has(JWT_SECRET) || JWT_SECRET.length < 32) {
+  console.error(
+    '[FATAL] JWT_SECRET is missing, too short, or still using the insecure default.\n' +
+    '        Set a strong JWT_SECRET (>= 32 chars of high-entropy randomness) in the\n' +
+    '        environment before starting the bridge-server. Generate one with:\n' +
+    '          node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'base64\'))"'
+  );
+  process.exit(1);
+}
 const ACCESS_TOKEN_EXPIRY = '15m'; // 15 minutes
 const REFRESH_TOKEN_EXPIRY = '7d'; // 7 days
 const ROOM_TOKEN_EXPIRY = '24h'; // 24 hours

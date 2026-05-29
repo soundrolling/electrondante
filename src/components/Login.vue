@@ -9,9 +9,9 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.33">
-        <span class="version-text">v2.3.33</span>
-        <span class="version-date">May 27th 2026</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.34">
+        <span class="version-text">v2.3.34</span>
+        <span class="version-date">May 29th 2026</span>
       </button>
     </div>
 
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.33</h2>
+          <h2 id="changelog-title">What's New in 2.3.34</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>⚡ Faster Startup + Bridge-Server Security Hardening</h3>
+            <p>Slimmed the initial download by dropping unused libraries (including a stray UI framework that was being bundled for nothing) and loading heavy pieces — the Signal Flow diagram engine and ZIP export — only when they're actually opened, so the first screen loads noticeably lighter. The Dante bridge-server also got a security pass: connection origins are now matched exactly instead of by loose substring, room codes use cryptographically-secure randomness, and the server requires a strong signing secret to start. Signal Flow's track-list rendering and venue-source label lookups are faster on large recorder setups too.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>📄 Documents: Cross-Platform PDF Preview + Editable Descriptions</h3>
             <p>The document preview modal now uses a PDF.js–based canvas renderer instead of an iframe, so PDFs preview consistently in Chrome, Safari, Firefox, iPad, and Android — not just desktop Chrome. The viewer has zoom in/out, fit-to-width, and a page count, with all pages rendered as scrollable canvases. The preview modal is also bigger now (900×85vh) so floor plans and mic sheets actually fit. Print falls back to opening the original PDF in a new tab where the browser's native viewer handles it. On the All Documents page, each card now has a ✏️ pencil to edit the description inline (Save / Cancel) — same pattern as Stage Documents.</p>

@@ -383,7 +383,29 @@ export async function getSourceNodes(projectId, locationId = null, stageHourId =
 
 // Centralized function to get source label from a node
 // Always prioritizes output_port_labels (most reliable) and handles mono/stereo correctly
-export async function getSourceLabelFromNode(node, outputPort) {
+// Load all venue_source_feeds rows for a node. When a Map is supplied it acts
+// as a request-scoped cache so the rows are fetched once per node for a whole
+// signal-path build instead of once per (port, call) — removing the N+1 that
+// getCompleteSignalPath previously triggered per hop per track.
+async function loadVenueSourceFeeds(nodeId, feedsCache = null) {
+  if (feedsCache && feedsCache.has(nodeId)) {
+    return feedsCache.get(nodeId)
+  }
+  const { data, error } = await supabase
+    .from('venue_source_feeds')
+    .select('*')
+    .eq('node_id', nodeId)
+  if (error) {
+    log.error('Error querying venue_source_feeds:', error)
+    if (feedsCache) feedsCache.set(nodeId, [])
+    return []
+  }
+  const feeds = data || []
+  if (feedsCache) feedsCache.set(nodeId, feeds)
+  return feeds
+}
+
+export async function getSourceLabelFromNode(node, outputPort, feedsCache = null) {
   if (!node) return null
   
   const nodeType = (node.gear_type || node.type || '').toLowerCase()
@@ -398,45 +420,34 @@ export async function getSourceLabelFromNode(node, outputPort) {
       if (storedLabel) return storedLabel
     }
     
-    // Fallback: Query venue_source_feeds table to resolve port number to source label
+    // Fallback: resolve via venue_source_feeds. Load ALL feeds for this node in
+    // a single (optionally cached) query and resolve port + stereo in memory,
+    // rather than issuing 1-2 queries on every call.
     try {
-      const { data: feeds, error } = await supabase
-        .from('venue_source_feeds')
-        .select('*')
-        .eq('node_id', node.id)
-        .eq('port_number', portNum)
-        .maybeSingle()
-      
-      if (error) {
-        log.error('Error querying venue_source_feeds:', error)
-        return null
-      }
-      
-      if (feeds) {
+      const allFeeds = await loadVenueSourceFeeds(node.id, feedsCache)
+      const feed = allFeeds.find(f => Number(f.port_number) === portNum)
+
+      if (feed) {
         // Prioritize output_port_label if it exists (e.g., "DJA L", "Program 1")
-        if (feeds.output_port_label) {
-          return feeds.output_port_label
+        if (feed.output_port_label) {
+          return feed.output_port_label
         }
-        
+
         // Fallback: construct label from source_type and feed_identifier
-        const sourceTypeName = feeds.source_type.charAt(0).toUpperCase() + feeds.source_type.slice(1).replace(/_/g, ' ')
-        if (feeds.channel === 2) {
-          return `${sourceTypeName} ${feeds.feed_identifier} R`
+        const sourceTypeName = feed.source_type.charAt(0).toUpperCase() + feed.source_type.slice(1).replace(/_/g, ' ')
+        if (feed.channel === 2) {
+          return `${sourceTypeName} ${feed.feed_identifier} R`
         } else {
-          // Check if stereo (has channel 2)
-          const { data: stereoCheck } = await supabase
-            .from('venue_source_feeds')
-            .select('id')
-            .eq('node_id', node.id)
-            .eq('source_type', feeds.source_type)
-            .eq('feed_identifier', feeds.feed_identifier)
-            .eq('channel', 2)
-            .maybeSingle()
-          
-          if (stereoCheck) {
-            return `${sourceTypeName} ${feeds.feed_identifier} L`
+          // Check if stereo (a matching channel-2 feed exists for this source)
+          const hasStereoPair = allFeeds.some(f =>
+            f.source_type === feed.source_type &&
+            f.feed_identifier === feed.feed_identifier &&
+            f.channel === 2
+          )
+          if (hasStereoPair) {
+            return `${sourceTypeName} ${feed.feed_identifier} L`
           }
-          return `${sourceTypeName} ${feeds.feed_identifier}`
+          return `${sourceTypeName} ${feed.feed_identifier}`
         }
       }
     } catch (err) {
@@ -713,6 +724,10 @@ export async function getCompleteSignalPath(projectId, locationId = null, stageH
   nodes.forEach(node => {
     nodeMap[node.id] = node
   })
+
+  // Request-scoped cache: fetch each venue_sources node's feeds once for the
+  // whole path build instead of once per hop per track.
+  const feedsCache = new Map()
   
   // Fetch gear data for nodes that have gear_id
   const gearIds = nodes.filter(n => n.gear_id).map(n => n.gear_id)
@@ -818,7 +833,7 @@ export async function getCompleteSignalPath(projectId, locationId = null, stageH
       }
 
       // Build human labels: Recorder Track -> each intermediate node with its input number -> Source
-      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = await resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum, childConnsByFromNode)
+      const { labels, finalSourceNode, finalSourceLabel, sourceOutputPort } = await resolveUpstreamPath(conn.from_node_id, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNum, childConnsByFromNode, feedsCache)
 
       // For uniqueness, key off recorder + track + source node id + source output port
       // This ensures L and R from the same source are treated as separate paths
@@ -864,7 +879,7 @@ export async function getCompleteSignalPath(projectId, locationId = null, stageH
   return signalPaths
 }
 
-async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber, childConnsByFromNode = {}) {
+async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConnsByToNode, mapsByConnId, connections, recorder, recorderTrackNumber, childConnsByFromNode = {}, feedsCache = null) {
   const labels = []
   // Use recorderTrackNumber if provided (for direct port-mapped connections), otherwise use startInput
   const trackLabel = (recorderTrackNumber !== undefined && recorderTrackNumber !== null) 
@@ -886,7 +901,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
     if (node.gear_type === 'source' || node.node_type === 'source') {
       // Use centralized helper function - ensures consistent label retrieval
       // currentInput should represent the source output port (1=L, 2=R for stereo)
-      const sourceName = await getSourceLabelFromNode(node, currentInput)
+      const sourceName = await getSourceLabelFromNode(node, currentInput, feedsCache)
       if (sourceName) {
         labels.push(sourceName)
         finalSourceNode = node
@@ -904,7 +919,7 @@ async function resolveUpstreamPath(startNodeId, startInput, nodeMap, parentConns
     // Handle venue_sources node type
     if (node.gear_type === 'venue_sources' || node.type === 'venue_sources') {
       // Use centralized helper function for venue sources
-      const sourceName = await getSourceLabelFromNode(node, currentInput)
+      const sourceName = await getSourceLabelFromNode(node, currentInput, feedsCache)
       if (sourceName) {
         labels.push(sourceName)
         finalSourceNode = node

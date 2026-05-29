@@ -55,6 +55,47 @@ try {
   console.warn('Server will continue without Supabase authentication');
 }
 
+// ---------------------------------------------------------------------------
+// CORS / WebSocket origin allowlist
+//
+// Browsers always send an Origin header, so any browser origin that is not
+// explicitly allowed is rejected. Native clients (the Electron broadcaster,
+// CLI tools) send no Origin — those are allowed through here and gated by
+// per-message token auth instead. Matching is done on the parsed hostname,
+// never substring, so "soundrolling.com.attacker.net" and "evil-vercel.app"
+// cannot slip past. Add extra origins without a code change via
+// ALLOWED_ORIGINS (comma-separated full origins, e.g.
+// "https://app.soundrolling.com").
+// ---------------------------------------------------------------------------
+const EXTRA_ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return false;
+  let url;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+  if (EXTRA_ALLOWED_ORIGINS.has(origin)) return true;
+
+  const host = url.hostname;
+  // Production domain (apex + any subdomain)
+  if (host === 'soundrolling.com' || host.endsWith('.soundrolling.com')) return true;
+  // Vercel deployments — exact ".vercel.app" suffix on the hostname
+  if (host.endsWith('.vercel.app')) return true;
+  // Local development (any port)
+  if (host === 'localhost' || host === '127.0.0.1') return true;
+
+  return false;
+}
+
 /**
  * Verify a user (identified by their Supabase access token) is allowed to
  * access a given project — either they own it, or they're in project_members.
@@ -227,14 +268,11 @@ class DanteBridgeServer {
     
     this.rooms.set(roomId, room);
     this.metrics.totalRoomsCreated++;
-    
-    // Hash password asynchronously
-    hashPassword(password).then((hash) => {
-      room.passwordHash = hash;
-    }).catch((error) => {
-      console.error(`Error hashing password for room ${roomId}:`, error);
-    });
-    
+
+    // room.passwordHash was already set synchronously above (we await
+    // hashPassword before registering the room), so the room is immediately
+    // joinable with a valid hash. No second async hash — that race was what
+    // forced the setTimeout() wait in /auth/room/join.
     console.log(`✅ Room created: ${roomId} by user ${broadcasterUserId}`);
     return { roomId, roomCode };
   }
@@ -686,8 +724,16 @@ class DanteBridgeServer {
         clientTracking: true,
         maxPayload: 10 * 1024 * 1024, // 10MB max payload (for large audio batches)
         verifyClient: (info) => {
-          console.log(`🔍 WebSocket upgrade request from: ${info.origin || 'no origin'}`);
-          return true; // Accept all connections
+          const origin = info.origin;
+          // Native clients (Electron broadcaster, CLI) send no Origin and are
+          // allowed through — they're gated by per-message token auth. Browsers
+          // always send Origin, so reject any that isn't allowlisted.
+          if (origin && !isAllowedOrigin(origin)) {
+            console.warn(`🚫 Rejected WebSocket upgrade from disallowed origin: ${origin}`);
+            return false;
+          }
+          console.log(`🔍 WebSocket upgrade request from: ${origin || 'no origin (native client)'}`);
+          return true;
         },
       });
       console.log(`✅ WebSocket server attached to HTTP server on port ${CONFIG.port}`);
@@ -698,12 +744,13 @@ class DanteBridgeServer {
       });
       
       this.wss.on('headers', (headers, req) => {
-        // Add CORS headers for WebSocket upgrade
+        // Only reflect the origin back when it is on the allowlist; otherwise
+        // omit the CORS headers entirely.
         const origin = req.headers.origin;
-        if (origin) {
+        if (origin && isAllowedOrigin(origin)) {
           headers.push(`Access-Control-Allow-Origin: ${origin}`);
+          headers.push('Access-Control-Allow-Credentials: true');
         }
-        headers.push('Access-Control-Allow-Credentials: true');
       });
     } catch (error) {
       console.error('❌ Failed to initialize WebSocket server:', error);
@@ -1691,14 +1738,10 @@ class DanteBridgeServer {
     // CORS middleware for Railway/cloud deployment
     app.use((req, res, next) => {
       const origin = req.headers.origin;
-      // Allow requests from Vercel and localhost
-      if (origin && (
-        origin.includes('vercel.app') || 
-        origin.includes('soundrolling.com') ||
-        origin.includes('localhost') || 
-        origin.includes('127.0.0.1')
-      )) {
+      // Exact-hostname allowlist (see isAllowedOrigin) — no substring matching.
+      if (isAllowedOrigin(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
       }
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -1948,16 +1991,14 @@ class DanteBridgeServer {
           return res.status(400).json({ error: 'Room is not available' });
         }
         
-        // Verify password
+        // Legacy rooms always have a hash set before they become joinable
+        // (createRoom awaits hashPassword before registering the room), so a
+        // missing hash means this isn't a password-protected room (e.g. a
+        // project-scoped room, which must be joined via the project path).
         if (!room.passwordHash) {
-          // Password hasn't been hashed yet, wait a bit
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          return res.status(400).json({ error: 'Room is not password-protected' });
         }
-        
-        if (!room.passwordHash) {
-          return res.status(500).json({ error: 'Room password not ready' });
-        }
-        
+
         const passwordValid = await verifyPassword(password, room.passwordHash);
         
         if (!passwordValid) {
@@ -1984,15 +2025,28 @@ class DanteBridgeServer {
       }
     });
     
-    // GET /metrics - Server metrics endpoint
-    // Public rooms endpoint
-    app.get('/api/rooms/public', (req, res) => {
+    // GET /api/rooms/public - list joinable, explicitly-public legacy rooms.
+    // Requires authentication (room codes are join credentials, so we don't
+    // hand them out anonymously), and never exposes project-scoped rooms,
+    // whose ids contain the project UUID.
+    app.get('/api/rooms/public', createRateLimit({ windowMs: 60 * 1000, maxRequests: 30 }), async (req, res) => {
       try {
+        const accessToken = extractTokenFromHeader(req.headers.authorization);
+        if (!accessToken) {
+          return res.status(401).json({ success: false, error: 'Authentication required' });
+        }
+        try {
+          await validateAuthToken(accessToken);
+        } catch (e) {
+          return res.status(401).json({ success: false, error: 'Invalid token' });
+        }
+
         const publicRooms = [];
-        
         for (const [roomId, room] of this.rooms.entries()) {
-          // Only include active rooms (not suspended or closed)
-          if (room.state === 'active' && room.metadata) {
+          // Never expose project-scoped rooms (their id is `project:<uuid>`).
+          if (typeof roomId === 'string' && roomId.startsWith('project:')) continue;
+          // Only active rooms that opted in to being public.
+          if (room.state === 'active' && room.metadata && room.metadata.public === true) {
             publicRooms.push({
               code: roomId,
               name: room.metadata.name || `Room ${roomId}`,
@@ -2002,7 +2056,7 @@ class DanteBridgeServer {
             });
           }
         }
-        
+
         res.json({
           success: true,
           rooms: publicRooms,
