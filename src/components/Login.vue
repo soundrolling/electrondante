@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.39">
-        <span class="version-text">v2.3.39</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.40">
+        <span class="version-text">v2.3.40</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.39</h2>
+          <h2 id="changelog-title">What's New in 2.3.40</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Multi-Point Calibration</h3>
+            <p>Calibration now takes <strong>multiple reference measurements</strong> — draw several known distances and the scale is <strong>averaged across them</strong>, so an imperfect floor plan doesn't hinge on one line. While calibrating, add as many references as you like (double-click a line to remove one), then hit Done. The scale chip shows how many references there are and how much they disagree (e.g. "3 references · ±4%"), flagging an inaccurate plan. Existing single-reference calibrations still work.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Exact Lengths + Slack % / Round-Up Settings</h3>
             <p>The node editor now shows the <strong>exact</strong> run length to each next point alongside the rounded "order" length (e.g. <em>27.4 m → 30 m</em>). A new settings panel (⚙ in the Cabling toolbar) lets you set an <strong>extra slack %</strong> added to every run and a <strong>round-up step</strong> — XLRs typically come in 5 m sections, so it defaults to rounding each run up to the nearest 5 m. Set the step to 0 to keep exact lengths. The bill of materials notes the slack/rounding in effect, and the settings are saved per stage.</p>

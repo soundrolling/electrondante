@@ -15,23 +15,28 @@
     <!-- Toolbar -->
     <div class="ce-toolbar">
       <div class="ce-toolbar-group">
-        <button
-          v-if="!cal.isCalibrating.value"
-          class="ce-btn ce-btn-primary"
-          @click="cal.startCalibration()"
-        >
-          <Ruler :size="15" :stroke-width="2" />
-          {{ cal.isCalibrated.value ? 'Re-calibrate' : 'Calibrate scale' }}
-        </button>
-        <button v-else class="ce-btn ce-btn-secondary" @click="cal.cancelCalibration()">
-          Cancel calibration
-        </button>
-
-        <span v-if="cal.isCalibrated.value && !cal.isCalibrating.value" class="ce-scale-chip" :class="{ stale: cal.isStale.value }">
-          <CheckCircle2 v-if="!cal.isStale.value" :size="13" :stroke-width="2.5" />
-          <AlertTriangle v-else :size="13" :stroke-width="2.5" />
-          {{ cal.isStale.value ? 'Scale may be stale — floor plan changed' : `Scale: ${calibrationLabel}` }}
-        </span>
+        <template v-if="cal.isCalibrating.value">
+          <button
+            class="ce-btn ce-btn-primary"
+            :disabled="cal.draftRefs.value.length === 0 || cal.saving.value"
+            @click="onFinishCalibration"
+          >
+            {{ cal.saving.value ? 'Saving…' : `Done (${cal.draftRefs.value.length})` }}
+          </button>
+          <button class="ce-btn ce-btn-secondary" @click="cal.cancelCalibration()">Cancel</button>
+          <span class="ce-scale-chip">{{ draftScaleText }}</span>
+        </template>
+        <template v-else>
+          <button class="ce-btn ce-btn-primary" @click="cal.startCalibration()">
+            <Ruler :size="15" :stroke-width="2" />
+            {{ cal.isCalibrated.value ? 'Re-calibrate' : 'Calibrate scale' }}
+          </button>
+          <span v-if="cal.isCalibrated.value" class="ce-scale-chip" :class="{ stale: cal.isStale.value }">
+            <CheckCircle2 v-if="!cal.isStale.value" :size="13" :stroke-width="2.5" />
+            <AlertTriangle v-else :size="13" :stroke-width="2.5" />
+            {{ cal.isStale.value ? 'Scale may be stale — floor plan changed' : `Scale: ${calibrationLabel}` }}
+          </span>
+        </template>
       </div>
 
       <div class="ce-toolbar-group ce-toolbar-right">
@@ -107,7 +112,7 @@
         No floor plan for this stage yet. Upload one in the <strong>Mic Placement</strong> tab first.
       </div>
       <div v-else-if="cal.isCalibrating.value" class="ce-overlay-msg ce-hint">
-        {{ cal.draftP1.value ? 'Click the second point of a known distance' : 'Click the first point of a known distance' }}
+        {{ cal.draftP1.value ? 'Click the second point' : 'Click two points of a known distance — add several, then Done · double-click a line to remove' }}
       </div>
     </div>
 
@@ -121,7 +126,7 @@
       :busy="cal.saving.value"
       :default-unit="displayUnit"
       @confirm="onConfirmCalibration"
-      @cancel="cal.cancelCalibration()"
+      @cancel="cal.cancelPoint()"
     />
 
     <CableNodeModal
@@ -151,7 +156,7 @@ import { useMicBackgroundImage } from '@/composables/micPlacement/useMicBackgrou
 import { useMicCanvasView } from '@/composables/micPlacement/useMicCanvasView'
 import { useCableCalibration } from '@/composables/cableEstimate/useCableCalibration'
 import { useCableLayout } from '@/composables/cableEstimate/useCableLayout'
-import { useCableEstimate, nodeKind, hasPosition, heightMetres, effectivePosition } from '@/composables/cableEstimate/useCableEstimate'
+import { useCableEstimate, nodeKind, hasPosition, heightMetres, effectivePosition, deriveScale } from '@/composables/cableEstimate/useCableEstimate'
 import { setNodeHeight } from '@/services/cableEstimateService'
 
 const props = defineProps({
@@ -303,8 +308,19 @@ const estimate = computed(() => estimateRef.value)
 
 const presentCategories = computed(() => Object.keys(estimate.value.totals.byCategory || {}))
 const calibrationLabel = computed(() => {
-  const c = cal.calibration.value
-  return c ? `${c.realLength} ${c.unit} reference` : ''
+  const n = cal.referenceCount.value
+  if (!n) return ''
+  if (n === 1) {
+    const r = cal.savedRefs.value[0]
+    return `${r.realLength} ${r.unit || 'm'} reference`
+  }
+  return `${n} references · ±${Math.round(estimate.value.scaleSpreadPct || 0)}%`
+})
+const draftScaleText = computed(() => {
+  const info = deriveScale({ refs: cal.draftRefs.value }, imageNaturalSize.value)
+  if (!info.referenceCount) return 'Draw a known distance'
+  const n = info.referenceCount
+  return n === 1 ? '1 reference' : `${n} references · ±${Math.round(info.spreadPct)}%`
 })
 
 function isCatActive(key) {
@@ -450,22 +466,11 @@ function labelOf(node) {
 }
 
 function drawCalibration(ctx) {
-  const c = cal.calibration.value
-  // Saved reference line (subtle dashed teal).
-  if (!cal.isCalibrating.value && c?.p1 && c?.p2 && Number(c.realLength) > 0) {
-    const a = imageToCanvasCoords(c.p1.x, c.p1.y)
-    const b = imageToCanvasCoords(c.p2.x, c.p2.y)
-    ctx.save()
-    ctx.strokeStyle = '#14b8a6'
-    ctx.lineWidth = 1.5
-    ctx.setLineDash([6, 4])
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
-    ctx.setLineDash([])
-    drawCalEndpoint(ctx, a); drawCalEndpoint(ctx, b)
-    drawPill(ctx, `${c.realLength} ${c.unit}`, (a.x + b.x) / 2, (a.y + b.y) / 2, { bg: '#14b8a6', fg: '#fff' })
-    ctx.restore()
-  }
-  // In-progress line while calibrating.
+  // Saved references (when idle) or the in-progress drafts (while calibrating).
+  const refs = cal.isCalibrating.value ? cal.draftRefs.value : savedRefsForDraw()
+  for (const r of refs) drawRefLine(ctx, r)
+
+  // The line currently being drawn.
   if (cal.isCalibrating.value && cal.draftP1.value) {
     const a = imageToCanvasCoords(cal.draftP1.value.x, cal.draftP1.value.y)
     const endPt = cal.draftP2.value || cursorImg.value
@@ -480,6 +485,31 @@ function drawCalibration(ctx) {
     drawCalEndpoint(ctx, a)
     ctx.restore()
   }
+}
+
+function drawRefLine(ctx, r) {
+  if (!r?.p1 || !r?.p2) return
+  const a = imageToCanvasCoords(r.p1.x, r.p1.y)
+  const b = imageToCanvasCoords(r.p2.x, r.p2.y)
+  ctx.save()
+  ctx.strokeStyle = '#14b8a6'
+  ctx.lineWidth = 1.5
+  ctx.setLineDash([6, 4])
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+  ctx.setLineDash([])
+  drawCalEndpoint(ctx, a); drawCalEndpoint(ctx, b)
+  if (Number(r.realLength) > 0) {
+    drawPill(ctx, `${r.realLength} ${r.unit || 'm'}`, (a.x + b.x) / 2, (a.y + b.y) / 2, { bg: '#14b8a6', fg: '#fff' })
+  }
+  ctx.restore()
+}
+
+function savedRefsForDraw() {
+  const c = cal.calibration.value
+  if (!c) return []
+  if (Array.isArray(c.refs)) return c.refs
+  if (c.p1 && c.p2) return [{ p1: c.p1, p2: c.p2, realLength: c.realLength, unit: c.unit }]
+  return []
 }
 
 function drawCalEndpoint(ctx, p) {
@@ -610,11 +640,29 @@ function onPointerUp(e) {
 
 function onDblClick(e) {
   const cc = getCanvasCoords(e)
+  // While calibrating, double-click removes a reference line.
+  if (cal.isCalibrating.value) {
+    const idx = getDraftRefAtCanvas(cc.x, cc.y)
+    if (idx != null) { cal.removeDraftRef(idx); nextTick(redraw) }
+    return
+  }
   const wp = getWaypointAtCanvas(cc.x, cc.y)
   if (wp) {
     cableLayout.removeWaypoint(wp.connId, wp.index)
     nextTick(redraw)
   }
+}
+
+function getDraftRefAtCanvas(cx, cy) {
+  const refs = cal.draftRefs.value
+  for (let i = refs.length - 1; i >= 0; i--) {
+    const r = refs[i]
+    if (!r?.p1 || !r?.p2) continue
+    const a = imageToCanvasCoords(r.p1.x, r.p1.y)
+    const b = imageToCanvasCoords(r.p2.x, r.p2.y)
+    if (projectOnSegment(cx, cy, a, b).dist <= 6) return i
+  }
+  return null
 }
 
 // Hit-tests (canvas px). onPointerDown order: waypoint → node → segment.
@@ -676,9 +724,15 @@ function onResetLayout() {
   nextTick(redraw)
 }
 
-async function onConfirmCalibration(length, unit) {
-  await cal.confirm(length, unit)
+function onConfirmCalibration(length, unit) {
+  cal.addReference(length, unit)
   displayUnit.value = unit
+  redraw()
+}
+
+async function onFinishCalibration() {
+  const saved = await cal.finish()
+  if (saved?.unit) displayUnit.value = saved.unit
   redraw()
 }
 

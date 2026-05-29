@@ -76,6 +76,35 @@ export function effectivePosition(node, layout) {
   return { x: Number(node?.x), y: Number(node?.y) }
 }
 
+/**
+ * Combine one or more calibration reference lines into a single
+ * metres-per-pixel scale, averaging across references so an imperfect floor
+ * plan doesn't hinge on a single measurement. Backward-compatible with the old
+ * single-reference shape { p1, p2, realLength, unit }.
+ * @returns {{ metresPerPixel: number|null, referenceCount: number, spreadPct: number }}
+ */
+export function deriveScale(calibration, imageNaturalSize) {
+  const W = imageNaturalSize?.width
+  const H = imageNaturalSize?.height
+  if (!calibration || !W || !H) return { metresPerPixel: null, referenceCount: 0, spreadPct: 0 }
+  const refs = Array.isArray(calibration.refs) && calibration.refs.length
+    ? calibration.refs
+    : (calibration.p1 && calibration.p2
+      ? [{ p1: calibration.p1, p2: calibration.p2, realLength: calibration.realLength, unit: calibration.unit }]
+      : [])
+  const mpps = []
+  for (const r of refs) {
+    if (!r?.p1 || !r?.p2 || !(Number(r.realLength) > 0)) continue
+    const px = Math.hypot((r.p2.x - r.p1.x) * W, (r.p2.y - r.p1.y) * H)
+    if (px <= 0) continue
+    mpps.push(toMetres(Number(r.realLength), r.unit === 'ft' ? 'ft' : 'm') / px)
+  }
+  if (!mpps.length) return { metresPerPixel: null, referenceCount: 0, spreadPct: 0 }
+  const mean = mpps.reduce((a, b) => a + b, 0) / mpps.length
+  const spreadPct = mean > 0 ? ((Math.max(...mpps) - Math.min(...mpps)) / mean) * 100 : 0
+  return { metresPerPixel: mean, referenceCount: mpps.length, spreadPct }
+}
+
 export function labelOf(node) {
   if (!node) return 'Unknown'
   return node.track_name || node.label || node.gear_name || `Node ${node.id}`
@@ -123,25 +152,8 @@ export function computeCableEstimate({
 
   // Derive scale (display-unit per pixel) from the calibration line. Needs the
   // image's natural size so the anisotropic x/y fractions resolve to real px.
-  let metresPerPixel = null
-  let calibrated = false
-  if (
-    calibration?.p1 && calibration?.p2 &&
-    Number(calibration.realLength) > 0 &&
-    imageNaturalSize?.width && imageNaturalSize?.height
-  ) {
-    const W = imageNaturalSize.width
-    const H = imageNaturalSize.height
-    const calPx = Math.hypot(
-      (calibration.p2.x - calibration.p1.x) * W,
-      (calibration.p2.y - calibration.p1.y) * H,
-    )
-    if (calPx > 0) {
-      const realMetres = toMetres(Number(calibration.realLength), calibration.unit === 'ft' ? 'ft' : 'm')
-      metresPerPixel = realMetres / calPx
-      calibrated = true
-    }
-  }
+  const { metresPerPixel, referenceCount, spreadPct } = deriveScale(calibration, imageNaturalSize)
+  const calibrated = metresPerPixel != null
 
   function pixelLength(a, b) {
     const W = imageNaturalSize?.width ?? 1
@@ -275,6 +287,8 @@ export function computeCableEstimate({
   return {
     unit,
     calibrated,
+    referenceCount,
+    scaleSpreadPct: spreadPct,
     slackFactor: opts.slackFactor,
     roundStep: opts.roundStep,
     metresPerPixel,

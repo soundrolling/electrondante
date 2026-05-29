@@ -287,3 +287,27 @@ describe('computeCableEstimate — cabling layout (overrides + waypoints)', () =
     expect(est.totals.byCableType.XLR.length).toBeCloseTo(10, 6)
   })
 })
+
+describe('computeCableEstimate — multiple calibration references', () => {
+  const nodes = [n('mic', 'source', 0, 0), n('box', 'transformer', 0.5, 0)] // 1000 px horizontal
+
+  it('averages references and reports the spread', () => {
+    const calibration = {
+      refs: [
+        { p1: { x: 0, y: 0.5 }, p2: { x: 0.5, y: 0.5 }, realLength: 10, unit: 'm' }, // 0.0100 m/px
+        { p1: { x: 0, y: 0.6 }, p2: { x: 0.5, y: 0.6 }, realLength: 11, unit: 'm' }, // 0.0110 m/px
+      ],
+    }
+    const est = computeCableEstimate({ nodes, connections: [conn('c', 'mic', 'box')], calibration, imageNaturalSize: IMG, options: EXACT })
+    expect(est.calibrated).toBe(true)
+    expect(est.referenceCount).toBe(2)
+    expect(est.runs[0].length).toBeCloseTo(10.5, 6) // 1000 px × mean 0.0105
+    expect(est.scaleSpreadPct).toBeGreaterThan(9) // ~9.5% disagreement
+  })
+
+  it('still accepts the legacy single-reference shape', () => {
+    const est = computeCableEstimate({ nodes, connections: [conn('c', 'mic', 'box')], calibration: CAL, imageNaturalSize: IMG, options: EXACT })
+    expect(est.referenceCount).toBe(1)
+    expect(est.runs[0].length).toBeCloseTo(10, 6)
+  })
+})

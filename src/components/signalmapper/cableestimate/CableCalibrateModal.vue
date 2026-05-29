@@ -7,13 +7,13 @@
   <div v-if="show" class="modal-overlay" @click="$emit('cancel')">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>Set the real length</h3>
+        <h3>Reference length</h3>
         <button class="close-btn" @click="$emit('cancel')">×</button>
       </div>
       <div class="modal-body">
         <p class="field-hint">
-          You drew a reference line on the floor plan. Enter how long that line is in real life —
-          every cable run is then measured from this scale.
+          Enter how long this line is in real life. Add as many references as you like —
+          the scale is averaged across them, so an imperfect plan doesn't hinge on one measurement.
         </p>
         <div class="length-row">
           <div class="form-field grow">
@@ -51,7 +51,7 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" @click="$emit('cancel')">Cancel</button>
         <button class="btn btn-primary" :disabled="busy || !isValid" @click="confirm">
-          {{ busy ? 'Saving…' : 'Save scale' }}
+          {{ busy ? 'Saving…' : 'Add reference' }}
         </button>
       </div>
     </div>
