@@ -23,18 +23,12 @@ import { computed, unref } from 'vue'
 // Standard multicore / sub-snake channel counts, ascending.
 export const STANDARD_MULTICORE = [4, 8, 12, 16, 24, 32, 48]
 
-// Stock cable lengths to round billed runs up to, per display unit.
-export const STOCK_LENGTHS = {
-  m: [2, 5, 10, 15, 20, 30, 50, 75, 100],
-  ft: [5, 10, 25, 50, 75, 100, 150, 200, 300],
-}
-
 const M_TO_FT = 3.280839895
 
 const DEFAULT_OPTIONS = {
-  slackFactor: 1.15,   // real cable doesn't run diagonally — add slack
-  roundUpToStock: true, // round each run up to the nearest stock length
-  displayUnit: 'm',     // 'm' | 'ft'
+  slackFactor: 1.15,  // extra-slack multiplier (1.15 = +15%)
+  roundStep: 5,       // round each run UP to the nearest multiple (display unit); 0 = off
+  displayUnit: 'm',   // 'm' | 'ft'
 }
 
 function toMetres(value, unit) {
@@ -95,15 +89,6 @@ export function nearestMulticore(channels) {
   }
   const max = STANDARD_MULTICORE[STANDARD_MULTICORE.length - 1]
   return Math.ceil(channels / max) * max
-}
-
-function roundUpToStock(value, unit) {
-  const stock = STOCK_LENGTHS[unit] || STOCK_LENGTHS.m
-  for (const len of stock) {
-    if (value <= len) return len
-  }
-  const max = stock[stock.length - 1]
-  return Math.ceil(value / max) * max
 }
 
 function categoryFor(fromKind, toKind) {
@@ -206,7 +191,7 @@ export function computeCableEstimate({
     const rawLength = totalMetres != null ? fromMetres(totalMetres, unit) : null
     const slackLength = rawLength != null ? rawLength * opts.slackFactor : null
     const length = slackLength != null
-      ? (opts.roundUpToStock ? roundUpToStock(slackLength, unit) : slackLength)
+      ? (opts.roundStep > 0 ? Math.ceil(slackLength / opts.roundStep) * opts.roundStep : slackLength)
       : null
     const fromKind = nodeKind(from)
     const toKind = nodeKind(to)
@@ -290,6 +275,8 @@ export function computeCableEstimate({
   return {
     unit,
     calibrated,
+    slackFactor: opts.slackFactor,
+    roundStep: opts.roundStep,
     metresPerPixel,
     runs,
     stageboxes,

@@ -60,7 +60,21 @@
         </div>
 
         <button class="ce-icon-btn" title="Reset cabling layout (positions + turning points)" @click="onResetLayout"><RotateCcw :size="15" /></button>
+        <button class="ce-icon-btn" :class="{ active: showSettings }" title="Cable length settings (slack % + rounding)" @click="showSettings = !showSettings"><Settings :size="15" /></button>
       </div>
+    </div>
+
+    <!-- Length settings -->
+    <div v-if="showSettings" class="ce-settings">
+      <label class="ce-setting">
+        <span>Extra slack</span>
+        <span class="ce-setting-input"><input type="number" min="0" step="1" v-model.number="slackPercent" /> %</span>
+      </label>
+      <label class="ce-setting">
+        <span>Round up to nearest</span>
+        <span class="ce-setting-input"><input type="number" min="0" step="1" v-model.number="roundStep" /> {{ displayUnit }}</span>
+      </label>
+      <span class="ce-setting-hint">Applied to every run: exact × (1 + %), then rounded up. Set round to 0 to keep exact.</span>
     </div>
 
     <!-- Category filter / legend (only categories actually present) -->
@@ -125,7 +139,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { Ruler, CheckCircle2, AlertTriangle, Plus, Minus, Maximize, RotateCcw } from 'lucide-vue-next'
+import { Ruler, CheckCircle2, AlertTriangle, Plus, Minus, Maximize, RotateCcw, Settings } from 'lucide-vue-next'
 
 import { useToast } from 'vue-toastification'
 
@@ -168,7 +182,10 @@ const isMobile = ref(false)
 const showCableLayer = ref(true)
 const showLengths = ref(true)
 const showLabels = ref(true)
+const showSettings = ref(false)
 const displayUnit = ref('m')
+const slackPercent = ref(15) // extra % added to every run
+const roundStep = ref(5)     // round each run up to nearest N (display unit); 0 = exact
 const activeCategories = ref(new Set(['tail', 'trunk', 'direct', 'link', 'other']))
 
 const toast = useToast()
@@ -198,10 +215,17 @@ const nodeTargetCables = computed(() => {
     .filter(c => c.from_node_id === node.id)
     .map(c => {
       const run = runByConn[c.id]
+      const u = estimate.value.unit
       let lengthText
-      if (run && run.length != null) lengthText = `≈ ${round1(run.length)} ${estimate.value.unit}`
-      else if (run) lengthText = 'calibrate for length'
-      else lengthText = 'destination not on plan'
+      if (run && run.length != null) {
+        const exact = round1(run.rawLength)
+        const order = round1(run.length)
+        lengthText = exact === order ? `≈ ${exact} ${u}` : `${exact} ${u} → ${order} ${u}`
+      } else if (run) {
+        lengthText = 'calibrate for length'
+      } else {
+        lengthText = 'destination not on plan'
+      }
       return {
         connId: c.id,
         destLabel: labelOf(byId[c.to_node_id]) || 'Next point',
@@ -260,7 +284,11 @@ const effPos = (node) => effectivePosition(node, layout.value)
 const imageNaturalSize = computed(() =>
   bgImageObj.value ? { width: bgImageObj.value.width, height: bgImageObj.value.height } : null,
 )
-const options = computed(() => ({ slackFactor: 1.15, roundUpToStock: true, displayUnit: displayUnit.value }))
+const options = computed(() => ({
+  slackFactor: 1 + (Number(slackPercent.value) || 0) / 100,
+  roundStep: Number(roundStep.value) || 0,
+  displayUnit: displayUnit.value,
+}))
 
 // 4. The estimate (recomputes on nodes/connections/calibration/scale/options)
 const estimateRef = useCableEstimate({
@@ -702,6 +730,9 @@ function checkScreenSize() {
 async function loadStage() {
   await Promise.all([cal.load(), cableLayout.load()])
   if (cal.calibration.value?.unit) displayUnit.value = cal.calibration.value.unit
+  const s = cableLayout.getSettings()
+  if (Number.isFinite(Number(s.slackPercent))) slackPercent.value = Number(s.slackPercent)
+  if (Number.isFinite(Number(s.roundStep))) roundStep.value = Number(s.roundStep)
   await loadImageState() // triggers redraw on image load
   nextTick(redraw)
 }
@@ -730,6 +761,10 @@ watch(() => props.locationId, () => { loadStage() })
 // Redraw on any data / display change.
 watch(estimate, () => nextTick(redraw))
 watch([showCableLayer, showLengths, showLabels, displayUnit], () => nextTick(redraw))
+watch([slackPercent, roundStep], () => {
+  cableLayout.setSettings({ slackPercent: Number(slackPercent.value) || 0, roundStep: Number(roundStep.value) || 0 })
+  nextTick(redraw)
+})
 </script>
 
 <style scoped>
@@ -784,6 +819,20 @@ watch([showCableLayer, showLengths, showLabels, displayUnit], () => nextTick(red
   color: var(--text-secondary); cursor: pointer;
 }
 .ce-icon-btn:hover { background: var(--bg-secondary); }
+.ce-icon-btn.active { background: var(--color-primary-500); color: #fff; border-color: var(--color-primary-600); }
+
+.ce-settings {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 10px 12px; border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md); background: var(--bg-secondary);
+}
+.ce-setting { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.ce-setting-input { display: inline-flex; align-items: center; gap: 4px; color: var(--text-primary); }
+.ce-setting-input input {
+  width: 64px; padding: 6px 8px; border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md); background: var(--surface-card); color: var(--text-primary);
+}
+.ce-setting-hint { font-size: 11px; color: var(--text-tertiary); flex-basis: 100%; }
 
 .ce-legend { display: flex; flex-wrap: wrap; gap: 6px; }
 .ce-legend-pill {

@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.38">
-        <span class="version-text">v2.3.38</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.39">
+        <span class="version-text">v2.3.39</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.38</h2>
+          <h2 id="changelog-title">What's New in 2.3.39</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Exact Lengths + Slack % / Round-Up Settings</h3>
+            <p>The node editor now shows the <strong>exact</strong> run length to each next point alongside the rounded "order" length (e.g. <em>27.4 m → 30 m</em>). A new settings panel (⚙ in the Cabling toolbar) lets you set an <strong>extra slack %</strong> added to every run and a <strong>round-up step</strong> — XLRs typically come in 5 m sections, so it defaults to rounding each run up to the nearest 5 m. Set the step to 0 to keep exact lengths. The bill of materials notes the slack/rounding in effect, and the settings are saved per stage.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Run Length in the Node Editor</h3>
             <p>Clicking a node now shows the estimated cable length to each next connection point, right beside its cable-type field (e.g. <em>≈ 12.5 m</em> → Shure ANI4IN), so you can see the run length without scanning the bill of materials. Shows "calibrate for length" until a scale is set, or "destination not on plan" if the far end hasn't been placed yet.</p>

@@ -15,7 +15,7 @@ const IMG = { width: 2000, height: 1000 }
 const CAL = { p1: { x: 0, y: 0.5 }, p2: { x: 0.5, y: 0.5 }, realLength: 10, unit: 'm' }
 
 // Exact-metres options: no slack, no rounding.
-const EXACT = { slackFactor: 1, roundUpToStock: false, displayUnit: 'm' }
+const EXACT = { slackFactor: 1, roundStep: 0, displayUnit: 'm' }
 
 function n(id, kind, x, y, extra = {}) {
   return { id, gear_type: kind, x, y, label: `${kind}-${id}`, ...extra }
@@ -146,18 +146,31 @@ describe('computeCableEstimate — edge cases', () => {
     expect(est.stageboxes[0].suggestedMulticore).toBe(4) // grouping still works
   })
 
-  it('applies slack and rounds up to stock lengths', () => {
+  it('applies slack then rounds up to the nearest step', () => {
     const nodes = [n('mic', 'source', 0, 0), n('box', 'transformer', 0.5, 0)] // raw 10 m
     const est = computeCableEstimate({
       nodes,
       connections: [conn('c', 'mic', 'box')],
       calibration: CAL,
       imageNaturalSize: IMG,
-      options: { slackFactor: 1.15, roundUpToStock: true, displayUnit: 'm' },
+      options: { slackFactor: 1.15, roundStep: 5, displayUnit: 'm' },
     })
-    // 10 m * 1.15 = 11.5 m -> next stock length (15 m)
+    // 10 m * 1.15 = 11.5 m -> ceil to nearest 5 m = 15 m
     expect(est.runs[0].rawLength).toBeCloseTo(10, 6)
     expect(est.runs[0].length).toBe(15)
+  })
+
+  it('rounds up to a custom step (e.g. 2 m)', () => {
+    const nodes = [n('mic', 'source', 0, 0), n('box', 'transformer', 0.5, 0)] // raw 10 m
+    const est = computeCableEstimate({
+      nodes,
+      connections: [conn('c', 'mic', 'box')],
+      calibration: CAL,
+      imageNaturalSize: IMG,
+      options: { slackFactor: 1, roundStep: 2, displayUnit: 'm' },
+    })
+    // 10 m -> ceil to nearest 2 m = 10 m (already a multiple); 10.1 would be 12
+    expect(est.runs[0].length).toBe(10)
   })
 
   it('converts lengths to feet when displayUnit is ft', () => {
@@ -167,7 +180,7 @@ describe('computeCableEstimate — edge cases', () => {
       connections: [conn('c', 'mic', 'box')],
       calibration: CAL,
       imageNaturalSize: IMG,
-      options: { slackFactor: 1, roundUpToStock: false, displayUnit: 'ft' },
+      options: { slackFactor: 1, roundStep: 0, displayUnit: 'ft' },
     })
     expect(est.unit).toBe('ft')
     expect(est.runs[0].length).toBeCloseTo(32.8084, 3)

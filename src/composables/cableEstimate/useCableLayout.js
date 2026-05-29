@@ -118,9 +118,19 @@ export function useCableLayout({ getLocationId }) {
     scheduleSave()
   }
 
-  /** Clear ALL overrides + waypoints for this stage. */
+  // ── Length settings (slack % + round step), per stage ────────
+  function getSettings() {
+    return layout.value.settings || {}
+  }
+  function setSettings(partial) {
+    layout.value.settings = { ...(layout.value.settings || {}), ...partial }
+    scheduleSave()
+  }
+
+  /** Clear node positions, waypoints + cable types (keeps length settings). */
   function reset() {
-    layout.value = emptyLayout()
+    const settings = layout.value.settings || {}
+    layout.value = { ...emptyLayout(), settings }
     scheduleSave()
   }
 
@@ -137,13 +147,15 @@ export function useCableLayout({ getLocationId }) {
     removeWaypoint,
     getCable,
     setCable,
+    getSettings,
+    setSettings,
     reset,
     emptyLayout: emptyLayoutLocal,
   }
 }
 
 function emptyLayout() {
-  return { positions: {}, waypoints: {}, cables: {} }
+  return { positions: {}, waypoints: {}, cables: {}, settings: {} }
 }
 
 function normalize(raw) {
@@ -152,6 +164,7 @@ function normalize(raw) {
     if (raw.positions && typeof raw.positions === 'object') l.positions = { ...raw.positions }
     if (raw.waypoints && typeof raw.waypoints === 'object') l.waypoints = { ...raw.waypoints }
     if (raw.cables && typeof raw.cables === 'object') l.cables = { ...raw.cables }
+    if (raw.settings && typeof raw.settings === 'object') l.settings = { ...raw.settings }
   }
   return l
 }

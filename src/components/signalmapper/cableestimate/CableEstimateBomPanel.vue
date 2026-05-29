@@ -34,6 +34,10 @@
       {{ estimate.totals.elevatedNodeCount }} elevated node{{ estimate.totals.elevatedNodeCount === 1 ? '' : 's' }}.
     </p>
 
+    <p v-if="estimate.calibrated" class="bom-settings-note">
+      Lengths include {{ Math.round((estimate.slackFactor - 1) * 100) }}% slack<template v-if="estimate.roundStep > 0">, rounded up to {{ estimate.roundStep }} {{ estimate.unit }}</template>.
+    </p>
+
     <!-- Multicore combinations -->
     <section v-if="multicoreChips.length" class="bom-section">
       <h4>Multicore combinations</h4>
@@ -188,6 +192,7 @@ const cableTypeRows = computed(() =>
 .stat-value { font-size: 20px; font-weight: 700; color: var(--text-primary); }
 .stat-label { font-size: 12px; color: var(--text-secondary); }
 .bom-vertical-note { font-size: 12px; color: var(--color-warning-700, #b45309); margin: -4px 0 0 0; }
+.bom-settings-note { font-size: 12px; color: var(--text-secondary); margin: -4px 0 0 0; }
 .bom-section h4 {
   margin: 0 0 8px 0;
   font-size: 13px;
