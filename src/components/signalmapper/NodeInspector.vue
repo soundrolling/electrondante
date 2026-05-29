@@ -60,7 +60,7 @@
                     v-if="type === 'recorder' && otherRecorders.length > 0"
                     @click="showCopyFromPicker = !showCopyFromPicker"
                     class="btn-refresh"
-                    title="Copy track sources from another recorder (mimic main recorder)"
+                    title="Mirror a main recorder 1:1 — this backup taps the main's tracks (track N ← main track N) instead of re-linking every source"
                     style="padding: 4px 8px; font-size: 12px; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 4px; cursor: pointer; color: var(--text-primary);"
                   >
                     📋 Copy from…
@@ -2708,9 +2708,9 @@ async function copyInputsFromRecorder() {
 
   const sourceLabel = sourceRec.label || sourceRec.track_name || 'recorder'
   const confirmed = window.confirm(
-    `Copy track sources from "${sourceLabel}" to this recorder?\n\n` +
-    `This will REPLACE this recorder's current track sources to mimic the main recorder. ` +
-    `Tracks beyond the source recorder's range will be cleared.`
+    `Mirror "${sourceLabel}" onto this recorder?\n\n` +
+    `Each track will tap "${sourceLabel}" 1:1 (track N ← ${sourceLabel} track N), so this backup follows the main recorder instead of re-linking every source. ` +
+    `This REPLACES this recorder's current track sources; tracks beyond the main's range are cleared.`
   )
   if (!confirmed) return
 
@@ -2721,8 +2721,11 @@ async function copyInputsFromRecorder() {
     let copiedCount = 0
 
     for (let i = 1; i <= numTracks; i++) {
+      // Mirror the MAIN recorder 1:1 — tap its own track i (forward main → backup),
+      // NOT the original upstream source. This makes the backup follow the main
+      // recorder instead of re-linking every source individually.
       if (sourceMap[i]) {
-        upstreamMap.value[i] = sourceMap[i]
+        upstreamMap.value[i] = `${sourceId}:${i}`
         copiedCount++
       } else {
         upstreamMap.value[i] = '__NO_SOURCE__'

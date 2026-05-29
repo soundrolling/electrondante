@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.44">
-        <span class="version-text">v2.3.44</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.45">
+        <span class="version-text">v2.3.45</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.44</h2>
+          <h2 id="changelog-title">What's New in 2.3.45</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔧 Signal Flow: "Copy from" Mirrors the Main Recorder 1:1</h3>
+            <p>On a backup recorder, <strong>Copy from…</strong> now taps the main recorder's tracks 1:1 (backup track N ← main track N) instead of re-linking every original source. A backup truly follows the main with one click — no entering everything track by track.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔧 Signal Flow: Map Venue Feeds to Stagebox Inputs</h3>
             <p>Click a venue source → stagebox (or recorder) connection and you can now map <strong>each feed to its own input</strong> right there — stereo sources list <strong>L and R as separate rows</strong>, so a stereo feed lands on two inputs instead of counting as one source. The same per-feed list is also available in the destination node's Map tab.</p>
