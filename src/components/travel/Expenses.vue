@@ -77,7 +77,12 @@
     </div>
 
     <!-- Expenses List -->
-    <div v-else class="expenses-list">
+    <div v-else>
+    <div class="expenses-total">
+      <span class="total-label">{{ hasForeignCurrency ? 'Total (approx)' : 'Total' }}</span>
+      <span class="total-value">{{ convertedTotal }}</span>
+    </div>
+    <div class="expenses-list">
       <div
         v-for="expense in sortedExpenses"
         :key="expense.id"
@@ -87,6 +92,7 @@
           <h3>{{ expense.title }}</h3>
           <p class="expense-category">{{ expense.category }}</p>
           <p class="expense-amount">{{ formatExpenseAmount(expense) }}</p>
+          <p v-if="convertedAmount(expense)" class="expense-amount-converted">{{ convertedAmount(expense) }}</p>
           <p class="expense-date">{{ formatDate(expense.date) }}</p>
           <p v-if="expense.member_name" class="expense-member">For: {{ expense.member_name }}</p>
           <p v-if="expense.description" class="expense-description">{{ expense.description }}</p>
@@ -134,6 +140,7 @@
           </button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 
@@ -196,6 +203,7 @@
                 class="form-input amount-input"
               />
             </div>
+            <p v-if="formConvertedHint" class="amount-hint">{{ formConvertedHint }}</p>
           </div>
           
           <div class="form-group">
@@ -281,7 +289,7 @@ setup(props) {
   const toast = useToast();
   const userStore = useUserStore();
   const router = useRouter(); // <--- create the router instance
-  const { preferredCurrency, currencies } = useCurrency();
+  const { preferredCurrency, currencies, convertToPreferred, refreshRates } = useCurrency();
 
   // For RLS, ensure we have userId
   const userId = ref(userStore.user?.id || null);
@@ -426,6 +434,41 @@ setup(props) {
   const formatExpenseAmount = (expense) => {
     return formatCurrency(expense.amount, expense.currency || preferredCurrency.value);
   };
+
+  // Rough "≈ £x" equivalent in the user's currency, only when it differs
+  const convertedAmount = (expense) => {
+    const cur = expense.currency || preferredCurrency.value;
+    if (cur === preferredCurrency.value) return "";
+    const v = convertToPreferred(expense.amount, cur);
+    if (v == null) return "";
+    return `≈ ${formatCurrency(v, preferredCurrency.value)}`;
+  };
+
+  // Does any expense use a currency other than the user's view currency?
+  const hasForeignCurrency = computed(() =>
+    expenses.value.some(e => (e.currency || preferredCurrency.value) !== preferredCurrency.value)
+  );
+
+  // Sum of all expenses converted into the user's view currency (approx)
+  const convertedTotal = computed(() => {
+    let sum = 0;
+    for (const e of expenses.value) {
+      const v = convertToPreferred(e.amount, e.currency || preferredCurrency.value);
+      if (v != null) sum += v;
+    }
+    return formatCurrency(sum, preferredCurrency.value);
+  });
+
+  // Live "≈" hint in the add/edit form as the user types
+  const formConvertedHint = computed(() => {
+    const cur = expenseForm.value.currency;
+    if (!cur || cur === preferredCurrency.value) return "";
+    const amt = Number(expenseForm.value.amount);
+    if (!amt) return "";
+    const v = convertToPreferred(amt, cur);
+    if (v == null) return "";
+    return `≈ ${formatCurrency(v, preferredCurrency.value)} (approx)`;
+  });
 
   const formatDateRange = (start, end) => {
     if (!start || !end) return "";
@@ -759,6 +802,7 @@ setup(props) {
   };
 
   onMounted(async () => {
+    refreshRates(); // refresh approximate exchange rates (throttled, non-blocking)
     await checkUserRole();
     await fetchProjectMembers();
     loadTrips();
@@ -792,6 +836,10 @@ setup(props) {
     // Currency
     currencies,
     formatExpenseAmount,
+    convertedAmount,
+    convertedTotal,
+    hasForeignCurrency,
+    formConvertedHint,
 
     // Computed & Methods
     sortedExpenses,
@@ -1184,6 +1232,31 @@ setup(props) {
   line-height: 1.5;
 }
 
+/* Expenses Total */
+.expenses-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+}
+
+.expenses-total .total-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.expenses-total .total-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
 /* Expenses List */
 .expenses-list {
   display: flex;
@@ -1232,6 +1305,14 @@ setup(props) {
   font-weight: 700;
   color: var(--color-success-600);
   margin-bottom: 8px;
+}
+
+.expense-amount-converted {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: -4px 0 8px;
+  line-height: 1.4;
 }
 
 .expense-category {
@@ -1483,6 +1564,13 @@ setup(props) {
 .amount-row .amount-input {
   flex: 1;
   min-width: 0;
+}
+
+.amount-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .form-input:focus,
