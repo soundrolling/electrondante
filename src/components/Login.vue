@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.51">
-        <span class="version-text">v2.3.51</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.52">
+        <span class="version-text">v2.3.52</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.51</h2>
+          <h2 id="changelog-title">What's New in 2.3.52</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>💱 Expenses: Rough Conversion to Your Currency</h3>
+            <p>Expenses in another currency now show an <strong>approximate equivalent in your currency</strong> right underneath — so a <strong>€100</strong> dinner reads <em>≈ £86</em> at a glance if your default is GBP. Each trip also gets an <strong>approximate total</strong> in your currency (even when expenses are mixed across currencies), and the add/edit form shows a live <em>≈</em> hint as you type. Rates refresh daily and fall back to bundled estimates offline — they're a guide, not an exact accounting figure.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔎 Assistant: Ask About Your Signal Flow &amp; Cabling</h3>
             <p>The in-app search assistant (<strong>⌘K / Ctrl+K</strong>) can now answer questions about your <strong>Signal Mapper</strong>. Ask things like <em>"how many channels am I recording at the Depot?"</em>, <em>"how much cable does the main stage need?"</em>, <em>"which mics aren't wired up?"</em> or <em>"what's on the venue feed?"</em> — it now sees each stage's <strong>channel / mic / stagebox counts</strong>, <strong>suggested multicore sizes</strong>, <strong>cable totals</strong> and <strong>venue source feeds</strong>. (Cable lengths appear once you've opened a stage's <strong>Cabling</strong> tab, so it can measure the runs.)</p>
