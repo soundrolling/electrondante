@@ -28,6 +28,7 @@ const M_TO_FT = 3.280839895
 const DEFAULT_OPTIONS = {
   slackFactor: 1.15,  // extra-slack multiplier (1.15 = +15%)
   roundStep: 5,       // round each run UP to the nearest multiple (display unit); 0 = off
+  maxSingle: 20,      // longest single physical cable; longer runs split into pieces (0 = don't split)
   displayUnit: 'm',   // 'm' | 'ft'
 }
 
@@ -129,6 +130,28 @@ function categoryFor(fromKind, toKind) {
 }
 
 /**
+ * Break a run length into a realistic set of physical cables, capped at
+ * maxSingle — you don't run a single 30 m XLR, you patch 20 m + 10 m. Uses as
+ * many max-length cables as fit, then one cable for the remainder. maxSingle ≤ 0
+ * means don't split (one cable). Returns piece lengths in the run's unit.
+ */
+export function splitIntoPieces(length, maxSingle) {
+  if (!(length > 0)) return []
+  const max = maxSingle > 0 ? maxSingle : length
+  if (max >= length) return [length]
+  const pieces = []
+  let remaining = length
+  let guard = 0
+  while (remaining > max && guard < 1000) {
+    pieces.push(max)
+    remaining = Math.round((remaining - max) * 1e6) / 1e6
+    guard += 1
+  }
+  if (remaining > 0) pieces.push(remaining)
+  return pieces
+}
+
+/**
  * @param {object}   args
  * @param {Array}    args.nodes            node rows (must include x/y for measurable ones)
  * @param {Array}    args.connections      connection rows (from_node_id → to_node_id)
@@ -205,6 +228,7 @@ export function computeCableEstimate({
     const length = slackLength != null
       ? (opts.roundStep > 0 ? Math.ceil(slackLength / opts.roundStep) * opts.roundStep : slackLength)
       : null
+    const pieces = splitIntoPieces(length, opts.maxSingle)
     const fromKind = nodeKind(from)
     const toKind = nodeKind(to)
 
@@ -226,6 +250,7 @@ export function computeCableEstimate({
       verticalLength: fromMetres(verticalMetres, unit),
       rawLength,
       length,
+      pieces,
     })
   }
 
@@ -269,9 +294,12 @@ export function computeCableEstimate({
       if (r.verticalLength) totalVertical += r.verticalLength
     }
     if (r.cableType) {
-      const ct = (byCableType[r.cableType] ||= { count: 0, length: 0 })
+      const ct = (byCableType[r.cableType] ||= { count: 0, length: 0, pieces: {} })
       ct.count += 1
-      if (r.length != null) ct.length += r.length
+      if (r.length != null) {
+        ct.length += r.length
+        for (const p of r.pieces) ct.pieces[p] = (ct.pieces[p] || 0) + 1
+      }
     }
   }
   const elevatedNodeCount = nodes.filter(node => heightMetres(node) > 0).length
@@ -291,6 +319,7 @@ export function computeCableEstimate({
     scaleSpreadPct: spreadPct,
     slackFactor: opts.slackFactor,
     roundStep: opts.roundStep,
+    maxSingle: opts.maxSingle,
     metresPerPixel,
     runs,
     stageboxes,

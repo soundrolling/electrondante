@@ -36,6 +36,7 @@
             <div class="cable-dest-wrap">
               <span class="cable-dest" :title="row.destLabel">→ {{ row.destLabel }}</span>
               <span v-if="row.lengthText" class="cable-len">{{ row.lengthText }}</span>
+              <span v-if="row.splitText" class="cable-split">{{ row.splitText }}</span>
             </div>
             <input
               v-model="row.type"
@@ -87,7 +88,7 @@ const firstInput = ref(null)
 watch(() => props.show, (open) => {
   if (open) {
     height.value = props.currentValue != null ? String(props.currentValue) : ''
-    cableRows.value = props.cables.map(c => ({ connId: c.connId, destLabel: c.destLabel, type: c.type || '', lengthText: c.lengthText || '' }))
+    cableRows.value = props.cables.map(c => ({ connId: c.connId, destLabel: c.destLabel, type: c.type || '', lengthText: c.lengthText || '', splitText: c.splitText || '' }))
     nextTick(() => firstInput.value?.focus())
   }
 })
@@ -167,6 +168,7 @@ function save() {
   text-overflow: ellipsis;
 }
 .cable-len { font-size: 11px; color: var(--text-tertiary); }
+.cable-split { font-size: 11px; color: var(--text-secondary); }
 .ce-input {
   flex: 1;
   width: 100%;

@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.40">
-        <span class="version-text">v2.3.40</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.41">
+        <span class="version-text">v2.3.41</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.40</h2>
+          <h2 id="changelog-title">What's New in 2.3.41</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Stock-Cable Picklist (Splits)</h3>
+            <p>The bill of materials now turns each cable type into a real <strong>picklist of stock sections</strong> rather than one big number — you don't run a single 30 m XLR, you patch 20 m + 10 m. Each run is split into cables no longer than a configurable <strong>Max single cable</strong> (default 20 m), tallied per type (e.g. XLR: <em>8 × 20 m · 3 × 10 m · 5 × 5 m</em>). The node editor shows each mic's split too (30 m → 20 + 10 m). Adjust the max in the ⚙ settings; set it to 0 to keep single runs.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Multi-Point Calibration</h3>
             <p>Calibration now takes <strong>multiple reference measurements</strong> — draw several known distances and the scale is <strong>averaged across them</strong>, so an imperfect floor plan doesn't hinge on one line. While calibrating, add as many references as you like (double-click a line to remove one), then hit Done. The scale chip shows how many references there are and how much they disagree (e.g. "3 references · ±4%"), flagging an inaccurate plan. Existing single-reference calibrations still work.</p>

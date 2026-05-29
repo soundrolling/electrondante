@@ -4,6 +4,7 @@ import {
   nearestMulticore,
   nodeKind,
   hasPosition,
+  splitIntoPieces,
 } from './useCableEstimate'
 
 // A 2:1 floor plan makes the anisotropy explicit: the same fractional delta
@@ -309,5 +310,33 @@ describe('computeCableEstimate — multiple calibration references', () => {
     const est = computeCableEstimate({ nodes, connections: [conn('c', 'mic', 'box')], calibration: CAL, imageNaturalSize: IMG, options: EXACT })
     expect(est.referenceCount).toBe(1)
     expect(est.runs[0].length).toBeCloseTo(10, 6)
+  })
+})
+
+describe('splitIntoPieces', () => {
+  it('caps at maxSingle and uses one piece for the remainder', () => {
+    expect(splitIntoPieces(30, 20)).toEqual([20, 10])
+    expect(splitIntoPieces(45, 20)).toEqual([20, 20, 5])
+    expect(splitIntoPieces(20, 20)).toEqual([20])
+    expect(splitIntoPieces(5, 20)).toEqual([5])
+  })
+  it('returns a single piece when splitting is off, nothing for empty', () => {
+    expect(splitIntoPieces(30, 0)).toEqual([30])
+    expect(splitIntoPieces(0, 20)).toEqual([])
+    expect(splitIntoPieces(null, 20)).toEqual([])
+  })
+})
+
+describe('computeCableEstimate — cable piece picklist', () => {
+  const nodes = [n('mic', 'source', 0, 0), n('box', 'transformer', 0.5, 0)] // 1000 px
+  const cal30 = { refs: [{ p1: { x: 0, y: 0.5 }, p2: { x: 0.5, y: 0.5 }, realLength: 30, unit: 'm' }] } // 0.03 m/px
+  const opts = { slackFactor: 1, roundStep: 0, maxSingle: 20, displayUnit: 'm' }
+
+  it('splits each run and tallies pieces per cable type', () => {
+    const layout = { cables: { c: { type: 'XLR' } } }
+    const est = computeCableEstimate({ nodes, connections: [conn('c', 'mic', 'box')], calibration: cal30, imageNaturalSize: IMG, layout, options: opts })
+    expect(est.runs[0].length).toBeCloseTo(30, 6) // 1000 px × 0.03
+    expect(est.runs[0].pieces).toEqual([20, 10])
+    expect(est.totals.byCableType.XLR.pieces).toEqual({ 20: 1, 10: 1 })
   })
 })

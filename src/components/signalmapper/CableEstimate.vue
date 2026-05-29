@@ -79,7 +79,11 @@
         <span>Round up to nearest</span>
         <span class="ce-setting-input"><input type="number" min="0" step="1" v-model.number="roundStep" /> {{ displayUnit }}</span>
       </label>
-      <span class="ce-setting-hint">Applied to every run: exact × (1 + %), then rounded up. Set round to 0 to keep exact.</span>
+      <label class="ce-setting">
+        <span>Max single cable</span>
+        <span class="ce-setting-input"><input type="number" min="0" step="1" v-model.number="maxSingle" /> {{ displayUnit }}</span>
+      </label>
+      <span class="ce-setting-hint">Each run = exact × (1 + %), rounded up, then split into cables no longer than the max (0 = no split / no round).</span>
     </div>
 
     <!-- Category filter / legend (only categories actually present) -->
@@ -191,6 +195,7 @@ const showSettings = ref(false)
 const displayUnit = ref('m')
 const slackPercent = ref(15) // extra % added to every run
 const roundStep = ref(5)     // round each run up to nearest N (display unit); 0 = exact
+const maxSingle = ref(20)    // longest single cable; longer runs split into pieces; 0 = don't split
 const activeCategories = ref(new Set(['tail', 'trunk', 'direct', 'link', 'other']))
 
 const toast = useToast()
@@ -222,10 +227,12 @@ const nodeTargetCables = computed(() => {
       const run = runByConn[c.id]
       const u = estimate.value.unit
       let lengthText
+      let splitText = ''
       if (run && run.length != null) {
         const exact = round1(run.rawLength)
         const order = round1(run.length)
         lengthText = exact === order ? `≈ ${exact} ${u}` : `${exact} ${u} → ${order} ${u}`
+        if (run.pieces && run.pieces.length > 1) splitText = `${run.pieces.map(p => round1(p)).join(' + ')} ${u}`
       } else if (run) {
         lengthText = 'calibrate for length'
       } else {
@@ -236,6 +243,7 @@ const nodeTargetCables = computed(() => {
         destLabel: labelOf(byId[c.to_node_id]) || 'Next point',
         type: layout.value.cables?.[c.id]?.type || '',
         lengthText,
+        splitText,
       }
     })
 })
@@ -292,6 +300,7 @@ const imageNaturalSize = computed(() =>
 const options = computed(() => ({
   slackFactor: 1 + (Number(slackPercent.value) || 0) / 100,
   roundStep: Number(roundStep.value) || 0,
+  maxSingle: Number(maxSingle.value) || 0,
   displayUnit: displayUnit.value,
 }))
 
@@ -787,6 +796,7 @@ async function loadStage() {
   const s = cableLayout.getSettings()
   if (Number.isFinite(Number(s.slackPercent))) slackPercent.value = Number(s.slackPercent)
   if (Number.isFinite(Number(s.roundStep))) roundStep.value = Number(s.roundStep)
+  if (Number.isFinite(Number(s.maxSingle))) maxSingle.value = Number(s.maxSingle)
   await loadImageState() // triggers redraw on image load
   nextTick(redraw)
 }
@@ -815,8 +825,12 @@ watch(() => props.locationId, () => { loadStage() })
 // Redraw on any data / display change.
 watch(estimate, () => nextTick(redraw))
 watch([showCableLayer, showLengths, showLabels, displayUnit], () => nextTick(redraw))
-watch([slackPercent, roundStep], () => {
-  cableLayout.setSettings({ slackPercent: Number(slackPercent.value) || 0, roundStep: Number(roundStep.value) || 0 })
+watch([slackPercent, roundStep, maxSingle], () => {
+  cableLayout.setSettings({
+    slackPercent: Number(slackPercent.value) || 0,
+    roundStep: Number(roundStep.value) || 0,
+    maxSingle: Number(maxSingle.value) || 0,
+  })
   nextTick(redraw)
 })
 </script>

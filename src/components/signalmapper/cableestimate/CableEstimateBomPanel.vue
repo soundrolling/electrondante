@@ -69,21 +69,18 @@
       </table>
     </section>
 
-    <!-- By cable type (assigned per run) -->
+    <!-- By cable type (assigned per run) — with a stock-cable picklist -->
     <section v-if="cableTypeRows.length" class="bom-section">
       <h4>By cable type</h4>
-      <table class="bom-table">
-        <thead>
-          <tr><th>Cable</th><th>Runs</th><th>Length</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in cableTypeRows" :key="row.type">
-            <td>{{ row.type }}</td>
-            <td>{{ row.count }}</td>
-            <td>{{ estimate.calibrated ? fmt(row.length) : '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-for="row in cableTypeRows" :key="row.type" class="cable-type">
+        <div class="cable-type-head">
+          <span class="cable-type-name">{{ row.type }}</span>
+          <span class="cable-type-meta">{{ row.count }} run{{ row.count === 1 ? '' : 's' }} · {{ estimate.calibrated ? fmt(row.length) : '—' }}</span>
+        </div>
+        <div v-if="row.pieces.length" class="cable-type-pieces">
+          <span v-for="p in row.pieces" :key="p.size" class="piece-chip">{{ p.count }} × {{ p.size }} {{ estimate.unit }}</span>
+        </div>
+      </div>
     </section>
 
     <!-- By run type -->
@@ -159,7 +156,14 @@ const categoryRows = computed(() =>
 
 const cableTypeRows = computed(() =>
   Object.entries(props.estimate.totals.byCableType || {})
-    .map(([type, v]) => ({ type, count: v.count, length: v.length }))
+    .map(([type, v]) => ({
+      type,
+      count: v.count,
+      length: v.length,
+      pieces: Object.entries(v.pieces || {})
+        .map(([size, count]) => ({ size: Number(size), count }))
+        .sort((a, b) => b.size - a.size),
+    }))
     .sort((a, b) => b.length - a.length),
 )
 </script>
@@ -193,6 +197,17 @@ const cableTypeRows = computed(() =>
 .stat-label { font-size: 12px; color: var(--text-secondary); }
 .bom-vertical-note { font-size: 12px; color: var(--color-warning-700, #b45309); margin: -4px 0 0 0; }
 .bom-settings-note { font-size: 12px; color: var(--text-secondary); margin: -4px 0 0 0; }
+.cable-type { padding: 7px 0; border-bottom: 1px solid var(--border-light); }
+.cable-type:last-child { border-bottom: none; }
+.cable-type-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.cable-type-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cable-type-meta { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.cable-type-pieces { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.piece-chip {
+  font-size: 12px; font-weight: 600;
+  background: var(--bg-secondary); color: var(--text-primary);
+  border: 1px solid var(--surface-border); border-radius: 999px; padding: 2px 10px;
+}
 .bom-section h4 {
   margin: 0 0 8px 0;
   font-size: 13px;
