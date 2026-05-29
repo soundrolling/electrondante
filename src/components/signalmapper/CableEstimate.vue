@@ -161,7 +161,7 @@ import { useMicCanvasView } from '@/composables/micPlacement/useMicCanvasView'
 import { useCableCalibration } from '@/composables/cableEstimate/useCableCalibration'
 import { useCableLayout } from '@/composables/cableEstimate/useCableLayout'
 import { useCableEstimate, nodeKind, hasPosition, heightMetres, effectivePosition, deriveScale } from '@/composables/cableEstimate/useCableEstimate'
-import { setNodeHeight } from '@/services/cableEstimateService'
+import { setNodeHeight, saveCableSummary } from '@/services/cableEstimateService'
 
 const props = defineProps({
   projectId: { type: [String, Number], required: true },
@@ -798,6 +798,43 @@ async function onSaveNode({ height, cables }) {
   }
 }
 
+// ── Cable estimate → search index (in-app assistant) ─────────
+// Push a compact, keyword-rich summary of this stage's cabling so the Cmd/Ctrl-K
+// assistant can answer "how much cable / how many channels". Run lengths only
+// exist in the browser (they need the floor-plan image's natural pixel size), so
+// the client owns this row. Debounced, and only when the plan is calibrated.
+let cableSummaryTimer = null
+function scheduleCableSummary(est) {
+  if (cableSummaryTimer) clearTimeout(cableSummaryTimer)
+  cableSummaryTimer = setTimeout(() => pushCableSummary(est), 1500)
+}
+function pushCableSummary(est) {
+  try {
+    if (!props.locationId || !est?.calibrated) return
+    const t = est.totals
+    if (!t || !(t.totalLength > 0)) return
+    const toM = (v) => (est.unit === 'ft' ? v / M_TO_FT : v)
+    const totalM = Math.round(toM(t.totalLength))
+    const longestM = Math.round(toM(t.longestRun))
+    const boxes = (est.stageboxes || []).filter(b => b.micCount > 0)
+    const boxText = boxes.map(b => `${b.label} ${b.micCount}ch→${b.suggestedMulticore}-way`).join(', ')
+    const content = [
+      `≈ ${totalM} m of cable total across ${t.measuredRuns} runs`,
+      `longest run ${longestM} m`,
+      `${t.totalChannels} channels`,
+      boxes.length ? `${boxes.length} stageboxes (${boxText})` : null,
+      t.unroutedMicCount ? `${t.unroutedMicCount} sources not wired up` : null,
+    ].filter(Boolean).join(' • ')
+    saveCableSummary(props.locationId, {
+      content,
+      metadata: {
+        total_m: totalM, longest_m: longestM, channels: t.totalChannels,
+        runs: t.measuredRuns, stageboxes: boxes.length, unrouted: t.unroutedMicCount,
+      },
+    })
+  } catch { /* best-effort: never disrupt the Cabling view */ }
+}
+
 // ── Load + lifecycle ─────────────────────────────────────────
 function checkScreenSize() {
   isMobile.value = window.innerWidth < 768
@@ -830,6 +867,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', checkScreenSize)
   window.removeEventListener('resize', updateCanvasSize)
   cableLayout.flush() // persist any pending layout change
+  if (cableSummaryTimer) { clearTimeout(cableSummaryTimer); cableSummaryTimer = null }
 })
 
 // Reload when the stage changes (defensive — parent usually remounts via :key).
@@ -837,6 +875,8 @@ watch(() => props.locationId, () => { loadStage() })
 
 // Redraw on any data / display change.
 watch(estimate, () => nextTick(redraw))
+// Keep the assistant's cable summary fresh (debounced; calibrated stages only).
+watch(estimate, (est) => scheduleCableSummary(est), { immediate: true })
 watch([showCableLayer, showLengths, showLabels, displayUnit], () => nextTick(redraw))
 watch([slackPercent, roundStep, maxSingle], () => {
   cableLayout.setSettings({

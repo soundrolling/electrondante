@@ -129,3 +129,27 @@ export async function setNodeHeight(nodeId, heightMetres, projectId = null) {
   if (projectId) invalidateProjectCache(projectId)
   return value
 }
+
+/**
+ * Push a one-line cable-estimate summary into the project search index so the
+ * in-app assistant can answer "how much cable / how many channels" questions.
+ * Run lengths only exist in the browser (they need the floor-plan image's
+ * natural pixel size), so the client computes the summary and hands it to the
+ * membership-checked upsert_cable_summary RPC. Best-effort: never throws, so a
+ * failure here can't disrupt the Cabling view. Pass empty content to clear.
+ * @param {string|number} locationId
+ * @param {{ content: string, metadata?: object }} summary
+ */
+export async function saveCableSummary(locationId, summary) {
+  if (!locationId) return
+  try {
+    const { error } = await supabase.rpc('upsert_cable_summary', {
+      p_location_id: Number(locationId),
+      p_content: summary?.content ?? '',
+      p_metadata: summary?.metadata ?? {},
+    })
+    if (error) log.warn('saveCableSummary failed', error.message)
+  } catch (err) {
+    log.warn('saveCableSummary threw', err)
+  }
+}

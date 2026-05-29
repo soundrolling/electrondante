@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.50">
-        <span class="version-text">v2.3.50</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.51">
+        <span class="version-text">v2.3.51</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.50</h2>
+          <h2 id="changelog-title">What's New in 2.3.51</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔎 Assistant: Ask About Your Signal Flow &amp; Cabling</h3>
+            <p>The in-app search assistant (<strong>⌘K / Ctrl+K</strong>) can now answer questions about your <strong>Signal Mapper</strong>. Ask things like <em>"how many channels am I recording at the Depot?"</em>, <em>"how much cable does the main stage need?"</em>, <em>"which mics aren't wired up?"</em> or <em>"what's on the venue feed?"</em> — it now sees each stage's <strong>channel / mic / stagebox counts</strong>, <strong>suggested multicore sizes</strong>, <strong>cable totals</strong> and <strong>venue source feeds</strong>. (Cable lengths appear once you've opened a stage's <strong>Cabling</strong> tab, so it can measure the runs.)</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🏨 Travel: Room Numbers for Accommodations</h3>
             <p>Accommodation entries now have an optional <strong>Room Number</strong> field, right next to the confirmation number — so for a hotel everyone knows exactly which room to head to. It shows on the accommodation card and is included in trip exports.</p>
