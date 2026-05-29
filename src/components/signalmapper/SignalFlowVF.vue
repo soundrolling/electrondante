@@ -633,7 +633,9 @@ const edgeInspectorStyle = computed(() => {
   if (typeof window !== 'undefined' && window.innerWidth <= 600) return {}
   const { top, left } = edgeInspectorPos.value
   if (top == null || left == null) return {}
-  return { top: `${top}px`, left: `${left}px`, right: 'auto' }
+  // Cap height to the room below the anchor point so a long feed list scrolls
+  // inside the inspector instead of running off the bottom of the viewport.
+  return { top: `${top}px`, left: `${left}px`, right: 'auto', maxHeight: `calc(100vh - ${top}px - 16px)` }
 })
 
 function onEdgeClick({ edge, event }) {
@@ -1328,6 +1330,12 @@ onMounted(() => {
   top: calc(16px + env(safe-area-inset-top, 0));
   right: 16px;
   width: min(320px, calc(100vw - 32px));
+  /* Baseline cap so a long feed list never runs off-screen. When the inspector
+     is anchored to a click point, edgeInspectorStyle sets an inline max-height
+     relative to its actual top that overrides this. */
+  max-height: calc(100vh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
   background: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
@@ -1347,6 +1355,7 @@ onMounted(() => {
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--surface-border);
+  flex-shrink: 0;
 }
 .sfv-inspector-label {
   font-size: 10px;
@@ -1382,6 +1391,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* Scroll the body (Type + feeds + delete) when it exceeds the capped height;
+     the header stays pinned. min-height:0 lets a flex child actually shrink. */
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overscroll-behavior: contain;
 }
 .sfv-field-label {
   font-size: 10px;
@@ -1749,6 +1764,8 @@ onMounted(() => {
     top: auto;
     bottom: calc(72px + env(safe-area-inset-bottom, 0));
     width: auto;
+    /* Bottom-sheet variant grows upward — cap it so it can't run off the top. */
+    max-height: calc(100vh - 88px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
 }
 

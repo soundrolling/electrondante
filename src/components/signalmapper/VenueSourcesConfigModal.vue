@@ -1,6 +1,9 @@
 <template>
-  <div class="modal-overlay" @click="close">
-    <div class="modal-content venue-sources-config" @click.stop>
+  <!-- Backdrop intentionally does NOT close on click: this is a data-entry form,
+       so we avoid accidental dismissal (e.g. selecting text in a field and
+       releasing the mouse on the backdrop). Close only via × or Cancel. -->
+  <div class="modal-overlay">
+    <div class="modal-content venue-sources-config">
       <div class="modal-header">
         <h3>Configure Venue Sources</h3>
         <button @click="close" class="close-btn" aria-label="Close">×</button>
