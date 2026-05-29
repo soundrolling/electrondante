@@ -105,6 +105,19 @@ export function useCableLayout({ getLocationId }) {
     scheduleSave()
   }
 
+  // ── Cable types (per connection) ─────────────────────────────
+  function getCable(connId) {
+    return layout.value.cables[connId] || null
+  }
+  function setCable(connId, type) {
+    const next = { ...layout.value.cables }
+    const t = (type || '').trim()
+    if (t) next[connId] = { type: t }
+    else delete next[connId]
+    layout.value.cables = next
+    scheduleSave()
+  }
+
   /** Clear ALL overrides + waypoints for this stage. */
   function reset() {
     layout.value = emptyLayout()
@@ -122,13 +135,15 @@ export function useCableLayout({ getLocationId }) {
     addWaypoint,
     moveWaypoint,
     removeWaypoint,
+    getCable,
+    setCable,
     reset,
     emptyLayout: emptyLayoutLocal,
   }
 }
 
 function emptyLayout() {
-  return { positions: {}, waypoints: {} }
+  return { positions: {}, waypoints: {}, cables: {} }
 }
 
 function normalize(raw) {
@@ -136,6 +151,7 @@ function normalize(raw) {
   if (raw && typeof raw === 'object') {
     if (raw.positions && typeof raw.positions === 'object') l.positions = { ...raw.positions }
     if (raw.waypoints && typeof raw.waypoints === 'object') l.waypoints = { ...raw.waypoints }
+    if (raw.cables && typeof raw.cables === 'object') l.cables = { ...raw.cables }
   }
   return l
 }

@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.36">
-        <span class="version-text">v2.3.36</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.37">
+        <span class="version-text">v2.3.37</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.36</h2>
+          <h2 id="changelog-title">What's New in 2.3.37</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Labelled Sources + Per-Cable Editor</h3>
+            <p>Source dots on the Cabling map now show their name (mic source / gear / venue source), with a <strong>Labels</strong> toggle to declutter. Click any node to open a combined editor: set its <strong>height</strong> and choose the <strong>cable type</strong> for each run leaving it toward the next point (XLR, Cat5e, multicore, and so on). Assigned cable types roll up into a new <strong>By cable type</strong> breakdown in the bill of materials, so you can order by exactly what's on each run.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Movable Elements + Cable Turning Points</h3>
             <p>The Cabling tab is now a light layout editor — and it's all stored separately from your mic placement and signal flow. <strong>Drag any node</strong> (mic, stagebox, recorder) to reposition it for cabling without moving it on the mic map. <strong>Click a cable to drop a turning point</strong>, then drag it to route the run around obstacles — the length follows the routed path. Double-click a turning point to remove it, and the reset button clears the cabling layout back to mic-map positions. Clicking a node without dragging still opens its height editor.</p>

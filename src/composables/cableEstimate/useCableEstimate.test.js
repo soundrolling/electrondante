@@ -258,4 +258,19 @@ describe('computeCableEstimate — cabling layout (overrides + waypoints)', () =
     })
     expect(est.runs[0].waypointCount).toBe(1)
   })
+
+  it('tags runs with their assigned cable type and groups by it', () => {
+    const layout = { cables: { c: { type: 'XLR' } } }
+    const est = computeCableEstimate({
+      nodes,
+      connections: [conn('c', 'mic', 'box')],
+      calibration: CAL,
+      imageNaturalSize: IMG,
+      layout,
+      options: EXACT,
+    })
+    expect(est.runs[0].cableType).toBe('XLR')
+    expect(est.totals.byCableType.XLR.count).toBe(1)
+    expect(est.totals.byCableType.XLR.length).toBeCloseTo(10, 6)
+  })
 })

@@ -43,6 +43,10 @@
           <input type="checkbox" v-model="showLengths" :disabled="!showCableLayer || !estimate.calibrated" />
           <span>Lengths</span>
         </label>
+        <label class="ce-toggle">
+          <input type="checkbox" v-model="showLabels" />
+          <span>Labels</span>
+        </label>
 
         <div class="ce-unit-toggle" role="group" aria-label="Display unit">
           <button :class="['ce-unit-btn', { active: displayUnit === 'm' }]" @click="displayUnit = 'm'">m</button>
@@ -106,15 +110,15 @@
       @cancel="cal.cancelCalibration()"
     />
 
-    <CableHeightModal
-      :show="showHeightModal"
-      :busy="heightSaving"
-      :label="heightTargetLabel"
+    <CableNodeModal
+      :show="showNodeModal"
+      :busy="nodeSaving"
+      :label="nodeTargetLabel"
       :unit="displayUnit"
-      :current-value="heightTargetValue"
-      @confirm="onConfirmHeight"
-      @clear="onClearHeight"
-      @cancel="closeHeightModal"
+      :current-value="nodeTargetValue"
+      :cables="nodeTargetCables"
+      @save="onSaveNode"
+      @cancel="closeNodeModal"
     />
   </div>
 </template>
@@ -127,7 +131,7 @@ import { useToast } from 'vue-toastification'
 
 import CableEstimateBomPanel from './cableestimate/CableEstimateBomPanel.vue'
 import CableCalibrateModal from './cableestimate/CableCalibrateModal.vue'
-import CableHeightModal from './cableestimate/CableHeightModal.vue'
+import CableNodeModal from './cableestimate/CableNodeModal.vue'
 
 import { useMicBackgroundImage } from '@/composables/micPlacement/useMicBackgroundImage'
 import { useMicCanvasView } from '@/composables/micPlacement/useMicCanvasView'
@@ -163,6 +167,7 @@ const canvasRef = ref(null)
 const isMobile = ref(false)
 const showCableLayer = ref(true)
 const showLengths = ref(true)
+const showLabels = ref(true)
 const displayUnit = ref('m')
 const activeCategories = ref(new Set(['tail', 'trunk', 'direct', 'link', 'other']))
 
@@ -171,14 +176,29 @@ const M_TO_FT = 3.280839895
 const toDisplay = (metres) => (displayUnit.value === 'ft' ? metres * M_TO_FT : metres)
 const fromDisplay = (value) => (displayUnit.value === 'ft' ? value / M_TO_FT : value)
 
-// Height editor (set a node's elevation — e.g. a mic up a tower)
-const showHeightModal = ref(false)
-const heightSaving = ref(false)
-const heightTarget = ref(null)
-const heightTargetLabel = computed(() => heightTarget.value?.track_name || heightTarget.value?.label || '')
-const heightTargetValue = computed(() => {
-  const h = heightMetres(heightTarget.value)
+// Node editor: height (e.g. up a tower) + the cable type for each outgoing run.
+const showNodeModal = ref(false)
+const nodeSaving = ref(false)
+const nodeTarget = ref(null)
+const nodeTargetLabel = computed(() =>
+  nodeTarget.value?.track_name || nodeTarget.value?.label || nodeTarget.value?.gear_name || 'Node',
+)
+const nodeTargetValue = computed(() => {
+  const h = heightMetres(nodeTarget.value)
   return h > 0 ? round1(toDisplay(h)) : null
+})
+const nodeTargetCables = computed(() => {
+  const node = nodeTarget.value
+  if (!node) return []
+  const byId = {}
+  for (const x of props.nodes) byId[x.id] = x
+  return props.connections
+    .filter(c => c.from_node_id === node.id)
+    .map(c => ({
+      connId: c.id,
+      destLabel: labelOf(byId[c.to_node_id]) || 'Next point',
+      type: layout.value.cables?.[c.id]?.type || '',
+    }))
 })
 
 // Forward-declared redraw so the view composable can call back into the draw
@@ -340,6 +360,7 @@ function drawNode(ctx, node) {
   ctx.save()
   ctx.lineWidth = 1.5
   ctx.strokeStyle = '#ffffff'
+  let labelY = y + 16
   if (kind === 'source') {
     ctx.beginPath()
     ctx.arc(x, y, 6, 0, 2 * Math.PI)
@@ -352,7 +373,7 @@ function drawNode(ctx, node) {
     ctx.rect(x - 8, y - 8, 16, 16)
     ctx.fill()
     ctx.stroke()
-    drawPill(ctx, labelOf(node), x, y + 18)
+    labelY = y + 18
   } else if (kind === 'recorder') {
     ctx.fillStyle = '#1f2937'
     ctx.beginPath()
@@ -363,7 +384,7 @@ function drawNode(ctx, node) {
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
-    drawPill(ctx, labelOf(node), x, y + 19)
+    labelY = y + 19
   } else {
     ctx.beginPath()
     ctx.arc(x, y, 5, 0, 2 * Math.PI)
@@ -372,6 +393,12 @@ function drawNode(ctx, node) {
     ctx.stroke()
   }
   ctx.restore()
+
+  // Node name (mic source / gear / venue source), toggleable.
+  if (showLabels.value) {
+    const name = labelOf(node)
+    if (name) drawPill(ctx, name, x, labelY, { font: 'bold 10px sans-serif' })
+  }
 
   // Elevation badge (e.g. a mic up a tower).
   const h = heightMetres(node)
@@ -534,7 +561,7 @@ function onPointerMove(e) {
 
 function onPointerUp(e) {
   if (nodePress) {
-    if (!nodePress.moved) openHeightEditor(nodePress.node)
+    if (!nodePress.moved) openNodeEditor(nodePress.node)
     nodePress = null
   }
   wpDrag = null
@@ -629,38 +656,32 @@ function getNodeAtCanvas(cx, cy) {
   return null
 }
 
-function openHeightEditor(node) {
-  heightTarget.value = node
-  showHeightModal.value = true
+function openNodeEditor(node) {
+  nodeTarget.value = node
+  showNodeModal.value = true
 }
 
-function closeHeightModal() {
-  showHeightModal.value = false
-  heightTarget.value = null
+function closeNodeModal() {
+  showNodeModal.value = false
+  nodeTarget.value = null
 }
 
-async function saveHeight(nodeId, metres) {
-  heightSaving.value = true
+async function onSaveNode({ height, cables }) {
+  const node = nodeTarget.value
+  if (!node) return
+  nodeSaving.value = true
   try {
-    const stored = await setNodeHeight(nodeId, metres, props.projectId)
-    emit('node-updated', { id: nodeId, height_m: stored })
-    closeHeightModal()
+    const metres = height == null ? null : fromDisplay(Number(height))
+    const stored = await setNodeHeight(node.id, metres, props.projectId)
+    emit('node-updated', { id: node.id, height_m: stored })
+    for (const c of (cables || [])) cableLayout.setCable(c.connId, c.type)
+    closeNodeModal()
     nextTick(redraw)
   } catch (err) {
-    toast.error('Could not save height')
+    toast.error('Could not save node')
   } finally {
-    heightSaving.value = false
+    nodeSaving.value = false
   }
-}
-
-function onConfirmHeight(displayValue) {
-  if (!heightTarget.value) return
-  saveHeight(heightTarget.value.id, fromDisplay(Number(displayValue)))
-}
-
-function onClearHeight() {
-  if (!heightTarget.value) return
-  saveHeight(heightTarget.value.id, null)
 }
 
 // ── Load + lifecycle ─────────────────────────────────────────
@@ -698,7 +719,7 @@ watch(() => props.locationId, () => { loadStage() })
 
 // Redraw on any data / display change.
 watch(estimate, () => nextTick(redraw))
-watch([showCableLayer, showLengths, displayUnit], () => nextTick(redraw))
+watch([showCableLayer, showLengths, showLabels, displayUnit], () => nextTick(redraw))
 </script>
 
 <style scoped>

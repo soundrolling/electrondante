@@ -65,9 +65,26 @@
       </table>
     </section>
 
-    <!-- By cable type -->
-    <section v-if="categoryRows.length" class="bom-section">
+    <!-- By cable type (assigned per run) -->
+    <section v-if="cableTypeRows.length" class="bom-section">
       <h4>By cable type</h4>
+      <table class="bom-table">
+        <thead>
+          <tr><th>Cable</th><th>Runs</th><th>Length</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in cableTypeRows" :key="row.type">
+            <td>{{ row.type }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ estimate.calibrated ? fmt(row.length) : '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- By run type -->
+    <section v-if="categoryRows.length" class="bom-section">
+      <h4>By run type</h4>
       <table class="bom-table">
         <thead>
           <tr><th>Type</th><th>Runs</th><th>Length</th></tr>
@@ -134,6 +151,12 @@ const categoryRows = computed(() =>
   Object.entries(props.estimate.totals.byCategory || {})
     .map(([key, v]) => ({ key, label: CATEGORY_LABELS[key] || key, count: v.count, length: v.length }))
     .sort((a, b) => b.count - a.count),
+)
+
+const cableTypeRows = computed(() =>
+  Object.entries(props.estimate.totals.byCableType || {})
+    .map(([type, v]) => ({ type, count: v.count, length: v.length }))
+    .sort((a, b) => b.length - a.length),
 )
 </script>
 

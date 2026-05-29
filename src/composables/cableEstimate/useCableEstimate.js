@@ -220,6 +220,7 @@ export function computeCableEstimate({
       fromKind,
       toKind,
       category: categoryFor(fromKind, toKind),
+      cableType: layout?.cables?.[c.id]?.type || null,
       from: effFrom,
       to: effTo,
       points,
@@ -255,6 +256,7 @@ export function computeCableEstimate({
 
   // Totals.
   const byCategory = {}
+  const byCableType = {}
   let totalLength = 0
   let longestRun = 0
   let measuredRuns = 0
@@ -268,6 +270,11 @@ export function computeCableEstimate({
       measuredRuns += 1
       if (r.length > longestRun) longestRun = r.length
       if (r.verticalLength) totalVertical += r.verticalLength
+    }
+    if (r.cableType) {
+      const ct = (byCableType[r.cableType] ||= { count: 0, length: 0 })
+      ct.count += 1
+      if (r.length != null) ct.length += r.length
     }
   }
   const elevatedNodeCount = nodes.filter(node => heightMetres(node) > 0).length
@@ -298,6 +305,7 @@ export function computeCableEstimate({
       xlrTails,
       totalChannels: xlrTails,
       byCategory,
+      byCableType,
       multicoreSummary,
       unmeasuredCount: unmeasured.length,
       unroutedMicCount: unroutedMics.length,

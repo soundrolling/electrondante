@@ -1,49 +1,63 @@
 <!--
-  Set a node's elevation above the floor (e.g. a mic up a tower). The value is
-  entered in the current display unit; the parent converts to metres on save.
-  Adds a vertical run to that node's cable length.
+  Combined node editor for the Cabling tab. Opened by clicking a node (mic /
+  stagebox / recorder). Edits the node's height above the floor (e.g. up a
+  tower) AND the cable type for each run leaving this node toward its next
+  connection point. Values are entered in the current display unit; the parent
+  converts + persists (height → nodes.height_m, cable types → cable_layout).
 -->
 <template>
   <div v-if="show" class="modal-overlay" @click="$emit('cancel')">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>Height — {{ label || 'node' }}</h3>
+        <h3>{{ label || 'Node' }}</h3>
         <button class="close-btn" @click="$emit('cancel')">×</button>
       </div>
+
       <div class="modal-body">
-        <p class="field-hint">
-          How high is this above the floor? Used for mics up towers / rigging — the
-          height is added as a vertical cable run on top of the floor distance.
-        </p>
         <div class="form-field">
-          <label>Height ({{ unit }})</label>
+          <label>Height above floor ({{ unit }})</label>
           <input
-            ref="heightInput"
-            v-model="value"
+            ref="firstInput"
+            v-model="height"
             type="number"
             min="0"
             step="0.1"
             inputmode="decimal"
-            placeholder="0"
-            class="context-menu-input"
-            @keyup.enter="confirm"
+            placeholder="0 (ground)"
+            class="ce-input"
+            @keyup.enter="save"
           />
+          <p class="field-hint">Leave blank for ground level. Any height adds a vertical cable run (e.g. up a tower).</p>
         </div>
+
+        <div v-if="cableRows.length" class="cables-block">
+          <label class="block-label">Cable to next point</label>
+          <div v-for="row in cableRows" :key="row.connId" class="cable-row">
+            <span class="cable-dest" :title="row.destLabel">→ {{ row.destLabel }}</span>
+            <input
+              v-model="row.type"
+              list="ce-cable-types"
+              placeholder="e.g. XLR, Cat5e, 12-way multicore"
+              class="ce-input"
+            />
+          </div>
+          <datalist id="ce-cable-types">
+            <option v-for="t in CABLE_TYPES" :key="t" :value="t" />
+          </datalist>
+        </div>
+        <p v-else class="field-hint">This node has no outgoing cable in the signal flow.</p>
       </div>
+
       <div class="modal-footer">
-        <button v-if="hasExisting" class="btn btn-ghost" @click="$emit('clear')">Clear</button>
-        <span class="spacer" />
         <button class="btn btn-secondary" @click="$emit('cancel')">Cancel</button>
-        <button class="btn btn-primary" :disabled="busy || !isValid" @click="confirm">
-          {{ busy ? 'Saving…' : 'Save' }}
-        </button>
+        <button class="btn btn-primary" :disabled="busy" @click="save">{{ busy ? 'Saving…' : 'Save' }}</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -51,26 +65,36 @@ const props = defineProps({
   label: { type: String, default: '' },
   unit: { type: String, default: 'm' },
   currentValue: { type: Number, default: null },
+  // [{ connId, destLabel, type }] — outgoing runs from this node
+  cables: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['confirm', 'clear', 'cancel'])
+const emit = defineEmits(['save', 'cancel'])
 
-const value = ref('')
-const heightInput = ref(null)
+const CABLE_TYPES = [
+  'XLR', 'Cat5e', 'Cat6', 'Cat5e (Dante)', 'AES50',
+  '8-way multicore', '12-way multicore', '16-way multicore', '24-way multicore',
+  'Fibre', 'Speakon',
+]
 
-const isValid = computed(() => value.value !== '' && Number(value.value) >= 0)
-const hasExisting = computed(() => props.currentValue != null && props.currentValue > 0)
+const height = ref('')
+const cableRows = ref([])
+const firstInput = ref(null)
 
 watch(() => props.show, (open) => {
   if (open) {
-    value.value = props.currentValue != null ? String(props.currentValue) : ''
-    nextTick(() => heightInput.value?.focus())
+    height.value = props.currentValue != null ? String(props.currentValue) : ''
+    cableRows.value = props.cables.map(c => ({ connId: c.connId, destLabel: c.destLabel, type: c.type || '' }))
+    nextTick(() => firstInput.value?.focus())
   }
 })
 
-function confirm() {
-  if (!isValid.value) return
-  emit('confirm', Number(value.value))
+function save() {
+  const raw = height.value === '' ? null : Number(height.value)
+  emit('save', {
+    height: Number.isFinite(raw) ? raw : null,
+    cables: cableRows.value.map(r => ({ connId: r.connId, type: r.type.trim() })),
+  })
 }
 </script>
 
@@ -92,7 +116,7 @@ function confirm() {
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
-  max-width: 400px;
+  max-width: 440px;
   width: 90%;
   padding: 24px;
   display: flex;
@@ -118,19 +142,29 @@ function confirm() {
   border-radius: 4px;
 }
 .close-btn:hover { background: var(--bg-secondary); }
-.modal-body { padding: 16px 0; }
+.modal-body { padding: 16px 0; display: flex; flex-direction: column; gap: 18px; }
 .modal-footer {
   padding: 16px 0 0 0;
   border-top: 1px solid var(--border-light);
   display: flex;
   gap: 12px;
-  align-items: center;
+  justify-content: flex-end;
 }
-.spacer { flex: 1; }
-.field-hint { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px 0; line-height: 1.4; }
 .form-field { display: flex; flex-direction: column; gap: 6px; }
-.form-field label { font-weight: 500; font-size: 13px; color: var(--text-primary); }
-.context-menu-input {
+.form-field label, .block-label { font-weight: 500; font-size: 13px; color: var(--text-primary); }
+.field-hint { font-size: 11px; color: var(--text-tertiary); margin: 0; }
+.cables-block { display: flex; flex-direction: column; gap: 8px; }
+.cable-row { display: flex; align-items: center; gap: 10px; }
+.cable-dest {
+  flex: 0 0 38%;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ce-input {
+  flex: 1;
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--surface-border);
@@ -147,8 +181,6 @@ function confirm() {
 .btn-primary:disabled { background: var(--color-secondary-400); cursor: not-allowed; opacity: 0.6; }
 .btn-secondary { background: var(--color-secondary-500); color: #fff; border-color: var(--color-secondary-600); }
 .btn-secondary:hover { background: var(--color-secondary-600); }
-.btn-ghost { background: transparent; color: var(--color-error-500); border-color: transparent; }
-.btn-ghost:hover { background: var(--bg-secondary); }
 @media (prefers-reduced-motion: reduce) {
   .modal-content, .modal-overlay { animation: none; }
 }
