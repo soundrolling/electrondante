@@ -33,7 +33,10 @@
         <div v-if="cableRows.length" class="cables-block">
           <label class="block-label">Cable to next point</label>
           <div v-for="row in cableRows" :key="row.connId" class="cable-row">
-            <span class="cable-dest" :title="row.destLabel">→ {{ row.destLabel }}</span>
+            <div class="cable-dest-wrap">
+              <span class="cable-dest" :title="row.destLabel">→ {{ row.destLabel }}</span>
+              <span v-if="row.lengthText" class="cable-len">{{ row.lengthText }}</span>
+            </div>
             <input
               v-model="row.type"
               list="ce-cable-types"
@@ -84,7 +87,7 @@ const firstInput = ref(null)
 watch(() => props.show, (open) => {
   if (open) {
     height.value = props.currentValue != null ? String(props.currentValue) : ''
-    cableRows.value = props.cables.map(c => ({ connId: c.connId, destLabel: c.destLabel, type: c.type || '' }))
+    cableRows.value = props.cables.map(c => ({ connId: c.connId, destLabel: c.destLabel, type: c.type || '', lengthText: c.lengthText || '' }))
     nextTick(() => firstInput.value?.focus())
   }
 })
@@ -155,14 +158,15 @@ function save() {
 .field-hint { font-size: 11px; color: var(--text-tertiary); margin: 0; }
 .cables-block { display: flex; flex-direction: column; gap: 8px; }
 .cable-row { display: flex; align-items: center; gap: 10px; }
+.cable-dest-wrap { flex: 0 0 42%; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cable-dest {
-  flex: 0 0 38%;
   font-size: 13px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.cable-len { font-size: 11px; color: var(--text-tertiary); }
 .ce-input {
   flex: 1;
   width: 100%;

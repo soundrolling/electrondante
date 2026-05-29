@@ -192,13 +192,23 @@ const nodeTargetCables = computed(() => {
   if (!node) return []
   const byId = {}
   for (const x of props.nodes) byId[x.id] = x
+  const runByConn = {}
+  for (const r of estimate.value.runs) runByConn[r.connectionId] = r
   return props.connections
     .filter(c => c.from_node_id === node.id)
-    .map(c => ({
-      connId: c.id,
-      destLabel: labelOf(byId[c.to_node_id]) || 'Next point',
-      type: layout.value.cables?.[c.id]?.type || '',
-    }))
+    .map(c => {
+      const run = runByConn[c.id]
+      let lengthText
+      if (run && run.length != null) lengthText = `≈ ${round1(run.length)} ${estimate.value.unit}`
+      else if (run) lengthText = 'calibrate for length'
+      else lengthText = 'destination not on plan'
+      return {
+        connId: c.id,
+        destLabel: labelOf(byId[c.to_node_id]) || 'Next point',
+        type: layout.value.cables?.[c.id]?.type || '',
+        lengthText,
+      }
+    })
 })
 
 // Forward-declared redraw so the view composable can call back into the draw

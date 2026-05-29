@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.37">
-        <span class="version-text">v2.3.37</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.38">
+        <span class="version-text">v2.3.38</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.37</h2>
+          <h2 id="changelog-title">What's New in 2.3.38</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔌 Cabling: Run Length in the Node Editor</h3>
+            <p>Clicking a node now shows the estimated cable length to each next connection point, right beside its cable-type field (e.g. <em>≈ 12.5 m</em> → Shure ANI4IN), so you can see the run length without scanning the bill of materials. Shows "calibrate for length" until a scale is set, or "destination not on plan" if the far end hasn't been placed yet.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔌 Cabling: Labelled Sources + Per-Cable Editor</h3>
             <p>Source dots on the Cabling map now show their name (mic source / gear / venue source), with a <strong>Labels</strong> toggle to declutter. Click any node to open a combined editor: set its <strong>height</strong> and choose the <strong>cable type</strong> for each run leaving it toward the next point (XLR, Cat5e, multicore, and so on). Assigned cable types roll up into a new <strong>By cable type</strong> breakdown in the bill of materials, so you can order by exactly what's on each run.</p>
