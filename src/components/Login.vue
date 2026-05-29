@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.47">
-        <span class="version-text">v2.3.47</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.48">
+        <span class="version-text">v2.3.48</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.47</h2>
+          <h2 id="changelog-title">What's New in 2.3.48</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>⭐ Contacts: Rate How Helpful Each Contact Is</h3>
+            <p>Project contacts now carry a <strong>helpfulness rating</strong> — from <strong>Useless</strong> to <strong>Amazing</strong> — set from a contact's detail view and shown as a colour chip in the list. A rating <strong>follows the person</strong> across every project they appear in. Admins share one <strong>team rating</strong> per person; everyone else keeps their own <strong>private</strong> rating, and admin contacts aren't rated.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🪟 Signal Flow: Connection Inspector Scrolls + Safer Venue Sources Modal</h3>
             <p>The connection inspector now <strong>scrolls</strong> when a source has lots of feeds, so you can reach every feed → input row (and the Delete button) on long lists. And <strong>Configure Venue Sources</strong> no longer closes when you click or release the mouse on the dark backdrop — use × or Cancel — so a half-entered config can't be dismissed by accident.</p>

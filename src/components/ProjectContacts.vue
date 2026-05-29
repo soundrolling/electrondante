@@ -117,6 +117,11 @@
             </div>
             <div v-if="contact.role" class="contact-role">{{ displayRole(contact.role) }}</div>
             <div v-if="contact.stage_location" class="contact-location">{{ contact.stage_location }}</div>
+            <div
+              v-if="canRateContact(contact) && contactRating(contact)"
+              class="rating-chip"
+              :class="`r-${contactRating(contact)}`"
+            >{{ ratingLabel(contactRating(contact)) }}</div>
             <!-- Desktop-only contact details -->
             <div v-if="contact.email" class="contact-email desktop-only">
               <span>{{ contact.email }}</span>
@@ -609,6 +614,31 @@
               <span class="info-label">Notes:</span>
               <span class="info-value">{{ selectedContact?.comments || 'Not set' }}</span>
             </div>
+            <div v-if="selectedContact && canRateContact(selectedContact)" class="info-row rating-row">
+              <span class="info-label">Helpfulness:</span>
+              <div class="rating-control">
+                <div class="rating-segments">
+                  <button
+                    v-for="lvl in RATING_LEVELS"
+                    :key="lvl.value"
+                    type="button"
+                    class="rating-segment"
+                    :class="[`r-${lvl.value}`, { active: contactRating(selectedContact) === lvl.value }]"
+                    :title="lvl.label"
+                    @click="setContactRating(selectedContact, lvl.value)"
+                  >{{ lvl.label }}</button>
+                </div>
+                <div class="rating-meta">
+                  <span class="rating-scope-note">{{ canManageProject ? 'Shared team rating' : 'Your private rating' }}</span>
+                  <button
+                    v-if="contactRating(selectedContact)"
+                    type="button"
+                    class="rating-clear"
+                    @click="clearContactRating(selectedContact)"
+                  >Clear</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -628,6 +658,7 @@ import { mutateTableData } from '@/services/dataService';
 import { getData } from '@/utils/indexedDB';
 import { useUserStore } from '../stores/userStore';
 import ProjectBreadcrumbs from '@/components/ProjectBreadcrumbs.vue';
+import { ContactRatingsService, ratingMatchKey, RATING_LEVELS } from '@/services/contactRatingsService';
 
 const PRESET_ROLES = ['Spatial Crew', 'FOH Crew', 'Production', 'Rentals', 'Key People'];
 const projectStageLocations = ref([]);
@@ -710,6 +741,91 @@ async function fetchMemberProfiles() {
     return { ...m, full_name: p.full_name, phone: p.phone };
   });
   loadingMembers.value = false;
+}
+
+// ---- Helpfulness ratings --------------------------------------------------
+// Ratings follow the PERSON (keyed by email, falling back to name), not the
+// per-project contact row. Project admins read/write one shared team rating;
+// everyone else reads/writes their own private one — which scope is decided by
+// canManageProject. Contacts whose email matches an owner/admin member are
+// themselves admins and aren't rateable.
+const ratingsMap = ref(new Map());
+const currentUserId = ref(null);
+const ratingScope = computed(() => (canManageProject.value ? 'shared' : 'personal'));
+
+const adminEmails = computed(() => {
+  const set = new Set();
+  for (const m of memberProfiles.value || []) {
+    if (['owner', 'admin'].includes(m.role)) {
+      const e = (m.user_email || '').trim().toLowerCase();
+      if (e) set.add(e);
+    }
+  }
+  return set;
+});
+
+function isAdminContact(contact) {
+  const e = (contact?.email || '').trim().toLowerCase();
+  return !!e && adminEmails.value.has(e);
+}
+
+// Rateable when the contact isn't an admin and has something to key off.
+function canRateContact(contact) {
+  return !isAdminContact(contact) && !!ratingMatchKey(contact);
+}
+
+function contactRating(contact) {
+  const key = ratingMatchKey(contact);
+  return key ? (ratingsMap.value.get(key) || null) : null;
+}
+
+function ratingLabel(value) {
+  return RATING_LEVELS.find(l => l.value === value)?.label || '';
+}
+
+async function loadRatings() {
+  const { data: ses } = await supabase.auth.getSession();
+  currentUserId.value = ses?.session?.user?.id || null;
+  ratingsMap.value = await ContactRatingsService.loadMap(ratingScope.value);
+}
+
+async function setContactRating(contact, value) {
+  const matchKey = ratingMatchKey(contact);
+  if (!matchKey) return;
+  const scope = ratingScope.value;
+  const prev = ratingsMap.value.get(matchKey) || null;
+  // Optimistic update (new Map instance so the template re-renders).
+  const next = new Map(ratingsMap.value);
+  next.set(matchKey, value);
+  ratingsMap.value = next;
+  try {
+    await ContactRatingsService.setRating({ matchKey, scope, rating: value, userId: currentUserId.value });
+  } catch (e) {
+    const revert = new Map(ratingsMap.value);
+    if (prev) revert.set(matchKey, prev); else revert.delete(matchKey);
+    ratingsMap.value = revert;
+    alert('Could not save rating. Please try again.');
+  }
+}
+
+async function clearContactRating(contact) {
+  const matchKey = ratingMatchKey(contact);
+  if (!matchKey) return;
+  const scope = ratingScope.value;
+  const prev = ratingsMap.value.get(matchKey) || null;
+  const next = new Map(ratingsMap.value);
+  next.delete(matchKey);
+  ratingsMap.value = next;
+  try {
+    await ContactRatingsService.clearRating({ matchKey, scope, userId: currentUserId.value });
+  } catch (e) {
+    if (prev) {
+      const revert = new Map(ratingsMap.value);
+      revert.set(matchKey, prev);
+      ratingsMap.value = revert;
+    }
+    alert('Could not clear rating. Please try again.');
+  }
 }
 
 const roleFilter = ref('All');
@@ -1171,6 +1287,8 @@ async function boot() {
       fetchMemberProfiles(),
       checkUserRole()
     ]);
+    // Ratings load last: the scope depends on canManageProject (set above).
+    await loadRatings();
   }
 }
 onMounted(() => {
@@ -1231,6 +1349,13 @@ return {
   removeContact,
   displayRole,
   goBackToDashboard,
+
+  RATING_LEVELS,
+  canRateContact,
+  contactRating,
+  ratingLabel,
+  setContactRating,
+  clearContactRating,
 
   showEditModal,
   showContactInfoModal,
@@ -2838,5 +2963,95 @@ color: currentColor;
   .modal-footer-actions .btn {
     width: 100%;
   }
+}
+
+/* ---- Helpfulness ratings -------------------------------------------------- */
+.rating-chip {
+  align-self: center;
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Per-level colour, used by the card chip. */
+.rating-chip.r-1 { background: rgba(239, 68, 68, 0.14);  color: #dc2626; }
+.rating-chip.r-2 { background: rgba(249, 115, 22, 0.14); color: #ea580c; }
+.rating-chip.r-3 { background: rgba(234, 179, 8, 0.18);  color: #ca8a04; }
+.rating-chip.r-4 { background: rgba(132, 204, 22, 0.18); color: #65a30d; }
+.rating-chip.r-5 { background: rgba(34, 197, 94, 0.16);  color: #16a34a; }
+
+/* Rating row inside the contact-details modal. */
+.info-row.rating-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.rating-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rating-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rating-segment {
+  flex: 1 1 auto;
+  min-width: 64px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rating-segment:hover {
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+/* Active segment fills with its level colour. */
+.rating-segment.active.r-1 { background: #ef4444; border-color: #ef4444; color: #fff; }
+.rating-segment.active.r-2 { background: #f97316; border-color: #f97316; color: #fff; }
+.rating-segment.active.r-3 { background: #eab308; border-color: #eab308; color: #1f2937; }
+.rating-segment.active.r-4 { background: #84cc16; border-color: #84cc16; color: #1f2937; }
+.rating-segment.active.r-5 { background: #22c55e; border-color: #22c55e; color: #fff; }
+
+.rating-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rating-scope-note {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.rating-clear {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary-500, #6366f1);
+  cursor: pointer;
+}
+
+.rating-clear:hover {
+  text-decoration: underline;
 }
 </style>
