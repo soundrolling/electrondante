@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.45">
-        <span class="version-text">v2.3.45</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.46">
+        <span class="version-text">v2.3.46</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,16 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.45</h2>
+          <h2 id="changelog-title">What's New in 2.3.46</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🔧 Signal Flow: Stereo Venue Sources Stay Stereo</h3>
+            <p>In <strong>Configure Venue Sources</strong>, a source type set to <strong>Stereo (L/R)</strong> now stays stereo after you save and reopen. It was saving correctly but reading back as <strong>Mono</strong>, so the choice looked like it reverted — the editor now detects stereo from the stored L/R pair.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🔧 Signal Flow: "Copy from" Mirrors the Main Recorder 1:1</h3>
             <p>On a backup recorder, <strong>Copy from…</strong> now taps the main recorder's tracks 1:1 (backup track N ← main track N) instead of re-linking every original source. A backup truly follows the main with one click — no entering everything track by track.</p>

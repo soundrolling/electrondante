@@ -199,11 +199,20 @@ async function loadConfiguration() {
         grouped[feed.source_type] = {
           name: feed.source_type,
           numberingStyle: feed.numbering_style || 'letters',
-          channels: feed.channel === 2 ? 2 : 1,
+          // Mono by default. A stereo feed is stored as two rows (channel 1 = L,
+          // channel 2 = R), so detect stereo from the presence of a channel-2 row
+          // rather than from whichever row happens to load first (the L/channel-1
+          // row sorts first by port_number and would otherwise read as Mono).
+          channels: 1,
           feeds: []
         }
       }
-      
+
+      // Any channel-2 row means this source type is stereo
+      if (Number(feed.channel) === 2) {
+        grouped[feed.source_type].channels = 2
+      }
+
       // Find or create feed identifier
       const feedId = feed.feed_identifier
       let feedObj = grouped[feed.source_type].feeds.find(f => f.identifier === feedId)
