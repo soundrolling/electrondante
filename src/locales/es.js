@@ -137,6 +137,8 @@ export default {
   'profile.preferences.unitsMetric': 'Métrico (kg, cm, °C, km/h)',
   'profile.preferences.unitsImperial': 'Imperial (lb, in, °F, mph)',
   'profile.preferences.unitsHint': 'Unidades preferidas para peso, distancia y temperatura',
+  'profile.preferences.currency': 'Moneda predeterminada',
+  'profile.preferences.currencyHint': 'Moneda utilizada de forma predeterminada al añadir un gasto nuevo (puedes cambiarla en cada gasto)',
   'profile.preferences.save': 'Guardar preferencias',
   'profile.preferences.saved': '¡Preferencias guardadas!',
   'profile.preferences.saveFailed': 'No se pudieron guardar las preferencias',

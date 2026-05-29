@@ -86,7 +86,7 @@
         <div class="expense-info">
           <h3>{{ expense.title }}</h3>
           <p class="expense-category">{{ expense.category }}</p>
-          <p class="expense-amount">${{ Number(expense.amount).toFixed(2) }}</p>
+          <p class="expense-amount">{{ formatExpenseAmount(expense) }}</p>
           <p class="expense-date">{{ formatDate(expense.date) }}</p>
           <p v-if="expense.member_name" class="expense-member">For: {{ expense.member_name }}</p>
           <p v-if="expense.description" class="expense-description">{{ expense.description }}</p>
@@ -174,16 +174,28 @@
           
           <div class="form-group">
             <label for="expenseAmount">Amount</label>
-            <input
-              type="number"
-              id="expenseAmount"
-              v-model.number="expenseForm.amount"
-              required
-              placeholder="Amount"
-              min="0"
-              step="0.01"
-              class="form-input"
-            />
+            <div class="amount-row">
+              <select
+                id="expenseCurrency"
+                v-model="expenseForm.currency"
+                class="form-select currency-select"
+                aria-label="Currency"
+              >
+                <option v-for="c in currencies" :key="c.code" :value="c.code">
+                  {{ c.symbol }} {{ c.code }}
+                </option>
+              </select>
+              <input
+                type="number"
+                id="expenseAmount"
+                v-model.number="expenseForm.amount"
+                required
+                placeholder="Amount"
+                min="0"
+                step="0.01"
+                class="form-input amount-input"
+              />
+            </div>
           </div>
           
           <div class="form-group">
@@ -255,6 +267,7 @@ import { ref, computed, onMounted } from 'vue';
 import { supabase } from '../../supabase';
 import { useToast } from 'vue-toastification';
 import { useUserStore } from '../../stores/userStore';
+import { useCurrency, formatCurrency } from '../../composables/useCurrency';
 import { format, parseISO } from 'date-fns';
 import { useRouter } from 'vue-router';
 
@@ -268,6 +281,7 @@ setup(props) {
   const toast = useToast();
   const userStore = useUserStore();
   const router = useRouter(); // <--- create the router instance
+  const { preferredCurrency, currencies } = useCurrency();
 
   // For RLS, ensure we have userId
   const userId = ref(userStore.user?.id || null);
@@ -379,6 +393,7 @@ setup(props) {
     title: "",
     category: "",
     amount: 0,
+    currency: preferredCurrency.value,
     date: "",
     description: "",
     file_path: "",
@@ -405,6 +420,11 @@ setup(props) {
     if (!dateStr) return "";
     const d = parseISO(dateStr);
     return format(d, "MMM d, yyyy");
+  };
+
+  // Format an expense amount with its own currency (falls back for legacy rows)
+  const formatExpenseAmount = (expense) => {
+    return formatCurrency(expense.amount, expense.currency || preferredCurrency.value);
   };
 
   const formatDateRange = (start, end) => {
@@ -666,6 +686,7 @@ setup(props) {
           title: expenseForm.value.title,
           category: expenseForm.value.category,
           amount: expenseForm.value.amount,
+          currency: expenseForm.value.currency,
           date: expenseForm.value.date,
           description: expenseForm.value.description,
           user_id: userId.value
@@ -728,6 +749,7 @@ setup(props) {
       title: "",
       category: "",
       amount: 0,
+      currency: preferredCurrency.value,
       date: "",
       description: "",
       file_path: "",
@@ -766,6 +788,10 @@ setup(props) {
     canManageProject,
     isCurrentUserTripOwner,
     tripOwnerName,
+
+    // Currency
+    currencies,
+    formatExpenseAmount,
 
     // Computed & Methods
     sortedExpenses,
@@ -1440,6 +1466,23 @@ setup(props) {
 .form-textarea {
   min-height: 80px;
   resize: vertical;
+}
+
+/* Currency + amount on one row */
+.amount-row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.amount-row .currency-select {
+  flex: 0 0 120px;
+  width: auto;
+}
+
+.amount-row .amount-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .form-input:focus,

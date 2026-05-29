@@ -142,15 +142,26 @@
             />
           </div>
           <div class="form-group">
-            <label for="phoneNumber">Phone Number</label>
+            <label for="roomNumber">Room Number</label>
             <input
-              type="tel"
-              id="phoneNumber"
-              v-model="accommodationForm.phone_number"
+              type="text"
+              id="roomNumber"
+              v-model="accommodationForm.room_number"
               placeholder="Optional"
               class="form-input"
             />
           </div>
+        </div>
+
+        <div class="form-group">
+          <label for="phoneNumber">Phone Number</label>
+          <input
+            type="tel"
+            id="phoneNumber"
+            v-model="accommodationForm.phone_number"
+            placeholder="Optional"
+            class="form-input"
+          />
         </div>
 
         <div class="form-group">
@@ -243,6 +254,10 @@
             <div v-if="accommodation.confirmation_number" class="detail-item">
               <span class="detail-label">Confirmation:</span>
               <span>{{ accommodation.confirmation_number }}</span>
+            </div>
+            <div v-if="accommodation.room_number" class="detail-item">
+              <span class="detail-label">Room:</span>
+              <span>{{ accommodation.room_number }}</span>
             </div>
             <div v-if="accommodation.phone_number" class="detail-item">
               <span class="detail-label">Phone:</span>
@@ -406,6 +421,7 @@ setup(props) {
     check_in_time: '15:00',
     check_out_time: '12:00',
     confirmation_number: '',
+    room_number: '',
     room_type: '',
     map_link: '',
     amenities: '',
@@ -549,6 +565,7 @@ setup(props) {
         check_in_time: formData.check_in_time || '15:00',
         check_out_time: formData.check_out_time || '12:00',
         room_type: formData.room_type || null,
+        room_number: formData.room_number || null,
         map_link: formData.map_link || null,
         amenities: formData.amenities || null,
         notes: formData.notes || null,
@@ -644,6 +661,7 @@ setup(props) {
       check_in_time: '15:00',
       check_out_time: '12:00',
       confirmation_number: '',
+      room_number: '',
       room_type: '',
       map_link: '',
       amenities: '',

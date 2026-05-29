@@ -9,8 +9,8 @@
       </div>
       <p class="login-subtitle">Audio Production Management</p>
       
-      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.49">
-        <span class="version-text">v2.3.49</span>
+      <button class="version-badge" @click="showChangelog = true" aria-label="View changelog for version 2.3.50">
+        <span class="version-text">v2.3.50</span>
         <span class="version-date">May 29th 2026</span>
       </button>
     </div>
@@ -19,11 +19,21 @@
     <div v-if="showChangelog" class="modal-overlay" @click="showChangelog = false">
       <div class="modal changelog-modal" @click.stop role="dialog" aria-labelledby="changelog-title">
         <div class="modal-header">
-          <h2 id="changelog-title">What's New in 2.3.49</h2>
+          <h2 id="changelog-title">What's New in 2.3.50</h2>
           <button class="modal-close" @click="showChangelog = false" aria-label="Close changelog">×</button>
         </div>
 
         <div class="changelog-content">
+          <div class="changelog-section">
+            <h3>🏨 Travel: Room Numbers for Accommodations</h3>
+            <p>Accommodation entries now have an optional <strong>Room Number</strong> field, right next to the confirmation number — so for a hotel everyone knows exactly which room to head to. It shows on the accommodation card and is included in trip exports.</p>
+          </div>
+
+          <div class="changelog-section">
+            <h3>💱 Expenses: Add a Currency</h3>
+            <p>Expenses now carry a <strong>currency</strong>, not just a number. Pick from a list of common currencies (<strong>£, $, €</strong> and more) right next to the amount when you add or edit an expense, and each expense shows its <strong>correct symbol</strong> in the list. Set your <strong>default currency</strong> — used for every new expense — in <strong>Profile → Preferences</strong> (defaults to GBP). Handy for trips where you pay in more than one currency.</p>
+          </div>
+
           <div class="changelog-section">
             <h3>🅿️ Travel: Parking Tab Now Works</h3>
             <p>The <strong>Parking</strong> tab in a trip's details was opening to a <strong>blank panel</strong> — it now loads properly. Log <strong>where you parked</strong> per trip: airport, parking provider, start/end date &amp; time, cost, notes, and who it's for, plus optional <strong>car</strong> and <strong>receipt</strong> photos. Add, edit, and delete entries just like the other trip tabs.</p>

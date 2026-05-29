@@ -7,6 +7,7 @@ import { openDB } from 'idb';
 import { useToast } from 'vue-toastification';
 import { saveSetting, getSetting, clearAllData } from '@/utils/indexedDB';
 import { useMeasurementUnit } from '../composables/useMeasurementUnit';
+import { useCurrency } from '../composables/useCurrency';
 import { createLogger } from '@/utils/log'
 
 const log = createLogger('userStore')
@@ -221,10 +222,10 @@ export const useUserStore = defineStore('userStore', {
         const baseSelect = 'id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles';
         let { data, error, status } = await supabase
           .from('user_profiles')
-          .select(`${baseSelect}, measurement_unit`)
+          .select(`${baseSelect}, measurement_unit, preferred_currency`)
           .eq('id', this.user.id)
           .single();
-        // If measurement_unit column doesn't exist yet (migration pending), retry without it
+        // If a preference column doesn't exist yet (migration pending), retry without them
         if (error && error.code === '42703') {
           ({ data, error, status } = await supabase
             .from('user_profiles')
@@ -236,6 +237,7 @@ export const useUserStore = defineStore('userStore', {
         if (data) {
           this.userProfile = data;
           useMeasurementUnit().initFromProfile(data);
+          useCurrency().initFromProfile(data);
           return data;
         }
         this.userProfile = {
@@ -256,7 +258,8 @@ export const useUserStore = defineStore('userStore', {
           avatar_url: '',
           equipment: [],
           calendar_event_toggles: {},
-          measurement_unit: 'metric'
+          measurement_unit: 'metric',
+          preferred_currency: 'GBP'
         };
         return this.userProfile;
       } catch (e) {
@@ -278,7 +281,7 @@ export const useUserStore = defineStore('userStore', {
         const { data, error } = await supabase
           .from('user_profiles')
           .upsert(updates)
-          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles, measurement_unit')
+          .select('id, user_id, full_name, phone, bio, company, role, location, website, social_links, avatar_url, equipment, calendar_event_toggles, measurement_unit, preferred_currency')
           .single();
         if (error) throw error;
         this.userProfile = data;

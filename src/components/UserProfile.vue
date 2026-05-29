@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { useUserStore } from '../stores/userStore';
 import { formatWeight, convertInputToKg, kgToLbs, lbsToKg } from '../utils/weightUtils';
 import { useMeasurementUnit } from '../composables/useMeasurementUnit'
+import { useCurrency } from '../composables/useCurrency'
 import { useI18n } from '@/composables/useI18n';
 import { getSetting, saveSetting } from '../utils/indexedDB';
 import UserGearLibrary from './UserGearLibrary.vue';
@@ -891,6 +892,7 @@ watch(activeTab, (newTab) => {
 
 // Preferences state
 const { measurementUnit, weightUnit, setMeasurementUnit } = useMeasurementUnit()
+const { preferredCurrency, currencies, setPreferredCurrency } = useCurrency()
 const alertPreference = ref('current_project'); // 'none', 'current_project', 'all_projects'
 const savingPreferences = ref(false);
 const prefMsg = ref('');
@@ -917,9 +919,14 @@ async function savePreferences() {
     savingPreferences.value = true;
     prefMsg.value = '';
 
-    // Save measurement unit to Supabase (silently skip if migration not yet applied)
+    // Save measurement unit + preferred currency to Supabase
+    // (silently skip if migration not yet applied)
+    setPreferredCurrency(preferredCurrency.value);
     try {
-      await store.upsertUserProfile({ measurement_unit: measurementUnit.value });
+      await store.upsertUserProfile({
+        measurement_unit: measurementUnit.value,
+        preferred_currency: preferredCurrency.value
+      });
     } catch (e) {
       if (e?.code !== '42703') throw e;
     }
@@ -1172,6 +1179,15 @@ async function saveSecurity() {
                 <option value="imperial">{{ t('profile.preferences.unitsImperial') }}</option>
               </select>
               <p class="form-hint">{{ t('profile.preferences.unitsHint') }}</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">{{ t('profile.preferences.currency') }}</label>
+              <select v-model="preferredCurrency" class="form-input">
+                <option v-for="c in currencies" :key="c.code" :value="c.code">
+                  {{ c.symbol }} {{ c.code }} — {{ c.name }}
+                </option>
+              </select>
+              <p class="form-hint">{{ t('profile.preferences.currencyHint') }}</p>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-positive" :disabled="savingPreferences">
